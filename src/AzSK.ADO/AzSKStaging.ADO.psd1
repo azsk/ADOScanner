@@ -14,7 +14,7 @@
     # Version number of this module.
     ModuleVersion          = '1.0.0.0'
 
-    # ID used to uniquely identify this module
+    # ID used to uniquely identify this module.
     GUID                   = '02499e92-5b56-4156-9606-383a7ba720f9'
 
     # Author of this module
