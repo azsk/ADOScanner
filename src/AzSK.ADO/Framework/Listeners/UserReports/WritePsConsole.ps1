@@ -231,17 +231,13 @@ class WritePsConsole: FileOutputBase
 			$currentInstance.PushAIEventsfromHandler("WritePsConsole CommandCompleted"); 
             try 
             {
-				if(($Event.SourceArgs | Measure-Object).Count -gt 0)
+				if(($Event.SourceArgs | Measure-Object).Count -gt 0 -or $null -ne [PartialScanManager]::CollatedSummaryCount)
 				{
-					$controlsScanned = ($Event.SourceArgs.ControlResults|Where-Object{$_.VerificationResult -ne[VerificationResult]::NotScanned}|Measure-Object).Count -gt 0
-					if($controlsScanned)
-					{
-						# Print summary
-						$currentInstance.PrintSummaryData($Event);
-					}
+					# Print summary
+					$currentInstance.PrintSummaryData($Event);
 					
 					$AttestControlParamFound = $currentInstance.InvocationContext.BoundParameters["AttestControls"];
-					if($null -eq $AttestControlParamFound -and $controlsScanned)
+					if($null -eq $AttestControlParamFound)
 					{
 						$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)
 						$currentInstance.WriteMessage([Constants]::RemediationMsg, [MessageType]::Info)
@@ -450,74 +446,91 @@ class WritePsConsole: FileOutputBase
 
 	hidden [void] PrintSummaryData($event)
 	{
-		$summary = @($event.SourceArgs | select-object @{Name="VerificationResult"; Expression = {$_.ControlResults.VerificationResult}},@{Name="ControlSeverity"; Expression = {$_.ControlItem.ControlSeverity}})
-
-		if(($summary | Measure-Object).Count -ne 0)
+		if (($event.SourceArgs | Measure-Object).Count -ne 0)
 		{
-			$summaryResult = @();
+			$summary = @($event.SourceArgs | select-object @{Name="VerificationResult"; Expression = {$_.ControlResults.VerificationResult}},@{Name="ControlSeverity"; Expression = {$_.ControlItem.ControlSeverity}})
 
-			$severities = @();
-			$severities += $summary | Select-Object -Property ControlSeverity | Select-Object -ExpandProperty ControlSeverity -Unique;
-
-			$verificationResults = @();
-			$verificationResults += $summary | Select-Object -Property VerificationResult | Select-Object -ExpandProperty VerificationResult -Unique;
-
-			if($severities.Count -ne 0)
+			if(($summary | Measure-Object).Count -ne 0)
 			{
-				# Create summary matrix
-				$totalText = "Total";
-				$MarkerText = "MarkerText";
-				$rows = @();
-				$rows += $severities;
-				$rows += $MarkerText;
-				$rows += $totalText;
-				$rows += $MarkerText;
-				$rows | ForEach-Object {
-					$result = [PSObject]::new();
-					Add-Member -InputObject $result -Name "Summary" -MemberType NoteProperty -Value $_.ToString()
-					Add-Member -InputObject $result -Name $totalText -MemberType NoteProperty -Value 0
+				$summaryResult = @();
 
-					[Enum]::GetNames([VerificationResult]) | Where-Object { $verificationResults -contains $_ } |
-					ForEach-Object {
-						Add-Member -InputObject $result -Name $_.ToString() -MemberType NoteProperty -Value 0
+				$severities = @();
+				$severities += $summary | Select-Object -Property ControlSeverity | Select-Object -ExpandProperty ControlSeverity -Unique;
+
+				$verificationResults = @();
+				$verificationResults += $summary | Select-Object -Property VerificationResult | Select-Object -ExpandProperty VerificationResult -Unique;
+
+				if($severities.Count -ne 0)
+				{
+					# Create summary matrix
+					$totalText = "Total";
+					$MarkerText = "MarkerText";
+					$rows = @();
+					$rows += $severities;
+					$rows += $MarkerText;
+					$rows += $totalText;
+					$rows += $MarkerText;
+					$rows | ForEach-Object {
+						$result = [PSObject]::new();
+						Add-Member -InputObject $result -Name "Summary" -MemberType NoteProperty -Value $_.ToString()
+						Add-Member -InputObject $result -Name $totalText -MemberType NoteProperty -Value 0
+
+						[Enum]::GetNames([VerificationResult]) | Where-Object { $verificationResults -contains $_ } |
+						ForEach-Object {
+							Add-Member -InputObject $result -Name $_.ToString() -MemberType NoteProperty -Value 0
+						};
+						$summaryResult += $result;
 					};
-					$summaryResult += $result;
-				};
 
-				$totalRow = $summaryResult | Where-Object { $_.Summary -eq $totalText } | Select-Object -First 1;
+					$totalRow = $summaryResult | Where-Object { $_.Summary -eq $totalText } | Select-Object -First 1;
 
-				$summary | Group-Object -Property ControlSeverity | ForEach-Object {
-					$item = $_;
-					$summaryItem = $summaryResult | Where-Object { $_.Summary -eq $item.Name } | Select-Object -First 1;
-					if($summaryItem)
-					{
-						$summaryItem.Total = $_.Count;
-						if($totalRow)
+					$summary | Group-Object -Property ControlSeverity | ForEach-Object {
+						$item = $_;
+						$summaryItem = $summaryResult | Where-Object { $_.Summary -eq $item.Name } | Select-Object -First 1;
+						if($summaryItem)
 						{
-							$totalRow.Total += $_.Count
-						}
-						$item.Group | Group-Object -Property VerificationResult | ForEach-Object {
-							$propName = $_.Name;
-							$summaryItem.$propName += $_.Count;
+							$summaryItem.Total = $_.Count;
 							if($totalRow)
 							{
-								$totalRow.$propName += $_.Count
+								$totalRow.Total += $_.Count
 							}
-						};
-					}
-				};
-				$markerRows = $summaryResult | Where-Object { $_.Summary -eq $MarkerText } 
-				$markerRows | ForEach-Object { 
-					$markerRow = $_
-					Get-Member -InputObject $markerRow -MemberType NoteProperty | ForEach-Object {
-							$propName = $_.Name;
-							$markerRow.$propName = $this.SummaryMarkerText;				
+							$item.Group | Group-Object -Property VerificationResult | ForEach-Object {
+								$propName = $_.Name;
+								$summaryItem.$propName += $_.Count;
+								if($totalRow)
+								{
+									$totalRow.$propName += $_.Count
+								}
+							};
 						}
 					};
-				if($summaryResult.Count -ne 0)
-				{		
-					$this.WriteMessage(($summaryResult | Format-Table | Out-String), [MessageType]::Info)
+					$markerRows = $summaryResult | Where-Object { $_.Summary -eq $MarkerText } 
+					$markerRows | ForEach-Object { 
+						$markerRow = $_
+						Get-Member -InputObject $markerRow -MemberType NoteProperty | ForEach-Object {
+								$propName = $_.Name;
+								$markerRow.$propName = $this.SummaryMarkerText;				
+							}
+						};
+					if($summaryResult.Count -ne 0)
+					{		
+						$this.WriteMessage(($summaryResult | Format-Table | Out-String), [MessageType]::Info)
+					}
 				}
+			}
+		}
+		else
+		{
+			if([PartialScanManager]::CollatedSummaryCount.Count -ne 0)
+			{	
+				$nonNullProps = @();
+
+				#get all verificationResults that are not 0 so that summary does not include null values
+				[PartialScanManager]::CollatedSummaryCount | foreach-object {
+					$nonNullProps += $_.PSObject.Properties | Where-Object {$_.Value -ne 0 -and $_.Value -ne $this.SummaryMarkerText} | Select-Object -ExpandProperty Name
+				} 	
+				$nonNullProps = $nonNullProps | Select -Unique
+				$this.WriteMessage(([PartialScanManager]::CollatedSummaryCount | Format-Table -Property $nonNullProps | Out-String), [MessageType]::Info)
 			}
 		}
 	}
@@ -527,24 +540,30 @@ class WritePsConsole: FileOutputBase
 	hidden [void] PrintBugSummaryData($event){
 		[PSCustomObject[]] $summary = @();
 
-		#gather all control results that have failed/verify as their control result
-		#obtain their control severities
-		$event.SourceArgs | ForEach-Object {
-			$item = $_
-			if ($item -and $item.ControlResults -and ($item.ControlResults[0].VerificationResult -eq "Failed" -or $item.ControlResults[0].VerificationResult -eq "Verify"))
-			{
-				$item
-				$item.ControlResults[0].Messages | ForEach-Object{
-					if($_.Message -eq "New Bug" -or $_.Message -eq "Active Bug" -or $_.Message -eq "Resolved Bug"){
-					$summary += [PSCustomObject]@{
-						BugStatus=$_.Message
-						ControlSeverity = $item.ControlItem.ControlSeverity;
-						
+		if (($event.SourceArgs | Measure-Object).Count -ne 0)
+		{
+			#gather all control results that have failed/verify as their control result
+			#obtain their control severities
+			$event.SourceArgs | ForEach-Object {
+				$item = $_
+				if ($item -and $item.ControlResults -and ($item.ControlResults[0].VerificationResult -eq "Failed" -or $item.ControlResults[0].VerificationResult -eq "Verify"))
+				{
+					$item
+					$item.ControlResults[0].Messages | ForEach-Object{
+						if($_.Message -eq "New Bug" -or $_.Message -eq "Active Bug" -or $_.Message -eq "Resolved Bug"){
+						$summary += [PSCustomObject]@{
+							BugStatus=$_.Message
+							ControlSeverity = $item.ControlItem.ControlSeverity;
+							
+						};
+					}
 					};
 				}
-				};
-			}
-		};
+			};
+		}
+		else{
+			$summary = [PartialScanManager]::CollatedBugSummaryCount
+		}
 
 		#if such bugs were found, print a summary table
 

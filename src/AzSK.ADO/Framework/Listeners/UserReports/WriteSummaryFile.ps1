@@ -33,7 +33,8 @@ class WriteSummaryFile: FileOutputBase
             $currentInstance = [WriteSummaryFile]::GetInstance();
             try 
             {
-                $currentInstance.SetFilePath($Event.SourceArgs.SubscriptionContext, ("SecurityReport-" + $currentInstance.RunIdentifier + ".csv"));
+				$currentInstance.SetFilePath($Event.SourceArgs.SubscriptionContext, ("SecurityReport-" + $currentInstance.RunIdentifier + ".csv"));
+				[FileOutputBase]::CSVFilePath = $currentInstance.FilePath
             }
             catch 
             {
