@@ -1,0 +1,31 @@
+{
+    "MaintenanceMessage":  "WARNING: We are making some improvements to the {0} module. It is currently unavailable but will be back in action soon.",
+    "AzSKRepoURL":  "https://www.powershellgallery.com",
+    "PublicPSGalleryUrl":  "https://www.powershellgallery.com",
+    "DefaultControlExculdeTags":  [
+                                      "Information"
+                                  ],
+    "DefaultControlFiltersTags":  [
+
+                                  ],
+    "AzSKApiBaseURL":  "",
+    "PublishVulnDataToApi":  false,
+    "ControlTelemetryKey":  "00000000-0000-0000-0000-000000000000",
+    "EnableControlTelemetry":  false,
+    "PolicyMessage":  "Running AzSK.ADO cmdlet...",
+    "InstallationCommand":  "Install-Module -Name AzSK.ADO -Scope CurrentUser -AllowClobber -Force",
+    "OutputFolderPath":  "",
+    "BackwardCompatibleVersionCount":  2,
+    "ConfigSchemaBaseVersion":  "1.0.0",
+    "AllowSelfSignedWebhookCertificate":  false,
+    "EnableDevOpsKitSetupCheck":  false,
+    "AzSKLocation":  "eastus2",
+    "PrivacyAcceptedSources":  [
+
+                               ],
+    "UpdateToLatestVersion":  false,
+    "AzSKConfigURL":  "",
+    "IsAlertMonitoringEnabled":  false,
+    "SupportDL":  "AzSKADOSup@microsoft.com",
+    "PolicyOrgName":  "org-neutral"
+}

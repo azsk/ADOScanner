@@ -1,0 +1,502 @@
+{
+  "FeatureName": "Organization",
+  "Reference": "aka.ms/azsktcp/Organization",
+  "IsMaintenanceMode": false,
+  "Controls": [
+    {
+      "ControlID": "ADO_Organization_AuthN_Use_AAD_Auth",
+      "Description": "Organization must be configured to authenticate users using Azure Active Directory backed credentials.",
+      "Id": "Organization110",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckAADConfiguration",
+      "Rationale": "Using the native enterprise directory for authentication ensures that there is a built-in high level of assurance in the user identity established for subsequent access control. All enterprise organizations are automatically associated with their enterprise directory (xxx.onmicrosoft.com) and users in the native directory are trusted for authentication to enterprise organizations.",
+      "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/accounts/connect-organization-to-azure-ad?view=azure-devops#connect-your-organization-to-azure-ad",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthN"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthN_Disable_External_Guest_Users",
+      "Description": "Do not enable access for external users in your organization.",
+      "Id": "Organization120",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckExternalUserPolicy",
+      "Rationale": "Non-AD accounts (such as xyz@hotmail.com, pqr@outlook.com, etc.) present at any scope within a organization subject your assets to undue risk. These accounts are not managed to the same standards as enterprise tenant identities. They don't have multi-factor authentication enabled.",
+      "Recommendation": "Go to Organization Settings --> Security --> Policies --> User Policies --> Turn 'Off' external guest access",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthN"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_DP_Dont_Allow_Public_Projects",
+      "Description": "Public projects should be turned off for your organization.",
+      "Id": "Organization130",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckPublicProjectPolicy",
+      "Rationale": "Data/content in projects that have anonymous access can be downloaded by anyone on the internet without authentication. This can lead to a compromise of corporate data. ",
+      "Recommendation": "Go to Organization Settings --> Security --> Policies --> Security Policies --> Turn 'Off' allow public projects",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Justify_Guest_Identities",
+      "Description": "Justify all guest identities that have been granted access to your organization.",
+      "Id": "Organization140",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckGuestIdentities",
+      "Rationale": "Non-AD accounts (such as xyz@hotmail.com, pqr@outlook.com, etc.) present at any scope within a organization subject your cloud assets to undue risk. These accounts are not managed to the same standards as enterprise tenant identities. They don't have multi-factor authentication enabled.",
+      "Recommendation": "Go to Organization Settings --> Users --> Apply Guest filter under 'AAD User Type' filter --> Validate and remove all unintended guest users present.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_SI_Review_Installed_Extensions",
+      "Description": "Carefully review all extensions enabled for your organization.",
+      "Id": "Organization150",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "ValidateInstalledExtensions",
+      "Rationale": "Running extensions from untrusted source can lead to all type of attacks and loss of sensitive enterprise data.",
+      "Recommendation": "Go to Organization Settings --> Extensions --> Review all installed extensions in organization.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_SI_Review_Shared_Extensions",
+      "Description": "Exercise due care when installing (private) shared extensions for your organization.",
+      "Id": "Organization160",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "ValidateSharedExtensions",
+      "Rationale": "Running extensions from untrusted source can lead to all type of attacks and loss of sensitive enterprise data.",
+      "Recommendation": "Go to Organization Settings --> Extensions --> Review all shared extensions in organization.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Review_Extension_Managers",
+      "Description": "Review the set of users who have permission to manage extensions.",
+      "Id": "Organization170",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckExtensionManagers",
+      "Rationale": "Accounts with extension manager access can install/manage extensions for organization. Members with this access without a legitimate business reason increase the risk for organization. By carefully reviewing and removing accounts that shouldn't be there in the first place, you can avoid attacks if those accounts are compromised.",
+      "Recommendation": "Go to Organization Settings --> Extensions --> Security --> Review indentities with manager role assigned.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Review_Inactive_Users",
+      "Description": "Consider revoking access for inactive users in your organization.",
+      "Id": "Organization180",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckInActiveUsers",
+      "Rationale": "Each additional person having access at organization level increases the attack surface for the entire resources. To minimize this risk ensure that critical resources present in organization are accessed only by the legitimate users when required.",
+      "Recommendation": "Go to Organization Settings --> Users --> Filter last access column with never accessed users or not accessed over long period",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Remove_Disconnected_Accounts",
+      "Description": "Remove access entries for users whose accounts have been deleted/disconnected from Azure Active Directory.",
+      "Id": "Organization190",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckDisconnectedIdentities",
+      "Rationale": "AD disconnected accounts present at any scope within a Organization are unknown guid access.",
+      "Recommendation": "Go to Organization Settings --> Azure Active Directory --> It will have notification for disconnected users on AD --> Click on Resolve",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Min_RBAC_Access",
+      "Description": "All teams/groups must be granted minimum required permissions in your organization.",
+      "Id": "Organization200",
+      "ControlSeverity": "High",
+      "Automated": "No",
+      "MethodName": "CheckRBACAccess",
+      "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users are granted just enough permissions to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
+      "Recommendation": "Go to Organization Settings --> Permissions --> Select team/group --> Validate Permissions",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Manual",
+        "AuthZ",
+        "RBAC"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Review_Group_Members",
+      "Description": "Review membership of all organization level privileged groups and teams.",
+      "Id": "Organization210",
+      "ControlSeverity": "High",
+      "Automated": "No",
+      "MethodName": "JustifyGroupMember",
+      "Rationale": "Accounts that are a member of these groups without a legitimate business reason increase the risk for your Organization. By carefully reviewing and removing accounts that shouldn't be there in the first place, you can avoid attacks if those accounts are compromised.",
+      "Recommendation": "Go to Organization Settings --> Permissions --> Groups --> Validate members of each group",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Manual",
+        "AuthZ",
+        "RBAC"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_Audit_Configure_Critical_Alerts",
+      "Description": "Alerts must be configured for critical actions on Organization",
+      "Id": "Organization220",
+      "ControlSeverity": "Medium",
+      "Automated": "No",
+      "MethodName": "",
+      "Rationale": "Alerts notify the configured security point of contact about various sensitive activities on the Organization and its resources (for instance, external Extensions have been installed/modified etc.)",
+      "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/notifications/concepts-events-and-notifications?view=vsts",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Manual",
+        "Audit"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Dont_Use_Svc_Accounts",
+      "Description": "Service accounts cannot support MFA and should not be used for organization activity.",
+      "Id": "Organization230",
+      "ControlSeverity": "High",
+      "Automated": "No",
+      "MethodName": "",
+      "Rationale": "Service accounts are typically not multi-factor authentication capable. Quite often, teams who own these accounts don't exercise due care (e.g., someone may login interactively on servers using a service account exposing their credentials to attacks such as pass-the-hash, phishing, etc.) As a result, using service accounts in any privileged role in ADO exposes the Organization data to 'credential theft'-related attack vectors. (In effect, the Organization data becomes accessible after just one factor (password) is compromised...this defeats the whole purpose of imposing the MFA requirement for Organizations.)",
+      "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/notifications/concepts-events-and-notifications?view=vsts",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Manual",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthN_Use_ALT_Accounts",
+      "Description": "Alternate (ALT) accounts should be used from Secure Admin Workstation (SAW) for privileged organization roles.",
+      "Id": "Organization240",
+      "ControlSeverity": "High",
+      "Automated": "No",
+      "MethodName": "",
+      "Rationale": "Corporate accounts are subject to a lot of credential theft attacks due to various activities that a user conducts using such accounts (e.g., browsing the web, clicking on email links, etc.). A user account that gets compromised (say via a phishing attack) immediately subjects the entire Azure DevOps organization to risk if it is privileged with critical roles in the organization. Use of smartcard-backed alternate (SC-ALT) accounts instead protects the organization from this risk.",
+      "Recommendation": "Go to Organization Settings --> Users --> Review whether each user is added via SC-ALT account.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Manual",
+        "AuthN"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthN_Use_ALT_Accounts_For_Admin",
+      "Description": "Alternate (ALT) accounts must be used for administrative activity at organization scope.",
+      "Id": "Organization250",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckSCALTForAdminMembers",
+      "Rationale": "Corporate accounts are subject to a lot of credential theft attacks due to various activities that a user conducts using such accounts (e.g., browsing the web, clicking on email links, etc.). A user account that gets compromised (say via a phishing attack) immediately subjects the entire Azure DevOps organization to risk if it is privileged with critical roles in the organization. Use of smartcard-backed alternate (SC-ALT) accounts instead protects the organization from this risk.",
+      "Recommendation": "Go to Organization Settings --> Security --> Review whether each user in administrator groups is added via SC-ALT account.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthN"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Review_Project_Collection_Service_Accounts",
+      "Description": "Review and minimize accounts that are members of the Project Collection Service Accounts group.",
+      "Id": "Organization260",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckProCollSerAcc",
+      "Rationale": "Any accounts that are members of Project Collection Service Accounts are effectively Project Collection Administrators. An adversary that executes code in a pipeline assigned to one of these build agents can take over the entire ADO organization.",
+      "Recommendation": "Go to Organization Settings --> Security --> Permissions --> Project Collection Service Accounts --> Validate all the members.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_SI_Review_Auto_Injected_Extensions",
+      "Description": "Set of auto-injected pipeline tasks should be carefully scrutinized.",
+      "Id": "Organization270",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckAutoInjectedExtensions",
+      "Rationale": "Auto-injected pipeline tasks will run in every pipeline. If an attacker can change/influence the task logic/code, it can have catastrophic consequences for the entire organization.",
+      "Recommendation": "Go to Organization Settings --> Extensions -> Verify the auto-injected extensions.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Verify_Enterprise_Access_To_Projects",
+      "Description": "Consider disabling enterprise access to projects in your organization.",
+      "Id": "Organization280",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckEnterpriseAccess",
+      "Rationale": "If enterprise access to projects is enabled, data/content in enterprise projects can be viewed/downloaded by anyone within the organization. This can lead to a compromise of sensitive corporate data.",
+      "Recommendation": "Go to Organization Settings --> Security --> Policies --> Security policies --> Disable 'Enterprise access to projects'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Enable_AAD_Conditional_Access_Policy",
+      "Description": "Consider enabling AAD conditional access policy for your organization.",
+      "Id": "Organization290",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckCAP",
+      "Rationale": "Enabling AAD conditional access policy helps manage organization restrictions on security group membership, location and network identity, specific operating system and enabled device in a management system.",
+      "Recommendation": "Go to Organization Settings --> Security --> Policies --> Security policies --> Enable 'Azure Active Directory Conditional Access Policy Validation'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_DP_Disable_Anonymous_Access_To_Badges",
+      "Description": "Disable anonymous access to status badge API for parallel pipelines.",
+      "Id": "Organization300",
+      "ControlSeverity": "Low",
+      "Automated": "Yes",
+      "MethodName": "CheckBadgeAnonAccess",
+      "Rationale": "Information that appears in the status badge API response should be hidden from external users.",
+      "Recommendation": "Go to Organization Settings --> Pipelines --> Settings --> Turn on 'Disable anonymous access to badges'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_SI_Limit_Variables_Settable_At_Queue_Time",
+      "Description": "Limit pipeline variables marked settable at queue time.",
+      "Id": "Organization310",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckSettableQueueTime",
+      "Rationale": "Pipeline variables not marked settable at queue time can only be changed by someone with elevated permissions. These variables (reasonably) can be used in ways that make code injection possible.",
+      "Recommendation": "Go to Organization Settings --> Pipelines --> Settings --> Enable 'Limit variables that can be set at queue time'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Limit_Non_Release_Pipeline_Access",
+      "Description": "Limit scope of access for non-release pipelines to the current project.",
+      "Id": "Organization320",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckJobAuthZScope",
+      "Rationale": "If pipelines use project collection level tokens, a vulnerability in components used by one project can be leveraged by an attacker to attack all other projects. This is also in keeping with the principle of least privilege.",
+      "Recommendation": "Go to Organization Settings --> Pipelines --> Settings --> Enable 'Limit job authorization scope to current project for non-release pipelines'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Limit_Release_Pipeline_Access",
+      "Description": "Limit scope of access for release pipelines to the current project.",
+      "Id": "Organization330",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckJobAuthZReleaseScope",
+      "Rationale": "If pipelines use project collection level tokens, a vulnerability in components used by one project can be leveraged by an attacker to attack all other projects. This is also in keeping with the principle of least privilege.",
+      "Recommendation": "Go to Organization Settings --> Pipelines --> Settings --> Enable 'Limit job authorization scope to current project for release pipelines'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
+      "Description": "Limit scope of access for pipelines to explicitly referenced Azure DevOps repositories.",
+      "Id": "Organization340",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckAuthZRepoScope",
+      "Rationale": "If pipelines use tokens having access to all Azure DevOps repositories in authorized projects, a vulnerability in components linked to one repo can be leveraged by an attacker to attack all other repos. This is also in keeping with the principle of least privilege.",
+      "Recommendation": "Go to Organization Settings --> Settings --> Enable 'Limit job authorization scope to referenced Azure DevOps repositories'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Review_Invite_Users_Setting",
+      "Description": "Review if project and team admins should be allowed to invite new users.",
+      "Id": "Organization350",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckPolicyProjectTeamAdminUserInvitation",
+      "Rationale": "By default, all administrators can invite new users to Azure DevOps. In some environments, you may want to restrict this setting so that new users can be invited only by organization admins.",
+      "Recommendation": "Go to Organization Settings --> Policy --> User Policy --> Disable 'Allow team and project administrators to invite new users'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_Backup_Audit_Logs",
+      "Description": "Backup audit logs to an external location periodically.",
+      "Id": "Organization360",
+      "ControlSeverity": "Medium",
+      "Automated": "No",
+      "MethodName": "",
+      "Rationale": "By default, ADO keeps audit logs for 90 days. Most sensitive operation logs should be retained for 365 days (Auditing contains many changes that occur throughout an Azure DevOps organization. Changes occur when a user or service identity within the organization edits the state of an artifact. In some limited cases, it can also include accessing an artifact. Think permissions changes, resource deletion, branch policy changes, accessing the auditing feature, and much more.).",
+      "Recommendation": "Go to Organization Settings --> Auditing --> Export log",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Manual",
+        "Audit"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_Enable_Audit_Stream",
+      "Description": "Enable audit streaming to support alerting, monitoring and analysis of audit logs over longer periods.",
+      "Id": "Organization370",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckAuditStream",
+      "Rationale": "Enabling audit streaming sends data to other locations for further processing. Sending auditing data to other Security Incident and Event Management (SIEM) tools opens possibilities, such as alerting on specific auditing events, creating views on auditing data, and performing anomaly detection. It also allows you to store more than the 90-days worth of auditing data, which Azure DevOps keeps.",
+      "Recommendation": "Go to Organization Settings --> Auditing --> Streams -> New Stream -> Configure at least one of the streaming service. If at least one stream is already configured, ensure it is enabled.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "Audit"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Limit_Admin_Count",
+      "Description": "Ensure that there are at most $($this.ControlSettings.Organization.MaxPCAMembersPermissible) project collection administrators in your organization.",
+      "Id": "Organization380",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckMaxPCACount",
+      "Rationale": "Each additional person in the administrator role increases the attack surface for the entire organization. The number of members in these roles should be kept to as low as possible.",
+      "Recommendation": "Go to Organization settings --> Security --> Permissions --> Groups --> Select the group : Project Collection Administrators --> Review the members of this group.",
+      "Tags": [
+        "SDL",
+        "AuthZ",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_BCDR_Min_Admin_Count",
+      "Description": "Ensure that there are at least $($this.ControlSettings.Organization.MinPCAMembersPermissible) project collection administrators in your organization.",
+      "Id": "Organization390",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckMinPCACount",
+      "Rationale": "Having the minimum required number of administrators reduces the risk of losing admin access. This is useful in case of break-glass account scenarios.",
+      "Recommendation": "Go to Organization settings --> Security --> Permissions --> Groups --> Select the group : Project Collection Administrators --> Review the members of this group",
+      "Tags": [
+        "SDL",
+        "BCDR",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": true
+    }
+  ]
+}

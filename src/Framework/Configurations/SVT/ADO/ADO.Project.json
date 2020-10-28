@@ -1,0 +1,213 @@
+{
+  "FeatureName": "Project",
+  "Reference": "aka.ms/azsktcp/project",
+  "IsMaintenanceMode": false,
+  "Controls": [
+    {
+      "ControlID": "ADO_Project_AuthZ_Set_Visibility_Private_Or_Enterprise",
+      "Description": "Ensure that project visibility is set to either private or enterprise.",
+      "Id": "Project110",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckPublicProjects",
+      "Rationale": "Data/content in projects that have public visibility can be downloaded by anyone on the internet without authentication. This can lead to a compromise of corporate data.",
+      "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/public/make-project-public?view=vsts&tabs=new-nav",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Min_RBAC_Access",
+      "Description": "All teams/groups must be granted minimum required permissions on the project.",
+      "Id": "Project120",
+      "ControlSeverity": "High",
+      "Automated": "No",
+      "MethodName": "CheckRBACAccess",
+      "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users are granted just enough permissions to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
+      "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/set-project-collection-level-permissions?view=vsts&tabs=new-nav",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Manual",
+        "AuthZ",
+        "RBAC"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Review_Group_Members",
+      "Description": "Review membership of all project level privileged groups and teams.",
+      "Id": "Project130",
+      "ControlSeverity": "High",
+      "Automated": "No",
+      "MethodName": "JustifyGroupMember",
+      "Rationale": "Accounts that are a member of these groups without a legitimate business reason increase the risk for your Organization. By carefully reviewing and removing accounts that shouldn't be there in the first place, you can avoid attacks if those accounts are compromised.",
+      "Recommendation": "Go to Project Settings --> Security --> Select Teams/Group --> Verify Members",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Manual",
+        "AuthZ",
+        "RBAC"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_DP_Disable_Anonymous_Access_To_Badges",
+      "Description": "Disable anonymous access to status badge API for parallel pipelines.",
+      "Id": "Project140",
+      "ControlSeverity": "Low",
+      "Automated": "Yes",
+      "MethodName": "CheckBadgeAnonAccess",
+      "Rationale": "Information that appears in the status badge API response should be hidden from external users.",
+      "Recommendation": "Go to Project Settings --> Pipelines --> Settings --> Turn on 'Disable anonymous access to badges'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_SI_Limit_Variables_Settable_At_Queue_Time",
+      "Description": "Limit pipeline variables marked settable at queue time.",
+      "Id": "Project150",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckSettableQueueTime",
+      "Rationale": "Pipeline variables not marked settable at queue time can only be changed by someone with elevated permissions. These variables (reasonably) can be used in ways that make code injection possible.",
+      "Recommendation": "Go to Project Settings --> Pipelines --> Settings --> Enable 'Limit variables that can be set at queue time'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Limit_Non_Release_Pipeline_Access",
+      "Description": "Limit scope of access for non-release pipelines to the current project.",
+      "Id": "Project160",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckJobAuthZScope",
+      "Rationale": "If pipelines use project collection level tokens, a vulnerability in components used by one project can be leveraged by an attacker to attack all other projects. This is also in keeping with the principle of least privilege.",
+      "Recommendation": "Go to Project Settings --> Pipelines --> Settings --> Enable 'Limit job authorization scope to current project for non-release pipelines.'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Limit_Release_Pipeline_Access",
+      "Description": "Limit scope of access for release pipelines to the current project.",
+      "Id": "Project170",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckJobAuthZReleaseScope",
+      "Rationale": "If pipelines use project collection level tokens, a vulnerability in components used by one project can be leveraged by an attacker to attack all other projects. This is also in keeping with the principle of least privilege.",
+      "Recommendation": "Go to Project Settings --> Pipelines --> Settings --> Enable 'Limit job authorization scope to current project for release pipelines.'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
+      "Description": "Limit scope of access for pipelines to explicitly referenced Azure DevOps repositories.",
+      "Id": "Project180",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckAuthZRepoScope",
+      "Rationale": "If pipelines use tokens having access to all Azure DevOps repositories in authorized projects, a vulnerability in components linked to one repo can be leveraged by an attacker to attack all other repos. This is also in keeping with the principle of least privilege.",
+      "Recommendation": "Go to Project Settings --> Pipelines --> Settings --> Enable 'Limit job authorization scope to referenced Azure DevOps repositories'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_DP_Publish_Metadata_From_Pipeline",
+      "Description": "Consider using artifact evaluation for fine-grained control over pipeline stages.",
+      "Id": "Project190",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckPublishMetadata",
+      "Rationale": "Allow pipelines to record metadata. Evaluate artifact check can be configured to define policies using the metadata recorded.",
+      "Recommendation": "Go to Project Settings --> Pipelines --> Settings --> Enable 'Publish metadata from pipelines'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Limit_Admin_Count",
+      "Description": "Ensure that there are at most $($this.ControlSettings.Project.MaxPAMembersPermissible) project administrators in your project.",
+      "Id": "Project200",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckMaxPACount",
+      "Rationale": "Each additional person in the administrator role increases the attack surface for the entire project. The number of members in these roles should be kept to as low as possible.",
+      "Recommendation": "Go to Project settings --> General --> Permissions --> Groups --> Select the group : Project Administrators --> Review the members of this group",
+      "Tags": [
+        "SDL",
+        "AuthZ",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_BCDR_Min_Admin_Count",
+      "Description": "Ensure that there are at least $($this.ControlSettings.Project.MinPAMembersPermissible) project administrators in your project.",
+      "Id": "Project210",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckMinPACount",
+      "Rationale": "Having the minimum required number of administrators reduces the risk of losing admin access. This is useful in case of breakglass account scenarios.",
+      "Recommendation": "Go to Project settings --> General --> Permissions --> Groups --> Select the group : Project Administrators --> Review the members of this group",
+      "Tags": [
+        "SDL",
+        "BCDR",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthN_Use_ALT_Accounts_For_Admin",
+      "Description": "Alternate (ALT) accounts must be used for administrative activity at project scope.",
+      "Id": "Project220",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckSCALTForAdminMembers",
+      "Rationale": "Corporate accounts are subject to a lot of credential theft attacks due to various activities that a user conducts using such accounts (e.g., browsing the web, clicking on email links, etc.). A user account that gets compromised (say via a phishing attack) immediately subjects the entire Azure DevOps organization to risk if it is privileged with critical roles in the organization. Use of smartcard-backed alternate (SC-ALT) accounts instead protects the organization from this risk.",
+      "Recommendation": "Go to Project settings --> General --> Permissions --> Groups --> Review whether each user in administrator groups is added via SC-ALT account.",
+      "Tags": [
+        "SDL",
+        "AuthN",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": true
+    }
+  ]
+}
