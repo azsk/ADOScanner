@@ -444,6 +444,7 @@ class PartialScanManager
 			else { # If file is not avialble in storage then upload it from local for the first instance
 				[JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.masterFilePath -Force
 				Set-AzStorageBlobContent -File $this.masterFilePath -Container $this.CAScanProgressSnapshotsContainerName -Blob (Join-Path $this.subId.ToLower() $this.ResourceScanTrackerFileName) -BlobType Block -Context $this.StorageContext -Force
+				$this.controlStateBlob = Get-AzStorageBlob -Container $this.CAScanProgressSnapshotsContainerName -Context $this.StorageContext -Blob (Join-Path $this.subId.ToLower() $this.ResourceScanTrackerFileName) -ErrorAction SilentlyContinue
 			}
         }
 	}
