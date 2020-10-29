@@ -433,11 +433,16 @@ class AutoBugLog {
         $apiurl = 'https://dev.azure.com/{0}/{1}/_apis/wit/workitems/$bug?api-version=5.1' -f $($this.SubscriptionContext.SubscriptionName), $ProjectName;
 
         
-
+        # Replace the field reference name for bug description if it is customized
         $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForNewBug.json")
-        if ([Helpers]::CheckMember($this.controlsettings.BugLogging, 'FieldReferenceName') -and -not ([string]::IsNullOrEmpty($this.ControlSettings.BugLogging.FieldReferenceName))) {
-            $BugTemplate[1].path = "/fields/"+$this.ControlSettings.BugLogging.FieldReferenceName
+        if ([Helpers]::CheckMember($this.controlsettings.BugLogging, 'BugDescriptionField') -and -not ([string]::IsNullOrEmpty($this.ControlSettings.BugLogging.BugDescriptionField))) {
+            $BugTemplate[1].path = "/fields/"+$this.ControlSettings.BugLogging.BugDescriptionField
         }
+
+        if ($this.InvocationContext.BoundParameters['BugDescriptionField']) {
+            $BugTemplate[1].path = "/fields/"+$this.InvocationContext.BoundParameters['BugDescriptionField']
+        }
+
         $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10 
         $BugTemplate=$BugTemplate.Replace("{0}",$Title)
         $BugTemplate=$BugTemplate.Replace("{1}",$Description)

@@ -44,7 +44,7 @@ class BugLogPathManager {
             [BugLogPathManager]::AreaPath = [BugLogPathManager]::AreaPath.Replace("\", "\\")
             [BugLogPathManager]::IterationPath = [BugLogPathManager]::IterationPath.Replace("\", "\\")
 
-            # AreaPath always Starts with Project
+            # AreaPath always populates project, if no custom areapath is mentioned it will populate default project 
             [BugLogPathManager]::BugLoggingProject = [BugLogPathManager]::AreaPath.split("\")[0]
 
             #copying the value for easy inputting to the query JSON

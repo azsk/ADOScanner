@@ -223,7 +223,13 @@ function Get-AzSKADOSecurityStatus
 		[switch]
 		[Parameter(HelpMessage="Include admin controls (organization and project specific controls) in scan.")]
 		[Alias("iac")]
-		$IncludeAdminControls
+		$IncludeAdminControls,
+
+		[string]
+		[Parameter(HelpMessage="Specify the custom field reference name for bug description.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("bdf")]
+		$BugDescriptionField
 
 	)
 	Begin
