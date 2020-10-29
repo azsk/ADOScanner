@@ -18,8 +18,8 @@ class PartialScanManager
 	$StorageContext = $null;
 	$ControlStateBlob = $null;
 	hidden static $IsCsvUpdatedAtCheckpoint = $false; 
-	hidden static $CollatedSummaryCount = @();
-	hidden static $CollatedBugSummaryCount = @();
+	hidden static $CollatedSummaryCount = @(); # Matrix of counts for severity and control status
+	hidden static $CollatedBugSummaryCount = @(); # Matrix of counts for severity and Bug status
 	hidden static $ControlResultsWithBugSummary = @();
 	hidden [string] $SummaryMarkerText = "------";
 
@@ -444,7 +444,8 @@ class PartialScanManager
 			else { # If file is not available in storage then upload it from local for the first instance
 				[JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.MasterFilePath -Force
 				Set-AzStorageBlobContent -File $this.MasterFilePath -Container $this.CAScanProgressSnapshotsContainerName -Blob (Join-Path $this.SubId.ToLower() $this.ResourceScanTrackerFileName) -BlobType Block -Context $this.StorageContext -Force
-				$this.ControlStateBlob = Get-AzStorageBlob -Container $this.CAScanProgressSnapshotsContainerName -Context $this.StorageContext -Blob (Join-Path $this.SubId.ToLower() $this.ResourceScanTrackerFileName) -ErrorAction SilentlyContinue
+                $this.ControlStateBlob = Get-AzStorageBlob -Container $this.CAScanProgressSnapshotsContainerName -Context $this.StorageContext -Blob (Join-Path $this.SubId.ToLower() $this.ResourceScanTrackerFileName) -ErrorAction SilentlyContinue
+                $this.IsRTFAlreadyAvailable = $true
 			}
         }
 	}
