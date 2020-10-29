@@ -33,8 +33,8 @@ class WriteSummaryFile: FileOutputBase
             $currentInstance = [WriteSummaryFile]::GetInstance();
             try 
             {
-				$currentInstance.SetFilePath($Event.SourceArgs.SubscriptionContext, ("SecurityReport-" + $currentInstance.RunIdentifier + ".csv"));
-				[FileOutputBase]::CSVFilePath = $currentInstance.FilePath
+                $currentInstance.SetFilePath($Event.SourceArgs.SubscriptionContext, ("SecurityReport-" + $currentInstance.RunIdentifier + ".csv"));
+                [FileOutputBase]::CSVFilePath = $currentInstance.FilePath
             }
             catch 
             {
@@ -57,7 +57,7 @@ class WriteSummaryFile: FileOutputBase
 			}
 
 			# Export CSV Report
-			if(-not [PartialScanManager]::CSVCheckpointUpdate)
+			if(-not [PartialScanManager]::IsCsvUpdatedAtCheckpoint)
 			{
 				try 
 				{

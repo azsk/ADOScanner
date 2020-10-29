@@ -231,33 +231,33 @@ class WritePsConsole: FileOutputBase
 			$currentInstance.PushAIEventsfromHandler("WritePsConsole CommandCompleted"); 
             try 
             {
-				if(($Event.SourceArgs | Measure-Object).Count -gt 0 -or $null -ne [PartialScanManager]::CollatedSummaryCount)
-				{
-					# Print summary
-					$currentInstance.PrintSummaryData($Event);
+                if(($Event.SourceArgs | Measure-Object).Count -gt 0 -or $null -ne [PartialScanManager]::CollatedSummaryCount)
+                {
+                    # Print summary
+                    $currentInstance.PrintSummaryData($Event);
 					
-					$AttestControlParamFound = $currentInstance.InvocationContext.BoundParameters["AttestControls"];
-					if($null -eq $AttestControlParamFound)
-					{
-						$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)
-						$currentInstance.WriteMessage([Constants]::RemediationMsg, [MessageType]::Info)
-						#$currentInstance.WriteMessage([Constants]::AttestationReadMsg + [ConfigurationManager]::GetAzSKConfigData().AzSKRGName, [MessageType]::Info)
+                    $AttestControlParamFound = $currentInstance.InvocationContext.BoundParameters["AttestControls"];
+                    if($null -eq $AttestControlParamFound)
+                    {
+                        $currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)
+                        $currentInstance.WriteMessage([Constants]::RemediationMsg, [MessageType]::Info)
+                        #$currentInstance.WriteMessage([Constants]::AttestationReadMsg + [ConfigurationManager]::GetAzSKConfigData().AzSKRGName, [MessageType]::Info)
 						
-					}
+                    }
 
-					#if bug logging is enabled and the path is valid, print a summary all all bugs encountered
-					if($currentInstance.InvocationContext.BoundParameters["AutoBugLog"] -and [BugLogPathManager]::GetIsPathValid()){
-						$currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
-						$currentInstance.PrintBugSummaryData($Event);
-					}
-					$currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
-				}
+                    #if bug logging is enabled and the path is valid, print a summary all all bugs encountered
+                    if($currentInstance.InvocationContext.BoundParameters["AutoBugLog"] -and [BugLogPathManager]::GetIsPathValid()){
+                        $currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
+                        $currentInstance.PrintBugSummaryData($Event);
+                    }
+                    $currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
+                }
 
-				$currentInstance.WriteMessage("Status and detailed logs have been exported to path - $([WriteFolderPath]::GetInstance().FolderPath)", [MessageType]::Info)
-				$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)
+                $currentInstance.WriteMessage("Status and detailed logs have been exported to path - $([WriteFolderPath]::GetInstance().FolderPath)", [MessageType]::Info)
+                $currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)
 				
-				$currentInstance.FilePath = "";
-			}
+                $currentInstance.FilePath = "";
+            }
             catch 
             {
                 $currentInstance.PublishException($_);
