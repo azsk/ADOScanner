@@ -17,6 +17,7 @@ class PartialScanManager
 	hidden [string] $masterFilePath;
 	$storageContext = $null;
 	$controlStateBlob = $null;
+	hidden static $CSVCheckpointUpdate = $false; 
 	hidden static $CollatedSummaryCount = @();
 	hidden static $CollatedBugSummaryCount = @();
 	hidden static $ControlResultsWithBugSummary = @();
@@ -131,8 +132,11 @@ class PartialScanManager
 								New-Item -ItemType Directory -Path $filePath
 								New-Item -Path $filePath -Name $this.ResourceScanTrackerFileName -ItemType "file" 
 							}
+							#Copy existing RTF locally to handle any non ascii characters as ICloudBlob.DownloadText() was inserting non ascii charcaters
 							Get-AzStorageBlobContent -CloudBlob $this.controlStateBlob.ICloudBlob -Context $this.StorageContext -Destination $this.masterFilePath -Force                
 							$this.ScanPendingForResources  = Get-ChildItem -Path $this.masterFilePath -Force | Get-Content | ConvertFrom-Json
+							#Delete the local RTF file
+							Remove-Item -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.subId) $this.ResourceScanTrackerFileName)
 						}
 						$this.isRTFAlreadyAvailable = $true
 					}
@@ -277,10 +281,14 @@ class PartialScanManager
 			if($null -ne $this.controlStateBlob)
 			{
 				$archiveName = "Checkpoint_" +(Get-Date).ToUniversalTime().ToString("yyyyMMddHHmmss") + ".json";
+				#Store final RTF file locally and then upload to archive folder
 				[JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.masterFilePath -Force
 
 				Set-AzStorageBlobContent -File $this.masterFilePath -Container $this.CAScanProgressSnapshotsContainerName -Blob (Join-Path $this.subId.ToLower() (Join-Path "Archive" $archiveName)) -BlobType Block -Context $this.storageContext -Force
-				Remove-AzStorageBlob -CloudBlob $this.controlStateBlob.ICloudBlob -Force -Context $this.StorageContext 
+				Remove-AzStorageBlob -CloudBlob $this.controlStateBlob.ICloudBlob -Force -Context $this.StorageContext
+
+				#Delete local RTF file
+				Remove-Item -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.subId) $this.ResourceScanTrackerFileName)
 			}	
 		}
 
@@ -752,6 +760,7 @@ class PartialScanManager
 			$nonNullProps = [CsvOutputItem].GetMembers() | Where-Object { $_.MemberType -eq [System.Reflection.MemberTypes]::Property }| Select-object -Property Name
 			
 			($csvItems | Select-Object -Property $nonNullProps.Name -ExcludeProperty SupportsAutoFix,ChildResourceName,IsPreviewBaselineControl,UserComments ) | Group-Object -Property FeatureName | Foreach-Object {$_.Group | Export-Csv -Path $FilePath -append -NoTypeInformation}
+			[PartialScanManager]::CSVCheckpointUpdate = $true
         }
 	}	
 }

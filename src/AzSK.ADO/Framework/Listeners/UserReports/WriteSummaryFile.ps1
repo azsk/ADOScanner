@@ -57,14 +57,17 @@ class WriteSummaryFile: FileOutputBase
 			}
 
 			# Export CSV Report
-			try 
+			if(-not [PartialScanManager]::CSVCheckpointUpdate)
 			{
-				$currentInstance.WriteToCSV($Event.SourceArgs);
-				$currentInstance.FilePath = "";
-			}
-			catch 
-			{
-				$currentInstance.PublishException($_);
+				try 
+				{
+					$currentInstance.WriteToCSV($Event.SourceArgs);
+					$currentInstance.FilePath = "";
+				}
+				catch 
+				{
+					$currentInstance.PublishException($_);
+				}
 			}
 
         });

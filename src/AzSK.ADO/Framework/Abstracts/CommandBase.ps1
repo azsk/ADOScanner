@@ -158,14 +158,22 @@ class CommandBase: AzSKRoot {
 		#dumping them in json file and auto closing them(to minimize api calls and auto close them in batches)
 		#if bug logging is enabled and path is valid, create the JSON file for bugs
 		if($this.InvocationContext.BoundParameters["AutoBugLog"] -and [BugLogPathManager]::GetIsPathValid()){
-			[PublishToJSON]::new([PartialScanManager]::ControlResultsWithBugSummary,$folderPath)
+			if (([PartialScanManager]::ControlResultsWithBugSummary| Measure-Object).Count -gt 0)
+			{
+				$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
+			}
+			[PublishToJSON]::new($methodResult,$folderPath)
 		}
 
 		#auto close passed bugs
 		if($this.InvocationContext.BoundParameters["AutoBugLog"]){
+			if (([PartialScanManager]::ControlResultsWithBugSummary| Measure-Object).Count -gt 0)
+			{
+				$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
+			}
 			#call the AutoCloseBugManager
 			$AutoClose=[AutoCloseBugManager]::new($this.SubscriptionContext,$methodResult);
-			$AutoClose.AutoCloseBug([PartialScanManager]::ControlResultsWithBugSummary)
+			$AutoClose.AutoCloseBug($methodResult)
 		}
 		# Publish command complete events
         $this.CommandCompleted($methodResult);
