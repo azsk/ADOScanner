@@ -435,8 +435,8 @@ class AutoBugLog {
         
 
         $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForNewBug.json")
-        if (-not ([string]::IsNullOrEmpty($this.ControlSettings.BugLogging.FieldReferenceName))) {
-             $BugTemplate[1].path = "/fields/"+$this.ControlSettings.BugLogging.FieldReferenceName
+        if ([Helpers]::CheckMember($this.controlsettings.BugLogging, 'FieldReferenceName') -and -not ([string]::IsNullOrEmpty($this.ControlSettings.BugLogging.FieldReferenceName))) {
+            $BugTemplate[1].path = "/fields/"+$this.ControlSettings.BugLogging.FieldReferenceName
         }
         $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10 
         $BugTemplate=$BugTemplate.Replace("{0}",$Title)
