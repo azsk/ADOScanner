@@ -319,8 +319,7 @@
     "BuildSTData": "BuildSTData.json",
     "ReleaseSTData": "ReleaseSTData.json",
     "ServiceTreeData": "ServiceTreeData.json",
-    "DomainName": "microsoft.com",
-    "FieldReferenceName" : "Microsoft.VSTS.TCM.SystemInfo"
+    "DomainName": "microsoft.com"
   },
   "GenerateSecurityEvaluationJsonFile" : false
 }
