@@ -7,6 +7,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	[Datetime] $ScanStart
 	[Datetime] $ScanEnd
 	[bool] $IsAIEnabled = $false;
+	[bool] $IsBugLoggingEnabled = $false;
 
 	ServicesSecurityStatus([string] $subscriptionId, [InvocationInfo] $invocationContext, [SVTResourceResolver] $resolver):
         Base($subscriptionId, $invocationContext)
@@ -30,6 +31,9 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if ([RemoteReportHelper]::IsAIOrgTelemetryEnabled()) { 
 			$this.IsAIEnabled = $true; 
 		}
+		if($invocationContext.BoundParameters["AutoBugLog"]){
+			$this.IsBugLoggingEnabled = $true; 
+		}
 		$this.BaselineFilterCheck();
 		$this.UsePartialCommitsCheck();
 	}
@@ -37,6 +41,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	hidden [SVTEventContext[]] RunForAllResources([string] $methodNameToCall, [bool] $runNonAutomated, [PSObject] $resourcesList)
 	{
 		$ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+		$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
 
 		if ($Env:AzSKADOUPCSimulate -eq $true)
 		{
@@ -217,18 +222,31 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					$currentResourceResults += $svtObject.$methodNameToCall();
 					$result += $currentResourceResults;
 				}
-				if(($result | Measure-Object).Count -gt 0)
+				if(($result | Measure-Object).Count -gt 0 -and $this.UsePartialCommits)
 				{
-					if($currentCount % $ControlSettings.PartialScan.LocalScanUpdateFrequency -eq 0 -or $currentCount -eq $totalResources)
+					$updateSucceeded = $false
+					
+					if ([system.String]::IsNullOrEmpty($scanSource) -or $scanSource -eq "SDL")
 					{
-						# Update local resource tracker file
-						$this.UpdatePartialCommitFile($false)
-					}					
-					if($currentCount % $ControlSettings.PartialScan.DurableScanUpdateFrequency -eq 0 -or $currentCount -eq $totalResources)
+						if($currentCount % $ControlSettings.PartialScan.LocalScanUpdateFrequency -eq 0 -or $currentCount -eq $totalResources)
+						{
+							# Update local resource tracker file
+							$this.UpdatePartialCommitFile($false, $result)
+							$updateSucceeded = $true
+						}	
+					}	
+					else{			
+						if($currentCount % $ControlSettings.PartialScan.DurableScanUpdateFrequency -eq 0 -or $currentCount -eq $totalResources)
+						{
+							# Update durable resource tracker file
+							$this.UpdatePartialCommitFile($true, $result)
+							$updateSucceeded = $true
+						}	
+					}	
+					if ($updateSucceeded)		
 					{
-						# Update durable resource tracker file
-						$this.UpdatePartialCommitFile($true)
-					}					
+						[SVTEventContext[]] $result = @();
+					}	
 				}
 				
 				#Send Telemetry for scan time taken for a resource. This is being done to monitor perf issues in ADOScanner internally
@@ -437,21 +455,28 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	}
 
 
-	[void] UpdatePartialCommitFile($isDurableStorageUpdate)
+	[void] UpdatePartialCommitFile($isDurableStorageUpdate , $result)
 	{
-		$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
 		[PartialScanManager] $partialScanMngr = [PartialScanManager]::GetInstance();
 		#If Scan source is in supported sources or UsePartialCommits switch is available
-		if ($this.UsePartialCommits)
+		if ($isDurableStorageUpdate)
 		{
-			if ($isDurableStorageUpdate)
-			{
-				$partialScanMngr.WriteToDurableStorage();
-			}
-			else {
-				$partialScanMngr.WriteToResourceTrackerFile();
-			}
+			$partialScanMngr.WriteToDurableStorage();
 		}
+		else {
+			$partialScanMngr.WriteToResourceTrackerFile();
+		}
+		# write to csv after every partial commit
+		$partialScanMngr.WriteToCSV($result, [FileOutputBase]::CSVFilePath);
+
+		# append summary counts
+		$partialScanMngr.CollateSummaryData($result);
+
+		# append summary counts for bug logging & append control results with bug logging data
+		if($this.IsBugLoggingEnabled  -and [BugLogPathManager]::GetIsPathValid()){
+			$partialScanMngr.CollateBugSummaryData($result);
+		}
+		
 	}
 
 	[void] UsePartialCommitsCheck()
