@@ -42,7 +42,8 @@ class AutoBugLog {
                 #Obtain area and iteration paths
                 $AreaPath = [BugLogPathManager]::GetAreaPath()
                 $IterationPath = [BugLogPathManager]::GetIterationPath()       
-	
+                $BugLoggingProject = [BugLogPathManager]::GetBugLoggingProject() #This project should be used to check if current bug exists or not
+
                 #this falg is added to restrict 'Determining bug logging' message should print only once 
                 $printLogBugMsg = $true;
                 #Loop through all the control results for the current resource
@@ -68,7 +69,7 @@ class AutoBugLog {
                         #compute hash of control Id and resource Id	
                         $hash = $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
                         #check if a bug with the computed hash exists
-                        $workItem = $this.GetWorkItemByHash($hash, $ProjectName)
+                        $workItem = $this.GetWorkItemByHash($hash, $BugLoggingProject)
                         if ($workItem[0].results.count -gt 0) {
                             #a work item with the hash exists, find if it's state and reactivate if resolved bug
                             $this.ManageActiveAndResolvedBugs($ProjectName, $control, $workItem, $AssignedTo)
@@ -434,8 +435,10 @@ class AutoBugLog {
         
 
         $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForNewBug.json")
+        if (-not ([string]::IsNullOrEmpty($this.ControlSettings.BugLogging.FiledReferenceName))) {
+             $BugTemplate[1].path = "/fields/"+$this.ControlSettings.BugLogging.FiledReferenceName
+        }
         $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10 
-
         $BugTemplate=$BugTemplate.Replace("{0}",$Title)
         $BugTemplate=$BugTemplate.Replace("{1}",$Description)
         $BugTemplate=$BugTemplate.Replace("{2}",$Severity)
