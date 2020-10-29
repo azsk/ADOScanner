@@ -34,7 +34,7 @@ class ControlStateIndexer
 {
 	[string] $ResourceId
 	[string] $HashId
-	[DateTime] $ExpiryTime
+	#[DateTime] $ExpiryTime
 	[string] $AttestedBy
 	[DateTime] $AttestedDate
 	[string] $Version
