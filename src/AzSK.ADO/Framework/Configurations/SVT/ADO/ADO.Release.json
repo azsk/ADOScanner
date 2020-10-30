@@ -160,7 +160,7 @@
     },
     {
       "ControlID": "ADO_Release_SI_Review_URL_Variables_Settable_At_Release_Time",
-      "Description": "Pipeline variables marked settable at release time and containing URLs should be carefully reviewed.",
+      "Description": "Pipeline variables marked settable at release time and containing URLs should be avoided.",
       "Id": "Release200",
       "ControlSeverity": "High",
       "Automated": "Yes",
@@ -177,13 +177,13 @@
     },
     {
       "ControlID": "ADO_Release_SI_Disable_Task_Group_Edit_Permission",
-      "Description": "Do not include loosely permissioned task groups in your pipeline.",
+      "Description": "Do not use task groups that are editable by a broad pool of users.",
       "Id": "Release210",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckTaskGroupEditPermission",
       "Rationale": "If a broad pool of users (e.g., Contributors) have edit permissions on a task group, then integrity of your pipeline can be compromised by a malicious user who edits the task group.",
-      "Recommendation": "1. Navigate to the release pipeline. 2. Click on Tasks. 3. Right click on each task group and select 'Manage task group'. 4. Select 'Security' for the task group. 5. Ensure 'Edit task group' permission of Contributor is not set to 'Allow'.",
+      "Recommendation": "1. Navigate to the release pipeline. 2. Click on Tasks. 3. Right click on each task group and select 'Manage task group'. 4. Select 'Security' for the task group. 5. Ensure 'Edit task group' permission of Contributor is not set to 'Allow'. 6. Repeat this for any other groups that should not have edit access.",
       "Tags": [
         "SDL",
         "TCP",
@@ -194,13 +194,13 @@
     },
     {
       "ControlID": "ADO_Release_SI_Disable_Variable_Group_Edit_Permission",
-      "Description": "Do not include loosely permissioned variable groups in your pipeline.",
+      "Description": "Do not use variable groups that are editable by a broad pool of users.",
       "Id": "Release220",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckVariableGroupEditPermission",
       "Rationale": "If a broad pool of users (e.g., Contributors) have edit permissions on a variable group, then integrity of your pipeline can be compromised by a malicious user who edits the variable group.",
-      "Recommendation": "1. Navigate to the release pipeline. 2. Click on Variables. 3. Click on each variable groups used in the pipeline. 4. Select 'Security' for the variable group. 5. Ensure Contributors have only reader access to the variable group.",
+      "Recommendation": "1. Navigate to the release pipeline. 2. Click on Variables. 3. Click on each variable groups used in the pipeline. 4. Select 'Security' for the variable group. 5. Ensure Contributors have only reader access to the variable group. 6. Repeat this for any other groups that should not have edit access.",
       "Tags": [
         "SDL",
         "TCP",
