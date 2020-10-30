@@ -198,6 +198,12 @@ function Get-AzSKADOSecurityStatus
 		[Alias("ipt")]
 		$IterationPath,
 
+		[string]
+		[Parameter(HelpMessage="Specify the custom field reference name for bug description.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("bdf")]
+		$BugDescriptionField,
+
 		[switch]
 		[Parameter(HelpMessage="Allow long running scan.")]
 		[Alias("als")]
@@ -223,13 +229,7 @@ function Get-AzSKADOSecurityStatus
 		[switch]
 		[Parameter(HelpMessage="Include admin controls (organization and project specific controls) in scan.")]
 		[Alias("iac")]
-		$IncludeAdminControls,
-
-		[string]
-		[Parameter(HelpMessage="Specify the custom field reference name for bug description.")]
-		[ValidateNotNullOrEmpty()]
-		[Alias("bdf")]
-		$BugDescriptionField
+		$IncludeAdminControls
 
 	)
 	Begin
