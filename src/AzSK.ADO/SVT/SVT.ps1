@@ -203,6 +203,12 @@ function Get-AzSKADOSecurityStatus
 		[Alias("ipt")]
 		$IterationPath,
 
+		[string]
+		[Parameter(HelpMessage="Specify the custom field reference name for bug description.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("bdf")]
+		$BugDescriptionField,
+
 		[switch]
 		[Parameter(HelpMessage="Allow long running scan.")]
 		[Alias("als")]

@@ -6,7 +6,8 @@ class BugLogPathManager {
     hidden static [bool] $checkValidPathFlag = $true;
     #flag to check if the path that has been declared is valid
     hidden static [bool] $isPathValid = $false;
-    
+    #variable to store the actual project where bug is supposed to log
+    hidden static [string] $BugLoggingProject = $null
     
     #function to find if the area and iteration path are valid
     static hidden [bool] CheckIfPathIsValid([string] $OrgName,[string] $ProjectName, [InvocationInfo] $InvocationContext,[string] $ControlSettingsBugLogAreaPath, [string] $ControlSettingsBugLogIterationPath, [bool] $isBugLogCustomFlow) {
@@ -43,6 +44,9 @@ class BugLogPathManager {
             [BugLogPathManager]::AreaPath = [BugLogPathManager]::AreaPath.Replace("\", "\\")
             [BugLogPathManager]::IterationPath = [BugLogPathManager]::IterationPath.Replace("\", "\\")
 
+            # AreaPath always populates project, if no custom areapath is mentioned it will populate default project 
+            [BugLogPathManager]::BugLoggingProject = [BugLogPathManager]::AreaPath.split("\\")[0]
+
             #copying the value for easy inputting to the query JSON
             $AreaPathForJSON = [BugLogPathManager]::AreaPath
             $IterationPathForJSON = [BugLogPathManager]::IterationPath
@@ -52,7 +56,7 @@ class BugLogPathManager {
 		
             try {
 
-                #if paths are found valid, flag should be made false to prevent further checking of this path for rest of the resources
+                #if paths are found valid, flag should be made false to prevent further checking of this path for rest of the resources             
                 $response = [WebRequestHelper]::InvokePostWebRequest($pathurl, $body)
                 [BugLogPathManager]::checkValidPathFlag = $false
                 [BugLogPathManager]::isPathValid = $true;
@@ -83,5 +87,8 @@ class BugLogPathManager {
     }
     static hidden [bool] GetIsPathValid(){
         return [BugLogPathManager]::isPathValid
+    }
+    static hidden [string] GetBugLoggingProject(){
+        return [BugLogPathManager]::BugLoggingProject
     }
 }
