@@ -319,7 +319,8 @@
     "BuildSTData": "BuildSTData.json",
     "ReleaseSTData": "ReleaseSTData.json",
     "ServiceTreeData": "ServiceTreeData.json",
-    "DomainName": "microsoft.com"
+    "DomainName": "microsoft.com",
+    "BugDescriptionField" : ""
   },
   "GenerateSecurityEvaluationJsonFile" : false
 }
