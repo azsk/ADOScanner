@@ -67,10 +67,12 @@ class ListenerBase: EventBase
         {
             $iKey = [RemoteReportHelper]::GetAIOrgTelemetryKey()
 
+            $memoryUsage = [System.Diagnostics.Process]::GetCurrentProcess().PrivateMemorySize64 / [Math]::Pow(10,6)
             $customPropertiesObj =  @{ 
                 'CalledBy'= $Eventname; 
                 'RunIdentifier' =$this.runidentifier ;
                 'Command' = $this.InvocationContext.InvocationName ;
+                'MemoryUsageInMB' = $memoryUsage;
             }
             $bodyObject = [PSCustomObject]@{
                 'name' = "Microsoft.ApplicationInsights.$iKey.Event"
