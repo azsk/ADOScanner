@@ -155,7 +155,8 @@ class Organization: ADOSVTBase
                         {
                             #global variable to track admin members across all admin groups
                             $allAdminMembers = @();
-                            
+                            $allPCSAMembers = @();
+
                             for ($i = 0; $i -lt $adminGroups.Count; $i++) 
                             {
                                 # [AdministratorHelper]::AllPCAMembers is a static variable. Always needs to be initialized. At the end of each iteration, it will be populated with members of that particular admin group.
@@ -172,7 +173,6 @@ class Organization: ADOSVTBase
                             
                             if(($PCSAGroup | Measure-Object).Count -gt 0)
                             {
-                                $allPCSAMembers = @();
 
                                 # [AdministratorHelper]::AllPCAMembers is a static variable. Needs to be reinitialized as it might contain group info from the previous for loop.
                                 [AdministratorHelper]::AllPCAMembers = @();
@@ -191,7 +191,10 @@ class Organization: ADOSVTBase
 
                             #Removing PCSA members from PCA members using id.
                             #TODO: HAVE ANOTHER CONTROL TO CHECK FOR PCA because some service accounts might be added directly as PCA and as well as part of PCSA. This new control will serve as a hygiene control.
-                            $allAdminMembers = $allAdminMembers | ? {$_.id -notin $allPCSAMembers.id}
+                            if(-not [string]::IsNullOrWhiteSpace($allPCSAMembers))
+                            {
+                                $allAdminMembers = $allAdminMembers | ? {$_.id -notin $allPCSAMembers.id}
+                            }
 
                             # clearing cached value in [AdministratorHelper]::AllPCAMembers as it can be used in attestation later and might have incorrect group loaded.
                             [AdministratorHelper]::AllPCAMembers = @();
