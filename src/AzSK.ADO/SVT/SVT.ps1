@@ -181,6 +181,16 @@ function Get-AzSKADOSecurityStatus
 		[Alias("aex")]
 		$AddException,
 
+		[Datetime]
+		[Parameter(Mandatory = $false)]
+		[Alias("aee")]
+		$ApprovedExceptionExpiryDate,
+
+		[string]
+		[Parameter(Mandatory = $false)]
+		[Alias("aei")]
+		$ApprovedExceptionID,
+
 		[string]
 		[Parameter(HelpMessage="Project name to store attestation details for organization-specific controls.")]
 		[ValidateNotNullOrEmpty()]
@@ -325,6 +335,8 @@ function Get-AzSKADOSecurityStatus
 					$attestationOptions.AttestationStatus = $AttestationStatus
 					$attestationOptions.IsBulkClearModeOn = $BulkClear
 					$attestationOptions.IsExemptModeOn = $AddException
+					$attestationOptions.ApprovedExceptionExpiryDate =  $ApprovedExceptionExpiryDate
+					$attestationOptions.ApprovedExceptionID = $ApprovedExceptionID
 					$secStatus.AttestationOptions = $attestationOptions;	
 
 					return $secStatus.EvaluateControlStatus();

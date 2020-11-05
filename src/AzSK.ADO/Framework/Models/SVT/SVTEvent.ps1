@@ -141,6 +141,7 @@ class StateData: MessageDataBase
 	[string] $AttestedBy =""
 	[DateTime] $AttestedDate
 	[string] $ExpiryDate =""
+	[string] $ApprovedExceptionID =""
 	StateData()
 	{
 	}
