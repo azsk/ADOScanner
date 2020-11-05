@@ -130,6 +130,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					{
 						$resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
 					}
+            $memoryUsage = [System.Diagnostics.Process]::GetCurrentProcess().PrivateMemorySize64 / [Math]::Pow(10,6)
+            $resourceTypeCountHT += @{MemoryUsageInMB = $memoryUsage}
 			
 			[AIOrgTelemetryHelper]::TrackCommandExecution("Target Resources Count",
 				@{"RunIdentifier" = $this.RunIdentifier}, $resourceTypeCountHT, $this.InvocationContext);
@@ -222,6 +224,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					$currentResourceResults += $svtObject.$methodNameToCall();
 					$result += $currentResourceResults;
 				}
+				
+				$memoryUsage = 0
 				if(($result | Measure-Object).Count -gt 0 -and $this.UsePartialCommits)
 				{
 					$updateSucceeded = $false
@@ -246,6 +250,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					if ($updateSucceeded)		
 					{
 						[SVTEventContext[]] $result = @();
+						[System.GC]::Collect();
+                        $memoryUsage = [System.Diagnostics.Process]::GetCurrentProcess().PrivateMemorySize64 / [Math]::Pow(10,6)
 					}	
 				}
 				
@@ -263,6 +269,10 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 						ScanStartDateTime = $this.ScanStart;
 						ScanEndDateTime = $this.ScanEnd;
 						RunIdentifier = $this.RunIdentifier;
+					}
+					if ($memoryUsage -ne 0)
+					{
+						$properties += @{MemoryUsageInMB = $memoryUsage;}
 					}
 
 					[AIOrgTelemetryHelper]::PublishEvent( "Resource Scan Completed",$properties, @{})
