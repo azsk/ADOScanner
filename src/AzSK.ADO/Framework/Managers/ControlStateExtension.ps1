@@ -813,7 +813,6 @@ class ControlStateExtension
 					{
 						$currentIndexObject = $filteredIndexerObject | Select-Object -Last 1
 					}					
-					$currentIndexObject.ExpiryTime = [DateTime]::UtcNow.AddMonths(3);
 					$currentIndexObject.AttestedBy = [ContextHelper]::GetCurrentSessionUser();
 					$currentIndexObject.AttestedDate = [DateTime]::UtcNow;
 					$currentIndexObject.Version = "1.0";
@@ -823,7 +822,6 @@ class ControlStateExtension
 					$currentIndexObject = [ControlStateIndexer]::new();
 					$currentIndexObject.ResourceId = $id
 					$currentIndexObject.HashId = $tempHash;
-					$currentIndexObject.ExpiryTime = [DateTime]::UtcNow.AddMonths(3);
 					$currentIndexObject.AttestedBy = [ContextHelper]::GetCurrentSessionUser();
 					$currentIndexObject.AttestedDate = [DateTime]::UtcNow;
 					$currentIndexObject.Version = "1.0";
