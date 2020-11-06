@@ -177,17 +177,17 @@ function Get-AzSKADOSecurityStatus
 		$AttestationStatus = [AttestationStatus]::None,
 		
 		[switch]
-        [Parameter(Mandatory = $false)]
+		[Parameter(Mandatory = $false, HelpMessage = "Switch to add approved exceptions.")]
 		[Alias("aex")]
 		$AddException,
 
 		[Datetime]
-		[Parameter(Mandatory = $false)]
+		[Parameter(Mandatory = $false, HelpMessage = "Expiry date of approved exception.")]
 		[Alias("aee")]
 		$ApprovedExceptionExpiryDate,
 
 		[string]
-		[Parameter(Mandatory = $false)]
+		[Parameter(Mandatory = $false, HelpMessage = "ID of approved exception.")]
 		[Alias("aei")]
 		$ApprovedExceptionID,
 

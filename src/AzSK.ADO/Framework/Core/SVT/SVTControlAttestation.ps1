@@ -158,13 +158,13 @@ class SVTControlAttestation
 					# Write-Host "`nPlease provide the number of days for which the exception has been approved (max 180 days):" -ForegroundColor Cyan
 					# $numberOfDays = Read-Host "No. of days (default 180)"
 
-					$this.attestOptions.ApprovedExceptionExpiryDate
 
-					$maxAllowedExceptionApprovalExpiryDate = ([DateTime]::UtcNow).AddDays(180)					
+					$maxAllowedExceptionApprovalExpiryDate = ([DateTime]::UtcNow).AddDays($this.ControlSettings.DefaultAttestationPeriodForExemptControl)					
 					if([string]::IsNullOrWhiteSpace($this.attestOptions.ApprovedExceptionExpiryDate))
 					{
-						Write-Host "To attest control using ApprovedException status add ApprovedExceptionExpiryDate parameter. Please provide this param in the command with mm/dd/yy date format. For example: -ApprovedExceptionExpiryDate '11/25/20'" -ForegroundColor Yellow;
-						break;
+						$exceptionApprovalExpiryDate =  ([DateTime]::UtcNow).AddDays($this.ControlSettings.DefaultAttestationPeriodForExemptControl)
+						# Write-Host "To attest control using ApprovedException status add ApprovedExceptionExpiryDate parameter. Please provide this param in the command with mm/dd/yy date format. For example: -ApprovedExceptionExpiryDate '11/25/20'" -ForegroundColor Yellow;
+						# break;
 					}
 					else{
 						try
