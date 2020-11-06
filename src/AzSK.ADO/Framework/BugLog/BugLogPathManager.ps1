@@ -13,10 +13,11 @@ class BugLogPathManager {
     static hidden [bool] CheckIfPathIsValid([string] $OrgName,[string] $ProjectName, [InvocationInfo] $InvocationContext,[string] $ControlSettingsBugLogAreaPath, [string] $ControlSettingsBugLogIterationPath, [bool] $isBugLogCustomFlow) {
         
         #to check if we have checked path validity before
-        if ([BugLogPathManager]::checkValidPathFlag -or $isBugLogCustomFlow) {
+        #if customebug log true becase we get areapath from servicetree file so every time need to validate. if supply in cmd param
+        if ([BugLogPathManager]::checkValidPathFlag -or ($isBugLogCustomFlow -and !$InvocationContext.BoundParameters['AreaPath']) ) {
             [BugLogPathManager]::AreaPath = $null
             #checking path validity for the first time
-            $pathurl = "https://dev.azure.com/{0}/{1}/_apis/wit/wiql?api-version=5.1" -f $($OrgName), $ProjectName
+            $pathurl = 'https://dev.azure.com/{0}/{1}/_apis/wit/wiql?$top=1&api-version=5.1' -f $($OrgName), $ProjectName
             [BugLogPathManager]::AreaPath = $InvocationContext.BoundParameters['AreaPath'];
             [BugLogPathManager]::IterationPath = $InvocationContext.BoundParameters['IterationPath'];
 

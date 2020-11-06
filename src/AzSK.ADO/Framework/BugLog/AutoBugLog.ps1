@@ -88,7 +88,7 @@ class AutoBugLog {
                             $Title = $Title.Replace("{0}", $control.ControlItem.ControlID)
                             $Title = $Title.Replace("{1}", $control.ResourceContext.ResourceTypeName)
                             $Title = $Title.Replace("{2}", $control.ResourceContext.ResourceName)
-				
+				            
                             $Description = $Description.Replace("{0}", $control.ControlItem.Description)
                             $Description = $Description.Replace("{1}", $control.ControlItem.Rationale)
                             $Description = $Description.Replace("{2}", $control.ControlItem.Recommendation)
@@ -98,8 +98,8 @@ class AutoBugLog {
                             $Description = $Description.Replace("{6}", $control.ControlResults[0].VerificationResult)
                             $RunStepsForControl = " </br></br> <b>Control Scan Command:</b> Run:  {0}"
                             $RunStepsForControl = $RunStepsForControl.Replace("{0}", $this.GetControlReproStep($control))
-                            $Description+=$RunStepsForControl
-				
+                            $Description += $RunStepsForControl
+				            
 				
                             #check and append any detailed log and state data for the control failure
                             if ($this.GetDetailedLogForControl($control)) {
@@ -182,7 +182,7 @@ class AutoBugLog {
             }
             'User' {
                 #TODO: User controls dont have a project associated with them, can be rectified in future versions
-                Write-Host "`nAuto bug logging for user control failures is currently not supported." -ForegroundColor Red
+                Write-Host "`nAuto bug logging for user control failures is currently not supported." -ForegroundColor Yellow
                 return $false
             }
         }
