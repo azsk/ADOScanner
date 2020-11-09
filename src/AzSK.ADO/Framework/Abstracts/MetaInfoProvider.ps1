@@ -165,7 +165,8 @@ class MetaInfoProvider {
                 #call adoinfoapi only if STDetails files is not already loaded.
                 if ( ($resourceTypeName -eq "Build" -and !$this.buildSTDetails) -or ($resourceTypeName -eq "Release" -and !$this.releaseSTDetails) -or ($resourceTypeName -eq "ServiceConnection" -and !$this.svcConnSTDetails) -or ($resourceTypeName -eq "AgentPool" -and !$this.agtPoolSTDetails)  -or ($resourceTypeName -eq "VariableGroupp" -and !$this.varGroupSTDetails) ) {
                     $rsrcList = $this.CallADOInfoAPI($qs);
-                    if ($rsrcList -and [Helpers]::CheckMember($rsrcList, "$resourceTypeName") -and $rsrcList."$resourceTypeName") {
+                    $apiReturnedResourceTypeName = $resourceTypeName+"s";
+                    if ($rsrcList -and ( [Helpers]::CheckMember($rsrcList, "$apiReturnedResourceTypeName") -and $rsrcList."$apiReturnedResourceTypeName") ) {
                         $this.BindADOInfoAPIResponseToSTMappingFiles($rsrcList, $resourceTypeName);
                     }
                     else {
@@ -191,19 +192,19 @@ class MetaInfoProvider {
     hidden [void] BindADOInfoAPIResponseToSTMappingFiles($resourceList, $resourceTypeName)
     {
         if ($resourceTypeName -eq "Build") {
-            $this.buildSTDetails = $resourceList.buildSTDetails;
+            $this.buildSTDetails = $resourceList.Builds;
         }
         elseif ($resourceTypeName -eq "Release") {
-            $this.releaseSTDetails = $resourceList.releaseSTDetails;
+            $this.releaseSTDetails = $resourceList.Releases;
         }
         elseif ($resourceTypeName -eq "ServiceConnection") {
-            $this.svcConnSTDetails = $resourceList.svcConnSTDetails;
+            $this.svcConnSTDetails = $resourceList.ServiceConnections;
         }
         elseif ($resourceTypeName -eq "AgentPool") {
-            $this.agtPoolSTDetails = $resourceList.agtPoolSTDetails;
+            $this.agtPoolSTDetails = $resourceList.AgentPools;
         }
         elseif ($resourceTypeName -eq "VariableGroup") {
-            $this.varGroupSTDetails = $resourceList.varGroupSTDetails;
+            $this.varGroupSTDetails = $resourceList.VariableGroups;
         }
     }
 

@@ -31,11 +31,6 @@ class SVTResourceResolver: AzSKRoot {
     [int] $longRunningScanCheckPoint = 1000;
 
     hidden [string[]] $serviceId = @();
-    hidden [PSObject] $buildSTDetails;
-    hidden [PSObject] $releaseSTDetails;
-    hidden [PSObject] $svcConnSTDetails;
-    hidden [PSObject] $agtPoolSTDetails;
-    hidden [PSObject] $varGroupSTDetails;
 
     [bool] $includeAdminControls = $false;
     [bool] $isUserPCA = $false;
@@ -600,9 +595,9 @@ class SVTResourceResolver: AzSKRoot {
             }
             if ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
             {
-                if ($rsrcList.SvcConns -and $rsrcList.SvcConns.Count -gt 0)
+                if ($rsrcList.ServiceConnections -and $rsrcList.ServiceConnections.Count -gt 0)
                 {
-                    $this.ServiceConnections = $rsrcList.SvcConns.serviceConnectionName
+                    $this.ServiceConnections = $rsrcList.ServiceConnections.serviceConnectionName
                     $bFoundSvcMappedObjects = $true
                 }
             }
@@ -616,9 +611,9 @@ class SVTResourceResolver: AzSKRoot {
             }
             if ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All))
             {
-                if ($rsrcList.VarGroups -and $rsrcList.VarGroups.Count -gt 0)
+                if ($rsrcList.VariableGroups -and $rsrcList.VariableGroups.Count -gt 0)
                 {
-                    $this.VariableGroups = $rsrcList.VarGroups.variableGroupName
+                    $this.VariableGroups = $rsrcList.VariableGroups.variableGroupName
                     $bFoundSvcMappedObjects = $true
                 }
             }
