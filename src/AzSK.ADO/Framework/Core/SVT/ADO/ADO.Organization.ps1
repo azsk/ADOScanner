@@ -191,7 +191,7 @@ class Organization: ADOSVTBase
 
                             #Removing PCSA members from PCA members using id.
                             #TODO: HAVE ANOTHER CONTROL TO CHECK FOR PCA because some service accounts might be added directly as PCA and as well as part of PCSA. This new control will serve as a hygiene control.
-                            if(-not [string]::IsNullOrWhiteSpace($allPCSAMembers))
+                            if(($allPCSAMembers | Measure-Object).Count -gt 0)
                             {
                                 $allAdminMembers = $allAdminMembers | ? {$_.id -notin $allPCSAMembers.id}
                             }
