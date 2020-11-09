@@ -90,11 +90,11 @@ class MetaInfoProvider {
         {
             $this.FetchMappingFiles($resourceTypeName);
 
-            $buildList = @{};
-            $releaseList = @{};
-            $svcConnList = @{};
-            $varGroupList = @{};
-            $agentPoolList = @{};
+            $buildList = @();
+            $releaseList = @();
+            $svcConnList = @();
+            $varGroupList = @();
+            $agentPoolList = @();
 
             if ($this.buildSTDetails) {
                 $buildList += $this.buildSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
