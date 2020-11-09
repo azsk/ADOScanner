@@ -136,7 +136,7 @@
       "Low": 90
     }
   },
-  "DefaultAttestationPeriodForExemptControl" : 60,
+  "DefaultAttestationPeriodForExemptControl" : 180,
   "AllowAttestationByGroups": [
     {
       "ResourceType": "Organization",
