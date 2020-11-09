@@ -90,6 +90,10 @@ class BugMetaInfoProvider {
                     return "";
                 }
             }
+            #assign to the creator of variable group
+            'VariableGroup' {
+                return $ControlResult.ResourceContext.ResourceDetails.createdBy.uniqueName
+            }
             #assign to the person who recently triggered the build pipeline, or if the pipeline is empty assign it to the creator
             'Build' {
                 $definitionId = $ControlResult.ResourceContext.ResourceDetails.id;
