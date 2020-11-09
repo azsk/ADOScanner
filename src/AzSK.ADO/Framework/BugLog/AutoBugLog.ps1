@@ -30,12 +30,9 @@ class AutoBugLog {
             #check if the area and iteration path are valid
             #flag to check if pluggable bug logging interface (service tree)
             $isBugLogCustomFlow = $false;
-            #if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "BugAssigneeAndPathCustomFlow", $null)) {
-            #    $isBugLogCustomFlow = $this.ControlSettings.BugLogging.BugAssigneeAndPathCustomFlow;
-            #    if ($isBugLogCustomFlow) {
-            #        [BugMetaInfoProvider]::Initialize();
-            #    }
-            #} 
+            if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "BugAssigneeAndPathCustomFlow", $null)) {
+                $isBugLogCustomFlow = $this.ControlSettings.BugLogging.BugAssigneeAndPathCustomFlow;
+            } 
             if ([BugLogPathManager]::CheckIfPathIsValid($this.SubscriptionContext.SubscriptionName,$ProjectName,$this.InvocationContext,  $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $isBugLogCustomFlow)) {
                 #Obtain the assignee for the current resource, will be same for all the control failures for this particular resource
                 $AssignedTo = $this.GetAssignee($ControlResults[0])

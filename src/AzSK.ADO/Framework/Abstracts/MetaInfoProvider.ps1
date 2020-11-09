@@ -1,5 +1,5 @@
 class MetaInfoProvider {
-    hidden static [MetaInfoProvider] $_instance = [MetaInfoProvider]::new()
+    hidden static [MetaInfoProvider] $metaInfoInstance = [MetaInfoProvider]::new()
     static [MetaInfoProvider] $Instance = [MetaInfoProvider]::GetInstance()
 
 	hidden [bool] $bUseADOInfoAPI 
@@ -16,13 +16,14 @@ class MetaInfoProvider {
     hidden [PSObject] $serviceTreeDetails;
 
     hidden MetaInfoProvider() {
+        $this.IsADOInfoAPIEnabled();
     }
 
     hidden static [MetaInfoProvider] GetInstance() {
-        return [MetaInfoProvider]::_instance
+        return [MetaInfoProvider]::metaInfoInstance
     }
 
-    [bool] CheckIsADOInfoAPIEnabled()
+    [bool] IsADOInfoAPIEnabled()
 	{
         if ($null -eq $this.ControlSettings)
         {
@@ -61,54 +62,11 @@ class MetaInfoProvider {
         }
         return $rsrcList;
 	}
-
-	[void] FetchMappingFiles($ResourceTypeName)
-	{
-		if ($ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
-		{
-		   if (!$this.buildSTDetails) {
-                $this.buildSTDetails = [ConfigurationManager]::LoadServerConfigFile("BuildSTData.json");
-               }	
-		}
-
-		if ($ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
-		{
-			if (!$this.releaseSTDetails) {
-				$this.releaseSTDetails = [ConfigurationManager]::LoadServerConfigFile("ReleaseSTData.json");
-			}
-		}
-
-		if ($ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
-		{
-			if (!$this.svcConnSTDetails) {
-				$this.svcConnSTDetails = [ConfigurationManager]::LoadServerConfigFile("ServiceConnectionSTData.json");
-			}
-		}
-		if ($ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
-		{
-			if (!$this.agtPoolSTDetails) {
-				$this.agtPoolSTDetails = [ConfigurationManager]::LoadServerConfigFile("AgentPoolSTData.json");
-			}
-		}
-
-		if ($ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All))
-		{
-			if (!$this.varGroupSTDetails) {
-				$this.varGroupSTDetails = [ConfigurationManager]::LoadServerConfigFile("VariableGroupSTData.json");
-			}
-        }
-        if ($ResourceTypeName -eq "ServiceTree")
-		{
-			if (!$this.serviceTreeDetails) {
-				$this.serviceTreeDetails = [ConfigurationManager]::LoadServerConfigFile("ServiceTreeData.json");
-			}
-		}
-    }
     
     [PSObject] FetchServiceAssociatedResources($svcId, $projectName, $ResourceTypeName)
     {
         $rsrcList = $null;
-        if ($this.bUseADOInfoAPI -eq $true -or $this.CheckIsADOInfoAPIEnabled())
+        if ($this.bUseADOInfoAPI -eq $true)
         {
             #TODO: Look at cleaning up these multiple "-in" checks across the API_call-v-Policy_Repo cases...
             #TODO-PERF: For now we are erring on the side of avoiding multiple network calls...revisit based on observed pattern of -svcid <xyz> usage
@@ -155,11 +113,11 @@ class MetaInfoProvider {
     
     [PSObject] FetchResourceMappingWithServiceData($rscId, $projectName, $resourceTypeName)
     {
-        $serviceTree = $null;
+        $serviceTreeInfo = $null;
         try 
         {
             #check if adoinfoapi is enabled in org-policy file 
-            if ($this.bUseADOInfoAPI -eq $true -or $this.CheckIsADOInfoAPIEnabled())
+            if ($this.bUseADOInfoAPI -eq $true)
             {
                 $qs = "?ResourceType=$resourceTypeName";
                 #call adoinfoapi only if STDetails files is not already loaded.
@@ -169,24 +127,24 @@ class MetaInfoProvider {
                     if ($rsrcList -and ( [Helpers]::CheckMember($rsrcList, "$apiReturnedResourceTypeName") -and $rsrcList."$apiReturnedResourceTypeName") ) {
                         $this.BindADOInfoAPIResponseToSTMappingFiles($rsrcList, $resourceTypeName);
                     }
-                    else {
-                        $this.FetchMappingFiles($resourceTypeName);
-                    }
+                    #If not get files from adoinfoapi, take then from local org policy files. 
+                    #else {
+                    #    $this.FetchMappingFiles($resourceTypeName);
+                    #}
                 }
-                
-                $serviceTree = $this.GetServiceDataForResource($rscId, $resourceTypeName);
             }
             else 
             {
                 $this.FetchMappingFiles($resourceTypeName);
-                $serviceTree = $this.GetServiceDataForResource($rscId, $resourceTypeName);
             }
+
+            $serviceTreeInfo = $this.GetServiceDataForResource($rscId, $resourceTypeName);
         }
         catch
         {
             Write-Host "Could not fetch service mapping files. `r`nPlease contact your project's ADO security team." -ForegroundColor Red 
         }
-        return $serviceTree; 
+        return $serviceTreeInfo; 
     }
 
     hidden [void] BindADOInfoAPIResponseToSTMappingFiles($resourceList, $resourceTypeName)
@@ -206,18 +164,64 @@ class MetaInfoProvider {
         elseif ($resourceTypeName -eq "VariableGroup") {
             $this.varGroupSTDetails = $resourceList.VariableGroups;
         }
+        elseif ($resourceTypeName -eq "ServiceTree") {
+            $this.serviceTreeDetails = $resourceList.ServiceTree;
+        }
+    }
+
+    [void] FetchMappingFiles($ResourceTypeName)
+	{
+		if ($ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
+		{
+		   if (!$this.buildSTDetails) {
+                $this.buildSTDetails = [ConfigurationManager]::LoadServerConfigFile("BuildSTData.json");
+               }	
+		}
+
+		if ($ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
+		{
+			if (!$this.releaseSTDetails) {
+				$this.releaseSTDetails = [ConfigurationManager]::LoadServerConfigFile("ReleaseSTData.json");
+			}
+		}
+
+		if ($ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
+		{
+			if (!$this.svcConnSTDetails) {
+				$this.svcConnSTDetails = [ConfigurationManager]::LoadServerConfigFile("ServiceConnectionSTData.json");
+			}
+		}
+		if ($ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
+		{
+			if (!$this.agtPoolSTDetails) {
+				$this.agtPoolSTDetails = [ConfigurationManager]::LoadServerConfigFile("AgentPoolSTData.json");
+			}
+		}
+
+		if ($ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All))
+		{
+			if (!$this.varGroupSTDetails) {
+				$this.varGroupSTDetails = [ConfigurationManager]::LoadServerConfigFile("VariableGroupSTData.json");
+			}
+        }
+        if ($ResourceTypeName -eq "ServiceTree")
+		{
+			if (!$this.serviceTreeDetails) {
+				$this.serviceTreeDetails = [ConfigurationManager]::LoadServerConfigFile("ServiceTreeData.json");
+			}
+		}
     }
 
     hidden [PSObject] GetServiceDataForResource($rscId, $resourceTypeName)
     {
-        $serviceTree = $null;
+        $serviceTreeInfo = $null;
         if(($resourceTypeName -eq "Build") -and $this.buildSTDetails -and [Helpers]::CheckMember($this.buildSTDetails, "Data"))
         {
             $buildSTData = $this.buildSTDetails.Data | Where-Object { $_.buildDefinitionID -eq $rscId -and $_.projectName -eq $projectName }; 
             
             if ($buildSTData) 
             {
-                $serviceTree = $this.GetDataFromServiceTree($buildSTData.serviceID);
+                $serviceTreeInfo = $this.GetDataFromServiceTree($buildSTData.serviceID);
             }
         }
         elseif(($resourceTypeName -eq "Release") -and $this.releaseSTDetails -and [Helpers]::CheckMember($this.releaseSTDetails, "Data"))
@@ -225,7 +229,7 @@ class MetaInfoProvider {
             $releaseSTData = $this.releaseSTDetails.Data | Where-Object { $_.releaseDefinitionID -eq $rscId -and $_.projectName -eq $projectName}; 
             if ($releaseSTData) 
             {
-                $serviceTree = $this.GetDataFromServiceTree($releaseSTData.serviceID);
+                $serviceTreeInfo = $this.GetDataFromServiceTree($releaseSTData.serviceID);
             }
         }
         elseif(($resourceTypeName -eq "ServiceConnection") -and $this.svcConnSTDetails -and [Helpers]::CheckMember($this.svcConnSTDetails, "Data"))
@@ -233,7 +237,7 @@ class MetaInfoProvider {
             $svcConnSTData = $this.svcConnSTDetails.Data | Where-Object { $_.serviceConnectionID -eq $rscId -and $_.projectName -eq $projectName}; 
             if ($svcConnSTData) 
             {
-                $serviceTree = $this.GetDataFromServiceTree($svcConnSTData.serviceID);
+                $serviceTreeInfo = $this.GetDataFromServiceTree($svcConnSTData.serviceID);
             }
         }
         elseif(($resourceTypeName -eq "AgentPool") -and $this.agtPoolSTDetails -and [Helpers]::CheckMember($this.agtPoolSTDetails, "Data"))
@@ -241,7 +245,7 @@ class MetaInfoProvider {
             $agtPoolSTData = $this.agtPoolSTDetails.Data | Where-Object { $_.agentPoolID -eq $rscId -and $_.projectName -eq $projectName}; 
             if ($agtPoolSTData) 
             {
-                $serviceTree = $this.GetDataFromServiceTree($agtPoolSTData.serviceID);
+                $serviceTreeInfo = $this.GetDataFromServiceTree($agtPoolSTData.serviceID);
             }
         }
         elseif(($resourceTypeName -eq "VariableGroup") -and $this.varGroupSTDetails -and [Helpers]::CheckMember($this.varGroupSTDetails, "Data"))
@@ -249,16 +253,16 @@ class MetaInfoProvider {
             $varGroupSTData = $this.varGroupSTDetails.Data | Where-Object { $_.variableGroupID -eq $rscId -and $_.projectName -eq $projectName}; 
             if ($varGroupSTData) 
             {
-                $serviceTree = $this.GetDataFromServiceTree($varGroupSTData.serviceID);
+                $serviceTreeInfo = $this.GetDataFromServiceTree($varGroupSTData.serviceID);
             }
         }
 
-        return $serviceTree;
+        return $serviceTreeInfo;
     }
 
     hidden [PSObject] GetDataFromServiceTree($serviceId) 
     {
-        $serviceTree = $null;        
+        $serviceTreeInfo = $null;        
         if (!$this.serviceTreeDetails) 
         {
             $qs = "?ResourceType=ServiceTree";
@@ -267,18 +271,19 @@ class MetaInfoProvider {
                 if ($rsrcList -and [Helpers]::CheckMember($rsrcList, "serviceTreeDetails") -and $rsrcList.serviceTreeDetails) {
                     $this.BindADOInfoAPIResponseToSTMappingFiles($rsrcList, "ServiceTree");
                 }
-                else {
-                    $this.FetchMappingFiles("ServiceTree");
-                }
+                #If not get file from adoinso api, get it from local org policy file.
+                #else {
+                #    $this.FetchMappingFiles("ServiceTree");
+                #}
             }
             else {
                 $this.FetchMappingFiles("ServiceTree");
             }  
         }
         if ($this.serviceTreeDetails -and [Helpers]::CheckMember($this.serviceTreeDetails, "Data")) {
-            $serviceTree = $this.serviceTreeDetails.Data | Where-Object { $_.serviceID -eq $serviceId };
+            $serviceTreeInfo = $this.serviceTreeDetails.Data | Where-Object { $_.serviceID -eq $serviceId };
         }
-        return $serviceTree;
+        return $serviceTreeInfo;
     }
 }
 

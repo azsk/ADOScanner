@@ -52,16 +52,16 @@ class BugMetaInfoProvider {
         $metaInfo = [MetaInfoProvider]::Instance;
         $assignee = "";
         try {
-            $serviceTree = $metaInfo.FetchResourceMappingWithServiceData($rscId, $projectName, $resourceType);
-            if($serviceTree)
+            $serviceTreeInfo = $metaInfo.FetchResourceMappingWithServiceData($rscId, $projectName, $resourceType);
+            if($serviceTreeInfo)
             {
-                [BugLogPathManager]::AreaPath = $serviceTree.areaPath.Replace("\", "\\");
+                [BugLogPathManager]::AreaPath = $serviceTreeInfo.areaPath.Replace("\", "\\");
                 $domainNameForAssignee = ""
                 if([Helpers]::CheckMember($this.ControlSettingsBugLog, "DomainName"))
                 {
                     $domainNameForAssignee = $this.ControlSettingsBugLog.DomainName;
                 }
-                $assignee = $serviceTree.devOwner.Split(";")[0] + "@"+ $domainNameForAssignee
+                $assignee = $serviceTreeInfo.devOwner.Split(";")[0] + "@"+ $domainNameForAssignee
             }
         }
         catch {
