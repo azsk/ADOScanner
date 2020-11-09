@@ -8,6 +8,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	[Datetime] $ScanEnd
 	[bool] $IsAIEnabled = $false;
 	[bool] $IsBugLoggingEnabled = $false;
+	$ActualResourceCount = @();
 
 	ServicesSecurityStatus([string] $subscriptionId, [InvocationInfo] $invocationContext, [SVTResourceResolver] $resolver):
         Base($subscriptionId, $invocationContext)
@@ -22,7 +23,9 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		#If resource scan count is more than allowed foe scan (>1000) then stopping scan and returning.
 		if (!$this.Resolver.SVTResources) {
 			return;
-		}
+        }
+        $this.ActualResourceCount = $this.Resolver.SVTResources | Group-Object -Property ResourceType |select-object Name, Count           
+
 		$this.UsePartialCommits = $invocationContext.BoundParameters["UsePartialCommits"];
 
 		#BaseLineControlFilter with control ids
@@ -113,12 +116,11 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			#Send Telemetry for actual resource count. This is being done to monitor perf issues in ADOScanner internally
 			if ($this.UsePartialCommits)
 			{
-				$resourceTypeCount =$this.Resolver.SVTResources | Group-Object -Property ResourceType |select-object Name, Count
 				$resourceTypeCountHT = @{}
-						foreach ($resType in $resourceTypeCount) 
-						{
-							$resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
-						}
+                foreach ($resType in $this.ActualResourceCount) 
+                {
+                    $resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
+                }
 				
 				[AIOrgTelemetryHelper]::TrackCommandExecution("Actual Resources Count",
 					@{"RunIdentifier" = $this.RunIdentifier}, $resourceTypeCountHT, $this.InvocationContext);

@@ -441,7 +441,14 @@ class PartialScanManager
 			{
 				$this.ControlStateBlob.ICloudBlob.UploadText([JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) )
 			}
-			else { # If file is not available in storage then upload it from local for the first instance
+            else { # If file is not available in storage then upload it from local for the first instance
+                if ($null -ne $this.MasterFilePath -and -not (Test-Path $this.MasterFilePath))
+                {
+                    # Create directory and resource tracker file
+                    $filePath = $this.MasterFilePath.Replace($this.ResourceScanTrackerFileName, "")
+                    New-Item -ItemType Directory -Path $filePath
+                    New-Item -Path $filePath -Name $this.ResourceScanTrackerFileName -ItemType "file" 
+                }
 				[JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.MasterFilePath -Force
 				Set-AzStorageBlobContent -File $this.MasterFilePath -Container $this.CAScanProgressSnapshotsContainerName -Blob (Join-Path $this.SubId.ToLower() $this.ResourceScanTrackerFileName) -BlobType Block -Context $this.StorageContext -Force
                 $this.ControlStateBlob = Get-AzStorageBlob -Container $this.CAScanProgressSnapshotsContainerName -Context $this.StorageContext -Blob (Join-Path $this.SubId.ToLower() $this.ResourceScanTrackerFileName) -ErrorAction SilentlyContinue
