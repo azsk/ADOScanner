@@ -220,6 +220,7 @@ class MetaInfoProvider {
 		}
     }
 
+    #Fetching service tree data based on resource id from ST data loaded in class variables
     hidden [PSObject] GetServiceDataForResource($rscId, $resourceTypeName)
     {
         $serviceTreeInfo = $null;
@@ -268,6 +269,7 @@ class MetaInfoProvider {
         return $serviceTreeInfo;
     }
 
+    #Fetching Service tree info data based on service id from service tree mapping file
     hidden [PSObject] GetDataFromServiceTree($serviceId) 
     {
         $serviceTreeInfo = $null;        
