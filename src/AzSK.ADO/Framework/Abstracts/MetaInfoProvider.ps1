@@ -27,7 +27,7 @@ class MetaInfoProvider {
         #Getting call only once and set bUseADOInfoAPI
         $this.IsADOInfoAPIEnabled();
     }
-
+    
     #Return MetaInfoProvider instance
     hidden static [MetaInfoProvider] GetInstance() {
         return [MetaInfoProvider]::metaInfoInstance
@@ -193,70 +193,53 @@ class MetaInfoProvider {
 		{
 		   if (!$this.buildSTDetails -and $this.checkBuildSTFileOnServer) {
                 $this.buildSTDetails = [ConfigurationManager]::LoadServerConfigFile("BuildSTData.json");
-                #If file is fetch and return null from policy server
-                if (!$this.buildSTDetails) {
-                    $this.checkBuildSTFileOnServer = $false;
-                }
+                
+                $this.checkBuildSTFileOnServer = $false;
             }	
 		}
 
 		if ($ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
 		{
-			if (!$this.releaseSTDetails) {
+			if (!$this.releaseSTDetails -and $this.checkReleaseSTFileOnServer) {
                 $this.releaseSTDetails = [ConfigurationManager]::LoadServerConfigFile("ReleaseSTData.json");
 
-                #If file is fetch and return null from policy server
-                if (!$this.releaseSTDetails) {
-                    $this.checkReleaseSTFileOnServer = $false;
-                }
+                $this.checkReleaseSTFileOnServer = $false;
 			}
 		}
 
 		if ($ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
 		{
-			if (!$this.svcConnSTDetails) {
+			if (!$this.svcConnSTDetails -and $this.checkServiceConnectionSTFileOnServer) {
                 $this.svcConnSTDetails = [ConfigurationManager]::LoadServerConfigFile("ServiceConnectionSTData.json");
                 
-                #If file is fetch and return null from policy server
-                if (!$this.svcConnSTDetails) {
-                    $this.checkServiceConnectionSTFileOnServer = $false;
-                }
+                $this.checkServiceConnectionSTFileOnServer = $false;
 			}
 		}
 		if ($ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
 		{
-			if (!$this.agtPoolSTDetails) {
+			if (!$this.agtPoolSTDetails -and $this.checkAgentPoolSTFileOnServer) {
                 $this.agtPoolSTDetails = [ConfigurationManager]::LoadServerConfigFile("AgentPoolSTData.json");
                 
-                #If file is fetch and return null from policy server
-                if (!$this.agtPoolSTDetails) {
-                    $this.checkAgentPoolSTFileOnServer = $false;
-                }
+                $this.checkAgentPoolSTFileOnServer = $false;
 			}
 		}
 
 		if ($ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All))
 		{
-			if (!$this.varGroupSTDetails) {
+			if (!$this.varGroupSTDetails -and $this.checkVariableGroupSTFileOnServer) {
 				$this.varGroupSTDetails = [ConfigurationManager]::LoadServerConfigFile("VariableGroupSTData.json");
             }
-            
-            #If file is fetch and return null from policy server
-            if (!$this.varGroupSTDetails) {
-                $this.checkVariableGroupSTFileOnServer = $false;
-            }
+        
+            $this.checkVariableGroupSTFileOnServer = $false;
         }
         
         if ($ResourceTypeName -eq "ServiceTree")
 		{
-			if (!$this.serviceTreeDetails) {
+			if (!$this.serviceTreeDetails -and $this.checkServiceTreeFileOnServer) {
 				$this.serviceTreeDetails = [ConfigurationManager]::LoadServerConfigFile("ServiceTreeData.json");
             }
             
-            #If file is fetch and return null from policy server
-            if (!$this.serviceTreeDetails) {
-                $this.checkServiceTreeFileOnServer = $false;
-            }
+            $this.checkServiceTreeFileOnServer = $false;
 		}
     }
 
