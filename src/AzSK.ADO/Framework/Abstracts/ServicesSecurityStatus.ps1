@@ -23,8 +23,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		#If resource scan count is more than allowed foe scan (>1000) then stopping scan and returning.
 		if (!$this.Resolver.SVTResources) {
 			return;
-        }
-        $this.ActualResourceCount = $this.Resolver.SVTResources | Group-Object -Property ResourceType |select-object Name, Count           
+		}
+		$this.ActualResourceCount = $this.Resolver.SVTResources | Group-Object -Property ResourceType |select-object Name, Count           
 
 		$this.UsePartialCommits = $invocationContext.BoundParameters["UsePartialCommits"];
 
@@ -117,10 +117,10 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			if ($this.UsePartialCommits)
 			{
 				$resourceTypeCountHT = @{}
-                foreach ($resType in $this.ActualResourceCount) 
-                {
-                    $resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
-                }
+                        foreach ($resType in $this.ActualResourceCount) 
+				        {
+                            $resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
+				        }
 				
 				[AIOrgTelemetryHelper]::TrackCommandExecution("Actual Resources Count",
 					@{"RunIdentifier" = $this.RunIdentifier}, $resourceTypeCountHT, $this.InvocationContext);
@@ -272,7 +272,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 						ScanEndDateTime = $this.ScanEnd;
 						RunIdentifier = $this.RunIdentifier;
 					}
-					if ($memoryUsage -ne 0)
+					if ($memoryUsage -gt 0)
 					{
 						$properties += @{MemoryUsageInMB = $memoryUsage;}
 					}

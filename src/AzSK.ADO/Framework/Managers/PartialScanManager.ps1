@@ -436,11 +436,11 @@ class PartialScanManager
 			}
 		}
         elseif ($this.ScanSource -eq "CA" -and $this.IsDurableStorageFound) 
-		{
-			if ($this.IsRTFAlreadyAvailable) # Copy RTF from memory
-			{
-				$this.ControlStateBlob.ICloudBlob.UploadText([JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) )
-			}
+        {
+            if ($this.IsRTFAlreadyAvailable) # Copy RTF from memory
+            {
+                $this.ControlStateBlob.ICloudBlob.UploadText([JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) )
+            }
             else { # If file is not available in storage then upload it from local for the first instance
                 if ($null -ne $this.MasterFilePath -and -not (Test-Path $this.MasterFilePath))
                 {
@@ -449,8 +449,8 @@ class PartialScanManager
                     New-Item -ItemType Directory -Path $filePath
                     New-Item -Path $filePath -Name $this.ResourceScanTrackerFileName -ItemType "file" 
                 }
-				[JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.MasterFilePath -Force
-				Set-AzStorageBlobContent -File $this.MasterFilePath -Container $this.CAScanProgressSnapshotsContainerName -Blob (Join-Path $this.SubId.ToLower() $this.ResourceScanTrackerFileName) -BlobType Block -Context $this.StorageContext -Force
+                [JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.MasterFilePath -Force
+                Set-AzStorageBlobContent -File $this.MasterFilePath -Container $this.CAScanProgressSnapshotsContainerName -Blob (Join-Path $this.SubId.ToLower() $this.ResourceScanTrackerFileName) -BlobType Block -Context $this.StorageContext -Force
                 $this.ControlStateBlob = Get-AzStorageBlob -Container $this.CAScanProgressSnapshotsContainerName -Context $this.StorageContext -Blob (Join-Path $this.SubId.ToLower() $this.ResourceScanTrackerFileName) -ErrorAction SilentlyContinue
                 $this.IsRTFAlreadyAvailable = $true
 			}
