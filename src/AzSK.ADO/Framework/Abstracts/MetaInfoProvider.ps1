@@ -97,19 +97,19 @@ class MetaInfoProvider {
             $agentPoolList = @{};
 
             if ($this.buildSTDetails) {
-                $buildList = $this.buildSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
+                $buildList += $this.buildSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
             }
             if ($this.releaseSTDetails) {
-                $releaseList = $this.releaseSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
+                $releaseList += $this.releaseSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
             }
             if ($this.svcConnSTDetails) {
-                $svcConnList = $this.svcConnSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
+                $svcConnList += $this.svcConnSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
             }
             if ($this.agtPoolSTDetails) {
-                $agentPoolList = $this.agtPoolSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
+                $agentPoolList += $this.agtPoolSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
             }
             if ($this.varGroupSTDetails) {
-                $varGroupList = $this.varGroupSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
+                $varGroupList += $this.varGroupSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
             } 
             
             $rsrcList = @{
