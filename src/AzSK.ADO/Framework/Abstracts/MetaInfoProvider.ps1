@@ -1,6 +1,6 @@
 class MetaInfoProvider {
     hidden static [MetaInfoProvider] $metaInfoInstance = [MetaInfoProvider]::new()
-    static [MetaInfoProvider] $Instance = [MetaInfoProvider]::metaInfoInstance # [MetaInfoProvider]::GetInstance()
+    static [MetaInfoProvider] $Instance = [MetaInfoProvider]::GetInstance()
 
 	hidden [bool] $bUseADOInfoAPI 
 	hidden [string] $FuncAPI = '/api/getadoinfo'; 
