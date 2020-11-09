@@ -16,13 +16,16 @@ class MetaInfoProvider {
     hidden [PSObject] $serviceTreeDetails;
 
     hidden MetaInfoProvider() {
+        #Getting call only once and set bUseADOInfoAPI
         $this.IsADOInfoAPIEnabled();
     }
 
+    #Return MetaInfoProvider instance
     hidden static [MetaInfoProvider] GetInstance() {
         return [MetaInfoProvider]::metaInfoInstance
     }
 
+    #checking adoinfo api is enabled or not in org policy file
     [bool] IsADOInfoAPIEnabled()
 	{
         if ($null -eq $this.ControlSettings)
@@ -44,6 +47,7 @@ class MetaInfoProvider {
 		return $this.bUseADOInfoAPI;
 	}
 
+    #Calling adoinfo api and returning response
 	[PSObject] CallADOInfoAPI($queryString )
 	{
         $adoInfoInvokeURL = $this.baseURL + $this.FuncAPI + $queryString
@@ -63,7 +67,8 @@ class MetaInfoProvider {
         return $rsrcList;
 	}
     
-    [PSObject] FetchServiceAssociatedResources($svcId, $projectName, $ResourceTypeName)
+    #Fetching sesrvice id associated resources and internally calling adoinfo api if enabled else getting data from local org policy files
+    [PSObject] FetchServiceAssociatedResources($svcId, $projectName, $resourceTypeName)
     {
         $rsrcList = $null;
         if ($this.bUseADOInfoAPI -eq $true)
@@ -75,7 +80,7 @@ class MetaInfoProvider {
         }
         else 
         {
-            $this.FetchMappingFiles($ResourceTypeName);
+            $this.FetchMappingFiles($resourceTypeName);
 
             $buildList = @{};
             $releaseList = @{};
@@ -111,6 +116,7 @@ class MetaInfoProvider {
         return $rsrcList; 
     }
     
+    #Fetching service tree info details based on resource id and internally calling adoinfo api and loading resource file if enabled, else loading resource file from local org policy files
     [PSObject] FetchResourceMappingWithServiceData($rscId, $projectName, $resourceTypeName)
     {
         $serviceTreeInfo = $null;
@@ -147,6 +153,7 @@ class MetaInfoProvider {
         return $serviceTreeInfo; 
     }
 
+    #Binding adoinfo api response to class local variable
     hidden [void] BindADOInfoAPIResponseToSTMappingFiles($resourceList, $resourceTypeName)
     {
         if ($resourceTypeName -eq "Build") {
@@ -169,6 +176,7 @@ class MetaInfoProvider {
         }
     }
 
+    #Loading local org policy ST files
     [void] FetchMappingFiles($ResourceTypeName)
 	{
 		if ($ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
