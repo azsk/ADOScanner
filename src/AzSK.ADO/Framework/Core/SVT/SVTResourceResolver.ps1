@@ -576,180 +576,56 @@ class SVTResourceResolver: AzSKRoot {
     [void] FetchServiceAssociatedResources($svcId, $projectName)
     {
         $this.PublishCustomMessage("Getting service associated resources...");
-        $bUseADOInfoAPI = $false;
-        if ($this.ControlSettings -eq $null)
-        {
-            $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
-        }
-
-        $adoInfoAPI = $this.ControlSettings.ADOInfoAPI;
-        $code = $null
-        $baseURL=$null
-        if ($adoInfoAPI -ne $null -and $Env:AzSKADODoNotUseADOInfoAPI -ne $true)
-        {
-            if ($adoInfoAPI.Enabled)
-            {
-                $bUseADOInfoAPI = $true;
-                $code = $adoInfoAPI.Code;
-                $baseURL = $adoInfoAPI.Endpoint;
-            }
-        }
+        $metaInfo = [MetaInfoProvider]::Instance;
         
-        if ($bUseADOInfoAPI -eq $true)
+        $rsrcList = $metaInfo.FetchServiceAssociatedResources($svcId, $projectName, $this.ResourceTypeName);
+        $bFoundSvcMappedObjects = $false
+        if ($null -ne $rsrcList)
         {
-            $func='/api/getadoinfo'
-            $qs= "?svcId={0}" -f $svcId
-            $adoInfoInvokeURL= $baseURL + $func + $qs
-
-            $Header = @{
-                "x-functions-key" = $code;
-            }
-            $rsrcList = $null
-            <#
-            $sw = new-object system.diagnostics.stopwatch
-            $sw.start()
-            #>
-            try 
-            {
-                $rsrcList = Invoke-RestMethod -Method 'GET' -Uri $adoInfoInvokeURL -Headers $Header
-            }
-            catch
-            {
-                $this.PublishCustomMessage("Error calling ADO Info API at [$baseURL]. `r`nPlease contact your project's ADO security team.", [MessageType]::Error);
-                $this.PublishCustomMessage("Scan will not include service id mapped objects.", [MessageType]::Warning);
-            }
-            <#
-            $sw.stop()
-            $sw.Elapsed
-            $sw.Reset()
-            #>
-
-            #TODO: Look at cleaning up these multiple "-in" checks across the API_call-v-Policy_Repo cases...
-            #TODO-PERF: For now we are erring on the side of avoiding multiple network calls...revisit based on observed pattern of -svcid <xyz> usage
-            if ($rsrcList -ne $null)
-            {
-                $bFoundSvcMappedObjects = $false
-                if ($this.ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
-                {
-                    if ($rsrcList.Builds.Count -gt 0)
-                    {
-                        $this.BuildNames = $rsrcList.Builds.buildDefinitionName
-                        $bFoundSvcMappedObjects = $true
-                    } 
-                }
-        
-                if ($this.ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
-                {
-                    if ($rsrcList.Releases.Count -gt 0)
-                    {
-                        $this.ReleaseNames = $rsrcList.Releases.releaseDefinitionName
-                        $bFoundSvcMappedObjects = $true
-                    }
-                }
-        
-                if ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
-                {
-                    if ($rsrcList.SvcConns.Count -gt 0)
-                    {
-                        $this.ServiceConnections = $rsrcList.SvcConns.serviceConnectionName
-                        $bFoundSvcMappedObjects = $true
-                    }
-                }
-
-                if ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
-                {
-                    if ($rsrcList.AgentPools.Count -gt 0)
-                    {
-                        $this.AgentPools = $rsrcList.AgentPools.agentPoolName
-                        $bFoundSvcMappedObjects = $true
-                    }
-                }
-        
-                if ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All))
-                {
-                    if ($rsrcList.VarGroups.Count -gt 0)
-                    {
-                        $this.VariableGroups = $rsrcList.VarGroups.variableGroupName
-                        $bFoundSvcMappedObjects = $true
-                    }
-                }
-                if ($bFoundSvcMappedObjects -eq $false)
-                {
-                    $this.PublishCustomMessage("Could not find any objects mapped to the provided service id.", [MessageType]::Warning);
-                }
-            }
-        }
-        else 
-        {
-            $bFoundSvcMappedObjects = $false
             if ($this.ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
             {
-               if (!$this.buildSTDetails) {
-                    $this.buildSTDetails = [ConfigurationManager]::LoadServerConfigFile("BuildSTData.json");
-                    #$buildstData = $buildSTDetails.Data | Where-Object {$_.serviceId -eq $STDataForRepo[0].serviceID}
-                }
-                
-                $buildstData = $this.buildSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
-                if ($buildstData) {
-                    $this.BuildNames = $buildstData.buildDefinitionName
+                if ($rsrcList.Builds -and $rsrcList.Builds.Count -gt 0)
+                {
+                    $this.BuildNames = $rsrcList.Builds.buildDefinitionName
                     $bFoundSvcMappedObjects = $true
-                }
+                } 
             }
-    
             if ($this.ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
             {
-                if (!$this.releaseSTDetails) {
-                    $this.releaseSTDetails = [ConfigurationManager]::LoadServerConfigFile("ReleaseSTData.json");
-                }
-                
-                $relstData = $this.releaseSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
-                if ($relstData) {
-                    $this.ReleaseNames = $relstData.releaseDefinitionName
+                if ($rsrcList.Releases -and $rsrcList.Releases.Count -gt 0)
+                {
+                    $this.ReleaseNames = $rsrcList.Releases.releaseDefinitionName
                     $bFoundSvcMappedObjects = $true
                 }
             }
-    
             if ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
             {
-                if (!$this.svcConnSTDetails) {
-                    $this.svcConnSTDetails = [ConfigurationManager]::LoadServerConfigFile("ServiceConnectionSTData.json");
-                }
-                
-                $svcConnData = $this.svcConnSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
-                if ($svcConnData) {
-                    $this.ServiceConnections = $svcConnData.serviceConnectionName
+                if ($rsrcList.SvcConns -and $rsrcList.SvcConns.Count -gt 0)
+                {
+                    $this.ServiceConnections = $rsrcList.SvcConns.serviceConnectionName
                     $bFoundSvcMappedObjects = $true
                 }
             }
             if ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
             {
-                if (!$this.agtPoolSTDetails) {
-                    $this.agtPoolSTDetails = [ConfigurationManager]::LoadServerConfigFile("AgentPoolSTData.json");
-                }
-                
-                $agtPoolData = $this.agtPoolSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
-                if ($agtPoolData) {
-                    $this.AgentPools = $agtPoolData.agentPoolName
+                if ($rsrcList.AgentPools -and $rsrcList.AgentPools.Count -gt 0)
+                {
+                    $this.AgentPools = $rsrcList.AgentPools.agentPoolName
                     $bFoundSvcMappedObjects = $true
                 }
             }
-    
             if ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All))
             {
-                if (!$this.varGroupSTDetails) {
-                    $this.varGroupSTDetails = [ConfigurationManager]::LoadServerConfigFile("VariableGroupSTData.json");
-                }
-                
-                $varGrpData = $this.varGroupSTDetails.Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
-                if ($varGrpData) {
-                    $this.VariableGroups = $varGrpData.variableGroupName
+                if ($rsrcList.VarGroups -and $rsrcList.VarGroups.Count -gt 0)
+                {
+                    $this.VariableGroups = $rsrcList.VarGroups.variableGroupName
                     $bFoundSvcMappedObjects = $true
                 }
-            }      
-            if ($bFoundSvcMappedObjects -eq $false)
-            {
-                $this.PublishCustomMessage("Could not find any objects mapped to the provided service id.", [MessageType]::Warning);
-            }      
+            }
+        }
+        if ($bFoundSvcMappedObjects -eq $false)
+        {
+            $this.PublishCustomMessage("Could not find any objects mapped to the provided service id.", [MessageType]::Warning);
         }
     }
     #check for PCA group members

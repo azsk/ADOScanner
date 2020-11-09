@@ -23,19 +23,19 @@ class AutoBugLog {
     #main function where bug logging takes place 
     hidden [void] LogBugInADO([SVTEventContext[]] $ControlResults, [string] $BugLogParameterValue) {
         #check if user has permissions to log bug for the current resource
-        if ($this.CheckPermsForBugLog($ControlResults[0])) {
+        if (($ControlResults.ControlResults.VerificationResult -contains "Failed" -or $ControlResults.ControlResults.VerificationResult -contains "Verify") -and $this.CheckPermsForBugLog($ControlResults[0])) {
             #retrieve the project name for the current resource
             $ProjectName = $this.GetProjectForBugLog($ControlResults[0])
 
             #check if the area and iteration path are valid
             #flag to check if pluggable bug logging interface (service tree)
             $isBugLogCustomFlow = $false;
-            if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "BugAssigneeAndPathCustomFlow", $null)) {
-                $isBugLogCustomFlow = $this.ControlSettings.BugLogging.BugAssigneeAndPathCustomFlow;
-                if ($isBugLogCustomFlow) {
-                    [BugMetaInfoProvider]::Initialize();
-                }
-            } 
+            #if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "BugAssigneeAndPathCustomFlow", $null)) {
+            #    $isBugLogCustomFlow = $this.ControlSettings.BugLogging.BugAssigneeAndPathCustomFlow;
+            #    if ($isBugLogCustomFlow) {
+            #        [BugMetaInfoProvider]::Initialize();
+            #    }
+            #} 
             if ([BugLogPathManager]::CheckIfPathIsValid($this.SubscriptionContext.SubscriptionName,$ProjectName,$this.InvocationContext,  $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $isBugLogCustomFlow)) {
                 #Obtain the assignee for the current resource, will be same for all the control failures for this particular resource
                 $AssignedTo = $this.GetAssignee($ControlResults[0])
@@ -268,7 +268,7 @@ class AutoBugLog {
     hidden [string] GetAssignee([SVTEventContext[]] $ControlResult) 
     {
         $metaProviderObj = [BugMetaInfoProvider]::new();        
-        return $metaProviderObj.GetAssignee($ControlResult, $this.InvocationContext, $this.ControlSettings.BugLogging);   
+        return $metaProviderObj.GetAssignee($ControlResult, $this.ControlSettings.BugLogging);   
     }
 
     #function to map severity of the control item
