@@ -27,7 +27,7 @@ class MetaInfoProvider {
         #Getting call only once and set bUseADOInfoAPI
         $this.IsADOInfoAPIEnabled();
     }
-    
+
     #Return MetaInfoProvider instance
     hidden static [MetaInfoProvider] GetInstance() {
         return [MetaInfoProvider]::metaInfoInstance
@@ -227,19 +227,19 @@ class MetaInfoProvider {
 		if ($ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All))
 		{
 			if (!$this.varGroupSTDetails -and $this.checkVariableGroupSTFileOnServer) {
-				$this.varGroupSTDetails = [ConfigurationManager]::LoadServerConfigFile("VariableGroupSTData.json");
+                $this.varGroupSTDetails = [ConfigurationManager]::LoadServerConfigFile("VariableGroupSTData.json");
+                $this.checkVariableGroupSTFileOnServer = $false;
+                
             }
         
-            $this.checkVariableGroupSTFileOnServer = $false;
         }
         
         if ($ResourceTypeName -eq "ServiceTree")
 		{
 			if (!$this.serviceTreeDetails -and $this.checkServiceTreeFileOnServer) {
-				$this.serviceTreeDetails = [ConfigurationManager]::LoadServerConfigFile("ServiceTreeData.json");
+                $this.serviceTreeDetails = [ConfigurationManager]::LoadServerConfigFile("ServiceTreeData.json");
+                $this.checkServiceTreeFileOnServer = $false;
             }
-            
-            $this.checkServiceTreeFileOnServer = $false;
 		}
     }
 
