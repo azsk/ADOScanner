@@ -110,34 +110,34 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					
 		$this.PublishCustomMessage("`nNumber of resources for which security controls will be evaluated: $($automatedResources.Count)",[MessageType]::Info);
 		
-		if ($this.IsAIEnabled)
-		{
-			$this.StopWatch = New-Object System.Diagnostics.Stopwatch
-			#Send Telemetry for actual resource count. This is being done to monitor perf issues in ADOScanner internally
-			if ($this.UsePartialCommits)
-			{
-				$resourceTypeCountHT = @{}
-                        foreach ($resType in $this.ActualResourceCount) 
-				        {
-                            $resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
-				        }
+        if ($this.IsAIEnabled)
+        {
+            $this.StopWatch = New-Object System.Diagnostics.Stopwatch
+            #Send Telemetry for actual resource count. This is being done to monitor perf issues in ADOScanner internally
+            if ($this.UsePartialCommits)
+            {
+                $resourceTypeCountHT = @{}
+                foreach ($resType in $this.ActualResourceCount) 
+                {
+                    $resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
+                }
 				
 				[AIOrgTelemetryHelper]::TrackCommandExecution("Actual Resources Count",
 					@{"RunIdentifier" = $this.RunIdentifier}, $resourceTypeCountHT, $this.InvocationContext);
-			}
-			#Send Telemetry for target resource count (after partial commits has been checked). This is being done to monitor perf issues in ADOScanner internally
-			$resourceTypeCount =$automatedResources | Group-Object -Property ResourceType |select-object Name, Count
-			$resourceTypeCountHT = @{}
-					foreach ($resType in $resourceTypeCount) 
-					{
-						$resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
-					}
+            }
+            #Send Telemetry for target resource count (after partial commits has been checked). This is being done to monitor perf issues in ADOScanner internally
+            $resourceTypeCount =$automatedResources | Group-Object -Property ResourceType |select-object Name, Count
+            $resourceTypeCountHT = @{}
+            foreach ($resType in $resourceTypeCount) 
+            {
+                $resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
+            }
             $memoryUsage = [System.Diagnostics.Process]::GetCurrentProcess().PrivateMemorySize64 / [Math]::Pow(10,6)
             $resourceTypeCountHT += @{MemoryUsageInMB = $memoryUsage}
 			
-			[AIOrgTelemetryHelper]::TrackCommandExecution("Target Resources Count",
-				@{"RunIdentifier" = $this.RunIdentifier}, $resourceTypeCountHT, $this.InvocationContext);
-		}
+            [AIOrgTelemetryHelper]::TrackCommandExecution("Target Resources Count",
+                @{"RunIdentifier" = $this.RunIdentifier}, $resourceTypeCountHT, $this.InvocationContext);
+        }
 
 		$totalResources = $automatedResources.Count;
 		[int] $currentCount = 0;
