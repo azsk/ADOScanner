@@ -115,9 +115,9 @@ class MetaInfoProvider {
             $rsrcList = @{
                 Builds = $buildList
                 Releases = $releaseList
-                SvcConns = $svcConnList
-                VarGroups = $varGroupList
+                ServiceConnections = $svcConnList
                 AgentPools = $agentPoolList
+                VariableGroups = $varGroupList
             }
 
         }
