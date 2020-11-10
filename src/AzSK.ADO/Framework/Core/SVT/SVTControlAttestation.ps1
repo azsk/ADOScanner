@@ -167,7 +167,7 @@ class SVTControlAttestation
 							[datetime]$proposedExceptionApprovalExpiryDate = $this.attestOptions.ApprovedExceptionExpiryDate
 							if($proposedExceptionApprovalExpiryDate -le [DateTime]::UtcNow) 
 							{
-								Write-Host "ExpiryDate should be greater than current date. To attest control using ApprovedException status add ApprovedExceptionExpiryDate parameter. Please provide this param in the command with mm/dd/yy date format. For example: -ApprovedExceptionExpiryDate '11/25/20'" -ForegroundColor Yellow;
+								Write-Host "ExpiryDate should be greater than current date. To attest control using 'ApprovedException' status use '-ApprovedExceptionExpiryDate' parameter to specify the expiry date. Please provide this param in the command with mm/dd/yy date format. For example: -ApprovedExceptionExpiryDate '11/25/20'" -ForegroundColor Yellow;
 								break;
 							}
 							elseif($proposedExceptionApprovalExpiryDate -gt $maxAllowedExceptionApprovalExpiryDate)
@@ -311,7 +311,7 @@ class SVTControlAttestation
 
 									if($proposedExceptionApprovalExpiryDate -le [DateTime]::UtcNow) 
 									{
-										Write-Host "ExpiryDate should be greater than current date. To attest control using ApprovedException status add ApprovedExceptionExpiryDate parameter. Please provide this param in the command with mm/dd/yy date format. For example: -ApprovedExceptionExpiryDate '11/25/20'" -ForegroundColor Yellow;
+										Write-Host "ExpiryDate should be greater than current date. To attest control using 'ApprovedException' status use '-ApprovedExceptionExpiryDate' parameter to specify the expiry date. Please provide this param in the command with mm/dd/yy date format. For example: -ApprovedExceptionExpiryDate '11/25/20'" -ForegroundColor Yellow;
 										break;
 									}
 									elseif($proposedExceptionApprovalExpiryDate -gt $maxAllowedExceptionApprovalExpiryDate)
