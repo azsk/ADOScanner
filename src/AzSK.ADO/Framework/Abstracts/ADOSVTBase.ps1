@@ -306,11 +306,11 @@ class ADOSVTBase: SVTBase {
 				#Calculating the expiry in days for exempt controls
 				if (($controlState.AttestationStatus -eq "ApprovedException") -and [String]::IsNullOrEmpty($controlState.State.ExpiryDate))
 				{
-					$numberOfDays = 180
+					$expiryPeriod = $this.ControlSettings.DefaultAttestationPeriodForExemptControl
 					if ([string]::IsNullOrWhiteSpace($this.ControlSettings.DefaultAttestationPeriodForExemptControl)){
 						$numberOfDays = $this.ControlSettings.DefaultAttestationPeriodForExemptControl
 					}
-					$expiryDate = ($controlState.State.AttestedDate).AddDays($numberOfDays)
+					$expiryDate = ($controlState.State.AttestedDate).AddDays($expiryPeriod)
 				}
 				else
 				{
