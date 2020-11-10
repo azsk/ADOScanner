@@ -56,7 +56,7 @@ function Set-AzSKADOWebhookSettings
         [Alias("aswc")]
         $AllowSelfSignedWebhookCertificate = [TertiaryBool]::NotSet,
 
-        [Parameter(Mandatory = $true, HelpMessage="Use -Disable option to clear the Webhook settings for the current instance.", ParameterSetName = "Disable")]
+        [Parameter(Mandatory = $false, HelpMessage="Use -Disable option to clear the Webhook settings for the current instance.", ParameterSetName = "Disable")]
         [switch]
         [Alias("dsbl")]
         $Disable
