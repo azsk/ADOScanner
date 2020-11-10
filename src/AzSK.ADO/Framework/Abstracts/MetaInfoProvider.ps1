@@ -137,8 +137,7 @@ class MetaInfoProvider {
                 #call adoinfoapi only if STDetails files is not already loaded.
                 if ( ($resourceTypeName -eq "Build" -and !$this.buildSTDetails) -or ($resourceTypeName -eq "Release" -and !$this.releaseSTDetails) -or ($resourceTypeName -eq "ServiceConnection" -and !$this.svcConnSTDetails) -or ($resourceTypeName -eq "AgentPool" -and !$this.agtPoolSTDetails)  -or ($resourceTypeName -eq "VariableGroupp" -and !$this.varGroupSTDetails) ) {
                     $rsrcList = $this.CallADOInfoAPI($qs);
-                    $apiReturnedResourceTypeName = $resourceTypeName+"s";
-                    if ($rsrcList -and ( [Helpers]::CheckMember($rsrcList, "$apiReturnedResourceTypeName") -and $rsrcList."$apiReturnedResourceTypeName") ) {
+                    if ($rsrcList -and ( [Helpers]::CheckMember($rsrcList, "Data") -and $rsrcList.Data) ) {
                         $this.BindADOInfoAPIResponseToSTMappingFiles($rsrcList, $resourceTypeName);
                     }
                     #If not get files from adoinfoapi, take then from local org policy files. 
@@ -165,22 +164,22 @@ class MetaInfoProvider {
     hidden [void] BindADOInfoAPIResponseToSTMappingFiles($resourceList, $resourceTypeName)
     {
         if ($resourceTypeName -eq "Build") {
-            $this.buildSTDetails = $resourceList.Builds;
+            $this.buildSTDetails = $resourceList;
         }
         elseif ($resourceTypeName -eq "Release") {
-            $this.releaseSTDetails = $resourceList.Releases;
+            $this.releaseSTDetails = $resourceList;
         }
         elseif ($resourceTypeName -eq "ServiceConnection") {
-            $this.svcConnSTDetails = $resourceList.ServiceConnections;
+            $this.svcConnSTDetails = $resourceList;
         }
         elseif ($resourceTypeName -eq "AgentPool") {
-            $this.agtPoolSTDetails = $resourceList.AgentPools;
+            $this.agtPoolSTDetails = $resourceList;
         }
         elseif ($resourceTypeName -eq "VariableGroup") {
-            $this.varGroupSTDetails = $resourceList.VariableGroups;
+            $this.varGroupSTDetails = $resourceList;
         }
         elseif ($resourceTypeName -eq "ServiceTree") {
-            $this.serviceTreeDetails = $resourceList.ServiceTree;
+            $this.serviceTreeDetails = $resourceList;
         }
     }
 
@@ -298,10 +297,10 @@ class MetaInfoProvider {
         $serviceTreeInfo = $null;        
         if (!$this.serviceTreeDetails) 
         {
-            $qs = "?ResourceType=ServiceTree";
             if ($this.bUseADOInfoAPI -eq $true) {
+                $qs = "?ResourceType=ServiceTree";
                 $rsrcList = $this.CallADOInfoAPI($qs);
-                if ($rsrcList -and [Helpers]::CheckMember($rsrcList, "serviceTreeDetails") -and $rsrcList.serviceTreeDetails) {
+                if ($rsrcList -and [Helpers]::CheckMember($rsrcList, "Data") -and $rsrcList.Data) {
                     $this.BindADOInfoAPIResponseToSTMappingFiles($rsrcList, "ServiceTree");
                 }
                 #If not get file from adoinso api, get it from local org policy file.
