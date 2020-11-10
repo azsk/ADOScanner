@@ -8,6 +8,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	[Datetime] $ScanEnd
 	[bool] $IsAIEnabled = $false;
 	[bool] $IsBugLoggingEnabled = $false;
+	$ActualResourcesPerRsrcType = @(); # Resources count based on resource type . This count is evaluated before comparison with resource tracker file.
 
 	ServicesSecurityStatus([string] $subscriptionId, [InvocationInfo] $invocationContext, [SVTResourceResolver] $resolver):
         Base($subscriptionId, $invocationContext)
@@ -23,6 +24,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if (!$this.Resolver.SVTResources) {
 			return;
 		}
+		$this.ActualResourcesPerRsrcType = $this.Resolver.SVTResources | Group-Object -Property ResourceType |select-object Name, Count           
+
 		$this.UsePartialCommits = $invocationContext.BoundParameters["UsePartialCommits"];
 
 		#BaseLineControlFilter with control ids
@@ -107,35 +110,34 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					
 		$this.PublishCustomMessage("`nNumber of resources for which security controls will be evaluated: $($automatedResources.Count)",[MessageType]::Info);
 		
-		if ($this.IsAIEnabled)
-		{
-			$this.StopWatch = New-Object System.Diagnostics.Stopwatch
-			#Send Telemetry for actual resource count. This is being done to monitor perf issues in ADOScanner internally
-			if ($this.UsePartialCommits)
-			{
-				$resourceTypeCount =$this.Resolver.SVTResources | Group-Object -Property ResourceType |select-object Name, Count
-				$resourceTypeCountHT = @{}
-						foreach ($resType in $resourceTypeCount) 
-						{
-							$resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
-						}
+        if ($this.IsAIEnabled)
+        {
+            $this.StopWatch = New-Object System.Diagnostics.Stopwatch
+            #Send Telemetry for actual resource count. This is being done to monitor perf issues in ADOScanner internally
+            if ($this.UsePartialCommits)
+            {
+                $resourceTypeCountHT = @{}
+                foreach ($resType in $this.ActualResourcesPerRsrcType) 
+                {
+                    $resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
+                }
 				
 				[AIOrgTelemetryHelper]::TrackCommandExecution("Actual Resources Count",
 					@{"RunIdentifier" = $this.RunIdentifier}, $resourceTypeCountHT, $this.InvocationContext);
-			}
-			#Send Telemetry for target resource count (after partial commits has been checked). This is being done to monitor perf issues in ADOScanner internally
-			$resourceTypeCount =$automatedResources | Group-Object -Property ResourceType |select-object Name, Count
-			$resourceTypeCountHT = @{}
-					foreach ($resType in $resourceTypeCount) 
-					{
-						$resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
-					}
+            }
+            #Send Telemetry for target resource count (after partial commits has been checked). This is being done to monitor perf issues in ADOScanner internally
+            $resourceTypeCount =$automatedResources | Group-Object -Property ResourceType |select-object Name, Count
+            $resourceTypeCountHT = @{}
+            foreach ($resType in $resourceTypeCount) 
+            {
+                $resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
+            }
             $memoryUsage = [System.Diagnostics.Process]::GetCurrentProcess().PrivateMemorySize64 / [Math]::Pow(10,6)
             $resourceTypeCountHT += @{MemoryUsageInMB = $memoryUsage}
 			
-			[AIOrgTelemetryHelper]::TrackCommandExecution("Target Resources Count",
-				@{"RunIdentifier" = $this.RunIdentifier}, $resourceTypeCountHT, $this.InvocationContext);
-		}
+            [AIOrgTelemetryHelper]::TrackCommandExecution("Target Resources Count",
+                @{"RunIdentifier" = $this.RunIdentifier}, $resourceTypeCountHT, $this.InvocationContext);
+        }
 
 		$totalResources = $automatedResources.Count;
 		[int] $currentCount = 0;
@@ -270,7 +272,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 						ScanEndDateTime = $this.ScanEnd;
 						RunIdentifier = $this.RunIdentifier;
 					}
-					if ($memoryUsage -ne 0)
+					if ($memoryUsage -gt 0)
 					{
 						$properties += @{MemoryUsageInMB = $memoryUsage;}
 					}

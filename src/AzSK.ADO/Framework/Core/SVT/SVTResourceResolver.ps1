@@ -518,8 +518,8 @@ class SVTResourceResolver: AzSKRoot {
                 #sending the details to telemetry as well
                 if ($TotalSvc -gt 0)
                 {
-                    $this.PublishCustomMessage("Total service connections: $TotalSvc");
-                    $this.PublishCustomMessage("Total service connections that will be scanned: $ScannableSvc");
+                    #$this.PublishCustomMessage("Total service connections: $TotalSvc");
+                    #$this.PublishCustomMessage("Total service connections that will be scanned: $ScannableSvc");
 
                     $properties =  @{ 
                         "TotalServiceConnections" = $TotalSvc;
