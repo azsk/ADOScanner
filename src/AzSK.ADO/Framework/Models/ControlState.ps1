@@ -28,7 +28,7 @@ class ControlState
 	[VerificationResult] $EffectiveVerificationResult
 	[AttestationStatus] $AttestationStatus = [AttestationStatus]::None
 	[string] $Version
-}
+}	
 
 class ControlStateIndexer
 {
