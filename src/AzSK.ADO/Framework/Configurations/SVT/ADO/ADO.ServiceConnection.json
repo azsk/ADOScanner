@@ -77,7 +77,7 @@
       "Id": "ServiceConnection150",
       "ControlSeverity": "High",
       "Automated": "Yes",
-      "MethodName": "CheckClassConnections",
+      "MethodName": "CheckClassicConnection",
       "Rationale": "You should use new ARM/v2 resources as the ARM model provides several security enhancements such as: stronger access control (RBAC), better auditing, ARM-based deployment/governance, access to managed identities, access to key vault for secrets, AAD-based authentication, support for tags and resource groups for easier security management, etc.",
       "Recommendation": "Migrate each v1/ASM-based service connections to a corresponding v2/ARM-based connection. Refer: https://docs.microsoft.com/en-us/azure/virtual-machines/windows/migration-classic-resource-manager-overview",
       "Tags": [

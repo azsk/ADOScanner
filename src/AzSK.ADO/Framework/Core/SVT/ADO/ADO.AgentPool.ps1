@@ -112,6 +112,8 @@ class AgentPool: ADOSVTBase
                 $inactiveLimit = $this.ControlSettings.AgentPool.AgentPoolHistoryPeriodInDays
                 #Filtering agent pool jobs specific to the current project.
                 $agentPoolJobs = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs | Where-Object {$_.scopeId -eq $this.ProjectId};
+                 #Arranging in descending order of run time.
+                $agentPoolJobs = $agentPoolJobs | Sort-Object queueTime -Descending
                 #If agent pool has been queued at least once
                 if (($agentPoolJobs | Measure-Object).Count -gt 0) 
                 {
