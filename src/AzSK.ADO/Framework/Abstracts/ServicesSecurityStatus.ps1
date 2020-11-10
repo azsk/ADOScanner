@@ -8,7 +8,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	[Datetime] $ScanEnd
 	[bool] $IsAIEnabled = $false;
 	[bool] $IsBugLoggingEnabled = $false;
-	$ActualResourceCount = @();
+	$ActualResourcesPerResType = @(); # Resources count based on resource type . This count is evaluated before comparison with resource tracker file.
 
 	ServicesSecurityStatus([string] $subscriptionId, [InvocationInfo] $invocationContext, [SVTResourceResolver] $resolver):
         Base($subscriptionId, $invocationContext)
@@ -24,7 +24,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if (!$this.Resolver.SVTResources) {
 			return;
 		}
-		$this.ActualResourceCount = $this.Resolver.SVTResources | Group-Object -Property ResourceType |select-object Name, Count           
+		$this.ActualResourcesPerResType = $this.Resolver.SVTResources | Group-Object -Property ResourceType |select-object Name, Count           
 
 		$this.UsePartialCommits = $invocationContext.BoundParameters["UsePartialCommits"];
 
@@ -117,7 +117,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
             if ($this.UsePartialCommits)
             {
                 $resourceTypeCountHT = @{}
-                foreach ($resType in $this.ActualResourceCount) 
+                foreach ($resType in $this.ActualResourcesPerResType) 
                 {
                     $resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
                 }
