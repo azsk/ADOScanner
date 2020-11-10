@@ -644,10 +644,10 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckBuildAuthZScope([ControlResult] $controlResult)
     {
-        #Skip this control validation for yaml based pipelines.  the job access token is always project collection scoped for yam based pipelines
+        #Skip this control validation for yaml based pipelines. Access token of YAML based build pipeline can not be edited by pipeline owner. It can only be restricted at either organization or project level.
         if([Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename"))
         {
-            $controlResult.AddMessage([VerificationResult]::NotScanned,"The job access token is always project collection scoped for yaml based pipelines.");
+            $controlResult.AddMessage([VerificationResult]::NotScanned,"Access token of YAML based build pipeline can not be edited by pipeline owner. It can only be restricted at either organization or project level.");
         } 
         else {
             if([Helpers]::CheckMember($this.BuildObj[0],"jobAuthorizationScope"))
