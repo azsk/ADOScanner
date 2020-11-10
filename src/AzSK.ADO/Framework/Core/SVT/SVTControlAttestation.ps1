@@ -421,10 +421,10 @@ class SVTControlAttestation
 			}
 			
 			if ($this.attestOptions.AttestationStatus -eq "ApprovedException" -and  [string]::IsNullOrWhiteSpace($this.attestOptions.ApprovedExceptionID)) {
-				Write-Host "Exception id is mandatory for approved exception" -ForegroundColor Cyan
+				Write-Host "Exception id is mandatory for approved exception." -ForegroundColor Cyan
 				$exceptionId = Read-Host "Please enter the approved exception id"
 				if ([string]::IsNullOrWhiteSpace($exceptionId)) {
-					Write-Host "Exception id is mandatory for approved exception" -ForegroundColor Red
+					Write-Host "Exception id is mandatory for approved exception." -ForegroundColor Red
 					break;
 				}
 				$this.attestOptions.ApprovedExceptionID = $exceptionId
