@@ -80,6 +80,7 @@
         'Set-AzSKADOMonitoringSettings',
         'Clear-AzSKADOSessionState',
         'Set-AzSKADOPolicySettings',
+        'Set-AzSKADOWebhookSettings',
         'Set-AzSKADOPrivacyNoticeResponse',
         'Install-AzSKADOMonitoringSolution',
         'Set-AzSKADOPolicySettings',
