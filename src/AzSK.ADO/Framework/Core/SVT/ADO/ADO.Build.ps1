@@ -197,7 +197,24 @@ class Build: ADOSVTBase
 
         $orgURL='https://{0}.visualstudio.com/{1}/_build?view=folders' -f $($this.SubscriptionContext.SubscriptionName),$($this.BuildObj.project.name)
         $inputbody="{'contributionIds':['ms.vss-build-web.pipelines-data-provider'],'dataProviderContext':{'properties':{'definitionIds':'$($this.BuildObj.id)','sourcePage':{'url':'$orgURL','routeId':'ms.vss-build-web.pipelines-hub-route','routeValues':{'project':'$($this.BuildObj.project.name)','viewname':'pipelines','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+
+        $sw = [System.Diagnostics.Stopwatch]::StartNew();
         $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+        $sw.Stop()
+
+        #Below code added to send perf telemtry
+        if ($this.IsAIEnabled)
+        {
+            $properties =  @{ 
+                TimeTakenInMs = $sw.ElapsedMilliseconds;
+                ApiUrl = $apiURL; 
+                Resourcename = $this.ResourceContext.ResourceName;
+                ResourceType = $this.ResourceContext.ResourceType;
+                PartialScanIdentifier = $this.PartialScanIdentifier;
+                CalledBy = "CheckForInactiveBuilds";
+            }
+            [AIOrgTelemetryHelper]::PublishEvent( "Api Call Trace",$properties, @{})
+        }
 
         if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider' -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider',"pipelines") -and  $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines)
         {
@@ -243,8 +260,26 @@ class Build: ADOSVTBase
             {
                 # Here 'permissionSet' = security namespace identifier, 'token' = project id and 'tokenDisplayVal' = build name
                 $apiURL = "https://{0}.visualstudio.com/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&tokenDisplayVal={5}&style=min" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($this.BuildObj.id), $($this.BuildObj.name) ;
+
+                $sw = [System.Diagnostics.Stopwatch]::StartNew();
                 $header = [WebRequestHelper]::GetAuthHeaderFromUri($apiURL);
                 $responseObj = Invoke-RestMethod -Method Get -Uri $apiURL -Headers $header -UseBasicParsing
+                $sw.Stop()
+
+                #Below code added to send perf telemtry
+                if ($this.IsAIEnabled)
+                {
+                    $properties =  @{ 
+                        TimeTakenInMs = $sw.ElapsedMilliseconds;
+                        ApiUrl = $apiURL; 
+                        Resourcename = $this.ResourceContext.ResourceName;
+                        ResourceType = $this.ResourceContext.ResourceType;
+                        PartialScanIdentifier = $this.PartialScanIdentifier;
+                        CalledBy = "CheckInheritedPermissions";
+                    }
+                    [AIOrgTelemetryHelper]::PublishEvent( "Api Call Trace",$properties, @{})
+                }
+                
                 $responseObj = ($responseObj.SelectNodes("//script") | Where-Object { $_.class -eq "permissions-context" }).InnerXML | ConvertFrom-Json; 
                 if($responseObj -and [Helpers]::CheckMember($responseObj,"inheritPermissions") -and $responseObj.inheritPermissions -eq $true)
                 {
@@ -276,9 +311,27 @@ class Build: ADOSVTBase
             # Here 'permissionSet' = security namespace identifier, 'token' = project id and 'tokenDisplayVal' = build name
             $buildDefinitionPath = $this.BuildObj.Path.Trim("\").Replace(" ","+").Replace("\","%2F")
             $apiURL = "https://{0}.visualstudio.com/{1}/_api/_security/ReadExplicitIdentitiesJson?__v=5&permissionSetId={2}&permissionSetToken={3}%2F{4}%2F{5}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
+
+            $sw = [System.Diagnostics.Stopwatch]::StartNew();
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            $sw.Stop()
+
             $accessList = @()
             $exemptedUserIdentities = @()
+
+            #Below code added to send perf telemtry
+            if ($this.IsAIEnabled)
+            {
+                $properties =  @{ 
+                    TimeTakenInMs = $sw.ElapsedMilliseconds;
+                    ApiUrl = $apiURL; 
+                    Resourcename = $this.ResourceContext.ResourceName;
+                    ResourceType = $this.ResourceContext.ResourceType;
+                    PartialScanIdentifier = $this.PartialScanIdentifier;
+                    CalledBy = "CheckRBACAccess";
+                }
+                [AIOrgTelemetryHelper]::PublishEvent( "Api Call Trace",$properties, @{})
+            }
 
             # Step2: Fetch detailed permissions of each of group/user from above api call
             # To be evaluated only when -DetailedScan flag is used in GADS command along with control ids  or when controls are to be attested
