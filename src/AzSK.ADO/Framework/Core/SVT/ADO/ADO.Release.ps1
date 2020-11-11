@@ -635,12 +635,13 @@ class Release: ADOSVTBase
         #filter task groups in each such env.
         $releaseEnv | ForEach-Object {
             #Task groups have type 'metaTask' whereas individual tasks have type 'task'
-            if(([Helpers]::CheckMember($_.deployPhases[0].workflowTasks,"definitiontype")) -and ($_.deployPhases[0].workflowTasks.definitiontype -eq 'metaTask'))
-            {
-                $taskGroups += $_.deployPhases[0].workflowTasks
+            $_.deployPhases[0].workflowTasks | ForEach-Object { 
+                if(([Helpers]::CheckMember($_ ,"definitiontype")) -and ($_.definitiontype -eq 'metaTask'))
+                {
+                    $taskGroups += $_
+                }              
             }
         } 
-
         #Filtering unique task groups used in release pipeline.
         $taskGroups = $taskGroups | Sort-Object -Property taskId -Unique
 
