@@ -292,7 +292,13 @@ class AutoBugLog {
             'High' {
                 $Severity = "2 - High"
             }
+	    'Important' {
+                $Severity = "2 - High"
+            }
             'Medium' {
+                $Severity = "3 - Medium"
+            }
+	    'Moderate' {
                 $Severity = "3 - Medium"
             }
             'Low' {
