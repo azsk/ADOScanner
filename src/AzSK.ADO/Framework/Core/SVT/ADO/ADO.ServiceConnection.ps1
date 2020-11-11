@@ -311,17 +311,18 @@ class ServiceConnection: ADOSVTBase
         return $controlResult;
     }
 
-    hidden [ControlResult] CheckServiceConnectionForPATOrAuth([ControlResult] $controlResult)
+    hidden [ControlResult] CheckServiceConnectionForPATOrOAuth([ControlResult] $controlResult)
     {
         if([Helpers]::CheckMember($this.ServiceEndpointsObj, "authorization.scheme"))
         {
+            #Nov 2020 - Currently, authorizing using OAuth, permissions are fixed (high privileges by default) and can not be modified. If authorized using PAT, we can not determine whether it is a full scope or custom access scope token.
             if( $this.ServiceEndpointsObj.authorization.scheme -eq "OAuth")
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Service connection $($this.ServiceEndpointsObj.name) is authenticated via $($this.ServiceEndpointsObj.authorization.scheme)");
+                $controlResult.AddMessage([VerificationResult]::Verify, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Service connection $($this.ServiceEndpointsObj.name) is authenticated via $($this.ServiceEndpointsObj.authorization.scheme)");
+                $controlResult.AddMessage([VerificationResult]::Verify, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
             }
         }
         return $controlResult;

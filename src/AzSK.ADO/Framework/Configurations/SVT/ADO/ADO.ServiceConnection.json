@@ -157,14 +157,14 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_ServiceConnection_AuthZ_PAT_Or_Auth",
-      "Description": "Justify GitHub service connections are authenticated with full scope GitHub PATs instead of the OAuth flow.",
+      "ControlID": "ADO_ServiceConnection_AuthZ_PAT_Or_OAuth",
+      "Description": "Review permissions granted to the GitHub connections.",
       "Id": "ServiceConnection200",
       "ControlSeverity": "High",
       "Automated": "Yes",
-      "MethodName": "CheckServiceConnectionForPATOrAuth",
-      "Rationale": "Full scope PAT exposes the environment to a full account compromise. The OAuth flow creates a token that only allows source code and webhook read/write access on GitHub. The impact of losing control of a scoped OAuth token is far lower.",
-      "Recommendation": "Go to Project Settings --> Service Connections --> Select Service Connection --> Select Edit --> Verify connection authentication type.",
+      "MethodName": "CheckServiceConnectionForPATOrOAuth",
+      "Rationale": "GitHub service connections can use either PAT or OAuth authorization grants. In either case, it is not a good security practice to use full access to GitHub. Always review the permission granted to such service connections.",
+      "Recommendation": "Go to Project Settings --> Service Connections --> Select Service Connection --> Select Edit --> Review permissions of the connection.",
       "Tags": [
         "SDL",
         "TCP",
