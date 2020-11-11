@@ -5,6 +5,8 @@ class AutoBugLog {
     hidden [InvocationInfo] $InvocationContext;
     hidden [PSObject] $ControlSettings; 
     hidden [SVTEventContext[]] $ControlResults;
+    hidden [bool] $isBugLogCustomFlow = $false;
+    hidden [bool] $ShowBugsInS360 = $false;
     
     
     AutoBugLog([SubscriptionContext] $subscriptionContext, [InvocationInfo] $invocationContext, [SVTEventContext[]] $ControlResults, [ControlStateExtension] $ControlStateExt) {
@@ -12,7 +14,12 @@ class AutoBugLog {
         $this.InvocationContext = $invocationContext;	
         $this.ControlResults = $ControlResults;		
         $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
-        $this.ControlStateExt = $ControlStateExt               
+        $this.ControlStateExt = $ControlStateExt      
+        
+        #flag to check if pluggable bug logging interface (service tree)
+        if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "BugAssigneeAndPathCustomFlow", $null)) {
+            $this.isBugLogCustomFlow = $this.ControlSettings.BugLogging.BugAssigneeAndPathCustomFlow;
+        }
     }  
 
     static [string] ComputeHashX([string] $dataToHash)
@@ -27,15 +34,21 @@ class AutoBugLog {
             #retrieve the project name for the current resource
             $ProjectName = $this.GetProjectForBugLog($ControlResults[0])
 
-            #check if the area and iteration path are valid
-            #flag to check if pluggable bug logging interface (service tree)
-            $isBugLogCustomFlow = $false;
-            if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "BugAssigneeAndPathCustomFlow", $null)) {
-                $isBugLogCustomFlow = $this.ControlSettings.BugLogging.BugAssigneeAndPathCustomFlow;
-            } 
-            if ([BugLogPathManager]::CheckIfPathIsValid($this.SubscriptionContext.SubscriptionName,$ProjectName,$this.InvocationContext,  $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $isBugLogCustomFlow)) {
+            #check if the area and iteration path are valid 
+            if ([BugLogPathManager]::CheckIfPathIsValid($this.SubscriptionContext.SubscriptionName,$ProjectName,$this.InvocationContext,  $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $this.isBugLogCustomFlow)) {
                 #Obtain the assignee for the current resource, will be same for all the control failures for this particular resource
-                $AssignedTo = $this.GetAssignee($ControlResults[0])
+                $metaProviderObj = [BugMetaInfoProvider]::new();        
+                $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging)
+                $serviceId = $metaProviderObj.ServiceId
+
+                #Set ShowBugsInS360 if customebuglog is enabled and sericeid not null and ShowBugsInS360 enabled in policy
+                if ($this.isBugLogCustomFlow  -and (-not [string]::IsNullOrEmpty($serviceId)) -and ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "ShowBugsInS360") -and $this.ControlSettings.BugLogging.ShowBugsInS360) ) {
+                    $this.ShowBugsInS360 = $true;
+                }
+                else {
+                    $this.ShowBugsInS360 = $false;
+                }
+
                 #Obtain area and iteration paths
                 $AreaPath = [BugLogPathManager]::GetAreaPath()
                 $IterationPath = [BugLogPathManager]::GetIterationPath()       
@@ -109,7 +122,7 @@ class AutoBugLog {
                             $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
                     
                             #function to attempt bug logging
-                            $this.AddWorkItem($Title, $Description, $AssignedTo, $AreaPath, $IterationPath, $Severity, $ProjectName, $control, $hash)
+                            $this.AddWorkItem($Title, $Description, $AssignedTo, $AreaPath, $IterationPath, $Severity, $ProjectName, $control, $hash, $serviceId)
                     
                         }
                     }
@@ -279,8 +292,41 @@ class AutoBugLog {
             'High' {
                 $Severity = "2 - High"
             }
+	    'Important' {
+                $Severity = "2 - High"
+            }
             'Medium' {
                 $Severity = "3 - Medium"
+            }
+	    'Moderate' {
+                $Severity = "3 - Medium"
+            }
+            'Low' {
+                $Severity = "4 - Low"
+            }
+
+        }
+
+        return $Severity
+    }
+
+    hidden [string] GetSecuritySeverity([string] $ControlSeverity) {
+        $Severity = ""
+        switch -regex ($ControlSeverity) {
+            'Critical' {
+                $Severity = "1 - Critical"
+            }
+            'High' {
+                $Severity = "2 - Important"
+            }
+            'Important' {
+                $Severity = "2 - Important"
+            }
+            'Moderate' {
+                $Severity = "3 - Moderate"
+            }
+            'Medium' {
+                $Severity = "3 - Moderate"
             }
             'Low' {
                 $Severity = "4 - Low"
@@ -422,16 +468,25 @@ class AutoBugLog {
         return $hashedTag
     }
 
-    hidden [void] AddWorkItem([string] $Title, [string] $Description, [string] $AssignedTo, [string] $AreaPath, [string] $IterationPath, [string]$Severity, [string]$ProjectName, [SVTEventContext[]] $control, [string] $hash) {
+    hidden [void] AddWorkItem([string] $Title, [string] $Description, [string] $AssignedTo, [string] $AreaPath, [string] $IterationPath, [string]$Severity, [string]$ProjectName, [SVTEventContext[]] $control, [string] $hash, [string] $serviceId) {
 		
 		
         #logging new bugs
 		
         $apiurl = 'https://dev.azure.com/{0}/{1}/_apis/wit/workitems/$bug?api-version=5.1' -f $($this.SubscriptionContext.SubscriptionName), $ProjectName;
 
+        $BugTemplate = $null;
+        $SecuritySeverity = "";
         
+        if ($this.ShowBugsInS360) {
+            $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForNewBugS360.json")
+            $SecuritySeverity = $this.GetSecuritySeverity($control.ControlItem.ControlSeverity)		
+        }
+        else {
+            $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForNewBug.json")
+        }
+
         # Replace the field reference name for bug description if it is customized
-        $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForNewBug.json")
         if ([Helpers]::CheckMember($this.controlsettings.BugLogging, 'BugDescriptionField') -and -not ([string]::IsNullOrEmpty($this.ControlSettings.BugLogging.BugDescriptionField))) {
             $BugTemplate[1].path = "/fields/"+$this.ControlSettings.BugLogging.BugDescriptionField
         }
@@ -439,7 +494,6 @@ class AutoBugLog {
         if ($this.InvocationContext.BoundParameters['BugDescriptionField']) {
             $BugTemplate[1].path = "/fields/"+$this.InvocationContext.BoundParameters['BugDescriptionField']
         }
-
         $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10 
         $BugTemplate=$BugTemplate.Replace("{0}",$Title)
         $BugTemplate=$BugTemplate.Replace("{1}",$Description)
@@ -448,6 +502,20 @@ class AutoBugLog {
         $BugTemplate=$BugTemplate.Replace("{4}",$IterationPath)
         $BugTemplate=$BugTemplate.Replace("{5}",$hash)
         $BugTemplate=$BugTemplate.Replace("{6}",$AssignedTo)
+
+        if ($this.ShowBugsInS360) 
+        {
+            $BugTemplate=$BugTemplate.Replace("{7}", $this.controlsettings.BugLogging.HowFound)
+            #ComplianceArea
+            $BugTemplate=$BugTemplate.Replace("{8}", $this.controlsettings.BugLogging.ComplianceArea)
+            #ServiceHierarchyId
+            $BugTemplate=$BugTemplate.Replace("{9}", $serviceId)
+            #ServiceHierarchyIdType
+            $BugTemplate=$BugTemplate.Replace("{10}", $this.controlsettings.BugLogging.ServiceTreeIdType)
+            
+            #Severity
+            $BugTemplate=$BugTemplate.Replace("{11}", $SecuritySeverity)
+        }
 
         $responseObj = $null
         $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($apiurl)

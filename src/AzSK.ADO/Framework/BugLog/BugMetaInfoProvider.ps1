@@ -2,6 +2,7 @@ Set-StrictMode -Version Latest
 class BugMetaInfoProvider {
 
     hidden [PSObject] $ControlSettingsBugLog
+    hidden [string] $ServiceId
 
     BugMetaInfoProvider() {
     }
@@ -55,6 +56,7 @@ class BugMetaInfoProvider {
             $serviceTreeInfo = $metaInfo.FetchResourceMappingWithServiceData($rscId, $projectName, $resourceType);
             if($serviceTreeInfo)
             {
+                $this.ServiceId = $serviceTreeInfo.serviceId;
                 [BugLogPathManager]::AreaPath = $serviceTreeInfo.areaPath.Replace("\", "\\");
                 $domainNameForAssignee = ""
                 if([Helpers]::CheckMember($this.ControlSettingsBugLog, "DomainName"))

@@ -321,7 +321,11 @@
     "ReleaseSTData": "ReleaseSTData.json",
     "ServiceTreeData": "ServiceTreeData.json",
     "DomainName": "microsoft.com",
-    "BugDescriptionField" : ""
+    "BugDescriptionField" : "",
+    "ShowBugsInS360" : false,
+    "HowFound": "Manual",
+    "ComplianceArea": "Security",
+    "ServiceTreeIdType": "Service"
   },
   "GenerateSecurityEvaluationJsonFile" : false
 }
