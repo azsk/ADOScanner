@@ -292,6 +292,15 @@ class AutoBugLog {
             'High' {
                 $Severity = "2 - High"
             }
+            'Important' {
+                $Severity = "2 - Important"
+            }
+            'Moderate' {
+                $Severity = "3 - Moderate"
+            }
+            'Medium' {
+                $Severity = "3 - Moderate"
+            }
             'Medium' {
                 $Severity = "3 - Medium"
             }
@@ -499,14 +508,14 @@ class AutoBugLog {
 
         if ($this.ShowBugsInS360) 
         {
-            #HowFound
             $BugTemplate=$BugTemplate.Replace("{7}", $this.controlsettings.BugLogging.HowFound)
             #ComplianceArea
             $BugTemplate=$BugTemplate.Replace("{8}", $this.controlsettings.BugLogging.ComplianceArea)
             #ServiceHierarchyId
             $BugTemplate=$BugTemplate.Replace("{9}", $serviceId)
             #ServiceHierarchyIdType
-            $BugTemplate=$BugTemplate.Replace("{10}", $this.controlsettings.BugLogging.ServiceHierarchyIdType)
+            $BugTemplate=$BugTemplate.Replace("{10}", $this.controlsettings.BugLogging.ServiceTreeIdType)
+            
             #Severity
             $BugTemplate=$BugTemplate.Replace("{11}", $SecuritySeverity)
         }
