@@ -28,13 +28,12 @@ class ControlState
 	[VerificationResult] $EffectiveVerificationResult
 	[AttestationStatus] $AttestationStatus = [AttestationStatus]::None
 	[string] $Version
-}
+}	
 
 class ControlStateIndexer
 {
 	[string] $ResourceId
 	[string] $HashId
-	[DateTime] $ExpiryTime
 	[string] $AttestedBy
 	[DateTime] $AttestedDate
 	[string] $Version

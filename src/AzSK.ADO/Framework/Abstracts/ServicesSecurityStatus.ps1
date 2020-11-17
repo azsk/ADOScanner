@@ -7,6 +7,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	[Datetime] $ScanStart
 	[Datetime] $ScanEnd
 	[bool] $IsAIEnabled = $false;
+	[bool] $IsBugLoggingEnabled = $false;
+	$ActualResourcesPerRsrcType = @(); # Resources count based on resource type . This count is evaluated before comparison with resource tracker file.
 
 	ServicesSecurityStatus([string] $subscriptionId, [InvocationInfo] $invocationContext, [SVTResourceResolver] $resolver):
         Base($subscriptionId, $invocationContext)
@@ -22,6 +24,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if (!$this.Resolver.SVTResources) {
 			return;
 		}
+		$this.ActualResourcesPerRsrcType = $this.Resolver.SVTResources | Group-Object -Property ResourceType |select-object Name, Count           
+
 		$this.UsePartialCommits = $invocationContext.BoundParameters["UsePartialCommits"];
 
 		#BaseLineControlFilter with control ids
@@ -30,6 +34,9 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if ([RemoteReportHelper]::IsAIOrgTelemetryEnabled()) { 
 			$this.IsAIEnabled = $true; 
 		}
+		if($invocationContext.BoundParameters["AutoBugLog"]){
+			$this.IsBugLoggingEnabled = $true; 
+		}
 		$this.BaselineFilterCheck();
 		$this.UsePartialCommitsCheck();
 	}
@@ -37,6 +44,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	hidden [SVTEventContext[]] RunForAllResources([string] $methodNameToCall, [bool] $runNonAutomated, [PSObject] $resourcesList)
 	{
 		$ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+		$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
 
 		if ($Env:AzSKADOUPCSimulate -eq $true)
 		{
@@ -102,33 +110,34 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					
 		$this.PublishCustomMessage("`nNumber of resources for which security controls will be evaluated: $($automatedResources.Count)",[MessageType]::Info);
 		
-		if ($this.IsAIEnabled)
-		{
-			$this.StopWatch = New-Object System.Diagnostics.Stopwatch
-			#Send Telemetry for actual resource count. This is being done to monitor perf issues in ADOScanner internally
-			if ($this.UsePartialCommits)
-			{
-				$resourceTypeCount =$this.Resolver.SVTResources | Group-Object -Property ResourceType |select-object Name, Count
-				$resourceTypeCountHT = @{}
-						foreach ($resType in $resourceTypeCount) 
-						{
-							$resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
-						}
+        if ($this.IsAIEnabled)
+        {
+            $this.StopWatch = New-Object System.Diagnostics.Stopwatch
+            #Send Telemetry for actual resource count. This is being done to monitor perf issues in ADOScanner internally
+            if ($this.UsePartialCommits)
+            {
+                $resourceTypeCountHT = @{}
+                foreach ($resType in $this.ActualResourcesPerRsrcType) 
+                {
+                    $resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
+                }
 				
 				[AIOrgTelemetryHelper]::TrackCommandExecution("Actual Resources Count",
 					@{"RunIdentifier" = $this.RunIdentifier}, $resourceTypeCountHT, $this.InvocationContext);
-			}
-			#Send Telemetry for target resource count (after partial commits has been checked). This is being done to monitor perf issues in ADOScanner internally
-			$resourceTypeCount =$automatedResources | Group-Object -Property ResourceType |select-object Name, Count
-			$resourceTypeCountHT = @{}
-					foreach ($resType in $resourceTypeCount) 
-					{
-						$resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
-					}
+            }
+            #Send Telemetry for target resource count (after partial commits has been checked). This is being done to monitor perf issues in ADOScanner internally
+            $resourceTypeCount =$automatedResources | Group-Object -Property ResourceType |select-object Name, Count
+            $resourceTypeCountHT = @{}
+            foreach ($resType in $resourceTypeCount) 
+            {
+                $resourceTypeCountHT["$($resType.Name)"] = "$($resType.Count)"
+            }
+            $memoryUsage = [System.Diagnostics.Process]::GetCurrentProcess().PrivateMemorySize64 / [Math]::Pow(10,6)
+            $resourceTypeCountHT += @{MemoryUsageInMB = $memoryUsage}
 			
-			[AIOrgTelemetryHelper]::TrackCommandExecution("Target Resources Count",
-				@{"RunIdentifier" = $this.RunIdentifier}, $resourceTypeCountHT, $this.InvocationContext);
-		}
+            [AIOrgTelemetryHelper]::TrackCommandExecution("Target Resources Count",
+                @{"RunIdentifier" = $this.RunIdentifier}, $resourceTypeCountHT, $this.InvocationContext);
+        }
 
 		$totalResources = $automatedResources.Count;
 		[int] $currentCount = 0;
@@ -217,18 +226,35 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					$currentResourceResults += $svtObject.$methodNameToCall();
 					$result += $currentResourceResults;
 				}
-				if(($result | Measure-Object).Count -gt 0)
+				
+				$memoryUsage = 0
+				if(($result | Measure-Object).Count -gt 0 -and $this.UsePartialCommits)
 				{
-					if($currentCount % $ControlSettings.PartialScan.LocalScanUpdateFrequency -eq 0 -or $currentCount -eq $totalResources)
+					$updateSucceeded = $false
+					
+					if ([system.String]::IsNullOrEmpty($scanSource) -or $scanSource -eq "SDL")
 					{
-						# Update local resource tracker file
-						$this.UpdatePartialCommitFile($false)
-					}					
-					if($currentCount % $ControlSettings.PartialScan.DurableScanUpdateFrequency -eq 0 -or $currentCount -eq $totalResources)
+						if($currentCount % $ControlSettings.PartialScan.LocalScanUpdateFrequency -eq 0 -or $currentCount -eq $totalResources)
+						{
+							# Update local resource tracker file
+							$this.UpdatePartialCommitFile($false, $result)
+							$updateSucceeded = $true
+						}	
+					}	
+					else{			
+						if($currentCount % $ControlSettings.PartialScan.DurableScanUpdateFrequency -eq 0 -or $currentCount -eq $totalResources)
+						{
+							# Update durable resource tracker file
+							$this.UpdatePartialCommitFile($true, $result)
+							$updateSucceeded = $true
+						}	
+					}	
+					if ($updateSucceeded)		
 					{
-						# Update durable resource tracker file
-						$this.UpdatePartialCommitFile($true)
-					}					
+						[SVTEventContext[]] $result = @();
+						[System.GC]::Collect();
+                        $memoryUsage = [System.Diagnostics.Process]::GetCurrentProcess().PrivateMemorySize64 / [Math]::Pow(10,6)
+					}	
 				}
 				
 				#Send Telemetry for scan time taken for a resource. This is being done to monitor perf issues in ADOScanner internally
@@ -245,6 +271,10 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 						ScanStartDateTime = $this.ScanStart;
 						ScanEndDateTime = $this.ScanEnd;
 						RunIdentifier = $this.RunIdentifier;
+					}
+					if ($memoryUsage -gt 0)
+					{
+						$properties += @{MemoryUsageInMB = $memoryUsage;}
 					}
 
 					[AIOrgTelemetryHelper]::PublishEvent( "Resource Scan Completed",$properties, @{})
@@ -437,21 +467,28 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	}
 
 
-	[void] UpdatePartialCommitFile($isDurableStorageUpdate)
+	[void] UpdatePartialCommitFile($isDurableStorageUpdate , $result)
 	{
-		$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
 		[PartialScanManager] $partialScanMngr = [PartialScanManager]::GetInstance();
 		#If Scan source is in supported sources or UsePartialCommits switch is available
-		if ($this.UsePartialCommits)
+		if ($isDurableStorageUpdate)
 		{
-			if ($isDurableStorageUpdate)
-			{
-				$partialScanMngr.WriteToDurableStorage();
-			}
-			else {
-				$partialScanMngr.WriteToResourceTrackerFile();
-			}
+			$partialScanMngr.WriteToDurableStorage();
 		}
+		else {
+			$partialScanMngr.WriteToResourceTrackerFile();
+		}
+		# write to csv after every partial commit
+		$partialScanMngr.WriteToCSV($result, [FileOutputBase]::CSVFilePath);
+
+		# append summary counts
+		$partialScanMngr.CollateSummaryData($result);
+
+		# append summary counts for bug logging & append control results with bug logging data
+		if($this.IsBugLoggingEnabled  -and [BugLogPathManager]::GetIsPathValid()){
+			$partialScanMngr.CollateBugSummaryData($result);
+		}
+		
 	}
 
 	[void] UsePartialCommitsCheck()

@@ -136,6 +136,7 @@
       "Low": 90
     }
   },
+  "DefaultAttestationPeriodForExemptControl" : 180,
   "AllowAttestationByGroups": [
     {
       "ResourceType": "Organization",
@@ -319,7 +320,12 @@
     "BuildSTData": "BuildSTData.json",
     "ReleaseSTData": "ReleaseSTData.json",
     "ServiceTreeData": "ServiceTreeData.json",
-    "DomainName": "microsoft.com"
+    "DomainName": "microsoft.com",
+    "BugDescriptionField" : "",
+    "ShowBugsInS360" : false,
+    "HowFound": "Manual",
+    "ComplianceArea": "Security",
+    "ServiceTreeIdType": "Service"
   },
   "GenerateSecurityEvaluationJsonFile" : false
 }

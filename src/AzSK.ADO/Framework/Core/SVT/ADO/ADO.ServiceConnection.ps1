@@ -116,7 +116,7 @@ class ServiceConnection: ADOSVTBase
         return $controlResult;
     }
 
-    hidden [ControlResult] CheckClassConnections([ControlResult] $controlResult)
+    hidden [ControlResult] CheckClassicConnection([ControlResult] $controlResult)
 	{
         if([Helpers]::CheckMember($this.ServiceEndpointsObj,"type"))
         {
@@ -132,7 +132,7 @@ class ServiceConnection: ADOSVTBase
         }
         else{
             $controlResult.AddMessage([VerificationResult]::Manual,
-                                                "Service connection type could not be detetcted.");
+                                                "Service connection type could not be detected.");
         }
         return $controlResult;
     }
@@ -205,10 +205,10 @@ class ServiceConnection: ADOSVTBase
             if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.RestrictedGlobalGroupsForSerConn") ) 
             {
                 $restrictedGlobalGroupsForSerConn = $this.ControlSettings.ServiceConnection.RestrictedGlobalGroupsForSerConn;
-                if((($this.serviceEndPointIdentity[0] | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))
+                if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity,"identity"))
                 {
                     # match all the identities added on service connection with defined restricted list
-                    $restrictedGroups = $this.serviceEndPointIdentity[0].identity | Where-Object { $restrictedGlobalGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
+                    $restrictedGroups = $this.serviceEndPointIdentity.identity | Where-Object { $restrictedGlobalGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
     
                     # fail the control if restricted group found on service connection
                     if($restrictedGroups)
@@ -311,17 +311,18 @@ class ServiceConnection: ADOSVTBase
         return $controlResult;
     }
 
-    hidden [ControlResult] CheckServiceConnectionForPATOrAuth([ControlResult] $controlResult)
+    hidden [ControlResult] CheckServiceConnectionForPATOrOAuth([ControlResult] $controlResult)
     {
         if([Helpers]::CheckMember($this.ServiceEndpointsObj, "authorization.scheme"))
         {
+            #Nov 2020 - Currently, authorizing using OAuth, permissions are fixed (high privileges by default) and can not be modified. If authorized using PAT, we can not determine whether it is a full scope or custom access scope token.
             if( $this.ServiceEndpointsObj.authorization.scheme -eq "OAuth")
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Service connection $($this.ServiceEndpointsObj.name) is authenticated via $($this.ServiceEndpointsObj.authorization.scheme)");
+                $controlResult.AddMessage([VerificationResult]::Verify, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Service connection $($this.ServiceEndpointsObj.name) is authenticated via $($this.ServiceEndpointsObj.authorization.scheme)");
+                $controlResult.AddMessage([VerificationResult]::Verify, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
             }
         }
         return $controlResult;

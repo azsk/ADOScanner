@@ -6,16 +6,18 @@ class BugLogPathManager {
     hidden static [bool] $checkValidPathFlag = $true;
     #flag to check if the path that has been declared is valid
     hidden static [bool] $isPathValid = $false;
-    
+    #variable to store the actual project where bug is supposed to log
+    hidden static [string] $BugLoggingProject = $null
     
     #function to find if the area and iteration path are valid
     static hidden [bool] CheckIfPathIsValid([string] $OrgName,[string] $ProjectName, [InvocationInfo] $InvocationContext,[string] $ControlSettingsBugLogAreaPath, [string] $ControlSettingsBugLogIterationPath, [bool] $isBugLogCustomFlow) {
         
         #to check if we have checked path validity before
-        if ([BugLogPathManager]::checkValidPathFlag -or $isBugLogCustomFlow) {
+        #if customebug log true becase we get areapath from servicetree file so every time need to validate. if supply in cmd param
+        if ([BugLogPathManager]::checkValidPathFlag -or ($isBugLogCustomFlow -and !$InvocationContext.BoundParameters['AreaPath']) ) {
             [BugLogPathManager]::AreaPath = $null
             #checking path validity for the first time
-            $pathurl = "https://dev.azure.com/{0}/{1}/_apis/wit/wiql?api-version=5.1" -f $($OrgName), $ProjectName
+            $pathurl = 'https://dev.azure.com/{0}/{1}/_apis/wit/wiql?$top=1&api-version=5.1' -f $($OrgName), $ProjectName
             [BugLogPathManager]::AreaPath = $InvocationContext.BoundParameters['AreaPath'];
             [BugLogPathManager]::IterationPath = $InvocationContext.BoundParameters['IterationPath'];
 
@@ -43,6 +45,9 @@ class BugLogPathManager {
             [BugLogPathManager]::AreaPath = [BugLogPathManager]::AreaPath.Replace("\", "\\")
             [BugLogPathManager]::IterationPath = [BugLogPathManager]::IterationPath.Replace("\", "\\")
 
+            # AreaPath always populates project, if no custom areapath is mentioned it will populate default project 
+            [BugLogPathManager]::BugLoggingProject = [BugLogPathManager]::AreaPath.split("\\")[0]
+
             #copying the value for easy inputting to the query JSON
             $AreaPathForJSON = [BugLogPathManager]::AreaPath
             $IterationPathForJSON = [BugLogPathManager]::IterationPath
@@ -52,7 +57,7 @@ class BugLogPathManager {
 		
             try {
 
-                #if paths are found valid, flag should be made false to prevent further checking of this path for rest of the resources
+                #if paths are found valid, flag should be made false to prevent further checking of this path for rest of the resources             
                 $response = [WebRequestHelper]::InvokePostWebRequest($pathurl, $body)
                 [BugLogPathManager]::checkValidPathFlag = $false
                 [BugLogPathManager]::isPathValid = $true;
@@ -83,5 +88,8 @@ class BugLogPathManager {
     }
     static hidden [bool] GetIsPathValid(){
         return [BugLogPathManager]::isPathValid
+    }
+    static hidden [string] GetBugLoggingProject(){
+        return [BugLogPathManager]::BugLoggingProject
     }
 }

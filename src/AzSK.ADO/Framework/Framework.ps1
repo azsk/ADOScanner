@@ -72,7 +72,7 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Helpers\RemoteApiHelper.ps1
 . $FrameworkPath\Abstracts\PrivacyNotice.ps1
 
-
+. $FrameworkPath\Abstracts\MetaInfoProvider.ps1
 #BugLog
 . $PSScriptRoot\BugLog\BugLogPathManager.ps1
 . $PSScriptRoot\BugLog\BugMetaInfoProvider.ps1

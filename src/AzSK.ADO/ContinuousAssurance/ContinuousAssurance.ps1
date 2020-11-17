@@ -58,7 +58,7 @@ function Install-AzSKADOContinuousAssurance
 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "PAT token secure string for organization to be scanned.")]
 		[ValidateNotNullOrEmpty()]
-		[Alias("pat")]
+		[Alias("pat","tkn")]
 		[System.Security.SecureString]
 		$PATToken,
 

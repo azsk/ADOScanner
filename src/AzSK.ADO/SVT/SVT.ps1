@@ -135,6 +135,11 @@ function Get-AzSKADOSecurityStatus
 		[Alias("pfp")]
 		$PromptForPAT,
 
+		[string]
+		[Parameter(Mandatory=$false, HelpMessage="KeyVault URL for PATToken")]
+		[Alias("ptu")]
+		$PATTokenURL,
+
 		[ResourceTypeName]
 		[Alias("rtn")]
 		$ResourceTypeName = [ResourceTypeName]::All,
@@ -172,9 +177,19 @@ function Get-AzSKADOSecurityStatus
 		$AttestationStatus = [AttestationStatus]::None,
 		
 		[switch]
-        [Parameter(Mandatory = $false)]
+		[Parameter(Mandatory = $false, HelpMessage = "Switch to add approved exceptions.")]
 		[Alias("aex")]
 		$AddException,
+
+		[Datetime]
+		[Parameter(Mandatory = $false, HelpMessage = "Expiry date of approved exception.")]
+		[Alias("aee")]
+		$ApprovedExceptionExpiryDate,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage = "ID of approved exception.")]
+		[Alias("aei")]
+		$ApprovedExceptionID,
 
 		[string]
 		[Parameter(HelpMessage="Project name to store attestation details for organization-specific controls.")]
@@ -197,6 +212,12 @@ function Get-AzSKADOSecurityStatus
 		[Parameter(Mandatory=$false)]
 		[Alias("ipt")]
 		$IterationPath,
+
+		[string]
+		[Parameter(HelpMessage="Specify the custom field reference name for bug description.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("bdf")]
+		$BugDescriptionField,
 
 		[switch]
 		[Parameter(HelpMessage="Allow long running scan.")]
@@ -249,6 +270,50 @@ function Get-AzSKADOSecurityStatus
 				}
 			
 			}
+		
+			if (-not [String]::IsNullOrEmpty($PATTokenURL))
+			{
+				# For now, if PAT URL is specified we will trigger an Azure login.
+				$Context = @(Get-AzContext -ErrorAction SilentlyContinue )
+				if ($Context.count -eq 0)  {
+					Write-Host "No active Azure login session found.`r`nPlease login to Azure tenant hosting the key vault..." -ForegroundColor Yellow
+					Connect-AzAccount -ErrorAction Stop
+					$Context = @(Get-AzContext -ErrorAction SilentlyContinue)
+				}
+	
+				if ($null -eq $Context)  {
+					Write-Host "Login failed. Azure login context is required to use a key vault-based PAT token.`r`nStopping scan command." -ForegroundColor Red
+					return;
+				}
+				#Parse the key-vault-URL to determine vaultname, secretname, version
+				if ($PATTokenURL -match "^https://(?<kv>[\w]+)(?:[\.\w+]*)/secrets/(?<sn>[\w]+)/?(?<sv>[\w]*)")
+				{ 
+					$kvName = $Matches["kv"]
+					$secretName = $Matches["sn"]
+					$secretVersion = $Matches["sv"]
+
+					if (-not [String]::IsNullOrEmpty($secretVersion))
+					{
+						$kvSecret = Get-AzKeyVaultSecret -VaultName $kvName -SecretName $secretName -Version $secretVersion
+					}
+					else
+					{
+						$kvSecret = Get-AzKeyVaultSecret -VaultName $kvName -SecretName $secretName
+					}
+
+					if ($null -eq $kvSecret)
+					{
+						Write-Host "Could not extract PATToken from the given key vault URL.`r`nStopping scan command." -ForegroundColor Red
+						return;
+					}
+					$PATToken = $kvSecret.SecretValue;
+				}
+				else {
+					Write-Host "Could not extract PATToken from the given key vault URL.`r`nStopping scan command." -ForegroundColor Red
+					return;
+				}
+			}
+
 			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus) 
@@ -270,6 +335,8 @@ function Get-AzSKADOSecurityStatus
 					$attestationOptions.AttestationStatus = $AttestationStatus
 					$attestationOptions.IsBulkClearModeOn = $BulkClear
 					$attestationOptions.IsExemptModeOn = $AddException
+					$attestationOptions.ApprovedExceptionExpiryDate =  $ApprovedExceptionExpiryDate
+					$attestationOptions.ApprovedExceptionID = $ApprovedExceptionID
 					$secStatus.AttestationOptions = $attestationOptions;	
 
 					return $secStatus.EvaluateControlStatus();

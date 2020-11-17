@@ -2,8 +2,8 @@ Set-StrictMode -Version Latest
 class FileOutputBase: ListenerBase
 {
     static [string] $ETCFolderPath = "Etc";
-
-	[string] $FilePath = "";
+    static [string] $CSVFilePath = $null;
+    [string] $FilePath = "";
     [string] $FolderPath = "";
     #[string] $BasePath = "";
     hidden [string[]] $BasePaths = @();

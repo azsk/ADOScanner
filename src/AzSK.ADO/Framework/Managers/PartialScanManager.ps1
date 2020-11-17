@@ -2,7 +2,7 @@
 
 class PartialScanManager
 {
-	hidden [string] $subId = $null;
+	hidden [string] $SubId = $null;
 	hidden [PSObject] $ScanPendingForResources = $null;
 	hidden [string] $ResourceScanTrackerFileName=$null;
 	hidden [PartialScanResourceMap] $ResourceScanTrackerObj = $null
@@ -11,11 +11,17 @@ class PartialScanManager
 	hidden [string] $CAScanProgressSnapshotsContainerName = [Constants]::CAScanProgressSnapshotsContainerName
     hidden [string] $AzSKTempStatePath = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState" | Join-Path -ChildPath "PartialScanData");
 	hidden [bool] $StoreResTrackerLocally = $false;
-	hidden [string] $scanSource = $null;
-	hidden [bool] $isRTFAlreadyAvailable = $false;
-	hidden [bool] $isDurableStorageFound = $false;
-	hidden [string] $masterFilePath;
-    $storageContext = $null;
+	hidden [string] $ScanSource = $null;
+	hidden [bool] $IsRTFAlreadyAvailable = $false;
+	hidden [bool] $IsDurableStorageFound = $false;
+	hidden [string] $MasterFilePath;
+	$StorageContext = $null;
+	$ControlStateBlob = $null;
+	hidden static $IsCsvUpdatedAtCheckpoint = $false; 
+	hidden static $CollatedSummaryCount = @(); # Matrix of counts for severity and control status
+	hidden static $CollatedBugSummaryCount = @(); # Matrix of counts for severity and Bug status
+	hidden static $ControlResultsWithBugSummary = @();
+	hidden [string] $SummaryMarkerText = "------";
 
 
 	hidden static [PartialScanManager] $Instance = $null;
@@ -26,7 +32,7 @@ class PartialScanManager
         {
 			[PartialScanManager]::Instance = [PartialScanManager]::new($SubscriptionId);
 		}
-		[PartialScanManager]::Instance.subId = $SubscriptionId;
+		[PartialScanManager]::Instance.SubId = $SubscriptionId;
         return [PartialScanManager]::Instance
     }
 
@@ -45,7 +51,7 @@ class PartialScanManager
 	PartialScanManager([string] $SubscriptionId)
 	{
 		$this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
-		$this.subId = $SubscriptionId;
+		$this.SubId = $SubscriptionId;
 		if ([string]::isnullorwhitespace($this.ResourceScanTrackerFileName))
         {
            if([ConfigurationManager]::GetAzSKSettings().IsCentralScanModeOn)
@@ -72,8 +78,8 @@ class PartialScanManager
 
      hidden [void] GetResourceTrackerFile($subId)
     {
-		$this.scanSource = [AzSKSettings]::GetInstance().GetScanSource();
-		$this.subId = $subId
+		$this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
+		$this.SubId = $subId
 
 		#Validating the configuration of storing resource tracker file
         if($null -ne $this.ControlSettings.PartialScan)
@@ -82,25 +88,27 @@ class PartialScanManager
 		}
 
 		#Use local Resource Tracker files for partial scanning
-        if ($this.StoreResTrackerLocally) 
+        if ($this.StoreResTrackerLocally -and ($this.ScanSource -ne "CA" -and $this.ScanSource -ne "CICD") )
         {
             if($null -eq $this.ScanPendingForResources)
-		    {
-			    if(![string]::isnullorwhitespace($this.subId)){
-				    if(Test-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.subId) $this.ResourceScanTrackerFileName))	
-			        {
-						$this.ScanPendingForResources = Get-Content (Join-Path (Join-Path $this.AzSKTempStatePath $this.subId) $this.ResourceScanTrackerFileName) -Raw
-					}
-					$this.masterFilePath = (Join-Path (Join-Path $this.AzSKTempStatePath $this.subId) $this.ResourceScanTrackerFileName)
-				}
-				else {
-					$this.masterFilePath = (Join-Path $this.AzSKTempStatePath $this.ResourceScanTrackerFileName)
-				}
-			}
+            {
+                if(![string]::isnullorwhitespace($this.SubId)){
+                    if(Test-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.SubId) $this.ResourceScanTrackerFileName))	
+                    {
+                        $this.ScanPendingForResources = Get-Content (Join-Path (Join-Path $this.AzSKTempStatePath $this.SubId) $this.ResourceScanTrackerFileName) -Raw
+                    }
+                    $this.MasterFilePath = (Join-Path (Join-Path $this.AzSKTempStatePath $this.SubId) $this.ResourceScanTrackerFileName)
+                }
+                else {
+                    $this.MasterFilePath = (Join-Path $this.AzSKTempStatePath $this.ResourceScanTrackerFileName)
+                }
+            }
         }
 
-		If ($this.scanSource -eq "CA") # use storage in ADOScannerRG in case of CA scan
-		{
+        if ($this.ScanSource -eq "CA") # use storage in ADOScannerRG in case of CA scan
+        {
+			$this.MasterFilePath = (Join-Path (Join-Path $this.AzSKTempStatePath $this.SubId) $this.ResourceScanTrackerFileName)
+
 			try {
 				#Validate if Storage is found 
 				$keys = Get-AzStorageAccountKey -ResourceGroupName $env:StorageRG -Name $env:StorageName
@@ -110,32 +118,36 @@ class PartialScanManager
 				#If checkpoint container is found then get ResourceTracker.json (if exists)
 				if($null -ne $containerObject)
 				{
-					$controlStateBlob = Get-AzStorageBlob -Container $this.CAScanProgressSnapshotsContainerName -Context $this.StorageContext -Blob (Join-Path $this.subId.ToLower() $this.ResourceScanTrackerFileName) -ErrorAction SilentlyContinue
+					$this.ControlStateBlob = Get-AzStorageBlob -Container $this.CAScanProgressSnapshotsContainerName -Context $this.StorageContext -Blob (Join-Path $this.SubId.ToLower() $this.ResourceScanTrackerFileName) -ErrorAction SilentlyContinue
 
 					#If controlStateBlob is null then it will get created when we first write the resource tracker file to storage
 					#If its not null this means Resource tracker file has been found in storage and will be used to continue pending scan
-					if ($null -ne $controlStateBlob)
+					if ($null -ne $this.ControlStateBlob)
 					{
-						if ($null -ne $this.masterFilePath)
+						if ($null -ne $this.MasterFilePath)
 						{
-							if (-not (Test-Path $this.masterFilePath))
+							if (-not (Test-Path $this.MasterFilePath))
 							{
-								$filePath = $this.masterFilePath.Replace($this.ResourceScanTrackerFileName, "")
+								$filePath = $this.MasterFilePath.Replace($this.ResourceScanTrackerFileName, "")
 								New-Item -ItemType Directory -Path $filePath
 								New-Item -Path $filePath -Name $this.ResourceScanTrackerFileName -ItemType "file" 
 							}
-							Get-AzStorageBlobContent -CloudBlob $controlStateBlob.ICloudBlob -Context $this.StorageContext -Destination $this.masterFilePath -Force                
-							$this.ScanPendingForResources  = Get-ChildItem -Path $this.masterFilePath -Force | Get-Content | ConvertFrom-Json
+							#Copy existing RTF locally to handle any non ascii characters as ICloudBlob.DownloadText() was inserting non ascii charcaters
+							Get-AzStorageBlobContent -CloudBlob $this.ControlStateBlob.ICloudBlob -Context $this.StorageContext -Destination $this.MasterFilePath -Force                
+							$this.ScanPendingForResources  = Get-ChildItem -Path $this.MasterFilePath -Force | Get-Content | ConvertFrom-Json
+							#Delete the local RTF file
+							Remove-Item -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.SubId) $this.ResourceScanTrackerFileName)
 						}
+						$this.IsRTFAlreadyAvailable = $true
 					}
-					$this.isDurableStorageFound = $true
+					$this.IsDurableStorageFound = $true
 				}
 				#If checkpoint container is not found then create new
 				else {
 					$containerObject = New-AzStorageContainer -Name $this.CAScanProgressSnapshotsContainerName -Context $this.StorageContext -ErrorAction SilentlyContinue
 					if ($null -ne $containerObject )
 					{
-						$this.isDurableStorageFound = $true
+						$this.IsDurableStorageFound = $true
 					}
 					else 
 					{
@@ -150,9 +162,9 @@ class PartialScanManager
 
 		}
 		
-		elseif ($this.scanSource -eq "CICD") # use extension storage in case of CICD partial scan
+		elseif ($this.ScanSource -eq "CICD") # use extension storage in case of CICD partial scan
 		{
-				if(![string]::isnullorwhitespace($this.subId))
+				if(![string]::isnullorwhitespace($this.SubId))
 				{
 					$rmContext = [ContextHelper]::GetCurrentContext();
 					$user = "";
@@ -165,18 +177,18 @@ class PartialScanManager
                         $uri = $env:partialScanURI
                     }
                     else {
-					    $uri = [Constants]::StorageUri -f $this.subId, $this.subId, "ResourceTrackerFile"
+					    $uri = [Constants]::StorageUri -f $this.SubId, $this.SubId, "ResourceTrackerFile"
                     }
 
 					try {
 						$webRequestResult = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
 						$this.ScanPendingForResources = $webRequestResult.value | ConvertFrom-Json
-                        $this.isRTFAlreadyAvailable = $true;
+                        $this.IsRTFAlreadyAvailable = $true;
 					}
 					catch
 					{
                         $this.ScanPendingForResources = $null
-                        $this.isRTFAlreadyAvailable = $false;
+                        $this.IsRTFAlreadyAvailable = $false;
 					}	
 			    }
 		}
@@ -235,7 +247,7 @@ class PartialScanManager
 	# Method to remove obsolete Resource Tracker file
 	[void] RemovePartialScanData()
 	{
-		If ($this.scanSource -eq "CICD")
+		if ($this.ScanSource -eq "CICD")
 		{
             if($null -ne $this.ResourceScanTrackerObj)
 		    {
@@ -250,7 +262,7 @@ class PartialScanManager
                         $uri = $env:partialScanURI
                     }
                 else {
-					$uri = [Constants]::StorageUri -f $this.subId, $this.subId, "ResourceTrackerFile"
+					$uri = [Constants]::StorageUri -f $this.SubId, $this.SubId, "ResourceTrackerFile"
 				}
 				
 				try {
@@ -264,15 +276,19 @@ class PartialScanManager
 				}
 			}
 		}
-		elseif ($this.scanSource -eq "CA" -and $this.isDurableStorageFound) {
-			$controlStateBlob = Get-AzStorageBlob -Container $this.CAScanProgressSnapshotsContainerName -Context $this.storageContext -Blob (Join-Path $this.subId.ToLower() $this.ResourceScanTrackerFileName) -ErrorAction SilentlyContinue
-
+		elseif ($this.ScanSource -eq "CA" -and $this.IsDurableStorageFound) {
 			#Move resource tracker file to archive folder
-			if($null -ne $controlStateBlob)
+			if($null -ne $this.ControlStateBlob)
 			{
 				$archiveName = "Checkpoint_" +(Get-Date).ToUniversalTime().ToString("yyyyMMddHHmmss") + ".json";
-				Set-AzStorageBlobContent -File $this.masterFilePath -Container $this.CAScanProgressSnapshotsContainerName -Blob (Join-Path $this.subId.ToLower() (Join-Path "Archive" $archiveName)) -BlobType Block -Context $this.storageContext -Force
-				Remove-AzStorageBlob -CloudBlob $controlStateBlob.ICloudBlob -Force -Context $this.StorageContext 
+				#Store final RTF file locally and then upload to archive folder
+				[JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.MasterFilePath -Force
+
+				Set-AzStorageBlobContent -File $this.MasterFilePath -Container $this.CAScanProgressSnapshotsContainerName -Blob (Join-Path $this.SubId.ToLower() (Join-Path "Archive" $archiveName)) -BlobType Block -Context $this.StorageContext -Force
+				Remove-AzStorageBlob -CloudBlob $this.ControlStateBlob.ICloudBlob -Force -Context $this.StorageContext
+
+				#Delete local RTF file
+				Remove-Item -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.SubId) $this.ResourceScanTrackerFileName)
 			}	
 		}
 
@@ -281,18 +297,18 @@ class PartialScanManager
             {
 		    if($null -ne $this.ResourceScanTrackerObj)
 		    {
-			    if(![string]::isnullorwhitespace($this.subId)){
-				    if(Test-Path (Join-Path $this.AzSKTempStatePath $this.subId))
+			    if(![string]::isnullorwhitespace($this.SubId)){
+				    if(Test-Path (Join-Path $this.AzSKTempStatePath $this.SubId))
 				    {
-						Remove-Item -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.subId) $this.ResourceScanTrackerFileName)
+						Remove-Item -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.SubId) $this.ResourceScanTrackerFileName)
 						
 						<#Create archive folder if not exists
-						if(-not (Test-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.subId) "archive")))
+						if(-not (Test-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.SubId) "archive")))
 						{
-							New-Item -ItemType Directory -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.subId) "archive")
+							New-Item -ItemType Directory -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.SubId) "archive")
 						}
 						$timestamp =(Get-Date -format "yyMMddHHmmss")
-						Move-Item -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.subId) $this.ResourceScanTrackerFileName) -Destination (Join-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.subId) "archive")"Checkpoint_$($timestamp)")
+						Move-Item -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.SubId) $this.ResourceScanTrackerFileName) -Destination (Join-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.SubId) "archive")"Checkpoint_$($timestamp)")
 						#>
 					}
 			    }
@@ -325,7 +341,7 @@ class PartialScanManager
 				ResourceMapTable = $resourceIdMap;
 			}
 
-			if ($this.ScanPendingForResources -ne $null -and $this.scanSource -eq "CICD"){
+			if ($this.ScanPendingForResources -ne $null -and $this.ScanSource -eq "CICD"){
                 $this.ResourceScanTrackerObj = [PartialScanResourceMap]@{
 				    Id = $this.ScanPendingForResources.Id;
 				    CreatedDate = $this.ScanPendingForResources.CreatedDate;
@@ -336,8 +352,13 @@ class PartialScanManager
                 $this.ResourceScanTrackerObj = $masterControlBlob;
             }
 
-			$this.WriteToResourceTrackerFile();
-			$this.WriteToDurableStorage();
+			if ($this.ScanSource -eq "CICD" -or $this.ScanSource -eq "CA")
+			{
+				$this.WriteToDurableStorage();
+			}
+			else {
+				$this.WriteToResourceTrackerFile();
+			}
 
 			$this.ActiveStatus = [ActiveStatus]::Yes;
 		}
@@ -345,14 +366,14 @@ class PartialScanManager
 
 	[void] WriteToResourceTrackerFile()
 	{
-        If ($this.StoreResTrackerLocally) 
+        if ($this.StoreResTrackerLocally) 
         {
 			if($null -ne $this.ResourceScanTrackerObj)
 			{
-				if(![string]::isnullorwhitespace($this.subId)){
-					if(-not (Test-Path (Join-Path $this.AzSKTempStatePath $this.subId)))
+				if(![string]::isnullorwhitespace($this.SubId)){
+					if(-not (Test-Path (Join-Path $this.AzSKTempStatePath $this.SubId)))
 					{
-						New-Item -ItemType Directory -Path (Join-Path $this.AzSKTempStatePath $this.subId) -ErrorAction Stop | Out-Null
+						New-Item -ItemType Directory -Path (Join-Path $this.AzSKTempStatePath $this.SubId) -ErrorAction Stop | Out-Null
 					}	
 				}
 				else{
@@ -361,18 +382,18 @@ class PartialScanManager
 						New-Item -ItemType Directory -Path "$this.AzSKTempStatePath" -ErrorAction Stop | Out-Null
 					}
 				}
-				[JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.masterFilePath -Force
+				[JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.MasterFilePath -Force
 			}
         }
 	}
 
 	[void] WriteToDurableStorage()
 	{
-		If ($this.scanSource -eq "CICD")
+		if ($this.ScanSource -eq "CICD")
 		{
             if($null -ne $this.ResourceScanTrackerObj)
 		    {
-				if(![string]::isnullorwhitespace($this.subId))
+				if(![string]::isnullorwhitespace($this.SubId))
 				{
 					$rmContext = [ContextHelper]::GetCurrentContext();
 					$user = "";
@@ -386,7 +407,7 @@ class PartialScanManager
                         $uri = $env:partialScanURI
                         $JobId ="";
                         $JobId = $uri.Replace('?','/').Split('/')[$JobId.Length -2]
-						if ($this.isRTFAlreadyAvailable -eq $true){
+						if ($this.IsRTFAlreadyAvailable -eq $true){
 						    $body = @{"id" = $Jobid; "__etag"=-1; "value"= $scanObject;} | ConvertTo-Json
                         }
                         else{
@@ -394,8 +415,8 @@ class PartialScanManager
                         }
                     }
                     else {
-						$uri = [Constants]::StorageUri -f $this.subId, $this.subId, "ResourceTrackerFile"
-                        if ($this.isRTFAlreadyAvailable -eq $true){
+						$uri = [Constants]::StorageUri -f $this.SubId, $this.SubId, "ResourceTrackerFile"
+                        if ($this.IsRTFAlreadyAvailable -eq $true){
                             $body = @{"id" = "ResourceTrackerFile";"__etag"=-1; "value"= $scanObject;} | ConvertTo-Json
                         }
                         else{
@@ -405,7 +426,7 @@ class PartialScanManager
 
 					try {
 						$webRequestResult = Invoke-WebRequest -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -Body $body 
-                        $this.isRTFAlreadyAvailable = $true;
+                        $this.IsRTFAlreadyAvailable = $true;
 					}
 					catch
 					{
@@ -414,9 +435,25 @@ class PartialScanManager
 			    }
 			}
 		}
-        elseif ($this.scanSource -eq "CA" -and $this.isDurableStorageFound) 
+        elseif ($this.ScanSource -eq "CA" -and $this.IsDurableStorageFound) 
         {
-			Set-AzStorageBlobContent -File $this.masterFilePath -Container $this.CAScanProgressSnapshotsContainerName -Blob (Join-Path $this.subId.ToLower() $this.ResourceScanTrackerFileName) -BlobType Block -Context $this.StorageContext -Force
+            if ($this.IsRTFAlreadyAvailable) # Copy RTF from memory
+            {
+                $this.ControlStateBlob.ICloudBlob.UploadText([JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) )
+            }
+            else { # If file is not available in storage then upload it from local for the first instance
+                if ($null -ne $this.MasterFilePath -and -not (Test-Path $this.MasterFilePath))
+                {
+                    # Create directory and resource tracker file
+                    $filePath = $this.MasterFilePath.Replace($this.ResourceScanTrackerFileName, "")
+                    New-Item -ItemType Directory -Path $filePath
+                    New-Item -Path $filePath -Name $this.ResourceScanTrackerFileName -ItemType "file" 
+                }
+                [JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.MasterFilePath -Force
+                Set-AzStorageBlobContent -File $this.MasterFilePath -Container $this.CAScanProgressSnapshotsContainerName -Blob (Join-Path $this.SubId.ToLower() $this.ResourceScanTrackerFileName) -BlobType Block -Context $this.StorageContext -Force
+                $this.ControlStateBlob = Get-AzStorageBlob -Container $this.CAScanProgressSnapshotsContainerName -Context $this.StorageContext -Blob (Join-Path $this.SubId.ToLower() $this.ResourceScanTrackerFileName) -ErrorAction SilentlyContinue
+                $this.IsRTFAlreadyAvailable = $true
+			}
         }
 	}
 
@@ -427,7 +464,7 @@ class PartialScanManager
 			{
 				return;
 			}
-			If ($this.scanSource -eq "CICD") # use extension storage in case of CICD partial scan
+			if ($this.ScanSource -eq "CICD") # use extension storage in case of CICD partial scan
 			{
 				if(![string]::isnullorwhitespace($this.ScanPendingForResources))
 				{
@@ -438,12 +475,19 @@ class PartialScanManager
 			        }
 				}
 			}
+			elseif ($this.ScanSource -eq "CA")
+			{
+				if(![string]::isnullorwhitespace($this.ScanPendingForResources))
+				{
+					$this.ResourceScanTrackerObj = $this.ScanPendingForResources
+				}
+			}
             elseif ($this.StoreResTrackerLocally) 
             {
-			    if(![string]::isnullorwhitespace($this.subId)){
-				    if(-not (Test-Path (Join-Path $this.AzSKTempStatePath $this.subId)))
+			    if(![string]::isnullorwhitespace($this.SubId)){
+				    if(-not (Test-Path (Join-Path $this.AzSKTempStatePath $this.SubId)))
 				    {
-					    New-Item -ItemType Directory -Path (Join-Path $this.AzSKTempStatePath $this.subId) -ErrorAction Stop | Out-Null
+					    New-Item -ItemType Directory -Path (Join-Path $this.AzSKTempStatePath $this.SubId) -ErrorAction Stop | Out-Null
 				    }
 			    }
 			    else{
@@ -452,7 +496,7 @@ class PartialScanManager
 					    New-Item -ItemType Directory -Path "$this.AzSKTempStatePath" -ErrorAction Stop | Out-Null
 				    }
 				}
-				$this.ResourceScanTrackerObj = Get-content $this.masterFilePath | ConvertFrom-Json
+				$this.ResourceScanTrackerObj = Get-content $this.MasterFilePath | ConvertFrom-Json
             }
 	}
 
@@ -518,4 +562,216 @@ class PartialScanManager
 			return $false
 		}
 	}
+
+    # Collect control results summary data and append to it at every checkpoint. Any changes in this method should be synced with WritePSConsole.ps1 PrintSummaryData method
+	[void] CollateSummaryData($event)
+	{
+		$summary = @($event | select-object @{Name="VerificationResult"; Expression = {$_.ControlResults.VerificationResult}},@{Name="ControlSeverity"; Expression = {$_.ControlItem.ControlSeverity}})
+
+		if(($summary | Measure-Object).Count -ne 0)
+		{
+
+			$severities = @();
+			$severities += $summary | Select-Object -Property ControlSeverity | Select-Object -ExpandProperty ControlSeverity -Unique;
+
+			$verificationResults = @();
+			$verificationResults += $summary | Select-Object -Property VerificationResult | Select-Object -ExpandProperty VerificationResult -Unique;
+
+			if($severities.Count -ne 0)
+			{
+				# Create summary matrix
+				$totalText = "Total";
+				$MarkerText = "MarkerText";
+				$rows = @();
+				$rows += $severities;
+				$rows += $MarkerText;
+				$rows += $totalText;
+				$rows += $MarkerText;
+
+				#Execute below block only once (when first resource is scanned) 
+				if([PartialScanManager]::CollatedSummaryCount.Count -eq 0)
+				{
+					$rows | ForEach-Object {
+						$result = [PSObject]::new();
+						Add-Member -InputObject $result -Name "Summary" -MemberType NoteProperty -Value $_.ToString()
+						Add-Member -InputObject $result -Name $totalText -MemberType NoteProperty -Value 0
+
+						#Get all possible verificationResults initially
+						[Enum]::GetNames([VerificationResult]) | 
+						ForEach-Object {
+							Add-Member -InputObject $result -Name $_.ToString() -MemberType NoteProperty -Value 0
+						};
+						[PartialScanManager]::CollatedSummaryCount += $result;
+					};
+				}
+
+				$totalRow = [PartialScanManager]::CollatedSummaryCount | Where-Object { $_.Summary -eq $totalText } | Select-Object -First 1;
+
+				$summary | Group-Object -Property ControlSeverity | ForEach-Object {
+					$item = $_;
+					$summaryItem = [PartialScanManager]::CollatedSummaryCount | Where-Object { $_.Summary -eq $item.Name } | Select-Object -First 1;
+					if($summaryItem)
+					{
+						$summaryItem.Total = $_.Count;
+						if($totalRow)
+						{
+							$totalRow.Total += $_.Count
+						}
+						$item.Group | Group-Object -Property VerificationResult | ForEach-Object {
+							$propName = $_.Name;
+							$summaryItem.$propName += $_.Count;
+							if($totalRow)
+							{
+								$totalRow.$propName += $_.Count
+							}
+						};
+					}
+				};
+				$markerRows = [PartialScanManager]::CollatedSummaryCount | Where-Object { $_.Summary -eq $MarkerText } 
+				$markerRows | ForEach-Object { 
+					$markerRow = $_
+					Get-Member -InputObject $markerRow -MemberType NoteProperty | ForEach-Object {
+							$propName = $_.Name;
+							$markerRow.$propName = $this.SummaryMarkerText;				
+						}
+					};
+			}
+		}
+	}
+
+    # Collect Bug summary data and append to it at every checkpoint. Any changes in this method should be synced with WritePSConsole.ps1 PrintBugSummaryData method
+	[void] CollateBugSummaryData($event){
+		#gather all control results that have failed/verify as their control result
+		#obtain their control severities
+		$event | ForEach-Object {
+			$item = $_
+			if ($item -and $item.ControlResults -and ($item.ControlResults[0].VerificationResult -eq "Failed" -or $item.ControlResults[0].VerificationResult -eq "Verify"))
+			{
+				$item
+				$item.ControlResults[0].Messages | ForEach-Object{
+					if($_.Message -eq "New Bug" -or $_.Message -eq "Active Bug" -or $_.Message -eq "Resolved Bug"){
+					[PartialScanManager]::CollatedBugSummaryCount += [PSCustomObject]@{
+						BugStatus=$_.Message
+						ControlSeverity = $item.ControlItem.ControlSeverity;
+						
+					};
+				}
+				};
+				#Collecting control results where bug has been found (new/active/resolved). This is used to generate BugSummary at the end of scan
+				[PartialScanManager]::ControlResultsWithBugSummary += $item
+			}
+		};
+
+	}
+
+    # Write to csv and append to it at every checkpoint. Any changes in this method should be synced with WriteSummaryFile.ps1 WriteToCSV method
+	[void] WriteToCSV([SVTEventContext[]] $arguments, $FilePath)
+    {
+        if ([string]::IsNullOrEmpty($FilePath)) {
+            return;
+        }
+        [CsvOutputItem[]] $csvItems = @();
+		$anyAttestedControls = $null -ne ($arguments | 
+			Where-Object { 
+				$null -ne ($_.ControlResults | Where-Object { $_.AttestationStatus -ne [AttestationStatus]::None } | Select-Object -First 1) 
+			} | Select-Object -First 1);
+
+        $arguments | ForEach-Object {
+            $item = $_
+            if ($item -and $item.ControlResults) {
+				
+
+                $item.ControlResults | ForEach-Object{
+                    $csvItem = [CsvOutputItem]@{
+                        ControlID = $item.ControlItem.ControlID;
+                        ControlSeverity = $item.ControlItem.ControlSeverity;
+                        Description = $item.ControlItem.Description;
+                        FeatureName = $item.FeatureName;
+						Recommendation = $item.ControlItem.Recommendation;	
+				        Rationale = $item.ControlItem.Rationale
+                    };
+					if($_.VerificationResult -ne [VerificationResult]::NotScanned)
+					{
+						$csvItem.Status = $_.VerificationResult.ToString();
+					}
+					
+					if($item.ControlItem.IsBaselineControl)
+					{
+						$csvItem.IsBaselineControl = "Yes";
+					}
+					else
+					{
+						$csvItem.IsBaselineControl = "No";
+					}
+
+					if($anyAttestedControls)
+					{
+						$csvItem.ActualStatus = $_.ActualVerificationResult.ToString();
+					}
+
+					if($item.IsResource())
+					{
+						$csvItem.ResourceName = $item.ResourceContext.ResourceName;
+                        $csvItem.ResourceGroupName = $item.ResourceContext.ResourceGroupName;
+						try {
+							if($item.ResourceContext.ResourceDetails -ne $null -and ([Helpers]::CheckMember($item.ResourceContext.ResourceDetails,"ResourceLink")))
+						    {
+								$csvItem.ResourceLink = $item.ResourceContext.ResourceDetails.ResourceLink;							
+							}
+						}
+						catch {
+							$_
+						}
+						$csvItem.ResourceId = $item.ResourceContext.ResourceId;
+						$csvItem.DetailedLogFile = "/$([Helpers]::SanitizeFolderName($item.ResourceContext.ResourceGroupName))/$($item.FeatureName).LOG";
+
+						
+					}
+					else
+					{
+					    $csvItem.ResourceId = $item.SubscriptionContext.scope;
+						$csvItem.DetailedLogFile = "/$([Helpers]::SanitizeFolderName($item.SubscriptionContext.SubscriptionName))/$($item.FeatureName).LOG"
+						
+					}
+
+					if($_.AttestationStatus -ne [AttestationStatus]::None)
+					{
+						$csvItem.AttestedSubStatus = $_.AttestationStatus.ToString();
+						if($null -ne $_.StateManagement -and $null -ne $_.StateManagement.AttestedStateData)
+						{
+							$csvItem.AttesterJustification = $_.StateManagement.AttestedStateData.Justification
+							$csvItem.AttestedBy =  $_.StateManagement.AttestedStateData.AttestedBy
+							if(![string]::IsNullOrWhiteSpace($_.StateManagement.AttestedStateData.ExpiryDate))
+							{
+								$csvItem.AttestationExpiryDate =  $_.StateManagement.AttestedStateData.ExpiryDate
+							}
+							if(![string]::IsNullOrWhiteSpace($_.StateManagement.AttestedStateData.AttestedDate))
+							{
+								$csvItem.AttestedOn=  $_.StateManagement.AttestedStateData.AttestedDate
+							}
+						}
+					}
+					if($_.IsControlInGrace -eq $true)
+					{
+						$csvItem.IsControlInGrace = "Yes"
+					}
+					else 
+					{
+						$csvItem.IsControlInGrace = "No"
+					}					
+                    $csvItems += $csvItem;
+                }                                
+            }
+        } 
+
+        if ($csvItems.Count -gt 0) {
+			# Remove Null properties
+			$nonNullProps = @();
+			$nonNullProps = [CsvOutputItem].GetMembers() | Where-Object { $_.MemberType -eq [System.Reflection.MemberTypes]::Property }| Select-object -Property Name
+			
+			($csvItems | Select-Object -Property $nonNullProps.Name -ExcludeProperty SupportsAutoFix,ChildResourceName,IsPreviewBaselineControl,UserComments ) | Group-Object -Property FeatureName | Foreach-Object {$_.Group | Export-Csv -Path $FilePath -append -NoTypeInformation}
+			[PartialScanManager]::IsCsvUpdatedAtCheckpoint = $true
+        }
+	}	
 }
+

@@ -408,9 +408,27 @@ class Release: ADOSVTBase
             # This functions is to check users permissions on release definition. Groups' permissions check is not added here.
             $releaseDefinitionPath = $this.ReleaseObj.Path.Trim("\").Replace(" ","+").Replace("\","%2F")
             $apiURL = "https://{0}.visualstudio.com/{1}/_api/_security/ReadExplicitIdentitiesJson?__v=5&permissionSetId={2}&permissionSetToken={3}%2F{4}%2F{5}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath) ,$($this.ReleaseObj.id);
+
+            $sw = [System.Diagnostics.Stopwatch]::StartNew();
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            $sw.Stop()
+
             $accessList = @()
             $exemptedUserIdentities = @()
+
+            #Below code added to send perf telemtry
+            if ($this.IsAIEnabled)
+            {
+                $properties =  @{ 
+                    TimeTakenInMs = $sw.ElapsedMilliseconds;
+                    ApiUrl = $apiURL; 
+                    Resourcename = $this.ResourceContext.ResourceName;
+                    ResourceType = $this.ResourceContext.ResourceType;
+                    PartialScanIdentifier = $this.PartialScanIdentifier;
+                    CalledBy = "CheckRBACAccess";
+                }
+                [AIOrgTelemetryHelper]::PublishEvent( "Api Call Trace",$properties, @{})
+            }
 
             # Fetch detailed permissions of each of group/user from above api call
             # To be evaluated only when -DetailedScan flag is used in GADS command along with control ids  or when controls are to be attested
@@ -617,12 +635,13 @@ class Release: ADOSVTBase
         #filter task groups in each such env.
         $releaseEnv | ForEach-Object {
             #Task groups have type 'metaTask' whereas individual tasks have type 'task'
-            if(([Helpers]::CheckMember($_.deployPhases[0].workflowTasks,"definitiontype")) -and ($_.deployPhases[0].workflowTasks.definitiontype -eq 'metaTask'))
-            {
-                $taskGroups += $_.deployPhases[0].workflowTasks
+            $_.deployPhases[0].workflowTasks | ForEach-Object { 
+                if(([Helpers]::CheckMember($_ ,"definitiontype")) -and ($_.definitiontype -eq 'metaTask'))
+                {
+                    $taskGroups += $_
+                }              
             }
         } 
-
         #Filtering unique task groups used in release pipeline.
         $taskGroups = $taskGroups | Sort-Object -Property taskId -Unique
 

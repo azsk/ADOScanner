@@ -77,7 +77,7 @@
       "Id": "ServiceConnection150",
       "ControlSeverity": "High",
       "Automated": "Yes",
-      "MethodName": "CheckClassConnections",
+      "MethodName": "CheckClassicConnection",
       "Rationale": "You should use new ARM/v2 resources as the ARM model provides several security enhancements such as: stronger access control (RBAC), better auditing, ARM-based deployment/governance, access to managed identities, access to key vault for secrets, AAD-based authentication, support for tags and resource groups for easier security management, etc.",
       "Recommendation": "Migrate each v1/ASM-based service connections to a corresponding v2/ARM-based connection. Refer: https://docs.microsoft.com/en-us/azure/virtual-machines/windows/migration-classic-resource-manager-overview",
       "Tags": [
@@ -157,14 +157,14 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_ServiceConnection_AuthZ_PAT_Or_Auth",
-      "Description": "Justify GitHub service connections are authenticated with full scope GitHub PATs instead of the OAuth flow.",
+      "ControlID": "ADO_ServiceConnection_AuthZ_PAT_Or_OAuth",
+      "Description": "Review permissions granted to the GitHub connections.",
       "Id": "ServiceConnection200",
       "ControlSeverity": "High",
       "Automated": "Yes",
-      "MethodName": "CheckServiceConnectionForPATOrAuth",
-      "Rationale": "Full scope PAT exposes the environment to a full account compromise. The OAuth flow creates a token that only allows source code and webhook read/write access on GitHub. The impact of losing control of a scoped OAuth token is far lower.",
-      "Recommendation": "Go to Project Settings --> Service Connections --> Select Service Connection --> Select Edit --> Verify connection authentication type.",
+      "MethodName": "CheckServiceConnectionForPATOrOAuth",
+      "Rationale": "GitHub service connections can use either PAT or OAuth authorization grants. In either case, it is not a good security practice to use full access to GitHub. Always review the permission granted to such service connections.",
+      "Recommendation": "Go to Project Settings --> Service Connections --> Select Service Connection --> Select Edit --> Review permissions of the connection.",
       "Tags": [
         "SDL",
         "TCP",
