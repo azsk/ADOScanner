@@ -208,6 +208,23 @@
         "SI"
       ],
       "Enabled": true
-    }
+    },
+    {
+      "ControlID": "ADO_Release_SI_Disable_Pipeline_Edit_Permission",
+      "Description": "Do not allow release pipeline to be edited by a broad pool of users.",
+      "Id": "Release230",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckPipelineEditPermission",
+      "Rationale": "TBD",
+      "Recommendation": "TBD",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
+    }  
   ]
 }

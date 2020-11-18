@@ -337,7 +337,7 @@ class Build: ADOSVTBase
             # To be evaluated only when -DetailedScan flag is used in GADS command along with control ids  or when controls are to be attested
             if([AzSKRoot]::IsDetailedScanRequired -eq $true)
             {
-                # release owner
+                # build owner
                 $exemptedUserIdentities += $this.BuildObj.authoredBy.id
                 if(($responseObj.identities|Measure-Object).Count -gt 0)
                 {
@@ -719,5 +719,112 @@ class Build: ADOSVTBase
             }
         }
         return  $controlResult
+    }
+    hidden [ControlResult] CheckPipelineEditPermission([ControlResult] $controlResult)
+    {
+
+        $orgName = $($this.SubscriptionContext.SubscriptionName)
+        $projectId = $this.BuildObj.project.id
+        $projectName = $this.BuildObj.project.name
+        $buildId = $this.BuildObj.id
+        $permissionSetToken = "$projectId/$buildId"
+        $buildURL = "https://dev.azure.com/$orgName/$projectName/_build?definitionId=$buildId"
+        
+        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
+        $inputbody = "{
+            'contributionIds': [
+                'ms.vss-admin-web.security-view-members-data-provider'
+            ],
+            'dataProviderContext': {
+                'properties': {
+                    'permissionSetId': '$([Build]::SecurityNamespaceId)',
+                    'permissionSetToken': '$permissionSetToken',
+                    'sourcePage': {
+                        'url': '$buildURL',
+                        'routeId': 'ms.vss-build-web.pipeline-details-route',
+                        'routeValues': {
+                            'project': '$projectName',
+                            'viewname': 'details',
+                            'controller': 'ContributedPage',
+                            'action': 'Execute'
+                        }
+                    }
+                }
+            }
+        }" | ConvertFrom-Json
+
+        try
+        {
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+            {
+    
+                $contributorObj = $responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object {$_.subjectKind -eq 'group' -and $_.principalName -eq "[$projectName]\Contributors"}
+                # $contributorObj would be null if none of its permissions are set i.e. all perms are 'Not Set'.
+
+                if($contributorObj)
+                {
+                    $contributorInputbody = "{
+                        'contributionIds': [
+                            'ms.vss-admin-web.security-view-permissions-data-provider'
+                        ],
+                        'dataProviderContext': {
+                            'properties': {
+                                'subjectDescriptor': '$($contributorObj.descriptor)',
+                                'permissionSetId': '$([Build]::SecurityNamespaceId)',
+                                'permissionSetToken': '$permissionSetToken',
+                                'accountName': '$(($contributorObj.principalName).Replace('\','\\'))',
+                                'sourcePage': {
+                                    'url': '$buildURL',
+                                    'routeId': 'ms.vss-build-web.pipeline-details-route',
+                                    'routeValues': {
+                                        'project': '$projectName',
+                                        'viewname': 'details',
+                                        'controller': 'ContributedPage',
+                                        'action': 'Execute'
+                                    }
+                                }
+                            }
+                        }
+                    }" | ConvertFrom-Json
+                
+                    #Web request to fetch RBAC permissions of Contributors group on task group.
+                    $contributorResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$contributorInputbody);
+                    $contributorRBACObj = $contributorResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
+                    $editPerms = $contributorRBACObj | Where-Object {$_.displayName -eq 'Edit build pipeline'}
+                   
+                    if([Helpers]::CheckMember($editPerms,"effectivePermissionValue"))
+                    {
+                        #effectivePermissionValue equals to 1 implies edit build pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
+                        if(($editPerms.effectivePermissionValue -eq 1) -or ($editPerms.effectivePermissionValue -eq 3))
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the build pipeline.");
+                        }
+                        else 
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the build pipeline.");    
+                        }   
+                    }
+                    else 
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the build pipeline.");
+                    }
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have access to the build pipeline.");
+                }
+            }
+            else 
+            {
+                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
+        }
+
+        return $controlResult;
     }
 }

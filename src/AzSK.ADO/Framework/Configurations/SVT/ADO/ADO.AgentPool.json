@@ -96,7 +96,7 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckPrjAllPipelineAccess",
-      "Rationale": "To support security of the pipeline operations, agaent pools must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
+      "Rationale": "To support security of the pipeline operations, agent pools must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
       "Recommendation": "Go to 'Project settings' --> 'Agent pools' --> Select the agent pool --> Security --> Disable 'Grant access permission to all pipeline'.",
       "Tags": [
         "SDL",
