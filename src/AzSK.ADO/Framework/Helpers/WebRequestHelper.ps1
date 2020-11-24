@@ -327,6 +327,11 @@ class WebRequestHelper {
 									$nPKey = $requestResult.Headers["x-ms-continuation-NextPartitionKey"]
 									$uri= $orginalUri + "&NextPartitionKey=$nPKey"
 								}
+								elseif($requestResult.Headers.ContainsKey('x-ms-continuationtoken') -and  -not $uri.Contains('$top'))
+								{
+									$nPKey = $requestResult.Headers["x-ms-continuationtoken"]
+									$uri= $orginalUri + "&continuationToken=$nPKey"
+								}
 								else {
 									$uri = [string]::Empty;
 								}

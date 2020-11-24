@@ -265,7 +265,7 @@ class SVTResourceResolver: AzSKRoot {
                         }
 
                         if ($this.BuildNames -eq "*") {
-                            $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $thisProj.name;
+                            $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1&queryOrder=definitionNameDescending" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $thisProj.name;
                             $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL) 
                             if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
                                 $nObj = $this.MaxObjectsToScan
