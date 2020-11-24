@@ -648,7 +648,11 @@ class SVTControlAttestation
         if($projectName -notin $this.repoProject.allProjects)
         {
             $this.repoProject.allProjects += $projectName
-            $attestationRepo = [Constants]::AttestationRepo;
+			$attestationRepo = [Constants]::AttestationRepo;
+			#Get attesttion repo name from controlsetting file if AttestationRepo varibale value is not empty.
+			if ([Helpers]::CheckMember($this.ControlSettings,"AttestationRepo")) {
+				$attestationRepo =  $this.ControlSettings.AttestationRepo;
+			}
             $rmContext = [ContextHelper]::GetCurrentContext();
 		    $user = "";
 		    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
