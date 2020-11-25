@@ -265,7 +265,7 @@ class CAAutomation : ADOSVTCommandBase
 			{
 				$this.ImageName = $this.ControlSettings.DockerImage.ImageName
 			}
-        }
+		}
     
     [void] RegisterResourceProvider()
     {
@@ -349,7 +349,7 @@ class CAAutomation : ADOSVTCommandBase
 			}
 			else 
 			{
-                $this.RegisterResourceProvider();
+				$this.RegisterResourceProvider();
 
 				if([string]::IsNullOrWhiteSpace($this.ImageName))
 				{
