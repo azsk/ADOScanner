@@ -122,6 +122,23 @@
         "DP"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_AgentPool_DP_Enable_Auto_Update",
+      "Description": "Enable auto-update of agents in the pool.",
+      "Id": "AgentPool180",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckAutoUpdate",
+      "Rationale": "Un-patched agents are easy targets for compromise from various malware/trojan attacks that exploit known vulnerabilities in operating systems and related software. Being on the latest OS version significantly reduces risks from security design issues and security bugs that may be present in older versions.",
+      "Recommendation": "To enable auto-update settings: 1.Navigate to the Organization settings. 2. Open Agent pools. 3. Select Settings. 4. Enable 'Allow agents in this pool to automatically update'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
     }
   ]
 }
