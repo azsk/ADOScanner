@@ -1,11 +1,9 @@
 Set-StrictMode -Version Latest
 class AutoCloseBugManager {
-    hidden [SVTEventContext []] $ControlResults
-    hidden [SubscriptionContext] $subscriptionContext;
+    hidden [string] $OrgName;
     hidden [PSObject] $ControlSettings;
-    AutoCloseBugManager([SubscriptionContext] $subscriptionContext, [SVTEventContext []] $ControlResults) {
-        $this.subscriptionContext = $subscriptionContext;
-        $this.ControlResults = $ControlResults
+    AutoCloseBugManager([string] $orgName) {
+        $this.OrgName = $orgName;
         $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
     }
 
@@ -124,7 +122,7 @@ class AutoCloseBugManager {
 
     #function to close an active bug
     hidden [void] CloseBug([string] $id, [string] $Project) {
-        $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=5.1" -f $this.subscriptionContext.SubscriptionName, $Project, $id
+        $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=5.1" -f $this.OrgName, $Project, $id
         
         #load the closed bug template
         $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForClosedBug.Json")
@@ -145,7 +143,7 @@ class AutoCloseBugManager {
 
     #function to retrieve all new/active/resolved bugs 
     hidden [object] GetWorkItemByHash([string] $hash,[int] $MaxKeyWordsToQuery) {
-        $url = "https://{0}.almsearch.visualstudio.com/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $this.subscriptionContext.SubscriptionName
+        $url = "https://{0}.almsearch.visualstudio.com/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $this.OrgName
 
         #take results have been doubled, as their might be chances for a bug to be logged more than once, if the tag id is copied.
         #in this case we want all the instances of this bug to be closed
@@ -162,12 +160,8 @@ class AutoCloseBugManager {
     #function to create hash for bug tag
     hidden [string] GetHashedTag([string] $ControlId, [string] $ResourceId) {
         $hashedTag = $null
-        $stringToHash = "{0}#{1}"
-        #create a hash of resource id and control id
-        $stringToHash = $stringToHash.Replace("{0}", $ResourceId)
-        $stringToHash = $stringToHash.Replace("{1}", $ControlId)
+        $stringToHash = "$ResourceId#$ControlId";
         #return the bug tag
-
         $hashedTag = "ADOScanID: " + [AutoBugLog]::ComputeHashX($stringToHash)
         return $hashedTag
     }

@@ -1,49 +1,69 @@
 Set-StrictMode -Version Latest
 class AutoBugLog {
+    hidden static [AutoBugLog] $AutoBugInstance;
     hidden [ControlStateExtension] $ControlStateExt;
-    hidden [SubscriptionContext] $SubscriptionContext;
+    hidden [string] $OrganizationName;
     hidden [InvocationInfo] $InvocationContext;
     hidden [PSObject] $ControlSettings; 
-    hidden [SVTEventContext[]] $ControlResults;
-    hidden [bool] $isBugLogCustomFlow = $false;
+    hidden [bool] $IsBugLogCustomFlow = $false;
     hidden [bool] $ShowBugsInS360 = $false;
+    hidden [PSObject] $bugTemplateLocalCache
+
+    hidden [string] $BugLogParameterValue;
+    hidden [string] $BugDescriptionField;
     
-    
-    AutoBugLog([SubscriptionContext] $subscriptionContext, [InvocationInfo] $invocationContext, [SVTEventContext[]] $ControlResults, [ControlStateExtension] $ControlStateExt) {
-        $this.SubscriptionContext = $subscriptionContext;
+    AutoBugLog([string] $orgName, [InvocationInfo] $invocationContext, [ControlStateExtension] $controlStateExt, $bugLogParameterValue) {
+        $this.OrganizationName = $orgName;
         $this.InvocationContext = $invocationContext;	
-        $this.ControlResults = $ControlResults;		
         $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
-        $this.ControlStateExt = $ControlStateExt      
+        $this.ControlStateExt = $controlStateExt    
+        $this.BugLogParameterValue = $bugLogParameterValue  
         
         #flag to check if pluggable bug logging interface (service tree)
         if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "BugAssigneeAndPathCustomFlow", $null)) {
-            $this.isBugLogCustomFlow = $this.ControlSettings.BugLogging.BugAssigneeAndPathCustomFlow;
+            $this.IsBugLogCustomFlow = $this.ControlSettings.BugLogging.BugAssigneeAndPathCustomFlow;
         }
-    }  
 
-    static [string] ComputeHashX([string] $dataToHash)
-	{
-		return [Helpers]::ComputeHashShort($dataToHash, [Constants]::AutoBugLogTagLen)
-	}
+        # Replace the field reference name for bug description if it is customized
+        if ($this.InvocationContext.BoundParameters['BugDescriptionField']) {
+            $this.BugDescriptionField = "/fields/" + $this.InvocationContext.BoundParameters['BugDescriptionField']
+        }
+        elseif ([Helpers]::CheckMember($this.controlsettings.BugLogging, 'BugDescriptionField') -and -not ([string]::IsNullOrEmpty($this.ControlSettings.BugLogging.BugDescriptionField))) {
+            $this.BugDescriptionField = "/fields/" + $this.ControlSettings.BugLogging.BugDescriptionField
+        }
+    }
+    
+    AutoBugLog() {
+    }
+    
+    #Return AutoBugLog instance
+    hidden static [AutoBugLog] GetInstance([string] $orgName, [InvocationInfo] $invocationContext, [ControlStateExtension] $ControlStateExt, [string] $bugLogParameterValue) {
+        [AutoBugLog]::AutoBugInstance = [AutoBugLog]::new($orgName, $invocationContext, $ControlStateExt, $bugLogParameterValue)
+        return [AutoBugLog]::AutoBugInstance
+    }
+
+    static [string] ComputeHashX([string] $dataToHash) {
+        return [Helpers]::ComputeHashShort($dataToHash, [Constants]::AutoBugLogTagLen)
+    }
 
     #main function where bug logging takes place 
-    hidden [void] LogBugInADO([SVTEventContext[]] $ControlResults, [string] $BugLogParameterValue) {
+    hidden [void] LogBugInADO([SVTEventContext[]] $ControlResults) {
+        #hidden [void] LogBugInADO([SVTEventContext[]] $ControlResults, [string] $BugLogParameterValue) {
         #check if user has permissions to log bug for the current resource
-        if (($ControlResults.ControlResults.VerificationResult -contains "Failed" -or $ControlResults.ControlResults.VerificationResult -contains "Verify") -and $this.CheckPermsForBugLog($ControlResults[0])) {
+        if ($this.CheckPermsForBugLog($ControlResults[0])) {
             #retrieve the project name for the current resource
             $ProjectName = $this.GetProjectForBugLog($ControlResults[0])
 
             #check if the area and iteration path are valid 
-            if ([BugLogPathManager]::CheckIfPathIsValid($this.SubscriptionContext.SubscriptionName,$ProjectName,$this.InvocationContext,  $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $this.isBugLogCustomFlow)) {
+            if ([BugLogPathManager]::CheckIfPathIsValid($this.OrganizationName, $ProjectName, $this.InvocationContext, $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $this.IsBugLogCustomFlow)) {
                 #Obtain the assignee for the current resource, will be same for all the control failures for this particular resource
                 $metaProviderObj = [BugMetaInfoProvider]::new();        
                 $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging)
                 $serviceId = $metaProviderObj.ServiceId
 
                 #Set ShowBugsInS360 if customebuglog is enabled and sericeid not null and ShowBugsInS360 enabled in policy
-                if ($this.isBugLogCustomFlow  -and (-not [string]::IsNullOrEmpty($serviceId)) -and ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "ShowBugsInS360") -and $this.ControlSettings.BugLogging.ShowBugsInS360) ) {
-                    $this.ShowBugsInS360 = $true;
+                if ($this.IsBugLogCustomFlow -and (-not [string]::IsNullOrEmpty($serviceId)) -and ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "ShowBugsInS360") -and $this.ControlSettings.BugLogging.ShowBugsInS360) ) {
+                    $this.ShowBugsInS360 = $true;    
                 }
                 else {
                     $this.ShowBugsInS360 = $false;
@@ -57,22 +77,20 @@ class AutoBugLog {
                 #this falg is added to restrict 'Determining bug logging' message should print only once 
                 $printLogBugMsg = $true;
                 #Loop through all the control results for the current resource
-                $ControlResults | ForEach-Object {			
-					
+                $ControlResults | ForEach-Object {
                     $control = $_;                   
 
                     #filter controls on basis of whether they are baseline or not depending on the value given in autobuglog flag
-                    $LogControlFlag=$false
-                    if ($BugLogParameterValue -eq "All") {
+                    $LogControlFlag = $false
+                    if ($this.BugLogParameterValue -eq "All") {
                         $LogControlFlag = $true
                     }
-                    elseif ($BugLogParameterValue -eq "BaselineControls") {
+                    elseif ($this.BugLogParameterValue -eq "BaselineControls") {
                         $LogControlFlag = $this.CheckBaselineControl($control.ControlItem.ControlID)				
                     }
                     else {
                         $LogControlFlag = $this.CheckPreviewBaselineControl($control.ControlItem.ControlID)
                     }
-			
 			
                     if ($LogControlFlag -and ($control.ControlResults[0].VerificationResult -eq "Failed" -or $control.ControlResults[0].VerificationResult -eq "Verify") ) {
 				
@@ -85,8 +103,7 @@ class AutoBugLog {
                             $this.ManageActiveAndResolvedBugs($ProjectName, $control, $workItem, $AssignedTo)
                         }
                         else {
-                            if($printLogBugMsg)
-                            {
+                            if ($printLogBugMsg) {
                                 Write-Host "Determining bugs to log..." -ForegroundColor Cyan
                             }
                             $printLogBugMsg = $false;
@@ -94,27 +111,16 @@ class AutoBugLog {
                             #filling the bug template
                             $Title = "[ADOScanner] Control failure - {0} for resource {1} {2}"
                             $Description = "Control failure - {3} for resource {4} {5} </br></br> <b>Control Description: </b> {0} </br></br> <b> Control Result: </b> {6} </br> </br> <b> Rationale:</b> {1} </br></br> <b> Recommendation:</b> {2}"
-			
-                            $Title = $Title.Replace("{0}", $control.ControlItem.ControlID)
-                            $Title = $Title.Replace("{1}", $control.ResourceContext.ResourceTypeName)
-                            $Title = $Title.Replace("{2}", $control.ResourceContext.ResourceName)
-				            
-                            $Description = $Description.Replace("{0}", $control.ControlItem.Description)
-                            $Description = $Description.Replace("{1}", $control.ControlItem.Rationale)
-                            $Description = $Description.Replace("{2}", $control.ControlItem.Recommendation)
-                            $Description = $Description.Replace("{3}", $control.ControlItem.ControlID)
-                            $Description = $Description.Replace("{4}", $control.ResourceContext.ResourceTypeName)
-                            $Description = $Description.Replace("{5}", $control.ResourceContext.ResourceName)
-                            $Description = $Description.Replace("{6}", $control.ControlResults[0].VerificationResult)
+                            
+                            $Title = $Title -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName
+                            $Description = $Description -f $control.ControlItem.Description, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlResults[0].VerificationResult
                             $RunStepsForControl = " </br></br> <b>Control Scan Command:</b> Run:  {0}"
-                            $RunStepsForControl = $RunStepsForControl.Replace("{0}", $this.GetControlReproStep($control))
-                            $Description += $RunStepsForControl
+                            $Description += ($RunStepsForControl -f $this.GetControlReproStep($control));
 				            
-				
                             #check and append any detailed log and state data for the control failure
-                            if ($this.GetDetailedLogForControl($control)) {
+                            $log = $this.GetDetailedLogForControl($control);
+                            if ($log) { 
                                 $Description += "<hr></br><b>Some other details for your reference</b> </br><hr> {7} "
-                                $log = $this.GetDetailedLogForControl($control).Replace("\", "\\")
                                 $Description = $Description.Replace("{7}", $log)
 					
                             }				
@@ -133,26 +139,19 @@ class AutoBugLog {
     }
 
     #function to get the security command for repro of this bug 
-    hidden [string] GetControlReproStep([SVTEventContext []] $ControlResult){
-        $StepsForRepro=""
+    hidden [string] GetControlReproStep([SVTEventContext []] $ControlResult) {
+        $StepsForRepro = ""
         if ($ControlResult.FeatureName -eq "Organization") {
-            $StepsForRepro="Get-AzSKADOSecurityStatus -OrganizationName '{0}' -ControlIds '{1}'"
-            $StepsForRepro=$StepsForRepro.Replace("{0}",$ControlResult.ResourceContext.ResourceName)
-            $StepsForRepro=$StepsForRepro.Replace("{1}",$ControlResult.ControlItem.ControlID)
+            $StepsForRepro = "Get-AzSKADOSecurityStatus -OrganizationName '{0}' -ControlIds '{1}'"
+            $StepsForRepro = $StepsForRepro -f $ControlResult.ResourceContext.ResourceName, $ControlResult.ControlItem.ControlID;
         }
         elseif ($ControlResult.ResourceContext.ResourceTypeName -eq "Project") {
-            $StepsForRepro="Get-AzSKADOSecurityStatus -OrganizationName '{0}' -ProjectNames '{1}' -ControlIds '{2}'"
-            $StepsForRepro=$StepsForRepro.Replace("{0}",$ControlResult.ResourceContext.ResourceGroupName)
-            $StepsForRepro=$StepsForRepro.Replace("{1}",$ControlResult.ResourceContext.ResourceName)
-            $StepsForRepro=$StepsForRepro.Replace("{2}",$ControlResult.ControlItem.ControlID)
+            $StepsForRepro = "Get-AzSKADOSecurityStatus -OrganizationName '{0}' -ProjectNames '{1}' -ControlIds '{2}'"
+            $StepsForRepro = $StepsForRepro -f $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceName, $ControlResult.ControlItem.ControlID;
         }
         else {
-            $StepsForRepro="Get-AzSKADOSecurityStatus -OrganizationName '{0}' -ProjectNames '{1}' -{2}Names '{3}' -ControlIds '{4}'"
-            $StepsForRepro=$StepsForRepro.Replace("{0}",$this.SubscriptionContext.SubscriptionName)
-            $StepsForRepro=$StepsForRepro.Replace("{1}",$ControlResult.ResourceContext.ResourceGroupName)
-            $StepsForRepro=$StepsForRepro.Replace("{2}",$ControlResult.FeatureName)
-            $StepsForRepro=$StepsForRepro.Replace("{3}",$ControlResult.ResourceContext.ResourceName)
-            $StepsForRepro=$StepsForRepro.Replace("{4}",$ControlResult.ControlItem.ControlID)
+            $StepsForRepro = "Get-AzSKADOSecurityStatus -OrganizationName '{0}' -ProjectNames '{1}' -{2}Names '{3}' -ControlIds '{4}'"
+            $StepsForRepro = $StepsForRepro -f $this.OrganizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.FeatureName, $ControlResult.ResourceContext.ResourceName, $ControlResult.ControlItem.ControlID;
         }
         return $StepsForRepro
     }
@@ -226,7 +225,7 @@ class AutoBugLog {
                 return $null
 					  
             }
-            else{
+            else {
                 $Project = $this.ControlStateExt.GetProject()
                 #user is a PCA member but the project has not been set for org control failures
                 if (!$Project) { 
@@ -256,7 +255,7 @@ class AutoBugLog {
 
                 #beautify state data for bug template
                 $stateData = [Helpers]::ConvertObjectToString($_, $false)
-                $stateData=$stateData.Replace("`"","'")
+                $stateData = $stateData.Replace("`"", "'")
                 $stateData = $stateData.Replace("@{", "@{</br>")
                 $stateData = $stateData.Replace("@(", "@(</br>")
                 $stateData = $stateData.Replace(";", ";</br>")
@@ -264,8 +263,6 @@ class AutoBugLog {
                 $stateData = $stateData.Replace(");", "</br>});</br>")
 					
                 $log += "$($stateData) </br></br>"	
-					
-				
             }
         }
         
@@ -276,8 +273,7 @@ class AutoBugLog {
     }
     
     #function to retrieve the person to whom the bug will be assigned
-    hidden [string] GetAssignee([SVTEventContext[]] $ControlResult) 
-    {
+    hidden [string] GetAssignee([SVTEventContext[]] $ControlResult) {
         $metaProviderObj = [BugMetaInfoProvider]::new();        
         return $metaProviderObj.GetAssignee($ControlResult, $this.ControlSettings.BugLogging);   
     }
@@ -292,13 +288,13 @@ class AutoBugLog {
             'High' {
                 $Severity = "2 - High"
             }
-	    'Important' {
+            'Important' {
                 $Severity = "2 - High"
             }
             'Medium' {
                 $Severity = "3 - Medium"
             }
-	    'Moderate' {
+            'Moderate' {
                 $Severity = "3 - Medium"
             }
             'Low' {
@@ -345,13 +341,13 @@ class AutoBugLog {
         $id = ($workItem[0].results.values[0].fields | where { $_.name -eq "ID" }).value
 
         #bug url that redirects user to bug logged in ADO, this is not available via the API response and thus has to be created via the ID of bug
-        $bugUrl = "https://{0}.visualstudio.com/{1}/_workitems/edit/{2}" -f $($this.SubscriptionContext.SubscriptionName), $ProjectName , $id
+        $bugUrl = "https://{0}.visualstudio.com/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $ProjectName , $id
 
         #TODO : whether the bug is active or resolved, we have to ensure the state of the bug remains active after this function  
         #if a PCA assigns this to a non PCA, the control can never be fixed for org/project controls. to tackle this, reassign it to the original owner PCA
         #do this for both active and resolved bugs, as we need it to be assigned to the actual person who can fix this control
         #for other control results, we need not changed the assignee
-        <#    $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=5.1" -f $($this.SubscriptionContext.SubscriptionName), $ProjectName, $id
+        <#    $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=5.1" -f $($this.OrganizationName), $ProjectName, $id
             $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForResolvedBug.json")
             $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10 
             $BugTemplate=$BugTemplate.Replace("{0}",$AssignedTo)           
@@ -369,7 +365,7 @@ class AutoBugLog {
                     $body = $body | ConvertTo-Json
                     try {
                         $responseObj = Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $body
-                        $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $($this.SubscriptionContext.SubscriptionName), $responseObj.id
+                        $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $($this.OrganizationName), $responseObj.id
                     }
                     catch {
                         Write-Host "Could not reactivate the bug" -ForegroundColor Red
@@ -393,10 +389,10 @@ class AutoBugLog {
 
         #change the assignee for resolved bugs only
         if ($state.value -eq "Resolved") {
-            $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=5.1" -f $($this.SubscriptionContext.SubscriptionName), $ProjectName, $id
+            $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=5.1" -f $this.OrganizationName, $ProjectName, $id
             $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForResolvedBug.json")
             $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10 
-            $BugTemplate=$BugTemplate.Replace("{0}",$AssignedTo)           
+            $BugTemplate = $BugTemplate.Replace("{0}", $AssignedTo)           
             $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)                
             try {
                 #TODO: shift all this as a patch request in webrequesthelper class and manage accented characters as well
@@ -424,7 +420,7 @@ class AutoBugLog {
                 }
             }
         }
-        else{
+        else {
             $control.ControlResults.AddMessage("Active Bug", $bugUrl)
         }
     
@@ -433,7 +429,7 @@ class AutoBugLog {
     #function to search for existing bugs based on the hash
     hidden [object] GetWorkItemByHash([string] $hash, [string] $ProjectName) {
 		
-        $url = "https://{0}.almsearch.visualstudio.com/{1}/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $($this.SubscriptionContext.SubscriptionName), $ProjectName;
+        $url = "https://{0}.almsearch.visualstudio.com/{1}/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $this.OrganizationName, $ProjectName;
 
         #TODO: validate set to allow only two values : ReactiveOldBug and CreateNewBug
         #check for ResolvedBugBehaviour in control settings
@@ -450,7 +446,7 @@ class AutoBugLog {
         $body.searchText = "Tags: " + $hash
         $body.searchFilters.Projects = $ProjectName
 
-        $response = [WebRequestHelper]:: InvokePostWebRequest($url, $body)
+        $response = [WebRequestHelper]::InvokePostWebRequest($url, $body)
     
         return  $response
 
@@ -459,12 +455,9 @@ class AutoBugLog {
     #function to compute hash and return the tag
     hidden [string] GetHashedTag([string] $ControlId, [string] $ResourceId) {
         $hashedTag = $null
-        $stringToHash = "{0}#{1}"
-        #create a hash of resource id and control id
-        $stringToHash = $stringToHash.Replace("{0}", $ResourceId)
-        $stringToHash = $stringToHash.Replace("{1}", $ControlId)
+        $stringToHash = "$ResourceId#$ControlId";
         #return the bug tag
-        $hashedTag="ADOScanID: " + [AutoBugLog]::ComputeHashX($stringToHash)
+        $hashedTag = "ADOScanID: " + [AutoBugLog]::ComputeHashX($stringToHash)
         return $hashedTag
     }
 
@@ -473,48 +466,45 @@ class AutoBugLog {
 		
         #logging new bugs
 		
-        $apiurl = 'https://dev.azure.com/{0}/{1}/_apis/wit/workitems/$bug?api-version=5.1' -f $($this.SubscriptionContext.SubscriptionName), $ProjectName;
+        $apiurl = 'https://dev.azure.com/{0}/{1}/_apis/wit/workitems/$bug?api-version=5.1' -f $this.OrganizationName, $ProjectName;
 
         $BugTemplate = $null;
         $SecuritySeverity = "";
-        
+
         if ($this.ShowBugsInS360) {
             $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForNewBugS360.json")
             $SecuritySeverity = $this.GetSecuritySeverity($control.ControlItem.ControlSeverity)		
         }
         else {
-            $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForNewBug.json")
+            $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForNewBug.json");
         }
 
         # Replace the field reference name for bug description if it is customized
-        if ([Helpers]::CheckMember($this.controlsettings.BugLogging, 'BugDescriptionField') -and -not ([string]::IsNullOrEmpty($this.ControlSettings.BugLogging.BugDescriptionField))) {
-            $BugTemplate[1].path = "/fields/"+$this.ControlSettings.BugLogging.BugDescriptionField
+        if ($this.BugDescriptionField) {
+            $BugTemplate[1].path = $this.BugDescriptionField;
         }
 
-        if ($this.InvocationContext.BoundParameters['BugDescriptionField']) {
-            $BugTemplate[1].path = "/fields/"+$this.InvocationContext.BoundParameters['BugDescriptionField']
-        }
         $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10 
-        $BugTemplate=$BugTemplate.Replace("{0}",$Title)
-        $BugTemplate=$BugTemplate.Replace("{1}",$Description)
-        $BugTemplate=$BugTemplate.Replace("{2}",$Severity)
-        $BugTemplate=$BugTemplate.Replace("{3}",$AreaPath)
-        $BugTemplate=$BugTemplate.Replace("{4}",$IterationPath)
-        $BugTemplate=$BugTemplate.Replace("{5}",$hash)
-        $BugTemplate=$BugTemplate.Replace("{6}",$AssignedTo)
+        #$BugTemplate = $BugTemplate -f $Title, $Description, $Severity, $AreaPath, $IterationPath, $hash, $AssignedTo
+        $BugTemplate = $BugTemplate.Replace("{0}", $Title)
+        $BugTemplate = $BugTemplate.Replace("{1}", $Description)
+        $BugTemplate = $BugTemplate.Replace("{2}", $Severity)
+        $BugTemplate = $BugTemplate.Replace("{3}", $AreaPath)
+        $BugTemplate = $BugTemplate.Replace("{4}", $IterationPath)
+        $BugTemplate = $BugTemplate.Replace("{5}", $hash)
+        $BugTemplate = $BugTemplate.Replace("{6}", $AssignedTo)
 
-        if ($this.ShowBugsInS360) 
-        {
-            $BugTemplate=$BugTemplate.Replace("{7}", $this.controlsettings.BugLogging.HowFound)
+        if ($this.ShowBugsInS360) {
+            $BugTemplate = $BugTemplate.Replace("{7}", $this.controlsettings.BugLogging.HowFound)
             #ComplianceArea
-            $BugTemplate=$BugTemplate.Replace("{8}", $this.controlsettings.BugLogging.ComplianceArea)
+            $BugTemplate = $BugTemplate.Replace("{8}", $this.controlsettings.BugLogging.ComplianceArea)
             #ServiceHierarchyId
-            $BugTemplate=$BugTemplate.Replace("{9}", $serviceId)
+            $BugTemplate = $BugTemplate.Replace("{9}", $serviceId)
             #ServiceHierarchyIdType
-            $BugTemplate=$BugTemplate.Replace("{10}", $this.controlsettings.BugLogging.ServiceTreeIdType)
+            $BugTemplate = $BugTemplate.Replace("{10}", $this.controlsettings.BugLogging.ServiceTreeIdType)
             
             #Severity
-            $BugTemplate=$BugTemplate.Replace("{11}", $SecuritySeverity)
+            $BugTemplate = $BugTemplate.Replace("{11}", $SecuritySeverity)
         }
 
         $responseObj = $null
@@ -522,7 +512,7 @@ class AutoBugLog {
 
         try {
             $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
-            $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $($this.SubscriptionContext.SubscriptionName), $responseObj.id
+            $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $this.OrganizationName, $responseObj.id
             $control.ControlResults.AddMessage("New Bug", $bugUrl)
         }
         catch {
@@ -533,7 +523,7 @@ class AutoBugLog {
                 $BugTemplate = $BugTemplate | ConvertTo-Json
                 try {
                     $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
-                    $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $($this.SubscriptionContext.SubscriptionName), $responseObj.id
+                    $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $this.OrganizationName, $responseObj.id
                     $control.ControlResults.AddMessage("New Bug", $bugUrl)
                 }
                 catch {
@@ -565,39 +555,30 @@ class AutoBugLog {
 
     #function to check if the current control is a baseline control or not
     hidden [bool] CheckBaselineControl($controlId) {
-		if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "BaselineControls.ResourceTypeControlIdMappingList")) {
-			$baselineControl = $this.ControlSettings.BaselineControls.ResourceTypeControlIdMappingList | Where-Object { $_.ControlIds -contains $controlId }
-			if (($baselineControl | Measure-Object).Count -gt 0 ) {
-				return $true
-			}
-		}
-
-		if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "BaselineControls.SubscriptionControlIdList")) {
-			$baselineControl = $this.ControlSettings.BaselineControls.SubscriptionControlIdList | Where-Object { $_ -eq $controlId }
-			if (($baselineControl | Measure-Object).Count -gt 0 ) {
-				return $true
-			}
-		}
-		return $false
+        $baselineControl = $this.ControlSettings.BaselineControls.ResourceTypeControlIdMappingList | Where-Object { $_.ControlIds -contains $controlId }
+        if (($baselineControl | Measure-Object).Count -gt 0 ) {
+            return $true
+        }
+        return $false
     }
     
     #function to check if the current control is a preview baseline control or not
-	hidden [bool] CheckPreviewBaselineControl($controlId) {
-		if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "PreviewBaselineControls.ResourceTypeControlIdMappingList")) {
-			$PreviewBaselineControls = $this.ControlSettings.PreviewBaselineControls.ResourceTypeControlIdMappingList | Where-Object { $_.ControlIds -contains $controlId }
-			if (($PreviewBaselineControls | Measure-Object).Count -gt 0 ) {
-				return $true
-			}
-		}
+    hidden [bool] CheckPreviewBaselineControl($controlId) {
+        if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "PreviewBaselineControls.ResourceTypeControlIdMappingList")) {
+            $PreviewBaselineControls = $this.ControlSettings.PreviewBaselineControls.ResourceTypeControlIdMappingList | Where-Object { $_.ControlIds -contains $controlId }
+            if (($PreviewBaselineControls | Measure-Object).Count -gt 0 ) {
+                return $true
+            }
+        }
 
-		if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "PreviewBaselineControls.SubscriptionControlIdList")) {
-			$PreviewBaselineControls = $this.ControlSettings.PreviewBaselineControls.SubscriptionControlIdList | Where-Object { $_ -eq $controlId }
-			if (($PreviewBaselineControls | Measure-Object).Count -gt 0 ) {
-				return $true
-			}
-		}
-		return $false
-	}
+        if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "PreviewBaselineControls.SubscriptionControlIdList")) {
+            $PreviewBaselineControls = $this.ControlSettings.PreviewBaselineControls.SubscriptionControlIdList | Where-Object { $_ -eq $controlId }
+            if (($PreviewBaselineControls | Measure-Object).Count -gt 0 ) {
+                return $true
+            }
+        }
+        return $false
+    }
 
     
     
