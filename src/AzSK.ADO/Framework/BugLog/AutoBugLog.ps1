@@ -570,13 +570,6 @@ class AutoBugLog {
                 return $true
             }
         }
-
-        if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "PreviewBaselineControls.SubscriptionControlIdList")) {
-            $PreviewBaselineControls = $this.ControlSettings.PreviewBaselineControls.SubscriptionControlIdList | Where-Object { $_ -eq $controlId }
-            if (($PreviewBaselineControls | Measure-Object).Count -gt 0 ) {
-                return $true
-            }
-        }
         return $false
     }
 
