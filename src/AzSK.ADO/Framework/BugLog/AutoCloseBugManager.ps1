@@ -145,7 +145,7 @@ class AutoCloseBugManager {
 
     #function to retrieve all new/active/resolved bugs 
     hidden [object] GetWorkItemByHash([string] $hash,[int] $MaxKeyWordsToQuery) {
-        $url = "https://almsearch.dev.azure.com/{0}/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $this.subscriptionContext.SubscriptionName
+        $url = "https://{0}.almsearch.visualstudio.com/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $this.subscriptionContext.SubscriptionName
 
         #take results have been doubled, as their might be chances for a bug to be logged more than once, if the tag id is copied.
         #in this case we want all the instances of this bug to be closed
