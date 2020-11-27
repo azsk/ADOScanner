@@ -145,7 +145,7 @@ class Release: ADOSVTBase
                             $varGrps | ForEach-Object {
                                 try
                                 {
-                                    $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}") -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId, $_;
+                                    $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}") -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId, $_;
                                     $varGrpObj += [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
                                 }
                                 catch
@@ -225,7 +225,7 @@ class Release: ADOSVTBase
     {        
         if($this.ReleaseObj)
         {
-            $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName),$this.ProjectId;
+            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName),$this.ProjectId;
             $inputbody =  "{
                 'contributionIds': [
                     'ms.vss-releaseManagement-web.releases-list-data-provider'
@@ -236,7 +236,7 @@ class Release: ADOSVTBase
                         'definitionId': '$($this.ReleaseObj.id)',
                         'fetchAllReleases': true,
                         'sourcePage': {
-                            'url': 'https://$($this.SubscriptionContext.SubscriptionName).visualstudio.com/$($this.ResourceContext.ResourceGroupName)/_release?_a=releases&view=mine&definitionId=$($this.ReleaseObj.id)',
+                            'url': 'https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ResourceContext.ResourceGroupName)/_release?_a=releases&view=mine&definitionId=$($this.ReleaseObj.id)',
                             'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
                             'routeValues': {
                                 'project': '$($this.ResourceContext.ResourceGroupName)',
@@ -296,7 +296,7 @@ class Release: ADOSVTBase
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult)
     {
         # Here 'permissionSet' = security namespace identifier, 'token' = project id
-        $apiURL = "https://{0}.visualstudio.com/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&style=min" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $([Release]::SecurityNamespaceId), $($this.ProjectId), $($this.ReleaseObj.id);
+        $apiURL = "https://dev.azure.com/{0}/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&style=min" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $([Release]::SecurityNamespaceId), $($this.ProjectId), $($this.ReleaseObj.id);
         $header = [WebRequestHelper]::GetAuthHeaderFromUri($apiURL);
         $responseObj = Invoke-RestMethod -Method Get -Uri $apiURL -Headers $header -UseBasicParsing
         $responseObj = ($responseObj.SelectNodes("//script") | Where-Object { $_.class -eq "permissions-context" }).InnerXML | ConvertFrom-Json; 
@@ -407,7 +407,7 @@ class Release: ADOSVTBase
         {
             # This functions is to check users permissions on release definition. Groups' permissions check is not added here.
             $releaseDefinitionPath = $this.ReleaseObj.Path.Trim("\").Replace(" ","+").Replace("\","%2F")
-            $apiURL = "https://{0}.visualstudio.com/{1}/_api/_security/ReadExplicitIdentitiesJson?__v=5&permissionSetId={2}&permissionSetToken={3}%2F{4}%2F{5}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath) ,$($this.ReleaseObj.id);
+            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/ReadExplicitIdentitiesJson?__v=5&permissionSetId={2}&permissionSetToken={3}%2F{4}%2F{5}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath) ,$($this.ReleaseObj.id);
 
             $sw = [System.Diagnostics.Stopwatch]::StartNew();
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
@@ -451,7 +451,7 @@ class Release: ADOSVTBase
                         $identity = $_ 
                         if($exemptedUserIdentities -notcontains $identity.TeamFoundationId)
                         {
-                            $apiURL = "https://{0}.visualstudio.com/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($identity.TeamFoundationId) ,$([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath), $($this.ReleaseObj.id);
+                            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($identity.TeamFoundationId) ,$([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath), $($this.ReleaseObj.id);
                             $identityPermissions = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                             $configuredPermissions = $identityPermissions.Permissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
                             return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.IdentityType; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
@@ -460,7 +460,7 @@ class Release: ADOSVTBase
 
                     $accessList += $responseObj.identities | Where-Object { $_.IdentityType -eq "group" } | ForEach-Object {
                         $identity = $_ 
-                        $apiURL = "https://{0}.visualstudio.com/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($identity.TeamFoundationId) ,$([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath), $($this.ReleaseObj.id);
+                        $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($identity.TeamFoundationId) ,$([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath), $($this.ReleaseObj.id);
                         $identityPermissions = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                         $configuredPermissions = $identityPermissions.Permissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
                         return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.IdentityType; IsAadGroup = $identity.IsAadGroup ;Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
@@ -649,14 +649,14 @@ class Release: ADOSVTBase
         
         if(($taskGroups | Measure-Object).Count -gt 0)
         {   
-            $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName)
+            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName)
             $projectName = $this.ResourceContext.ResourceGroupName
             
             try
             {
                 $taskGroups | ForEach-Object {
                     $taskGrpId = $_.taskId
-                    $taskGrpURL="https://{0}.visualstudio.com/{1}/_taskgroup/{2}" -f $($this.SubscriptionContext.SubscriptionName), $($projectName), $($taskGrpId)
+                    $taskGrpURL="https://dev.azure.com/{0}/{1}/_taskgroup/{2}" -f $($this.SubscriptionContext.SubscriptionName), $($projectName), $($taskGrpId)
                     $permissionSetToken = "$($this.projectId)/$taskGrpId"
                     
                     #permissionSetId = 'f6a4de49-dbe2-4704-86dc-f8ec1a294436' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
@@ -784,7 +784,7 @@ class Release: ADOSVTBase
             try
             {   
                 $varGrps | ForEach-Object{
-                    $url = 'https://{0}.visualstudio.com/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($_);
+                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($_);
                     $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
                     if(($responseObj | Measure-Object).Count -gt 0)
                     {
@@ -792,7 +792,7 @@ class Release: ADOSVTBase
                         if((-not [string]::IsNullOrEmpty($contributorsObj)) -and ($contributorsObj.role.name -ne 'Reader')){
                             
                             #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
-                            $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}") -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($_);
+                            $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}") -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($_);
                             $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
                             
                             $editableVarGrps += $varGrpObj[0].name

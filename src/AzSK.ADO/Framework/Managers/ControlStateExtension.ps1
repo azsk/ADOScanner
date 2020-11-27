@@ -876,8 +876,8 @@ class ControlStateExtension
 	 
 			$allowedGrpForOrgAtt = $this.ControlSettings.AllowAttestationByGroups | where { $_.ResourceType -eq "Organization" } | select-object -property GroupNames 
 	    	
-            $url= "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($this.SubscriptionContext.SubscriptionName);
-			$postbody="{'contributionIds':['ms.vss-admin-web.org-admin-groups-data-provider'],'dataProviderContext':{'properties':{'sourcePage':{'url':'https://$($this.SubscriptionContext.SubscriptionName).visualstudio.com/_settings/groups','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'groups','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+            $url= "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($this.SubscriptionContext.SubscriptionName);
+			$postbody="{'contributionIds':['ms.vss-admin-web.org-admin-groups-data-provider'],'dataProviderContext':{'properties':{'sourcePage':{'url':'https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/_settings/groups','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'groups','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
 			$groupsOrgObj = [WebRequestHelper]::InvokePostWebRequest($url,$postbody);
 			$groupsOrgObj = $groupsOrgObj.dataProviders.'ms.vss-admin-web.org-admin-groups-data-provider'.identities | where { $allowedGrpForOrgAtt.GroupNames -contains $_.displayName }
 

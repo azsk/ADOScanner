@@ -345,7 +345,7 @@ class AutoBugLog {
         $id = ($workItem[0].results.values[0].fields | where { $_.name -eq "ID" }).value
 
         #bug url that redirects user to bug logged in ADO, this is not available via the API response and thus has to be created via the ID of bug
-        $bugUrl = "https://{0}.visualstudio.com/{1}/_workitems/edit/{2}" -f $($this.SubscriptionContext.SubscriptionName), $ProjectName , $id
+        $bugUrl = "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $($this.SubscriptionContext.SubscriptionName), $ProjectName , $id
 
         #TODO : whether the bug is active or resolved, we have to ensure the state of the bug remains active after this function  
         #if a PCA assigns this to a non PCA, the control can never be fixed for org/project controls. to tackle this, reassign it to the original owner PCA
@@ -369,7 +369,7 @@ class AutoBugLog {
                     $body = $body | ConvertTo-Json
                     try {
                         $responseObj = Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $body
-                        $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $($this.SubscriptionContext.SubscriptionName), $responseObj.id
+                        $bugUrl = "https://dev.azure.com/{0}/_workitems/edit/{1}" -f $($this.SubscriptionContext.SubscriptionName), $responseObj.id
                     }
                     catch {
                         Write-Host "Could not reactivate the bug" -ForegroundColor Red
@@ -433,7 +433,7 @@ class AutoBugLog {
     #function to search for existing bugs based on the hash
     hidden [object] GetWorkItemByHash([string] $hash, [string] $ProjectName) {
 		
-        $url = "https://{0}.almsearch.visualstudio.com/{1}/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $($this.SubscriptionContext.SubscriptionName), $ProjectName;
+        $url = "https://almsearch.dev.azure.com/{0}/{1}/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $($this.SubscriptionContext.SubscriptionName), $ProjectName;
 
         #TODO: validate set to allow only two values : ReactiveOldBug and CreateNewBug
         #check for ResolvedBugBehaviour in control settings
@@ -522,7 +522,7 @@ class AutoBugLog {
 
         try {
             $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
-            $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $($this.SubscriptionContext.SubscriptionName), $responseObj.id
+            $bugUrl = "https://dev.azure.com/{0}/_workitems/edit/{1}" -f $($this.SubscriptionContext.SubscriptionName), $responseObj.id
             $control.ControlResults.AddMessage("New Bug", $bugUrl)
         }
         catch {
@@ -533,7 +533,7 @@ class AutoBugLog {
                 $BugTemplate = $BugTemplate | ConvertTo-Json
                 try {
                     $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
-                    $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $($this.SubscriptionContext.SubscriptionName), $responseObj.id
+                    $bugUrl = "https://dev.azure.com/{0}/_workitems/edit/{1}" -f $($this.SubscriptionContext.SubscriptionName), $responseObj.id
                     $control.ControlResults.AddMessage("New Bug", $bugUrl)
                 }
                 catch {

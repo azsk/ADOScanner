@@ -31,8 +31,8 @@ class ServiceConnection: ADOSVTBase
         }
 
         try {
-            $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName)
-            $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $($this.SubscriptionContext.SubscriptionName), $this.ResourceContext.ResourceGroupName;
+            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName)
+            $sourcePageUrl = "https://dev.azure.com/{0}/{1}/_settings/adminservices" -f $($this.SubscriptionContext.SubscriptionName), $this.ResourceContext.ResourceGroupName;
             $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($this.ServiceEndpointsObj.id)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ResourceContext.ResourceGroupName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
     
             $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody); 
@@ -197,7 +197,7 @@ class ServiceConnection: ADOSVTBase
         try
         {
             if ($null -eq $this.serviceEndPointIdentity) {
-                $apiURL = "https://{0}.visualstudio.com/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
+                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
                 $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             }
             $restrictedGroups = @();
@@ -247,7 +247,7 @@ class ServiceConnection: ADOSVTBase
         {
             $isBuildSvcAccGrpFound = $false
             if ($null -eq $this.serviceEndPointIdentity) {
-                $apiURL = "https://{0}.visualstudio.com/_apis/securityroles/scopes/distributedtask.serviceEndPointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
+                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceEndPointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
                 $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             }
             if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))
@@ -423,7 +423,7 @@ class ServiceConnection: ADOSVTBase
                 #get the pipelines ids in comma separated string to pass in api to get the pipeline name
                 $pipelinesIds = $this.pipelinePermission[0].pipelines.id -join ","
                 #api call to get the pipeline name
-                $apiURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.0" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $pipelinesIds;
+                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.0" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $pipelinesIds;
                 $pipelineObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                     
                 # We are fixing the control status here and the state data info will be done as shown below. This is done in case we are not able to fetch the pipeline names. Although, we have the pipeline ids as shown above.
