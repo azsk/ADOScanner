@@ -1,6 +1,3 @@
-using namespace Microsoft.Azure.Storage.Blob
-using namespace Microsoft.Azure.Commands.Management.Storage.Models
-using namespace Microsoft.WindowsAzure.Commands.Common.Storage.ResourceModel
 Set-StrictMode -Version Latest
 
 class ResourceHelper: EventBase{
@@ -26,7 +23,6 @@ class ResourceHelper: EventBase{
 				$timeout = 10
 				Start-Sleep -Seconds $timeout
 				$retryCount--;
-				#[EventBase]::PublishGenericCustomMessage("Checking resource provider status every $timeout seconds...");
 			}
 
 			if(-not [ResourceHelper]::IsProviderRegistered($provideNamespace))

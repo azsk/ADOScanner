@@ -269,9 +269,12 @@ class CAAutomation : ADOSVTCommandBase
     
     [void] RegisterResourceProvider()
     {
-        $resourceProvider = @("Microsoft.Storage", "Microsoft.Keyvault", "Microsoft.Resources", "Microsoft.OperationalInsights");
-        $resourceProvider | foreach {
-            [ResourceHelper]::RegisterResourceProviderIfNotRegistered($_);
+        if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "ResourceProviders")) 
+        {
+            $resourceProvider = $this.ControlSettings.ResourceProviders
+            $resourceProvider | foreach {
+                [ResourceHelper]::RegisterResourceProviderIfNotRegistered($_);
+            }
         }
     }
 
