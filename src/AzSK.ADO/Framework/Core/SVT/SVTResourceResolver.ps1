@@ -35,6 +35,13 @@ class SVTResourceResolver: AzSKRoot {
     [bool] $includeAdminControls = $false;
     [bool] $isUserPCA = $false;
 
+    $telemetryOrgData = @{
+        installed_extensions = 0;
+        organization_name = "";
+    };
+
+    $telemetryProjectData = @{}
+
     SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls): Base($organizationName, $PATToken) {
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
         $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);            
@@ -147,6 +154,84 @@ class SVTResourceResolver: AzSKRoot {
         }
     }
 
+    [void] getResourceCount($projectName) {
+        [Hashtable] $projectData = @{
+            repositories = 0;
+            testplan = 0;
+            pipelines = 0;
+            taskgroups = 0;
+            git_commits = @();
+        };
+        $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/git/repositories?api-version=6.0"
+        $responseList = ""
+        try { 
+            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
+        }
+        catch {
+            Write-Host 'Project not found: Incorrect project name or you do not have neccessary permission to access the project.' -ForegroundColor Red
+            throw;
+        }
+        Write-Host "Resource count for repos in project($($projectName)): $($responseList.Length)"
+        $projectData['repositories'] = $responseList.Length
+        foreach ($repos in $responseList) {
+            $res = ""
+            [Hashtable] $obj = @{
+                repository = $repos.name;
+                commits = 0;
+            }
+            $resourceURL = "GET https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/git/repositories/$($repos.name)/commits/"
+            try {
+                $res = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
+            }
+            catch {
+                Write-Host 'Repo not found: Incorrect repo name or you do not have neccessary permission to access the project.' -ForegroundColor Red
+                throw;
+            }
+            $obj["commits"] = $res.Length
+            $projectData['git_commits'] += $obj
+        }
+        $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/testplan/plans?api-version=6.0-preview.1"
+        $responseList = ""
+        try { 
+            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
+        }
+        catch {
+            Write-Host 'Project not found: Incorrect project name or you do not have neccessary permission to access the project.' -ForegroundColor Red
+            throw;
+        }
+        Write-Host "Resource count for testplan in project($($projectName)): $($responseList.Length)"
+        $projectData['testplan'] = $responseList.Length
+        $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/pipelines?api-version=6.0-preview.1"
+        $responseList = ""
+        try { 
+            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
+        }
+        catch {
+            Write-Host 'Project not found: Incorrect project name or you do not have neccessary permission to access the project.' -ForegroundColor Red
+            throw;
+        }
+        Write-Host "Resource count for Pipelines in project($($projectName)): $($responseList.Length)"
+        $projectData['pipelines'] = $responseList.Length
+        $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/distributedtask/taskgroups?api-version=6.0-preview.1"
+        $responseList = ""
+        try { 
+            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
+        }
+        catch {
+            Write-Host 'Project not found: Incorrect project name or you do not have neccessary permission to access the project.' -ForegroundColor Red
+            throw;
+        }
+        Write-Host "Resource count for Taskgroups in project($($projectName)): $($responseList.Length)"
+        $projectData['taskgroups'] = $responseList.Length
+
+        Write-Host "Telemetry Data for project($($projectName)): $($projectData)"
+
+        $projectData["git_commits"] = [JsonHelper]::ConvertToJsonCustomCompressed($projectData["git_commits"])
+
+        $this.telemetryProjectData[$projectName] = [JsonHelper]::ConvertToJsonCustomCompressed($projectData)
+
+    }
+
     [void] LoadResourcesForScan() {
         #Call APIS for Organization,User/Builds/Releases/ServiceConnections 
         $organizationId = "";
@@ -229,10 +314,32 @@ class SVTResourceResolver: AzSKRoot {
                 }
                 $TotalSvc = 0;
                 $ScannableSvc = 0;
+                $StartTime = $(get-date)
+                $resourceURL = "https://extmgmt.dev.azure.com/$($this.organizationName)/_apis/extensionmanagement/installedextensions?api-version=6.0-preview.1"
+                $responseList = ""
+                try { 
+                    $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
+                }
+                catch {
+                    Write-Host 'Project not found: Incorrect project name or you do not have neccessary permission to access the project.' -ForegroundColor Red
+                    throw;
+                }
+                Write-Host "Resource count for Installed Extensions in organization($($this.organizationName)): $($responseList.Length)"
+                $this.telemetryOrgData["installed_extensions"] = $responseList.Length
+                $this.telemetryOrgData["organization_name"] = $this.organizationName
+                $elapsedTime = $(get-date) - $StartTime
+                $totalTime = "{0:HH:mm:ss}" -f ([datetime]$elapsedTime.Ticks)
+                Write-Host "Time taken: $($elapsedTime)"
                 foreach ($thisProj in $projects) 
                 {
                     $projectName = $thisProj.name
                     $projectId = $thisProj.id;
+                    $StartTime = $(get-date)
+                    $this.getResourceCount($projectName)
+                    $elapsedTime = $(get-date) - $StartTime
+                    $totalTime = "{0:HH:mm:ss}" -f ([datetime]$elapsedTime.Ticks)
+                    Write-Host "Time taken by project($($projectName)): $($totalTime)"
+
                     if ($this.ResourceTypeName -in ([ResourceTypeName]::Project, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User)  -and ([string]::IsNullOrEmpty($this.serviceId))) 
                     {
                         #First condition if 'includeAdminControls' switch is passed or user is PCA or User is PA.
@@ -509,8 +616,9 @@ class SVTResourceResolver: AzSKRoot {
                     if (--$nProj -eq 0) { break; } #nProj is set to MaxObj before loop.
                     
                 }
-                #Display count of total svc and svcs to be scanned
                 #sending the details to telemetry as well
+                [AIOrgTelemetryHelper]::PublishEvent("org resources count",  $this.telemetryOrgData, @{})
+                [AIOrgTelemetryHelper]::PublishEvent("projects resources count", $this.telemetryProjectData, @{})
                 if ($TotalSvc -gt 0)
                 {
                     #$this.PublishCustomMessage("Total service connections: $TotalSvc");
