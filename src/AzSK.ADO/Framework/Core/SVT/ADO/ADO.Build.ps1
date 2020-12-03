@@ -26,6 +26,17 @@ class Build: ADOSVTBase
         }
     }
 
+    [ControlItem[]] ApplyServiceFilters([ControlItem[]] $controls)
+	{
+        $result = $controls;
+        # Applying filter to exclude certain controls based on Tag 
+        if([Helpers]::CheckMember($this.ControlSettings.Build, "ControlExclusionsByService") -and [Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename"))
+        {
+            $result = $controls | Where-Object { $_.Tags -notcontains $this.ControlSettings.Build.ControlExclusionsByService };
+		}
+		return $result;
+	}
+
     hidden [ControlResult] CheckCredInBuildVariables([ControlResult] $controlResult)
 	{
         if([Helpers]::CheckMember([ConfigurationManager]::GetAzSKSettings(),"SecretsScanToolFolder"))
