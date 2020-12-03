@@ -3,17 +3,17 @@ function Get-AzSKADOServiceMapping
 {
     <#
     .SYNOPSIS
-        This command would help users to get service tree mappings of various components of AzSK.ADO.
+        This command would help users to get service mappings of various components of AzSK.ADO.
     .DESCRIPTION
-        This command will fetch service tree mappings of AzSK.ADO components and help user to provide details of different component using single command. Refer https://aka.ms/adoscanner/docs for more information 
+        This command will fetch service mappings of AzSK.ADO components and help user to provide details of different component using single command. Refer https://aka.ms/adoscanner/docs for more information 
     .PARAMETER OrganizationName
         Organization name for which the service mapping evaluation has to be performed.
     .PARAMETER ProjectName
         Project name for which the service mapping evaluation has to be performed.
     .PARAMETER BuildMappingsFilePath
-        File Path for build mappings in json format.
+        File Path for build mappings in JSON format.
     .PARAMETER ReleaseMappingsFilePath
-        File Path for release mappings in json format.
+        File Path for release mappings in JSON format.
 
     .LINK
     https://aka.ms/ADOScanner 
@@ -39,7 +39,12 @@ function Get-AzSKADOServiceMapping
         [string]
         [Parameter(Mandatory = $true)]
         [Alias("rfp")]
-        $ReleaseMappingsFilePath
+        $ReleaseMappingsFilePath,
+
+        [ValidateSet("All", "VariableGroup", "ServiceConnection","AgentPool")] 
+        [Parameter(Mandatory = $false)]
+        [Alias("mt")]
+        $MappingType
     )
     Begin
     {
@@ -52,7 +57,7 @@ function Get-AzSKADOServiceMapping
         try 
         {
             $resolver = [Resolver]::new($OrganizationName)
-            $mapping = [AzSKADOServiceMapping]::new($OrganizationName, $ProjectName, $BuildMappingsFilePath, $ReleaseMappingsFilePath, $PSCmdlet.MyInvocation);
+            $mapping = [AzSKADOServiceMapping]::new($OrganizationName, $ProjectName, $BuildMappingsFilePath, $ReleaseMappingsFilePath, $MappingType, $PSCmdlet.MyInvocation);
 
             return $mapping.InvokeFunction($mapping.GetSTmapping);
         }

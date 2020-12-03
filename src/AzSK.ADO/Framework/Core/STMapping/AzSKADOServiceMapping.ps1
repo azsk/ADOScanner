@@ -8,18 +8,20 @@ class AzSKADOServiceMapping: CommandBase
     [string] $ProjectId
     [string] $BuildMappingsFilePath
     [string] $ReleaseMappingsFilePath
+    [string] $MappingType
     [string] $OutputFolderPath
     $BuildSTDetails = @();
     $ReleaseSTDetails =@();
 
 
-	AzSKADOServiceMapping([string] $subscriptionId, [string] $projectName, [string] $buildFileLocation, [string] $releaseFileLocation,  [InvocationInfo] $invocationContext): 
+	AzSKADOServiceMapping([string] $subscriptionId, [string] $projectName, [string] $buildFileLocation, [string] $releaseFileLocation, [string] $mappingType, [InvocationInfo] $invocationContext): 
         Base($subscriptionId, $invocationContext) 
     { 
         $this.OrgName = $subscriptionId
         $this.ProjectName = $projectName
         $this.BuildMappingsFilePath = $buildFileLocation
         $this.ReleaseMappingsFilePath = $releaseFileLocation
+        $this.MappingType = $MappingType
 	}
 	
 	[MessageData[]] GetSTmapping()
@@ -28,9 +30,18 @@ class AzSKADOServiceMapping: CommandBase
             if((Test-Path $this.BuildMappingsFilePath) -and (Test-Path $this.ReleaseMappingsFilePath))
             {
                 $this.GetBuildReleaseMapping();
-                $this.FetchSvcConnMapping();
-                $this.FetchAgentPoolMapping();
-                $this.FetchVarGrpMapping();
+                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "ServiceConnection")
+                {
+                    $this.FetchSvcConnMapping();
+                }
+                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "AgentPool")
+                {
+                    $this.FetchAgentPoolMapping();
+                }
+                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup")
+                {
+                    $this.FetchVarGrpMapping();
+                }
             }
         }
 		[MessageData[]] $returnMsgs = @();
@@ -68,7 +79,7 @@ class AzSKADOServiceMapping: CommandBase
         {
             $this.OutputFolderPath = [WriteFolderPath]::GetInstance().FolderPath;
         }
-        $serviceMapping | ConvertTo-Json -Depth 10 | Out-File (Join-Path $this.OutputFolderPath $fileName)
+        $serviceMapping | ConvertTo-Json -Depth 10 | Out-File (Join-Path $this.OutputFolderPath $fileName) -Encoding ASCII 
     }
 
 
@@ -86,8 +97,8 @@ class AzSKADOServiceMapping: CommandBase
             }
 
             $this.PublishCustomMessage(([Constants]::DoubleDashLine))
-            $this.PublishCustomMessage("Generating service connection service mappings for [$($this.ProjectName)]...")
-            $this.PublishCustomMessage("Total mappings to be evaluated:  $(($Connections | Measure-Object).Count)")
+            $this.PublishCustomMessage("Generating service mappings of service connections for project [$($this.ProjectName)]...")
+            $this.PublishCustomMessage("Total service connections to be mapped:  $(($Connections | Measure-Object).Count)")
             $counter = 0
             
             $Connections | ForEach-Object {
@@ -156,8 +167,8 @@ class AzSKADOServiceMapping: CommandBase
             }
             
             $this.PublishCustomMessage(([Constants]::DoubleDashLine))
-            $this.PublishCustomMessage("Generating agent pool service mappings for [$($this.ProjectName)]...")
-            $this.PublishCustomMessage("Total mappings to be evaluated:  $(($taskAgentQueues | Measure-Object).Count)")
+            $this.PublishCustomMessage("Generating service mappings of agent pool for project [$($this.ProjectName)]...")
+            $this.PublishCustomMessage("Total agent pool to be mapped:  $(($taskAgentQueues | Measure-Object).Count)")
             $counter = 0
 
             $taskAgentQueues | ForEach-Object {
@@ -219,7 +230,7 @@ class AzSKADOServiceMapping: CommandBase
         if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
             
             $this.PublishCustomMessage(([Constants]::DoubleDashLine))
-            $this.PublishCustomMessage("Generating variable group service mappings using release for [$($this.ProjectName)]...")
+            $this.PublishCustomMessage("Generating service mappings of variable group using release for project [$($this.ProjectName)]...")
             $this.PublishCustomMessage("Total mappings to be evaluated:  $(($releaseDefnsObj | Measure-Object).Count)")
             $counter = 0
 
@@ -275,7 +286,7 @@ class AzSKADOServiceMapping: CommandBase
             if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
 
                 $this.PublishCustomMessage(([Constants]::DoubleDashLine))
-                $this.PublishCustomMessage("Generating variable group service mappings using build for [$($this.ProjectName)]...")
+                $this.PublishCustomMessage("Generating service mappings of variable group using build for project [$($this.ProjectName)]...")
                 $this.PublishCustomMessage("Total mappings to be evaluated:  $(($buildDefnsObj | Measure-Object).Count)")
                 $counter = 0
 
