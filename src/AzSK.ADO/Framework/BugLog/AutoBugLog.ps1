@@ -33,9 +33,6 @@ class AutoBugLog {
         }
     }
     
-    AutoBugLog() {
-    }
-    
     #Return AutoBugLog instance
     hidden static [AutoBugLog] GetInstance([string] $orgName, [InvocationInfo] $invocationContext, [ControlStateExtension] $ControlStateExt, [string] $bugLogParameterValue) {
         [AutoBugLog]::AutoBugInstance = [AutoBugLog]::new($orgName, $invocationContext, $ControlStateExt, $bugLogParameterValue)
