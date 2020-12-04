@@ -57,8 +57,8 @@ class AutoBugLog {
             #check if the area and iteration path are valid 
             if ([BugLogPathManager]::CheckIfPathIsValid($this.OrganizationName, $ProjectName, $this.InvocationContext, $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $this.IsBugLogCustomFlow)) {
                 #Obtain the assignee for the current resource, will be same for all the control failures for this particular resource
-                $metaProviderObj = [BugMetaInfoProvider]::new();        
-                $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging)
+                $metaProviderObj = [BugMetaInfoProvider]::new();   
+                $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging, $this.IsBugLogCustomFlow);
                 $serviceId = $metaProviderObj.ServiceId
 
                 #Set ShowBugsInS360 if customebuglog is enabled and sericeid not null and ShowBugsInS360 enabled in policy
@@ -70,9 +70,10 @@ class AutoBugLog {
                 }
 
                 #Obtain area and iteration paths
-                $AreaPath = [BugLogPathManager]::GetAreaPath()
-                $IterationPath = [BugLogPathManager]::GetIterationPath()       
-                $BugLoggingProject = [BugLogPathManager]::GetBugLoggingProject() #This project should be used to check if current bug exists or not
+                #Removed these local variable taking directly from BugLogPathManager static variable
+                #$AreaPath = [BugLogPathManager]::AreaPath
+                #$IterationPath = [BugLogPathManager]::IterationPath       
+                #$BugLoggingProject = [BugLogPathManager]::BugLoggingProject #This project should be used to check if current bug exists or not
 
                 #this falg is added to restrict 'Determining bug logging' message should print only once 
                 $printLogBugMsg = $true;
@@ -93,11 +94,12 @@ class AutoBugLog {
                     }
 			
                     if ($LogControlFlag -and ($control.ControlResults[0].VerificationResult -eq "Failed" -or $control.ControlResults[0].VerificationResult -eq "Verify") ) {
-				
+                
                         #compute hash of control Id and resource Id	
                         $hash = $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
                         #check if a bug with the computed hash exists
-                        $workItem = $this.GetWorkItemByHash($hash, $BugLoggingProject)
+                        #Removed ProjectName param and direcly added [BugLogPathManager]::BugLoggingProject, previously holding in variable and passing in method
+                        $workItem = $this.GetWorkItemByHash($hash, [BugLogPathManager]::BugLoggingProject)
                         if ($workItem[0].results.count -gt 0) {
                             #a work item with the hash exists, find if it's state and reactivate if resolved bug
                             $this.ManageActiveAndResolvedBugs($ProjectName, $control, $workItem, $AssignedTo)
@@ -128,8 +130,8 @@ class AutoBugLog {
                             $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
                     
                             #function to attempt bug logging
-                            $this.AddWorkItem($Title, $Description, $AssignedTo, $AreaPath, $IterationPath, $Severity, $ProjectName, $control, $hash, $serviceId)
-                    
+                            $this.AddWorkItem($Title, $Description, $AssignedTo, $Severity, $ProjectName, $control, $hash, $serviceId);
+
                         }
                     }
                 }
@@ -174,27 +176,29 @@ class AutoBugLog {
     }
     
     #function to check if the bug can be logged for the current resource type
-    hidden [bool] CheckPermsForBugLog([SVTEventContext[]] $ControlResult) {
-        switch -regex ($ControlResult.FeatureName) {
-            'Organization' {
+    hidden [bool] CheckPermsForBugLog([SVTEventContext[]] $ControlResult) 
+    {
+        if($ControlResult.FeatureName -eq 'Build' -or $ControlResult.FeatureName -eq 'Release' -or $ControlResult.FeatureName -eq 'ServiceConnection' -or $ControlResult.FeatureName -eq 'AgentPool' -or $ControlResult.FeatureName -eq 'VariableGroup') {
+             return $true;
+        }
+        elseif($ControlResult.FeatureName -eq 'Organization') {
                 #check if any host project can be retrieved, if not use getHostProject to return the correct behaviour output
                 if (!($this.GetHostProject($ControlResult))) {
                     return $false
                 }				
             }
-            'Project' {
+        elseif($ControlResult.FeatureName -eq 'Project') {
                 #check if user is member of PA/PCA
                 if (!$this.ControlStateExt.GetControlStatePermission($ControlResult.FeatureName, $ControlResult.ResourceContext.ResourceName)) {
                     Write-Host "`nAuto bug logging denied due to insufficient permissions. Make sure you are a project administrator. " -ForegroundColor Red
                     return $false
                 }
             }
-            'User' {
+        elseif($ControlResult.FeatureName -eq 'User') {
                 #TODO: User controls dont have a project associated with them, can be rectified in future versions
                 Write-Host "`nAuto bug logging for user control failures is currently not supported." -ForegroundColor Yellow
                 return $false
             }
-        }
         return $true
     }
     
@@ -429,17 +433,17 @@ class AutoBugLog {
     #function to search for existing bugs based on the hash
     hidden [object] GetWorkItemByHash([string] $hash, [string] $ProjectName) {
 		
-        $url = "https://{0}.almsearch.visualstudio.com/{1}/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $this.OrganizationName, $ProjectName;
+        $url = "https://{0}.almsearch.visualstudio.com/{1}/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $this.OrganizationName, $ProjectName
 
         #TODO: validate set to allow only two values : ReactiveOldBug and CreateNewBug
         #check for ResolvedBugBehaviour in control settings
         if ($this.ControlSettings.BugLogging.ResolvedBugLogBehaviour -ne "ReactiveOldBug") {
             #new bug is to be logged for every resolved bug, hence search for only new/active bug
-            $body = '{"searchText":"{0}","skipResults":0,"takeResults":25,"sortOptions":[],"summarizedHitCountsNeeded":true,"searchFilters":{"Projects":["{1}"],"Work Item Types":["Bug"],"States":["Active","New"]},"filters":[],"includeSuggestions":false}' | ConvertFrom-Json
+            $body = '{"searchText":"{0}","skipResults":0,"takeResults":2,"sortOptions":[],"summarizedHitCountsNeeded":true,"searchFilters":{"Projects":["{1}"],"Work Item Types":["Bug"],"States":["Active","New"]},"filters":[],"includeSuggestions":false}' | ConvertFrom-Json
         }
         else {
             #resolved bug needs to be reactivated, hence search for new/active/resolved bugs
-            $body = '{"searchText":"{0}","skipResults":0,"takeResults":25,"sortOptions":[],"summarizedHitCountsNeeded":true,"searchFilters":{"Projects":["{1}"],"Work Item Types":["Bug"],"States":["Active","New","Resolved"]},"filters":[],"includeSuggestions":false}' | ConvertFrom-Json
+            $body = '{"searchText":"{0}","skipResults":0,"takeResults":2,"sortOptions":[],"summarizedHitCountsNeeded":true,"searchFilters":{"Projects":["{1}"],"Work Item Types":["Bug"],"States":["Active","New","Resolved"]},"filters":[],"includeSuggestions":false}' | ConvertFrom-Json
         }
 
         #tag to be searched
@@ -461,7 +465,7 @@ class AutoBugLog {
         return $hashedTag
     }
 
-    hidden [void] AddWorkItem([string] $Title, [string] $Description, [string] $AssignedTo, [string] $AreaPath, [string] $IterationPath, [string]$Severity, [string]$ProjectName, [SVTEventContext[]] $control, [string] $hash, [string] $serviceId) {
+    hidden [void] AddWorkItem([string] $Title, [string] $Description, [string] $AssignedTo, [string]$Severity, [string]$ProjectName, [SVTEventContext[]] $control, [string] $hash, [string] $serviceId) {
 		
 		
         #logging new bugs
@@ -489,8 +493,8 @@ class AutoBugLog {
         $BugTemplate = $BugTemplate.Replace("{0}", $Title)
         $BugTemplate = $BugTemplate.Replace("{1}", $Description)
         $BugTemplate = $BugTemplate.Replace("{2}", $Severity)
-        $BugTemplate = $BugTemplate.Replace("{3}", $AreaPath)
-        $BugTemplate = $BugTemplate.Replace("{4}", $IterationPath)
+        $BugTemplate = $BugTemplate.Replace("{3}", [BugLogPathManager]::AreaPath)
+        $BugTemplate = $BugTemplate.Replace("{4}", [BugLogPathManager]::IterationPath)
         $BugTemplate = $BugTemplate.Replace("{5}", $hash)
         $BugTemplate = $BugTemplate.Replace("{6}", $AssignedTo)
 
@@ -537,7 +541,8 @@ class AutoBugLog {
                 Write-Host "Please verify the area and iteration path. They should belong under the same project area." -ForegroundColor Red
             }
             elseif ($_.ErrorDetails.Message -like '*The current user does not have permissions to save work items under the specified area path*') {
-                Write-Host "Could not log the bug. You do not have permissions to save work items under the area path [$($AreaPath)]." -ForegroundColor Red
+                $areaPath = [BugLogPathManager]::AreaPath
+                Write-Host "Could not log the bug. You do not have permissions to save work items under the area path [$($areaPath)]." -ForegroundColor Red
             }
             else {
                 Write-Host "Could not log the bug" -ForegroundColor Red
