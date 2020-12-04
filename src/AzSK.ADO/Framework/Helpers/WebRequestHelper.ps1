@@ -256,7 +256,7 @@ class WebRequestHelper {
         $outputValues = @();
 		[System.Uri] $validatedUri = $null;
 		$orginalUri = "";
-		
+		$skipCount = 0
         while ([System.Uri]::TryCreate($uri, [System.UriKind]::Absolute, [ref] $validatedUri)) 
 		{
 			[int] $retryCount = 1
@@ -326,6 +326,22 @@ class WebRequestHelper {
 								{
 									$nPKey = $requestResult.Headers["x-ms-continuation-NextPartitionKey"]
 									$uri= $orginalUri + "&NextPartitionKey=$nPKey"
+								}
+								elseif($requestResult.Headers.ContainsKey('x-ms-continuationtoken'))
+								{
+									$nPKey = $requestResult.Headers["x-ms-continuationtoken"]
+									# Pagination for build definitions always contains queryOrder
+									if ($uri.Contains("build/definitions") -and $uri.Contains('queryOrder')) {
+										# Handle the pagination for builds
+										$skipCount = $skipCount+10000
+										$uri= $orginalUri +"&%24skip="+$skipCount+ "&continuationToken="+$nPKey
+									}
+									elseif ($uri.Contains("release/definitions") -and -not $uri.Contains('$top')){
+										$uri= $orginalUri + "&continuationToken="+$nPKey
+									}
+									else {
+										$uri = [string]::Empty;
+									}
 								}
 								else {
 									$uri = [string]::Empty;
