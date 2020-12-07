@@ -11,6 +11,7 @@ class AutoBugLog {
 
     hidden [string] $BugLogParameterValue;
     hidden [string] $BugDescriptionField;
+    hidden [string] $ServiceIdPassedInCMD;
     
     AutoBugLog([string] $orgName, [InvocationInfo] $invocationContext, [ControlStateExtension] $controlStateExt, $bugLogParameterValue) {
         $this.OrganizationName = $orgName;
@@ -22,6 +23,7 @@ class AutoBugLog {
         #flag to check if pluggable bug logging interface (service tree)
         if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "BugAssigneeAndPathCustomFlow", $null)) {
             $this.IsBugLogCustomFlow = $this.ControlSettings.BugLogging.BugAssigneeAndPathCustomFlow;
+            $this.ServiceIdPassedInCMD = $InvocationContext.BoundParameters["ServiceId"];
         }
 
         # Replace the field reference name for bug description if it is customized
@@ -45,7 +47,6 @@ class AutoBugLog {
 
     #main function where bug logging takes place 
     hidden [void] LogBugInADO([SVTEventContext[]] $ControlResults) {
-        #hidden [void] LogBugInADO([SVTEventContext[]] $ControlResults, [string] $BugLogParameterValue) {
         #check if user has permissions to log bug for the current resource
         if ($this.CheckPermsForBugLog($ControlResults[0])) {
             #retrieve the project name for the current resource
@@ -55,7 +56,7 @@ class AutoBugLog {
             if ([BugLogPathManager]::CheckIfPathIsValid($this.OrganizationName, $ProjectName, $this.InvocationContext, $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $this.IsBugLogCustomFlow)) {
                 #Obtain the assignee for the current resource, will be same for all the control failures for this particular resource
                 $metaProviderObj = [BugMetaInfoProvider]::new();   
-                $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging, $this.IsBugLogCustomFlow);
+                $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging, $this.IsBugLogCustomFlow, $this.ServiceIdPassedInCMD);
                 $serviceId = $metaProviderObj.ServiceId
 
                 #Set ShowBugsInS360 if customebuglog is enabled and sericeid not null and ShowBugsInS360 enabled in policy
