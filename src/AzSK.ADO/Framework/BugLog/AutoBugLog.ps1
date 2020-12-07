@@ -7,7 +7,6 @@ class AutoBugLog {
     hidden [PSObject] $ControlSettings; 
     hidden [bool] $IsBugLogCustomFlow = $false;
     hidden [bool] $ShowBugsInS360 = $false;
-    hidden [PSObject] $bugTemplateLocalCache
 
     hidden [string] $BugLogParameterValue;
     hidden [string] $BugDescriptionField;
@@ -435,6 +434,7 @@ class AutoBugLog {
 
         #TODO: validate set to allow only two values : ReactiveOldBug and CreateNewBug
         #check for ResolvedBugBehaviour in control settings
+        #takeResults is used to fetch number of workitems to be return. At caller side of this method we are checking if return greter then 0, then manage work item else add new.
         if ($this.ControlSettings.BugLogging.ResolvedBugLogBehaviour -ne "ReactiveOldBug") {
             #new bug is to be logged for every resolved bug, hence search for only new/active bug
             $body = '{"searchText":"{0}","skipResults":0,"takeResults":2,"sortOptions":[],"summarizedHitCountsNeeded":true,"searchFilters":{"Projects":["{1}"],"Work Item Types":["Bug"],"States":["Active","New"]},"filters":[],"includeSuggestions":false}' | ConvertFrom-Json

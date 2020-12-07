@@ -1,9 +1,9 @@
 Set-StrictMode -Version Latest
 class AutoCloseBugManager {
-    hidden [string] $OrgName;
+    hidden [string] $OrganizationName;
     hidden [PSObject] $ControlSettings;
     AutoCloseBugManager([string] $orgName) {
-        $this.OrgName = $orgName;
+        $this.OrganizationName = $orgName;
         $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
     }
 
@@ -122,7 +122,7 @@ class AutoCloseBugManager {
 
     #function to close an active bug
     hidden [void] CloseBug([string] $id, [string] $Project) {
-        $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=5.1" -f $this.OrgName, $Project, $id
+        $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=5.1" -f $this.OrganizationName, $Project, $id
         
         #load the closed bug template
         $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForClosedBug.Json")
@@ -143,7 +143,7 @@ class AutoCloseBugManager {
 
     #function to retrieve all new/active/resolved bugs 
     hidden [object] GetWorkItemByHash([string] $hash,[int] $MaxKeyWordsToQuery) {
-        $url = "https://{0}.almsearch.visualstudio.com/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $this.OrgName
+        $url = "https://{0}.almsearch.visualstudio.com/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $this.OrganizationName
 
         #take results have been doubled, as their might be chances for a bug to be logged more than once, if the tag id is copied.
         #in this case we want all the instances of this bug to be closed
