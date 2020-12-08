@@ -35,6 +35,12 @@ class SVTResourceResolver: AzSKRoot {
     [bool] $includeAdminControls = $false;
     [bool] $isUserPCA = $false;
 
+    hidden [string[]] $BuildIds = @();
+    hidden [string[]] $ReleaseIds = @();
+    hidden [string[]] $AgentPoolIds = @();
+    hidden [string[]] $ServiceConnectionIds = @();
+    hidden [string[]] $VariableGroupIds = @();
+
     SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls): Base($organizationName, $PATToken) {
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
         $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);            
@@ -281,9 +287,14 @@ class SVTResourceResolver: AzSKRoot {
                             }
                         }
                         else {
-                            $this.BuildNames | ForEach-Object {
-                                $buildName = $_
-                                $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?name={2}&api-version=5.1-preview.7" -f $($this.SubscriptionContext.SubscriptionName), $projectName, $buildName;
+                            $buildDefnURL = "";
+                            for ($i = 0; $i -lt $this.BuildNames.Count; $i++) {
+                                if ($this.BuildIds.Count -gt 0) {
+                                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.1-preview.7" -f $($this.SubscriptionContext.SubscriptionName), $projectName, ($this.BuildIds -join ",");
+                                }    
+                                else {
+                                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?name={2}&api-version=5.1-preview.7" -f $($this.SubscriptionContext.SubscriptionName), $projectName, $this.BuildNames[$i];
+                                }
                                 $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL) 
                                 if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
                                     foreach ($bldDef in $buildDefnsObj) {
@@ -294,6 +305,9 @@ class SVTResourceResolver: AzSKRoot {
                                     }
                                     $buildDefnsObj = $null;
                                     Remove-Variable buildDefnsObj;
+                                }
+                                if ($this.BuildIds.Count -gt 0) {
+                                    break;
                                 }
                             }
                         }
@@ -330,39 +344,26 @@ class SVTResourceResolver: AzSKRoot {
                         }
                         else {
                             try {
-                                $this.ReleaseNames | ForEach-Object {
-                                    $releaseName = $_
-                                    $releaseDefnURL = "https://{0}.vsrm.visualstudio.com/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName), $projectName;
-                                    $inputbody = "{
-                                    'contributionIds': [
-                                        'ms.vss-releaseManagement-web.search-definitions-data-provider'
-                                    ],
-                                    'dataProviderContext': {
-                                        'properties': {
-                                            'searchText': '$releaseName',
-                                            'sourcePage': {
-                                                'routeValues': {
-                                                    'project': '$projectName'
-                                                }
-                                            }
-                                        }
+                                $releaseDefnsObj = $null;
+                                for ($i = 0; $i -lt $this.ReleaseNames.Count; $i++) {
+                                    if ($this.ReleaseIds.Count -gt 0) {
+                                        $url = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?definitionIdFilter={2}&api-version=6.0" -f $($this.SubscriptionContext.SubscriptionName), $projectName, ($this.ReleaseIds -join ",");
                                     }
-                                }" | ConvertFrom-Json
-                                
-                                    $releaseDefnsObj = [WebRequestHelper]::InvokePostWebRequest($releaseDefnURL, $inputbody);
-                                    if (([Helpers]::CheckMember($releaseDefnsObj, "dataProviders") -and $releaseDefnsObj.dataProviders."ms.vss-releaseManagement-web.search-definitions-data-provider") -and [Helpers]::CheckMember($releaseDefnsObj.dataProviders."ms.vss-releaseManagement-web.search-definitions-data-provider", "releaseDefinitions") ) {
-
-                                        $releaseDefinitions = $releaseDefnsObj.dataProviders."ms.vss-releaseManagement-web.search-definitions-data-provider".releaseDefinitions  | Where-Object {$_.name -eq $releaseName };
-
-                                        foreach ($relDef in $releaseDefinitions) {
-                                            $link = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId={2}" -f $this.SubscriptionContext.SubscriptionName, $projectName, $relDef.url.split('/')[-1];
-                                            $releaseResourceId = "organization/$organizationId/project/$projectId/release/$($relDef.id)";
-                                            $this.AddSVTResource($relDef.name, $projectName, "ADO.Release", $releaseResourceId, $null, $link);
-                                            
-                                        }
-                                        $releaseDefinitions = $null;
+                                    else
+                                    {
+                                        $url = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?searchText={2}&isExactNameMatch=true&api-version=6.0" -f $($this.SubscriptionContext.SubscriptionName), $projectName, $this.ReleaseNames[$i];
+                                    }
+                                    $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                    
+                                    foreach ($relDef in $releaseDefnsObj) {
+                                        $link = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId={2}" -f $this.SubscriptionContext.SubscriptionName, $projectName, $relDef.url.split('/')[-1];
+                                        $releaseResourceId = "organization/$organizationId/project/$projectId/release/$($relDef.id)";
+                                        $this.AddSVTResource($relDef.name, $projectName, "ADO.Release", $releaseResourceId, $null, $link); 
                                     }
 
+                                    if ($this.ReleaseIds.Count -gt 0) {
+                                        break;
+                                    }
                                 }
                             }
                             catch {
@@ -401,7 +402,12 @@ class SVTResourceResolver: AzSKRoot {
                                 $Connections = $serviceEndpointObj | Where-Object { ($_.type -eq "azurerm" -or $_.type -eq "azure" -or $_.type -eq "git" -or $_.type -eq "github" -or $_.type -eq "externaltfs") } 
                             }
                             else {
-                                $Connections = $serviceEndpointObj | Where-Object { ($_.type -eq "azurerm" -or $_.type -eq "azure" -or $_.type -eq "git" -or $_.type -eq "github" -or $_.type -eq "externaltfs") -and ($this.ServiceConnections -eq $_.name) }  
+                                if ($this.ServiceConnectionIds.Count -gt 0) {
+                                    $Connections = $serviceEndpointObj | Where-Object { ($_.type -eq "azurerm" -or $_.type -eq "azure" -or $_.type -eq "git" -or $_.type -eq "github" -or $_.type -eq "externaltfs") -and ($this.ServiceConnectionIds -eq $_.Id) }  
+                                }
+                                else {
+                                    $Connections = $serviceEndpointObj | Where-Object { ($_.type -eq "azurerm" -or $_.type -eq "azure" -or $_.type -eq "git" -or $_.type -eq "github" -or $_.type -eq "externaltfs") -and ($this.ServiceConnections -eq $_.name) }  
+                                }
                             }
                             $ScannableSvc += ($connections | Measure-Object).Count
 
@@ -444,7 +450,12 @@ class SVTResourceResolver: AzSKRoot {
                                     $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | where-object{$_.pool.isLegacy -eq $false};
                                 }
                                 else {
-                                    $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPools -contains $_.name) } 
+                                    if ($this.AgentPoolIds.Count -gt 0) {
+                                        $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPoolIds -contains $_.Id) } 
+                                    }
+                                    else {
+                                        $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPools -contains $_.name) } 
+                                    }
                                 }
 
                                 #Filtering out "Azure Pipelines" agent pool from scan as it is created by ADO by default and some of its settings are not editable (grant access to all pipelines, auto-provisioning etc.)
@@ -488,7 +499,12 @@ class SVTResourceResolver: AzSKRoot {
                                 $varGroups = $variableGroupObj 
                             }
                             else {
-                                $varGroups = $variableGroupObj | Where-Object { $this.VariableGroups -eq $_.name }  
+                                if ($this.VariableGroupIds.Count -gt 0) {
+                                    $varGroups = $variableGroupObj | Where-Object { $this.VariableGroupIds -contains $_.Id }  
+                                }
+                                else {
+                                    $varGroups = $variableGroupObj | Where-Object { $this.VariableGroups -eq $_.name }  
+                                }
                             }
 
                             $nObj = $this.MaxObjectsToScan
@@ -582,6 +598,7 @@ class SVTResourceResolver: AzSKRoot {
                 if ($rsrcList.Builds -and $rsrcList.Builds.Count -gt 0)
                 {
                     $this.BuildNames = $rsrcList.Builds.buildDefinitionName
+                    $this.BuildIds = $rsrcList.Builds.buildDefinitionId
                     $bFoundSvcMappedObjects = $true
                 } 
             }
@@ -590,6 +607,7 @@ class SVTResourceResolver: AzSKRoot {
                 if ($rsrcList.Releases -and $rsrcList.Releases.Count -gt 0)
                 {
                     $this.ReleaseNames = $rsrcList.Releases.releaseDefinitionName
+                    $this.ReleaseIds = $rsrcList.Releases.releaseDefinitionId
                     $bFoundSvcMappedObjects = $true
                 }
             }
@@ -598,6 +616,7 @@ class SVTResourceResolver: AzSKRoot {
                 if ($rsrcList.ServiceConnections -and $rsrcList.ServiceConnections.Count -gt 0)
                 {
                     $this.ServiceConnections = $rsrcList.ServiceConnections.serviceConnectionName
+                    $this.ServiceConnectionIds = $rsrcList.ServiceConnections.ServiceConnectionId
                     $bFoundSvcMappedObjects = $true
                 }
             }
@@ -606,6 +625,7 @@ class SVTResourceResolver: AzSKRoot {
                 if ($rsrcList.AgentPools -and $rsrcList.AgentPools.Count -gt 0)
                 {
                     $this.AgentPools = $rsrcList.AgentPools.agentPoolName
+                    $this.AgentPoolIds = $rsrcList.AgentPools.agentPoolId
                     $bFoundSvcMappedObjects = $true
                 }
             }
@@ -614,6 +634,7 @@ class SVTResourceResolver: AzSKRoot {
                 if ($rsrcList.VariableGroups -and $rsrcList.VariableGroups.Count -gt 0)
                 {
                     $this.VariableGroups = $rsrcList.VariableGroups.variableGroupName
+                    $this.VariableGroupIds = $rsrcList.VariableGroups.variableGroupId
                     $bFoundSvcMappedObjects = $true
                 }
             }
