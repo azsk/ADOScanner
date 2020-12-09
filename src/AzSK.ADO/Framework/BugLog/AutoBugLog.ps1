@@ -113,7 +113,7 @@ class AutoBugLog {
                             
                             $Title = $Title -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName
                             if ($control.ResourceContext.ResourceTypeName -ne "Organization" -and $control.ResourceContext.ResourceTypeName -ne "Project") {
-                                $Title += " under project " + $control.ResourceContext.ResourceGroupName;
+                                $Title += " in project " + $control.ResourceContext.ResourceGroupName;
                             }
                             $Description = $Description -f $control.ControlItem.Description, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlResults[0].VerificationResult
                             $Description += "</br></br> <b> Resource Link: </b> <a href='$($control.ResourceContext.ResourceDetails.ResourceLink)' target='_blank'>$($control.ResourceContext.ResourceName)</a>"
