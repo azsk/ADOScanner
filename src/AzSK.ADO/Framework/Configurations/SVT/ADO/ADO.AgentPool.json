@@ -96,7 +96,7 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckPrjAllPipelineAccess",
-      "Rationale": "To support security of the pipeline operations, agaent pools must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
+      "Rationale": "To support security of the pipeline operations, agent pools must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
       "Recommendation": "Go to 'Project settings' --> 'Agent pools' --> Select the agent pool --> Security --> Disable 'Grant access permission to all pipeline'.",
       "Tags": [
         "SDL",
@@ -119,6 +119,23 @@
         "SDL",
         "TCP",
         "Manual",
+        "DP"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_AgentPool_DP_Enable_Auto_Update",
+      "Description": "Enable auto-update of agents in the pool.",
+      "Id": "AgentPool180",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckAutoUpdate",
+      "Rationale": "Un-patched agents are easy targets for compromise from various malware/trojan attacks that exploit known vulnerabilities in operating systems and related software. Being on the latest OS version significantly reduces risks from security design issues and security bugs that may be present in older versions.",
+      "Recommendation": "To enable auto-update settings: 1.Navigate to the Organization settings. 2. Open Agent pools. 3. Select Settings. 4. Enable 'Allow agents in this pool to automatically update'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
         "DP"
       ],
       "Enabled": true
