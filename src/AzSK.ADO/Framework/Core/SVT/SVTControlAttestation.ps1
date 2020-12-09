@@ -25,7 +25,7 @@ class SVTControlAttestation
 		$this.controlStateExtension.UniqueRunId = $(Get-Date -format "yyyyMMdd_HHmmss");
 		$this.controlStateExtension.Initialize($true)
 		$this.ControlSettings=$ControlSettingsJson = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
-		$this.repoProject.allProjects = @();
+		$this.repoProject.projectsWithRepo = @();
         $this.repoProject.projectsWithoutRepo = @();
 	}
 
@@ -645,9 +645,9 @@ class SVTControlAttestation
             $projectName = $resource.Group[0].ResourceContext.ResourceGroupName;
 		}
 		
-        if($projectName -notin $this.repoProject.allProjects)
+        if($projectName -notin $this.repoProject.projectsWithRepo)
         {
-            $this.repoProject.allProjects += $projectName
+            $this.repoProject.projectsWithRepo += $projectName
 			$attestationRepo = [Constants]::AttestationRepo;
 			#Get attesttion repo name from controlsetting file if AttestationRepo varibale value is not empty.
 			if ([Helpers]::CheckMember($this.ControlSettings,"AttestationRepo")) {
