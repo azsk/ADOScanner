@@ -26,7 +26,7 @@ class SVTControlAttestation
 		$this.controlStateExtension.Initialize($true)
 		$this.ControlSettings=$ControlSettingsJson = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
 		$this.repoProject.projectsWithRepo = @();
-        $this.repoProject.projectsWithoutRepo = @();
+		$this.repoProject.projectsWithoutRepo = @();
 	}
 
 	[AttestationStatus] GetAttestationValue([string] $AttestationCode)
