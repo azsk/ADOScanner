@@ -289,10 +289,11 @@ class SVTResourceResolver: AzSKRoot {
                         else {
                             $buildDefnURL = "";
                             for ($i = 0; $i -lt $this.BuildNames.Count; $i++) {
+                                #If service id based scan then send all build ids to api as comma separated in one go.
                                 if ($this.BuildIds.Count -gt 0) {
                                     $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.1-preview.7" -f $($this.SubscriptionContext.SubscriptionName), $projectName, ($this.BuildIds -join ",");
                                 }    
-                                else {
+                                else { #If normal scan (not service id based) then send each build name in api one by one.
                                     $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?name={2}&api-version=5.1-preview.7" -f $($this.SubscriptionContext.SubscriptionName), $projectName, $this.BuildNames[$i];
                                 }
                                 $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL) 
@@ -306,6 +307,7 @@ class SVTResourceResolver: AzSKRoot {
                                     $buildDefnsObj = $null;
                                     Remove-Variable buildDefnsObj;
                                 }
+                                #If service id based scan then no need to run loop as all the build ids has been sent to api as comma separated list in one go. so break the loop.
                                 if ($this.BuildIds.Count -gt 0) {
                                     break;
                                 }
@@ -346,11 +348,11 @@ class SVTResourceResolver: AzSKRoot {
                             try {
                                 $releaseDefnsObj = $null;
                                 for ($i = 0; $i -lt $this.ReleaseNames.Count; $i++) {
+                                    #If service id based scan then send all release ids to api as comma separated in one go.
                                     if ($this.ReleaseIds.Count -gt 0) {
                                         $url = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?definitionIdFilter={2}&api-version=6.0" -f $($this.SubscriptionContext.SubscriptionName), $projectName, ($this.ReleaseIds -join ",");
                                     }
-                                    else
-                                    {
+                                    else { #If normal scan (not service id based) then send each release name in api one by one.
                                         $url = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?searchText={2}&isExactNameMatch=true&api-version=6.0" -f $($this.SubscriptionContext.SubscriptionName), $projectName, $this.ReleaseNames[$i];
                                     }
                                     $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($url);
@@ -360,7 +362,7 @@ class SVTResourceResolver: AzSKRoot {
                                         $releaseResourceId = "organization/$organizationId/project/$projectId/release/$($relDef.id)";
                                         $this.AddSVTResource($relDef.name, $projectName, "ADO.Release", $releaseResourceId, $null, $link); 
                                     }
-
+                                    #If service id based scan then no need to run loop as all the release ids has been sent to api as comma separated list in one go. so break the loop.
                                     if ($this.ReleaseIds.Count -gt 0) {
                                         break;
                                     }
@@ -402,6 +404,7 @@ class SVTResourceResolver: AzSKRoot {
                                 $Connections = $serviceEndpointObj | Where-Object { ($_.type -eq "azurerm" -or $_.type -eq "azure" -or $_.type -eq "git" -or $_.type -eq "github" -or $_.type -eq "externaltfs") } 
                             }
                             else {
+                                #If service id based scan then filter with serviceconnection ids
                                 if ($this.ServiceConnectionIds.Count -gt 0) {
                                     $Connections = $serviceEndpointObj | Where-Object { ($_.type -eq "azurerm" -or $_.type -eq "azure" -or $_.type -eq "git" -or $_.type -eq "github" -or $_.type -eq "externaltfs") -and ($this.ServiceConnectionIds -eq $_.Id) }  
                                 }
@@ -450,6 +453,7 @@ class SVTResourceResolver: AzSKRoot {
                                     $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | where-object{$_.pool.isLegacy -eq $false};
                                 }
                                 else {
+                                    #If service id based scan then filter with agent pool ids
                                     if ($this.AgentPoolIds.Count -gt 0) {
                                         $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPoolIds -contains $_.Id) } 
                                     }
@@ -499,8 +503,9 @@ class SVTResourceResolver: AzSKRoot {
                                 $varGroups = $variableGroupObj 
                             }
                             else {
+                                #If service id based scan then filter with variablegroup ids
                                 if ($this.VariableGroupIds.Count -gt 0) {
-                                    $varGroups = $variableGroupObj | Where-Object { $this.VariableGroupIds -contains $_.Id }  
+                                    $varGroups = $variableGroupObj | Where-Object { $this.VariableGroupIds -eq $_.Id }  
                                 }
                                 else {
                                     $varGroups = $variableGroupObj | Where-Object { $this.VariableGroups -eq $_.name }  
