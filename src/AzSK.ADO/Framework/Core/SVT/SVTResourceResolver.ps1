@@ -34,12 +34,12 @@ class SVTResourceResolver: AzSKRoot {
 
     [bool] $includeAdminControls = $false;
     [bool] $isUserPCA = $false;
-    [bool] $skipOrgUserResources = $false
+    [bool] $skipOrgUserControls = $false
 
-    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserResources): Base($organizationName, $PATToken) {
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls): Base($organizationName, $PATToken) {
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
         $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);            
-        $this.skipOrgUserResources = $skipOrgUserResources
+        $this.skipOrgUserControls = $skipOrgUserControls
     }
 
     [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls) { 
@@ -172,7 +172,7 @@ class SVTResourceResolver: AzSKRoot {
             #First condition if 'includeAdminControls' switch is passed or user is admin(PCA).
             #Second condition if explicitly -rtn flag passed to org or Org_Project_User 
             #Third condition if 'gads' contains only admin scan parame, then no need to ask for includeAdminControls switch
-            if (-not $this.skipOrgUserResources) {
+            if (-not $this.skipOrgUserControls) {
                 if (($this.includeAdminControls -or $this.isAdminControlScan()))
                 {
                     #Select Org/User by default...
@@ -185,7 +185,7 @@ class SVTResourceResolver: AzSKRoot {
                 }
             }
         }
-        if (-not $this.skipOrgUserResources) {
+        if (-not $this.skipOrgUserControls) {
             if ($this.ResourceTypeName -in ([ResourceTypeName]::User, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User)) {
 
                 $link = "https://dev.azure.com/$($this.organizationName)/_settings/users"

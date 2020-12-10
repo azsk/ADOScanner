@@ -247,9 +247,9 @@ function Get-AzSKADOSecurityStatus
 		$IncludeAdminControls,
 
 		[switch]
-		[Parameter(HelpMessage="Skip Organization and User Resources.")]
-		[Alias("sour")]
-		$skipOrgUserResources
+		[Parameter(HelpMessage="Skip organization and user controls.")]
+		[Alias("souc")]
+		$SkipOrgUserControls
 	)
 	Begin
 	{
@@ -322,7 +322,7 @@ function Get-AzSKADOSecurityStatus
 				}
 			}
 
-			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserResources);
+			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls);
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus) 
 			{	
