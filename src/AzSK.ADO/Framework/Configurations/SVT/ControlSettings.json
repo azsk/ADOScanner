@@ -203,10 +203,7 @@
         "InputFeeds",
         "Environment",
         "SolutionName"
-    ],
-    "ControlExclusionsByService": [
-        "ExcludeYAMLPipeline"
-     ]
+    ]
   },
   "Release": {
     "ReleaseHistoryPeriodInDays": 180,

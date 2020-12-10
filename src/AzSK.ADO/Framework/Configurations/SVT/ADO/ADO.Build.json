@@ -34,8 +34,7 @@
         "SDL",
         "TCP",
         "Automated",
-        "DP",
-        "ExcludeYAMLPipeline"
+        "DP"
       ],
       "Enabled": true
     },
@@ -52,8 +51,7 @@
         "SDL",
         "TCP",
         "Manual",
-        "Config",
-        "ExcludeYAMLPipeline"
+        "Config"
       ],
       "Enabled": true
     },
@@ -70,8 +68,7 @@
         "SDL",
         "TCP",
         "Manual",
-        "DP",
-        "ExcludeYAMLPipeline"
+        "DP"
       ],
       "Enabled": true
     },
@@ -88,8 +85,7 @@
         "SDL",
         "Best Practice",
         "Automated",
-        "DP",
-        "ExcludeYAMLPipeline"
+        "DP"
       ],
       "Enabled": true
     },
@@ -106,8 +102,7 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ",
-        "ExcludeYAMLPipeline"
+        "AuthZ"
       ],
       "Enabled": true
     },
@@ -124,8 +119,7 @@
         "SDL",
         "TCP",
         "Automated",
-        "SI",
-        "ExcludeYAMLPipeline"
+        "SI"
       ],
       "Enabled": true
     },
@@ -142,8 +136,7 @@
         "SDL",
         "TCP",
         "Automated",
-        "SI",
-        "ExcludeYAMLPipeline"
+        "SI"
       ],
       "Enabled": true
     },
@@ -160,8 +153,7 @@
         "SDL",
         "TCP",
         "Automated",
-        "SI",
-        "ExcludeYAMLPipeline"
+        "SI"
       ],
       "Enabled": true
     },
@@ -178,8 +170,7 @@
         "SDL",
         "TCP",
         "Automated",
-        "SI",
-        "ExcludeYAMLPipeline"
+        "SI"
       ],
       "Enabled": true
     },
@@ -196,8 +187,7 @@
         "SDL",
         "TCP",
         "Automated",
-        "SI",
-        "ExcludeYAMLPipeline"
+        "SI"
       ],
       "Enabled": true
     },
@@ -215,7 +205,7 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "ExcludeYAMLPipeline"
+        "SkipYAML"
       ],
       "Enabled": true
     }  
