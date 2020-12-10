@@ -18,14 +18,14 @@ function Install-AzSKADOContinuousAssurance
 		Workspace ID of Log Analytics workspace where security scan results will be sent
 	.PARAMETER LAWSSharedKey
 		Shared key of Log Analytics workspace which is used to monitor security scan results.
-	.PARAMETER AltLAWSId
-		Alternate workspace ID of Log Analytics workspace where security scan results will be sent
-	.PARAMETER AltLAWSSharedKey
-		Alternate shared key of Log Analytics workspace which is used to monitor security scan results.
 	.PARAMETER OrganizationName
 		Organization name for which scan will be performed.
 	.PARAMETER PATToken
-		PAT token secure string for organization to be scanned.
+        PAT token secure string for organization to be scanned.
+    .PARAMETER PATTokenURL
+		KeyVault URL for PATToken.
+	.PARAMETER IdentityResourceId
+		Resource id of user assigned managed identity to be used to access KeyVault for PATToken.
 	.PARAMETER ProjectName
 		Project to be scanned within the organization.
 	.PARAMETER ExtendedCommand
@@ -40,18 +40,21 @@ function Install-AzSKADOContinuousAssurance
 
 	#>
 	Param(
-		[Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage="Subscription id in which CA setup needs to be done.")]
+        [Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage="Subscription id in which CA setup needs to be done.")]
+		[Parameter(Mandatory = $true, ParameterSetName = "CentralCA")]
         [string]
 		[Alias("sid")]
 		$SubscriptionId ,
 
-		[Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage = "Organization name for which scan will be performed.")]
+        [Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage = "Organization name for which scan will be performed.")]
+		[Parameter(Mandatory = $true, ParameterSetName = "CentralCA")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("oz")]
 		[string]
 		$OrganizationName,
 
-		[Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage = "Project to be scanned within the organization.")]
+        [Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage = "Project to be scanned within the organization.")]
+		[Parameter(Mandatory = $true, ParameterSetName = "CentralCA")]
 		[Alias("pns", "ProjectNames","pn")]
 		[string]
 		$ProjectName,
@@ -60,63 +63,65 @@ function Install-AzSKADOContinuousAssurance
 		[ValidateNotNullOrEmpty()]
 		[Alias("pat","tkn")]
 		[System.Security.SecureString]
-		$PATToken,
+        $PATToken,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = "CentralCA", HelpMessage = "KeyVault URL for PATToken")]
+		[ValidateNotNullOrEmpty()]
+        [Alias("ptu")]
+		[string]
+        $PATTokenURL,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = "CentralCA", HelpMessage = "Resource id of user assigned managed identity")]
+		[ValidateNotNullOrEmpty()]
+        [Alias("ici")]
+		[string]
+		$IdentityResourceId,
 
-		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Resource group name where CA setup needs to be done")]
+        [Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Resource group name where CA setup needs to be done")]
+		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
         [string]
 		[ValidateNotNullOrEmpty()]
 		[Alias("rgn")]
 		$ResourceGroupName,       
 
-		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Location in which all resources need to be setup.")]
+        [Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Location in which all resources need to be setup.")]
+		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
 		[string]
 		[ValidateNotNullOrEmpty()]
 		[Alias("loc")]
 		$Location, 
 
         [Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Workspace ID of Log Analytics workspace which is used to monitor security scan results.")]
+		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
         [string]
 		[ValidateNotNullOrEmpty()]
 		[Alias("lwid","wid")]
 		$LAWSId,
 
         [Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Shared key of Log Analytics workspace which is used to monitor security scan results.")]
+		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
         [string]
 		[ValidateNotNullOrEmpty()]
 		[Alias("lwkey","wkey")]
 		$LAWSSharedKey,
-		
-        [Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Alternate workspace ID of Log Analytics workspace which is used to monitor security scan results.")]
-        [string]
-		[ValidateNotNullOrEmpty()]
-		[Alias("alwid","awid")]
-		$AltLAWSId,
-
-        [Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Alternate shared key of Log Analytics workspace which is used to monitor security scan results.")]
-        [string]
-		[ValidateNotNullOrEmpty()]
-		[Alias("alwkey","awkey")]
-		$AltLAWSSharedKey,
 
 		[switch]
-		[Parameter(Mandatory = $false, HelpMessage = "Switch to create and map new Log Analytics workspace with CA setup.")]
+        [Parameter(Mandatory = $false, HelpMessage = "Switch to create and map new Log Analytics workspace with CA setup.")]
+		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
 		[Alias("cws")]
 		$CreateLAWorkspace,
 
-		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Use extended command to narrow down the target scan.")]
+        [Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Use extended command to narrow down the target scan.")]
+		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
 		[Alias("ex")]
 		[string]
 		$ExtendedCommand,
 
-		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Overrides the default scan interval (24hrs) with the custom provided value.")]
+        [Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Overrides the default scan interval (24hrs) with the custom provided value.")]
+		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
 		[Alias("si")]
 		[int]
-		$ScanIntervalInHours,
-
-		[switch]
-		[Parameter(Mandatory = $false, HelpMessage = "Switch to specify whether to open output folder or not.")]
-		[Alias("dnof")]
-		$DoNotOpenOutputFolder
+		$ScanIntervalInHours
     )
 	Begin
 	{
@@ -127,29 +132,34 @@ function Install-AzSKADOContinuousAssurance
 	{
 		try 
 		{
-            if ($PATToken -eq $null)
+            if ([string]::IsNullOrWhiteSpace($PATToken) -and [string]::IsNullOrWhiteSpace($PATTokenURL))
             {
                 $PATToken = Read-Host "Provide PAT for [$OrganizationName] org:" -AsSecureString
             }
 
-			$resolver = [Resolver]::new($OrganizationName)
+            $resolver = [Resolver]::new($OrganizationName)
 
-			$caAccount = [CAAutomation]::new($SubscriptionId, $Location,`
-											$OrganizationName, $PATToken, $ResourceGroupName, $LAWSId,`
-											$LAWSSharedKey, $AltLAWSId, $AltLAWSSharedKey, $ProjectName,`
-											$ExtendedCommand,  $ScanIntervalInHours, $PSCmdlet.MyInvocation, $CreateLAWorkspace);
-            
-			return $caAccount.InvokeFunction($caAccount.InstallAzSKADOContinuousAssurance);
-		}
-		catch 
-		{
-			[EventBase]::PublishGenericException($_);
-		}  
-	}
-	End
-	{
-		[ListenerHelper]::UnregisterListeners();
-	}
+            $caAccount = [CAAutomation]::new($SubscriptionId, $Location,`
+                                            $OrganizationName, $PATToken, $PATTokenURL, $ResourceGroupName, $LAWSId,`
+                                            $LAWSSharedKey, $ProjectName, $IdentityResourceId,`
+                                            $ExtendedCommand,  $ScanIntervalInHours, $PSCmdlet.MyInvocation, $CreateLAWorkspace);
+
+            if ($PSCmdlet.ParameterSetName -eq 'Default') {
+                $caAccount.InvokeFunction($caAccount.InstallAzSKADOContinuousAssurance)
+            }
+            else {
+                $caAccount.InvokeFunction($caAccount.InstallAzSKADOCentralContinuousAssurance)
+            }
+        }
+        catch 
+        {
+            [EventBase]::PublishGenericException($_);
+        }  
+    }
+    End
+    {
+        [ListenerHelper]::UnregisterListeners();
+    }
 }
 
 function Update-AzSKADOContinuousAssurance 
@@ -176,7 +186,9 @@ function Update-AzSKADOContinuousAssurance
 	.PARAMETER OrganizationName
 		Organization name for which scan will be performed.
 	.PARAMETER PATToken
-		PAT token secure string for organization to be scanned.
+        PAT token secure string for organization to be scanned.
+    .PARAMETER PATTokenURL
+		KeyVault URL for PATToken.
 	.PARAMETER ProjectName
 		Project to be scanned within the organization.
 	.PARAMETER ExtendedCommand
@@ -185,6 +197,14 @@ function Update-AzSKADOContinuousAssurance
 		Overrides the default scan interval (24hrs) with the custom provided value.
 	.PARAMETER ClearExtendedCommand
 		Use to clear extended command.
+	.PARAMETER WebhookUrl
+		Provide webhook url to enable it in CA setup.
+	.PARAMETER WebhookAuthZHeaderName
+		Provide webhook header name.
+	.PARAMETER WebhookAuthZHeaderValue
+		Provide webhook header value.
+	.PARAMETER AllowSelfSignedWebhookCertificate
+		Use this switch to allow self signed webhook certificate.
 	#>
 	Param(
 		[Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage="Subscription id in which CA setup is present.")]
@@ -205,7 +225,12 @@ function Update-AzSKADOContinuousAssurance
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "PAT token secure string for organization to be scanned.")]
 		[Alias("pat")]
 		[System.Security.SecureString]
-		$PATToken,
+        $PATToken,
+        
+		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "KeyVault URL for PATToken")]
+		[Alias("ptu")]
+		[string]
+		$PATTokenURL,
 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Resource group name where CA setup is available. (Default : ADOScannerRG)")]
         [string]
@@ -248,6 +273,26 @@ function Update-AzSKADOContinuousAssurance
 		[Alias("cec")]
 		[switch]
 		$ClearExtendedCommand,
+		
+		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Provide webhook url to enable it in CA setup.")]
+		[Alias("wu")]
+		[string]
+		$WebhookUrl,
+        
+		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Provide webhook header name.")]
+		[Alias("wan")]
+		[string]
+		$WebhookAuthZHeaderName,
+        
+		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Provide webhook header value.")]
+		[Alias("wav")]
+		[string]
+		$WebhookAuthZHeaderValue,
+        
+		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Use this switch to allow self signed webhook certificate.")]
+		[Alias("awc")]
+		[switch]
+		$AllowSelfSignedWebhookCertificate,
 
 		#Dev-Test support params below this
 		[string] $RsrcTimeStamp, 
@@ -256,33 +301,46 @@ function Update-AzSKADOContinuousAssurance
 		[bool] $UseDevTestImage, 
 		[int] $TriggerNextScanInMin
     )
-	Begin
-	{
-		[CommandHelper]::BeginCommand($PSCmdlet.MyInvocation);
-		[ListenerHelper]::RegisterListeners();
-	}
-	Process
-	{
-		try 
-		{
-			$resolver = [Resolver]::new($OrganizationName)
-			$caAccount = [CAAutomation]::new($SubscriptionId, $OrganizationName, $PATToken, `
-											$ResourceGroupName, $LAWSId, $LAWSSharedKey, `
-											$AltLAWSId, $AltLAWSSharedKey, $ProjectName, $ExtendedCommand, `
-											$RsrcTimeStamp, $ContainerImageName, $ModuleEnv, $UseDevTestImage, $TriggerNextScanInMin, `
-											$ScanIntervalInHours, $ClearExtendedCommand, $PSCmdlet.MyInvocation);
+    Begin
+    {
+        [CommandHelper]::BeginCommand($PSCmdlet.MyInvocation);
+        [ListenerHelper]::RegisterListeners();
+    }
+    Process
+    {
+        try 
+        {
+            if (-not [string]::IsNullOrEmpty($PATToken) -and -not [string]::IsNullOrEmpty($PATTokenURL))
+            {
+                throw [SuppressedException] "'PATToken' and 'PATTokenURL' are exclusive parameters. Please use only one of them in the command"   
+            }
+            if (-not [string]::IsNullOrEmpty($ExtendedCommand) -and $ClearExtendedCommand -eq $true)
+            {
+                throw [SuppressedException] "'ExtendedCommand' and 'ClearExtendedCommand' are exclusive parameters. Please use only one of them in the command"   
+            }
+            else 
+            {
+                
+                    $resolver = [Resolver]::new($OrganizationName)
+                    $caAccount = [CAAutomation]::new($SubscriptionId, $OrganizationName, $PATToken, $PATTokenURL, `
+                                                    $ResourceGroupName, $LAWSId, $LAWSSharedKey, `
+                                                    $AltLAWSId, $AltLAWSSharedKey, $ProjectName, $ExtendedCommand, `
+                                                    $WebhookUrl, $WebhookAuthZHeaderName, $WebhookAuthZHeaderValue, $AllowSelfSignedWebhookCertificate, `
+                                                    $RsrcTimeStamp, $ContainerImageName, $ModuleEnv, $UseDevTestImage, $TriggerNextScanInMin, `
+                                                    $ScanIntervalInHours, $ClearExtendedCommand, $PSCmdlet.MyInvocation);
             
-			return $caAccount.InvokeFunction($caAccount.UpdateAzSKADOContinuousAssurance);
+                    return $caAccount.InvokeFunction($caAccount.UpdateAzSKADOContinuousAssurance);
+            }
 		}
-		catch 
-		{
-			[EventBase]::PublishGenericException($_);
-		}  
-	}
-	End
-	{
-		[ListenerHelper]::UnregisterListeners();
-	}
+        catch 
+        {
+            [EventBase]::PublishGenericException($_);
+        }  
+    }
+    End
+    {
+        [ListenerHelper]::UnregisterListeners();
+    }
 }
 function Get-AzSKADOContinuousAssurance 
 {

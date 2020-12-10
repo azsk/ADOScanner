@@ -84,6 +84,33 @@ class ContextHelper {
             return $null
         }
     }
+    
+    static [string] GetAccessToken([string] $Uri, [string] $tenantId) 
+    {
+        $rmContext = Get-AzContext
+        if (-not $rmContext) {
+            throw ([SuppressedException]::new(("No Azure login found"), [SuppressedExceptionType]::InvalidOperation))
+        }
+        
+        if ([string]::IsNullOrEmpty($tenantId) -and [Helpers]::CheckMember($rmContext,"Tenant")) {
+            $tenantId = $rmContext.Tenant.Id
+        }
+        
+        $authResult = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate(
+        $rmContext.Account,
+        $rmContext.Environment,
+        $tenantId,
+        [System.Security.SecureString] $null,
+        "Never",
+        $null,
+        $Uri);
+        
+        if (-not ($authResult -and (-not [string]::IsNullOrWhiteSpace($authResult.AccessToken)))) {
+          throw ([SuppressedException]::new(("Unable to get access token. Authentication Failed."), [SuppressedExceptionType]::Generic))
+        }
+        return $authResult.AccessToken;
+    }
+
 
     hidden [SubscriptionContext] SetContext([string] $subscriptionId)
     {

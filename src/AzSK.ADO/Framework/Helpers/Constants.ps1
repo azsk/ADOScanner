@@ -19,7 +19,10 @@ class Constants
 "	a) New bugs have been logged for fresh control failures.`r`n"+
 "	b) For control failures for which bugs were already present, the respective bugs have been marked 'Active' `r`n"
 
-
+    static [string] $CentralCAMsg="** Next steps **`r`n" + 
+"Provide 'Get,List' permissions on KeyVault to User assigned managed identity using any one of below ways:`r`n" +
+"	a) Goto KeyVault resource > Access Policy > Add > Enter Client Id of the identity > Provide Get,list permissions on Secret > Save`r`n"+
+"	b) Run command: Set-AzKeyVaultAccessPolicy -VaultName <KeyVaultName> -ObjectId <ObjectId of Identity> -PermissionsToSecrets Get,List `r`n"
 
     static [string] $RemediationMsgForARMChekcer = "** Next steps **`r`n" + 
 "Look at the individual control evaluation status in the CSV file.`r`n" +
