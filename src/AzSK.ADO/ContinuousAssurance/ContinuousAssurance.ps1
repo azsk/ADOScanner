@@ -22,7 +22,7 @@ function Install-AzSKADOContinuousAssurance
 		Organization name for which scan will be performed.
 	.PARAMETER PATToken
         PAT token secure string for organization to be scanned.
-    .PARAMETER PATTokenURL
+	.PARAMETER PATTokenURL
 		KeyVault URL for PATToken.
 	.PARAMETER IdentityResourceId
 		Resource id of user assigned managed identity to be used to access KeyVault for PATToken.
@@ -40,13 +40,13 @@ function Install-AzSKADOContinuousAssurance
 
 	#>
 	Param(
-        [Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage="Subscription id in which CA setup needs to be done.")]
+		[Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage="Subscription id in which CA setup needs to be done.")]
 		[Parameter(Mandatory = $true, ParameterSetName = "CentralCA")]
-        [string]
+		[string]
 		[Alias("sid")]
 		$SubscriptionId ,
 
-        [Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage = "Organization name for which scan will be performed.")]
+		[Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage = "Organization name for which scan will be performed.")]
 		[Parameter(Mandatory = $true, ParameterSetName = "CentralCA")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("oz")]
@@ -63,42 +63,42 @@ function Install-AzSKADOContinuousAssurance
 		[ValidateNotNullOrEmpty()]
 		[Alias("pat","tkn")]
 		[System.Security.SecureString]
-        $PATToken,
+		$PATToken,
         
-        [Parameter(Mandatory = $true, ParameterSetName = "CentralCA", HelpMessage = "KeyVault URL for PATToken")]
+		[Parameter(Mandatory = $true, ParameterSetName = "CentralCA", HelpMessage = "KeyVault URL for PATToken")]
 		[ValidateNotNullOrEmpty()]
-        [Alias("ptu")]
+		[Alias("ptu")]
 		[string]
-        $PATTokenURL,
+		$PATTokenURL,
         
-        [Parameter(Mandatory = $true, ParameterSetName = "CentralCA", HelpMessage = "Resource id of user assigned managed identity")]
+		[Parameter(Mandatory = $true, ParameterSetName = "CentralCA", HelpMessage = "Resource id of user assigned managed identity")]
 		[ValidateNotNullOrEmpty()]
-        [Alias("ici")]
+		[Alias("ici")]
 		[string]
 		$IdentityResourceId,
 
-        [Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Resource group name where CA setup needs to be done")]
+		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Resource group name where CA setup needs to be done")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
         [string]
 		[ValidateNotNullOrEmpty()]
 		[Alias("rgn")]
 		$ResourceGroupName,       
 
-        [Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Location in which all resources need to be setup.")]
+		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Location in which all resources need to be setup.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
 		[string]
 		[ValidateNotNullOrEmpty()]
 		[Alias("loc")]
 		$Location, 
 
-        [Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Workspace ID of Log Analytics workspace which is used to monitor security scan results.")]
+		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Workspace ID of Log Analytics workspace which is used to monitor security scan results.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
         [string]
 		[ValidateNotNullOrEmpty()]
 		[Alias("lwid","wid")]
 		$LAWSId,
 
-        [Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Shared key of Log Analytics workspace which is used to monitor security scan results.")]
+		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Shared key of Log Analytics workspace which is used to monitor security scan results.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
         [string]
 		[ValidateNotNullOrEmpty()]
@@ -106,18 +106,18 @@ function Install-AzSKADOContinuousAssurance
 		$LAWSSharedKey,
 
 		[switch]
-        [Parameter(Mandatory = $false, HelpMessage = "Switch to create and map new Log Analytics workspace with CA setup.")]
+		[Parameter(Mandatory = $false, HelpMessage = "Switch to create and map new Log Analytics workspace with CA setup.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
 		[Alias("cws")]
 		$CreateLAWorkspace,
 
-        [Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Use extended command to narrow down the target scan.")]
+		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Use extended command to narrow down the target scan.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
 		[Alias("ex")]
 		[string]
 		$ExtendedCommand,
 
-        [Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Overrides the default scan interval (24hrs) with the custom provided value.")]
+		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Overrides the default scan interval (24hrs) with the custom provided value.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
 		[Alias("si")]
 		[int]
@@ -131,7 +131,7 @@ function Install-AzSKADOContinuousAssurance
 	Process
 	{
 		try 
-		{
+        {
             if ([string]::IsNullOrWhiteSpace($PATToken) -and [string]::IsNullOrWhiteSpace($PATTokenURL))
             {
                 $PATToken = Read-Host "Provide PAT for [$OrganizationName] org:" -AsSecureString
@@ -186,7 +186,7 @@ function Update-AzSKADOContinuousAssurance
 	.PARAMETER OrganizationName
 		Organization name for which scan will be performed.
 	.PARAMETER PATToken
-        PAT token secure string for organization to be scanned.
+		PAT token secure string for organization to be scanned.
     .PARAMETER PATTokenURL
 		KeyVault URL for PATToken.
 	.PARAMETER ProjectName
@@ -225,7 +225,7 @@ function Update-AzSKADOContinuousAssurance
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "PAT token secure string for organization to be scanned.")]
 		[Alias("pat")]
 		[System.Security.SecureString]
-        $PATToken,
+		$PATToken,
         
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "KeyVault URL for PATToken")]
 		[Alias("ptu")]
@@ -233,7 +233,7 @@ function Update-AzSKADOContinuousAssurance
 		$PATTokenURL,
 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Resource group name where CA setup is available. (Default : ADOScannerRG)")]
-        [string]
+		[string]
 		[Alias("rgn")]
 		$ResourceGroupName,       
 

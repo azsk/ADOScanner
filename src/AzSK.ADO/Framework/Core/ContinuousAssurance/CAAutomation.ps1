@@ -9,7 +9,7 @@ class CAAutomation : ADOSVTCommandBase
     hidden [string] $IdentityId
     hidden [string] $TimeStamp #Use for new CA creation only.
     hidden [string] $StorageName
-	hidden [string] $AppServicePlanName = "ADOScannerFAPlan"
+    hidden [string] $AppServicePlanName = "ADOScannerFAPlan"
 	hidden [string] $FuncAppDefaultName = "ADOScannerFA"
     hidden [string] $KVDefaultName = "ADOScannerKV"
     hidden [string] $FuncAppName
@@ -27,11 +27,11 @@ class CAAutomation : ADOSVTCommandBase
     hidden [string] $LAWSName = "ADOScannerLAWS"
     hidden [bool] $CreateLAWS 
     hidden [string] $ProjectNames 
-	hidden [string] $ExtendedCommand 
-	hidden [string] $CRONExp 
-	hidden [bool] $ClearExtCmd 
-	hidden [bool] $updateAppSettings = $false
-	hidden [bool] $updateSecret = $false
+    hidden [string] $ExtendedCommand 
+    hidden [string] $CRONExp 
+    hidden [bool] $ClearExtCmd 
+    hidden [bool] $updateAppSettings = $false
+    hidden [bool] $updateSecret = $false
     hidden [string] $CAScanLogsContainerName = [Constants]::CAScanLogsContainerName
     hidden [string] $WebhookUrl
     hidden [string] $WebhookAuthZHeaderName
@@ -62,13 +62,13 @@ class CAAutomation : ADOSVTCommandBase
 		[string] $SubId, `
 		[string] $Loc, `
 		[string] $OrgName, `
-        [System.Security.SecureString] $PATToken, `
-        [string] $PATTokenURL, `
+		[System.Security.SecureString] $PATToken, `
+		[string] $PATTokenURL, `
 		[string] $ResourceGroupName, `
 		[string] $LAWorkspaceId, `
 		[string] $LAWorkspaceKey, `
-        [string] $Proj, `
-        [string] $IdentityResourceId, `
+		[string] $Proj, `
+		[string] $IdentityResourceId, `
 		[string] $ExtCmd, `
 		[int] $ScanIntervalInHours,
 		[InvocationInfo] $invocationContext, `
@@ -76,9 +76,9 @@ class CAAutomation : ADOSVTCommandBase
     {
 		$this.SubscriptionId = $SubId
 		$this.OrganizationToScan = $OrgName
-        $this.PATToken = $PATToken
-        $this.PATTokenURL = $PATTokenURL
-        $this.IdentityId = $IdentityResourceId
+		$this.PATToken = $PATToken
+		$this.PATTokenURL = $PATTokenURL
+		$this.IdentityId = $IdentityResourceId
 		$this.ProjectNames = $Proj
 		$this.ExtendedCommand = $ExtCmd
 		$this.TimeStamp = (Get-Date -format "yyMMddHHmmss")
@@ -161,19 +161,19 @@ class CAAutomation : ADOSVTCommandBase
 	CAAutomation(
 		[string] $SubId, `
 		[string] $OrgName, `
-        [System.Security.SecureString] $PATToken, `
-        [string] $PATTokenURL, `
+		[System.Security.SecureString] $PATToken, `
+		[string] $PATTokenURL, `
 		[string] $ResourceGroupName, `
 		[string] $LAWorkspaceId, `
 		[string] $LAWorkspaceKey, `
 		[string] $AltLAWorkspaceId, `
 		[string] $AltLAWorkspaceKey, `
 		[string] $Proj, `
-        [string] $ExtCmd, `
-        [string] $WebhookUrl, `
-        [string] $WebhookHeaderName, `
-        [string] $WebhookHeaderValue, `
-        [bool] $AllowSelfSignedWebhookCert,
+		[string] $ExtCmd, `
+		[string] $WebhookUrl, `
+		[string] $WebhookHeaderName, `
+		[string] $WebhookHeaderValue, `
+		[bool] $AllowSelfSignedWebhookCert,
 		[string] $RsrcTimeStamp, `
 		[string] $ContainerImageName, `
 		[string] $ModuleEnv, `
@@ -185,8 +185,8 @@ class CAAutomation : ADOSVTCommandBase
 		{
 			$this.SubscriptionId = $SubId
 			$this.OrganizationToScan = $OrgName
-            $this.PATToken = $PATToken
-            $this.PATTokenURL = $PATTokenURL
+			$this.PATToken = $PATToken
+			$this.PATTokenURL = $PATTokenURL
 			$this.ProjectNames = $Proj
 			$this.ExtendedCommand = $ExtCmd
 			$this.SetupComplete = $false
@@ -194,11 +194,11 @@ class CAAutomation : ADOSVTCommandBase
 			$this.LAWSSharedKey = $LAWorkspaceKey
 			$this.AltLAWSId = $AltLAWorkspaceId
 			$this.AltLAWSSharedKey = $AltLAWorkspaceKey
-            $this.ClearExtCmd = $ClearExtendedCommand
-            $this.WebhookUrl = $WebhookUrl
-            $this.WebhookAuthZHeaderName = $WebhookHeaderName
-            $this.WebhookAuthZHeaderValue = $WebhookHeaderValue
-            $this.AllowSelfSignedWebhookCertificate = $AllowSelfSignedWebhookCert
+			$this.ClearExtCmd = $ClearExtendedCommand
+			$this.WebhookUrl = $WebhookUrl
+			$this.WebhookAuthZHeaderName = $WebhookHeaderName
+			$this.WebhookAuthZHeaderValue = $WebhookHeaderValue
+			$this.AllowSelfSignedWebhookCertificate = $AllowSelfSignedWebhookCert
 
 			#Some stuff for dev-test support
 			$this.NewImageName = $ContainerImageName
@@ -355,7 +355,7 @@ class CAAutomation : ADOSVTCommandBase
 			$this.messages += $Error
 		}
 		return $output
-    }
+	}
 
     #Create common resources applicable for both type of CA setups
     [void] CreateResources()
@@ -457,7 +457,7 @@ class CAAutomation : ADOSVTCommandBase
     
     # ICA to setup using PATToken, by storing it in created KV and access it using system assigned identity of function app
 	[MessageData[]] InstallAzSKADOContinuousAssurance()
-    {
+	{
 		[MessageData[]] $messageData = @();
 		$this.messages += ([Constants]::DoubleDashLine + "`r`nStarted setting up Continuous Assurance (CA)`r`n"+[Constants]::DoubleDashLine);
 		$this.PublishCustomMessage($this.messages, [MessageType]::Info);
@@ -471,7 +471,7 @@ class CAAutomation : ADOSVTCommandBase
 			}
 			else 
 			{
-                $this.CreateResources(); #Step 1,2,3,4,5
+				$this.CreateResources(); #Step 1,2,3,4,5
                 
 				#Step 6: Create Function app
 				$FuncApp = New-AzFunctionApp -DockerImageName $this.ImageName -SubscriptionId $this.SubscriptionId -Name $this.FuncAppName -ResourceGroupName $this.RGname -StorageAccountName $this.StorageName -IdentityType SystemAssigned -PlanName $this.AppServicePlanName
@@ -652,10 +652,10 @@ class CAAutomation : ADOSVTCommandBase
 			}
 			else 
 			{		
-                $this.CreateResources(); #Step 1,2,3,4,5       
+				$this.CreateResources(); #Step 1,2,3,4,5       
 
                 #Step 6a: Create Function app
-                $FuncApp = New-AzFunctionApp -DockerImageName $this.ImageName -SubscriptionId $this.SubscriptionId -Name $this.FuncAppName -ResourceGroupName $this.RGname -StorageAccountName $this.StorageName -IdentityType UserAssigned -IdentityID $this.IdentityId -PlanName $this.AppServicePlanName
+				$FuncApp = New-AzFunctionApp -DockerImageName $this.ImageName -SubscriptionId $this.SubscriptionId -Name $this.FuncAppName -ResourceGroupName $this.RGname -StorageAccountName $this.StorageName -IdentityType UserAssigned -IdentityID $this.IdentityId -PlanName $this.AppServicePlanName
                
 				if($null -eq $FuncApp) 
 				{
@@ -858,9 +858,9 @@ class CAAutomation : ADOSVTCommandBase
 		[MessageData[]] $messageData = @();
 		$CreatedSecret = $null
 		$CreatedLASecret = $null
-        $CreatedAltLASecret = $null
-        $ExistingAppSettings = @()
-        $appServResource = @()
+		$CreatedAltLASecret = $null
+		$ExistingAppSettings = @()
+		$appServResource = @()
 
 		$this.messages += ([Constants]::DoubleDashLine + "`r`nStarted updating Continuous Assurance (CA)`r`n"+[Constants]::DoubleDashLine);
 		$this.PublishCustomMessage($this.messages, [MessageType]::Info);
