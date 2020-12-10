@@ -645,9 +645,16 @@ class SVTControlAttestation
             $projectName = $resource.Group[0].ResourceContext.ResourceGroupName;
 		}
 		
-        if($projectName -notin $this.repoProject.projectsWithRepo)
+		if($projectName -in $this.repoProject.projectsWithRepo)
+		{
+			return $true;
+		}
+        elseif($projectName -in $this.repoProject.projectsWithoutRepo)
         {
-            $this.repoProject.projectsWithRepo += $projectName
+            return $false;
+        }
+        else
+        {
 			$attestationRepo = [Constants]::AttestationRepo;
 			#Get attesttion repo name from controlsetting file if AttestationRepo varibale value is not empty.
 			if ([Helpers]::CheckMember($this.ControlSettings,"AttestationRepo")) {
@@ -656,19 +663,20 @@ class SVTControlAttestation
             $rmContext = [ContextHelper]::GetCurrentContext();
 		    $user = "";
 		    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
-
-            $uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.SubscriptionContext.subscriptionid, $projectName, $attestationRepo
+			
+			$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.SubscriptionContext.subscriptionid, $projectName, $attestationRepo
             try
             {
 		        $webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
-                if($webRequest -ne $null)
+				if($null -ne $webRequest)
                 {
-                    return $true;
+					$this.repoProject.projectsWithRepo += $projectName
+					return $true;
                 }
                 else
                 {
 					Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
-					Write-Host "`nAttestation Repository not found for project [$projectName]" -ForegroundColor Red
+					Write-Host "`nAttestation repository was not found on [$projectName] project" -ForegroundColor Red
 					Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
 					$this.repoProject.projectsWithoutRepo += $projectName
 					return $false;
@@ -677,19 +685,11 @@ class SVTControlAttestation
 		    catch
             {
                 Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
-                Write-Host "Attestation Repository not found for project [$projectName]" -ForegroundColor Red
+                Write-Host "`nAttestation repository was not found on [$projectName] project" -ForegroundColor Red
                 Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
                 $this.repoProject.projectsWithoutRepo += $projectName
                 return $false;
             }
-        }
-        elseif($projectName -in $this.repoProject.projectsWithoutRepo)
-        {
-            return $false;
-        }
-        else
-        {
-            return $true;
         }
     }
 
