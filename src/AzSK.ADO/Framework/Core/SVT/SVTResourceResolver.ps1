@@ -34,10 +34,12 @@ class SVTResourceResolver: AzSKRoot {
 
     [bool] $includeAdminControls = $false;
     [bool] $isUserPCA = $false;
+    [bool] $skipOrgUserControls = $false
 
-    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls): Base($organizationName, $PATToken) {
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls): Base($organizationName, $PATToken) {
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
         $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);            
+        $this.skipOrgUserControls = $skipOrgUserControls
     }
 
     [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls) { 
@@ -170,25 +172,27 @@ class SVTResourceResolver: AzSKRoot {
             #First condition if 'includeAdminControls' switch is passed or user is admin(PCA).
             #Second condition if explicitly -rtn flag passed to org or Org_Project_User 
             #Third condition if 'gads' contains only admin scan parame, then no need to ask for includeAdminControls switch
-            if (($this.includeAdminControls -or $this.isAdminControlScan()))
-            {
-                #Select Org/User by default...
-                $link = "https://dev.azure.com/$($this.organizationName)/_settings"
-                $this.AddSVTResource($this.organizationName, $null ,"ADO.Organization", "organization/$($organizationId)", $null, $link);
-            }
-            elseif ( ($this.ResourceTypeName -in ([ResourceTypeName]::Organization, [ResourceTypeName]::Org_Project_User)) -or ( $this.BuildNames.Count -eq 0 -and $this.ReleaseNames.Count -eq 0 -and $this.ServiceConnections.Count -eq 0 -and $this.AgentPools.Count -eq 0 -and $this.VariableGroups.Count -eq 0) ) {
-                $this.PublishCustomMessage("You have requested scan for organization controls. However, you do not have admin permission. Use '-IncludeAdminControls' if you'd still like to scan them. (Some controls may not scan correctly due to access issues.)", [MessageType]::Info);
-                $this.PublishCustomMessage("`r`n");
+            if (-not $this.skipOrgUserControls) {
+                if (($this.includeAdminControls -or $this.isAdminControlScan()))
+                {
+                    #Select Org/User by default...
+                    $link = "https://dev.azure.com/$($this.organizationName)/_settings"
+                    $this.AddSVTResource($this.organizationName, $null ,"ADO.Organization", "organization/$($organizationId)", $null, $link);
+                }
+                elseif ( ($this.ResourceTypeName -in ([ResourceTypeName]::Organization, [ResourceTypeName]::Org_Project_User)) -or ( $this.BuildNames.Count -eq 0 -and $this.ReleaseNames.Count -eq 0 -and $this.ServiceConnections.Count -eq 0 -and $this.AgentPools.Count -eq 0 -and $this.VariableGroups.Count -eq 0) ) {
+                    $this.PublishCustomMessage("You have requested scan for organization controls. However, you do not have admin permission. Use '-IncludeAdminControls' if you'd still like to scan them. (Some controls may not scan correctly due to access issues.)", [MessageType]::Info);
+                    $this.PublishCustomMessage("`r`n");
+                }
             }
         }
+        if (-not $this.skipOrgUserControls) {
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::User, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User)) {
 
-        if ($this.ResourceTypeName -in ([ResourceTypeName]::User, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User)) {
-
-            $link = "https://dev.azure.com/$($this.organizationName)/_settings/users"
-            $this.AddSVTResource($this.organizationName, $null,"ADO.User", "organization/$($organizationId)/user", $null, $link);
-            
+                $link = "https://dev.azure.com/$($this.organizationName)/_settings/users"
+                $this.AddSVTResource($this.organizationName, $null,"ADO.User", "organization/$($organizationId)/user", $null, $link);
+                
+            }
         }
-
         $topNQueryString = ""
         if ($this.MaxObjectsToScan -ne 0)
         {
@@ -265,7 +269,13 @@ class SVTResourceResolver: AzSKRoot {
                         }
 
                         if ($this.BuildNames -eq "*") {
-                            $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $thisProj.name;
+                            if ([string]::IsNullOrEmpty($topNQueryString)) {
+                                $topNQueryString = '&$top=10000'
+                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1&queryOrder=lastModifiedDescending" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $thisProj.name;
+                            }
+                            else {
+                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $thisProj.name;                               
+                            }
                             $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL) 
                             if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
                                 $nObj = $this.MaxObjectsToScan
