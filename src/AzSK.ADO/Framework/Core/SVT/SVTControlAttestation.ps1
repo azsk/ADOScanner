@@ -676,7 +676,8 @@ class SVTControlAttestation
                 else
                 {
 					Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
-					Write-Host "`nAttestation repository was not found on [$projectName] project" -ForegroundColor Red
+					Write-Host "`nAttestation repository was not found in [$projectName] project" -ForegroundColor Red
+					Write-Host "See more at https://aka.ms/adoscanner/attestation `n" -ForegroundColor Yellow
 					Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
 					$this.repoProject.projectsWithoutRepo += $projectName
 					return $false;
@@ -685,7 +686,8 @@ class SVTControlAttestation
 		    catch
             {
                 Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
-                Write-Host "`nAttestation repository was not found on [$projectName] project" -ForegroundColor Red
+				Write-Host "`nAttestation repository was not found in [$projectName] project" -ForegroundColor Red
+				Write-Host "See more at https://aka.ms/adoscanner/attestation `n" -ForegroundColor Yellow
                 Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
                 $this.repoProject.projectsWithoutRepo += $projectName
                 return $false;
