@@ -93,7 +93,7 @@ class AzSKADOServiceMapping: CommandBase
 
             $Connections = $null
             if (([Helpers]::CheckMember($serviceEndpointObj, "count") -and $serviceEndpointObj[0].count -gt 0) -or (($serviceEndpointObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($serviceEndpointObj[0], "name"))) {
-                $Connections = $serviceEndpointObj | Where-Object { ($_.type -eq "azurerm" -or $_.type -eq "azure" -or $_.type -eq "git" -or $_.type -eq "github" -or $_.type -eq "externaltfs") } 
+                $Connections = $serviceEndpointObj
             }
 
             $this.PublishCustomMessage(([Constants]::DoubleDashLine))
@@ -280,7 +280,7 @@ class AzSKADOServiceMapping: CommandBase
 
 
         try {
-            $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1" + $topNQueryString) -f $this.OrgName, $this.ProjectName;
+            $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1&queryOrder=lastModifiedDescending" + $topNQueryString) -f $($this.OrgName), $this.ProjectName;
             $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL) 
             
             if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
