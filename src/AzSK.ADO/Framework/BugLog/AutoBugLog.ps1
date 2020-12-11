@@ -378,10 +378,8 @@ class AutoBugLog {
                 }
                 else {
                     Write-Host "Could not reactivate the bug" -ForegroundColor Red
-
                 }
             }
-
         #if the bug state was intially resolved, add in the state data to be referenced later
         if ($state.value -eq "Resolved") {
             $control.ControlResults.AddMessage("Resolved Bug", $bugUrl)
@@ -570,6 +568,7 @@ class AutoBugLog {
     }
     
     #function to check if the current control is a preview baseline control or not
+
     hidden [bool] CheckPreviewBaselineControl($controlId) {
         if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "PreviewBaselineControls.ResourceTypeControlIdMappingList")) {
             $PreviewBaselineControls = $this.ControlSettings.PreviewBaselineControls.ResourceTypeControlIdMappingList | Where-Object { $_.ControlIds -contains $controlId }
@@ -583,3 +582,4 @@ class AutoBugLog {
     
     
 }
+

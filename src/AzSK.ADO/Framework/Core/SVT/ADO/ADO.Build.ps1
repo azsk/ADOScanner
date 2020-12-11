@@ -204,9 +204,9 @@ class Build: ADOSVTBase
     {
         if($this.BuildObj)
         {
-            $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName),$($this.BuildObj.project.id);
+            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName),$($this.BuildObj.project.id);
 
-        $orgURL='https://{0}.visualstudio.com/{1}/_build?view=folders' -f $($this.SubscriptionContext.SubscriptionName),$($this.BuildObj.project.name)
+        $orgURL='https://dev.azure.com/{0}/{1}/_build?view=folders' -f $($this.SubscriptionContext.SubscriptionName),$($this.BuildObj.project.name)
         $inputbody="{'contributionIds':['ms.vss-build-web.pipelines-data-provider'],'dataProviderContext':{'properties':{'definitionIds':'$($this.BuildObj.id)','sourcePage':{'url':'$orgURL','routeId':'ms.vss-build-web.pipelines-hub-route','routeValues':{'project':'$($this.BuildObj.project.name)','viewname':'pipelines','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
 
         $sw = [System.Diagnostics.Stopwatch]::StartNew();
@@ -270,7 +270,7 @@ class Build: ADOSVTBase
             if([Build]::SecurityNamespaceId -and $this.BuildObj.project.id)
             {
                 # Here 'permissionSet' = security namespace identifier, 'token' = project id and 'tokenDisplayVal' = build name
-                $apiURL = "https://{0}.visualstudio.com/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&tokenDisplayVal={5}&style=min" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($this.BuildObj.id), $($this.BuildObj.name) ;
+                $apiURL = "https://dev.azure.com/{0}/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&tokenDisplayVal={5}&style=min" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($this.BuildObj.id), $($this.BuildObj.name) ;
 
                 $sw = [System.Diagnostics.Stopwatch]::StartNew();
                 $header = [WebRequestHelper]::GetAuthHeaderFromUri($apiURL);
@@ -321,7 +321,7 @@ class Build: ADOSVTBase
             # Step 1: Fetch list of all groups/users with access to this build
             # Here 'permissionSet' = security namespace identifier, 'token' = project id and 'tokenDisplayVal' = build name
             $buildDefinitionPath = $this.BuildObj.Path.Trim("\").Replace(" ","+").Replace("\","%2F")
-            $apiURL = "https://{0}.visualstudio.com/{1}/_api/_security/ReadExplicitIdentitiesJson?__v=5&permissionSetId={2}&permissionSetToken={3}%2F{4}%2F{5}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
+            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/ReadExplicitIdentitiesJson?__v=5&permissionSetId={2}&permissionSetToken={3}%2F{4}%2F{5}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
 
             $sw = [System.Diagnostics.Stopwatch]::StartNew();
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
@@ -365,7 +365,7 @@ class Build: ADOSVTBase
                         $identity = $_ 
                         if($exemptedUserIdentities -notcontains $identity.TeamFoundationId)
                         {
-                            $apiURL = "https://{0}.visualstudio.com/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $($identity.TeamFoundationId) ,$([Build]::SecurityNamespaceId),$($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
+                            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $($identity.TeamFoundationId) ,$([Build]::SecurityNamespaceId),$($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
                             $identityPermissions = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                             $configuredPermissions = $identityPermissions.Permissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
                             return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.IdentityType; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
@@ -374,7 +374,7 @@ class Build: ADOSVTBase
 
                     $accessList += $responseObj.identities | Where-Object { $_.IdentityType -eq "group" } | ForEach-Object {
                         $identity = $_ 
-                        $apiURL = "https://{0}.visualstudio.com/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $($identity.TeamFoundationId) ,$([Build]::SecurityNamespaceId),$($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
+                        $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $($identity.TeamFoundationId) ,$([Build]::SecurityNamespaceId),$($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
                         $identityPermissions = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                         $configuredPermissions = $identityPermissions.Permissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
                         return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.IdentityType; IsAadGroup = $identity.IsAadGroup ;Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
@@ -541,7 +541,7 @@ class Build: ADOSVTBase
             $editableTaskGroups = @();
             if(($taskGroups | Measure-Object).Count -gt 0)
             {   
-                $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName)
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName)
                 $projectId = $this.BuildObj.project.id
                 $projectName = $this.BuildObj.project.name
                 
@@ -549,7 +549,7 @@ class Build: ADOSVTBase
                 {
                     $taskGroups | ForEach-Object {
                         $taskGrpId = $_.task.id
-                        $taskGrpURL="https://{0}.visualstudio.com/{1}/_taskgroup/{2}" -f $($this.SubscriptionContext.SubscriptionName), $($projectName), $($taskGrpId)
+                        $taskGrpURL="https://dev.azure.com/{0}/{1}/_taskgroup/{2}" -f $($this.SubscriptionContext.SubscriptionName), $($projectName), $($taskGrpId)
                         $permissionSetToken = "$projectId/$taskGrpId"
                         
                         #permissionSetId = 'f6a4de49-dbe2-4704-86dc-f8ec1a294436' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
@@ -671,7 +671,7 @@ class Build: ADOSVTBase
             try
             {   
                 $varGrps | ForEach-Object{
-                    $url = 'https://{0}.visualstudio.com/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName), $($projectId), $($_.Id);
+                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName), $($projectId), $($_.Id);
                     $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
                     if(($responseObj | Measure-Object).Count -gt 0)
                     {

@@ -10,7 +10,7 @@ class AgentPool: ADOSVTBase
     {
         $this.AgentPoolId =  ($this.ResourceContext.ResourceId -split "agentpool/")[-1]
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-        $apiURL = "https://$($this.SubscriptionContext.SubscriptionName).visualstudio.com/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($this.ProjectId)_$($this.AgentPoolId)";
+        $apiURL = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($this.ProjectId)_$($this.AgentPoolId)";
         $this.AgentObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
     }
@@ -130,7 +130,7 @@ class AgentPool: ADOSVTBase
     {
         try 
         {   
-            $agentPoolsURL = "https://{0}.visualstudio.com/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId ,$this.AgentPoolId;
+            $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId ,$this.AgentPoolId;
             $agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
             
             if (([Helpers]::CheckMember($agentPool[0], "fps.dataProviders.data") ) -and ($agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider")) 

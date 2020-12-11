@@ -299,6 +299,7 @@ class SVTResourceResolver: AzSKRoot {
                             }
                         }
                         else {
+
                             $buildDefnURL = "";
                             #If service id based scan then will break the loop after one run because, sending all build ids to api as comma separated in one go.
                             for ($i = 0; $i -lt $this.BuildNames.Count; $i++) {
@@ -453,7 +454,7 @@ class SVTResourceResolver: AzSKRoot {
                             $this.PublishCustomMessage("Getting agent pools configurations...");
                         }
                         # Here we are fetching all the agent pools in the project and then filtering out. But in build & release we fetch them individually unless '*' is used for fetching all of them.
-                        $agentPoolsDefnURL = ("https://{0}.visualstudio.com/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $($this.SubscriptionContext.SubscriptionName), $projectName;
+                        $agentPoolsDefnURL = ("https://dev.azure.com/{0}/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $($this.SubscriptionContext.SubscriptionName), $projectName;
                         try {
                         
                             $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
@@ -480,9 +481,9 @@ class SVTResourceResolver: AzSKRoot {
                                 $taskAgentQueues = $taskAgentQueues | where-object{$_.name -ne "Azure Pipelines"};
                                 
                                 foreach ($taq in $taskAgentQueues) {
-                                    $resourceId = "https://{0}.visualstudio.com/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($taq.projectId), $taq.id
+                                    $resourceId = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($taq.projectId), $taq.id
                                     $agtpoolResourceId = "organization/$organizationId/project/$projectId/agentpool/$($taq.id)";
-                                    $link = "https://{0}.visualstudio.com/{1}/_settings/agentqueues?queueId={2}&view=security" -f $($this.SubscriptionContext.SubscriptionName), $($taq.projectId), $taq.id
+                                    $link = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&view=security" -f $($this.SubscriptionContext.SubscriptionName), $($taq.projectId), $taq.id
                                     $this.AddSVTResource($taq.name, $projectName, "ADO.AgentPool", $agtpoolResourceId, $null, $link);
                                     
                                     if (--$nObj -eq 0) { break; }
@@ -507,7 +508,7 @@ class SVTResourceResolver: AzSKRoot {
                         }
                     
                         # Here we are fetching all the var grps in the project and then filtering out. But in build & release we fetch them individually unless '*' is used for fetching all of them.
-                        $variableGroupURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups?api-version=6.1-preview.2") -f $($this.organizationName), $projectId;
+                        $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?api-version=6.1-preview.2") -f $($this.organizationName), $projectId;
                         $variableGroupObj = [WebRequestHelper]::InvokeGetWebRequest($variableGroupURL)
                     
                         if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) {
@@ -529,7 +530,7 @@ class SVTResourceResolver: AzSKRoot {
                             $nObj = $this.MaxObjectsToScan
                             foreach ($group in $varGroups) {
                                 $resourceId = "organization/$organizationId/project/$projectId/variablegroup/$($group.Id)";
-                                $link = ("https://{0}.visualstudio.com/{1}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId={2}") -f $($this.organizationName), $projectName, $($group.Id); 
+                                $link = ("https://dev.azure.com/{0}/{1}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId={2}") -f $($this.organizationName), $projectName, $($group.Id); 
                                 $this.AddSVTResource($group.name, $projectName, "ADO.VariableGroup", $resourceId, $group, $link);
                                 
                                 if (--$nObj -eq 0) { break; }

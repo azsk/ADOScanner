@@ -6,7 +6,7 @@ class User: ADOSVTBase {
     }
 
     hidden [ControlResult] CheckPATAccessLevel([ControlResult] $controlResult) {
-        $apiURL = "https://{0}.vssps.visualstudio.com/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
         $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
         $controlResult.AddMessage("Currently this control evaluates PATs for all the organizations the user has access to.")
         try {
@@ -61,7 +61,7 @@ class User: ADOSVTBase {
 
     hidden [ControlResult] CheckAltCred([ControlResult] $controlResult) {
 
-        $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/dataProviders/query?api-version=5.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/dataProviders/query?api-version=5.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
         $inputbody = '{"contributionIds": ["ms.vss-admin-web.alternate-credentials-data-provider","ms.vss-admin-web.action-url-data-provider"]}' | ConvertFrom-Json
         $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
 
@@ -86,7 +86,7 @@ class User: ADOSVTBase {
         $controlResult.AddMessage("Currently this control evaluates PATs for all the organizations the user has access to.")  
         try {
 
-            $apiURL = "https://{0}.vssps.visualstudio.com/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+            $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
             if ($responseObj.Count -gt 0) { 
@@ -125,7 +125,7 @@ class User: ADOSVTBase {
         $controlResult.AddMessage("Currently this control evaluates PATs for all the organizations the user has access to.")
         try {
 
-            $apiURL = "https://{0}.vssps.visualstudio.com/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+            $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
             if ($responseObj.Count -gt 0) { 
