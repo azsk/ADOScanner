@@ -266,6 +266,17 @@ class CAAutomation : ADOSVTCommandBase
 				$this.ImageName = $this.ControlSettings.DockerImage.ImageName
 			}
 		}
+    
+    [void] RegisterResourceProvider()
+    {
+        if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "ResourceProviders")) 
+        {
+            $resourceProvider = $this.ControlSettings.ResourceProviders
+            $resourceProvider | foreach {
+                [ResourceHelper]::RegisterResourceProviderIfNotRegistered($_);
+            }
+        }
+    }
 
 	[string] ValidateUserPermissions()
 	{
@@ -341,6 +352,8 @@ class CAAutomation : ADOSVTCommandBase
 			}
 			else 
 			{
+				$this.RegisterResourceProvider();
+
 				if([string]::IsNullOrWhiteSpace($this.ImageName))
 				{
 					$messageData += [MessageData]::new("If you are using customized org policy, please ensure DockerImageName is defined in your ControlSettings.json")

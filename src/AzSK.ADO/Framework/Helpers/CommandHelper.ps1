@@ -50,6 +50,12 @@ class CommandHelper
             Noun = "AzSKADOContinuousAssurance";
             ShortName = "gca";
 			IsLatestRequired = $false;
+        },
+        [CommandDetails]@{
+            Verb = "Get";
+            Noun = "AzSKADOServiceMapping";
+            ShortName = "gsm";
+			IsLatestRequired = $false;
         }
     );
 

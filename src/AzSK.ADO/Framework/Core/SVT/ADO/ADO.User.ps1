@@ -178,4 +178,53 @@ class User: ADOSVTBase {
         return $controlResult;
     }
 
+    hidden [ControlResult] CheckPATOrgAccess([ControlResult] $controlResult) {
+        $apiURL = "https://{0}.vssps.visualstudio.com/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+        $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+        $controlResult.AddMessage("Currently this control evaluates PATs for all the organizations the user has access to.")
+        try {
+            if ($responseObj.Count -gt 0) {
+                $AccessPATList = $responseObj | Where-Object { $_.validto -gt $(Get-Date -Format "yyyy-MM-dd") }
+                $AccessPATListCount = ($AccessPATList | Measure-Object).Count
+                $allOrgPATCount = 0; #counter to store number of PATs that are accessible to all orgs.
+                $allOrgPAT = @() #list to capture PAts accessible to all orgs.
+
+                if ($AccessPATListCount -gt 0) {
+                    $controlResult.AddMessage("Total number of active user PATs: $($AccessPATListCount)");
+                    $AccessPATList | ForEach-Object{
+                        if([string]::IsNullOrWhiteSpace($_.targetAccounts)) #if a PAT is tied to a single org, value of targetAccounts is equal to org id. If its accessible to all orgs, this value is null.
+                        {
+                            $allOrgPATCount ++;
+                            $allOrgPAT += $_.DisplayName
+                        }
+                    }
+                    if($allOrgPATCount -gt 0)
+                    {   
+                        $controlResult.AddMessage("Number of active PATs accessible to all organizations: $($allOrgPATCount)");
+                        $controlResult.AddMessage([VerificationResult]::Failed, "The below active PATs are accessible to all organizations: ", $allOrgPAT);
+                    }
+                    else
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No active PATs are accessible to all organizations.");
+                    }
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No active PATs found.");
+                }
+            }
+            else 
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "No PATs found.");
+            }
+                    
+        }
+        catch 
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of PATs");
+        }
+        
+        return $controlResult;
+    }
+
 }

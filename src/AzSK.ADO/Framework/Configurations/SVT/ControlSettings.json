@@ -327,5 +327,11 @@
     "ComplianceArea": "Security",
     "ServiceTreeIdType": "Service"
   },
-  "GenerateSecurityEvaluationJsonFile" : false
+  "GenerateSecurityEvaluationJsonFile" : false,
+  "ResourceProviders": [
+    "Microsoft.Storage", 
+    "Microsoft.Keyvault", 
+    "Microsoft.Resources", 
+    "Microsoft.OperationalInsights"
+  ]
 }

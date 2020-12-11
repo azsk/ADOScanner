@@ -86,7 +86,8 @@
         'Set-AzSKADOPolicySettings',
         'Install-AzSKADOContinuousAssurance',
         'Update-AzSKADOContinuousAssurance',
-        'Get-AzSKADOContinuousAssurance'
+        'Get-AzSKADOContinuousAssurance',
+        'Get-AzSKADOServiceMapping'
     )
 
     # Cmdlets to export from this module
