@@ -132,6 +132,10 @@ Class LogAnalyticsHelper{
 				$out.AttestedDate = $attestedData.AttestedDate
 				$out.ExpiryDate = $attestedData.ExpiryDate
 			}
+			if ($ControlResult.AdditionalInfo)
+			{
+                $out.AdditionalInfo = $ControlResult.AdditionalInfo;
+            }
 			$output += $out
 		}
 		return $output	
@@ -416,6 +420,7 @@ Class LAWSModel {
 	[string] $ScannedBy
 	[string] $Env
 	[string] $ComponentId
+	[PSObject[]] $AdditionalInfo
 }
 
 Class LAWSResourceInvModel{
