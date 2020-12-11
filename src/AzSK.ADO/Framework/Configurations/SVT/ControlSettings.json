@@ -170,6 +170,17 @@
       "Low": 90
     }
   },
+  "Repo": {
+    "ActivityThresholdInDays": 180
+  },
+  "EmailPatterns": [
+    "*@microsoft.com",
+    "*@exchange.microsoft.com",
+    "*@ntdev.microsoft.com",
+    "*@microsoftfederal.com"
+  ],
+  "Commit_Author_Email_Validation": "77ed4bd3-b063-4689-934a-175e4d0a78d7",
+  "Secrets_Scanning_Restriction": "e67ae10f-cf9a-40bc-8e66-6b3a8216956e",
   "AttestationPeriodInDays": {
     "Default": 90,
     "ControlSeverity": {

@@ -91,6 +91,80 @@ class Project: ADOSVTBase
         return $controlResult
     }
 
+    hidden [ControlResult] CheckAuthorEmailValidationPolicy([ControlResult] $controlResult) {
+        # body for post request
+        $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.SubscriptionContext.SubscriptionName);
+        $inputbody = '{"contributionIds":["ms.vss-code-web.repository-policies-data-provider"],"dataProviderContext":{"properties":{"projectId": "","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+        $inputbody.dataProviderContext.properties.projectId = "$($this.ResourceContext.ResourceName)"
+        $inputbody.dataProviderContext.properties.sourcePage.routeValues.project = "$($this.ResourceContext.ResourceName)"
+        $inputbody.dataProviderContext.properties.sourcePage.url = "https://$($this.SubscriptionContext.SubscriptionName).visualstudio.com/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=policies"
+
+        $response = [WebRequestHelper]::InvokePostWebRequest($url,$inputbody);
+        # fetching policy groups
+        $policyGroups = $response[0].dataProviders."ms.vss-code-web.repository-policies-data-provider".policyGroups
+        $currentScopePolicies_email = ""
+        $name_email = ""
+        # fetching "Commit author email validation"
+        try{
+            $currentScopePolicies_email = $policyGroups."$($this.ControlSettings.Commit_Author_Email_Validation)".currentScopePolicies[0]
+            $name_email = $currentScopePolicies_email.type.displayName
+            # validating email patterns
+            $flag = 0;
+            if($name_email -eq "Commit author email validation") {
+                $emailPatterns = $currentScopePolicies_email.settings.authorEmailPatterns
+                if($emailPatterns -eq $null) {$flag = 1;}
+                foreach ($val in $emailPatterns) {
+                    if($val -notin $this.ControlSettings.EmailPatterns -and $val -ne "") {
+                        $flag = 1;
+                        break;
+                    }
+                }
+            }
+            if($flag -eq 0) {
+                $controlResult.AddMessage([VerificationResult]::Passed, "Validated policy 'Commit author email validation' and Email patterns matched successfully.");
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Failed, "Can't validated policy 'Commit author email validation'.");
+            }
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Failed, "Can't validated policy 'Commit author email validation'.");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckCredentialsAndSecretsPolicy([ControlResult] $controlResult) {
+        # body for post request
+        $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.SubscriptionContext.SubscriptionName);
+        $inputbody = '{"contributionIds":["ms.vss-code-web.repository-policies-data-provider"],"dataProviderContext":{"properties":{"projectId": "","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+        $inputbody.dataProviderContext.properties.projectId = "$($this.ResourceContext.ResourceName)"
+        $inputbody.dataProviderContext.properties.sourcePage.routeValues.project = "$($this.ResourceContext.ResourceName)"
+        $inputbody.dataProviderContext.properties.sourcePage.url = "https://$($this.SubscriptionContext.SubscriptionName).visualstudio.com/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=policies"
+
+        $response = [WebRequestHelper]::InvokePostWebRequest($url,$inputbody);
+        # fetching policy groups
+        $policyGroups = $response[0].dataProviders."ms.vss-code-web.repository-policies-data-provider".policyGroups
+        $currentScopePolicies_secrets = ""
+        $name_secret = ""
+        # fetching "Secrets scanning restriction"
+        try{
+            $currentScopePolicies_secrets = $policyGroups."$($this.ControlSettings_Restriction)".currentScopePolicies[0]
+            $name_secret = $currentScopePolicies_secrets.type.displayName
+            if($name_secret -eq "Secrets scanning restriction") {
+                if($currentScopePolicies_secrets.isEnabled) {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Validated policy 'Check for credentials and other secrets'.");
+                }
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Failed, "Can't validated policy 'Check for credentials and other secrets'.");
+            }
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Failed, "Can't validated policy 'Check for credentials and other secrets'.");
+        }
+        return $controlResult
+    }
+
     hidden [ControlResult] CheckSettableQueueTime([ControlResult] $controlResult)
     {
        if($this.PipelineSettingsObj)

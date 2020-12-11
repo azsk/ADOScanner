@@ -1,0 +1,24 @@
+{
+  "FeatureName": "Repo",
+  "Reference": "aka.ms/azsktcp/Repo",
+  "IsMaintenanceMode": false,
+  "Controls": [
+    {
+      "ControlID": "ADO_Repo_DP_Inactive_Repo",
+      "Description": "Check the repo to be inactive or not.",
+      "Id": "Repo110",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckInactiveRepo",
+      "Rationale": "Checks whether the repo is inactive or not based on the last pull-request.",
+      "Recommendation": "Refer: https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pull%20requests/get%20pull%20request?view=azure-devops-rest-6.0",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
+    }
+  ]
+}

@@ -17,6 +17,9 @@ function Get-AzSKADOSecurityStatus
 	.PARAMETER BuildNames
 		Build name for which the security evaluation has to be performed.
 
+	.PARAMETER RepoNames
+		Repo names for which the security evaluation has to be performed.
+	
 	.PARAMETER ReleaseNames
 		Release name for which the security evaluation has to be performed.
 
@@ -56,6 +59,12 @@ function Get-AzSKADOSecurityStatus
 		[ValidateNotNullOrEmpty()]
 		[Alias("bns", "BuildName","bn")]
 		$BuildNames,
+
+		[string]
+		[Parameter(HelpMessage="Repo names for which the security evaluation has to be performed.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("rps", "RepoName","rs")]
+		$RepoNames,
 
 		[string]
 		[Parameter(HelpMessage="Release names for which the security evaluation has to be performed.")]
@@ -314,7 +323,7 @@ function Get-AzSKADOSecurityStatus
 				}
 			}
 
-			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);
+			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$RepoNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus) 
 			{	

@@ -76,6 +76,12 @@ class SVTMapping
 			ClassName = "VariableGroup";
 			JsonFileName = "ADO.VariableGroup.json";
 			ResourceTypeName = "VariableGroup";
+        },
+		[ResourceTypeMapping]@{
+            ResourceType = "ADO.Repo";
+			ClassName = "Repo";
+			JsonFileName = "ADO.Repo.json";
+			ResourceTypeName = "Repo";
         }
 	)
 }

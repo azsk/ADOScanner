@@ -208,6 +208,40 @@
         "Best Practice"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_Check_Author_Email_Validation_Policy",
+      "Description": "Check Author Email Validation Policy.",
+      "Id": "Project230",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckAuthorEmailValidationPolicy",
+      "Rationale": "Check Author Email Validation Policy.",
+      "Recommendation": "",
+      "Tags": [
+        "SDL",
+        "AuthN",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_Check_Credentials_And_Secrets_Policy",
+      "Description": "Check Credentials And Secrets Policy.",
+      "Id": "Project240",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckCredentialsAndSecretsPolicy",
+      "Rationale": "Check Credentials And Secrets Policy.",
+      "Recommendation": "",
+      "Tags": [
+        "SDL",
+        "AuthN",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": true
     }
   ]
 }
