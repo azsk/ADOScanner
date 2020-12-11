@@ -134,7 +134,7 @@ Class LogAnalyticsHelper{
 			}
 			if ($ControlResult.AdditionalInfo)
 			{
-                $out.AdditionalInfo = $ControlResult.AdditionalInfo -join ", ";
+                $out.AdditionalInfo = $ControlResult.AdditionalInfo;
             }
 			$output += $out
 		}
@@ -420,7 +420,7 @@ Class LAWSModel {
 	[string] $ScannedBy
 	[string] $Env
 	[string] $ComponentId
-	[string] $AdditionalInfo
+	[PSObject] $AdditionalInfo
 }
 
 Class LAWSResourceInvModel{
