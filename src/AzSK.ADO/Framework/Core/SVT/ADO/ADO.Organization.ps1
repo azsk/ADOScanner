@@ -401,21 +401,119 @@ class Organization: ADOSVTBase
             
             if(($responseObj | Measure-Object).Count -gt 0 ) #includes both custom installed and built in extensions.
             {
-                $extensionList = $responseObj | Select-Object extensionName,publisherId,publisherName,version,flags # 'flags' is not available in every extension. It is visible only for built in extensions. Hence this appends 'flags' to trimmed objects.
+                $extensionList = $responseObj | Select-Object extensionName,publisherId,publisherName,version,flags,lastPublished,scopes,extensionId # 'flags' is not available in every extension. It is visible only for built in extensions. Hence this appends 'flags' to trimmed objects.
                 $extensionList = $extensionList | Where-Object {$_.flags -notlike "*builtin*" } # to filter out extensions that are built in and are not visible on portal.
+                
+
                 $extCount = ($extensionList | Measure-Object ).Count;
 
                 if($extCount -gt 0)
-                {               
-                    $controlResult.AddMessage("No. of installed extensions: " + $extCount);
+                {   
+                    if([AzSKRoot]::IsDetailedScanRequired -eq $true)
+                    {
+                        # find inactive extensions
+                        $date = Get-Date
+                        $ExtensionsLastUpdatedInYears=$this.ControlSettings.Organization.ExtensionsLastUpdatedInYears;
+                        $thresholddate = $date.AddYears(-$ExtensionsLastUpdatedInYears)
+                        $staleExtensionList = $extensionList | Where-Object {([datetime] $_.lastPublished) -lt $thresholddate}
+                        $controlResult.AddMessage("`nNo. of extensions not have been updated since past $ExtensionsLastUpdatedInYears years : "+ $staleExtensionList.count)                        
+                        $display= $staleExtensionList|Format-Table -Property  @{name="ExtensionName";expression={$_.extensionName}},@{name="PublisherName";expression={$_.publisherName}} | Out-String
+                        $controlResult.AddMessage($display) 
 
+                        # display extensions with critical scopes
+                        $ExtensionCriticalScopes=$this.ControlSettings.Organization.ExtensionCriticalScopes;
+                        $ExtensionListWithCriticalScopes = $extensionList | Where-Object {$ExtensionCriticalScopes -contains $_.scopes }
+                        $controlResult.AddMessage("`nNo. of extensions have critical access permissions : "+ $ExtensionListWithCriticalScopes.count)                        
+                        $display= $ExtensionListWithCriticalScopes|Format-Table -Property  @{name="ExtensionName";expression={$_.extensionName}},@{name="Scope";expression={$_.scopes}} | Out-String
+                        $controlResult.AddMessage($display) 
+
+                        # Avoid extensions  with 'DevTest', 'Demo', 'Preview', 'Deprecated' in names
+                        $ExtensionListWithInvalidExtensionNames=@()
+                        $InvalidExtensionNames=$this.ControlSettings.Organization.InvalidExtensionNames;
+                        for($i=0;$i -lt $extensionList.count;$i++)
+                        {
+                            for($j=0;$j -lt $InvalidExtensionNames.Count;$j++)
+                            {
+                                if($extensionList[$i] -match $InvalidExtensionNames[$j])
+                                {
+                                    [System.Array] $ExtensionListWithInvalidExtensionNames = $extensionList[$i]
+                                }
+                            }
+                        }                        
+                        if($ExtensionListWithInvalidExtensionNames.count -gt 0)
+                        {
+                        $controlResult.AddMessage("`nExtensions having name as of test environment : "+ $ExtensionListWithInvalidExtensionNames.count)
+                        $controlResult.AddMessage($ExtensionListWithInvalidExtensionNames) 
+                        }
+                        else {
+                            $controlResult.AddMessage("`nExtensions having name as of test environment : 0")
+                        }
+                        
+                        # Display extensions with Top Publishers, extensions that are private and Nonprod extensions
+                        $topPublisherExt=@()
+                        $privateExtensions=@()
+                        $nonProdExtensions=@()
+                        $extensionList | ForEach-Object {
+                            $url="https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery?api-version=6.1-preview.1"
+                            $inputbody = "{
+                                'assetTypes': null,
+                                'filters': [
+                                    {
+                                        'criteria': [
+                                            {
+                                                'filterType': 7,
+                                                'value': '$($_.publisherId).$($_.extensionId)'
+                                            }
+                                        ]                                
+                                    }
+                                ]
+                            }" | ConvertFrom-Json | ConvertTo-json -Depth 10
+    
+                            $response= Invoke-WebRequest -Uri $url `
+                                -Method Post `
+                                -ContentType "application/json" `
+                                -Body $inputbody `
+                                -UseBasicParsing
+    
+                            $responseObject=$response.Content | ConvertFrom-Json
+
+                            if([Helpers]::CheckMember($responseobject.results[0], "extensions") -eq $false )
+                            {
+                                $privateExtensions+=$_
+                            }
+                            else{
+                                if($responseobject.results.extensions.flags -match "preview")
+                                {
+                                    $nonProdExtensions+=$_
+                                }
+                                if($responseobject.results.extensions.publisher.flags -match "certified")
+                                {
+                                    $topPublisherExt+=$_
+                                }
+                            }                            
+                        }
+
+                        $controlResult.AddMessage("`nNo. of installed extensions with Top Publishers: "+$topPublisherExt.count);
+                        $controlResult.AddMessage($topPublisherExt);
+                        $controlResult.AddMessage("`nNo. of installed extensions with private visibility: "+$privateExtensions.count);
+                        $controlResult.AddMessage($privateExtensions);
+                        $controlResult.AddMessage("`nNo. of installed extensions that are non Prod: "+$nonProdExtensions.count);
+                        $controlResult.AddMessage($nonProdExtensions);
+                    }                                        
+                    ## end detailed scan
+
+                    $controlResult.AddMessage("`nNo. of installed extensions: " + $extCount);
+
+                    #$trustedExtPublishersId = $this.ControlSettings.Organization.TrustedExtensionPublishersId;
                     $trustedExtPublishers = $this.ControlSettings.Organization.TrustedExtensionPublishers;
 
                     $trustedExtensions = @(); #Publishers trusted by Microsoft
+                    #$trustedExtensions += $extensionList | Where-Object {$_.publisherId -in $trustedExtPublishersId}
                     $trustedExtensions += $extensionList | Where-Object {$_.publisherName -in $trustedExtPublishers}
                     $trustedCount = ($trustedExtensions | Measure-Object).Count
                     
                     $unTrustedExtensions = @(); #Publishers not trusted by Microsoft
+                    #$unTrustedExtensions += $extensionList | Where-Object {$_.publisherId -notin $trustedExtPublishersId}
                     $unTrustedExtensions += $extensionList | Where-Object {$_.publisherName -notin $trustedExtPublishers}
                     $unTrustedCount = ($unTrustedExtensions | Measure-Object).Count
                     
