@@ -433,7 +433,9 @@ class Project: ADOSVTBase
                                             $stateData += $nonSCMembers
                                             $controlResult.AddMessage([VerificationResult]::Failed, "`nTotal number of non SC-ALT accounts with admin privileges: $nonSCCount"); 
                                             $controlResult.AddMessage("Review the non SC-ALT accounts with admin privileges: ", $stateData);  
-                                            $controlResult.SetStateData("List of non SC-ALT accounts with admin privileges: ", $stateData); 
+                                            $controlResult.SetStateData("List of non SC-ALT accounts with admin privileges: ", $stateData);
+                                            $controlResult.AdditionalInfo += "Total number of non SC-ALT accounts with admin privileges: " + $nonSCCount;
+                                            $controlResult.AdditionalInfo += "List of non SC-ALT accounts with admin privileges: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
                                         }
                                         else 
                                         {
@@ -444,7 +446,8 @@ class Project: ADOSVTBase
                                             $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
                                             $SCData = @();
                                             $SCData += $SCMembers
-                                            $controlResult.AddMessage("`nTotal number of SC-ALT accounts with admin privileges: $SCCount");  
+                                            $controlResult.AddMessage("`nTotal number of SC-ALT accounts with admin privileges: $SCCount");
+                                            $controlResult.AdditionalInfo += "Total number of SC-ALT accounts with admin privileges: " + $SCCount;  
                                             $controlResult.AddMessage("SC-ALT accounts with admin privileges: ", $SCData);  
                                         }
                                     }

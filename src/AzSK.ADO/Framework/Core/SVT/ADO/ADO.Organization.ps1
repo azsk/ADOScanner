@@ -224,7 +224,9 @@ class Organization: ADOSVTBase
                                             $stateData += $nonSCMembers
                                             $controlResult.AddMessage([VerificationResult]::Failed, "`nTotal number of non SC-ALT accounts with admin privileges:  $nonSCCount"); 
                                             $controlResult.AddMessage("Review the non SC-ALT accounts with admin privileges: ", $stateData);  
-                                            $controlResult.SetStateData("List of non SC-ALT accounts with admin privileges: ", $stateData); 
+                                            $controlResult.SetStateData("List of non SC-ALT accounts with admin privileges: ", $stateData);
+                                            $controlResult.AdditionalInfo += "Total number of non SC-ALT accounts with admin privileges: " + $nonSCCount;
+                                            $controlResult.AdditionalInfo += "List of non SC-ALT accounts with admin privileges: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
                                         }
                                         else 
                                         {
@@ -235,7 +237,8 @@ class Organization: ADOSVTBase
                                             $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
                                             $SCData = @();
                                             $SCData += $SCMembers
-                                            $controlResult.AddMessage("`nTotal number of SC-ALT accounts with admin privileges: $SCCount");  
+                                            $controlResult.AddMessage("`nTotal number of SC-ALT accounts with admin privileges: $SCCount");
+                                            $controlResult.AdditionalInfo += "Total number of SC-ALT accounts with admin privileges: " + $SCCount;
                                             $controlResult.AddMessage("SC-ALT accounts with admin privileges: ", $SCData);  
                                         }
                                     }
@@ -408,6 +411,7 @@ class Organization: ADOSVTBase
                 if($extCount -gt 0)
                 {               
                     $controlResult.AddMessage("No. of installed extensions: " + $extCount);
+                    $controlResult.AdditionalInfo += "No. of installed extensions: " + $extCount;
 
                     $trustedExtPublishers = $this.ControlSettings.Organization.TrustedExtensionPublishers;
 
@@ -424,11 +428,14 @@ class Organization: ADOSVTBase
 
                     if($unTrustedCount -gt 0){
                         $controlResult.AddMessage("`nNo. of installed extensions (from untrusted publishers): $unTrustedCount");
+                        $controlResult.AdditionalInfo += "No. of installed extensions (from untrusted publishers): " + $unTrustedCount;
                         $controlResult.AddMessage("Installed extensions (from untrusted publishers): ", $unTrustedExtensions);
+                        $controlResult.AdditionalInfo += "Installed extensions (from untrusted publishers): " + [JsonHelper]::ConvertToJsonCustomCompressed($unTrustedExtensions);
                     }
 
                     if($trustedCount -gt 0){
                         $controlResult.AddMessage("`nNo. of installed extensions (from trusted publishers): $trustedCount");
+                        $controlResult.AdditionalInfo += "No. of installed extensions (from trusted publishers): " + $trustedCount;
                         $controlResult.AddMessage("Installed extensions (from trusted publishers): ", $trustedExtensions);
                     }
 
@@ -554,18 +561,20 @@ class Organization: ADOSVTBase
                 $totalGuestCount = ($guestListDetailed | Measure-Object).Count
                 $controlResult.AddMessage("Displaying all guest users in the organization...");
                 $controlResult.AddMessage([VerificationResult]::Verify,"Total number of guest users in the organization: $($totalGuestCount)"); 
-                
+                $controlResult.AdditionalInfo += "Total number of guest users in the organization: " + $totalGuestCount;
                 $inactiveGuestUsers = $guestListDetailed | Where-Object { $_.InactiveFromDays -eq "User was never active." }
                 $inactiveCount = ($inactiveGuestUsers | Measure-Object).Count
                 if($inactiveCount) {
-                    $controlResult.AddMessage("`nTotal number of guest users who were never active: $($inactiveCount)"); 
+                    $controlResult.AddMessage("`nTotal number of guest users who were never active: $($inactiveCount)");
+                    $controlResult.AdditionalInfo += "Total number of inactive guest users in the organization: " + $inactiveCount;
                     $controlResult.AddMessage("List of guest users who were never active: ",$inactiveGuestUsers);
                 }
                 
                 $activeGuestUsers = $guestListDetailed | Where-Object { $_.InactiveFromDays -ne "User was never active." }    
                 $activeCount = ($activeGuestUsers | Measure-Object).Count
                 if($activeCount) {
-                    $controlResult.AddMessage("`nTotal number of guest users who are active: $($activeCount)"); 
+                    $controlResult.AddMessage("`nTotal number of guest users who are active: $($activeCount)");
+                    $controlResult.AdditionalInfo += "Total number of active guest users in the organization: " + $activeCount;
                     $controlResult.AddMessage("List of guest users who are active: ",$activeGuestUsers);
                 }  
                 $controlResult.SetStateData("Guest users list: ", $stateData);    
@@ -1255,6 +1264,9 @@ class Organization: ADOSVTBase
             elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0)) 
             {
                 $enabledStreams = $responseObj | Where-Object {$_.status -eq 'enabled'}
+                $auditStreams = $responseObj | Select-Object consumerType,displayName,status
+                $auditStreamCount = ($auditStreams | Measure-Object).Count
+                $auditStreamTypes = ($responseObj | Select-Object consumerType -Unique)
                 if(($enabledStreams | Measure-Object).Count -gt 0)
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "One or more audit streams configured on the organization are currently enabled.");
@@ -1262,7 +1274,11 @@ class Organization: ADOSVTBase
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "None of the audit streams that have been configured are currently enabled.");
-                }  
+                }
+                $controlResult.AddMessage("`nTypes of audit streams configured: ", $auditStreamTypes);
+                $controlResult.AddMessage("`nTotal number of audit streams configured: $($auditStreamCount)", $auditStreams);
+                $controlResult.AdditionalInfo += "Total number of audit streams configured: " + $auditStreamCount;
+                $controlResult.AdditionalInfo += "Types of audit streams configured: " + [JsonHelper]::ConvertToJsonCustomCompressed($auditStreamTypes);
             }
             else 
             {
