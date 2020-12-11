@@ -52,6 +52,7 @@ $FrameworkPath = $PSScriptRoot
 #Helpers
 . $FrameworkPath\Helpers\Helpers.ps1
 . $FrameworkPath\Managers\ConfigurationManager.ps1
+. $PSScriptRoot\Helpers\ResourceHelper.ps1
 . $FrameworkPath\Helpers\WebRequestHelper.ps1
 . $PSScriptRoot\Helpers\SVTMapping.ps1
 . $FrameworkPath\Helpers\IdentityHelpers.ps1
@@ -131,6 +132,7 @@ $FrameworkPath = $PSScriptRoot
 
 . $PSScriptRoot\Core\AzSKADOInfo\HostInfo.ps1
 . $PSScriptRoot\Core\AzSKADOInfo\ControlsInfo.ps1
+. $PSScriptRoot\Core\STMapping\AzSKADOServiceMapping.ps1
 
 . $PSScriptRoot\Core\SVT\SVTResourceResolver.ps1
 . $PSScriptRoot\Abstracts\ServicesSecurityStatus.ps1

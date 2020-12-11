@@ -34,10 +34,20 @@ class SVTResourceResolver: AzSKRoot {
 
     [bool] $includeAdminControls = $false;
     [bool] $isUserPCA = $false;
+    [bool] $skipOrgUserControls = $false
 
-    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls): Base($organizationName, $PATToken) {
+    hidden [string[]] $BuildIds = @();
+    hidden [string[]] $ReleaseIds = @();
+    hidden [string[]] $AgentPoolIds = @();
+    hidden [string[]] $ServiceConnectionIds = @();
+    hidden [string[]] $VariableGroupIds = @();
+    hidden [bool] $isServiceIdBasedScan = $false;
+
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls): Base($organizationName, $PATToken) {
+
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
         $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);            
+        $this.skipOrgUserControls = $skipOrgUserControls
     }
 
     [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls) { 
@@ -170,25 +180,27 @@ class SVTResourceResolver: AzSKRoot {
             #First condition if 'includeAdminControls' switch is passed or user is admin(PCA).
             #Second condition if explicitly -rtn flag passed to org or Org_Project_User 
             #Third condition if 'gads' contains only admin scan parame, then no need to ask for includeAdminControls switch
-            if (($this.includeAdminControls -or $this.isAdminControlScan()))
-            {
-                #Select Org/User by default...
-                $link = "https://dev.azure.com/$($this.organizationName)/_settings"
-                $this.AddSVTResource($this.organizationName, $null ,"ADO.Organization", "organization/$($organizationId)", $null, $link);
-            }
-            elseif ( ($this.ResourceTypeName -in ([ResourceTypeName]::Organization, [ResourceTypeName]::Org_Project_User)) -or ( $this.BuildNames.Count -eq 0 -and $this.ReleaseNames.Count -eq 0 -and $this.ServiceConnections.Count -eq 0 -and $this.AgentPools.Count -eq 0 -and $this.VariableGroups.Count -eq 0) ) {
-                $this.PublishCustomMessage("You have requested scan for organization controls. However, you do not have admin permission. Use '-IncludeAdminControls' if you'd still like to scan them. (Some controls may not scan correctly due to access issues.)", [MessageType]::Info);
-                $this.PublishCustomMessage("`r`n");
+            if (-not $this.skipOrgUserControls) {
+                if (($this.includeAdminControls -or $this.isAdminControlScan()))
+                {
+                    #Select Org/User by default...
+                    $link = "https://dev.azure.com/$($this.organizationName)/_settings"
+                    $this.AddSVTResource($this.organizationName, $null ,"ADO.Organization", "organization/$($organizationId)", $null, $link);
+                }
+                elseif ( ($this.ResourceTypeName -in ([ResourceTypeName]::Organization, [ResourceTypeName]::Org_Project_User)) -or ( $this.BuildNames.Count -eq 0 -and $this.ReleaseNames.Count -eq 0 -and $this.ServiceConnections.Count -eq 0 -and $this.AgentPools.Count -eq 0 -and $this.VariableGroups.Count -eq 0) ) {
+                    $this.PublishCustomMessage("You have requested scan for organization controls. However, you do not have admin permission. Use '-IncludeAdminControls' if you'd still like to scan them. (Some controls may not scan correctly due to access issues.)", [MessageType]::Info);
+                    $this.PublishCustomMessage("`r`n");
+                }
             }
         }
+        if (-not $this.skipOrgUserControls) {
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::User, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User)) {
 
-        if ($this.ResourceTypeName -in ([ResourceTypeName]::User, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User)) {
-
-            $link = "https://dev.azure.com/$($this.organizationName)/_settings/users"
-            $this.AddSVTResource($this.organizationName, $null,"ADO.User", "organization/$($organizationId)/user", $null, $link);
-            
+                $link = "https://dev.azure.com/$($this.organizationName)/_settings/users"
+                $this.AddSVTResource($this.organizationName, $null,"ADO.User", "organization/$($organizationId)/user", $null, $link);
+                
+            }
         }
-
         $topNQueryString = ""
         if ($this.MaxObjectsToScan -ne 0)
         {
@@ -200,8 +212,8 @@ class SVTResourceResolver: AzSKRoot {
             $this.PublishCustomMessage("Querying api for resources to be scanned. This may take a while...");
 
             $this.PublishCustomMessage("Getting project configurations...");
-            #TODO: By default api return only 100 projects. Added $top=500 to fetch first 500 projects.
-            $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=500&api-version=5.1' -f $($this.SubscriptionContext.SubscriptionName);
+            #TODO: By default api return only 100 projects. Added $top=1000 to fetch first 1000 projects. If there are morethan 1000 projects, pagination is implemented to fetch them
+            $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=5.1' -f $($this.SubscriptionContext.SubscriptionName);
             $responseObj = "";
             try { 
                 $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL) ;
@@ -265,7 +277,13 @@ class SVTResourceResolver: AzSKRoot {
                         }
 
                         if ($this.BuildNames -eq "*") {
-                            $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $thisProj.name;
+                            if ([string]::IsNullOrEmpty($topNQueryString)) {
+                                $topNQueryString = '&$top=10000'
+                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1&queryOrder=lastModifiedDescending" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $thisProj.name;
+                            }
+                            else {
+                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $thisProj.name;                               
+                            }
                             $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL) 
                             if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
                                 $nObj = $this.MaxObjectsToScan
@@ -281,9 +299,16 @@ class SVTResourceResolver: AzSKRoot {
                             }
                         }
                         else {
-                            $this.BuildNames | ForEach-Object {
-                                $buildName = $_
-                                $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?name={2}&api-version=5.1-preview.7" -f $($this.SubscriptionContext.SubscriptionName), $projectName, $buildName;
+                            $buildDefnURL = "";
+                            #If service id based scan then will break the loop after one run because, sending all build ids to api as comma separated in one go.
+                            for ($i = 0; $i -lt $this.BuildNames.Count; $i++) {
+                                #If service id based scan then send all build ids to api as comma separated in one go.
+                                if ($this.isServiceIdBasedScan -eq $true) {
+                                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.1-preview.7" -f $($this.SubscriptionContext.SubscriptionName), $projectName, ($this.BuildIds -join ",");
+                                }    
+                                else { #If normal scan (not service id based) then send each build name in api one by one.
+                                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?name={2}&api-version=5.1-preview.7" -f $($this.SubscriptionContext.SubscriptionName), $projectName, $this.BuildNames[$i];
+                                }
                                 $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL) 
                                 if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
                                     foreach ($bldDef in $buildDefnsObj) {
@@ -294,6 +319,10 @@ class SVTResourceResolver: AzSKRoot {
                                     }
                                     $buildDefnsObj = $null;
                                     Remove-Variable buildDefnsObj;
+                                }
+                                #If service id based scan then no need to run loop as all the build ids has been sent to api as comma separated list in one go. so break the loop.
+                                if ($this.isServiceIdBasedScan -eq $true) {
+                                    break;
                                 }
                             }
                         }
@@ -330,39 +359,27 @@ class SVTResourceResolver: AzSKRoot {
                         }
                         else {
                             try {
-                                $this.ReleaseNames | ForEach-Object {
-                                    $releaseName = $_
-                                    $releaseDefnURL = "https://{0}.vsrm.visualstudio.com/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName), $projectName;
-                                    $inputbody = "{
-                                    'contributionIds': [
-                                        'ms.vss-releaseManagement-web.search-definitions-data-provider'
-                                    ],
-                                    'dataProviderContext': {
-                                        'properties': {
-                                            'searchText': '$releaseName',
-                                            'sourcePage': {
-                                                'routeValues': {
-                                                    'project': '$projectName'
-                                                }
-                                            }
-                                        }
+                                $releaseDefnsObj = $null;
+                                #If service id based scan then will break the loop after one run because, sending all release ids to api as comma separated in one go.
+                                for ($i = 0; $i -lt $this.ReleaseNames.Count; $i++) {
+                                    #If service id based scan then send all release ids to api as comma separated in one go.
+                                    if ($this.isServiceIdBasedScan -eq $true) {
+                                        $url = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?definitionIdFilter={2}&api-version=6.0" -f $($this.SubscriptionContext.SubscriptionName), $projectName, ($this.ReleaseIds -join ",");
                                     }
-                                }" | ConvertFrom-Json
-                                
-                                    $releaseDefnsObj = [WebRequestHelper]::InvokePostWebRequest($releaseDefnURL, $inputbody);
-                                    if (([Helpers]::CheckMember($releaseDefnsObj, "dataProviders") -and $releaseDefnsObj.dataProviders."ms.vss-releaseManagement-web.search-definitions-data-provider") -and [Helpers]::CheckMember($releaseDefnsObj.dataProviders."ms.vss-releaseManagement-web.search-definitions-data-provider", "releaseDefinitions") ) {
-
-                                        $releaseDefinitions = $releaseDefnsObj.dataProviders."ms.vss-releaseManagement-web.search-definitions-data-provider".releaseDefinitions  | Where-Object {$_.name -eq $releaseName };
-
-                                        foreach ($relDef in $releaseDefinitions) {
-                                            $link = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId={2}" -f $this.SubscriptionContext.SubscriptionName, $projectName, $relDef.url.split('/')[-1];
-                                            $releaseResourceId = "organization/$organizationId/project/$projectId/release/$($relDef.id)";
-                                            $this.AddSVTResource($relDef.name, $projectName, "ADO.Release", $releaseResourceId, $null, $link);
-                                            
-                                        }
-                                        $releaseDefinitions = $null;
+                                    else { #If normal scan (not service id based) then send each release name in api one by one.
+                                        $url = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?searchText={2}&isExactNameMatch=true&api-version=6.0" -f $($this.SubscriptionContext.SubscriptionName), $projectName, $this.ReleaseNames[$i];
                                     }
-
+                                    $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                    
+                                    foreach ($relDef in $releaseDefnsObj) {
+                                        $link = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId={2}" -f $this.SubscriptionContext.SubscriptionName, $projectName, $relDef.url.split('/')[-1];
+                                        $releaseResourceId = "organization/$organizationId/project/$projectId/release/$($relDef.id)";
+                                        $this.AddSVTResource($relDef.name, $projectName, "ADO.Release", $releaseResourceId, $null, $link); 
+                                    }
+                                    #If service id based scan then no need to run loop as all the release ids has been sent to api as comma separated list in one go. so break the loop.
+                                    if ($this.isServiceIdBasedScan -eq $true) {
+                                        break;
+                                    }
                                 }
                             }
                             catch {
@@ -401,7 +418,13 @@ class SVTResourceResolver: AzSKRoot {
                                 $Connections = $serviceEndpointObj | Where-Object { ($_.type -eq "azurerm" -or $_.type -eq "azure" -or $_.type -eq "git" -or $_.type -eq "github" -or $_.type -eq "externaltfs") } 
                             }
                             else {
-                                $Connections = $serviceEndpointObj | Where-Object { ($_.type -eq "azurerm" -or $_.type -eq "azure" -or $_.type -eq "git" -or $_.type -eq "github" -or $_.type -eq "externaltfs") -and ($this.ServiceConnections -eq $_.name) }  
+                                #If service id based scan then filter with serviceconnection ids
+                                if ($this.isServiceIdBasedScan -eq $true) {
+                                    $Connections = $serviceEndpointObj | Where-Object { ($_.type -eq "azurerm" -or $_.type -eq "azure" -or $_.type -eq "git" -or $_.type -eq "github" -or $_.type -eq "externaltfs") -and ($this.ServiceConnectionIds -eq $_.Id) }  
+                                }
+                                else {
+                                    $Connections = $serviceEndpointObj | Where-Object { ($_.type -eq "azurerm" -or $_.type -eq "azure" -or $_.type -eq "git" -or $_.type -eq "github" -or $_.type -eq "externaltfs") -and ($this.ServiceConnections -eq $_.name) }  
+                                }
                             }
                             $ScannableSvc += ($connections | Measure-Object).Count
 
@@ -444,7 +467,13 @@ class SVTResourceResolver: AzSKRoot {
                                     $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | where-object{$_.pool.isLegacy -eq $false};
                                 }
                                 else {
-                                    $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPools -contains $_.name) } 
+                                    #If service id based scan then filter with agent pool ids
+                                    if ($this.isServiceIdBasedScan -eq $true) {
+                                        $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPoolIds -contains $_.Id) } 
+                                    }
+                                    else {
+                                        $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPools -contains $_.name) } 
+                                    }
                                 }
 
                                 #Filtering out "Azure Pipelines" agent pool from scan as it is created by ADO by default and some of its settings are not editable (grant access to all pipelines, auto-provisioning etc.)
@@ -488,7 +517,13 @@ class SVTResourceResolver: AzSKRoot {
                                 $varGroups = $variableGroupObj 
                             }
                             else {
-                                $varGroups = $variableGroupObj | Where-Object { $this.VariableGroups -eq $_.name }  
+                                #If service id based scan then filter with variablegroup ids
+                                if ($this.isServiceIdBasedScan -eq $true) {
+                                    $varGroups = $variableGroupObj | Where-Object { $this.VariableGroupIds -eq $_.Id }  
+                                }
+                                else {
+                                    $varGroups = $variableGroupObj | Where-Object { $this.VariableGroups -eq $_.name }  
+                                }
                             }
 
                             $nObj = $this.MaxObjectsToScan
@@ -577,11 +612,13 @@ class SVTResourceResolver: AzSKRoot {
         $bFoundSvcMappedObjects = $false
         if ($null -ne $rsrcList)
         {
+            $this.isServiceIdBasedScan = $true;
             if ($this.ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
             {
                 if ($rsrcList.Builds -and $rsrcList.Builds.Count -gt 0)
                 {
                     $this.BuildNames = $rsrcList.Builds.buildDefinitionName
+                    $this.BuildIds = $rsrcList.Builds.buildDefinitionId
                     $bFoundSvcMappedObjects = $true
                 } 
             }
@@ -590,6 +627,7 @@ class SVTResourceResolver: AzSKRoot {
                 if ($rsrcList.Releases -and $rsrcList.Releases.Count -gt 0)
                 {
                     $this.ReleaseNames = $rsrcList.Releases.releaseDefinitionName
+                    $this.ReleaseIds = $rsrcList.Releases.releaseDefinitionId
                     $bFoundSvcMappedObjects = $true
                 }
             }
@@ -598,6 +636,7 @@ class SVTResourceResolver: AzSKRoot {
                 if ($rsrcList.ServiceConnections -and $rsrcList.ServiceConnections.Count -gt 0)
                 {
                     $this.ServiceConnections = $rsrcList.ServiceConnections.serviceConnectionName
+                    $this.ServiceConnectionIds = $rsrcList.ServiceConnections.ServiceConnectionId
                     $bFoundSvcMappedObjects = $true
                 }
             }
@@ -606,6 +645,7 @@ class SVTResourceResolver: AzSKRoot {
                 if ($rsrcList.AgentPools -and $rsrcList.AgentPools.Count -gt 0)
                 {
                     $this.AgentPools = $rsrcList.AgentPools.agentPoolName
+                    $this.AgentPoolIds = $rsrcList.AgentPools.agentPoolId
                     $bFoundSvcMappedObjects = $true
                 }
             }
@@ -614,6 +654,7 @@ class SVTResourceResolver: AzSKRoot {
                 if ($rsrcList.VariableGroups -and $rsrcList.VariableGroups.Count -gt 0)
                 {
                     $this.VariableGroups = $rsrcList.VariableGroups.variableGroupName
+                    $this.VariableGroupIds = $rsrcList.VariableGroups.variableGroupId
                     $bFoundSvcMappedObjects = $true
                 }
             }

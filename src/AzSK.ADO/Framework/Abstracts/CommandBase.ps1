@@ -172,7 +172,7 @@ class CommandBase: AzSKRoot {
 				$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
 			}
 			#call the AutoCloseBugManager
-			$AutoClose=[AutoCloseBugManager]::new($this.SubscriptionContext,$methodResult);
+			$AutoClose=[AutoCloseBugManager]::new($this.SubscriptionContext.SubscriptionName);
 			$AutoClose.AutoCloseBug($methodResult)
 		}
 		# Publish command complete events

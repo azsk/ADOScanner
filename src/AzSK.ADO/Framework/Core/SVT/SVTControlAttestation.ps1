@@ -12,6 +12,7 @@ class SVTControlAttestation
 	hidden [PSObject] $ControlSettings ; 
 	hidden [SubscriptionContext] $SubscriptionContext;
 	hidden [InvocationInfo] $InvocationContext;
+	hidden [Object] $repoProject = @{};
 
 	SVTControlAttestation([SVTEventContext[]] $ctrlResults, [AttestationOptions] $attestationOptions, [SubscriptionContext] $subscriptionContext, [InvocationInfo] $invocationContext)
 	{
@@ -24,6 +25,8 @@ class SVTControlAttestation
 		$this.controlStateExtension.UniqueRunId = $(Get-Date -format "yyyyMMdd_HHmmss");
 		$this.controlStateExtension.Initialize($true)
 		$this.ControlSettings=$ControlSettingsJson = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+		$this.repoProject.projectsWithRepo = @();
+		$this.repoProject.projectsWithoutRepo = @();
 	}
 
 	[AttestationStatus] GetAttestationValue([string] $AttestationCode)
@@ -440,177 +443,184 @@ class SVTControlAttestation
 			#start iterating resource after resource
 			foreach($resource in  $filteredControlResults)
 			{
-				$resourceValueKey = $resource.Name
-				$this.dirtyCommitState = $false;
-				$resourceValue = $resource.Group;		
-				$isSubscriptionScan = $false;
-				$counter = $counter + 1
-				if(($resourceValue | Measure-Object).Count -gt 0)
-				{
-					$SubscriptionId = $resourceValue[0].SubscriptionContext.SubscriptionId
-					if($null -ne $resourceValue[0].ResourceContext)
+				$isAttestationRepoPresent = $this.ValidateAttestationRepo($resource);
+				if($isAttestationRepoPresent)
+                {
+					$resourceValueKey = $resource.Name
+					$this.dirtyCommitState = $false;
+					$resourceValue = $resource.Group;		
+					$isSubscriptionScan = $false;
+					$counter = $counter + 1
+					if(($resourceValue | Measure-Object).Count -gt 0)
 					{
-						$ResourceId = $resourceValue[0].ResourceContext.ResourceId
-						Write-Host $([String]::Format([Constants]::ModuleAttestStartHeading, $resourceValue[0].FeatureName, $resourceValue[0].ResourceContext.ResourceGroupName, $resourceValue[0].ResourceContext.ResourceName, $counter, $filteredControlResults.Count)) -ForegroundColor Cyan
-					}
-					else
-					{
-						$isSubscriptionScan = $true;
-						Write-Host $([String]::Format([Constants]::ModuleAttestStartHeadingSub, $resourceValue[0].FeatureName, $resourceValue[0].SubscriptionContext.SubscriptionName, $resourceValue[0].SubscriptionContext.SubscriptionId)) -ForegroundColor Cyan
-					}	
-                    
-					if(($resourceValue[0].FeatureName -eq "Organization" -or $resourceValue[0].FeatureName -eq "Project") -and !$this.controlStateExtension.GetControlStatePermission($resourceValue[0].FeatureName, $resourceValue[0].ResourceContext.ResourceName) )
-					{
-					  Write-Host "Error: Attestation denied.`nThis may be because you are attempting to attest controls for areas you do not have RBAC permission to." -ForegroundColor Red
-					  continue
-					}
-					if($resourceValue[0].FeatureName -eq "Organization" -and !$this.controlStateExtension.GetProject())
-				    { 
-						Write-Host "`nNo project defined to store attestation details for organization-specific controls." -ForegroundColor Red
-						Write-Host "Use the '-AttestationHostProjectName' parameter with this command to configure the project that will host attestation details for organization level controls.`nRun 'Get-Help -Name Get-AzSKADOSecurityStatus -Full' for more info." -ForegroundColor Yellow
-						continue
-					}
-					[ControlState[]] $resourceControlStates = @()
-					$count = 0;
-					[SVTEventContext[]] $filteredControlItems = @()
-					$resourceValue | ForEach-Object { 
-						$controlItem = $_;
-
-						$matchedControlItem = $false;
-						if(($controlItem.ControlResults | Measure-Object).Count -gt 0)
+						$SubscriptionId = $resourceValue[0].SubscriptionContext.SubscriptionId
+						if($null -ne $resourceValue[0].ResourceContext)
 						{
-							[ControlResult[]] $matchedControlResults = @();
-							$controlItem.ControlResults | ForEach-Object {
-								$controlResult = $_
-								if($controlResult.ActualVerificationResult -ne [VerificationResult]::Passed -and $controlResult.ActualVerificationResult -ne [VerificationResult]::Error)
-								{
-									if($this.AttestControlsChoice -eq [AttestControls]::All)
-									{
-										$matchedControlItem = $true;
-										$matchedControlResults += $controlResult;
-										$count++;
-									}
-									elseif($this.AttestControlsChoice -eq [AttestControls]::AlreadyAttested -and $controlResult.AttestationStatus -ne [AttestationStatus]::None)
-									{
-										$matchedControlItem = $true;
-										$matchedControlResults += $controlResult;
-										$count++;
-									}
-									elseif($this.AttestControlsChoice -eq [AttestControls]::NotAttested -and  $controlResult.AttestationStatus -eq [AttestationStatus]::None)
-									{
-										$matchedControlItem = $true;
-										$matchedControlResults += $controlResult;
-										$count++;
-									}									
-								}
-							}
+							$ResourceId = $resourceValue[0].ResourceContext.ResourceId
+							Write-Host $([String]::Format([Constants]::ModuleAttestStartHeading, $resourceValue[0].FeatureName, $resourceValue[0].ResourceContext.ResourceGroupName, $resourceValue[0].ResourceContext.ResourceName, $counter, $filteredControlResults.Count)) -ForegroundColor Cyan
 						}
-						if($matchedControlItem)
+						else
 						{
-							$controlItem.ControlResults = $matchedControlResults;
-							$filteredControlItems += $controlItem;
-						}
-					}
-					#Added below variable to supply in setcontrol to send in controlstateextension to verify resourcetype
-					$FeatureName = "";
-					$resourceName = "";
-					$resourceGroupName = "";
-					if($count -gt 0)
-					{
-						Write-Host "No. of controls that need to be attested: $count" -ForegroundColor Cyan
-
-						 foreach( $controlItem in $filteredControlItems)
-						 {
-							$FeatureName = $controlItem.FeatureName
-							$resourceName = $controlItem.ResourceContext.ResourceName
-							$resourceGroupName = $controlItem.ResourceContext.ResourceGroupName
-							$controlId = $controlItem.ControlItem.ControlID
-							$controlSeverity = $controlItem.ControlItem.ControlSeverity
-							$controlResult = $null;
-							$controlStatus = "";
-							$isPrevAttested = $false;
-							if(($controlItem.ControlResults | Measure-Object).Count -gt 0)
-							{								
-								foreach( $controlResult in $controlItem.ControlResults)
-								{
-									$controlStatus = $controlResult.ActualVerificationResult;
-								
-									[ControlState] $controlState = [ControlState]::new($controlId,$controlItem.ControlItem.Id,$controlResult.ChildResourceName,$controlStatus,"1.0");
-									if($null -ne $controlResult.StateManagement -and $null -ne $controlResult.StateManagement.AttestedStateData)
-									{								
-										$controlState.State = $controlResult.StateManagement.AttestedStateData
-									}						
+							$isSubscriptionScan = $true;
+							Write-Host $([String]::Format([Constants]::ModuleAttestStartHeadingSub, $resourceValue[0].FeatureName, $resourceValue[0].SubscriptionContext.SubscriptionName, $resourceValue[0].SubscriptionContext.SubscriptionId)) -ForegroundColor Cyan
+						}	
 						
-									$controlState.AttestationStatus = $controlResult.AttestationStatus
-									$controlState.EffectiveVerificationResult = $controlResult.VerificationResult
+						if(($resourceValue[0].FeatureName -eq "Organization" -or $resourceValue[0].FeatureName -eq "Project") -and !$this.controlStateExtension.GetControlStatePermission($resourceValue[0].FeatureName, $resourceValue[0].ResourceContext.ResourceName) )
+						{
+						Write-Host "Error: Attestation denied.`nThis may be because you are attempting to attest controls for areas you do not have RBAC permission to." -ForegroundColor Red
+						continue
+						}
+						if($resourceValue[0].FeatureName -eq "Organization" -and !$this.controlStateExtension.GetProject())
+						{ 
+							Write-Host "`nNo project defined to store attestation details for organization-specific controls." -ForegroundColor Red
+							Write-Host "Use the '-AttestationHostProjectName' parameter with this command to configure the project that will host attestation details for organization level controls.`nRun 'Get-Help -Name Get-AzSKADOSecurityStatus -Full' for more info." -ForegroundColor Yellow
+							continue
+						}
+						[ControlState[]] $resourceControlStates = @()
+						$count = 0;
+						[SVTEventContext[]] $filteredControlItems = @()
+						$resourceValue | ForEach-Object { 
+							$controlItem = $_;
 
-									#ADOTodo: This seems to be unused...also, we should look into if 'tolower()' should be done in general for rsrcIds.
-									$controlState.HashId = [ControlStateExtension]::ComputeHashX($resourceValueKey.ToLower());
-									$controlState.ResourceId = $resourceValueKey;
-									if($this.bulkAttestMode)
+							$matchedControlItem = $false;
+							if(($controlItem.ControlResults | Measure-Object).Count -gt 0)
+							{
+								[ControlResult[]] $matchedControlResults = @();
+								$controlItem.ControlResults | ForEach-Object {
+									$controlResult = $_
+									if($controlResult.ActualVerificationResult -ne [VerificationResult]::Passed -and $controlResult.ActualVerificationResult -ne [VerificationResult]::Error)
 									{
-										$controlState = $this.ComputeEffectiveControlStateInBulkMode($controlState, $controlSeverity, $isSubscriptionScan, $controlItem, $controlResult)										
-									}
-									else
-									{
-										$controlState = $this.ComputeEffectiveControlState($controlState, $controlSeverity, $isSubscriptionScan, $controlItem, $controlResult)										
-									}
-									
-									$resourceControlStates +=$controlState;
-									if($this.abortProcess)
-									{
-										Write-Host "Aborted the attestation workflow." -ForegroundColor Yellow
-										return;
+										if($this.AttestControlsChoice -eq [AttestControls]::All)
+										{
+											$matchedControlItem = $true;
+											$matchedControlResults += $controlResult;
+											$count++;
+										}
+										elseif($this.AttestControlsChoice -eq [AttestControls]::AlreadyAttested -and $controlResult.AttestationStatus -ne [AttestationStatus]::None)
+										{
+											$matchedControlItem = $true;
+											$matchedControlResults += $controlResult;
+											$count++;
+										}
+										elseif($this.AttestControlsChoice -eq [AttestControls]::NotAttested -and  $controlResult.AttestationStatus -eq [AttestationStatus]::None)
+										{
+											$matchedControlItem = $true;
+											$matchedControlResults += $controlResult;
+											$count++;
+										}									
 									}
 								}
 							}
-							Write-Host $([Constants]::SingleDashLine) -ForegroundColor Cyan
-						}
-					}
-					else
-					{
-						Write-Host "No attestable controls found.`n$([Constants]::SingleDashLine)" -ForegroundColor Yellow
-					}
-					
-					#remove the entries which doesn't have any state
-					#$resourceControlStates = $resourceControlStates | Where-Object {$_.State}
-					#persist the value back to state			
-					if($this.dirtyCommitState)
-					{
-						if(($resourceControlStates | Measure-Object).Count -gt 0)
-						{
-							#Set flag to to run rescan
-							$Global:AttestationValue = $true
-							Write-Host "Attestation summary for this resource:" -ForegroundColor Cyan
-							$output = @()
-							$resourceControlStates | ForEach-Object {
-								$out = "" | Select-Object ControlId, EvaluatedResult, EffectiveResult, AttestationChoice
-								$out.ControlId = $_.ControlId
-								$out.EvaluatedResult = $_.ActualVerificationResult
-								$out.EffectiveResult = $_.EffectiveVerificationResult
-								$out.AttestationChoice = $_.AttestationStatus.ToString()
-								$output += $out
+							if($matchedControlItem)
+							{
+								$controlItem.ControlResults = $matchedControlResults;
+								$filteredControlItems += $controlItem;
 							}
-							Write-Host ($output | Format-Table ControlId, EvaluatedResult, EffectiveResult, AttestationChoice | Out-String) -ForegroundColor Cyan
 						}
+						#Added below variable to supply in setcontrol to send in controlstateextension to verify resourcetype
+						$FeatureName = "";
+						$resourceName = "";
+						$resourceGroupName = "";
+						if($count -gt 0)
+						{
+							Write-Host "No. of controls that need to be attested: $count" -ForegroundColor Cyan
 
-						Write-Host "Committing the attestation details for this resource..." -ForegroundColor Cyan
-						$this.controlStateExtension.SetControlState($resourceValueKey, $resourceControlStates, $false, $FeatureName, $resourceName, $resourceGroupName)
-						Write-Host "Commit succeeded." -ForegroundColor Cyan
+							foreach( $controlItem in $filteredControlItems)
+							{
+								$FeatureName = $controlItem.FeatureName
+								$resourceName = $controlItem.ResourceContext.ResourceName
+								$resourceGroupName = $controlItem.ResourceContext.ResourceGroupName
+								$controlId = $controlItem.ControlItem.ControlID
+								$controlSeverity = $controlItem.ControlItem.ControlSeverity
+								$controlResult = $null;
+								$controlStatus = "";
+								$isPrevAttested = $false;
+								if(($controlItem.ControlResults | Measure-Object).Count -gt 0)
+								{								
+									foreach( $controlResult in $controlItem.ControlResults)
+									{
+										$controlStatus = $controlResult.ActualVerificationResult;
+									
+										[ControlState] $controlState = [ControlState]::new($controlId,$controlItem.ControlItem.Id,$controlResult.ChildResourceName,$controlStatus,"1.0");
+										if($null -ne $controlResult.StateManagement -and $null -ne $controlResult.StateManagement.AttestedStateData)
+										{								
+											$controlState.State = $controlResult.StateManagement.AttestedStateData
+										}						
+							
+										$controlState.AttestationStatus = $controlResult.AttestationStatus
+										$controlState.EffectiveVerificationResult = $controlResult.VerificationResult
+
+										#ADOTodo: This seems to be unused...also, we should look into if 'tolower()' should be done in general for rsrcIds.
+										$controlState.HashId = [ControlStateExtension]::ComputeHashX($resourceValueKey.ToLower());
+										$controlState.ResourceId = $resourceValueKey;
+										if($this.bulkAttestMode)
+										{
+											$controlState = $this.ComputeEffectiveControlStateInBulkMode($controlState, $controlSeverity, $isSubscriptionScan, $controlItem, $controlResult)										
+										}
+										else
+										{
+											$controlState = $this.ComputeEffectiveControlState($controlState, $controlSeverity, $isSubscriptionScan, $controlItem, $controlResult)										
+										}
+										
+										$resourceControlStates +=$controlState;
+										if($this.abortProcess)
+										{
+											Write-Host "Aborted the attestation workflow." -ForegroundColor Yellow
+											return;
+										}
+									}
+								}
+								Write-Host $([Constants]::SingleDashLine) -ForegroundColor Cyan
+							}
+						}
+						else
+						{
+							Write-Host "No attestable controls found.`n$([Constants]::SingleDashLine)" -ForegroundColor Yellow
+						}
+						
+						#remove the entries which doesn't have any state
+						#$resourceControlStates = $resourceControlStates | Where-Object {$_.State}
+						#persist the value back to state			
+						if($this.dirtyCommitState)
+						{
+							if(($resourceControlStates | Measure-Object).Count -gt 0)
+							{
+								#Set flag to to run rescan
+								$Global:AttestationValue = $true
+								Write-Host "Attestation summary for this resource:" -ForegroundColor Cyan
+								$output = @()
+								$resourceControlStates | ForEach-Object {
+									$out = "" | Select-Object ControlId, EvaluatedResult, EffectiveResult, AttestationChoice
+									$out.ControlId = $_.ControlId
+									$out.EvaluatedResult = $_.ActualVerificationResult
+									$out.EffectiveResult = $_.EffectiveVerificationResult
+									$out.AttestationChoice = $_.AttestationStatus.ToString()
+									$output += $out
+								}
+								Write-Host ($output | Format-Table ControlId, EvaluatedResult, EffectiveResult, AttestationChoice | Out-String) -ForegroundColor Cyan
+							}
+
+							Write-Host "Committing the attestation details for this resource..." -ForegroundColor Cyan
+							$this.controlStateExtension.SetControlState($resourceValueKey, $resourceControlStates, $false, $FeatureName, $resourceName, $resourceGroupName)
+							Write-Host "Commit succeeded." -ForegroundColor Cyan
+						}
+						
+						if($null -ne $resourceValue[0].ResourceContext)
+						{
+							$ResourceId = $resourceValue[0].ResourceContext.ResourceId
+							Write-Host $([String]::Format([Constants]::CompletedAttestAnalysis, $resourceValue[0].FeatureName, $resourceValue[0].ResourceContext.ResourceGroupName, $resourceValue[0].ResourceContext.ResourceName)) -ForegroundColor Cyan
+						}
+						else
+						{
+							$isSubscriptionScan = $true;
+							Write-Host $([String]::Format([Constants]::CompletedAttestAnalysisSub, $resourceValue[0].FeatureName, $resourceValue[0].SubscriptionContext.SubscriptionName, $resourceValue[0].SubscriptionContext.SubscriptionId)) -ForegroundColor Cyan
+						}	
 					}
-					
-					if($null -ne $resourceValue[0].ResourceContext)
-					{
-						$ResourceId = $resourceValue[0].ResourceContext.ResourceId
-						Write-Host $([String]::Format([Constants]::CompletedAttestAnalysis, $resourceValue[0].FeatureName, $resourceValue[0].ResourceContext.ResourceGroupName, $resourceValue[0].ResourceContext.ResourceName)) -ForegroundColor Cyan
-					}
-					else
-					{
-						$isSubscriptionScan = $true;
-						Write-Host $([String]::Format([Constants]::CompletedAttestAnalysisSub, $resourceValue[0].FeatureName, $resourceValue[0].SubscriptionContext.SubscriptionName, $resourceValue[0].SubscriptionContext.SubscriptionId)) -ForegroundColor Cyan
-					}	
 				}
-			
+				else 
+				{
+					continue;
+				}
 			}
 		}
 		finally
@@ -618,7 +628,72 @@ class SVTControlAttestation
 			$folderPath = Join-Path $([Constants]::AzSKAppFolderPath) "Temp" | Join-Path -ChildPath $($this.controlStateExtension.UniqueRunId)
 			[Helpers]::CleanupLocalFolder($folderPath);
 		}
-	}	
+	}
+
+	[bool] ValidateAttestationRepo([Object] $resource)
+    {
+        if($resource.Group[0].ResourceContext.ResourceTypeName -eq 'Organization')
+        {
+            $projectName = $this.controlStateExtension.GetProject();
+        }
+        elseif($resource.Group[0].ResourceContext.ResourceTypeName -eq 'Project')
+        {
+            $projectName = $resource.Group[0].ResourceContext.ResourceName;
+        }
+        else
+        {
+            $projectName = $resource.Group[0].ResourceContext.ResourceGroupName;
+		}
+		
+		if($projectName -in $this.repoProject.projectsWithRepo)
+		{
+			return $true;
+		}
+        elseif($projectName -in $this.repoProject.projectsWithoutRepo)
+        {
+            return $false;
+        }
+        else
+        {
+			$attestationRepo = [Constants]::AttestationRepo;
+			#Get attesttion repo name from controlsetting file if AttestationRepo varibale value is not empty.
+			if ([Helpers]::CheckMember($this.ControlSettings,"AttestationRepo")) {
+				$attestationRepo =  $this.ControlSettings.AttestationRepo;
+			}
+            $rmContext = [ContextHelper]::GetCurrentContext();
+		    $user = "";
+		    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+			
+			$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.SubscriptionContext.subscriptionid, $projectName, $attestationRepo
+            try
+            {
+		        $webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
+				if($null -ne $webRequest)
+                {
+					$this.repoProject.projectsWithRepo += $projectName
+					return $true;
+                }
+                else
+                {
+					Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
+					Write-Host "`nAttestation repository was not found in [$projectName] project" -ForegroundColor Red
+					Write-Host "See more at https://aka.ms/adoscanner/attestation `n" -ForegroundColor Yellow
+					Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
+					$this.repoProject.projectsWithoutRepo += $projectName
+					return $false;
+                }
+	        }
+		    catch
+            {
+                Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
+				Write-Host "`nAttestation repository was not found in [$projectName] project" -ForegroundColor Red
+				Write-Host "See more at https://aka.ms/adoscanner/attestation `n" -ForegroundColor Yellow
+                Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
+                $this.repoProject.projectsWithoutRepo += $projectName
+                return $false;
+            }
+        }
+    }
 
 	[bool] isControlAttestable([SVTEventContext] $controlItem, [ControlResult] $controlResult)
 	{

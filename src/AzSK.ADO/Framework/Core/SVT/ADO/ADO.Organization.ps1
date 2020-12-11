@@ -788,26 +788,7 @@ class Organization: ADOSVTBase
     }
 
     hidden [ControlResult] CheckOAuthAppAccess([ControlResult] $controlResult)
-    {
-        <# This control has been currently removed from control JSON file.
-        {
-            "ControlID": "ADO_Organization_AuthN_Enable_App_Access_OAuth",
-            "Description": "OAuth should be enabled for third party application access",
-            "Id": "Organization260",
-            "ControlSeverity": "Medium",
-            "Automated": "Yes",
-            "MethodName": "CheckOAuthAppAccess",
-            "Rationale": "TBD",
-            "Recommendation": "Go to Organization Settings --> Security --> Policies --> Application connection policies --> Enable Third-party application access via OAuth",
-            "Tags": [
-                "SDL",
-                "TCP",
-                "Automated",
-                "AuthN"
-            ],
-            "Enabled": true
-        },
-        #>
+    {       
        if([Helpers]::CheckMember($this.OrgPolicyObj,"applicationConnection"))
        {
             $OAuthObj = $this.OrgPolicyObj.applicationConnection | Where-Object {$_.Policy.Name -eq "Policy.DisallowOAuthAuthentication"}
@@ -815,12 +796,10 @@ class Organization: ADOSVTBase
             {
                 if($OAuthObj.policy.effectiveValue -eq $true )
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,
-                                                "OAuth is enabled for third-party application access.");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Third-party application access via OAuth is enabled.");
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Failed,
-                                                "OAuth is enabled for third-party application access.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Third-party application access via OAuth is disabled.");
                 }
             }
        }

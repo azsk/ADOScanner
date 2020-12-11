@@ -70,6 +70,23 @@
         "AuthN"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_User_AuthZ_Dont_Use_All_Orgs_PAT",
+      "Description": "Do not use personal access tokens (PATs) that are accessible to all organizations.",
+      "Id": "User150",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckPATOrgAccess",
+      "Rationale": "If a personal access token (PAT) gets compromised, the Azure DevOps assets accessible to the user can be accessed/manipulated by unauthorized users. Restricting the access to individual organizations reduces the exposure of resources to just the organization in an event of compromise.",
+      "Recommendation": "Go to User Profile --> Security --> Personel Access Token --> Revoke PATs that have access to all organizations.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
     }
   ]
 }

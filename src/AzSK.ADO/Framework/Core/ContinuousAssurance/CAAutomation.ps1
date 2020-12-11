@@ -276,6 +276,17 @@ class CAAutomation : ADOSVTCommandBase
 				$this.ImageName = $this.ControlSettings.DockerImage.ImageName
 			}
 		}
+    
+    [void] RegisterResourceProvider()
+    {
+        if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "ResourceProviders")) 
+        {
+            $resourceProvider = $this.ControlSettings.ResourceProviders
+            $resourceProvider | foreach {
+                [ResourceHelper]::RegisterResourceProviderIfNotRegistered($_);
+            }
+        }
+    }
 
 	[string] ValidateUserPermissions()
 	{
@@ -467,9 +478,10 @@ class CAAutomation : ADOSVTCommandBase
 			}
 			else 
 			{
-				$this.CreateResources(); #Step 1,2,3,4,5
-                
-				#Step 6: Create Function app
+        $this.RegisterResourceProvider();
+        $this.CreateResources(); #Step 1,2,3,4,5
+        
+        #Step 6: Create Function app
 				$FuncApp = New-AzFunctionApp -DockerImageName $this.ImageName -SubscriptionId $this.SubscriptionId -Name $this.FuncAppName -ResourceGroupName $this.RGname -StorageAccountName $this.StorageName -IdentityType SystemAssigned -PlanName $this.AppServicePlanName
 				if($null -eq $FuncApp) 
 				{
@@ -648,6 +660,7 @@ class CAAutomation : ADOSVTCommandBase
 			}
 			else 
 			{		
+        $this.RegisterResourceProvider();
 				$this.CreateResources(); #Step 1,2,3,4,5       
 
                 #Step 6a: Create Function app
