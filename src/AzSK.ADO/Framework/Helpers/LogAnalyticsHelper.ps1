@@ -420,7 +420,7 @@ Class LAWSModel {
 	[string] $ScannedBy
 	[string] $Env
 	[string] $ComponentId
-	[PSObject] $AdditionalInfo
+	[PSObject[]] $AdditionalInfo
 }
 
 Class LAWSResourceInvModel{
