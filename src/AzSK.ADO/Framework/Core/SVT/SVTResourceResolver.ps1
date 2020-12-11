@@ -40,6 +40,7 @@ class SVTResourceResolver: AzSKRoot {
     hidden [string[]] $AgentPoolIds = @();
     hidden [string[]] $ServiceConnectionIds = @();
     hidden [string[]] $VariableGroupIds = @();
+    hidden [bool] $isServiceIdBasedScan = $false;
 
     SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls): Base($organizationName, $PATToken) {
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
@@ -288,9 +289,10 @@ class SVTResourceResolver: AzSKRoot {
                         }
                         else {
                             $buildDefnURL = "";
+                            #If service id based scan then will break the loop after one run because, sending all build ids to api as comma separated in one go.
                             for ($i = 0; $i -lt $this.BuildNames.Count; $i++) {
                                 #If service id based scan then send all build ids to api as comma separated in one go.
-                                if ($this.BuildIds.Count -gt 0) {
+                                if ($this.isServiceIdBasedScan -eq $true) {
                                     $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.1-preview.7" -f $($this.SubscriptionContext.SubscriptionName), $projectName, ($this.BuildIds -join ",");
                                 }    
                                 else { #If normal scan (not service id based) then send each build name in api one by one.
@@ -308,7 +310,7 @@ class SVTResourceResolver: AzSKRoot {
                                     Remove-Variable buildDefnsObj;
                                 }
                                 #If service id based scan then no need to run loop as all the build ids has been sent to api as comma separated list in one go. so break the loop.
-                                if ($this.BuildIds.Count -gt 0) {
+                                if ($this.isServiceIdBasedScan -eq $true) {
                                     break;
                                 }
                             }
@@ -347,9 +349,10 @@ class SVTResourceResolver: AzSKRoot {
                         else {
                             try {
                                 $releaseDefnsObj = $null;
+                                #If service id based scan then will break the loop after one run because, sending all release ids to api as comma separated in one go.
                                 for ($i = 0; $i -lt $this.ReleaseNames.Count; $i++) {
                                     #If service id based scan then send all release ids to api as comma separated in one go.
-                                    if ($this.ReleaseIds.Count -gt 0) {
+                                    if ($this.isServiceIdBasedScan -eq $true) {
                                         $url = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?definitionIdFilter={2}&api-version=6.0" -f $($this.SubscriptionContext.SubscriptionName), $projectName, ($this.ReleaseIds -join ",");
                                     }
                                     else { #If normal scan (not service id based) then send each release name in api one by one.
@@ -363,7 +366,7 @@ class SVTResourceResolver: AzSKRoot {
                                         $this.AddSVTResource($relDef.name, $projectName, "ADO.Release", $releaseResourceId, $null, $link); 
                                     }
                                     #If service id based scan then no need to run loop as all the release ids has been sent to api as comma separated list in one go. so break the loop.
-                                    if ($this.ReleaseIds.Count -gt 0) {
+                                    if ($this.isServiceIdBasedScan -eq $true) {
                                         break;
                                     }
                                 }
@@ -405,7 +408,7 @@ class SVTResourceResolver: AzSKRoot {
                             }
                             else {
                                 #If service id based scan then filter with serviceconnection ids
-                                if ($this.ServiceConnectionIds.Count -gt 0) {
+                                if ($this.isServiceIdBasedScan -eq $true) {
                                     $Connections = $serviceEndpointObj | Where-Object { ($_.type -eq "azurerm" -or $_.type -eq "azure" -or $_.type -eq "git" -or $_.type -eq "github" -or $_.type -eq "externaltfs") -and ($this.ServiceConnectionIds -eq $_.Id) }  
                                 }
                                 else {
@@ -454,7 +457,7 @@ class SVTResourceResolver: AzSKRoot {
                                 }
                                 else {
                                     #If service id based scan then filter with agent pool ids
-                                    if ($this.AgentPoolIds.Count -gt 0) {
+                                    if ($this.isServiceIdBasedScan -eq $true) {
                                         $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPoolIds -contains $_.Id) } 
                                     }
                                     else {
@@ -504,7 +507,7 @@ class SVTResourceResolver: AzSKRoot {
                             }
                             else {
                                 #If service id based scan then filter with variablegroup ids
-                                if ($this.VariableGroupIds.Count -gt 0) {
+                                if ($this.isServiceIdBasedScan -eq $true) {
                                     $varGroups = $variableGroupObj | Where-Object { $this.VariableGroupIds -eq $_.Id }  
                                 }
                                 else {
@@ -598,6 +601,7 @@ class SVTResourceResolver: AzSKRoot {
         $bFoundSvcMappedObjects = $false
         if ($null -ne $rsrcList)
         {
+            $this.isServiceIdBasedScan = $true;
             if ($this.ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
             {
                 if ($rsrcList.Builds -and $rsrcList.Builds.Count -gt 0)
