@@ -1264,21 +1264,18 @@ class Organization: ADOSVTBase
             elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0)) 
             {
                 $enabledStreams = $responseObj | Where-Object {$_.status -eq 'enabled'}
-                $auditStreams = $responseObj | Select-Object consumerType,displayName,status
-                $auditStreamCount = ($auditStreams | Measure-Object).Count
-                $auditStreamTypes = ($responseObj | Select-Object consumerType -Unique)
+                $enabledStreams = $enabledStreams | Select-Object consumerType,displayName,status
+                $enabledStreamsCount = ($enabledStreams | Measure-Object).Count
                 if(($enabledStreams | Measure-Object).Count -gt 0)
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "One or more audit streams configured on the organization are currently enabled.");
+                    $controlResult.AddMessage("`nTotal number of configured audit streams that are enabled: $($enabledStreamsCount)", $enabledStreams);
+                    $controlResult.AdditionalInfo += "Total number of configured audit streams that are enabled: " + $enabledStreamsCount;
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "None of the audit streams that have been configured are currently enabled.");
                 }
-                $controlResult.AddMessage("`nTypes of audit streams configured: ", $auditStreamTypes);
-                $controlResult.AddMessage("`nTotal number of audit streams configured: $($auditStreamCount)", $auditStreams);
-                $controlResult.AdditionalInfo += "Total number of audit streams configured: " + $auditStreamCount;
-                $controlResult.AdditionalInfo += "Types of audit streams configured: " + [JsonHelper]::ConvertToJsonCustomCompressed($auditStreamTypes);
             }
             else 
             {
