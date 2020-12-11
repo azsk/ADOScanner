@@ -3,26 +3,23 @@ class BugMetaInfoProvider {
 
     hidden [PSObject] $ControlSettingsBugLog
     hidden [string] $ServiceId
+    hidden static [PSObject] $ServiceTreeInfo
 
     BugMetaInfoProvider() {
     }
 
-    hidden [string] GetAssignee([SVTEventContext[]] $ControlResult, $controlSettingsBugLog) {
+    hidden [string] GetAssignee([SVTEventContext[]] $ControlResult, $controlSettingsBugLog, $isBugLogCustomFlow, $serviceIdPassedInCMD) {
         $this.ControlSettingsBugLog = $controlSettingsBugLog;
         #flag to check if pluggable bug logging interface (service tree)
-        $isBugLogCustomFlow = $false;
-        if ([Helpers]::CheckMember($this.ControlSettingsBugLog, "BugAssigneeAndPathCustomFlow", $null)) {
-            $isBugLogCustomFlow = $this.ControlSettingsBugLog.BugAssigneeAndPathCustomFlow;
-        }
         if ($isBugLogCustomFlow) {
-            return $this.BugLogCustomFlow($ControlResult)
+            return $this.BugLogCustomFlow($ControlResult, $serviceIdPassedInCMD)
         }
         else {
             return $this.GetAssigneeFallback($ControlResult);
         }
     }
 
-    hidden [string] BugLogCustomFlow($ControlResult)
+    hidden [string] BugLogCustomFlow($ControlResult, $serviceIdPassedInCMD)
     {
         $resourceType = $ControlResult.ResourceContext.ResourceTypeName
         $projectName = $ControlResult[0].ResourceContext.ResourceGroupName;
@@ -36,7 +33,7 @@ class BugMetaInfoProvider {
             }
             else {
                 $rscId = ($ControlResult.ResourceContext.ResourceId -split "$resourceType/")[-1];
-                $assignee = $this.CalculateAssignee($rscId, $projectName, $resourceType);
+                $assignee = $this.CalculateAssignee($rscId, $projectName, $resourceType, $serviceIdPassedInCMD);
                 if (!$assignee) {
                     $assignee = $this.GetAssigneeFallback($ControlResult)
                 }
@@ -48,22 +45,27 @@ class BugMetaInfoProvider {
         return $assignee;
     }
 
-    hidden [string] CalculateAssignee($rscId, $projectName, $resourceType) 
+    hidden [string] CalculateAssignee($rscId, $projectName, $resourceType, $serviceIdPassedInCMD) 
     {
         $metaInfo = [MetaInfoProvider]::Instance;
         $assignee = "";
         try {
-            $serviceTreeInfo = $metaInfo.FetchResourceMappingWithServiceData($rscId, $projectName, $resourceType);
-            if($serviceTreeInfo)
+            #If serviceid based scan then get servicetreeinfo details only once.
+            #First condition if not serviceid based scan then go inside every time.
+            #Second condition if serviceid based scan and [BugMetaInfoProvider]::ServiceTreeInfo not null then only go inside.
+            if (!$serviceIdPassedInCMD -or ($serviceIdPassedInCMD -and ![BugMetaInfoProvider]::ServiceTreeInfo)) {
+                [BugMetaInfoProvider]::ServiceTreeInfo = $metaInfo.FetchResourceMappingWithServiceData($rscId, $projectName, $resourceType);
+            }
+            if([BugMetaInfoProvider]::ServiceTreeInfo)
             {
-                $this.ServiceId = $serviceTreeInfo.serviceId;
-                [BugLogPathManager]::AreaPath = $serviceTreeInfo.areaPath.Replace("\", "\\");
+                $this.ServiceId = [BugMetaInfoProvider]::ServiceTreeInfo.serviceId;
+                [BugLogPathManager]::AreaPath = [BugMetaInfoProvider]::ServiceTreeInfo.areaPath.Replace("\", "\\");
                 $domainNameForAssignee = ""
                 if([Helpers]::CheckMember($this.ControlSettingsBugLog, "DomainName"))
                 {
                     $domainNameForAssignee = $this.ControlSettingsBugLog.DomainName;
                 }
-                $assignee = $serviceTreeInfo.devOwner.Split(";")[0] + "@"+ $domainNameForAssignee
+                $assignee = [BugMetaInfoProvider]::ServiceTreeInfo.devOwner.Split(";")[0] + "@"+ $domainNameForAssignee
             }
         }
         catch {

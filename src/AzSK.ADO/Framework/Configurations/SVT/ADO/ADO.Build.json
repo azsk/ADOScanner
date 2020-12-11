@@ -207,6 +207,23 @@
         "AuthZ"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Build_SI_Disable_Pipeline_Edit_Permission",
+      "Description": "Do not allow build pipeline to be edited by a broad pool of users.",
+      "Id": "Build230",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckPipelineEditPermission",
+      "Rationale": "TBD",
+      "Recommendation": "TBD",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
     }  
   ]
 }

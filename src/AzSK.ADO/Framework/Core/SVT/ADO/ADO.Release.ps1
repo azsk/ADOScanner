@@ -823,4 +823,110 @@ class Release: ADOSVTBase
 
         return $controlResult
     }
+    hidden [ControlResult] CheckPipelineEditPermission([ControlResult] $controlResult)
+    {
+
+        $orgName = $($this.SubscriptionContext.SubscriptionName)
+        $projectName = $this.ResourceContext.ResourceGroupName
+        $releaseId = $this.ReleaseObj.id
+        $permissionSetToken = "$($this.projectId)/$releaseId"
+        $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release?_a=releases&view=mine&definitionId=$releaseId"
+        
+        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $($this.projectId)
+        $inputbody = "{
+            'contributionIds': [
+                'ms.vss-admin-web.security-view-members-data-provider'
+            ],
+            'dataProviderContext': {
+                'properties': {
+                    'permissionSetId': '$([Release]::SecurityNamespaceId)',
+                    'permissionSetToken': '$permissionSetToken',
+                    'sourcePage': {
+                        'url': '$releaseURL',
+                        'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
+                        'routeValues': {
+                            'project': '$projectName',
+                            'viewname': 'details',
+                            'controller': 'ContributedPage',
+                            'action': 'Execute'
+                        }
+                    }
+                }
+            }
+        }" | ConvertFrom-Json
+
+        try
+        {
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+            {
+    
+                $contributorObj = $responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object {$_.subjectKind -eq 'group' -and $_.principalName -eq "[$projectName]\Contributors"}
+                # $contributorObj would be null if none of its permissions are set i.e. all perms are 'Not Set'.
+
+                if($contributorObj)
+                {
+                    $contributorInputbody = "{
+                        'contributionIds': [
+                            'ms.vss-admin-web.security-view-permissions-data-provider'
+                        ],
+                        'dataProviderContext': {
+                            'properties': {
+                                'subjectDescriptor': '$($contributorObj.descriptor)',
+                                'permissionSetId': '$([Release]::SecurityNamespaceId)',
+                                'permissionSetToken': '$permissionSetToken',
+                                'accountName': '$(($contributorObj.principalName).Replace('\','\\'))',
+                                'sourcePage': {
+                                    'url': '$releaseURL',
+                                    'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
+                                    'routeValues': {
+                                        'project': '$projectName',
+                                        'viewname': 'details',
+                                        'controller': 'ContributedPage',
+                                        'action': 'Execute'
+                                    }
+                                }
+                            }
+                        }
+                    }" | ConvertFrom-Json
+                
+                    #Web request to fetch RBAC permissions of Contributors group on task group.
+                    $contributorResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$contributorInputbody);
+                    $contributorRBACObj = $contributorResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
+                    $editPerms = $contributorRBACObj | Where-Object {$_.displayName -eq 'Edit release pipeline'}
+                   
+                    if([Helpers]::CheckMember($editPerms,"effectivePermissionValue"))
+                    {
+                        #effectivePermissionValue equals to 1 implies edit release pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
+                        if(($editPerms.effectivePermissionValue -eq 1) -or ($editPerms.effectivePermissionValue -eq 3))
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the release pipeline.");
+                        }
+                        else 
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the release pipeline.");    
+                        }   
+                    }
+                    else 
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the release pipeline.");
+                    }
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have access to the release pipeline.");
+                }
+            }
+            else 
+            {
+                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
+        }
+
+        return $controlResult;
+    }
 }
