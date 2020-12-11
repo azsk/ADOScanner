@@ -21,7 +21,7 @@ function Install-AzSKADOContinuousAssurance
 	.PARAMETER OrganizationName
 		Organization name for which scan will be performed.
 	.PARAMETER PATToken
-        PAT token secure string for organization to be scanned.
+		PAT token secure string for organization to be scanned.
 	.PARAMETER PATTokenURL
 		KeyVault URL for PATToken.
 	.PARAMETER IdentityResourceId
@@ -53,7 +53,7 @@ function Install-AzSKADOContinuousAssurance
 		[string]
 		$OrganizationName,
 
-        [Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage = "Project to be scanned within the organization.")]
+		[Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage = "Project to be scanned within the organization.")]
 		[Parameter(Mandatory = $true, ParameterSetName = "CentralCA")]
 		[Alias("pns", "ProjectNames","pn")]
 		[string]
@@ -79,7 +79,7 @@ function Install-AzSKADOContinuousAssurance
 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Resource group name where CA setup needs to be done")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
-        [string]
+		[string]
 		[ValidateNotNullOrEmpty()]
 		[Alias("rgn")]
 		$ResourceGroupName,       
@@ -93,14 +93,14 @@ function Install-AzSKADOContinuousAssurance
 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Workspace ID of Log Analytics workspace which is used to monitor security scan results.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
-        [string]
+		[string]
 		[ValidateNotNullOrEmpty()]
 		[Alias("lwid","wid")]
 		$LAWSId,
 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Shared key of Log Analytics workspace which is used to monitor security scan results.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
-        [string]
+		[string]
 		[ValidateNotNullOrEmpty()]
 		[Alias("lwkey","wkey")]
 		$LAWSSharedKey,
@@ -187,7 +187,7 @@ function Update-AzSKADOContinuousAssurance
 		Organization name for which scan will be performed.
 	.PARAMETER PATToken
 		PAT token secure string for organization to be scanned.
-    .PARAMETER PATTokenURL
+	.PARAMETER PATTokenURL
 		KeyVault URL for PATToken.
 	.PARAMETER ProjectName
 		Project to be scanned within the organization.
