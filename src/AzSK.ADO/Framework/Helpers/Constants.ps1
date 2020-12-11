@@ -20,8 +20,8 @@ class Constants
 "	b) For control failures for which bugs were already present, the respective bugs have been marked 'Active' `r`n"
 
     static [string] $CentralCAMsg="** Next steps **`r`n" + 
-"Provide 'Get,List' permissions on KeyVault to User assigned managed identity using any one of below ways:`r`n" +
-"	a) Goto KeyVault resource > Access Policy > Add > Enter Client Id of the identity > Provide Get,list permissions on Secret > Save`r`n"+
+"Provide 'Get,List' permissions on key vault to user assigned managed identity using any one of below ways:`r`n" +
+"	a) Go to key vault resource -> Access policies -> Add access policy -> Enter client Id of the identity -> Provide Get,list permissions on secret -> Save`r`n"+
 "	b) Run command: Set-AzKeyVaultAccessPolicy -VaultName <KeyVaultName> -ObjectId <ObjectId of Identity> -PermissionsToSecrets Get,List `r`n"
 
     static [string] $RemediationMsgForARMChekcer = "** Next steps **`r`n" + 

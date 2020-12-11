@@ -241,7 +241,7 @@ class CAAutomation : ADOSVTCommandBase
 				{
 					$this.updateSecret = $true
 				}
-				if($_.Key -eq "ClearExtendedCommand" -or $_.Key -ne "PATTokenURL")
+				if($_.Key -eq "ClearExtendedCommand" -or $_.Key -eq "PATTokenURL")
 				{
 					$this.updateAppSettings = $true
 				}
