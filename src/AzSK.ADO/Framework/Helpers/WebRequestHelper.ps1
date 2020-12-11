@@ -342,6 +342,9 @@ class WebRequestHelper {
 									elseif ($uri.Contains("release/definitions") -and -not $uri.Contains('$top')){
 										$uri= $orginalUri + "&continuationToken="+$nPKey
 									}
+									elseif ($uri.Contains("projects")){
+										$uri= $orginalUri + "&continuationToken="+$nPKey
+									}
 									else {
 										$uri = [string]::Empty;
 									}

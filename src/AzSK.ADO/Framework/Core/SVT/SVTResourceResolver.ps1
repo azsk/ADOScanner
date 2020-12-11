@@ -204,8 +204,8 @@ class SVTResourceResolver: AzSKRoot {
             $this.PublishCustomMessage("Querying api for resources to be scanned. This may take a while...");
 
             $this.PublishCustomMessage("Getting project configurations...");
-            #TODO: By default api return only 100 projects. Added $top=500 to fetch first 500 projects.
-            $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=500&api-version=5.1' -f $($this.SubscriptionContext.SubscriptionName);
+            #TODO: By default api return only 100 projects. Added $top=1000 to fetch first 1000 projects. If there are morethan 1000 projects, pagination is implemented to fetch them
+            $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=5.1' -f $($this.SubscriptionContext.SubscriptionName);
             $responseObj = "";
             try { 
                 $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL) ;
