@@ -246,8 +246,8 @@
       "Microsoft DevLabs"
     ],
     "TrustedExtensionPublishersId":[
-      ""],
-    "InvalidExtensionNames":["DevTest", "Demo", "Preview", "Deprecated"],
+      " "],
+    "NonProductionExtensionNames":["DevTest", "Demo", "Preview", "Deprecated"],
     "ExtensionsLastUpdatedInYears": 2,
     "ExtensionCriticalScopes":["vso.agentpools_manage","vso.build_execute","vso.code_write","vso.code_manage","vso.code_full",
                       "vso.code_status","vso.memberentitlementmanagement_write","vso.extension_manage",
