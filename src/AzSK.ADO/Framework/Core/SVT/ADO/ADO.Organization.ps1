@@ -397,29 +397,34 @@ class Organization: ADOSVTBase
     hidden [ControlResult] ValidateInstalledExtensions([ControlResult] $controlResult)
     {
         try 
-        {
-           
+        {           
             $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=4.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             
             if(($responseObj | Measure-Object).Count -gt 0 ) #includes both custom installed and built in extensions.
             {
-                $extensionList = $responseObj | Select-Object extensionName,publisherId,publisherName,version,flags # 'flags' is not available in every extension. It is visible only for built in extensions. Hence this appends 'flags' to trimmed objects.
+                $extensionList = $responseObj | Select-Object extensionName,publisherId,publisherName,version,flags,lastPublished,scopes,extensionId # 'flags' is not available in every extension. It is visible only for built in extensions. Hence this appends 'flags' to trimmed objects.
                 $extensionList = $extensionList | Where-Object {$_.flags -notlike "*builtin*" } # to filter out extensions that are built in and are not visible on portal.
+                
+
                 $extCount = ($extensionList | Measure-Object ).Count;
 
                 if($extCount -gt 0)
                 {               
                     $controlResult.AddMessage("No. of installed extensions: " + $extCount);
-                    $controlResult.AdditionalInfo += "No. of installed extensions: " + $extCount;
-
+                    $controlResult.AdditionalInfo += "No. of installed extensions: " + $extCount;             
+                    
+                    #if([Helpers]::CheckMember($this.ControlSettings, "Organization.TrustedExtensionPublishersId"))
+                    #{$trustedExtPublishersId = $this.ControlSettings.Organization.TrustedExtensionPublishersId;}
                     $trustedExtPublishers = $this.ControlSettings.Organization.TrustedExtensionPublishers;
 
                     $trustedExtensions = @(); #Publishers trusted by Microsoft
+                    #$trustedExtensions += $extensionList | Where-Object {$_.publisherId -in $trustedExtPublishersId}
                     $trustedExtensions += $extensionList | Where-Object {$_.publisherName -in $trustedExtPublishers}
                     $trustedCount = ($trustedExtensions | Measure-Object).Count
                     
                     $unTrustedExtensions = @(); #Publishers not trusted by Microsoft
+                    #$unTrustedExtensions += $extensionList | Where-Object {$_.publisherId -notin $trustedExtPublishersId}
                     $unTrustedExtensions += $extensionList | Where-Object {$_.publisherName -notin $trustedExtPublishers}
                     $unTrustedCount = ($unTrustedExtensions | Measure-Object).Count
                     
@@ -448,6 +453,144 @@ class Organization: ADOSVTBase
                     $stateData.Untrusted_Extensions += $unTrustedExtensions
 
                     $controlResult.SetStateData("List of installed extensions: ", $stateData);
+
+                    ## Deep scan start
+                    if([AzSKRoot]::IsDetailedScanRequired -eq $true)
+                    {
+                        if($null -ne $this.ControlSettings)
+                        {
+                            # find inactive extensions
+                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.ExtensionsLastUpdatedInYears"))
+                            {
+                                $staleExtensionList=@()
+                                $date = Get-Date
+                                $ExtensionsLastUpdatedInYears=$this.ControlSettings.Organization.ExtensionsLastUpdatedInYears;
+                                $thresholddate = $date.AddYears(-$ExtensionsLastUpdatedInYears)
+                                $staleExtensionList += $extensionList | Where-Object {([datetime] $_.lastPublished) -lt $thresholddate}
+                                if($staleExtensionList.count -gt 0)
+                                {
+                                    $controlResult.AddMessage("`nNo. of extensions that haven't been published in last $ExtensionsLastUpdatedInYears years: "+ $staleExtensionList.count)
+                                    $controlResult.AddMessage("List of extensions(that haven't been published in last $ExtensionsLastUpdatedInYears years): ")                       
+                                    $display= $staleExtensionList|Format-Table -Property  @{name="ExtensionName";expression={$_.extensionName}},@{name="PublisherName";expression={$_.publisherName}} | Out-String
+                                    $controlResult.AddMessage($display)
+                                }
+                            }                                                                            
+
+                            # display extensions with critical scopes
+                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.ExtensionCriticalScopes"))
+                            {
+                                $ExtensionListWithCriticalScopes=@()
+                                $ExtensionCriticalScopes=$this.ControlSettings.Organization.ExtensionCriticalScopes;
+                                $ExtensionListWithCriticalScopes += $extensionList | Where-Object {$ExtensionCriticalScopes -contains $_.scopes }
+                                if($ExtensionListWithCriticalScopes.count -gt 0)
+                                {
+                                    $controlResult.AddMessage("`nNo. of extensions that have critical access permissions: "+ $ExtensionListWithCriticalScopes.count)                        
+                                    $controlResult.AddMessage("List of extensions(that have critical access permissions): ")
+                                    $display= $ExtensionListWithCriticalScopes|Format-Table -Property  @{name="ExtensionName";expression={$_.extensionName}},@{name="Scope";expression={$_.scopes}} | Out-String
+                                    $controlResult.AddMessage($display) 
+                                }
+                            }                          
+                        
+                            # Avoid extensions  with 'DevTest', 'Demo', 'Preview', 'Deprecated' in names
+                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.NonProductionExtensionNames"))
+                            {
+                                $ExtensionListWithNonProductionExtensionNames=@()
+                                $NonProductionExtensionNames=$this.ControlSettings.Organization.NonProductionExtensionNames;
+                                for($i=0;$i -lt $extensionList.count;$i++)
+                                {
+                                    for($j=0;$j -lt $NonProductionExtensionNames.Count;$j++)
+                                    {
+                                        if($extensionList[$i].extensionName -match $NonProductionExtensionNames[$j])
+                                        {
+                                            $ExtensionListWithNonProductionExtensionNames += $extensionList[$i]
+                                        }
+                                    }
+                                }                        
+                                if($ExtensionListWithNonProductionExtensionNames.count -gt 0)
+                                {
+                                    $controlResult.AddMessage("`nNo. of extensions that have name belonging to non-production enevironment:  "+ $ExtensionListWithNonProductionExtensionNames.count)
+                                    $controlResult.AddMessage("List of extensions(that have name belonging to non-production enevironment):  ")
+                                    $controlResult.AddMessage($ExtensionListWithNonProductionExtensionNames) 
+                                }
+                            }
+                            
+                        
+                            # Display extensions with Top Publishers, extensions that are private and Nonprod extensions
+                            $topPublisherExt=@()
+                            $privateExtensions=@()
+                            $nonProdExtensions=@()
+                            $extensionList | ForEach-Object {
+                                $url="https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery?api-version=6.1-preview.1"
+                                $inputbody = "{
+                                    'assetTypes': null,
+                                    'filters': [
+                                        {
+                                            'criteria': [
+                                                {
+                                                    'filterType': 7,
+                                                    'value': '$($_.publisherId).$($_.extensionId)'
+                                                }
+                                            ]                                
+                                        }
+                                    ]
+                                }" 
+    
+                                $response= Invoke-WebRequest -Uri $url `
+                                    -Method Post `
+                                    -ContentType "application/json" `
+                                    -Body $inputbody `
+                                    -UseBasicParsing
+    
+                                $responseObject=$response.Content | ConvertFrom-Json
+
+                                # if response object does not get details of extension, those extensions are private extensions
+                                if([Helpers]::CheckMember($responseobject.results[0], "extensions") -eq $false )
+                                {
+                                    $privateExtensions+=$_
+                                }
+                                else
+                                {
+                                    $extensionflags=$responseobject.results[0].extensions.flags.split(",")
+                                
+                                    for($i=0;$i -lt $extensionflags.count;$i++)
+                                    {
+                                        for($j=0;$j -lt $NonProductionExtensionNames.Count;$j++)
+                                        {
+                                            if($extensionflags[$i] -match $NonProductionExtensionNames[$j])
+                                            {
+                                                $nonProdExtensions+=$_
+                                            }
+                                        }
+                                    }
+
+                                    if($responseobject.results[0].extensions.publisher.flags -match "certified")
+                                    {
+                                        $topPublisherExt+=$_
+                                    }
+                                }                            
+                            }
+
+                            if($topPublisherExt.count -gt 0)
+                            {
+                                $controlResult.AddMessage("`nNo. of installed extensions from top publishers: "+$topPublisherExt.count);
+                                $controlResult.AddMessage("List of installed extensions(from top publishers): ")
+                                $controlResult.AddMessage($topPublisherExt);
+                            }
+                            if($privateExtensions.count -gt 0)
+                            {
+                                $controlResult.AddMessage("`nNo. of installed extensions with private visibility: "+$privateExtensions.count);
+                                $controlResult.AddMessage("List of installed extensions(with private visibility): ")
+                                $controlResult.AddMessage($privateExtensions);
+                            }
+                            if($nonProdExtensions.count -gt 0)
+                            {
+                                $controlResult.AddMessage("`nNo. of installed extensions that belong to non production environment: "+$nonProdExtensions.count);
+                                $controlResult.AddMessage("List of installed extensions(that belong to non production environment): ")
+                                $controlResult.AddMessage($nonProdExtensions);
+                            } 
+                        }                                                                      
+                    }                                        
+                    ## end Deep scan
                 }
                 else 
                 {
