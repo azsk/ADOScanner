@@ -497,6 +497,23 @@
         "Best Practice"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Disable_OAuth_App_Access",
+      "Description": "Third-party application access via OAuth should be disabled.",
+      "Id": "Organization400",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckOAuthAppAccess",
+      "Rationale": "Malicious ADO OAuth applications can be used to phish ADO admins or users. OAuth app access should be disabled if your organization does not use any third-party OAuth application.",
+      "Recommendation": "Go to Organization Settings --> Security --> Policies --> Application connection policies --> Disable 'Third-party application access via OAuth'.",
+      "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ"
+      ],
+      "Enabled": true
     }
   ]
 }

@@ -5,9 +5,11 @@ class CAAutomation : ADOSVTCommandBase
     hidden [string] $Location
     hidden [string] $OrganizationToScan
     hidden [System.Security.SecureString] $PATToken
+    hidden [string] $PATTokenURL
+    hidden [string] $IdentityId
     hidden [string] $TimeStamp #Use for new CA creation only.
     hidden [string] $StorageName
-	hidden [string] $AppServicePlanName = "ADOScannerFAPlan"
+    hidden [string] $AppServicePlanName = "ADOScannerFAPlan"
 	hidden [string] $FuncAppDefaultName = "ADOScannerFA"
     hidden [string] $KVDefaultName = "ADOScannerKV"
     hidden [string] $FuncAppName
@@ -19,17 +21,22 @@ class CAAutomation : ADOSVTCommandBase
     hidden [string] $SecretName = "PATForADOScan"
     hidden [string] $LASecretName = "LAKeyForADOScan"
     hidden [string] $AltLASecretName = "AltLAKeyForADOScan"
+    hidden [string] $IdentitySecretName = "IdentityIdForADOScan"
     hidden [string] $StorageKind = "StorageV2"
     hidden [string] $StorageType = "Standard_LRS"
     hidden [string] $LAWSName = "ADOScannerLAWS"
     hidden [bool] $CreateLAWS 
     hidden [string] $ProjectNames 
-	hidden [string] $ExtendedCommand 
-	hidden [string] $CRONExp 
-	hidden [bool] $ClearExtCmd 
-	hidden [bool] $updateAppSettings = $false
-	hidden [bool] $updateSecret = $false
-	hidden [string] $CAScanLogsContainerName = [Constants]::CAScanLogsContainerName
+    hidden [string] $ExtendedCommand 
+    hidden [string] $CRONExp 
+    hidden [bool] $ClearExtCmd 
+    hidden [bool] $updateAppSettings = $false
+    hidden [bool] $updateSecret = $false
+    hidden [string] $CAScanLogsContainerName = [Constants]::CAScanLogsContainerName
+    hidden [string] $WebhookUrl
+    hidden [string] $WebhookAuthZHeaderName
+    hidden [string] $WebhookAuthZHeaderValue
+    hidden [bool] $AllowSelfSignedWebhookCertificate
 	
 	#UCA params for dev-test support
 	hidden [string] $RsrcTimeStamp = $null  #We will apply UCA to function app with this timestamp, e.g., "200830092449"
@@ -56,12 +63,12 @@ class CAAutomation : ADOSVTCommandBase
 		[string] $Loc, `
 		[string] $OrgName, `
 		[System.Security.SecureString] $PATToken, `
+		[string] $PATTokenURL, `
 		[string] $ResourceGroupName, `
 		[string] $LAWorkspaceId, `
 		[string] $LAWorkspaceKey, `
-		[string] $AltLAWorkspaceId, `
-		[string] $AltLAWorkspaceKey, `
 		[string] $Proj, `
+		[string] $IdentityResourceId, `
 		[string] $ExtCmd, `
 		[int] $ScanIntervalInHours,
 		[InvocationInfo] $invocationContext, `
@@ -70,6 +77,8 @@ class CAAutomation : ADOSVTCommandBase
 		$this.SubscriptionId = $SubId
 		$this.OrganizationToScan = $OrgName
 		$this.PATToken = $PATToken
+		$this.PATTokenURL = $PATTokenURL
+		$this.IdentityId = $IdentityResourceId
 		$this.ProjectNames = $Proj
 		$this.ExtendedCommand = $ExtCmd
 		$this.TimeStamp = (Get-Date -format "yyMMddHHmmss")
@@ -130,12 +139,7 @@ class CAAutomation : ADOSVTCommandBase
 		{
 			$this.LAWSId = $LAWorkspaceId
 			$this.LAWSSharedKey = $LAWorkspaceKey
-		}
-		if ([string]::IsNullOrWhiteSpace($AltLAWorkspaceId) -or [string]::IsNullOrWhiteSpace($AltLAWorkspaceKey) ) 
-		{
-			$this.AltLAWSId = $AltLAWorkspaceId
-			$this.AltLAWSSharedKey = $AltLAWorkspaceKey
-		}
+        }
 
 		$ModuleName = $invocationContext.MyCommand.Module.Name 
 		if(-not [string]::IsNullOrWhiteSpace($ModuleName))
@@ -158,6 +162,7 @@ class CAAutomation : ADOSVTCommandBase
 		[string] $SubId, `
 		[string] $OrgName, `
 		[System.Security.SecureString] $PATToken, `
+		[string] $PATTokenURL, `
 		[string] $ResourceGroupName, `
 		[string] $LAWorkspaceId, `
 		[string] $LAWorkspaceKey, `
@@ -165,6 +170,10 @@ class CAAutomation : ADOSVTCommandBase
 		[string] $AltLAWorkspaceKey, `
 		[string] $Proj, `
 		[string] $ExtCmd, `
+		[string] $WebhookUrl, `
+		[string] $WebhookHeaderName, `
+		[string] $WebhookHeaderValue, `
+		[bool] $AllowSelfSignedWebhookCert,
 		[string] $RsrcTimeStamp, `
 		[string] $ContainerImageName, `
 		[string] $ModuleEnv, `
@@ -177,6 +186,7 @@ class CAAutomation : ADOSVTCommandBase
 			$this.SubscriptionId = $SubId
 			$this.OrganizationToScan = $OrgName
 			$this.PATToken = $PATToken
+			$this.PATTokenURL = $PATTokenURL
 			$this.ProjectNames = $Proj
 			$this.ExtendedCommand = $ExtCmd
 			$this.SetupComplete = $false
@@ -185,6 +195,10 @@ class CAAutomation : ADOSVTCommandBase
 			$this.AltLAWSId = $AltLAWorkspaceId
 			$this.AltLAWSSharedKey = $AltLAWorkspaceKey
 			$this.ClearExtCmd = $ClearExtendedCommand
+			$this.WebhookUrl = $WebhookUrl
+			$this.WebhookAuthZHeaderName = $WebhookHeaderName
+			$this.WebhookAuthZHeaderValue = $WebhookHeaderValue
+			$this.AllowSelfSignedWebhookCertificate = $AllowSelfSignedWebhookCert
 
 			#Some stuff for dev-test support
 			$this.NewImageName = $ContainerImageName
@@ -227,10 +241,6 @@ class CAAutomation : ADOSVTCommandBase
 				{
 					$this.updateSecret = $true
 				}
-				if($_.Key -eq "ClearExtendedCommand")
-				{
-					$this.updateAppSettings = $true
-				}
 			}
 		}
 
@@ -266,6 +276,17 @@ class CAAutomation : ADOSVTCommandBase
 				$this.ImageName = $this.ControlSettings.DockerImage.ImageName
 			}
 		}
+    
+    [void] RegisterResourceProvider()
+    {
+        if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "ResourceProviders")) 
+        {
+            $resourceProvider = $this.ControlSettings.ResourceProviders
+            $resourceProvider | foreach {
+                [ResourceHelper]::RegisterResourceProviderIfNotRegistered($_);
+            }
+        }
+    }
 
 	[string] ValidateUserPermissions()
 	{
@@ -317,7 +338,24 @@ class CAAutomation : ADOSVTCommandBase
 						$output = 'OK'
 					}
 				}
-			}
+            }
+            #Resolve projectNames if * is used in command
+            if ($this.ProjectNames -eq "*")
+            {
+                $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=5.1' -f $($this.SubscriptionContext.SubscriptionName);
+                $responseObj = "";
+                try { 
+                    $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                    if (-not [string]::IsNullOrEmpty($responseObj) -and ($responseObj | Measure-Object).Count -gt 0)
+                    {
+                        $this.Projectnames  = $ResponseObj.Name -join ","
+                    }
+                }
+                catch {
+                    $this.PublishCustomMessage("Project not found: Incorrect project name or you do not have neccessary permission to access the project.", [MessageType]::Error);
+                    throw;
+                }
+            }
 		}
 		catch{
 			$output += $_;
@@ -326,8 +364,107 @@ class CAAutomation : ADOSVTCommandBase
 		return $output
 	}
 
-	[MessageData[]] InstallAzSKADOContinuousAssurance()
+    #Create common resources applicable for both type of CA setups
+    [void] CreateResources()
     {
+        try
+        {
+            if([string]::IsNullOrWhiteSpace($this.ImageName))
+            {
+                $messageData += [MessageData]::new("If you are using customized org policy, please ensure DockerImageName is defined in your ControlSettings.json")
+                $this.PublishCustomMessage($messageData.Message, [MessageType]::Error);
+            }
+            #Step 1: If RG does not exist then create new
+            if((Get-AzResourceGroup -Name $this.RGname -ErrorAction SilentlyContinue | Measure-Object).Count -eq 0)
+            {
+                $RG = @(New-AzResourceGroup -Name $this.RGname -Location $this.Location)
+                if($RG.Count -eq 0) 
+                {
+                    $this.PublishCustomMessage("New resource group '$($this.RGname)' creation failed", [MessageType]::Error);
+                }
+                else
+                {
+                    $this.PublishCustomMessage("New resource group '$($this.RGname)' created", [MessageType]::Update);
+                }
+            }
+            else
+            {
+                $this.PublishCustomMessage("Resource group [$($this.RGname)] already exists. Skipping RG creation.", [MessageType]::Update);
+            }
+
+            $this.PublishCustomMessage("Creating required resources in resource group [$($this.RGname)]....", [MessageType]::Info);
+
+            #Step 2: Create app service plan "Elastic Premium"
+            if ((($AppServPlan =Get-AzResource -ResourceGroupName $this.RGName -ResourceType 'Microsoft.web/serverfarms' -Name $this.AppServicePlanName) | Measure-Object).Count -eq 0)
+            {
+                $AppServPlan = New-AzResource -ResourceName $this.AppServicePlanName -ResourceGroupName $this.RGname -ResourceType Microsoft.web/serverfarms -ApiVersion "2018-02-01" -Location $this.Location -Kind Elastic -Properties @{"reserved"=$true;} -Sku @{name= "EP1";tier = "ElasticPremium";size= "EP1";family="EP";capacity= 1} -Force
+                if($null -eq $AppServPlan) 
+                {
+                    $this.PublishCustomMessage("AppService plan [$($this.AppServicePlanName)] creation failed", [MessageType]::Error);
+                }
+                else
+                {
+                    $this.PublishCustomMessage("AppService plan [$($this.AppServicePlanName)] created", [MessageType]::Update);
+                    $this.CreatedResources += $AppServPlan.ResourceId
+                }
+            }
+            else 
+            {
+                $this.PublishCustomMessage("AppService Plan: [$($this.AppServicePlanName)] already exists. Skipping creation.", [MessageType]::Update);
+            }
+
+            #Step 3: Create storage account
+            $StorageAcc = New-AzStorageAccount -ResourceGroupName $this.RGname -Name $this.StorageName -Type $this.StorageType -Location $this.Location -Kind $this.StorageKind -EnableHttpsTrafficOnly $true -ErrorAction Stop
+            if($null -eq $StorageAcc) 
+            {
+                $this.PublishCustomMessage("Storage account [$($this.StorageName)] creation failed", [MessageType]::Error);
+            }
+            else
+            {
+                $this.PublishCustomMessage("Storage [$($this.StorageName)] created", [MessageType]::Update);
+                $this.CreatedResources += $StorageAcc.Id
+
+            }
+
+            #Step 4: Create LAW if applicable
+            if ($this.CreateLAWS -eq $true)
+            {
+                $LAWorkspace = @(New-AzOperationalInsightsWorkspace -Location $this.Location -Name $this.LAWSName -Sku $this.LAWSsku -ResourceGroupName $this.RGname)
+                if($LAWorkspace -eq 0) 
+                {
+                    $this.PublishCustomMessage("Log Analytics Workspace [$($this.LAWSName)] creation failed", [MessageType]::Error);
+                }
+                else
+                {
+                    $this.LAWSId = $LAWorkspace.CustomerId.Guid.ToString()
+                    $SharedKeys = Get-AzOperationalInsightsWorkspaceSharedKey -Name $this.LAWSName -ResourceGroupName $this.RGname -WarningAction silentlycontinue
+                    $this.LAWSSharedKey = $SharedKeys.PrimarySharedKey
+                    $this.PublishCustomMessage("Log Analytics Workspace [$($this.LAWSName)] created", [MessageType]::Update);
+                    $this.CreatedResources += $LAWorkspace.ResourceId
+                }
+            }
+
+            #Step 5: Create keyvault
+            $KeyVault = New-AzKeyVault -Name $this.KeyVaultName -ResourceGroupName $this.RGname -Location $this.Location
+            if($null -eq $KeyVault) 
+            {
+                $this.PublishCustomMessage("Azure key vault [$($this.KeyVaultName)] creation failed", [MessageType]::Error);
+            }
+            else
+            {
+                $this.PublishCustomMessage("Azure key vault [$($this.KeyVaultName)] created", [MessageType]::Update);
+                $this.CreatedResources += $KeyVault.resourceid
+            }
+        }
+        catch {
+            $this.PublishCustomMessage("Error occured while creating resources", [MessageType]::Error);
+            throw;
+        }
+    }
+    
+    # ICA to setup using PATToken, by storing it in created KV and access it using system assigned identity of function app
+	[MessageData[]] InstallAzSKADOContinuousAssurance()
+	{
 		[MessageData[]] $messageData = @();
 		$this.messages += ([Constants]::DoubleDashLine + "`r`nStarted setting up Continuous Assurance (CA)`r`n"+[Constants]::DoubleDashLine);
 		$this.PublishCustomMessage($this.messages, [MessageType]::Info);
@@ -341,65 +478,10 @@ class CAAutomation : ADOSVTCommandBase
 			}
 			else 
 			{
-				if([string]::IsNullOrWhiteSpace($this.ImageName))
-				{
-					$messageData += [MessageData]::new("If you are using customized org policy, please ensure DockerImageName is defined in your ControlSettings.json")
-					$this.PublishCustomMessage($messageData.Message, [MessageType]::Error);
-					return $messageData
-				}
-				#Step 1: If RG does not exist then create new
-				if((Get-AzResourceGroup -Name $this.RGname -ErrorAction SilentlyContinue | Measure-Object).Count -eq 0)
-				{
-					$RG = @(New-AzResourceGroup -Name $this.RGname -Location $this.Location)
-					if($RG.Count -eq 0) 
-					{
-						$this.PublishCustomMessage("New resource group '$($this.RGname)' creation failed", [MessageType]::Error);
-					}
-					else
-					{
-						$this.PublishCustomMessage("New resource group '$($this.RGname)' created", [MessageType]::Update);
-					}
-				}
-				else
-				{
-					$this.PublishCustomMessage("Resource group [$($this.RGname)] already exists. Skipping RG creation.", [MessageType]::Update);
-				}
-		
-				$this.PublishCustomMessage("Creating required resources in resource group [$($this.RGname)]....", [MessageType]::Info);
-		
-				#Step 2: Create app service plan "Elastic Premium"
-				if ((($AppServPlan =Get-AzResource -ResourceGroupName $this.RGName -ResourceType 'Microsoft.web/serverfarms' -Name $this.AppServicePlanName) | Measure-Object).Count -eq 0)
-				{
-					$AppServPlan = New-AzResource -ResourceName $this.AppServicePlanName -ResourceGroupName $this.RGname -ResourceType Microsoft.web/serverfarms -ApiVersion "2018-02-01" -Location $this.Location -Kind Elastic -Properties @{"reserved"=$true;} -Sku @{name= "EP1";tier = "ElasticPremium";size= "EP1";family="EP";capacity= 1} -Force
-					if($null -eq $AppServPlan) 
-					{
-						$this.PublishCustomMessage("AppService plan [$($this.AppServicePlanName)] creation failed", [MessageType]::Error);
-					}
-					else
-					{
-						$this.PublishCustomMessage("AppService plan [$($this.AppServicePlanName)] created", [MessageType]::Update);
-						$this.CreatedResources += $AppServPlan.ResourceId
-					}
-				}
-				else 
-				{
-					$this.PublishCustomMessage("AppService Plan: [$($this.AppServicePlanName)] already exists. Skipping creation.", [MessageType]::Update);
-				}
-		
-				#Step 3: Create storage account
-				$StorageAcc = New-AzStorageAccount -ResourceGroupName $this.RGname -Name $this.StorageName -Type $this.StorageType -Location $this.Location -Kind $this.StorageKind -EnableHttpsTrafficOnly $true -ErrorAction Stop
-				if($null -eq $StorageAcc) 
-				{
-					$this.PublishCustomMessage("Storage account [$($this.StorageName)] creation failed", [MessageType]::Error);
-				}
-				else
-				{
-					$this.PublishCustomMessage("Storage [$($this.StorageName)] created", [MessageType]::Update);
-					$this.CreatedResources += $StorageAcc.Id
-		
-				}
-		
-				#Step 4: Create Function app
+        $this.RegisterResourceProvider();
+        $this.CreateResources(); #Step 1,2,3,4,5
+        
+        #Step 6: Create Function app
 				$FuncApp = New-AzFunctionApp -DockerImageName $this.ImageName -SubscriptionId $this.SubscriptionId -Name $this.FuncAppName -ResourceGroupName $this.RGname -StorageAccountName $this.StorageName -IdentityType SystemAssigned -PlanName $this.AppServicePlanName
 				if($null -eq $FuncApp) 
 				{
@@ -411,7 +493,7 @@ class CAAutomation : ADOSVTCommandBase
 					$this.CreatedResources += $FuncApp.Id
 				}
 				
-				#Step 5: Validate if AI got created
+				#Step 7: Validate if AI got created
 				$AppInsight = Get-AzResource -Name $this.AppInsightsName -ResourceType Microsoft.Insights/components
 				if($null -eq $AppInsight) 
 				{
@@ -423,39 +505,7 @@ class CAAutomation : ADOSVTCommandBase
 					$this.CreatedResources += $AppInsight.ResourceId
 				}
 		
-				#Step 6: Create LAW if applicable
-				if ($this.CreateLAWS -eq $true)
-				{
-					$LAWorkspace = @(New-AzOperationalInsightsWorkspace -Location $this.Location -Name $this.LAWSName -Sku $this.LAWSsku -ResourceGroupName $this.RGname)
-					if($LAWorkspace -eq 0) 
-					{
-						$this.PublishCustomMessage("Log Analytics Workspace [$($this.LAWSName)] creation failed", [MessageType]::Error);
-					}
-					else
-					{
-						$this.LAWSId = $LAWorkspace.CustomerId.Guid.ToString()
-						$SharedKeys = Get-AzOperationalInsightsWorkspaceSharedKey -Name $this.LAWSName -ResourceGroupName $this.RGname -WarningAction silentlycontinue
-						$this.LAWSSharedKey = $SharedKeys.PrimarySharedKey
-						$this.PublishCustomMessage("Log Analytics Workspace [$($this.LAWSName)] created", [MessageType]::Update);
-						$this.CreatedResources += $LAWorkspace.ResourceId
-					}
-				}
-		
-				#Step 7: Create keyvault
-				$KeyVault = New-AzKeyVault -Name $this.KeyVaultName -ResourceGroupName $this.RGname -Location $this.Location
-				if($null -eq $KeyVault) 
-				{
-					$this.PublishCustomMessage("Azure key vault [$($this.KeyVaultName)] creation failed", [MessageType]::Error);
-				}
-				else
-				{
-					$this.PublishCustomMessage("Azure key vault [$($this.KeyVaultName)] created", [MessageType]::Update);
-					$this.CreatedResources += $KeyVault.resourceid
-				}
-		
-		
 				#Step 8a: Add PAT token secret to key vault
-				#$Secret = ConvertTo-SecureString -String $this.PATToken -AsPlainText -Force
 				$CreatedSecret = Set-AzKeyVaultSecret -VaultName $this.KeyVaultName -Name $this.SecretName -SecretValue $this.PATToken
 				if($null -eq $CreatedSecret) 
 				{
@@ -479,22 +529,6 @@ class CAAutomation : ADOSVTCommandBase
 					else
 					{
 						$this.PublishCustomMessage("LA shared key secret created in Azure key vault", [MessageType]::Update);
-					}
-				}
-
-				#Step 8c: Add alternate LA Shared Key secret to key vault
-				$CreatedAltLASecret = $null
-				if (-not [string]::IsNullOrEmpty($this.AltLAWSSharedKey))
-				{
-					$secureStringAltKey = ConvertTo-SecureString $this.AltLAWSSharedKey -AsPlainText -Force
-					$CreatedAltLASecret = Set-AzKeyVaultSecret -VaultName $this.KeyVaultName -Name $this.AltLASecretName -SecretValue $secureStringAltKey
-					if($null -eq $CreatedAltLASecret) 
-					{
-						$this.PublishCustomMessage("Alternate LA shared key secret creation in Azure key vault failed", [MessageType]::Error);
-					}
-					else
-					{
-						$this.PublishCustomMessage("Alternate LA shared key secret created in Azure key vault", [MessageType]::Update);
 					}
 				}
 
@@ -522,7 +556,6 @@ class CAAutomation : ADOSVTCommandBase
 					$this.PublishCustomMessage("MSI access to storage provided", [MessageType]::Update);
 				}
 		
-		
 				#Step 10: Configure required env variables in function app for scan
 				$uri = $CreatedSecret.Id
 				$uri = $uri.Substring(0,$uri.LastIndexOf('/'))
@@ -533,14 +566,6 @@ class CAAutomation : ADOSVTCommandBase
 					$sharedKeyUri = $CreatedLASecret.Id
 					$sharedKeyUri = $sharedKeyUri.Substring(0,$sharedKeyUri.LastIndexOf('/'))
 					$sharedKeyUri = "@Microsoft.KeyVault(SecretUri=$sharedKeyUri)"
-				}
-
-				$altSharedKeyUri = ""
-				if (-not [string]::IsNullOrEmpty($CreatedAltLASecret))
-				{
-					$altSharedKeyUri = $CreatedAltLASecret.Id
-					$altSharedKeyUri = $altSharedKeyUri.Substring(0,$altSharedKeyUri.LastIndexOf('/'))
-					$altSharedKeyUri = "@Microsoft.KeyVault(SecretUri=$altSharedKeyUri)"
 				}
 				
 				#Turn on "Always ON" for function app and also fetch existing app settings and append the required ones. This has to be done as appsettings get overwritten
@@ -559,8 +584,6 @@ class CAAutomation : ADOSVTCommandBase
 								"SubscriptionId" = $this.SubscriptionId;
 								"LAWSId" = $this.LAWSId;
 								"LAWSSharedKey" = $sharedKeyUri;
-								"AltLAWSId" = $this.AltLAWSId;
-								"AltLAWSSharedKey" = $altSharedKeyUri;
 								"OrgName" = $this.OrganizationToScan;
 								"PATToken" = "@Microsoft.KeyVault(SecretUri=$uri)";
 								"StorageRG" = $this.RGname;
@@ -620,7 +643,224 @@ class CAAutomation : ADOSVTCommandBase
 		}
 		return $messageData
 	}
-	
+
+    #ICA to setup using PATTokenURL and access it using user assigned identity.Here KV holding PAT is not directly accessible, it will be retrieved at runtime by the identity.
+    [MessageData[]] InstallAzSKADOCentralContinuousAssurance()
+    {
+		[MessageData[]] $messageData = @();
+		$this.messages += ([Constants]::DoubleDashLine + "`r`nStarted setting up Continuous Assurance (CA)`r`n"+[Constants]::DoubleDashLine);
+		$this.PublishCustomMessage($this.messages, [MessageType]::Info);
+		try
+		{
+			$output = $this.ValidateUserPermissions();
+			if($output -ne 'OK') # if there is some while validating permissions output will contain exception
+			{
+				$this.PublishCustomMessage("Error validating permissions on the subscription", [MessageType]::Error);
+				$messageData += [MessageData]::new($output)
+			}
+			else 
+			{		
+        $this.RegisterResourceProvider();
+				$this.CreateResources(); #Step 1,2,3,4,5       
+
+                #Step 6a: Create Function app
+				$FuncApp = New-AzFunctionApp -DockerImageName $this.ImageName -SubscriptionId $this.SubscriptionId -Name $this.FuncAppName -ResourceGroupName $this.RGname -StorageAccountName $this.StorageName -IdentityType UserAssigned -IdentityID $this.IdentityId -PlanName $this.AppServicePlanName
+               
+				if($null -eq $FuncApp) 
+				{
+					$this.PublishCustomMessage("Function app [$($this.FuncAppName)] creation failed. Please validate permissions on Identity and try again (Minimum required permission is 'Managed identity operator').", [MessageType]::Error);
+				}
+				else
+				{
+					$this.PublishCustomMessage("Function app [$($this.FuncAppName)] created", [MessageType]::Update);
+                    $this.CreatedResources += $FuncApp.Id
+                    
+                    #Step 6b: Enable system assigned identity. As powershell commands do not support enabling both identities together, therefore we are using api call here
+                    $url = "https://management.azure.com/subscriptions/{0}/resourceGroups/{1}/providers/Microsoft.Web/sites/{2}?api-version=2018-11-01" -f $this.SubscriptionId, $this.RGname, $this.FuncAppName
+                    $accessToken = [ContextHelper]::GetAccessToken("https://management.azure.com", "")
+                    $header = @{
+                        "Authorization" = "Bearer " + $accessToken
+                    }
+                    $bodyObject = [PSCustomObject]@{
+                        'location' = $this.Location
+                        'identity' = [PSCustomObject]@{
+                            'type' = 'systemassigned,userassigned'
+                        }
+                    }
+                    $bodyJson = @($bodyObject) | ConvertTo-Json
+                            
+                    try {
+                        Invoke-WebRequest -Uri $url -Method Patch -ContentType "application/json"  -Headers $header -Body $bodyJson -UseBasicParsing
+                    }
+                    catch {
+                        $this.PublishCustomMessage("System assigned managed identity creation failed for function app [$($this.FuncAppName)].", [MessageType]::Error);
+                        throw;
+                    }
+				}
+				
+				#Step 7: Validate if AI got created
+				$AppInsight = Get-AzResource -Name $this.AppInsightsName -ResourceType Microsoft.Insights/components
+				if($null -eq $AppInsight) 
+				{
+					$this.PublishCustomMessage("Application Insights [$($this.AppInsightsName)] creation failed", [MessageType]::Error);
+				}
+				else
+				{
+					$this.PublishCustomMessage("Application Insights [$($this.AppInsightsName)] created", [MessageType]::Update);
+					$this.CreatedResources += $AppInsight.ResourceId
+                }
+                
+				#Step 8: Get Identity details of function app to provide access on keyvault and storage
+				$FuncApp = Get-AzWebApp -Name $this.FuncAppName -ResourceGroupName $this.RGname		
+                $FuncAppIdentity= $FuncApp.Identity.PrincipalId 
+                $UserAssignedIdentityClientId = $FuncApp.Identity.UserAssignedIdentities.Values.Clientid						
+				$MSIAccessToKV = Set-AzKeyVaultAccessPolicy -VaultName $this.KeyVaultName -ResourceGroupName $this.RGname -PermissionsToSecrets get,list -PassThru -ObjectId $FuncAppIdentity
+				$IsMSIAccess = $MSIAccessToKV.AccessPolicies | ForEach-Object { if ($_.ObjectId -match $FuncAppIdentity ) {return $true }}
+				if($IsMSIAccess -eq $true) 
+				{
+					$this.PublishCustomMessage("MSI access to Azure key vault provided", [MessageType]::Update);
+				}
+				else
+				{
+					$this.PublishCustomMessage("MSI access to Azure key vault failed", [MessageType]::Error);
+				}
+		
+				$MSIAccessToSA = New-AzRoleAssignment -ObjectId $FuncAppIdentity  -RoleDefinitionName "Contributor" -ResourceName $this.StorageName -ResourceGroupName $this.RGname -ResourceType Microsoft.Storage/storageAccounts
+				if($null -eq $MSIAccessToSA) 
+				{
+					$this.PublishCustomMessage("MSI access to storage failed", [MessageType]::Error);
+				}
+				else
+				{
+					$this.PublishCustomMessage("MSI access to storage provided", [MessageType]::Update);
+				}
+        
+                
+                #Step 9a: Add identity Client id to key vault secret
+                $clientId = ConvertTo-SecureString $UserAssignedIdentityClientId -AsPlainText -Force
+                $CreatedSecret = Set-AzKeyVaultSecret -VaultName $this.KeyVaultName -Name $this.IdentitySecretName -SecretValue $clientId 
+                if($null -eq $CreatedSecret) 
+                {
+                    $this.PublishCustomMessage("Identity secret creation in Azure key vault failed", [MessageType]::Error);
+                }
+                else
+                {
+                    $this.PublishCustomMessage("Identity secret created in Azure key vault", [MessageType]::Update);
+                }
+
+
+                #Step 9b: Add LA Shared Key to key vault secret
+                $CreatedLASecret = $null
+                if (-not [string]::IsNullOrEmpty($this.LAWSSharedKey))
+                {
+                    $secureStringKey = ConvertTo-SecureString $this.LAWSSharedKey -AsPlainText -Force
+                    $CreatedLASecret = Set-AzKeyVaultSecret -VaultName $this.KeyVaultName -Name $this.LASecretName -SecretValue $secureStringKey 
+                    if($null -eq $CreatedLASecret) 
+                    {
+                        $this.PublishCustomMessage("LA shared key secret creation in Azure key vault failed", [MessageType]::Error);
+                    }
+                    else
+                    {
+                        $this.PublishCustomMessage("LA shared key secret created in Azure key vault", [MessageType]::Update);
+                    }
+                }
+
+				#Step 10: Configure required env variables in function app for scan
+                $identitySecretUri = $CreatedSecret.Id
+                $identitySecretUri = $identitySecretUri.Substring(0,$identitySecretUri.LastIndexOf('/'))
+                $identitySecretUri = "@Microsoft.KeyVault(SecretUri=$identitySecretUri)"
+
+				$sharedKeyUri = ""
+				if (-not [string]::IsNullOrEmpty($CreatedLASecret))
+				{
+					$sharedKeyUri = $CreatedLASecret.Id
+					$sharedKeyUri = $sharedKeyUri.Substring(0,$sharedKeyUri.LastIndexOf('/'))
+					$sharedKeyUri = "@Microsoft.KeyVault(SecretUri=$sharedKeyUri)"
+				}
+
+				
+				#Turn on "Always ON" for function app and also fetch existing app settings and append the required ones. This has to be done as appsettings get overwritten
+				$WebApp = Get-AzWebApp -Name $this.FuncAppName -ResourceGroupName $this.RGname #-AlwaysOn $true
+				$ExistingAppSettings = $WebApp.SiteConfig.AppSettings 
+		
+				#convert existing app settings from list to hashtable
+				$AppSettingsHT = @{}
+				foreach ($Setting in $ExistingAppSettings) 
+				{
+					$AppSettingsHT["$($Setting.Name)"] = "$($Setting.value)"
+				}
+		
+				$NewAppSettings = @{
+								"ScheduleTriggerTime" = $this.CRONExp;
+								"SubscriptionId" = $this.SubscriptionId;
+								"LAWSId" = $this.LAWSId;
+								"LAWSSharedKey" = $sharedKeyUri;
+								"OrgName" = $this.OrganizationToScan;
+								"PATTokenUrl" = $this.PATTokenURL;
+								"StorageRG" = $this.RGname;
+								"ProjectNames" = $this.ProjectNames;
+								"ExtendedCommand" = $this.ExtendedCommand;
+								"StorageName" = $this.StorageName;
+								"AzSKADOModuleEnv" = $this.ModuleEnv;
+                                "AzSKADOVersion" = "";
+                                "ClientId" = $identitySecretUri;
+							}
+				$AppSettings = $NewAppSettings + $AppSettingsHT 
+		
+				$updatedWebApp = Update-AzFunctionAppSetting -Name $this.FuncAppName -ResourceGroupName $this.RGname -AppSetting $AppSettings -Force
+				if($updatedWebApp.Count -ne $AppSettings.Count) 
+				{
+					$this.PublishCustomMessage("App settings update failed", [MessageType]::Error);
+				}
+				else
+				{
+					$this.PublishCustomMessage("App settings updated", [MessageType]::Update);
+				}
+		
+                $this.PublishCustomMessage("`r`nSetup Complete!", [MessageType]::Update);
+				Restart-AzFunctionApp -name $this.FuncAppName -ResourceGroupName $this.RGname -SubscriptionId $this.SubscriptionId -Force
+
+				$this.PublishCustomMessage($this.ScheduleMessage, [MessageType]::Update);
+				$this.SetupComplete = $true
+				$this.DoNotOpenOutputFolder = $true
+				$messageData += [MessageData]::new("The following resources were created in resource group [$($this.RGName)] as part of AzSK.ADO Continuous Assurance", ($this.CreatedResources| Out-String))
+			}
+		}
+		catch
+		{
+			$this.PublishCustomMessage("ADO Scanner CA setup failed!", [MessageType]::Error);
+			$this.PublishCustomMessage($_, [MessageType]::Error);
+			$messageData += [MessageData]::new($Error)
+		}
+		finally
+		{
+			if ($this.SetupComplete -eq $false)
+			{
+				$this.PublishCustomMessage("CA Setup could not be completed. Deleting created resources...", [MessageType]::Warning);
+				if ($this.CreatedResources.Count -ne 0)
+				{
+					Foreach ($resourceId in $this.CreatedResources)
+					{
+						Remove-AzResource -ResourceId $resourceId -Force
+						$Index = $resourceId.LastIndexOf('/') + 1 ;
+						$ResourceName = $resourceId.Substring($Index)
+
+						$this.PublishCustomMessage("Deleted resource: [$($ResourceName)]", [MessageType]::Info);
+					}
+				}
+				else{
+					$this.PublishCustomMessage("No resource was created.", [MessageType]::Info);
+				}
+            }
+            else
+            {
+                $this.PublishCustomMessage([Constants]::SingleDashLine);
+                $this.PublishCustomMessage([Constants]::CentralCAMsg);
+            }
+		}
+		return $messageData
+	}
+
 	
 	[MessageData[]] UpdateAzSKADOContinuousAssurance()
     {
@@ -628,6 +868,8 @@ class CAAutomation : ADOSVTCommandBase
 		$CreatedSecret = $null
 		$CreatedLASecret = $null
 		$CreatedAltLASecret = $null
+		$ExistingAppSettings = @()
+		$appServResource = @()
 
 		$this.messages += ([Constants]::DoubleDashLine + "`r`nStarted updating Continuous Assurance (CA)`r`n"+[Constants]::DoubleDashLine);
 		$this.PublishCustomMessage($this.messages, [MessageType]::Info);
@@ -657,8 +899,44 @@ class CAAutomation : ADOSVTCommandBase
 				#Step 3: If only subid and/or RG name params are used then display below message
 				if ($this.updateAppSettings -eq $false -and $this.updateSecret -eq $false)
 				{
-					$this.PublishCustomMessage("Please use additonal parameters to perform update on LAWSId, LAWSSharedKey, OrganizationName, PATToken, ProjectNames, ExtendedCommand", [MessageType]::Info);
-				}
+					$this.PublishCustomMessage("Please use additonal parameters to perform update on LAWSId, LAWSSharedKey, OrganizationName, PATToken, PATTokenURL, ProjectNames, ExtendedCommand", [MessageType]::Info);
+                }
+                
+                #Step 3.1: Get function app resource from RG to get existing app settings details 
+                $funcAppToUpdate = $this.FuncAppDefaultName + $this.RsrcTimeStamp
+                $appServResource = @((Get-AzResource -ResourceGroupName $this.RGname -ResourceType "Microsoft.Web/Sites").Name | where {$_ -match $funcAppToUpdate})
+                if($appServResource.Count -eq 0)
+                {
+                    $this.PublishCustomMessage("ADOScanner function app not found in resource group [$($this.RGname)]. Update failed!", [MessageType]::Error);
+                    return $messageData
+                }
+                elseif ($appServResource.Count -gt 1)
+                {
+                    $this.PublishCustomMessage("More than one ADOScanner app service found in resource group [$($this.RGname)]. Update failed!)", [MessageType]::Error);
+                    $this.PublishCustomMessage("Consider using the '-RsrcTimeStamp' param. (E.g., to update values corresponding to 'ADOScannerFA200915172817' use '-RsrcTimeStamp 200915172817'.)", [MessageType]::Warning);						
+                    return $messageData
+                }
+                else 
+                {
+                    $WebApp = Get-AzWebApp -Name $appServResource[0] -ResourceGroupName $this.RGname
+                    $ExistingAppSettings = $WebApp.SiteConfig.AppSettings 
+                    
+                    # Check if CA setup is federated or centralized, and are the paramters provided in UCA compatible with it.
+                    if(($ExistingAppSettings.Name -contains "PATTokenURL" -and [string]::IsNullOrEmpty($this.PATTokenURL)) -or  ($ExistingAppSettings.Name -contains "PATToken" -and [string]::IsNullOrEmpty($this.PATToken)) )
+                    {
+                        $paramUsed = [string]::Empty
+                        if ([string]::IsNullOrEmpty($this.PATTokenURL)) 
+                        {
+                            $paramUsed = "PATToken"
+                        }
+                        else { 
+                            $paramUsed = "PATTokenURL"
+                        }
+                        $messageData += [MessageData]::new("CA setup is not compatible with [$paramUsed]. Update failed!" )
+                        $this.PublishCustomMessage($messageData.Message, [MessageType]::Error);
+                        return $messageData
+                    }
+                }
 
 				#Step 4: Update PATToken in KV (if applicable)
 				if ($this.updateSecret -eq $true)
@@ -725,107 +1003,110 @@ class CAAutomation : ADOSVTCommandBase
 				#Step 5: Update Function app settings (if applicable)
 				if ($this.updateAppSettings -eq $true)
 				{
-					$funcAppToUpdate = $this.FuncAppDefaultName + $this.RsrcTimeStamp
-					#Get function app resource from RG to get existing app settings details
-					$appServResource = @((Get-AzResource -ResourceGroupName $this.RGname -ResourceType "Microsoft.Web/Sites").Name | where {$_ -match $funcAppToUpdate})
-					if($appServResource.Count -eq 0)
-					{
-						$this.PublishCustomMessage("ADOScanner function app not found in resource group [$($this.RGname)]. Update failed!", [MessageType]::Error);
-					}
-					elseif ($appServResource.Count -gt 1)
-					{
-						$this.PublishCustomMessage("More than one ADOScanner app service found in resource group [$($this.RGname)]. Update failed!)", [MessageType]::Error);
-						$this.PublishCustomMessage("Consider using the '-RsrcTimeStamp' param. (E.g., to update values corresponding to 'ADOScannerFA200915172817' use '-RsrcTimeStamp 200915172817'.)", [MessageType]::Warning);						
-					}
-					else {
-						$WebApp = Get-AzWebApp -Name $appServResource[0] -ResourceGroupName $this.RGname
-						$ExistingAppSettings = $WebApp.SiteConfig.AppSettings 
-		
-						#convert existing app settings from list to hashtable
-						$AppSettingsHT = @{}
-						foreach ($Setting in $ExistingAppSettings) 
-						{
-							$AppSettingsHT["$($Setting.Name)"] = "$($Setting.value)"
-						}
+                    #convert existing app settings from list to hashtable
+                    $AppSettingsHT = @{}
+                    foreach ($Setting in $ExistingAppSettings) 
+                    {
+                        $AppSettingsHT["$($Setting.Name)"] = "$($Setting.value)"
+                    }
 
-						if(-not [string]::IsNullOrEmpty($this.OrganizationToScan))
-						{
-							$AppSettingsHT["OrgName"] = $this.OrganizationToScan
-						}
-						if((-not [string]::IsNullOrEmpty($this.PATToken)) -and (-not [string]::IsNullOrEmpty($CreatedSecret)))
-						{
-							$patUri = $CreatedSecret.Id
-							$patUri = $patUri.Substring(0,$patUri.LastIndexOf('/'))
-							$AppSettingsHT["PATToken"] = "@Microsoft.KeyVault(SecretUri=$patUri)";
-						}
-						if(-not [string]::IsNullOrEmpty($this.LAWSId))
-						{
-							$AppSettingsHT["LAWSId"] = $this.LAWSId
-						}
-						if((-not [string]::IsNullOrEmpty($this.LAWSSharedKey)) -and (-not [string]::IsNullOrEmpty($CreatedLASecret)))
-						{
-							$sharedKeyUri = $CreatedLASecret.Id
-							$sharedKeyUri = $sharedKeyUri.Substring(0,$sharedKeyUri.LastIndexOf('/'))
-							$AppSettingsHT["LAWSSharedKey"] = "@Microsoft.KeyVault(SecretUri=$sharedKeyUri)";
-						}
-						if(-not [string]::IsNullOrEmpty($this.AltLAWSId))
-						{
-							$AppSettingsHT["AltLAWSId"] = $this.AltLAWSId
-						}
-						if((-not [string]::IsNullOrEmpty($this.AltLAWSSharedKey)) -and (-not [string]::IsNullOrEmpty($CreatedAltLASecret)))
-						{
-							$altSharedKeyUri = $CreatedAltLASecret.Id
-							$altSharedKeyUri = $altSharedKeyUri.Substring(0,$altSharedKeyUri.LastIndexOf('/'))
-							$AppSettingsHT["AltLAWSSharedKey"] = "@Microsoft.KeyVault(SecretUri=$altSharedKeyUri)";
-						}
-						if(-not [string]::IsNullOrEmpty( $this.ExtendedCommand ))
-						{
-							$AppSettingsHT["ExtendedCommand"] = $this.ExtendedCommand
-							$this.PublishCustomMessage("Updating ExtendedCommand overrides the default '-ScanAllArtifacts' behavior of CA.`r`nIf you need that, please specify '-saa' switch in your update CA '-ExtendedCommand'", [MessageType]::Info);
-						}
-						if(-not [string]::IsNullOrEmpty( $this.ProjectNames ))
-						{
-							$AppSettingsHT["ProjectNames"] = $this.ProjectNames
-						}
-						if(-not [string]::IsNullOrEmpty( $this.CRONExp ))
-						{
-							$AppSettingsHT["ScheduleTriggerTime"] = $this.CRONExp
-						}
-						if($this.ClearExtCmd -eq $true)
-						{
-							$AppSettingsHT["ExtendedCommand"] = ""
-						}
+                    if(-not [string]::IsNullOrEmpty($this.OrganizationToScan))
+                    {
+                        $AppSettingsHT["OrgName"] = $this.OrganizationToScan
+                    }
+                    if((-not [string]::IsNullOrEmpty($this.PATToken)) -and (-not [string]::IsNullOrEmpty($CreatedSecret)))
+                    {
+                        $patUri = $CreatedSecret.Id
+                        $patUri = $patUri.Substring(0,$patUri.LastIndexOf('/'))
+                        $AppSettingsHT["PATToken"] = "@Microsoft.KeyVault(SecretUri=$patUri)";
+                    }
+                    if(-not [string]::IsNullOrEmpty($this.PATTokenURL))
+                    {
+                        $AppSettingsHT["PATTokenURL"] = $this.PATTokenURL
+                    }
+                    if(-not [string]::IsNullOrEmpty($this.LAWSId))
+                    {
+                        $AppSettingsHT["LAWSId"] = $this.LAWSId
+                    }
+                    if((-not [string]::IsNullOrEmpty($this.LAWSSharedKey)) -and (-not [string]::IsNullOrEmpty($CreatedLASecret)))
+                    {
+                        $sharedKeyUri = $CreatedLASecret.Id
+                        $sharedKeyUri = $sharedKeyUri.Substring(0,$sharedKeyUri.LastIndexOf('/'))
+                        $AppSettingsHT["LAWSSharedKey"] = "@Microsoft.KeyVault(SecretUri=$sharedKeyUri)";
+                    }
+                    if(-not [string]::IsNullOrEmpty($this.AltLAWSId))
+                    {
+                        $AppSettingsHT["AltLAWSId"] = $this.AltLAWSId
+                    }
+                    if((-not [string]::IsNullOrEmpty($this.AltLAWSSharedKey)) -and (-not [string]::IsNullOrEmpty($CreatedAltLASecret)))
+                    {
+                        $altSharedKeyUri = $CreatedAltLASecret.Id
+                        $altSharedKeyUri = $altSharedKeyUri.Substring(0,$altSharedKeyUri.LastIndexOf('/'))
+                        $AppSettingsHT["AltLAWSSharedKey"] = "@Microsoft.KeyVault(SecretUri=$altSharedKeyUri)";
+                    }
+                    if(-not [string]::IsNullOrEmpty( $this.ExtendedCommand ))
+                    {
+                        $AppSettingsHT["ExtendedCommand"] = $this.ExtendedCommand
+                        $this.PublishCustomMessage("Updating ExtendedCommand overrides the default '-ScanAllArtifacts' behavior of CA.`r`nIf you need that, please specify '-saa' switch in your update CA '-ExtendedCommand'", [MessageType]::Info);
+                    }
+                    if(-not [string]::IsNullOrEmpty( $this.ProjectNames ))
+                    {
+                        $AppSettingsHT["ProjectNames"] = $this.ProjectNames
+                    }
+                    if(-not [string]::IsNullOrEmpty( $this.CRONExp ))
+                    {
+                        $AppSettingsHT["ScheduleTriggerTime"] = $this.CRONExp
+                    }
+                    if($this.ClearExtCmd -eq $true)
+                    {
+                        $AppSettingsHT["ExtendedCommand"] = ""
+                    }
+                    if(-not [string]::IsNullOrEmpty( $this.WebhookUrl ))
+                    {
+                        $AppSettingsHT["WebhookUrl"] = $this.WebhookUrl
+                    }
+                    if(-not [string]::IsNullOrEmpty( $this.WebhookAuthZHeaderName ))
+                    {
+                        $AppSettingsHT["WebhookAuthZHeaderName"] = $this.WebhookAuthZHeaderName
+                    }
+                    if(-not [string]::IsNullOrEmpty( $this.WebhookAuthZHeaderValue ))
+                    {
+                        $AppSettingsHT["WebhookAuthZHeaderValue"] = $this.WebhookAuthZHeaderValue
+                    }
+                    if($this.AllowSelfSignedWebhookCertificate -eq $true)
+                    {
+                        $AppSettingsHT["AllowSelfSignedWebhookCertificate"] = "True"
+                    }
 
-						#------------- Begin: DEV-TEST support stuff ---------------
-						if(-not [string]::IsNullOrEmpty( $this.NewImageName ))
-						{
-							Set-AzWebApp -Name $appServResource[0] -ResourceGroupName $this.RGname -ContainerImageName $this.NewImageName
-						}
-						if(-not [string]::IsNullOrEmpty( $this.ModuleEnv ))
-						{
-							$AppSettingsHT["AzSKADOModuleEnv"] = $this.ModuleEnv
-						}
-						if(-not [string]::IsNullOrEmpty( $this.UseDevTestImage ))
-						{
-							$AppSettingsHT["UseDevTestImage"] = $this.UseDevTestImage
-						}
-						if($this.TriggerNextScanInMin -ne 0)
-						{					 
-							$startScanUTC = [System.DateTime]::UtcNow.AddMinutes($this.TriggerNextScanInMin)
-							$AppSettingsHT["ScheduleTriggerTime"] =  "0 $($startScanUTC.Minute) $($startScanUTC.Hour) * * *" #TODO: for dev-test, can we limit daily repetition?
-						}
-						#------------- End: DEV-TEST support stuff ---------------
+                    #------------- Begin: DEV-TEST support stuff ---------------
+                    if(-not [string]::IsNullOrEmpty( $this.NewImageName ))
+                    {
+                        Set-AzWebApp -Name $appServResource[0] -ResourceGroupName $this.RGname -ContainerImageName $this.NewImageName
+                    }
+                    if(-not [string]::IsNullOrEmpty( $this.ModuleEnv ))
+                    {
+                        $AppSettingsHT["AzSKADOModuleEnv"] = $this.ModuleEnv
+                    }
+                    if(-not [string]::IsNullOrEmpty( $this.UseDevTestImage ))
+                    {
+                        $AppSettingsHT["UseDevTestImage"] = $this.UseDevTestImage
+                    }
+                    if($this.TriggerNextScanInMin -ne 0)
+                    {					 
+                        $startScanUTC = [System.DateTime]::UtcNow.AddMinutes($this.TriggerNextScanInMin)
+                        $AppSettingsHT["ScheduleTriggerTime"] =  "0 $($startScanUTC.Minute) $($startScanUTC.Hour) * * *" #TODO: for dev-test, can we limit daily repetition?
+                    }
+                    #------------- End: DEV-TEST support stuff ---------------
 
-						$updatedWebApp = Update-AzFunctionAppSetting -Name $appServResource[0] -ResourceGroupName $this.RGname -AppSetting $AppSettingsHT -Force
-						if($null -eq $updatedWebApp) 
-						{
-							$this.PublishCustomMessage("App settings update failed in '$($appServResource[0])'", [MessageType]::Error);
-						}
-						else
-						{
-							$this.PublishCustomMessage("App settings updated in '$($appServResource[0])'", [MessageType]::Update);
-						}
-					}
+                    $updatedWebApp = Update-AzFunctionAppSetting -Name $appServResource[0] -ResourceGroupName $this.RGname -AppSetting $AppSettingsHT -Force
+                    if($null -eq $updatedWebApp) 
+                    {
+                        $this.PublishCustomMessage("App settings update failed in '$($appServResource[0])'", [MessageType]::Error);
+                    }
+                    else
+                    {
+                        $this.PublishCustomMessage("App settings updated in '$($appServResource[0])'", [MessageType]::Update);
+                    }
 				}
 				$this.DoNotOpenOutputFolder = $true
 			}
@@ -912,7 +1193,7 @@ class CAAutomation : ADOSVTCommandBase
 
 				#Step 4: Validate app settings for additional app settings
 				$this.PublishCustomMessage("Check 03: Validating other app settings..", [MessageType]::Info);
-				if ([string]::IsNullOrEmpty($AppSettingsHT["PATToken"]))
+				if ([string]::IsNullOrEmpty($AppSettingsHT["PATToken"]) -and [string]::IsNullOrEmpty($AppSettingsHT["PATTokenURL"]))
 				{
 					$this.PublishCustomMessage("Status:   PAT token is not configured in the CA setup.", [MessageType]::Error);
 				}

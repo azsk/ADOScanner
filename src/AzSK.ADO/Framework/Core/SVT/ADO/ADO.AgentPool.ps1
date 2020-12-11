@@ -10,7 +10,7 @@ class AgentPool: ADOSVTBase
     {
         $this.AgentPoolId =  ($this.ResourceContext.ResourceId -split "agentpool/")[-1]
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-        $apiURL = "https://$($this.SubscriptionContext.SubscriptionName).visualstudio.com/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($this.ProjectId)_$($this.AgentPoolId)";
+        $apiURL = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($this.ProjectId)_$($this.AgentPoolId)";
         $this.AgentObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
     }
@@ -77,6 +77,33 @@ class AgentPool: ADOSVTBase
         return $controlResult
     }
 
+    hidden [ControlResult] CheckAutoUpdate([ControlResult] $controlResult)
+    {
+        try
+        {
+            #autoUpdate setting is available only at org level settings.
+            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $($this.SubscriptionContext.SubscriptionName), $this.ResourceContext.resourcename;
+            $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
+              
+            if((($agentPoolsObj | Measure-Object).Count -gt 0) -and $agentPoolsObj.autoUpdate -eq $true)
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed,"Auto-update of agents is enabled for [$($agentPoolsObj.name)] agent pool.");
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed,"Auto-update of agents is disabled for [$($agentPoolsObj.name)] agent pool.");
+            }
+
+            $agentPoolsObj =$null;
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch agent pool details.");
+        }
+        
+        return $controlResult
+    }
+
     hidden [ControlResult] CheckPrjAllPipelineAccess([ControlResult] $controlResult)
     {
         try {
@@ -103,7 +130,7 @@ class AgentPool: ADOSVTBase
     {
         try 
         {   
-            $agentPoolsURL = "https://{0}.visualstudio.com/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId ,$this.AgentPoolId;
+            $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId ,$this.AgentPoolId;
             $agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
             
             if (([Helpers]::CheckMember($agentPool[0], "fps.dataProviders.data") ) -and ($agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider")) 

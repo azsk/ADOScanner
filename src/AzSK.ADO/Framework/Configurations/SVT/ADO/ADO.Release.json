@@ -11,7 +11,7 @@
       "Automated": "Yes",
       "MethodName": "CheckRBACAccess",
       "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users are granted just enough permissions to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
-      "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/pipelines/policies/permissions?view=vsts and https://microsoftit.visualstudio.com/OneITVSO/_wiki/wikis/OneITVSO.wiki?wikiVersion=GBwikiMaster&pagePath=%2FEngineering%20Guide%2FOneITVSO%2FDevelopment%2FRelease%2FHow%20To%20Secure%20Your%20Release%20Definition&pageId=2419&anchor=desired-state",
+      "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/pipelines/policies/permissions?view=vsts and https://dev.azure.com/microsoftit/OneITVSO/_wiki/wikis/OneITVSO.wiki?wikiVersion=GBwikiMaster&pagePath=%2FEngineering%20Guide%2FOneITVSO%2FDevelopment%2FRelease%2FHow%20To%20Secure%20Your%20Release%20Definition&pageId=2419&anchor=desired-state",
       "Tags": [
         "SDL",
         "TCP",
@@ -208,6 +208,23 @@
         "SI"
       ],
       "Enabled": true
-    }
+    },
+    {
+      "ControlID": "ADO_Release_SI_Disable_Pipeline_Edit_Permission",
+      "Description": "Do not allow release pipeline to be edited by a broad pool of users.",
+      "Id": "Release230",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckPipelineEditPermission",
+      "Rationale": "TBD",
+      "Recommendation": "TBD",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
+    }  
   ]
 }

@@ -19,7 +19,10 @@ class Constants
 "	a) New bugs have been logged for fresh control failures.`r`n"+
 "	b) For control failures for which bugs were already present, the respective bugs have been marked 'Active' `r`n"
 
-
+    static [string] $CentralCAMsg="** Next steps **`r`n" + 
+"Provide 'Get,List' permissions on key vault to user assigned managed identity using any one of below ways:`r`n" +
+"	a) Go to key vault resource -> Access policies -> Add access policy -> Enter client Id of the identity -> Provide Get,list permissions on secret -> Save`r`n"+
+"	b) Run command: Set-AzKeyVaultAccessPolicy -VaultName <KeyVaultName> -ObjectId <ObjectId of Identity> -PermissionsToSecrets Get,List `r`n"
 
     static [string] $RemediationMsgForARMChekcer = "** Next steps **`r`n" + 
 "Look at the individual control evaluation status in the CSV file.`r`n" +
@@ -103,7 +106,7 @@ class Constants
 	static [string] $StorageUri = "https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions/azsdktm/ADOSecurityScanner/Data/Scopes/Default/Current/Collections/{1}/Documents/{2}?api-version=5.1-preview.1" 
 
 	static [string] $AttRepoStorageUri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/pushes?api-version=5.0" 
-	static [string] $GetAttRepoStorageUri = "https://{0}.visualstudio.com/{1}/_apis/git/repositories/{2}/Items?path=%2F{3}&recursionLevel=0&includeContentMetadata=true&versionDescriptor.version={4}&versionDescriptor.versionOptions=0&versionDescriptor.versionType=0&includeContent=true&resolveLfs=true?api-version=4.1-preview.1" 
+	static [string] $GetAttRepoStorageUri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/Items?path=%2F{3}&recursionLevel=0&includeContentMetadata=true&versionDescriptor.version={4}&versionDescriptor.versionOptions=0&versionDescriptor.versionType=0&includeContent=true&resolveLfs=true?api-version=4.1-preview.1" 
 	static [string] $AutoUpdateMessage = "Auto-update for AzSK.ADO is currently not enabled for your machine."
 	static [string] $AttestationRepo = "ADOScannerAttestation";
 	static [string] $AttestationDefaultBranch = "master"; 
