@@ -26,6 +26,17 @@ class Build: ADOSVTBase
         }
     }
 
+    [ControlItem[]] ApplyServiceFilters([ControlItem[]] $controls)
+	{
+        $result = $controls;
+        # Applying filter to exclude certain controls based on Tag 
+        if([Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename"))
+        {
+            $result = $controls | Where-Object { $_.Tags -notcontains "SkipYAML" };
+		}
+		return $result;
+	}
+
     hidden [ControlResult] CheckCredInBuildVariables([ControlResult] $controlResult)
 	{
         if([Helpers]::CheckMember([ConfigurationManager]::GetAzSKSettings(),"SecretsScanToolFolder"))
@@ -697,27 +708,22 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckBuildAuthZScope([ControlResult] $controlResult)
     {
-        #Skip this control validation for yaml based pipelines. Access token of YAML based build pipeline can not be edited by pipeline owner. It can only be restricted at either organization or project level.
-        if([Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename"))
+
+        if([Helpers]::CheckMember($this.BuildObj[0],"jobAuthorizationScope"))
         {
-            $controlResult.AddMessage([VerificationResult]::NotScanned,"Access token of YAML based build pipeline can not be edited by pipeline owner. It can only be restricted at either organization or project level.");
-        } 
-        else {
-            if([Helpers]::CheckMember($this.BuildObj[0],"jobAuthorizationScope"))
-            {
-                $jobAuthorizationScope = $this.BuildObj[0].jobAuthorizationScope
-                if ($jobAuthorizationScope -eq "projectCollection") {
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Access token of build pipeline is scoped to project collection.");               
-                }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Access token of build pipeline is scoped to current project.");                    
-                }
+            $jobAuthorizationScope = $this.BuildObj[0].jobAuthorizationScope
+            if ($jobAuthorizationScope -eq "projectCollection") {
+                $controlResult.AddMessage([VerificationResult]::Failed,"Access token of build pipeline is scoped to project collection.");               
             }
-            else 
-            {
-                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch pipeline authorization details.");
+            else {
+                $controlResult.AddMessage([VerificationResult]::Passed,"Access token of build pipeline is scoped to current project.");                    
             }
         }
+        else 
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch pipeline authorization details.");
+        }
+        
         return  $controlResult
     }
     hidden [ControlResult] CheckPipelineEditPermission([ControlResult] $controlResult)

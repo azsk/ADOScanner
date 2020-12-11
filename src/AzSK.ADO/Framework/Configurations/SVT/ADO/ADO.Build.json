@@ -204,7 +204,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "SkipYAML"
       ],
       "Enabled": true
     },
