@@ -46,6 +46,31 @@ class ServiceConnection: ADOSVTBase
         }
     }
 
+    [ControlItem[]] ApplyServiceFilters([ControlItem[]] $controls)
+	{
+        $result = $controls;
+        # Applying filter to exclude certain controls based on Tag 
+        #For non azurerm svc conn - filter out all controls that are specific to azurerm
+        if($this.ServiceEndpointsObj.type -ne "azurerm")
+        {
+            $result = $result | Where-Object { $_.Tags -notcontains "AzureRM" };
+        }
+       
+        #For non azure svc conn - filter out all controls that are specific to azure
+        if($this.ServiceEndpointsObj.type -ne "azure")
+        {
+            $result = $result | Where-Object { $_.Tags -notcontains "Azure" };
+        }
+
+        #if svc conn is either azure/azurerm - some controls that are specific and common to both azure/azurerm should be readded as they might have been filtered out in one of the previous two if conditions.
+        if(($this.ServiceEndpointsObj.type -eq "azurerm") -or ($this.ServiceEndpointsObj.type -eq "azure")) 
+        {
+            $result += $controls | Where-Object { ($_.Tags -contains "AzureRM") -and ($_.Tags -contains "Azure") };    
+        }
+
+		return $result;
+	}
+
     hidden [ControlResult] CheckServiceConnectionAccess([ControlResult] $controlResult)
 	{
         if ($this.ServiceEndpointsObj.type -eq "azurerm") 
@@ -252,7 +277,7 @@ class ServiceConnection: ADOSVTBase
             }
             if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))
             {
-                foreach ($identity in $this.serviceEndPointIdentity[0].identity)
+                foreach ($identity in $this.serviceEndPointIdentity.identity)
                 {
                     if ($identity.uniqueName -like '*Project Collection Build Service Accounts') 
                     {
@@ -315,14 +340,69 @@ class ServiceConnection: ADOSVTBase
     {
         if([Helpers]::CheckMember($this.ServiceEndpointsObj, "authorization.scheme"))
         {
-            #Nov 2020 - Currently, authorizing using OAuth, permissions are fixed (high privileges by default) and can not be modified. If authorized using PAT, we can not determine whether it is a full scope or custom access scope token.
-            if( $this.ServiceEndpointsObj.authorization.scheme -eq "OAuth")
+            if($this.ServiceEndpointsObj.type -eq "github")
             {
-                $controlResult.AddMessage([VerificationResult]::Verify, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                #Nov 2020 - Currently, authorizing using OAuth, permissions are fixed (high privileges by default) and can not be modified. If authorized using PAT, we can not determine whether it is a full scope or custom access scope token.
+                if( $this.ServiceEndpointsObj.authorization.scheme -eq "OAuth")
+                {
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+            }
+            elseif($this.ServiceEndpointsObj.type -eq "azure")
+            {
+                if( $this.ServiceEndpointsObj.authorization.scheme -eq "Certificate")
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+            }
+            elseif($this.ServiceEndpointsObj.type -eq "azurerm")
+            {
+                $controlResult.AddMessage([VerificationResult]::Verify, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");    
+            }
+            elseif($this.ServiceEndpointsObj.type -eq "externalnpmregistry")
+            {
+                if( $this.ServiceEndpointsObj.authorization.scheme -eq "Token")
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+            }
+            elseif($this.ServiceEndpointsObj.type -eq "externalnugetfeed")
+            {
+                if( $this.ServiceEndpointsObj.authorization.scheme -eq "None") #APIKey
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+            }
+            elseif($this.ServiceEndpointsObj.type -eq "externaltfs")
+            {
+                if( $this.ServiceEndpointsObj.authorization.scheme -eq "Token")
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Verify, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                $controlResult.AddMessage([VerificationResult]::NotScanned,"Control is not applicable to [$($this.ServiceEndpointsObj.name)] service connection.");
             }
         }
         return $controlResult;
