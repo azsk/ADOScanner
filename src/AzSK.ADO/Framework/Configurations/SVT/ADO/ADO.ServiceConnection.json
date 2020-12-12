@@ -16,7 +16,9 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthN"
+        "AuthN",
+        "Azure",
+        "AzureRM"
       ],
       "Enabled": true
     },
@@ -33,7 +35,8 @@
         "SDL",
         "Automated",
         "TCP",
-        "AuthZ"
+        "AuthZ",
+        "AzureRM"
       ],
       "Enabled": true
     },
@@ -84,7 +87,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "Azure"
       ],
       "Enabled": true
     },
