@@ -529,8 +529,7 @@ class Organization: ADOSVTBase
                                     $controlResult.AddMessage("`nExtension details:  ")
                                     $controlResult.AddMessage( ($ExtensionListWithNonProductionExtensionNames | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth))
                                 }
-                            }
-                            
+                            }                
                         
                             # Display extensions with Top Publishers, extensions that are private and Non-prod extensions
                             $topPublisherExt=@()
@@ -607,7 +606,7 @@ class Organization: ADOSVTBase
                     }                                        
                     ## end Deep scan
                 }
-                else 
+                else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No installed extensions found.");
                 }
@@ -646,8 +645,10 @@ class Organization: ADOSVTBase
                     $extensionList = @();
                     $extensionList +=  ($sharedExtensions | Select-Object extensionName, publisherId, publisherName, version) 
 
-                    $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of shared extensions: ",$extensionList); 
-                                                    
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of shared extensions: ",); 
+                    $ftWidth = 512 #To avoid "..." truncation
+                    $display = ($extensionList |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)                                
+                    $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of shared extensions: ", $extensionList);                                
                 }
                 else 
