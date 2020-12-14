@@ -645,7 +645,7 @@ class Organization: ADOSVTBase
                     $extensionList = @();
                     $extensionList +=  ($sharedExtensions | Select-Object extensionName, publisherId, publisherName, version) 
 
-                    $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of shared extensions: ",); 
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of shared extensions: "); 
                     $ftWidth = 512 #To avoid "..." truncation
                     $display = ($extensionList |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)                                
                     $controlResult.AddMessage($display)
