@@ -408,6 +408,7 @@ class Organization: ADOSVTBase
                 
 
                 $ftWidth = 512 #Used for table output width to avoid "..." truncation
+                $dsMarker = '################################################################################' #To mark detail scan sections
 
                 $extCount = ($extensionList | Measure-Object ).Count;
 
@@ -471,7 +472,7 @@ class Organization: ADOSVTBase
                                 $staleExtensionList=@()
                                 $date = Get-Date
                                 $ExtensionsLastUpdatedInYears = $this.ControlSettings.Organization.ExtensionsLastUpdatedInYears
-                                $controlResult.AddMessage("`n################################################################################################################################################################`nLooking for extensions that have not been updated by publishers for more than [$ExtensionsLastUpdatedInYears] years...")
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that have not been updated by publishers for more than [$ExtensionsLastUpdatedInYears] years...")
                                 $thresholdDate = $date.AddYears(-$ExtensionsLastUpdatedInYears)
                                 $staleExtensionList += $extensionList | Where-Object {([datetime] $_.lastPublished) -lt $thresholdDate}
                                 if($staleExtensionList.count -gt 0)
@@ -489,7 +490,7 @@ class Organization: ADOSVTBase
                             {
                                 $ExtensionListWithCriticalScopes=@()
                                 $ExtensionCriticalScopes=$this.ControlSettings.Organization.ExtensionCriticalScopes;
-                                $controlResult.AddMessage("`n################################################################################################################################################################`nLooking for extensions that have sensitive access permissions...")
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that have sensitive access permissions...")
                                 $controlResult.AddMessage("Note: The following permissions are considered sensitive: `n`t[$($ExtensionCriticalScopes -join ', ')]")
                                 $ExtensionListWithCriticalScopes += ($extensionList | ? { (@($_.scopes | ? {$_ -in $ExtensionCriticalScopes})).count -gt 0})
                                 if($ExtensionListWithCriticalScopes.count -gt 0)
@@ -507,7 +508,7 @@ class Organization: ADOSVTBase
                                 $ExtensionListWithNonProductionExtensionNames=@()
                                 $NonProductionExtensionNames=$this.ControlSettings.Organization.NonProductionExtensionNames;
 
-                                $controlResult.AddMessage("`n################################################################################################################################################################`nLooking for extensions that are not production ready...")
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that are not production ready...")
 
                                 $controlResult.AddMessage("Note: This checks for extensions with words [$($NonProductionExtensionNames -join ', ')] in their names.")
 
@@ -582,7 +583,7 @@ class Organization: ADOSVTBase
                             }
                             if($nonProdExtensions.count -gt 0)
                             {
-                                $controlResult.AddMessage("`n################################################################################################################################################################`nLooking for extensions that are marked 'Preview' via Gallery flags...")
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that are marked 'Preview' via Gallery flags...")
                                 $controlResult.AddMessage("`nNo. of installed extensions marked as 'Preview' via Gallery flags: "+ $nonProdExtensions.count);
                                 $controlResult.AddMessage("`nExtension details: ")
                                 $controlResult.AddMessage(($nonProdExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth));
@@ -590,14 +591,14 @@ class Organization: ADOSVTBase
 
                             if($topPublisherExt.count -gt 0)
                             {
-                                $controlResult.AddMessage("`n################################################################################################################################################################`nLooking for extensions that are from publishers with a 'Top Publisher' certification...");
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that are from publishers with a 'Top Publisher' certification...");
                                 $controlResult.AddMessage("`nNo. of installed extensions from 'Top Publishers': "+$topPublisherExt.count);
                                 $controlResult.AddMessage("`nExtension details: ")
                                 $controlResult.AddMessage(($topPublisherExt | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth) );
                             }
                             if($privateExtensions.count -gt 0)
                             {
-                                $controlResult.AddMessage("`n################################################################################################################################################################`nLooking for extensions that have 'private' visibility for the org...");
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that have 'private' visibility for the org...");
                                 $controlResult.AddMessage("`nNo. of installed extensions with 'private' visibility: "+$privateExtensions.count);
                                 $controlResult.AddMessage("`nExtension details: ")
                                 $controlResult.AddMessage(($privateExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth));
