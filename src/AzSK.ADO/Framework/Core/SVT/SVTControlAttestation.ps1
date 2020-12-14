@@ -634,7 +634,7 @@ class SVTControlAttestation
     {
         if($resource.Group[0].ResourceContext.ResourceTypeName -eq 'Organization')
         {
-            $projectName = $this.controlStateExtension.GetProject();
+			$projectName = $this.controlStateExtension.GetProject();
         }
         elseif($resource.Group[0].ResourceContext.ResourceTypeName -eq 'Project')
         {
@@ -653,7 +653,7 @@ class SVTControlAttestation
         {
             return $false;
         }
-        else
+        elseif(-not [string]::IsNullOrEmpty($projectName))
         {
 			$attestationRepo = [Constants]::AttestationRepo;
 			#Get attesttion repo name from controlsetting file if AttestationRepo varibale value is not empty.
@@ -692,7 +692,16 @@ class SVTControlAttestation
                 $this.repoProject.projectsWithoutRepo += $projectName
                 return $false;
             }
-        }
+		}
+		elseif($this.controlStateExtension.PrintParamPolicyProjErr -eq $true ){
+			Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
+			Write-Host -ForegroundColor Red "Could not fetch attestation-project-name. `nYou can: `n`r(a) Run Set-AzSKADOMonitoringSetting -PolicyProject '<PolicyProjectName>' or `n`r(b) Use '-PolicyProject' parameter to specify the host project containing attestation details of organization controls."
+			Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
+			return $false;
+		}
+		else{
+			return $false;
+		}
     }
 
 	[bool] isControlAttestable([SVTEventContext] $controlItem, [ControlResult] $controlResult)
