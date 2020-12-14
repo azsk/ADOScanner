@@ -106,7 +106,7 @@ function Install-AzSKADOContinuousAssurance
 		$LAWSSharedKey,
 
 		[switch]
-		[Parameter(Mandatory = $false, HelpMessage = "Switch to create and map new Log Analytics workspace with CA setup.")]
+		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Switch to create and map new Log Analytics workspace with CA setup.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
 		[Alias("cws")]
 		$CreateLAWorkspace,

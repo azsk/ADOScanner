@@ -446,10 +446,20 @@ class ControlStateExtension
 			{
 			#Get project name from ext storage to fetch org attestation 
 			$projectName = $this.GetProjectNameFromExtStorage();
+			$printCentralOrgPolicyMessage = $false;
 			#If not found then check if 'PolicyProject' parameter is provided in command 
 			if ([string]::IsNullOrEmpty($projectName))
 			{
-				$projectName = $this.InvocationContext.BoundParameters["PolicyProject"]
+				$projectName = [AzSKSettings]::InvocationContext.BoundParameters["PolicyProject"];
+				if(-not [string]::IsNullOrEmpty($projectName))
+				{
+					# Handle the case of org policy hosted in another Org
+					$policyProjectOrgInfo = $projectName.split("/"); 
+					if ($policyProjectOrgInfo.length -eq 2) {
+						$printCentralOrgPolicyMessage = $true;
+						$projectName = $null;
+					}
+				}
 				if ([string]::IsNullOrEmpty($projectName))
 				{
                     #TODO: azsk setting fetching and add comment for EnableOrgControlAttestation
@@ -458,6 +468,19 @@ class ControlStateExtension
 						$this.AzSKSettings = [ConfigurationManager]::GetAzSKSettings();				
 					}
 					$projectName = $this.AzSKSettings.PolicyProject	
+					if(-not [string]::IsNullOrEmpty($projectName))
+					{
+						# Handle the case of org policy hosted in another Org
+						$policyProjectOrgInfo = $projectName.split("/"); 
+						if ($policyProjectOrgInfo.length -eq 2) {
+							$projectName = $null;
+							$printCentralOrgPolicyMessage = $true;
+						}
+					}
+					if([string]::IsNullOrEmpty($projectName) -and $printCentralOrgPolicyMessage -eq $true)
+					{
+						Write-Host "Attestation is not enabled for centralized org policy." -ForegroundColor Red
+					}
 					$enableOrgControlAttestation = $this.AzSKSettings.EnableOrgControlAttestation
 
 					if([string]::IsNullOrEmpty($projectName))
