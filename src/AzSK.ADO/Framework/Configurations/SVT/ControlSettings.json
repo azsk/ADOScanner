@@ -242,13 +242,13 @@
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
   "Organization": {
-    "InActiveUserActivityLogsPeriodInDays": 90,
-    "TopInActiveUserCount": 100,
+    "InactiveUserActivityLogsPeriodInDays": 90,
+    "TopInactiveUserCount": 100,
     "TrustedExtensionPublishers": [
       "Microsoft",
       "Microsoft DevLabs"
     ],
-    "TrustedExtensionPublishersId":[
+    "TrustedExtensionPublisherIds":[
       " "],
     "NonProductionExtensionNames":["DevTest", "Demo", "Preview", "Deprecated"],
     "ExtensionsLastUpdatedInYears": 2,

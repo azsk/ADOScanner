@@ -128,7 +128,7 @@
       "Id": "Organization180",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
-      "MethodName": "CheckInActiveUsers",
+      "MethodName": "CheckInactiveUsers",
       "Rationale": "Each additional person having access at organization level increases the attack surface for the entire resources. To minimize this risk ensure that critical resources present in organization are accessed only by the legitimate users when required.",
       "Recommendation": "Go to Organization Settings --> Users --> Filter last access column with never accessed users or not accessed over long period",
       "Tags": [
