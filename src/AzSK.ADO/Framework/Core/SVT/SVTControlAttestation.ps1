@@ -695,7 +695,7 @@ class SVTControlAttestation
 		}
 		elseif($this.controlStateExtension.PrintParamPolicyProjErr -eq $true ){
 			Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
-			Write-Host -ForegroundColor Red "Could not fetch attestation-project-name. `nYou can: `n`r(a) Run Set-AzSKADOMonitoringSetting -PolicyProject '<PolicyProjectName>' or `n`r(b) Use '-PolicyProject' parameter to specify the host project containing attestation details of organization controls."
+			Write-Host -ForegroundColor Red "Could not fetch attestation-project-name. `nYou can: `n`r(a) Run Set-AzSKADOMonitoringSetting -PolicyProject '<PolicyProjectName>' or `n`r(b) Use '-PolicyProject' parameter to specify the host project containing attestation details of organization controls. `n`r(c) Run Set-AzSKPolicySettings -EnableOrgControlAttestation `$true"
 			Write-Host $([Constants]::SingleDashLine) -ForegroundColor Red
 			return $false;
 		}

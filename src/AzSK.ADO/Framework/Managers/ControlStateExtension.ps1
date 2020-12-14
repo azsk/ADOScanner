@@ -449,7 +449,16 @@ class ControlStateExtension
 			#If not found then check if 'PolicyProject' parameter is provided in command 
 			if ([string]::IsNullOrEmpty($projectName))
 			{
-				$projectName = $this.InvocationContext.BoundParameters["PolicyProject"]
+				$projectName = [AzSKSettings]::InvocationContext.BoundParameters["PolicyProject"];
+				if(-not [string]::IsNullOrEmpty($projectName))
+				{
+					# Handle the case of org policy hosted in another Org
+					$policyProjectOrgInfo = $projectName.split("/"); 
+					if ($policyProjectOrgInfo.length -eq 2) {
+						Write-Host "Attestation is not enaled for centralized org policy." -ForegroundColor Red
+						$projectName = $null;
+					}
+				}
 				if ([string]::IsNullOrEmpty($projectName))
 				{
                     #TODO: azsk setting fetching and add comment for EnableOrgControlAttestation
