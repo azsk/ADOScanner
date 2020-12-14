@@ -550,18 +550,22 @@ class Organization: ADOSVTBase
                                 }
                                 else
                                 {
-                                    $extensionflags=$responseobject.results[0].extensions.flags.split(",")
+                                    if([Helpers]::CheckMember($this.ControlSettings, "Organization.NonProductionExtensionNames"))
+                                    {                                        
+                                        $NonProductionExtensionNames=$this.ControlSettings.Organization.NonProductionExtensionNames;
+                                        $extensionflags=$responseobject.results[0].extensions.flags.split(",")
                                 
-                                    for($i=0;$i -lt $extensionflags.count;$i++)
-                                    {
-                                        for($j=0;$j -lt $NonProductionExtensionNames.Count;$j++)
+                                        for($i=0;$i -lt $extensionflags.count;$i++)
                                         {
-                                            if($extensionflags[$i] -match $NonProductionExtensionNames[$j])
+                                            for($j=0;$j -lt $NonProductionExtensionNames.Count;$j++)
                                             {
-                                                $nonProdExtensions+=$_
+                                                if($extensionflags[$i] -match $NonProductionExtensionNames[$j])
+                                                {
+                                                    $nonProdExtensions+=$_
+                                                }
                                             }
                                         }
-                                    }
+                                    }                                    
 
                                     if($responseobject.results[0].extensions.publisher.flags -match "certified")
                                     {
