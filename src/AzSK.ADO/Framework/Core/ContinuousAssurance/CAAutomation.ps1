@@ -922,19 +922,22 @@ class CAAutomation : ADOSVTCommandBase
                     $ExistingAppSettings = $WebApp.SiteConfig.AppSettings 
                     
                     # Check if CA setup is federated or centralized, and are the paramters provided in UCA compatible with it.
-                    if(($ExistingAppSettings.Name -contains "PATTokenURL" -and [string]::IsNullOrEmpty($this.PATTokenURL)) -or  ($ExistingAppSettings.Name -contains "PATToken" -and [string]::IsNullOrEmpty($this.PATToken)) )
+                    if (-not [string]::IsNullOrEmpty($this.PATTokenURL) -or -not [string]::IsNullOrEmpty($this.PATToken))
                     {
-                        $paramUsed = [string]::Empty
-                        if ([string]::IsNullOrEmpty($this.PATTokenURL)) 
+                        if(($ExistingAppSettings.Name -contains "PATTokenURL" -and [string]::IsNullOrEmpty($this.PATTokenURL)) -or  ($ExistingAppSettings.Name -contains "PATToken" -and [string]::IsNullOrEmpty($this.PATToken)) )
                         {
-                            $paramUsed = "PATToken"
+                            $paramUsed = [string]::Empty
+                            if ([string]::IsNullOrEmpty($this.PATTokenURL)) 
+                            {
+                                $paramUsed = "PATToken"
+                            }
+                            else { 
+                                $paramUsed = "PATTokenURL"
+                            }
+                            $messageData += [MessageData]::new("CA setup is not compatible with [$paramUsed]. Update failed!" )
+                            $this.PublishCustomMessage($messageData.Message, [MessageType]::Error);
+                            return $messageData
                         }
-                        else { 
-                            $paramUsed = "PATTokenURL"
-                        }
-                        $messageData += [MessageData]::new("CA setup is not compatible with [$paramUsed]. Update failed!" )
-                        $this.PublishCustomMessage($messageData.Message, [MessageType]::Error);
-                        return $messageData
                     }
                 }
 
