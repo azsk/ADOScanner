@@ -468,6 +468,8 @@ class ADOSVTBase: SVTBase {
 	{
 		$AutoBugLog = [AutoBugLog]::AutoBugInstance
 		if (!$AutoBugLog) {
+			#Settting initial value true so will evaluate in all different cmds.(Powershell keeping static variables in memory in next command also.)
+			[BugLogPathManager]::checkValidPathFlag = $true;
 			$AutoBugLog = [AutoBugLog]::GetInstance($this.SubscriptionContext.SubscriptionName, $this.InvocationContext, $this.ControlStateExt, $BugLogParameterValue);
 		}
 		$AutoBugLog.LogBugInADO($ControlResults)
