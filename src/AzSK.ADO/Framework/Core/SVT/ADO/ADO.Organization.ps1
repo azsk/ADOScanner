@@ -407,6 +407,9 @@ class Organization: ADOSVTBase
                 $extensionList = $extensionList | Where-Object {$_.flags -notlike "*builtin*" } # to filter out extensions that are built in and are not visible on portal.
                 
 
+                $ftWidth = 512 #Used for table output width to avoid "..." truncation
+                $dsMarker = '################################################################################' #To mark detail scan sections
+
                 $extCount = ($extensionList | Measure-Object ).Count;
 
                 if($extCount -gt 0)
@@ -428,20 +431,24 @@ class Organization: ADOSVTBase
                     $unTrustedExtensions += $extensionList | Where-Object {$_.publisherName -notin $trustedExtPublishers}
                     $unTrustedCount = ($unTrustedExtensions | Measure-Object).Count
                     
-                    $controlResult.AddMessage("`nList of trusted publishers: ", $trustedExtPublishers);
-                    $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the below list of installed extensions: ");  
+                    $controlResult.AddMessage("`nNote: The following publishers are considered as 'trusted': `n`t[$($trustedExtPublishers -join ', ')]");
+                    $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the list of installed extensions for your org: ");  
 
                     if($unTrustedCount -gt 0){
-                        $controlResult.AddMessage("`nNo. of installed extensions (from untrusted publishers): $unTrustedCount");
-                        $controlResult.AdditionalInfo += "No. of installed extensions (from untrusted publishers): " + $unTrustedCount;
-                        $controlResult.AddMessage("Installed extensions (from untrusted publishers): ", $unTrustedExtensions);
+                        $controlResult.AddMessage("`nNo. of extensions (from publishers not in 'trusted publishers' list): $unTrustedCount");
+                        $controlResult.AdditionalInfo += "No. of installed extensions (from publishers not in 'trusted publishers' list): " + $unTrustedCount;
+                        $controlResult.AddMessage("`nExtension details: ")
+                        $display = ($unTrustedExtensions |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
+                        $controlResult.AddMessage($display)
                         $controlResult.AdditionalInfo += "Installed extensions (from untrusted publishers): " + [JsonHelper]::ConvertToJsonCustomCompressed($unTrustedExtensions);
                     }
 
                     if($trustedCount -gt 0){
-                        $controlResult.AddMessage("`nNo. of installed extensions (from trusted publishers): $trustedCount");
-                        $controlResult.AdditionalInfo += "No. of installed extensions (from trusted publishers): " + $trustedCount;
-                        $controlResult.AddMessage("Installed extensions (from trusted publishers): ", $trustedExtensions);
+                        $controlResult.AddMessage("`nNo. of  extensions (from publishers in the 'trusted publishers' list): $trustedCount");
+                        $controlResult.AdditionalInfo += "No. of extensions (from publishers in the 'trusted publishers' list): " + $trustedCount;
+                        $controlResult.AddMessage("`nExtension details: ")
+                        $display = ($trustedExtensions|FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
+                        $controlResult.AddMessage($display)
                     }
 
                     $stateData = @{
@@ -464,58 +471,68 @@ class Organization: ADOSVTBase
                             {
                                 $staleExtensionList=@()
                                 $date = Get-Date
-                                $ExtensionsLastUpdatedInYears=$this.ControlSettings.Organization.ExtensionsLastUpdatedInYears;
-                                $thresholddate = $date.AddYears(-$ExtensionsLastUpdatedInYears)
-                                $staleExtensionList += $extensionList | Where-Object {([datetime] $_.lastPublished) -lt $thresholddate}
+                                $ExtensionsLastUpdatedInYears = $this.ControlSettings.Organization.ExtensionsLastUpdatedInYears
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that have not been updated by publishers for more than [$ExtensionsLastUpdatedInYears] years...")
+                                $thresholdDate = $date.AddYears(-$ExtensionsLastUpdatedInYears)
+                                $staleExtensionList += $extensionList | Where-Object {([datetime] $_.lastPublished) -lt $thresholdDate}
                                 if($staleExtensionList.count -gt 0)
                                 {
-                                    $controlResult.AddMessage("`nNo. of extensions that haven't been published in last $ExtensionsLastUpdatedInYears years: "+ $staleExtensionList.count)
-                                    $controlResult.AddMessage("List of extensions(that haven't been published in last $ExtensionsLastUpdatedInYears years): ")                       
-                                    $display= $staleExtensionList|Format-Table -Property  @{name="ExtensionName";expression={$_.extensionName}},@{name="PublisherName";expression={$_.publisherName}} | Out-String
+                                    $controlResult.AddMessage("`nNo. of extensions that haven't been updated in the last [$ExtensionsLastUpdatedInYears] years: "+ $staleExtensionList.count)
+                                    $controlResult.AddMessage("`nExtension details (oldest first): ")
+                                    $display = ($staleExtensionList| Sort-Object lastPublished | FT ExtensionName, PublisherId, PublisherName, version, lastPublished -AutoSize | Out-String -Width $ftWidth)
                                     $controlResult.AddMessage($display)
                                 }
                             }                                                                            
 
                             # display extensions with critical scopes
+
                             if([Helpers]::CheckMember($this.ControlSettings, "Organization.ExtensionCriticalScopes"))
                             {
                                 $ExtensionListWithCriticalScopes=@()
                                 $ExtensionCriticalScopes=$this.ControlSettings.Organization.ExtensionCriticalScopes;
-                                $ExtensionListWithCriticalScopes += $extensionList | Where-Object {$ExtensionCriticalScopes -contains $_.scopes }
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that have sensitive access permissions...")
+                                $controlResult.AddMessage("Note: The following permissions are considered sensitive: `n`t[$($ExtensionCriticalScopes -join ', ')]")
+                                $ExtensionListWithCriticalScopes += ($extensionList | ? { (@($_.scopes | ? {$_ -in $ExtensionCriticalScopes})).count -gt 0})
                                 if($ExtensionListWithCriticalScopes.count -gt 0)
-                                {
-                                    $controlResult.AddMessage("`nNo. of extensions that have critical access permissions: "+ $ExtensionListWithCriticalScopes.count)                        
-                                    $controlResult.AddMessage("List of extensions(that have critical access permissions): ")
-                                    $display= $ExtensionListWithCriticalScopes|Format-Table -Property  @{name="ExtensionName";expression={$_.extensionName}},@{name="Scope";expression={$_.scopes}} | Out-String
+                                {  
+                                    $controlResult.AddMessage("`nNo. of extensions that have sensitive access permissions: "+ $ExtensionListWithCriticalScopes.count)                        
+                                    $controlResult.AddMessage("`nExtension details: ")
+                                    $display= ($ExtensionListWithCriticalScopes | FT ExtensionName, PublisherId, PublisherName, scopes  -AutoSize | Out-String -Width $ftWidth)
                                     $controlResult.AddMessage($display) 
                                 }
                             }                          
                         
                             # Avoid extensions  with 'DevTest', 'Demo', 'Preview', 'Deprecated' in names
-                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.NonProductionExtensionNames"))
+                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.NonProductionExtensionIndicators"))
                             {
-                                $ExtensionListWithNonProductionExtensionNames=@()
-                                $NonProductionExtensionNames=$this.ControlSettings.Organization.NonProductionExtensionNames;
+                                $ExtensionListWithNonProductionExtensionIndicators=@()
+                                $NonProductionExtensionIndicators=$this.ControlSettings.Organization.NonProductionExtensionIndicators;
+
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that are not production ready...")
+
+                                $controlResult.AddMessage("Note: This checks for extensions with words [$($NonProductionExtensionIndicators -join ', ')] in their names.")
+
                                 for($i=0;$i -lt $extensionList.count;$i++)
                                 {
-                                    for($j=0;$j -lt $NonProductionExtensionNames.Count;$j++)
+                                    for($j=0;$j -lt $NonProductionExtensionIndicators.Count;$j++)
                                     {
-                                        if($extensionList[$i].extensionName -match $NonProductionExtensionNames[$j])
+                                        if($extensionList[$i].extensionName -match $NonProductionExtensionIndicators[$j])
                                         {
-                                            $ExtensionListWithNonProductionExtensionNames += $extensionList[$i]
+                                            $ExtensionListWithNonProductionExtensionIndicators += $extensionList[$i]
+                                            break; #Move to the next extension
                                         }
                                     }
-                                }                        
-                                if($ExtensionListWithNonProductionExtensionNames.count -gt 0)
+                                }  
+                                                    
+                                if($ExtensionListWithNonProductionExtensionIndicators.count -gt 0)
                                 {
-                                    $controlResult.AddMessage("`nNo. of extensions that have name belonging to non-production enevironment:  "+ $ExtensionListWithNonProductionExtensionNames.count)
-                                    $controlResult.AddMessage("List of extensions(that have name belonging to non-production enevironment):  ")
-                                    $controlResult.AddMessage($ExtensionListWithNonProductionExtensionNames) 
+                                    $controlResult.AddMessage("`nNo. of non-production extensions (based on name):  "+ $ExtensionListWithNonProductionExtensionIndicators.count)
+                                    $controlResult.AddMessage("`nExtension details:  ")
+                                    $controlResult.AddMessage( ($ExtensionListWithNonProductionExtensionIndicators | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth))
                                 }
-                            }
-                            
+                            }                
                         
-                            # Display extensions with Top Publishers, extensions that are private and Nonprod extensions
+                            # Display extensions with Top Publishers, extensions that are private and Non-prod extensions
                             $topPublisherExt=@()
                             $privateExtensions=@()
                             $nonProdExtensions=@()
@@ -550,53 +567,47 @@ class Organization: ADOSVTBase
                                 }
                                 else
                                 {
-                                    if([Helpers]::CheckMember($this.ControlSettings, "Organization.NonProductionExtensionNames"))
-                                    {                                        
-                                        $NonProductionExtensionNames=$this.ControlSettings.Organization.NonProductionExtensionNames;
-                                        $extensionflags=$responseobject.results[0].extensions.flags.split(",")
-                                
-                                        for($i=0;$i -lt $extensionflags.count;$i++)
-                                        {
-                                            for($j=0;$j -lt $NonProductionExtensionNames.Count;$j++)
-                                            {
-                                                if($extensionflags[$i] -match $NonProductionExtensionNames[$j])
-                                                {
-                                                    $nonProdExtensions+=$_
-                                                }
-                                            }
-                                        }
-                                    }                                    
+                                    $extensionflags=$responseobject.results[0].extensions.flags
+                                    
+                                    if($extensionflags -match 'Preview')
+                                    {
+                                        $nonProdExtensions+=$_
+                                    }
 
-                                    if($responseobject.results[0].extensions.publisher.flags -match "certified")
+                                    $publisherFlags = $responseobject.results[0].extensions.publisher.flags
+                                    if($publisherFlags -match "Certified")
                                     {
                                         $topPublisherExt+=$_
                                     }
                                 }                            
                             }
+                            if($nonProdExtensions.count -gt 0)
+                            {
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that are marked 'Preview' via Gallery flags...")
+                                $controlResult.AddMessage("`nNo. of installed extensions marked as 'Preview' via Gallery flags: "+ $nonProdExtensions.count);
+                                $controlResult.AddMessage("`nExtension details: ")
+                                $controlResult.AddMessage(($nonProdExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth));
+                            } 
 
                             if($topPublisherExt.count -gt 0)
                             {
-                                $controlResult.AddMessage("`nNo. of installed extensions from top publishers: "+$topPublisherExt.count);
-                                $controlResult.AddMessage("List of installed extensions(from top publishers): ")
-                                $controlResult.AddMessage($topPublisherExt);
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that are from publishers with a 'Top Publisher' certification...");
+                                $controlResult.AddMessage("`nNo. of installed extensions from 'Top Publishers': "+$topPublisherExt.count);
+                                $controlResult.AddMessage("`nExtension details: ")
+                                $controlResult.AddMessage(($topPublisherExt | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth) );
                             }
                             if($privateExtensions.count -gt 0)
                             {
-                                $controlResult.AddMessage("`nNo. of installed extensions with private visibility: "+$privateExtensions.count);
-                                $controlResult.AddMessage("List of installed extensions(with private visibility): ")
-                                $controlResult.AddMessage($privateExtensions);
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that have 'private' visibility for the org...");
+                                $controlResult.AddMessage("`nNo. of installed extensions with 'private' visibility: "+$privateExtensions.count);
+                                $controlResult.AddMessage("`nExtension details: ")
+                                $controlResult.AddMessage(($privateExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth));
                             }
-                            if($nonProdExtensions.count -gt 0)
-                            {
-                                $controlResult.AddMessage("`nNo. of installed extensions that belong to non production environment: "+$nonProdExtensions.count);
-                                $controlResult.AddMessage("List of installed extensions(that belong to non production environment): ")
-                                $controlResult.AddMessage($nonProdExtensions);
-                            } 
                         }                                                                      
                     }                                        
                     ## end Deep scan
                 }
-                else 
+                else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No installed extensions found.");
                 }
@@ -633,10 +644,12 @@ class Organization: ADOSVTBase
                 {
                     $controlResult.AddMessage("No. of shared extensions: " + $sharedExtensions.Count)
                     $extensionList = @();
-                    $extensionList +=  ($sharedExtensions | Select-Object extensionName,publisherId,publisherName,version) 
+                    $extensionList +=  ($sharedExtensions | Select-Object extensionName, publisherId, publisherName, version) 
 
-                    $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of shared extensions: ",$extensionList); 
-                                                    
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of shared extensions: "); 
+                    $ftWidth = 512 #To avoid "..." truncation
+                    $display = ($extensionList |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)                                
+                    $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of shared extensions: ", $extensionList);                                
                 }
                 else 
@@ -778,10 +791,10 @@ class Organization: ADOSVTBase
         return $controlResult
     }
 
-    hidden [ControlResult] CheckInActiveUsers([ControlResult] $controlResult)
+    hidden [ControlResult] CheckInactiveUsers([ControlResult] $controlResult)
     {
         try {
-            $topInActiveUsers = $this.ControlSettings.Organization.TopInActiveUserCount 
+            $topInactiveUsers = $this.ControlSettings.Organization.TopInactiveUserCount 
             $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?top={1}&filter=&sortOption=lastAccessDate+ascending" -f $($this.SubscriptionContext.SubscriptionName), $topInActiveUsers;
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
@@ -796,9 +809,9 @@ class Organization: ADOSVTBase
                 }
                 if(($inactiveUsers | Measure-Object).Count -gt 0)
                 {
-                    if($inactiveUsers.Count -ge $topInActiveUsers)
+                    if($inactiveUsers.Count -ge $topInactiveUsers)
                     {
-                        $controlResult.AddMessage("Displaying top $($topInActiveUsers) inactive users")
+                        $controlResult.AddMessage("Displaying top $($topInactiveUsers) inactive users")
                     }
                     #inactive user with days from how many days user is inactive, if user account created and was never active, in this case lastaccessdate is default 01-01-0001
                     $inactiveUsers = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="mailAddress"; Expression = {$_.User.mailAddress}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
