@@ -468,6 +468,7 @@ class ADOSVTBase: SVTBase {
 	{
 		$AutoBugLog = [AutoBugLog]::AutoBugInstance
 		if (!$AutoBugLog) {
+			[BugLogPathManager]::checkValidPathFlag = $true;
 			$AutoBugLog = [AutoBugLog]::GetInstance($this.SubscriptionContext.SubscriptionName, $this.InvocationContext, $this.ControlStateExt, $BugLogParameterValue);
 		}
 		$AutoBugLog.LogBugInADO($ControlResults)
