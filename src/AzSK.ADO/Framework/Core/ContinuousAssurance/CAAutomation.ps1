@@ -922,7 +922,7 @@ class CAAutomation : ADOSVTCommandBase
                     $ExistingAppSettings = $WebApp.SiteConfig.AppSettings 
                     
                     # Check if CA setup is federated or centralized, and are the paramters provided in UCA compatible with it.
-                    if (-not [string]::IsNullOrEmpty($this.PATTokenURL) -and -not [string]::IsNullOrEmpty($this.PATToken))
+                    if (-not [string]::IsNullOrEmpty($this.PATTokenURL) -or -not [string]::IsNullOrEmpty($this.PATToken))
                     {
                         if(($ExistingAppSettings.Name -contains "PATTokenURL" -and [string]::IsNullOrEmpty($this.PATTokenURL)) -or  ($ExistingAppSettings.Name -contains "PATToken" -and [string]::IsNullOrEmpty($this.PATToken)) )
                         {
