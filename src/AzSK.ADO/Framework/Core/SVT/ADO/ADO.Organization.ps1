@@ -503,32 +503,32 @@ class Organization: ADOSVTBase
                             }                          
                         
                             # Avoid extensions  with 'DevTest', 'Demo', 'Preview', 'Deprecated' in names
-                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.NonProductionExtensionNames"))
+                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.NonProductionExtensionIndicators"))
                             {
-                                $ExtensionListWithNonProductionExtensionNames=@()
-                                $NonProductionExtensionNames=$this.ControlSettings.Organization.NonProductionExtensionNames;
+                                $ExtensionListWithNonProductionExtensionIndicators=@()
+                                $NonProductionExtensionIndicators=$this.ControlSettings.Organization.NonProductionExtensionIndicators;
 
                                 $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that are not production ready...")
 
-                                $controlResult.AddMessage("Note: This checks for extensions with words [$($NonProductionExtensionNames -join ', ')] in their names.")
+                                $controlResult.AddMessage("Note: This checks for extensions with words [$($NonProductionExtensionIndicators -join ', ')] in their names.")
 
                                 for($i=0;$i -lt $extensionList.count;$i++)
                                 {
-                                    for($j=0;$j -lt $NonProductionExtensionNames.Count;$j++)
+                                    for($j=0;$j -lt $NonProductionExtensionIndicators.Count;$j++)
                                     {
-                                        if($extensionList[$i].extensionName -match $NonProductionExtensionNames[$j])
+                                        if($extensionList[$i].extensionName -match $NonProductionExtensionIndicators[$j])
                                         {
-                                            $ExtensionListWithNonProductionExtensionNames += $extensionList[$i]
+                                            $ExtensionListWithNonProductionExtensionIndicators += $extensionList[$i]
                                             break; #Move to the next extension
                                         }
                                     }
                                 }  
                                                     
-                                if($ExtensionListWithNonProductionExtensionNames.count -gt 0)
+                                if($ExtensionListWithNonProductionExtensionIndicators.count -gt 0)
                                 {
-                                    $controlResult.AddMessage("`nNo. of non-production extensions (based on name):  "+ $ExtensionListWithNonProductionExtensionNames.count)
+                                    $controlResult.AddMessage("`nNo. of non-production extensions (based on name):  "+ $ExtensionListWithNonProductionExtensionIndicators.count)
                                     $controlResult.AddMessage("`nExtension details:  ")
-                                    $controlResult.AddMessage( ($ExtensionListWithNonProductionExtensionNames | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth))
+                                    $controlResult.AddMessage( ($ExtensionListWithNonProductionExtensionIndicators | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth))
                                 }
                             }                
                         
