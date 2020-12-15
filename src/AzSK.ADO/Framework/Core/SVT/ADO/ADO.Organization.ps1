@@ -794,7 +794,7 @@ class Organization: ADOSVTBase
     hidden [ControlResult] CheckInactiveUsers([ControlResult] $controlResult)
     {
         try {
-            $topInActiveUsers = $this.ControlSettings.Organization.TopInActiveUserCount 
+            $topInactiveUsers = $this.ControlSettings.Organization.TopInactiveUserCount 
             $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?top={1}&filter=&sortOption=lastAccessDate+ascending" -f $($this.SubscriptionContext.SubscriptionName), $topInActiveUsers;
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
@@ -809,9 +809,9 @@ class Organization: ADOSVTBase
                 }
                 if(($inactiveUsers | Measure-Object).Count -gt 0)
                 {
-                    if($inactiveUsers.Count -ge $topInActiveUsers)
+                    if($inactiveUsers.Count -ge $topInactiveUsers)
                     {
-                        $controlResult.AddMessage("Displaying top $($topInActiveUsers) inactive users")
+                        $controlResult.AddMessage("Displaying top $($topInactiveUsers) inactive users")
                     }
                     #inactive user with days from how many days user is inactive, if user account created and was never active, in this case lastaccessdate is default 01-01-0001
                     $inactiveUsers = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="mailAddress"; Expression = {$_.User.mailAddress}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
