@@ -232,9 +232,20 @@ class AzSKSettings {
 		
 		if([AzSKSettings]::InvocationContext.BoundParameters["PolicyProject"]){
 			$projectName = [AzSKSettings]::InvocationContext.BoundParameters["PolicyProject"];
+			# Handle the case of org policy hosted in another Org
+			$policyProjectOrgInfo = $projectName.split("/"); 
+			if ($policyProjectOrgInfo.length -eq 2) {
+				$orgName = $policyProjectOrgInfo[0];
+				$projectName = $policyProjectOrgInfo[1];
+			}
 		}
 		elseif (-not [string]::IsNullOrEmpty($policyProject)) {
 			$projectName = $policyProject;
+			$policyProjectOrgInfo = $projectName.split("/");
+			if ($policyProjectOrgInfo.length -eq 2) {
+				$orgName = $policyProjectOrgInfo[0];
+				$projectName = $policyProjectOrgInfo[1];
+			}
 		}
 		elseif([AzSKSettings]::InvocationContext.BoundParameters["ProjectNames"]){
 			$projectName = [AzSKSettings]::InvocationContext.BoundParameters["ProjectNames"].split(',')[0];

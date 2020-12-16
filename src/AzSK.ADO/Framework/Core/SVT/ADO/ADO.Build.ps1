@@ -26,6 +26,17 @@ class Build: ADOSVTBase
         }
     }
 
+    [ControlItem[]] ApplyServiceFilters([ControlItem[]] $controls)
+	{
+        $result = $controls;
+        # Applying filter to exclude certain controls based on Tag 
+        if([Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename"))
+        {
+            $result = $controls | Where-Object { $_.Tags -notcontains "SkipYAML" };
+		}
+		return $result;
+	}
+
     hidden [ControlResult] CheckCredInBuildVariables([ControlResult] $controlResult)
 	{
         if([Helpers]::CheckMember([ConfigurationManager]::GetAzSKSettings(),"SecretsScanToolFolder"))
@@ -193,9 +204,9 @@ class Build: ADOSVTBase
     {
         if($this.BuildObj)
         {
-            $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName),$($this.BuildObj.project.id);
+            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName),$($this.BuildObj.project.id);
 
-        $orgURL='https://{0}.visualstudio.com/{1}/_build?view=folders' -f $($this.SubscriptionContext.SubscriptionName),$($this.BuildObj.project.name)
+        $orgURL='https://dev.azure.com/{0}/{1}/_build?view=folders' -f $($this.SubscriptionContext.SubscriptionName),$($this.BuildObj.project.name)
         $inputbody="{'contributionIds':['ms.vss-build-web.pipelines-data-provider'],'dataProviderContext':{'properties':{'definitionIds':'$($this.BuildObj.id)','sourcePage':{'url':'$orgURL','routeId':'ms.vss-build-web.pipelines-hub-route','routeValues':{'project':'$($this.BuildObj.project.name)','viewname':'pipelines','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
 
         $sw = [System.Diagnostics.Stopwatch]::StartNew();
@@ -259,7 +270,7 @@ class Build: ADOSVTBase
             if([Build]::SecurityNamespaceId -and $this.BuildObj.project.id)
             {
                 # Here 'permissionSet' = security namespace identifier, 'token' = project id and 'tokenDisplayVal' = build name
-                $apiURL = "https://{0}.visualstudio.com/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&tokenDisplayVal={5}&style=min" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($this.BuildObj.id), $($this.BuildObj.name) ;
+                $apiURL = "https://dev.azure.com/{0}/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&tokenDisplayVal={5}&style=min" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($this.BuildObj.id), $($this.BuildObj.name) ;
 
                 $sw = [System.Diagnostics.Stopwatch]::StartNew();
                 $header = [WebRequestHelper]::GetAuthHeaderFromUri($apiURL);
@@ -310,7 +321,7 @@ class Build: ADOSVTBase
             # Step 1: Fetch list of all groups/users with access to this build
             # Here 'permissionSet' = security namespace identifier, 'token' = project id and 'tokenDisplayVal' = build name
             $buildDefinitionPath = $this.BuildObj.Path.Trim("\").Replace(" ","+").Replace("\","%2F")
-            $apiURL = "https://{0}.visualstudio.com/{1}/_api/_security/ReadExplicitIdentitiesJson?__v=5&permissionSetId={2}&permissionSetToken={3}%2F{4}%2F{5}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
+            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/ReadExplicitIdentitiesJson?__v=5&permissionSetId={2}&permissionSetToken={3}%2F{4}%2F{5}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
 
             $sw = [System.Diagnostics.Stopwatch]::StartNew();
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
@@ -337,7 +348,7 @@ class Build: ADOSVTBase
             # To be evaluated only when -DetailedScan flag is used in GADS command along with control ids  or when controls are to be attested
             if([AzSKRoot]::IsDetailedScanRequired -eq $true)
             {
-                # release owner
+                # build owner
                 $exemptedUserIdentities += $this.BuildObj.authoredBy.id
                 if(($responseObj.identities|Measure-Object).Count -gt 0)
                 {
@@ -354,7 +365,7 @@ class Build: ADOSVTBase
                         $identity = $_ 
                         if($exemptedUserIdentities -notcontains $identity.TeamFoundationId)
                         {
-                            $apiURL = "https://{0}.visualstudio.com/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $($identity.TeamFoundationId) ,$([Build]::SecurityNamespaceId),$($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
+                            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $($identity.TeamFoundationId) ,$([Build]::SecurityNamespaceId),$($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
                             $identityPermissions = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                             $configuredPermissions = $identityPermissions.Permissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
                             return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.IdentityType; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
@@ -363,7 +374,7 @@ class Build: ADOSVTBase
 
                     $accessList += $responseObj.identities | Where-Object { $_.IdentityType -eq "group" } | ForEach-Object {
                         $identity = $_ 
-                        $apiURL = "https://{0}.visualstudio.com/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $($identity.TeamFoundationId) ,$([Build]::SecurityNamespaceId),$($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
+                        $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $($identity.TeamFoundationId) ,$([Build]::SecurityNamespaceId),$($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
                         $identityPermissions = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                         $configuredPermissions = $identityPermissions.Permissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
                         return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.IdentityType; IsAadGroup = $identity.IsAadGroup ;Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
@@ -530,7 +541,7 @@ class Build: ADOSVTBase
             $editableTaskGroups = @();
             if(($taskGroups | Measure-Object).Count -gt 0)
             {   
-                $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName)
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName)
                 $projectId = $this.BuildObj.project.id
                 $projectName = $this.BuildObj.project.name
                 
@@ -538,7 +549,7 @@ class Build: ADOSVTBase
                 {
                     $taskGroups | ForEach-Object {
                         $taskGrpId = $_.task.id
-                        $taskGrpURL="https://{0}.visualstudio.com/{1}/_taskgroup/{2}" -f $($this.SubscriptionContext.SubscriptionName), $($projectName), $($taskGrpId)
+                        $taskGrpURL="https://dev.azure.com/{0}/{1}/_taskgroup/{2}" -f $($this.SubscriptionContext.SubscriptionName), $($projectName), $($taskGrpId)
                         $permissionSetToken = "$projectId/$taskGrpId"
                         
                         #permissionSetId = 'f6a4de49-dbe2-4704-86dc-f8ec1a294436' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
@@ -660,7 +671,7 @@ class Build: ADOSVTBase
             try
             {   
                 $varGrps | ForEach-Object{
-                    $url = 'https://{0}.visualstudio.com/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName), $($projectId), $($_.Id);
+                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName), $($projectId), $($_.Id);
                     $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
                     if(($responseObj | Measure-Object).Count -gt 0)
                     {
@@ -697,27 +708,129 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckBuildAuthZScope([ControlResult] $controlResult)
     {
-        #Skip this control validation for yaml based pipelines. Access token of YAML based build pipeline can not be edited by pipeline owner. It can only be restricted at either organization or project level.
-        if([Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename"))
+
+        if([Helpers]::CheckMember($this.BuildObj[0],"jobAuthorizationScope"))
         {
-            $controlResult.AddMessage([VerificationResult]::NotScanned,"Access token of YAML based build pipeline can not be edited by pipeline owner. It can only be restricted at either organization or project level.");
-        } 
-        else {
-            if([Helpers]::CheckMember($this.BuildObj[0],"jobAuthorizationScope"))
-            {
-                $jobAuthorizationScope = $this.BuildObj[0].jobAuthorizationScope
-                if ($jobAuthorizationScope -eq "projectCollection") {
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Access token of build pipeline is scoped to project collection.");               
+            $jobAuthorizationScope = $this.BuildObj[0].jobAuthorizationScope
+            if ($jobAuthorizationScope -eq "projectCollection") {
+                $controlResult.AddMessage([VerificationResult]::Failed,"Access token of build pipeline is scoped to project collection.");               
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Passed,"Access token of build pipeline is scoped to current project.");                    
+            }
+        }
+        else 
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch pipeline authorization details.");
+        }
+        
+        return  $controlResult
+    }
+    hidden [ControlResult] CheckPipelineEditPermission([ControlResult] $controlResult)
+    {
+
+        $orgName = $($this.SubscriptionContext.SubscriptionName)
+        $projectId = $this.BuildObj.project.id
+        $projectName = $this.BuildObj.project.name
+        $buildId = $this.BuildObj.id
+        $permissionSetToken = "$projectId/$buildId"
+        $buildURL = "https://dev.azure.com/$orgName/$projectName/_build?definitionId=$buildId"
+        
+        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
+        $inputbody = "{
+            'contributionIds': [
+                'ms.vss-admin-web.security-view-members-data-provider'
+            ],
+            'dataProviderContext': {
+                'properties': {
+                    'permissionSetId': '$([Build]::SecurityNamespaceId)',
+                    'permissionSetToken': '$permissionSetToken',
+                    'sourcePage': {
+                        'url': '$buildURL',
+                        'routeId': 'ms.vss-build-web.pipeline-details-route',
+                        'routeValues': {
+                            'project': '$projectName',
+                            'viewname': 'details',
+                            'controller': 'ContributedPage',
+                            'action': 'Execute'
+                        }
+                    }
                 }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Access token of build pipeline is scoped to current project.");                    
+            }
+        }" | ConvertFrom-Json
+
+        try
+        {
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+            {
+    
+                $contributorObj = $responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object {$_.subjectKind -eq 'group' -and $_.principalName -eq "[$projectName]\Contributors"}
+                # $contributorObj would be null if none of its permissions are set i.e. all perms are 'Not Set'.
+
+                if($contributorObj)
+                {
+                    $contributorInputbody = "{
+                        'contributionIds': [
+                            'ms.vss-admin-web.security-view-permissions-data-provider'
+                        ],
+                        'dataProviderContext': {
+                            'properties': {
+                                'subjectDescriptor': '$($contributorObj.descriptor)',
+                                'permissionSetId': '$([Build]::SecurityNamespaceId)',
+                                'permissionSetToken': '$permissionSetToken',
+                                'accountName': '$(($contributorObj.principalName).Replace('\','\\'))',
+                                'sourcePage': {
+                                    'url': '$buildURL',
+                                    'routeId': 'ms.vss-build-web.pipeline-details-route',
+                                    'routeValues': {
+                                        'project': '$projectName',
+                                        'viewname': 'details',
+                                        'controller': 'ContributedPage',
+                                        'action': 'Execute'
+                                    }
+                                }
+                            }
+                        }
+                    }" | ConvertFrom-Json
+                
+                    #Web request to fetch RBAC permissions of Contributors group on task group.
+                    $contributorResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$contributorInputbody);
+                    $contributorRBACObj = $contributorResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
+                    $editPerms = $contributorRBACObj | Where-Object {$_.displayName -eq 'Edit build pipeline'}
+                   
+                    if([Helpers]::CheckMember($editPerms,"effectivePermissionValue"))
+                    {
+                        #effectivePermissionValue equals to 1 implies edit build pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
+                        if(($editPerms.effectivePermissionValue -eq 1) -or ($editPerms.effectivePermissionValue -eq 3))
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the build pipeline.");
+                        }
+                        else 
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the build pipeline.");    
+                        }   
+                    }
+                    else 
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the build pipeline.");
+                    }
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have access to the build pipeline.");
                 }
             }
             else 
             {
-                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch pipeline authorization details.");
+                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
             }
         }
-        return  $controlResult
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
+        }
+
+        return $controlResult;
     }
 }

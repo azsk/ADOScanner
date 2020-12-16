@@ -293,8 +293,7 @@ class PartialScanManager
 		}
 
         #Use local Resource Tracker files for partial scanning
-        if ($this.StoreResTrackerLocally) 
-            {
+        elseif ($this.StoreResTrackerLocally) {
 		    if($null -ne $this.ResourceScanTrackerObj)
 		    {
 			    if(![string]::isnullorwhitespace($this.SubId)){

@@ -31,8 +31,8 @@ class ServiceConnection: ADOSVTBase
         }
 
         try {
-            $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName)
-            $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $($this.SubscriptionContext.SubscriptionName), $this.ResourceContext.ResourceGroupName;
+            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName)
+            $sourcePageUrl = "https://dev.azure.com/{0}/{1}/_settings/adminservices" -f $($this.SubscriptionContext.SubscriptionName), $this.ResourceContext.ResourceGroupName;
             $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($this.ServiceEndpointsObj.id)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ResourceContext.ResourceGroupName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
     
             $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody); 
@@ -45,6 +45,31 @@ class ServiceConnection: ADOSVTBase
             
         }
     }
+
+    [ControlItem[]] ApplyServiceFilters([ControlItem[]] $controls)
+	{
+        $result = $controls;
+        # Applying filter to exclude certain controls based on Tag 
+        #For non azurerm svc conn - filter out all controls that are specific to azurerm
+        if($this.ServiceEndpointsObj.type -ne "azurerm")
+        {
+            $result = $result | Where-Object { $_.Tags -notcontains "AzureRM" };
+        }
+       
+        #For non azure svc conn - filter out all controls that are specific to azure
+        if($this.ServiceEndpointsObj.type -ne "azure")
+        {
+            $result = $result | Where-Object { $_.Tags -notcontains "Azure" };
+        }
+
+        #if svc conn is either azure/azurerm - some controls that are specific and common to both azure/azurerm should be readded as they might have been filtered out in one of the previous two if conditions.
+        if(($this.ServiceEndpointsObj.type -eq "azurerm") -or ($this.ServiceEndpointsObj.type -eq "azure")) 
+        {
+            $result += $controls | Where-Object { ($_.Tags -contains "AzureRM") -and ($_.Tags -contains "Azure") };    
+        }
+
+		return $result;
+	}
 
     hidden [ControlResult] CheckServiceConnectionAccess([ControlResult] $controlResult)
 	{
@@ -197,7 +222,7 @@ class ServiceConnection: ADOSVTBase
         try
         {
             if ($null -eq $this.serviceEndPointIdentity) {
-                $apiURL = "https://{0}.visualstudio.com/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
+                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
                 $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             }
             $restrictedGroups = @();
@@ -247,12 +272,12 @@ class ServiceConnection: ADOSVTBase
         {
             $isBuildSvcAccGrpFound = $false
             if ($null -eq $this.serviceEndPointIdentity) {
-                $apiURL = "https://{0}.visualstudio.com/_apis/securityroles/scopes/distributedtask.serviceEndPointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
+                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceEndPointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
                 $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             }
             if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))
             {
-                foreach ($identity in $this.serviceEndPointIdentity[0].identity)
+                foreach ($identity in $this.serviceEndPointIdentity.identity)
                 {
                     if ($identity.uniqueName -like '*Project Collection Build Service Accounts') 
                     {
@@ -315,14 +340,69 @@ class ServiceConnection: ADOSVTBase
     {
         if([Helpers]::CheckMember($this.ServiceEndpointsObj, "authorization.scheme"))
         {
-            #Nov 2020 - Currently, authorizing using OAuth, permissions are fixed (high privileges by default) and can not be modified. If authorized using PAT, we can not determine whether it is a full scope or custom access scope token.
-            if( $this.ServiceEndpointsObj.authorization.scheme -eq "OAuth")
+            if($this.ServiceEndpointsObj.type -eq "github")
             {
-                $controlResult.AddMessage([VerificationResult]::Verify, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                #Nov 2020 - Currently, authorizing using OAuth, permissions are fixed (high privileges by default) and can not be modified. If authorized using PAT, we can not determine whether it is a full scope or custom access scope token.
+                if( $this.ServiceEndpointsObj.authorization.scheme -eq "OAuth")
+                {
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+            }
+            elseif($this.ServiceEndpointsObj.type -eq "azure")
+            {
+                if( $this.ServiceEndpointsObj.authorization.scheme -eq "Certificate")
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+            }
+            elseif($this.ServiceEndpointsObj.type -eq "azurerm")
+            {
+                $controlResult.AddMessage([VerificationResult]::Verify, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");    
+            }
+            elseif($this.ServiceEndpointsObj.type -eq "externalnpmregistry")
+            {
+                if( $this.ServiceEndpointsObj.authorization.scheme -eq "Token")
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+            }
+            elseif($this.ServiceEndpointsObj.type -eq "externalnugetfeed")
+            {
+                if( $this.ServiceEndpointsObj.authorization.scheme -eq "None") #APIKey
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+            }
+            elseif($this.ServiceEndpointsObj.type -eq "externaltfs")
+            {
+                if( $this.ServiceEndpointsObj.authorization.scheme -eq "Token")
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Verify, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                $controlResult.AddMessage([VerificationResult]::NotScanned,"Control is not applicable to [$($this.ServiceEndpointsObj.name)] service connection.");
             }
         }
         return $controlResult;
@@ -423,7 +503,7 @@ class ServiceConnection: ADOSVTBase
                 #get the pipelines ids in comma separated string to pass in api to get the pipeline name
                 $pipelinesIds = $this.pipelinePermission[0].pipelines.id -join ","
                 #api call to get the pipeline name
-                $apiURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.0" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $pipelinesIds;
+                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.0" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $pipelinesIds;
                 $pipelineObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                     
                 # We are fixing the control status here and the state data info will be done as shown below. This is done in case we are not able to fetch the pipeline names. Although, we have the pipeline ids as shown above.

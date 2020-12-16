@@ -10,13 +10,13 @@ class VariableGroup: ADOSVTBase
     {
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0];
         $this.VarGrpId = $this.ResourceContext.ResourceDetails.id
-        $apiURL = "https://$($this.SubscriptionContext.SubscriptionName).visualstudio.com/$($this.ProjectId)/_apis/distributedtask/variablegroups/$($this.VarGrpId)"
+        $apiURL = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ProjectId)/_apis/distributedtask/variablegroups/$($this.VarGrpId)"
         $this.VarGrp = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
     }
     hidden [ControlResult] CheckPipelineAccess([ControlResult] $controlResult)
     {
-        $url = 'https://{0}.visualstudio.com/{1}/_apis/build/authorizedresources?type=variablegroup&id={2}&api-version=5.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName),$($this.ProjectId) ,$($this.VarGrpId);
+        $url = 'https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=variablegroup&id={2}&api-version=5.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName),$($this.ProjectId) ,$($this.VarGrpId);
         try 
         {
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
@@ -55,7 +55,7 @@ class VariableGroup: ADOSVTBase
     }
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult)
     {
-        $url = 'https://{0}.visualstudio.com/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName),$($this.ProjectId) ,$($this.VarGrpId); 
+        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName),$($this.ProjectId) ,$($this.VarGrpId); 
         try 
         {
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
@@ -81,7 +81,7 @@ class VariableGroup: ADOSVTBase
     }
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
     {
-        $url = 'https://{0}.visualstudio.com/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($this.VarGrpId); 
+        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($this.VarGrpId); 
         try 
         {
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);

@@ -16,7 +16,7 @@ class Organization: ADOSVTBase
     {
         try
         {   
-            $uri ="https://{0}.visualstudio.com/_settings/organizationPolicy?__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName);
+            $uri ="https://dev.azure.com/{0}/_settings/organizationPolicy?__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName);
             $response = [WebRequestHelper]::InvokeGetWebRequest($uri);
             
             if($response -and [Helpers]::CheckMember($response.fps.dataProviders,"data") -and $response.fps.dataProviders.data.'ms.vss-admin-web.organization-policies-data-provider')
@@ -26,9 +26,9 @@ class Organization: ADOSVTBase
         }
         catch # Added above new api to get User policy settings, old api is not returning. Fallback to old API in catch
         {
-            $apiURL = "https://{0}.vsaex.visualstudio.com/_apis/Contribution/dataProviders/query?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/Contribution/dataProviders/query?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
 
-            $orgUrl = "https://{0}.visualstudio.com" -f $($this.SubscriptionContext.SubscriptionName);
+            $orgUrl = "https://dev.azure.com/{0}" -f $($this.SubscriptionContext.SubscriptionName);
             $inputbody =  "{'contributionIds':['ms.vss-org-web.collection-admin-policy-data-provider'],'context':{'properties':{'sourcePage':{'url':'$orgUrl/_settings/policy','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'policy','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
             $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
             if([Helpers]::CheckMember($responseObj,"data") -and $responseObj.data.'ms.vss-org-web.collection-admin-policy-data-provider')
@@ -40,9 +40,9 @@ class Organization: ADOSVTBase
     
     GetPipelineSettingsObj()
     {
-        $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
 
-        $orgUrl = "https://{0}.visualstudio.com" -f $($this.SubscriptionContext.SubscriptionName);
+        $orgUrl = "https://dev.azure.com/{0}" -f $($this.SubscriptionContext.SubscriptionName);
         #$inputbody =  "{'contributionIds':['ms.vss-org-web.collection-admin-policy-data-provider'],'context':{'properties':{'sourcePage':{'url':'$orgUrl/_settings/policy','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'policy','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
         $inputbody = "{'contributionIds':['ms.vss-build-web.pipelines-org-settings-data-provider'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgUrl/_settings/pipelinessettings','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'pipelinessettings','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
         
@@ -76,8 +76,8 @@ class Organization: ADOSVTBase
         try
         {
             #api call to get PCSA descriptor which used to get PCSA members api call.
-            $url = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
-            $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://{0}.visualstudio.com/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}' 
+            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+            $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}' 
             $body = ($body.Replace("{0}", $this.SubscriptionContext.SubscriptionName)) | ConvertFrom-Json
             $response = [WebRequestHelper]::InvokePostWebRequest($url,$body);    
        
@@ -90,8 +90,8 @@ class Organization: ADOSVTBase
                 if(($prcollobj | Measure-Object).Count -gt 0)
                 {
                     #pai call to get PCSA members
-                    $prmemberurl = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
-                    $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://{1}.visualstudio.com/_settings/groups?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'
+                    $prmemberurl = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+                    $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{1}/_settings/groups?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'
                     $inputbody = $inputbody.Replace("{0}",$prcollobj.descriptor)
                     $inputbody = $inputbody.Replace("{1}",$this.SubscriptionContext.SubscriptionName) | ConvertFrom-Json
                     
@@ -140,8 +140,8 @@ class Organization: ADOSVTBase
                 if (($adminGroupNames | Measure-Object).Count -gt 0) 
                 {
                     #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
-                    $url = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
-                    $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://{0}.visualstudio.com/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}' 
+                    $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+                    $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}' 
                     $body = ($body.Replace("{0}", $this.SubscriptionContext.SubscriptionName)) | ConvertFrom-Json
                     $response = [WebRequestHelper]::InvokePostWebRequest($url,$body);    
                     
@@ -224,7 +224,9 @@ class Organization: ADOSVTBase
                                             $stateData += $nonSCMembers
                                             $controlResult.AddMessage([VerificationResult]::Failed, "`nTotal number of non SC-ALT accounts with admin privileges:  $nonSCCount"); 
                                             $controlResult.AddMessage("Review the non SC-ALT accounts with admin privileges: ", $stateData);  
-                                            $controlResult.SetStateData("List of non SC-ALT accounts with admin privileges: ", $stateData); 
+                                            $controlResult.SetStateData("List of non SC-ALT accounts with admin privileges: ", $stateData);
+                                            $controlResult.AdditionalInfo += "Total number of non SC-ALT accounts with admin privileges: " + $nonSCCount;
+                                            $controlResult.AdditionalInfo += "List of non SC-ALT accounts with admin privileges: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
                                         }
                                         else 
                                         {
@@ -235,7 +237,8 @@ class Organization: ADOSVTBase
                                             $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
                                             $SCData = @();
                                             $SCData += $SCMembers
-                                            $controlResult.AddMessage("`nTotal number of SC-ALT accounts with admin privileges: $SCCount");  
+                                            $controlResult.AddMessage("`nTotal number of SC-ALT accounts with admin privileges: $SCCount");
+                                            $controlResult.AdditionalInfo += "Total number of SC-ALT accounts with admin privileges: " + $SCCount;
                                             $controlResult.AddMessage("SC-ALT accounts with admin privileges: ", $SCData);  
                                         }
                                     }
@@ -394,42 +397,58 @@ class Organization: ADOSVTBase
     hidden [ControlResult] ValidateInstalledExtensions([ControlResult] $controlResult)
     {
         try 
-        {
-           
+        {           
             $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=4.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             
             if(($responseObj | Measure-Object).Count -gt 0 ) #includes both custom installed and built in extensions.
             {
-                $extensionList = $responseObj | Select-Object extensionName,publisherId,publisherName,version,flags # 'flags' is not available in every extension. It is visible only for built in extensions. Hence this appends 'flags' to trimmed objects.
+                $extensionList = $responseObj | Select-Object extensionName,publisherId,publisherName,version,flags,lastPublished,scopes,extensionId # 'flags' is not available in every extension. It is visible only for built in extensions. Hence this appends 'flags' to trimmed objects.
                 $extensionList = $extensionList | Where-Object {$_.flags -notlike "*builtin*" } # to filter out extensions that are built in and are not visible on portal.
+                
+
+                $ftWidth = 512 #Used for table output width to avoid "..." truncation
+                $dsMarker = '################################################################################' #To mark detail scan sections
+
                 $extCount = ($extensionList | Measure-Object ).Count;
 
                 if($extCount -gt 0)
                 {               
                     $controlResult.AddMessage("No. of installed extensions: " + $extCount);
-
+                    $controlResult.AdditionalInfo += "No. of installed extensions: " + $extCount;             
+                    
+                    #if([Helpers]::CheckMember($this.ControlSettings, "Organization.TrustedExtensionPublishersId"))
+                    #{$trustedExtPublishersId = $this.ControlSettings.Organization.TrustedExtensionPublishersId;}
                     $trustedExtPublishers = $this.ControlSettings.Organization.TrustedExtensionPublishers;
 
                     $trustedExtensions = @(); #Publishers trusted by Microsoft
+                    #$trustedExtensions += $extensionList | Where-Object {$_.publisherId -in $trustedExtPublishersId}
                     $trustedExtensions += $extensionList | Where-Object {$_.publisherName -in $trustedExtPublishers}
                     $trustedCount = ($trustedExtensions | Measure-Object).Count
                     
                     $unTrustedExtensions = @(); #Publishers not trusted by Microsoft
+                    #$unTrustedExtensions += $extensionList | Where-Object {$_.publisherId -notin $trustedExtPublishersId}
                     $unTrustedExtensions += $extensionList | Where-Object {$_.publisherName -notin $trustedExtPublishers}
                     $unTrustedCount = ($unTrustedExtensions | Measure-Object).Count
                     
-                    $controlResult.AddMessage("`nList of trusted publishers: ", $trustedExtPublishers);
-                    $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the below list of installed extensions: ");  
+                    $controlResult.AddMessage("`nNote: The following publishers are considered as 'trusted': `n`t[$($trustedExtPublishers -join ', ')]");
+                    $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the list of installed extensions for your org: ");  
 
                     if($unTrustedCount -gt 0){
-                        $controlResult.AddMessage("`nNo. of installed extensions (from untrusted publishers): $unTrustedCount");
-                        $controlResult.AddMessage("Installed extensions (from untrusted publishers): ", $unTrustedExtensions);
+                        $controlResult.AddMessage("`nNo. of extensions (from publishers not in 'trusted publishers' list): $unTrustedCount");
+                        $controlResult.AdditionalInfo += "No. of installed extensions (from publishers not in 'trusted publishers' list): " + $unTrustedCount;
+                        $controlResult.AddMessage("`nExtension details: ")
+                        $display = ($unTrustedExtensions |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
+                        $controlResult.AddMessage($display)
+                        $controlResult.AdditionalInfo += "Installed extensions (from untrusted publishers): " + [JsonHelper]::ConvertToJsonCustomCompressed($unTrustedExtensions);
                     }
 
                     if($trustedCount -gt 0){
-                        $controlResult.AddMessage("`nNo. of installed extensions (from trusted publishers): $trustedCount");
-                        $controlResult.AddMessage("Installed extensions (from trusted publishers): ", $trustedExtensions);
+                        $controlResult.AddMessage("`nNo. of  extensions (from publishers in the 'trusted publishers' list): $trustedCount");
+                        $controlResult.AdditionalInfo += "No. of extensions (from publishers in the 'trusted publishers' list): " + $trustedCount;
+                        $controlResult.AddMessage("`nExtension details: ")
+                        $display = ($trustedExtensions|FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
+                        $controlResult.AddMessage($display)
                     }
 
                     $stateData = @{
@@ -441,8 +460,154 @@ class Organization: ADOSVTBase
                     $stateData.Untrusted_Extensions += $unTrustedExtensions
 
                     $controlResult.SetStateData("List of installed extensions: ", $stateData);
+
+                    ## Deep scan start
+                    if([AzSKRoot]::IsDetailedScanRequired -eq $true)
+                    {
+                        if($null -ne $this.ControlSettings)
+                        {
+                            # find inactive extensions
+                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.ExtensionsLastUpdatedInYears"))
+                            {
+                                $staleExtensionList=@()
+                                $date = Get-Date
+                                $ExtensionsLastUpdatedInYears = $this.ControlSettings.Organization.ExtensionsLastUpdatedInYears
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that have not been updated by publishers for more than [$ExtensionsLastUpdatedInYears] years...")
+                                $thresholdDate = $date.AddYears(-$ExtensionsLastUpdatedInYears)
+                                $staleExtensionList += $extensionList | Where-Object {([datetime] $_.lastPublished) -lt $thresholdDate}
+                                if($staleExtensionList.count -gt 0)
+                                {
+                                    $controlResult.AddMessage("`nNo. of extensions that haven't been updated in the last [$ExtensionsLastUpdatedInYears] years: "+ $staleExtensionList.count)
+                                    $controlResult.AddMessage("`nExtension details (oldest first): ")
+                                    $display = ($staleExtensionList| Sort-Object lastPublished | FT ExtensionName, PublisherId, PublisherName, version, lastPublished -AutoSize | Out-String -Width $ftWidth)
+                                    $controlResult.AddMessage($display)
+                                }
+                            }                                                                            
+
+                            # display extensions with critical scopes
+
+                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.ExtensionCriticalScopes"))
+                            {
+                                $ExtensionListWithCriticalScopes=@()
+                                $ExtensionCriticalScopes=$this.ControlSettings.Organization.ExtensionCriticalScopes;
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that have sensitive access permissions...")
+                                $controlResult.AddMessage("Note: The following permissions are considered sensitive: `n`t[$($ExtensionCriticalScopes -join ', ')]")
+                                $ExtensionListWithCriticalScopes += ($extensionList | ? { (@($_.scopes | ? {$_ -in $ExtensionCriticalScopes})).count -gt 0})
+                                if($ExtensionListWithCriticalScopes.count -gt 0)
+                                {  
+                                    $controlResult.AddMessage("`nNo. of extensions that have sensitive access permissions: "+ $ExtensionListWithCriticalScopes.count)                        
+                                    $controlResult.AddMessage("`nExtension details: ")
+                                    $display= ($ExtensionListWithCriticalScopes | FT ExtensionName, PublisherId, PublisherName, scopes  -AutoSize | Out-String -Width $ftWidth)
+                                    $controlResult.AddMessage($display) 
+                                }
+                            }                          
+                        
+                            # Avoid extensions  with 'DevTest', 'Demo', 'Preview', 'Deprecated' in names
+                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.NonProductionExtensionIndicators"))
+                            {
+                                $ExtensionListWithNonProductionExtensionIndicators=@()
+                                $NonProductionExtensionIndicators=$this.ControlSettings.Organization.NonProductionExtensionIndicators;
+
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that are not production ready...")
+
+                                $controlResult.AddMessage("Note: This checks for extensions with words [$($NonProductionExtensionIndicators -join ', ')] in their names.")
+
+                                for($i=0;$i -lt $extensionList.count;$i++)
+                                {
+                                    for($j=0;$j -lt $NonProductionExtensionIndicators.Count;$j++)
+                                    {
+                                        if($extensionList[$i].extensionName -match $NonProductionExtensionIndicators[$j])
+                                        {
+                                            $ExtensionListWithNonProductionExtensionIndicators += $extensionList[$i]
+                                            break; #Move to the next extension
+                                        }
+                                    }
+                                }  
+                                                    
+                                if($ExtensionListWithNonProductionExtensionIndicators.count -gt 0)
+                                {
+                                    $controlResult.AddMessage("`nNo. of non-production extensions (based on name):  "+ $ExtensionListWithNonProductionExtensionIndicators.count)
+                                    $controlResult.AddMessage("`nExtension details:  ")
+                                    $controlResult.AddMessage( ($ExtensionListWithNonProductionExtensionIndicators | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth))
+                                }
+                            }                
+                        
+                            # Display extensions with Top Publishers, extensions that are private and Non-prod extensions
+                            $topPublisherExt=@()
+                            $privateExtensions=@()
+                            $nonProdExtensions=@()
+                            $extensionList | ForEach-Object {
+                                $url="https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery?api-version=6.1-preview.1"
+                                $inputbody = "{
+                                    'assetTypes': null,
+                                    'filters': [
+                                        {
+                                            'criteria': [
+                                                {
+                                                    'filterType': 7,
+                                                    'value': '$($_.publisherId).$($_.extensionId)'
+                                                }
+                                            ]                                
+                                        }
+                                    ]
+                                }" 
+    
+                                $response= Invoke-WebRequest -Uri $url `
+                                    -Method Post `
+                                    -ContentType "application/json" `
+                                    -Body $inputbody `
+                                    -UseBasicParsing
+    
+                                $responseObject=$response.Content | ConvertFrom-Json
+
+                                # if response object does not get details of extension, those extensions are private extensions
+                                if([Helpers]::CheckMember($responseobject.results[0], "extensions") -eq $false )
+                                {
+                                    $privateExtensions+=$_
+                                }
+                                else
+                                {
+                                    $extensionflags=$responseobject.results[0].extensions.flags
+                                    
+                                    if($extensionflags -match 'Preview')
+                                    {
+                                        $nonProdExtensions+=$_
+                                    }
+
+                                    $publisherFlags = $responseobject.results[0].extensions.publisher.flags
+                                    if($publisherFlags -match "Certified")
+                                    {
+                                        $topPublisherExt+=$_
+                                    }
+                                }                            
+                            }
+                            if($nonProdExtensions.count -gt 0)
+                            {
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that are marked 'Preview' via Gallery flags...")
+                                $controlResult.AddMessage("`nNo. of installed extensions marked as 'Preview' via Gallery flags: "+ $nonProdExtensions.count);
+                                $controlResult.AddMessage("`nExtension details: ")
+                                $controlResult.AddMessage(($nonProdExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth));
+                            } 
+
+                            if($topPublisherExt.count -gt 0)
+                            {
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that are from publishers with a 'Top Publisher' certification...");
+                                $controlResult.AddMessage("`nNo. of installed extensions from 'Top Publishers': "+$topPublisherExt.count);
+                                $controlResult.AddMessage("`nExtension details: ")
+                                $controlResult.AddMessage(($topPublisherExt | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth) );
+                            }
+                            if($privateExtensions.count -gt 0)
+                            {
+                                $controlResult.AddMessage("`n$dsMarker`nLooking for extensions that have 'private' visibility for the org...");
+                                $controlResult.AddMessage("`nNo. of installed extensions with 'private' visibility: "+$privateExtensions.count);
+                                $controlResult.AddMessage("`nExtension details: ")
+                                $controlResult.AddMessage(($privateExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth));
+                            }
+                        }                                                                      
+                    }                                        
+                    ## end Deep scan
                 }
-                else 
+                else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No installed extensions found.");
                 }
@@ -463,8 +628,8 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] ValidateSharedExtensions([ControlResult] $controlResult)
     {
-        $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
-        $orgURL="https://{0}.visualstudio.com/_settings/extensions" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+        $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.SubscriptionContext.SubscriptionName);
         $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
         
         try
@@ -479,10 +644,12 @@ class Organization: ADOSVTBase
                 {
                     $controlResult.AddMessage("No. of shared extensions: " + $sharedExtensions.Count)
                     $extensionList = @();
-                    $extensionList +=  ($sharedExtensions | Select-Object extensionName,publisherId,publisherName,version) 
+                    $extensionList +=  ($sharedExtensions | Select-Object extensionName, publisherId, publisherName, version) 
 
-                    $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of shared extensions: ",$extensionList); 
-                                                    
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of shared extensions: "); 
+                    $ftWidth = 512 #To avoid "..." truncation
+                    $display = ($extensionList |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)                                
+                    $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of shared extensions: ", $extensionList);                                
                 }
                 else 
@@ -506,7 +673,7 @@ class Organization: ADOSVTBase
     {
         try 
         {
-            $apiURL = "https://{0}.vsaex.visualstudio.com/_apis/UserEntitlements?%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=5.1-preview.3" -f $($this.SubscriptionContext.SubscriptionName);
+            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=5.1-preview.3" -f $($this.SubscriptionContext.SubscriptionName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL); # returns a maximum of 100 guest users
             $guestUsers = @()
             if(($responseObj -ne $null) -and $responseObj.Count -gt 0 -and ([Helpers]::CheckMember($responseObj[0], 'members')))
@@ -515,7 +682,7 @@ class Organization: ADOSVTBase
                 $continuationToken =  $responseObj[0].continuationToken # Use the continuationToken for pagination
                 while ($continuationToken -ne $null){
                     $urlEncodedToken = [System.Web.HttpUtility]::UrlEncode($continuationToken)
-                    $apiURL = "https://{0}.vsaex.visualstudio.com/_apis/UserEntitlements?continuationToken=$urlEncodedToken&%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=5.1-preview.3" -f $($this.SubscriptionContext.SubscriptionName);
+                    $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?continuationToken=$urlEncodedToken&%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=5.1-preview.3" -f $($this.SubscriptionContext.SubscriptionName);
                     try{
                         $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                         $guestUsers += $responseObj[0].members
@@ -554,18 +721,20 @@ class Organization: ADOSVTBase
                 $totalGuestCount = ($guestListDetailed | Measure-Object).Count
                 $controlResult.AddMessage("Displaying all guest users in the organization...");
                 $controlResult.AddMessage([VerificationResult]::Verify,"Total number of guest users in the organization: $($totalGuestCount)"); 
-                
+                $controlResult.AdditionalInfo += "Total number of guest users in the organization: " + $totalGuestCount;
                 $inactiveGuestUsers = $guestListDetailed | Where-Object { $_.InactiveFromDays -eq "User was never active." }
                 $inactiveCount = ($inactiveGuestUsers | Measure-Object).Count
                 if($inactiveCount) {
-                    $controlResult.AddMessage("`nTotal number of guest users who were never active: $($inactiveCount)"); 
+                    $controlResult.AddMessage("`nTotal number of guest users who were never active: $($inactiveCount)");
+                    $controlResult.AdditionalInfo += "Total number of inactive guest users in the organization: " + $inactiveCount;
                     $controlResult.AddMessage("List of guest users who were never active: ",$inactiveGuestUsers);
                 }
                 
                 $activeGuestUsers = $guestListDetailed | Where-Object { $_.InactiveFromDays -ne "User was never active." }    
                 $activeCount = ($activeGuestUsers | Measure-Object).Count
                 if($activeCount) {
-                    $controlResult.AddMessage("`nTotal number of guest users who are active: $($activeCount)"); 
+                    $controlResult.AddMessage("`nTotal number of guest users who are active: $($activeCount)");
+                    $controlResult.AdditionalInfo += "Total number of active guest users in the organization: " + $activeCount;
                     $controlResult.AddMessage("List of guest users who are active: ",$activeGuestUsers);
                 }  
                 $controlResult.SetStateData("Guest users list: ", $stateData);    
@@ -586,7 +755,7 @@ class Organization: ADOSVTBase
     hidden [ControlResult] CheckExtensionManagers([ControlResult] $controlResult)
     {
 
-        $apiURL = "https://{0}.extmgmt.visualstudio.com/_apis/securityroles/scopes/ems.manage.ui/roleassignments/resources/ems-ui" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/securityroles/scopes/ems.manage.ui/roleassignments/resources/ems-ui" -f $($this.SubscriptionContext.SubscriptionName);
         
         try 
         {
@@ -622,11 +791,11 @@ class Organization: ADOSVTBase
         return $controlResult
     }
 
-    hidden [ControlResult] CheckInActiveUsers([ControlResult] $controlResult)
+    hidden [ControlResult] CheckInactiveUsers([ControlResult] $controlResult)
     {
         try {
-            $topInActiveUsers = $this.ControlSettings.Organization.TopInActiveUserCount 
-            $apiURL = "https://{0}.vsaex.visualstudio.com/_apis/UserEntitlements?top={1}&filter=&sortOption=lastAccessDate+ascending" -f $($this.SubscriptionContext.SubscriptionName), $topInActiveUsers;
+            $topInactiveUsers = $this.ControlSettings.Organization.TopInactiveUserCount 
+            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?top={1}&filter=&sortOption=lastAccessDate+ascending" -f $($this.SubscriptionContext.SubscriptionName), $topInActiveUsers;
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
             if($responseObj.Count -gt 0)
@@ -640,9 +809,9 @@ class Organization: ADOSVTBase
                 }
                 if(($inactiveUsers | Measure-Object).Count -gt 0)
                 {
-                    if($inactiveUsers.Count -ge $topInActiveUsers)
+                    if($inactiveUsers.Count -ge $topInactiveUsers)
                     {
-                        $controlResult.AddMessage("Displaying top $($topInActiveUsers) inactive users")
+                        $controlResult.AddMessage("Displaying top $($topInactiveUsers) inactive users")
                     }
                     #inactive user with days from how many days user is inactive, if user account created and was never active, in this case lastaccessdate is default 01-01-0001
                     $inactiveUsers = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="mailAddress"; Expression = {$_.User.mailAddress}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
@@ -688,7 +857,7 @@ class Organization: ADOSVTBase
     {
         try 
         {
-            $apiURL = "https://{0}.visualstudio.com/_apis/OrganizationSettings/DisconnectedUser" -f $($this.SubscriptionContext.SubscriptionName);
+            $apiURL = "https://dev.azure.com/{0}/_apis/OrganizationSettings/DisconnectedUser" -f $($this.SubscriptionContext.SubscriptionName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             
             #disabling null check to CheckMember because if there are no disconnected users - it will return null.
@@ -721,7 +890,7 @@ class Organization: ADOSVTBase
         $url= "https://vssps.dev.azure.com/{0}/_apis/graph/groups?api-version=5.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
         $groupsObj = [WebRequestHelper]::InvokeGetWebRequest($url);
 
-        $apiURL = "https://{0}.vsaex.visualstudio.com/_apis/UserEntitlements?top=50&filter=&sortOption=lastAccessDate+ascending" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?top=50&filter=&sortOption=lastAccessDate+ascending" -f $($this.SubscriptionContext.SubscriptionName);
         $usersObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
         $Users =  @()
@@ -788,26 +957,7 @@ class Organization: ADOSVTBase
     }
 
     hidden [ControlResult] CheckOAuthAppAccess([ControlResult] $controlResult)
-    {
-        <# This control has been currently removed from control JSON file.
-        {
-            "ControlID": "ADO_Organization_AuthN_Enable_App_Access_OAuth",
-            "Description": "OAuth should be enabled for third party application access",
-            "Id": "Organization260",
-            "ControlSeverity": "Medium",
-            "Automated": "Yes",
-            "MethodName": "CheckOAuthAppAccess",
-            "Rationale": "TBD",
-            "Recommendation": "Go to Organization Settings --> Security --> Policies --> Application connection policies --> Enable Third-party application access via OAuth",
-            "Tags": [
-                "SDL",
-                "TCP",
-                "Automated",
-                "AuthN"
-            ],
-            "Enabled": true
-        },
-        #>
+    {       
        if([Helpers]::CheckMember($this.OrgPolicyObj,"applicationConnection"))
        {
             $OAuthObj = $this.OrgPolicyObj.applicationConnection | Where-Object {$_.Policy.Name -eq "Policy.DisallowOAuthAuthentication"}
@@ -815,12 +965,10 @@ class Organization: ADOSVTBase
             {
                 if($OAuthObj.policy.effectiveValue -eq $true )
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,
-                                                "OAuth is enabled for third-party application access.");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Third-party application access via OAuth is enabled.");
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Failed,
-                                                "OAuth is enabled for third-party application access.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Third-party application access via OAuth is disabled.");
                 }
             }
        }
@@ -1276,14 +1424,18 @@ class Organization: ADOSVTBase
             elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0)) 
             {
                 $enabledStreams = $responseObj | Where-Object {$_.status -eq 'enabled'}
+                $enabledStreams = $enabledStreams | Select-Object consumerType,displayName,status
+                $enabledStreamsCount = ($enabledStreams | Measure-Object).Count
                 if(($enabledStreams | Measure-Object).Count -gt 0)
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "One or more audit streams configured on the organization are currently enabled.");
+                    $controlResult.AddMessage("`nTotal number of configured audit streams that are enabled: $($enabledStreamsCount)", $enabledStreams);
+                    $controlResult.AdditionalInfo += "Total number of configured audit streams that are enabled: " + $enabledStreamsCount;
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "None of the audit streams that have been configured are currently enabled.");
-                }  
+                }
             }
             else 
             {

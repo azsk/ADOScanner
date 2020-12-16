@@ -54,7 +54,8 @@
           "ADO_Build_SI_Review_URL_Variables_Settable_At_Queue_Time",
           "ADO_Build_SI_Disable_Task_Group_Edit_Permission",
           "ADO_Build_SI_Disable_Variable_Group_Edit_Permission",
-          "ADO_Build_AuthZ_Limit_Pipeline_Access"
+          "ADO_Build_AuthZ_Limit_Pipeline_Access",
+          "ADO_Build_SI_Disable_Pipeline_Edit_Permission"
         ]
       },
       {
@@ -65,7 +66,8 @@
           "ADO_Release_DP_No_PlainText_Secrets_In_Definition",
           "ADO_Release_SI_Review_URL_Variables_Settable_At_Release_Time",
           "ADO_Release_SI_Disable_Task_Group_Edit_Permission",
-          "ADO_Release_SI_Disable_Variable_Group_Edit_Permission"
+          "ADO_Release_SI_Disable_Variable_Group_Edit_Permission",
+          "ADO_Release_SI_Disable_Pipeline_Edit_Permission"
         ]
       },
       {
@@ -74,7 +76,8 @@
           "ADO_AgentPool_AuthZ_Disable_Inherited_Permissions",
           "ADO_AgentPool_AuthZ_Project_Dont_Grant_All_Pipeline_Access",
           "ADO_AgentPool_AuthZ_Dont_Enable_Auto_Provisioning",
-          "ADO_AgentPool_DP_Review_Inactive_Pool"
+          "ADO_AgentPool_DP_Review_Inactive_Pool",
+          "ADO_AgentPool_DP_Enable_Auto_Update"
         ]
       },
       {
@@ -239,12 +242,25 @@
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
   "Organization": {
-    "InActiveUserActivityLogsPeriodInDays": 90,
-    "TopInActiveUserCount": 100,
+    "InactiveUserActivityLogsPeriodInDays": 90,
+    "TopInactiveUserCount": 100,
     "TrustedExtensionPublishers": [
       "Microsoft",
       "Microsoft DevLabs"
     ],
+    "TrustedExtensionPublisherIds":[
+      " "],
+    "NonProductionExtensionIndicators":["DevTest", "Demo", "Preview", "Deprecated"],
+    "ExtensionsLastUpdatedInYears": 2,
+    "ExtensionCriticalScopes":["vso.agentpools_manage","vso.build_execute","vso.code_write","vso.code_manage","vso.code_full",
+                      "vso.code_status","vso.memberentitlementmanagement_write","vso.extension_manage",
+                      "vso.extension.data_write","vso.graph_manage","vso.identity_manage","vso.loadtest_write",
+                      "vso.machinegroup_manage","vso.gallery_manage","vso.notification_write","vso.notification_manage",
+                      "vso.packaging_write","vso.packaging_manage","vso.project_write","vso.project_manage","vso.release_execute",
+                      "vso.release_manage","vso.security_manage","vso.serviceendpoint_manage","vso.settings_write",
+                      "vso.symbols_write","vso.symbols_manage","vso.taskgroups_write","vso.taskgroups_manage",
+                      "vso.dashboards_manage","vso.test_write","vso.tokenadministration","vso.profile_write",
+                      "vso.variablegroups_write","vso.variablegroups_manage","vso.wiki_write","vso.work_write","vso.work_full"],
     "MaxPCAMembersPermissible": 5,
     "MinPCAMembersPermissible": 2,
     "GroupsToCheckForSCAltMembers": [
@@ -327,5 +343,11 @@
     "ComplianceArea": "Security",
     "ServiceTreeIdType": "Service"
   },
-  "GenerateSecurityEvaluationJsonFile" : false
+  "GenerateSecurityEvaluationJsonFile" : false,
+  "ResourceProviders": [
+    "Microsoft.Storage", 
+    "Microsoft.Keyvault", 
+    "Microsoft.Resources", 
+    "Microsoft.OperationalInsights"
+  ]
 }

@@ -452,19 +452,27 @@ class ADOSVTBase: SVTBase {
 
 	hidden [void] PostEvaluationCompleted([SVTEventContext[]] $ControlResults) {		
 		$this.UpdateControlStates($ControlResults);
-
+		
 		$BugLogParameterValue =$this.InvocationContext.BoundParameters["AutoBugLog"]
 		#perform bug logging after control scans for the current resource
-		if ($BugLogParameterValue) {
-			$this.BugLoggingPostEvaluation($ControlResults,$BugLogParameterValue)
+		if ($BugLogParameterValue) 
+		{
+			if (($ControlResults.ControlResults.VerificationResult -contains "Failed") -or ($ControlResults.ControlResults.VerificationResult -contains "Verify")) {
+				$this.BugLoggingPostEvaluation($ControlResults, $BugLogParameterValue)
+			}
 		}
 	}
 	
 	#function to call AutoBugLog class for performing bug logging
-	hidden [void] BugLoggingPostEvaluation([SVTEventContext []] $ControlResults,[string] $BugLogParameterValue){
-		$AutoBugLog=[AutoBugLog]::new($this.SubscriptionContext,$this.InvocationContext,$ControlResults,$this.ControlStateExt);
-		$AutoBugLog.LogBugInADO($ControlResults,$BugLogParameterValue)
-
+	hidden [void] BugLoggingPostEvaluation([SVTEventContext []] $ControlResults,[string] $BugLogParameterValue)
+	{
+		$AutoBugLog = [AutoBugLog]::AutoBugInstance
+		if (!$AutoBugLog) {
+			#Settting initial value true so will evaluate in all different cmds.(Powershell keeping static variables in memory in next command also.)
+			[BugLogPathManager]::checkValidPathFlag = $true;
+			$AutoBugLog = [AutoBugLog]::GetInstance($this.SubscriptionContext.SubscriptionName, $this.InvocationContext, $this.ControlStateExt, $BugLogParameterValue);
+		}
+		$AutoBugLog.LogBugInADO($ControlResults)
 	}
 
 	

@@ -244,8 +244,12 @@ function Get-AzSKADOSecurityStatus
 		[switch]
 		[Parameter(HelpMessage="Include admin controls (organization and project specific controls) in scan.")]
 		[Alias("iac")]
-		$IncludeAdminControls
+		$IncludeAdminControls,
 
+		[switch]
+		[Parameter(HelpMessage="Skip organization and user controls.")]
+		[Alias("souc")]
+		$SkipOrgUserControls
 	)
 	Begin
 	{
@@ -257,6 +261,12 @@ function Get-AzSKADOSecurityStatus
 	{
 		try 
 		{
+			[ConfigurationHelper]::PolicyCacheContent = @()
+			[AzSKSettings]::Instance = $null
+			[AzSKConfig]::Instance = $null 
+			[ConfigurationHelper]::ServerConfigMetadata = $null
+			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
+			[AutoBugLog]::AutoBugInstance = $null
 			if($PromptForPAT -eq $true)
 			{
 				if($null -ne $PATToken)
@@ -314,7 +324,7 @@ function Get-AzSKADOSecurityStatus
 				}
 			}
 
-			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);
+			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls);
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus) 
 			{	
