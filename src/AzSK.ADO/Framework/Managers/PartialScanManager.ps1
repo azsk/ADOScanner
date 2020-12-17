@@ -140,6 +140,9 @@ class PartialScanManager
 						}
 						$this.IsRTFAlreadyAvailable = $true
 					}
+					else {
+						$this.IsRTFAlreadyAvailable = $false
+					}
 					$this.IsDurableStorageFound = $true
 				}
 				#If checkpoint container is not found then create new
@@ -445,7 +448,10 @@ class PartialScanManager
                 {
                     # Create directory and resource tracker file
                     $filePath = $this.MasterFilePath.Replace($this.ResourceScanTrackerFileName, "")
-                    New-Item -ItemType Directory -Path $filePath
+                    if (-not (Test-Path $filePath))
+                    {
+                        New-Item -ItemType Directory -Path $filePath
+                    }
                     New-Item -Path $filePath -Name $this.ResourceScanTrackerFileName -ItemType "file" 
                 }
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.MasterFilePath -Force
