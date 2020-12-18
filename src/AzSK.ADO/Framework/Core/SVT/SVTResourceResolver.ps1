@@ -43,11 +43,20 @@ class SVTResourceResolver: AzSKRoot {
     hidden [string[]] $VariableGroupIds = @();
     hidden [bool] $isServiceIdBasedScan = $false;
 
+    $orgTelemetryData = @{
+        installed_extensions = 0;
+        organization_name = "";
+    };
+	[bool] $IsAIEnabled = $false;
+
     SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls): Base($organizationName, $PATToken) {
 
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
         $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);            
         $this.skipOrgUserControls = $skipOrgUserControls
+		if ([RemoteReportHelper]::IsAIOrgTelemetryEnabled()) { 
+			$this.IsAIEnabled = $true; 
+		}
     }
 
     [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls) { 
@@ -157,6 +166,45 @@ class SVTResourceResolver: AzSKRoot {
         }
     }
 
+    [void] GetResourceCount($projectName, $organizationId, $projectId, $projectData, $topNQueryString) {
+        # fetching the repository count of a project
+        try{
+            $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/git/repositories?api-version=6.0"
+            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
+            # $this.AddSVTResource("Repos", $projectName, "ADO.Repo", "organization/$organizationId/project/$projectId", $null, "");
+            $projectData['repositories'] = $responseList.Length
+            # fetching the testplan count of a project
+            $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/testplan/plans?api-version=6.0-preview.1"
+            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
+            $projectData['testplan'] = $responseList.Length
+            # fetching the taskgroups count of a project
+            $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/distributedtask/taskgroups?api-version=6.0-preview.1"
+            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
+            $projectData['taskgroups'] = $responseList.Length
+            # fetch the builds count if provided builds not equals to *
+            if($projectData['build'] -eq -1) {
+                $resourceURL = ""
+                if ([string]::IsNullOrEmpty($topNQueryString)) {
+                    $topNQueryString = '&$top=10000'
+                    $resourceURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1&queryOrder=lastModifiedDescending" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $projectName;
+                }
+                else {
+                    $resourceURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $projectName;                               
+                }
+                $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
+                $projectData['build'] = $responseList.Length;
+            }
+            # fetch the release count if provided builds not equals to *
+            if($projectData['release'] -eq -1) {
+                $resourceURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=4.1-preview.3" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $projectName;
+                $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
+                $projectData['release'] = $responseList.Length;
+            }
+        }
+        catch {}
+        [AIOrgTelemetryHelper]::PublishEvent("Projects resources count", $projectData, @{})
+    }
+
     [void] LoadResourcesForScan() {
         #Call APIS for Organization,User/Builds/Releases/ServiceConnections 
         $organizationId = "";
@@ -241,10 +289,29 @@ class SVTResourceResolver: AzSKRoot {
                 }
                 $TotalSvc = 0;
                 $ScannableSvc = 0;
+                if($this.IsAIEnabled -eq $true) {
+                    # fetching the installed extensions count for the organization
+                    $resourceURL = "https://extmgmt.dev.azure.com/$($this.organizationName)/_apis/extensionmanagement/installedextensions?api-version=6.0-preview.1"
+                    try { 
+                        $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
+                    }
+                    catch {}
+                    # storing the data into a data structure (orgTelemetryData)
+                    $this.orgTelemetryData["installed_extensions"] = $responseList.Length
+                    $this.orgTelemetryData["organization_name"] = $this.organizationName
+                }
                 foreach ($thisProj in $projects) 
                 {
                     $projectName = $thisProj.name
                     $projectId = $thisProj.id;
+                    [Hashtable] $projectData = @{
+                        projectName = $projectName;
+                        repositories = -1;
+                        testplan = -1;
+                        build = -1;
+                        release = -1;
+                        taskgroups = -1;
+                    };
                     if ($this.ResourceTypeName -in ([ResourceTypeName]::Project, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User)  -and ([string]::IsNullOrEmpty($this.serviceId))) 
                     {
                         #First condition if 'includeAdminControls' switch is passed or user is PCA or User is PA.
@@ -294,6 +361,8 @@ class SVTResourceResolver: AzSKRoot {
                                    
                                     if (--$nObj -eq 0) { break; } 
                                 }
+                                # builds count here
+                                $projectData['build'] = $buildDefnsObj.Length;
                                 $buildDefnsObj = $null;
                                 Remove-Variable buildDefnsObj;
                             }
@@ -355,6 +424,8 @@ class SVTResourceResolver: AzSKRoot {
                                     
                                     if (--$nObj -eq 0) { break; } 
                                 }
+                                # release count here
+                                $projectData['release'] = $releaseDefnsObj.Length;
                                 $releaseDefnsObj = $null;
                             }
                         }
@@ -537,6 +608,11 @@ class SVTResourceResolver: AzSKRoot {
                             }
                         }
                     }
+                    # getting all the resources count
+                    # and sending them to telemetry as well
+                    if($this.IsAIEnabled -eq $true) {
+                        $this.GetResourceCount($projectName, $organizationId, $projectId, $projectData, $topNQueryString);
+                    }
                     #check if long running scan allowed or not.
                     if(!$this.isAllowLongRunningScanCheck())
                     {
@@ -547,6 +623,9 @@ class SVTResourceResolver: AzSKRoot {
                 }
                 #Display count of total svc and svcs to be scanned
                 #sending the details to telemetry as well
+                if($this.IsAIEnabled -eq $true) {
+                    [AIOrgTelemetryHelper]::PublishEvent("Organization resources count",  $this.orgTelemetryData, @{})
+                }
                 if ($TotalSvc -gt 0)
                 {
                     #$this.PublishCustomMessage("Total service connections: $TotalSvc");
