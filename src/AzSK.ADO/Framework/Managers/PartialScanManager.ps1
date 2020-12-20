@@ -291,7 +291,10 @@ class PartialScanManager
 				Remove-AzStorageBlob -CloudBlob $this.ControlStateBlob.ICloudBlob -Force -Context $this.StorageContext
 
 				#Delete local RTF file
-				Remove-Item -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.SubId) $this.ResourceScanTrackerFileName)
+				if (Test-Path (Join-Path $this.AzSKTempStatePath $this.SubId))
+				{
+					Remove-Item -Path (Join-Path $this.AzSKTempStatePath $this.SubId) -Recurse
+				}
 			}	
 		}
 
