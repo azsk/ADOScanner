@@ -14,6 +14,8 @@ class SVTResourceResolver: AzSKRoot {
     [int] $MaxObjectsToScan;
     [SVTResource[]] $SVTResources = @();
     [int] $SVTResourcesFoundCount = 0;
+
+	[bool] $IsAIEnabled = $false;
     
     [string] $ResourcePath;
     [string] $organizationName
@@ -42,12 +44,6 @@ class SVTResourceResolver: AzSKRoot {
     hidden [string[]] $ServiceConnectionIds = @();
     hidden [string[]] $VariableGroupIds = @();
     hidden [bool] $isServiceIdBasedScan = $false;
-
-    $orgTelemetryData = @{
-        installed_extensions = 0;
-        organization_name = "";
-    };
-	[bool] $IsAIEnabled = $false;
 
     SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls): Base($organizationName, $PATToken) {
 
@@ -200,8 +196,39 @@ class SVTResourceResolver: AzSKRoot {
                 $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
                 $projectData['release'] = $responseList.Length;
             }
+            # fetch the agent pools count
+            if($projectData["agentpools"] -eq -1) {
+                $agentPoolsDefnURL = ("https://dev.azure.com/{0}/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $($this.SubscriptionContext.SubscriptionName), $projectName;
+                try {
+                    $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
+                    if (([Helpers]::CheckMember($agentPoolsDefnsObj, "fps.dataProviders.data") ) -and (($agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider") -and $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues)) {
+                        $nObj = $this.MaxObjectsToScan
+                        $taskAgentQueues = $null;
+                        $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | where-object{$_.pool.isLegacy -eq $false};
+                        if ($null -ne $taskAgentQueues) {
+                            $projectData["agentpools"] = $taskAgentQueues.Length
+                        }
+                    }
+                }
+                catch {}
+            }
         }
         catch {}
+        if ($projectData["variablegroups"] -eq -1) {
+            $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?api-version=6.1-preview.2") -f $($this.organizationName), $projectId;
+            try{
+                $variableGroupObj = [WebRequestHelper]::InvokeGetWebRequest($variableGroupURL)
+            
+                if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) {
+            
+                    $varGroups = $variableGroupObj
+                    if($null -ne $varGroups) {
+                        $projectData["variablegroups"] = $varGroups.Length;
+                    }
+                }
+            }
+            catch {}
+        }
         [AIOrgTelemetryHelper]::PublishEvent("Projects resources count", $projectData, @{})
     }
 
@@ -289,17 +316,6 @@ class SVTResourceResolver: AzSKRoot {
                 }
                 $TotalSvc = 0;
                 $ScannableSvc = 0;
-                if($this.IsAIEnabled -eq $true) {
-                    # fetching the installed extensions count for the organization
-                    $resourceURL = "https://extmgmt.dev.azure.com/$($this.organizationName)/_apis/extensionmanagement/installedextensions?api-version=6.0-preview.1"
-                    try { 
-                        $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
-                    }
-                    catch {}
-                    # storing the data into a data structure (orgTelemetryData)
-                    $this.orgTelemetryData["installed_extensions"] = $responseList.Length
-                    $this.orgTelemetryData["organization_name"] = $this.organizationName
-                }
                 foreach ($thisProj in $projects) 
                 {
                     $projectName = $thisProj.name
@@ -311,6 +327,8 @@ class SVTResourceResolver: AzSKRoot {
                         build = -1;
                         release = -1;
                         taskgroups = -1;
+                        agentpools = -1;
+                        variablegroups = -1;
                     };
                     if ($this.ResourceTypeName -in ([ResourceTypeName]::Project, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User)  -and ([string]::IsNullOrEmpty($this.serviceId))) 
                     {
@@ -547,6 +565,9 @@ class SVTResourceResolver: AzSKRoot {
                                         $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPools -contains $_.name) } 
                                     }
                                 }
+                                if ($null -ne $taskAgentQueues) {
+                                    $projectData["agentpools"] = $taskAgentQueues.Length
+                                }
 
                                 #Filtering out "Azure Pipelines" agent pool from scan as it is created by ADO by default and some of its settings are not editable (grant access to all pipelines, auto-provisioning etc.)
                                 $taskAgentQueues = $taskAgentQueues | where-object{$_.name -ne "Azure Pipelines"};
@@ -598,6 +619,10 @@ class SVTResourceResolver: AzSKRoot {
                                 }
                             }
 
+                            if($null -ne $varGroups) {
+                                $projectData["variablegroups"] = $varGroups.Length;
+                            }
+
                             $nObj = $this.MaxObjectsToScan
                             foreach ($group in $varGroups) {
                                 $resourceId = "organization/$organizationId/project/$projectId/variablegroup/$($group.Id)";
@@ -623,9 +648,6 @@ class SVTResourceResolver: AzSKRoot {
                 }
                 #Display count of total svc and svcs to be scanned
                 #sending the details to telemetry as well
-                if($this.IsAIEnabled -eq $true) {
-                    [AIOrgTelemetryHelper]::PublishEvent("Organization resources count",  $this.orgTelemetryData, @{})
-                }
                 if ($TotalSvc -gt 0)
                 {
                     #$this.PublishCustomMessage("Total service connections: $TotalSvc");
