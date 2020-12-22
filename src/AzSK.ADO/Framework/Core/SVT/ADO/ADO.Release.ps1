@@ -88,6 +88,8 @@ class Release: ADOSVTBase
                 $varList = @();
                 $varGrpList = @();
                 $noOfCredFound = 0;  
+                $restrictedVarGrp = $false;  
+
                 if(($patterns | Measure-Object).Count -gt 0)
                 {     
                     if([Helpers]::CheckMember($this.ReleaseObj,"variables")) 
@@ -156,6 +158,7 @@ class Release: ADOSVTBase
 
                             $varGrpObj| ForEach-Object {
                             $varGrp = $_
+                            if([Helpers]::CheckMember($_ ,"variables")){
                                 Get-Member -InputObject $_.variables -MemberType Properties | ForEach-Object {
 
                                     if([Helpers]::CheckMember($varGrp.variables.$($_.Name) ,"value") -and  (-not [Helpers]::CheckMember($varGrp.variables.$($_.Name) ,"isSecret")))
@@ -174,13 +177,21 @@ class Release: ADOSVTBase
                                                     break  
                                                     }
                                                 }
+                                            }
                                         }
-                                    } 
+                                    }
+                                }
+                                else{
+                                    $restrictedVarGrp = $true;  
                                 }
                             }
                         }
                     }
-                    if($noOfCredFound -eq 0) 
+                    if($restrictedVarGrp -eq $true)
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Manual, "Could not evaluate release definition as one or more variable group has restricted permissions.");
+                    }
+                    elseif($noOfCredFound -eq 0) 
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No secrets found in release definition.");
                     }
