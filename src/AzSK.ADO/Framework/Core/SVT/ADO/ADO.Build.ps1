@@ -72,6 +72,7 @@ class Build: ADOSVTBase
                             {
                                 $controlResult.AddMessage("No. of credentials found:" + ($credList | Measure-Object).Count )
                                 $controlResult.AddMessage([VerificationResult]::Failed,"Found credentials in variables")
+                                $controlResult.AdditionalInfo += "No. of credentials found: " + ($credList | Measure-Object).Count;
                             }
                             else {
                                 $controlResult.AddMessage([VerificationResult]::Passed,"No credentials found in variables")
@@ -176,12 +177,14 @@ class Build: ADOSVTBase
                         $varList = $varList | select -Unique | Sort-object
                         $stateData.VariableList += $varList
                         $controlResult.AddMessage("`nList of variable(s) containing secret: ", $varList);
+                        $controlResult.AdditionalInfo += "Total number of variable(s) containing secret: " + ($varList | Measure-Object).Count;
                     }
                     if(($varGrpList | Measure-Object).Count -gt 0 )
                     {
                         $varGrpList = $varGrpList | select -Unique | Sort-object
                         $stateData.VariableGroupList += $varGrpList
                         $controlResult.AddMessage("`nList of variable(s) containing secret in variable group(s): ", $varGrpList);
+                        $controlResult.AdditionalInfo += "Total number of variable(s) containing secret in variable group(s): " + ($varGrpList | Measure-Object).Count;
                     }
                     $controlResult.SetStateData("List of variable and variable group containing secret: ", $stateData );
                 }
@@ -234,18 +237,27 @@ class Build: ADOSVTBase
 
             if(($builds | Measure-Object).Count -gt 0 )
             {
-                
-                    if ($builds[0].latestRun -ne $null -and [datetime]::Parse( $builds[0].latestRun.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays))) {
+
+                if($null -ne $builds[0].latestRun)
+                {
+                    if ([datetime]::Parse( $builds[0].latestRun.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays))) {
                         $controlResult.AddMessage([VerificationResult]::Passed,
                             "Found recent builds triggered within $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days");
                     }               
-                
-                
+
+
                     else {
                         $controlResult.AddMessage([VerificationResult]::Failed,
                             "No recent build history found in last $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days");
                     }
-                
+
+                    $buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
+                    $controlResult.AddMessage("The last run date of build pipeline: $($buildLastRunDate)");
+                    $controlResult.AdditionalInfo += "The last run date of build pipeline: " + $buildLastRunDate;
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "No build history found.");
+                }
             }
             else
             {
@@ -383,13 +395,19 @@ class Build: ADOSVTBase
                 if(($accessList | Measure-Object).Count -ne 0)
                 {
                     $accessList= $accessList | Select-Object -Property @{Name="IdentityName"; Expression = {$_.IdentityName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Permissions"; Expression = {$_.Permissions}}
+                    $controlResult.AddMessage("Total number of identities with minimum RBAC access: ", ($accessList | Measure-Object).Count);
                     $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to [$($this.ResourceContext.ResourceName)] pipeline.", $accessList);
-                    $controlResult.SetStateData("Build pipeline access list: ", ($responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}})); 
+                    $controlResult.SetStateData("Build pipeline access list: ", ($responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}}));
+                    $controlResult.AdditionalInfo += "Total number of identities with minimum RBAC access: " + ($accessList | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of user identities with minimum RBAC access: " + (($accessList | Where-Object {$_.IdentityType -eq 'user'}) | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of group identities with minimum RBAC access: " + (($accessList | Where-Object {$_.IdentityType -eq 'group'}) | Measure-Object).Count;
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"No identities have been explicitly provided with RBAC access to [$($this.ResourceContext.ResourceName)] other than build pipeline owner and default groups");
+                    $controlResult.AddMessage("Number of exempted user identities:",($exemptedUserIdentities | Measure-Object).Count);
                     $controlResult.AddMessage("List of exempted user identities:",$exemptedUserIdentities)
+                    $controlResult.AdditionalInfo += "Number of exempted user identities: " + ($exemptedUserIdentities | Measure-Object).Count;
                 } 
             }
             else{
@@ -397,8 +415,12 @@ class Build: ADOSVTBase
                 if(($responseObj.identities|Measure-Object).Count -gt 0)
                 {
                     $accessList= $responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}}
+                    $controlResult.AddMessage("Total number of identities with minimum RBAC access: ", ($accessList | Measure-Object).Count);
                     $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to [$($this.ResourceContext.ResourceName)] pipeline.", $accessList);
                     $controlResult.SetStateData("Build pipeline access list: ", $accessList);
+                    $controlResult.AdditionalInfo += "Total number of identities with minimum RBAC access: " + ($accessList | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of user identities with minimum RBAC access: " + (($accessList | Where-Object {$_.IdentityType -eq 'user'}) | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of group identities with minimum RBAC access: " + (($accessList | Where-Object {$_.IdentityType -eq 'group'}) | Measure-Object).Count;
                 }
             }
             
@@ -437,7 +459,9 @@ class Build: ADOSVTBase
             }
            } 
            if(($setablevar | Measure-Object).Count -gt 0){
+                $controlResult.AddMessage("Number of variables that are settable at queue time: ", ($setablevar | Measure-Object).Count);
                 $controlResult.AddMessage([VerificationResult]::Verify,"The below variables are settable at queue time: ",$setablevar);
+                $controlResult.AdditionalInfo += "Number of variables that are settable at queue time: " + ($setablevar | Measure-Object).Count;
                 $controlResult.SetStateData("Variables settable at queue time: ", $setablevar);
                 if ($nonsetablevar) {
                     $controlResult.AddMessage("The below variables are not settable at queue time: ",$nonsetablevar);      
@@ -486,7 +510,9 @@ class Build: ADOSVTBase
                     } 
                     if ($count -gt 0) 
                     {
+                        $controlResult.AddMessage("Number of variables that are settable at queue time and contain URL value: ", ($settableURLVars | Measure-Object).Count);
                         $controlResult.AddMessage([VerificationResult]::Failed, "Found variables that are settable at queue time and contain URL value: ", $settableURLVars);
+                        $controlResult.AdditionalInfo += "Number of variables that are settable at queue time and contain URL value: " + ($settableURLVars | Measure-Object).Count;
                         $controlResult.SetStateData("List of variables settable at queue time and containing URL value: ", $settableURLVars);
                     }
                     else {
@@ -517,11 +543,13 @@ class Build: ADOSVTBase
             $sourceobj = $this.BuildObj[0].repository | Select-Object -Property @{Name="Name"; Expression = {$_.Name}},@{Name="Type"; Expression = {$_.type}}
            if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
            {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository.",  $sourceobj); 
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository.",  $sourceobj);
+                $controlResult.AdditionalInfo += "Pipeline code is built from trusted repository: " + [JsonHelper]::ConvertToJsonCustomCompressed($sourceobj); 
                 $sourceobj = $null;
            }
            else {
-                $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from external repository.", $sourceobj);   
+                $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from external repository.", $sourceobj); 
+                $controlResult.AdditionalInfo += "Pipeline code is built from external repository: " + [JsonHelper]::ConvertToJsonCustomCompressed($sourceobj);  
            }
         }
 
@@ -627,6 +655,8 @@ class Build: ADOSVTBase
                     }
                     if(($editableTaskGroups | Measure-Object).Count -gt 0)
                     {
+                        $controlResult.AddMessage("Number of task groups on which contributors have edit permissions in build definition: ", ($editableTaskGroups | Measure-Object).Count);
+                        $controlResult.AdditionalInfo += "Number of task groups on which contributors have edit permissions in build definition: " + ($editableTaskGroups | Measure-Object).Count;
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in build definition: ", $editableTaskGroups);
                         $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups); 
                     }
@@ -684,6 +714,8 @@ class Build: ADOSVTBase
 
                 if(($editableVarGrps | Measure-Object).Count -gt 0)
                 {
+                    $controlResult.AddMessage("Number of variable groups on which contributors have edit permissions in build definition: ", ($editableVarGrps | Measure-Object).Count);
+                    $controlResult.AdditionalInfo += "Number of variable groups on which contributors have edit permissions in build definition: " + ($editableVarGrps | Measure-Object).Count;
                     $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below variable groups used in build definition: ", $editableVarGrps);
                     $controlResult.SetStateData("List of variable groups used in build definition that contributors can edit: ", $editableVarGrps); 
                 }

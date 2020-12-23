@@ -60,7 +60,7 @@ class ControlResult
 	[int] $TimeTakenInMs	
 	[DateTime] $ScanStartDateTime
 	[DateTime] $ScanEndDateTime
-	[PSObject[]] $AdditionalInfo
+	[String[]] $AdditionalInfo
 
     [void] AddMessage([MessageData] $messageData)
     {

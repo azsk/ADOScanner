@@ -15,12 +15,14 @@ class User: ADOSVTBase {
                 $AccessPATListCount = ($AccessPATList | Measure-Object).Count
                 if ($AccessPATListCount -gt 0) {
                     $controlResult.AddMessage("Total number of active user PATs: $($AccessPATListCount)");
+                    $controlResult.AdditionalInfo += "Total number of active user PATs: " + $AccessPATListCount;
                     $statusSet = $false # Use this variable to check whether scanStaus is already set
 
                     $fullAccessPATList = $AccessPATList | Where-Object { $_.scope -eq "app_token" }
                     $fullAccessPATListCount = ($fullAccessPATList | Measure-Object).Count 
                     if ($fullAccessPATListCount -gt 0) {
                         $controlResult.AddMessage("`nTotal number of PATs configured with full access: $($fullAccessPATListCount)");
+                        $controlResult.AdditionalInfo += "Total number of PATs configured with full access: " + $fullAccessPATListCount;
                         $fullAccessPATNames = $fullAccessPATList | Select-Object displayName, scope 
                         $controlResult.AddMessage([VerificationResult]::Failed,
                             "The following PATs have been configured with full access: ", $fullAccessPATNames);
@@ -31,6 +33,7 @@ class User: ADOSVTBase {
                     $remainingPATListCount = ($remainingPATList | Measure-Object).Count
                     if ($remainingPATListCount -gt 0){
                         $controlResult.AddMessage("`nTotal number of PATs configured with custom defined access: $remainingPATListCount");
+                        $controlResult.AdditionalInfo += "Total number of PATs configured with custom defined access: " + $remainingPATListCount;
                         $remainingAccessPATNames = $remainingPATList | Select-Object displayName, scope 
                         if ($statusSet) {
                             $controlResult.AddMessage("The following PATs have been configured with custom defined access: ", $remainingAccessPATNames)
@@ -97,7 +100,10 @@ class User: ADOSVTBase {
                 
                     if (($res | Measure-Object).Count -gt 0) {
                         $PATList = ($res | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "ValidFrom"; Expression = { $_.validfrom } }, @{Name = "ValidTo"; Expression = { $_.validto } }, @{Name = "ValidationPeriod"; Expression = { (New-Timespan -Start $_.ValidFrom -End $_.ValidTo).Days } });    
-                        $controlResult.AddMessage([VerificationResult]::Failed, "The following PATs have validity period of more than 180 days: ", $PATList)  
+                        $controlResult.AddMessage([VerificationResult]::Failed, "The following PATs have validity period of more than 180 days: ", $PATList)
+                        $PATListCount = ($PATList | Measure-Object).Count  
+                        $controlResult.AdditionalInfo += "Total number of PATs that have validity period of more than 180 days: " + $PATListCount;
+                        $controlResult.AdditionalInfo += "List of PATs that have validity period of more than 180 days: " + [JsonHelper]::ConvertToJsonCustomCompressed($PATList);
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed,
@@ -140,15 +146,18 @@ class User: ADOSVTBase {
                     if (($PATExpri7Days | Measure-Object).Count -gt 0) {
                         $PAT7List = ($PATExpri7Days | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "ValidFrom"; Expression = { $_.validfrom } }, @{Name = "ValidTo"; Expression = { $_.validto } }, @{Name = "Remaining"; Expression = { (New-Timespan -Start $date -End $_.validto).Days } });    
                         $controlResult.AddMessage("The following PATs expire within 7 days: ", $PAT7List )
+                        $controlResult.AdditionalInfo += "Total number of PATs expire within 7 days: " + ($PAT7List | Measure-Object).Count;
                     }
                     if (($PATExpri30Days | Measure-Object).Count -gt 0) {
                         $PAT30List = ($PATExpri30Days | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "ValidFrom"; Expression = { $_.validfrom } }, @{Name = "ValidTo"; Expression = { $_.validto } }, @{Name = "Remaining"; Expression = { (New-Timespan -Start $date -End $_.validto).Days } });    
                         $controlResult.AddMessage("The following PATs expire after 7 days but within 30 days: ", $PAT30List )
+                        $controlResult.AdditionalInfo += "Total number of PATs expire after 7 days but within 30 days: " + ($PAT30List | Measure-Object).Count;
                     }
               
                     if (($PATOther | Measure-Object).Count -gt 0) {
                         $PATOList = ($PATOther | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "ValidFrom"; Expression = { $_.validfrom } }, @{Name = "ValidTo"; Expression = { $_.validto } }, @{Name = "Remaining"; Expression = { (New-Timespan -Start $date -End $_.validto).Days } });    
                         $controlResult.AddMessage("The following PATs expire after 30 days: ", $PATOList )
+                        $controlResult.AdditionalInfo += "Total number of PATs expire after 30 days: " + ($PATOList | Measure-Object).Count;
                     }
                     if (($PATExpri7Days | Measure-Object).Count -gt 0) {
                         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -202,6 +211,8 @@ class User: ADOSVTBase {
                     {   
                         $controlResult.AddMessage("Number of active PATs accessible to all organizations: $($allOrgPATCount)");
                         $controlResult.AddMessage([VerificationResult]::Failed, "The below active PATs are accessible to all organizations: ", $allOrgPAT);
+                        $controlResult.AdditionalInfo += "Number of active PATs accessible to all organizations: " + $allOrgPATCount;
+                        $controlResult.AdditionalInfo += "List of active PATs accessible to all organizations: " + [JsonHelper]::ConvertToJsonCustomCompressed($allOrgPAT);
                     }
                     else
                     {
