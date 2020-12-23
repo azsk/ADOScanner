@@ -21,8 +21,10 @@ class AgentPool: ADOSVTBase
         {
             $roles = @();
             $roles +=   ($this.AgentObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+            $controlResult.AddMessage("Total number of identities that have access to agent pool: ", ($roles | Measure-Object).Count);
             $controlResult.AddMessage([VerificationResult]::Verify,"Validate whether following identities have been provided with minimum RBAC access to agent pool.", $roles);
             $controlResult.SetStateData("Validate whether following identities have been provided with minimum RBAC access to agent pool.", $roles);
+            $controlResult.AdditionalInfo += "Total number of identities that have access to agent pool: " + ($roles | Measure-Object).Count;
         }
         elseif(($this.AgentObj | Measure-Object).Count -eq 0)
         {
@@ -40,8 +42,10 @@ class AgentPool: ADOSVTBase
             {
                 $roles = @();
                 $roles +=   ($inheritedRoles  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                $controlResult.AddMessage("Total number of inherited role assignments on agent pool: ", ($roles | Measure-Object).Count);
                 $controlResult.AddMessage([VerificationResult]::Failed,"Found inherited role assignments on agent pool.", $roles);
                 $controlResult.SetStateData("Found inherited role assignments on agent pool.", $roles);
+                $controlResult.AdditionalInfo += "Total number of inherited role assignments on agent pool: " + ($roles | Measure-Object).Count;
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed,"No inherited role assignments found.")
@@ -165,6 +169,8 @@ class AgentPool: ADOSVTBase
                             {
                                 $controlResult.AddMessage([VerificationResult]::Passed,"Agent pool has been queued in the last $inactiveLimit days.");
                             }
+                            $controlResult.AddMessage("Last queue date of agent pool: $($agtPoolLastRunDate)");
+                            $controlResult.AdditionalInfo += "Last queue date of agent pool: " + $agtPoolLastRunDate;
                         }
                         else 
                         {
@@ -186,6 +192,9 @@ class AgentPool: ADOSVTBase
                         {
                             $controlResult.AddMessage([VerificationResult]::Failed, "Agent pool has not been queued from last $inactiveLimit days.");
                         }
+                        $agtPoolCreationDate = $agentPoolDetails.selectedAgentPool.createdOn;
+                        $controlResult.AddMessage("The agent pool was created on: $($agtPoolCreationDate)");
+                        $controlResult.AdditionalInfo += "The agent pool was created on: " + $agtPoolCreationDate;
                     }
                     else 
                     {

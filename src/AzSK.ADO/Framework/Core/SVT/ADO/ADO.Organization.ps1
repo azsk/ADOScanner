@@ -102,7 +102,8 @@ class Organization: ADOSVTBase
                         $responsePrCollData = $responsePrCollData | Select-Object displayName,mailAddress,subjectKind
                         $stateData = @();
                         $stateData += $responsePrCollData
-                        $controlResult.AddMessage("Total number of Project Collection Service Accounts: $($memberCount)"); 
+                        $controlResult.AddMessage("Total number of Project Collection Service Accounts: $($memberCount)");
+                        $controlResult.AdditionalInfo += "Total number of Project Collection Service Accounts: " + $memberCount;
                         $controlResult.AddMessage([VerificationResult]::Verify, "Review the members of the group Project Collection Service Accounts: ", $stateData); 
                         $controlResult.SetStateData("Members of the Project Collection Service Accounts group: ", $stateData); 
                     }
@@ -226,7 +227,6 @@ class Organization: ADOSVTBase
                                             $controlResult.AddMessage("Review the non SC-ALT accounts with admin privileges: ", $stateData);  
                                             $controlResult.SetStateData("List of non SC-ALT accounts with admin privileges: ", $stateData);
                                             $controlResult.AdditionalInfo += "Total number of non SC-ALT accounts with admin privileges: " + $nonSCCount;
-                                            $controlResult.AdditionalInfo += "List of non SC-ALT accounts with admin privileges: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
                                         }
                                         else 
                                         {
@@ -293,6 +293,7 @@ class Organization: ADOSVTBase
             if(([Helpers]::CheckMember($responseObj[0],"fps.dataProviders.data") ) -and  (($responseObj[0].fps.dataProviders.data."ms.vss-admin-web.organization-admin-aad-data-provider") -and $responseObj[0].fps.dataProviders.data."ms.vss-admin-web.organization-admin-aad-data-provider".orgnizationTenantData) -and (-not [string]::IsNullOrWhiteSpace($responseObj[0].fps.dataProviders.data."ms.vss-admin-web.organization-admin-aad-data-provider".orgnizationTenantData.domain)))
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Organization is configured with [$($responseObj.fps.dataProviders.data.'ms.vss-admin-web.organization-admin-aad-data-provider'.orgnizationTenantData.displayName)] directory.");
+                $controlResult.AdditionalInfo += "Organization is configured with [$($responseObj.fps.dataProviders.data.'ms.vss-admin-web.organization-admin-aad-data-provider'.orgnizationTenantData.displayName)] directory.";
             }
             else 
             {
@@ -643,6 +644,7 @@ class Organization: ADOSVTBase
                 if(($sharedExtensions | Measure-Object).Count -gt 0)
                 {
                     $controlResult.AddMessage("No. of shared extensions: " + $sharedExtensions.Count)
+                    $controlResult.AdditionalInfo += "No. of shared extensions: " + ($sharedExtensions | Measure-Object).Count;
                     $extensionList = @();
                     $extensionList +=  ($sharedExtensions | Select-Object extensionName, publisherId, publisherName, version) 
 
@@ -650,7 +652,8 @@ class Organization: ADOSVTBase
                     $ftWidth = 512 #To avoid "..." truncation
                     $display = ($extensionList |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)                                
                     $controlResult.AddMessage($display)
-                    $controlResult.SetStateData("List of shared extensions: ", $extensionList);                                
+                    $controlResult.SetStateData("List of shared extensions: ", $extensionList);
+                    $controlResult.AdditionalInfo += "List of shared extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($extensionList);                               
                 }
                 else 
                 {
@@ -774,6 +777,7 @@ class Organization: ADOSVTBase
             elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0)) 
             {
                 $controlResult.AddMessage("No. of extension managers present: " + $responseObj.Count)
+                $controlResult.AdditionalInfo += "No. of extension managers present: " + ($responseObj | Measure-Object).Count;
                 $extensionManagerList = @();
                 $extensionManagerList +=  ($responseObj | Select-Object @{Name="IdentityName"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}})
                 $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of extension managers: ",$extensionManagerList);        
@@ -820,6 +824,7 @@ class Organization: ADOSVTBase
                     
                     $inactiveUsersCount = ($inactiveUsers | Measure-Object).Count
                     $controlResult.AddMessage([VerificationResult]::Failed,"Total number of inactive users present in the organization: $($inactiveUsersCount)");
+                    $controlResult.AdditionalInfo += "Total number of inactive users present in the organization: " + $inactiveUsersCount;
                     $controlResult.SetStateData("Inactive users list: ", $inactiveUsersStateData);
 
                     # segregate never active users from the list
@@ -830,12 +835,15 @@ class Organization: ADOSVTBase
                     if ($neverActiveUsersCount -gt 0) {
                         $controlResult.AddMessage("`nTotal number of users who were never active: $($neverActiveUsersCount)");
                         $controlResult.AddMessage("Review users present in the organization who were never active: ",$neverActiveUsers);
+                        $controlResult.AdditionalInfo += "Total number of users who were never active: " + $neverActiveUsersCount;
+                        $controlResult.AdditionalInfo += "List of users who were never active: " + [JsonHelper]::ConvertToJsonCustomCompressed($neverActiveUsers);
                     } 
                     
                     $inactiveUsersWithDaysCount = ($inactiveUsersWithDays | Measure-Object).Count
                     if($inactiveUsersWithDaysCount -gt 0) {
                         $controlResult.AddMessage("`nTotal number of users who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: $($inactiveUsersWithDaysCount)");                
                         $controlResult.AddMessage("Review users present in the organization who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: ",$inactiveUsersWithDays);
+                        $controlResult.AdditionalInfo += "Total number of users who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: " + $inactiveUsersWithDaysCount;
                     }
                 }
                 else {
@@ -868,8 +876,11 @@ class Organization: ADOSVTBase
         
                     $userNames = @();   
                     $userNames += ($responseObj[0].users | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "mailAddress"; Expression = { $_.preferredEmailAddress } })
+                    $controlResult.AddMessage("Total number of disconnected users: ", ($userNames | Measure-Object).Count);
                     $controlResult.AddMessage([VerificationResult]::Failed, "Remove access for below disconnected users: ", $userNames);  
                     $controlResult.SetStateData("Disconnected users list: ", $userNames);
+                    $controlResult.AdditionalInfo += "Total number of disconnected users: " + ($userNames | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "List of disconnected users: " + [JsonHelper]::ConvertToJsonCustomCompressed($userNames);
                 }
                 else 
                 {
@@ -1345,6 +1356,8 @@ class Organization: ADOSVTBase
             {
                 $controlResult.AddMessage([VerificationResult]::Verify,"Verify the below auto-injected tasks at organization level: ", $autoInjExt);
                 $controlResult.SetStateData("Auto-injected tasks list: ", $autoInjExt); 
+                $controlResult.AdditionalInfo += "Total number of auto-injected extensions: " + ($autoInjExt | Measure-Object).Count;
+                $controlResult.AdditionalInfo += "List of auto-injected extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($autoInjExt);
             }
             else 
             {
@@ -1376,6 +1389,7 @@ class Organization: ADOSVTBase
         if($TotalPCAMembers -gt 0){
             $controlResult.AddMessage("Verify the following Project Collection Administrators: ",$PCAMembers)
             $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
+            $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
         }        
         return $controlResult
 }
@@ -1398,6 +1412,7 @@ class Organization: ADOSVTBase
         if($TotalPCAMembers -gt 0){
             $controlResult.AddMessage("Verify the following Project Collection Administrators: ",$PCAMembers)
             $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
+            $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
         }
     
         return $controlResult
@@ -1426,11 +1441,15 @@ class Organization: ADOSVTBase
                 $enabledStreams = $responseObj | Where-Object {$_.status -eq 'enabled'}
                 $enabledStreams = $enabledStreams | Select-Object consumerType,displayName,status
                 $enabledStreamsCount = ($enabledStreams | Measure-Object).Count
+                $totalStreamsCount = ($responseObj | Measure-Object).Count
+                $controlResult.AddMessage("`nTotal number of configured audit streams: $($totalStreamsCount)");
+                $controlResult.AdditionalInfo += "Total number of configured audit streams: " + $totalStreamsCount;
                 if(($enabledStreams | Measure-Object).Count -gt 0)
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "One or more audit streams configured on the organization are currently enabled.");
                     $controlResult.AddMessage("`nTotal number of configured audit streams that are enabled: $($enabledStreamsCount)", $enabledStreams);
                     $controlResult.AdditionalInfo += "Total number of configured audit streams that are enabled: " + $enabledStreamsCount;
+                    $controlResult.AdditionalInfo += "List of configured audit streams that are enabled: " + [JsonHelper]::ConvertToJsonCustomCompressed($enabledStreams);
                 }
                 else
                 {

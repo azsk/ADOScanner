@@ -59,6 +59,7 @@ class Project: ADOSVTBase
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Project visibility is set to '$visibility'.");
                 }
+                $controlResult.AdditionalInfo += "Project visibility is set to: " + $visibility;
             }
             else 
             {
@@ -338,6 +339,7 @@ class Project: ADOSVTBase
         if($TotalPAMembers -gt 0){
             $controlResult.AddMessage("Verify the following Project Administrators: ",$this.PAMembers)
             $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
+            $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
         }    
         return $controlResult
     }
@@ -360,6 +362,7 @@ class Project: ADOSVTBase
         if($TotalPAMembers -gt 0){
             $controlResult.AddMessage("Verify the following Project Administrators: ",$this.PAMembers)
             $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
+            $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
         }         
         return $controlResult
     }
@@ -435,7 +438,6 @@ class Project: ADOSVTBase
                                             $controlResult.AddMessage("Review the non SC-ALT accounts with admin privileges: ", $stateData);  
                                             $controlResult.SetStateData("List of non SC-ALT accounts with admin privileges: ", $stateData);
                                             $controlResult.AdditionalInfo += "Total number of non SC-ALT accounts with admin privileges: " + $nonSCCount;
-                                            $controlResult.AdditionalInfo += "List of non SC-ALT accounts with admin privileges: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
                                         }
                                         else 
                                         {

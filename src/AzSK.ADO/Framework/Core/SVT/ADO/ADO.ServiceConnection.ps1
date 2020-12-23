@@ -97,6 +97,7 @@ class ServiceConnection: ADOSVTBase
                                 $controlFailedMsg = "Service connection has access at [$($serviceEndPoint.data.managementGroupName)] management group scope."
                             }
                             $controlResult.AddMessage([VerificationResult]::Failed, $controlFailedMsg);
+                            $controlResult.AdditionalInfo += $controlFailedMsg;
                         }
                         else{ # else gets executed when svc is scoped at RG and not at sub or MG
                             if ([Helpers]::CheckMember($serviceEndPoint.authorization.parameters, "scope")) {
@@ -106,6 +107,7 @@ class ServiceConnection: ADOSVTBase
                                 $message = "Service connection is not configured at subscription scope."
                             }
                             $controlResult.AddMessage([VerificationResult]::Passed, $message);
+                            $controlResult.AdditionalInfo += $message;
                         }
                     }
                     #elseif gets executed when scoped at AzureMLWorkspace 
@@ -113,12 +115,14 @@ class ServiceConnection: ADOSVTBase
                     {
                         $message =  $message -f $serviceEndPoint.data.mlWorkspaceName, 'ML workspace', $serviceEndPoint.data.subscriptionName
                         $controlResult.AddMessage([VerificationResult]::Passed, $message);
+                        $controlResult.AdditionalInfo += $message;
                     }
                     #elseif gets executed when scoped at PublishProfile 
                     elseif(([Helpers]::CheckMember($serviceEndPoint, "authorization.scheme") -and $serviceEndPoint.authorization.scheme -eq "PublishProfile"))
                     {
                         $message =  $message -f $serviceEndPoint.data.resourceId.split('/')[-1], 'app service', $serviceEndPoint.data.subscriptionName
                         $controlResult.AddMessage([VerificationResult]::Passed, $message);
+                        $controlResult.AdditionalInfo += $message;
                     }
                     else  # if creation mode is manual and type is other (eg. managed identity) then verify the control
                     {
@@ -241,6 +245,7 @@ class ServiceConnection: ADOSVTBase
                         $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant global groups access to service connections. Granting elevated permissions to these groups can risk exposure of service connections to unwarranted individuals.");
                         $controlResult.AddMessage("Global groups that have access to service connection.",$restrictedGroups)
                         $controlResult.SetStateData("Global groups that have access to service connection",$restrictedGroups)
+                        $controlResult.AdditionalInfo += "Total number of global groups that have access to service connection: " + ($restrictedGroups | Measure-Object).Count;
                     }
                     else{
                         $controlResult.AddMessage([VerificationResult]::Passed,"No global groups have access to service connection.");
@@ -438,7 +443,10 @@ class ServiceConnection: ADOSVTBase
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Manual,"History period in days (ServiceConnectionHistoryPeriodInDays) to check last running day of service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
-                    }  
+                    }
+                    $svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
+                    $controlResult.AddMessage("The last run date of Service Connection: $($svcConnLastRunDate)");
+                    $controlResult.AdditionalInfo += "The last run date of Service Connection: " + $svcConnLastRunDate;
                 }
                 else
                 {
@@ -468,9 +476,12 @@ class ServiceConnection: ADOSVTBase
             {
                 $stateData = @();
                 $stateData += $svcProjectReferences | Select-Object name, projectReference
-                
+
+                $controlResult.AddMessage("Total number of projects that have access to the service connection: ", ($stateData | Measure-Object).Count);
                 $controlResult.AddMessage([VerificationResult]::Failed, "Review the list of projects that have access to the service connection: ", $stateData);
                 $controlResult.SetStateData("List of projects that have access to the service connection: ", $stateData); 
+                $controlResult.AdditionalInfo += "Total number of projects that have access to the service connection: " + ($stateData | Measure-Object).Count;
+                $controlResult.AdditionalInfo += "List of projects that have access to the service connection: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
             }
             else 
             {
@@ -513,8 +524,10 @@ class ServiceConnection: ADOSVTBase
                 if ($pipelineObj -and ($pipelineObj | Measure-Object).Count -gt 0) 
                 {
                     $pipelines += $pipelineObj.name
+                    $controlResult.AddMessage("Total number of pipelines that have access to the service connection: ", ($pipelines | Measure-Object).Count);
                     $controlResult.AddMessage("Review the list of pipelines that have access to the service connection: ", $pipelines);
                     $controlResult.SetStateData("List of pipelines that have access to the service connection: ", $pipelines);   
+                    $controlResult.AdditionalInfo += "Total number of pipelines that have access to the service connection: " + ($pipelines | Measure-Object).Count;
                 }                    
             } 
             else 

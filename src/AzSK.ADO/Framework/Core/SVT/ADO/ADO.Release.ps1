@@ -60,6 +60,7 @@ class Release: ADOSVTBase
                                 {
                                     $controlResult.AddMessage("No. of credentials found:" + ($credList | Measure-Object).Count )
                                     $controlResult.AddMessage([VerificationResult]::Failed,"Found credentials in variables")
+                                    $controlResult.AdditionalInfo += "No. of credentials found: " + ($credList | Measure-Object).Count;
                                 }
                                 else {
                                     $controlResult.AddMessage([VerificationResult]::Passed,"No credentials found in variables")
@@ -205,13 +206,17 @@ class Release: ADOSVTBase
                         {
                             $varList = $varList | select -Unique | Sort-object
                             $stateData.VariableList += $varList
+                            $controlResult.AddMessage("`nTotal number of variable(s) containing secret: ", ($varList | Measure-Object).Count);
                             $controlResult.AddMessage("`nList of variable(s) containing secret: ", $varList);
+                            $controlResult.AdditionalInfo += "Total number of variable(s) containing secret: " + ($varList | Measure-Object).Count;
                         }
                         if(($varGrpList | Measure-Object).Count -gt 0 )
                         {
                             $varGrpList = $varGrpList | select -Unique | Sort-object
                             $stateData.VariableGroupList += $varGrpList
+                            $controlResult.AddMessage("`nTotal number of variable(s) containing secret in variable group(s): ", ($varGrpList | Measure-Object).Count);
                             $controlResult.AddMessage("`nList of variable(s) containing secret in variable group(s): ", $varGrpList);
+                            $controlResult.AdditionalInfo += "Total number of variable(s) containing secret in variable group(s): " + ($varGrpList | Measure-Object).Count;
                         }
                         $controlResult.SetStateData("List of variable and variable group containing secret: ", $stateData );
                     }
@@ -287,6 +292,9 @@ class Release: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Failed,
                     "No recent release history found in last $($this.ControlSettings.Release.ReleaseHistoryPeriodInDays) days");
                 }
+                $latestReleaseCreationDate = [datetime]::Parse($releases[0].createdOn);
+                $controlResult.AddMessage("Last release date of pipeline: $($latestReleaseCreationDate)");
+                $controlResult.AdditionalInfo += "Last release date of pipeline: " + $latestReleaseCreationDate;
             }
             else
             {
@@ -299,6 +307,7 @@ class Release: ADOSVTBase
             $controlResult.AddMessage([VerificationResult]::Failed,
                                                 "No release history found. Release is inactive.");
         }
+
         $responseObj = $null;
     } 
         return $controlResult
@@ -481,13 +490,19 @@ class Release: ADOSVTBase
                 if(($accessList | Measure-Object).Count -ne 0)
                 {
                     $accessList= $accessList | Select-Object -Property @{Name="IdentityName"; Expression = {$_.IdentityName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Permissions"; Expression = {$_.Permissions}}
+                    $controlResult.AddMessage("Total number of identities that have access to release pipeline: ", ($accessList | Measure-Object).Count);
                     $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to [$($this.ResourceContext.ResourceName)] pipeline", $accessList);
-                    $controlResult.SetStateData("Release pipeline access list: ", ($responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}})); 
+                    $controlResult.SetStateData("Release pipeline access list: ", ($responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}}));
+                    $controlResult.AdditionalInfo += "Total number of identities that have access to release pipeline: " + ($accessList | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of user identities that have access to release pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'user'}) | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of group identities that have access to release pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'group'}) | Measure-Object).Count;
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"No identities have been explicitly provided with RBAC access to [$($this.ResourceContext.ResourceName)] pipeline other than release pipeline owner and default groups");
+                    $controlResult.AddMessage("Total number of exempted user identities:",($exemptedUserIdentities | Measure-Object).Count);
                     $controlResult.AddMessage("List of exempted user identities:",$exemptedUserIdentities)
+                    $controlResult.AdditionalInfo += "Total number of exempted user identities: " + ($exemptedUserIdentities | Measure-Object).Count;
                 }
             }
             else{
@@ -495,8 +510,12 @@ class Release: ADOSVTBase
                 if(($responseObj.identities|Measure-Object).Count -gt 0)
                 {
                     $accessList= $responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}}
+                    $controlResult.AddMessage("Total number of identities that have access to release pipeline: ", ($accessList | Measure-Object).Count);
                     $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to [$($this.ResourceContext.ResourceName)] pipeline.", $accessList);
                     $controlResult.SetStateData("Release pipeline access list: ", $accessList);
+                    $controlResult.AdditionalInfo += "Total number of identities that have access to release pipeline: " + ($accessList | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of user identities that have access to release pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'user'}) | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of group identities that have access to release pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'group'}) | Measure-Object).Count;
                 }
             }
 
@@ -530,6 +549,7 @@ class Release: ADOSVTBase
                    $stateData += $nonadoresource;
                    $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline contains artifacts from below external sources.", $stateData);    
                    $controlResult.SetStateData("Pipeline contains artifacts from below external sources.", $stateData);  
+                   $controlResult.AdditionalInfo += "Pipeline contains artifacts from these external sources: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
                }
                else {
                 $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline does not contain artifacts from external sources");   
@@ -564,7 +584,9 @@ class Release: ADOSVTBase
             }
            } 
            if(($setablevar | Measure-Object).Count -gt 0){
+                $controlResult.AddMessage("Total number of variables that are settable at release time: ", ($setablevar | Measure-Object).Count);
                 $controlResult.AddMessage([VerificationResult]::Verify,"The below variables are settable at release time: ",$setablevar);
+                $controlResult.AdditionalInfo += "Total number of variables that are settable at release time: " + ($setablevar | Measure-Object).Count;
                 $controlResult.SetStateData("Variables settable at release time: ", $setablevar);
                 if ($nonsetablevar) {
                     $controlResult.AddMessage("The below variables are not settable at release time: ",$nonsetablevar);      
@@ -613,7 +635,9 @@ class Release: ADOSVTBase
                     } 
                     if ($count -gt 0) 
                     {
+                        $controlResult.AddMessage("Total number of variables that are settable at release time and contain URL value: ", ($settableURLVars | Measure-Object).Count);
                         $controlResult.AddMessage([VerificationResult]::Failed, "Found variables that are settable at release time and contain URL value: ", $settableURLVars);
+                        $controlResult.AdditionalInfo += "Total number of variables that are settable at release time and contain URL value: " + ($settableURLVars | Measure-Object).Count;
                         $controlResult.SetStateData("List of variables settable at release time and containing URL value: ", $settableURLVars);
                     }
                     else {
@@ -745,6 +769,8 @@ class Release: ADOSVTBase
                 }
                 if(($editableTaskGroups | Measure-Object).Count -gt 0)
                 {
+                    $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", ($editableTaskGroups | Measure-Object).Count);
+                    $controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + ($editableTaskGroups | Measure-Object).Count;
                     $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ", $editableTaskGroups);
                     $controlResult.SetStateData("List of task groups used in release definition that contributors can edit: ", $editableTaskGroups); 
                 }
@@ -813,6 +839,8 @@ class Release: ADOSVTBase
 
                 if(($editableVarGrps | Measure-Object).Count -gt 0)
                 {
+                    $controlResult.AddMessage("Total number of variable groups on which contributors have edit permissions in release definition: ", ($editableVarGrps | Measure-Object).Count);
+                    $controlResult.AdditionalInfo += "Total number of variable groups on which contributors have edit permissions in release definition: " + ($editableVarGrps | Measure-Object).Count;
                     $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below variable groups used in release definition: ", $editableVarGrps);
                     $controlResult.SetStateData("List of variable groups used in release definition that contributors can edit: ", $editableVarGrps); 
                 }
