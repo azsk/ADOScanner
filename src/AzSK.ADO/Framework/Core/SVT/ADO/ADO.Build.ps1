@@ -176,6 +176,7 @@ class Build: ADOSVTBase
                     {
                         $varList = $varList | select -Unique | Sort-object
                         $stateData.VariableList += $varList
+                        $controlResult.AddMessage("`nTotal number of variable(s) containing secret: ", ($varList | Measure-Object).Count);
                         $controlResult.AddMessage("`nList of variable(s) containing secret: ", $varList);
                         $controlResult.AdditionalInfo += "Total number of variable(s) containing secret: " + ($varList | Measure-Object).Count;
                     }
@@ -183,6 +184,7 @@ class Build: ADOSVTBase
                     {
                         $varGrpList = $varGrpList | select -Unique | Sort-object
                         $stateData.VariableGroupList += $varGrpList
+                        $controlResult.AddMessage("`nTotal number of variable(s) containing secret in variable group(s): ", ($varGrpList | Measure-Object).Count);
                         $controlResult.AddMessage("`nList of variable(s) containing secret in variable group(s): ", $varGrpList);
                         $controlResult.AdditionalInfo += "Total number of variable(s) containing secret in variable group(s): " + ($varGrpList | Measure-Object).Count;
                     }
@@ -252,11 +254,12 @@ class Build: ADOSVTBase
                     }
 
                     $buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
-                    $controlResult.AddMessage("The last run date of build pipeline: $($buildLastRunDate)");
-                    $controlResult.AdditionalInfo += "The last run date of build pipeline: " + $buildLastRunDate;
+                    $controlResult.AddMessage("Last run date of build pipeline: $($buildLastRunDate)");
+                    $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $buildLastRunDate;
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Failed, "No build history found.");
+                    $controlResult.AdditionalInfo += "No build history found.";
                 }
             }
             else
@@ -395,19 +398,19 @@ class Build: ADOSVTBase
                 if(($accessList | Measure-Object).Count -ne 0)
                 {
                     $accessList= $accessList | Select-Object -Property @{Name="IdentityName"; Expression = {$_.IdentityName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Permissions"; Expression = {$_.Permissions}}
-                    $controlResult.AddMessage("Total number of identities with minimum RBAC access: ", ($accessList | Measure-Object).Count);
+                    $controlResult.AddMessage("Total number of identities that have access to build pipeline: ", ($accessList | Measure-Object).Count);
                     $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to [$($this.ResourceContext.ResourceName)] pipeline.", $accessList);
                     $controlResult.SetStateData("Build pipeline access list: ", ($responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}}));
-                    $controlResult.AdditionalInfo += "Total number of identities with minimum RBAC access: " + ($accessList | Measure-Object).Count;
-                    $controlResult.AdditionalInfo += "Total number of user identities with minimum RBAC access: " + (($accessList | Where-Object {$_.IdentityType -eq 'user'}) | Measure-Object).Count;
-                    $controlResult.AdditionalInfo += "Total number of group identities with minimum RBAC access: " + (($accessList | Where-Object {$_.IdentityType -eq 'group'}) | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of identities that have access to build pipeline: " + ($accessList | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of user identities that have access to build pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'user'}) | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of group identities that have access to build pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'group'}) | Measure-Object).Count;
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"No identities have been explicitly provided with RBAC access to [$($this.ResourceContext.ResourceName)] other than build pipeline owner and default groups");
-                    $controlResult.AddMessage("Number of exempted user identities:",($exemptedUserIdentities | Measure-Object).Count);
+                    $controlResult.AddMessage("Total number of exempted user identities:",($exemptedUserIdentities | Measure-Object).Count);
                     $controlResult.AddMessage("List of exempted user identities:",$exemptedUserIdentities)
-                    $controlResult.AdditionalInfo += "Number of exempted user identities: " + ($exemptedUserIdentities | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of exempted user identities: " + ($exemptedUserIdentities | Measure-Object).Count;
                 } 
             }
             else{
@@ -415,12 +418,12 @@ class Build: ADOSVTBase
                 if(($responseObj.identities|Measure-Object).Count -gt 0)
                 {
                     $accessList= $responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}}
-                    $controlResult.AddMessage("Total number of identities with minimum RBAC access: ", ($accessList | Measure-Object).Count);
+                    $controlResult.AddMessage("Total number of identities that have access to build pipeline: ", ($accessList | Measure-Object).Count);
                     $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to [$($this.ResourceContext.ResourceName)] pipeline.", $accessList);
                     $controlResult.SetStateData("Build pipeline access list: ", $accessList);
-                    $controlResult.AdditionalInfo += "Total number of identities with minimum RBAC access: " + ($accessList | Measure-Object).Count;
-                    $controlResult.AdditionalInfo += "Total number of user identities with minimum RBAC access: " + (($accessList | Where-Object {$_.IdentityType -eq 'user'}) | Measure-Object).Count;
-                    $controlResult.AdditionalInfo += "Total number of group identities with minimum RBAC access: " + (($accessList | Where-Object {$_.IdentityType -eq 'group'}) | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of identities that have access to build pipeline: " + ($accessList | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of user identities that have access to build pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'user'}) | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of group identities that have access to build pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'group'}) | Measure-Object).Count;
                 }
             }
             
@@ -459,9 +462,9 @@ class Build: ADOSVTBase
             }
            } 
            if(($setablevar | Measure-Object).Count -gt 0){
-                $controlResult.AddMessage("Number of variables that are settable at queue time: ", ($setablevar | Measure-Object).Count);
+                $controlResult.AddMessage("Total number of variables that are settable at queue time: ", ($setablevar | Measure-Object).Count);
                 $controlResult.AddMessage([VerificationResult]::Verify,"The below variables are settable at queue time: ",$setablevar);
-                $controlResult.AdditionalInfo += "Number of variables that are settable at queue time: " + ($setablevar | Measure-Object).Count;
+                $controlResult.AdditionalInfo += "Total number of variables that are settable at queue time: " + ($setablevar | Measure-Object).Count;
                 $controlResult.SetStateData("Variables settable at queue time: ", $setablevar);
                 if ($nonsetablevar) {
                     $controlResult.AddMessage("The below variables are not settable at queue time: ",$nonsetablevar);      
@@ -510,9 +513,9 @@ class Build: ADOSVTBase
                     } 
                     if ($count -gt 0) 
                     {
-                        $controlResult.AddMessage("Number of variables that are settable at queue time and contain URL value: ", ($settableURLVars | Measure-Object).Count);
+                        $controlResult.AddMessage("Total number of variables that are settable at queue time and contain URL value: ", ($settableURLVars | Measure-Object).Count);
                         $controlResult.AddMessage([VerificationResult]::Failed, "Found variables that are settable at queue time and contain URL value: ", $settableURLVars);
-                        $controlResult.AdditionalInfo += "Number of variables that are settable at queue time and contain URL value: " + ($settableURLVars | Measure-Object).Count;
+                        $controlResult.AdditionalInfo += "Total number of variables that are settable at queue time and contain URL value: " + ($settableURLVars | Measure-Object).Count;
                         $controlResult.SetStateData("List of variables settable at queue time and containing URL value: ", $settableURLVars);
                     }
                     else {
@@ -655,8 +658,8 @@ class Build: ADOSVTBase
                     }
                     if(($editableTaskGroups | Measure-Object).Count -gt 0)
                     {
-                        $controlResult.AddMessage("Number of task groups on which contributors have edit permissions in build definition: ", ($editableTaskGroups | Measure-Object).Count);
-                        $controlResult.AdditionalInfo += "Number of task groups on which contributors have edit permissions in build definition: " + ($editableTaskGroups | Measure-Object).Count;
+                        $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in build definition: ", ($editableTaskGroups | Measure-Object).Count);
+                        $controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in build definition: " + ($editableTaskGroups | Measure-Object).Count;
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in build definition: ", $editableTaskGroups);
                         $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups); 
                     }
@@ -714,8 +717,8 @@ class Build: ADOSVTBase
 
                 if(($editableVarGrps | Measure-Object).Count -gt 0)
                 {
-                    $controlResult.AddMessage("Number of variable groups on which contributors have edit permissions in build definition: ", ($editableVarGrps | Measure-Object).Count);
-                    $controlResult.AdditionalInfo += "Number of variable groups on which contributors have edit permissions in build definition: " + ($editableVarGrps | Measure-Object).Count;
+                    $controlResult.AddMessage("Total number of variable groups on which contributors have edit permissions in build definition: ", ($editableVarGrps | Measure-Object).Count);
+                    $controlResult.AdditionalInfo += "Total number of variable groups on which contributors have edit permissions in build definition: " + ($editableVarGrps | Measure-Object).Count;
                     $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below variable groups used in build definition: ", $editableVarGrps);
                     $controlResult.SetStateData("List of variable groups used in build definition that contributors can edit: ", $editableVarGrps); 
                 }
