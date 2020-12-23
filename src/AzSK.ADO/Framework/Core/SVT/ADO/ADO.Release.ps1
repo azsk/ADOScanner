@@ -297,6 +297,18 @@ class Release: ADOSVTBase
                                                 "No release history found. Release is inactive.");
         }
 
+        # below code provide the details of build artifacts associated with release pipeline
+        if([Helpers]::CheckMember($this.ReleaseObj[0], "artifacts.definitionReference.definition"))
+        {
+            $associatedBuildArtifacts = $this.ReleaseObj[0].artifacts | where-object {$_.type -eq "Build"}
+            if(($null -ne $associatedBuildArtifacts) -and ($associatedBuildArtifacts | Measure-Object).Count -gt 0)
+            {
+                $buildArtifacts = $associatedBuildArtifacts.definitionReference.definition
+                $controlResult.AddMessage("Build artifacts associated with release pipeline: ", $buildArtifacts);
+                $controlResult.AdditionalInfo += "Build artifacts associated with release pipeline: " + [JsonHelper]::ConvertToJsonCustomCompressed($buildArtifacts);
+            }
+        }
+
         $responseObj = $null;
     } 
         return $controlResult
