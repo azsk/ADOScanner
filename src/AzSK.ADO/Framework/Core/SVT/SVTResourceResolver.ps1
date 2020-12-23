@@ -162,77 +162,6 @@ class SVTResourceResolver: AzSKRoot {
         }
     }
 
-    [void] GetResourceCount($projectName, $organizationId, $projectId, $projectData, $topNQueryString) {
-        # fetching the repository count of a project
-        try{
-            $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/git/repositories?api-version=6.0"
-            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
-            # $this.AddSVTResource("Repos", $projectName, "ADO.Repo", "organization/$organizationId/project/$projectId", $null, "");
-            $projectData['repositories'] = $responseList.Length
-            # fetching the testplan count of a project
-            $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/testplan/plans?api-version=6.0-preview.1"
-            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
-            $projectData['testplan'] = $responseList.Length
-            # fetching the taskgroups count of a project
-            $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/distributedtask/taskgroups?api-version=6.0-preview.1"
-            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
-            $projectData['taskgroups'] = $responseList.Length
-            # fetch the builds count if provided builds not equals to *
-            if($projectData['build'] -eq -1) {
-                $resourceURL = ""
-                if ([string]::IsNullOrEmpty($topNQueryString)) {
-                    $topNQueryString = '&$top=10000'
-                    $resourceURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1&queryOrder=lastModifiedDescending" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $projectName;
-                }
-                else {
-                    $resourceURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $projectName;                               
-                }
-                $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
-                $projectData['build'] = $responseList.Length;
-            }
-            # fetch the release count if provided builds not equals to *
-            if($projectData['release'] -eq -1) {
-                $resourceURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=4.1-preview.3" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $projectName;
-                $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
-                $projectData['release'] = $responseList.Length;
-            }
-            # fetch the agent pools count
-            if($projectData["agentpools"] -eq -1) {
-                $agentPoolsDefnURL = ("https://dev.azure.com/{0}/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $($this.SubscriptionContext.SubscriptionName), $projectName;
-                try {
-                    $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
-                    if (([Helpers]::CheckMember($agentPoolsDefnsObj, "fps.dataProviders.data") ) -and (($agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider") -and $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues)) {
-                        $nObj = $this.MaxObjectsToScan
-                        $taskAgentQueues = $null;
-                        $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | where-object{$_.pool.isLegacy -eq $false};
-                        if ($null -ne $taskAgentQueues) {
-                            $projectData["agentpools"] = $taskAgentQueues.Length
-                        }
-                    }
-                }
-                catch {}
-            }
-        }
-        catch {}
-        # fetch the variable groups count
-        if ($projectData["variablegroups"] -eq -1) {
-            $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?api-version=6.1-preview.2") -f $($this.organizationName), $projectId;
-            try{
-                $variableGroupObj = [WebRequestHelper]::InvokeGetWebRequest($variableGroupURL)
-            
-                if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) {
-            
-                    $varGroups = $variableGroupObj
-                    if($null -ne $varGroups) {
-                        $projectData["variablegroups"] = $varGroups.Length;
-                    }
-                }
-            }
-            catch {}
-        }
-        [AIOrgTelemetryHelper]::PublishEvent("Projects resources count", $projectData, @{})
-    }
-
     [void] LoadResourcesForScan() {
         #Call APIS for Organization,User/Builds/Releases/ServiceConnections 
         $organizationId = "";
@@ -330,6 +259,7 @@ class SVTResourceResolver: AzSKRoot {
                         taskgroups = -1;
                         agentpools = -1;
                         variablegroups = -1;
+                        serviceconnections = -1;
                     };
                     if ($this.ResourceTypeName -in ([ResourceTypeName]::Project, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User)  -and ([string]::IsNullOrEmpty($this.serviceId))) 
                     {
@@ -379,10 +309,6 @@ class SVTResourceResolver: AzSKRoot {
                                     $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
                                    
                                     if (--$nObj -eq 0) { break; } 
-                                }
-                                # builds count here
-                                if(($buildDefnsObj | Measure-Object).Count -gt 0) {
-                                    $projectData['build'] = $buildDefnsObj.Length;
                                 }
                                 $buildDefnsObj = $null;
                                 Remove-Variable buildDefnsObj;
@@ -445,10 +371,6 @@ class SVTResourceResolver: AzSKRoot {
                                     
                                     if (--$nObj -eq 0) { break; } 
                                 }
-                                # release count here
-                                if(($releaseDefnsObj | Measure-Object).Count -gt 0) {
-                                    $projectData['release'] = $releaseDefnsObj.Length;
-                                }
                                 $releaseDefnsObj = $null;
                             }
                         }
@@ -504,6 +426,8 @@ class SVTResourceResolver: AzSKRoot {
                         $serviceEndpointURL = ("https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/endpoints?api-version=4.1-preview.1") -f $($this.organizationName), $($projectName);
                         $serviceEndpointObj = [WebRequestHelper]::InvokeGetWebRequest($serviceEndpointURL)
                         $TotalSvc += ($serviceEndpointObj | Measure-Object).Count
+                        # service connection count here
+                        $projectData["serviceconnections"] = ($serviceEndpointObj | Measure-Object).Count;
                     
                         if (([Helpers]::CheckMember($serviceEndpointObj, "count") -and $serviceEndpointObj[0].count -gt 0) -or (($serviceEndpointObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($serviceEndpointObj[0], "name"))) {
                             # Currently get only Azure Connections as all controls are applicable for same
@@ -557,9 +481,9 @@ class SVTResourceResolver: AzSKRoot {
                             if (([Helpers]::CheckMember($agentPoolsDefnsObj, "fps.dataProviders.data") ) -and (($agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider") -and $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues)) {
                                 $nObj = $this.MaxObjectsToScan
                                 $taskAgentQueues = $null;
-                                if ($null -ne $agentPoolsDefnsObj) {
-                                    $allAgentPools = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | where-object{$_.pool.isLegacy -eq $false};
-                                    $projectData["agentpools"] = $allAgentPools.Length
+                                if(($agentPoolsDefnsObj | Measure-Object).Count -gt 0) {
+                                    $allAgentPools = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues;
+                                    $projectData["agentpools"] = ($allAgentPools | Measure-Object).Count
                                 }
                                 if ($this.AgentPools -eq "*") {
                                     # We need to filter out legacy agent pools (Hosted, Hosted VS 2017 etc.) as they are not visible to user on the portal. As a result, they won't be able to remediate their respective controls
@@ -611,9 +535,7 @@ class SVTResourceResolver: AzSKRoot {
                         if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) {
                     
                             $varGroups = $null;
-                            if($null -ne $variableGroupObj) {
-                                $projectData["variablegroups"] = $variableGroupObj.Length;
-                            }
+                            $projectData["variablegroups"] = ($variableGroupObj | Measure-Object).Count
                             if ($this.VariableGroups -eq "*") {
                                 $varGroups = $variableGroupObj 
                             }
@@ -639,7 +561,7 @@ class SVTResourceResolver: AzSKRoot {
                     # getting all the resources count
                     # and sending them to telemetry as well
                     if($this.IsAIEnabled -eq $true) {
-                        $this.GetResourceCount($projectName, $organizationId, $projectId, $projectData, $topNQueryString);
+                        $this.GetResourceCount($projectName, $organizationId, $projectId, $projectData);
                     }
                     #check if long running scan allowed or not.
                     if(!$this.isAllowLongRunningScanCheck())
@@ -795,5 +717,52 @@ class SVTResourceResolver: AzSKRoot {
         }
         
         return [AdministratorHelper]::isUserProjectAdminMember($this.organizationName, $project, $allowedAdminGrp);
+    }
+
+    # getting resources count and sending them to telemetry as well
+    [void] GetResourceCount($projectName, $organizationId, $projectId, $projectData) {
+        # fetching the repository count of a project
+        try{
+            $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/git/repositories?api-version=6.0"
+            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
+            # $this.AddSVTResource("Repos", $projectName, "ADO.Repo", "organization/$organizationId/project/$projectId", $null, "");
+            $projectData['repositories'] = ($responseList | Measure-Object).Count
+            # fetching the testplan count of a project
+            $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/testplan/plans?api-version=6.0-preview.1"
+            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
+            $projectData['testplan'] = ($responseList | Measure-Object).Count
+            # fetching the taskgroups count of a project
+            $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/distributedtask/taskgroups?api-version=6.0-preview.1"
+            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
+            $projectData['taskgroups'] = ($responseList | Measure-Object).Count
+            # fetch the builds count
+            $resourceURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1&queryOrder=lastModifiedDescending&`$top=10000") -f $($this.SubscriptionContext.SubscriptionName), $projectName;
+            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
+            $projectData['build'] = ($responseList | Measure-Object).Count
+            # fetch the release count
+            $resourceURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=4.1-preview.3&`$top=10000") -f $($this.SubscriptionContext.SubscriptionName), $projectName;
+            $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
+            $projectData['release'] = ($responseList | Measure-Object).Count;
+            # fetch the agent pools count
+            if($projectData["agentpools"] -eq -1) {
+                $agentPoolsDefnURL = ("https://dev.azure.com/{0}/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $($this.SubscriptionContext.SubscriptionName), $projectName;
+                $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
+                if (([Helpers]::CheckMember($agentPoolsDefnsObj, "fps.dataProviders.data") ) -and (($agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider") -and $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues)) {
+                    $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues;
+                    $projectData["agentpools"] = ($taskAgentQueues | Measure-Object).Count
+                }
+            }
+            # fetch the variable groups count
+            if ($projectData["variablegroups"] -eq -1) {
+                $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?api-version=6.1-preview.2") -f $($this.organizationName), $projectId;
+                $variableGroupObj = [WebRequestHelper]::InvokeGetWebRequest($variableGroupURL)
+                if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) {
+                    $varGroups = $variableGroupObj
+                    $projectData["variablegroups"] = ($varGroups | Measure-Object).Count
+                }
+            }
+        }
+        catch {}
+        [AIOrgTelemetryHelper]::PublishEvent("Projects resources count", $projectData, @{})
     }
 }
