@@ -37,6 +37,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if($invocationContext.BoundParameters["AutoBugLog"]){
 			$this.IsBugLoggingEnabled = $true; 
 		}
+		[PartialScanManager]::ClearInstance();
 		$this.BaselineFilterCheck();
 		$this.UsePartialCommitsCheck();
 	}

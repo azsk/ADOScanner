@@ -140,6 +140,9 @@ class PartialScanManager
 						}
 						$this.IsRTFAlreadyAvailable = $true
 					}
+					else {
+						$this.IsRTFAlreadyAvailable = $false
+					}
 					$this.IsDurableStorageFound = $true
 				}
 				#If checkpoint container is not found then create new
@@ -288,7 +291,10 @@ class PartialScanManager
 				Remove-AzStorageBlob -CloudBlob $this.ControlStateBlob.ICloudBlob -Force -Context $this.StorageContext
 
 				#Delete local RTF file
-				Remove-Item -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.SubId) $this.ResourceScanTrackerFileName)
+				if (Test-Path (Join-Path $this.AzSKTempStatePath $this.SubId))
+				{
+					Remove-Item -Path (Join-Path $this.AzSKTempStatePath $this.SubId) -Recurse
+				}
 			}	
 		}
 
@@ -445,7 +451,10 @@ class PartialScanManager
                 {
                     # Create directory and resource tracker file
                     $filePath = $this.MasterFilePath.Replace($this.ResourceScanTrackerFileName, "")
-                    New-Item -ItemType Directory -Path $filePath
+                    if (-not (Test-Path $filePath))
+                    {
+                        New-Item -ItemType Directory -Path $filePath
+                    }
                     New-Item -Path $filePath -Name $this.ResourceScanTrackerFileName -ItemType "file" 
                 }
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.MasterFilePath -Force
