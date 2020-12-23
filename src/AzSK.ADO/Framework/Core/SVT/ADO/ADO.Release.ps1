@@ -189,7 +189,7 @@ class Release: ADOSVTBase
                     }
                     if($restrictedVarGrp -eq $true)
                     {
-                        $controlResult.AddMessage([VerificationResult]::Manual, "Could not evaluate release definition as one or more variable group has restricted permissions.");
+                        $controlResult.AddMessage([VerificationResult]::Manual, "Could not evaluate release definition as one or more variable group has restricted access.");
                     }
                     elseif($noOfCredFound -eq 0) 
                     {
