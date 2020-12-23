@@ -162,7 +162,7 @@ class AgentPool: ADOSVTBase
                                 $controlResult.AddMessage([VerificationResult]::Passed,"Agent pool has been queued in the last $inactiveLimit days.");
                             }
                             $controlResult.AddMessage("Last queue date of agent pool: $($agtPoolLastRunDate)");
-                            $controlResult.AdditionalInfo += "last queue date of agent pool: " + $agtPoolLastRunDate;
+                            $controlResult.AdditionalInfo += "Last queue date of agent pool: " + $agtPoolLastRunDate;
                         }
                         else 
                         {
