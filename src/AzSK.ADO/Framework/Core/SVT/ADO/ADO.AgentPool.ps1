@@ -85,13 +85,21 @@ class AgentPool: ADOSVTBase
             $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $($this.SubscriptionContext.SubscriptionName), $this.ResourceContext.resourcename;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
               
-            if((($agentPoolsObj | Measure-Object).Count -gt 0) -and $agentPoolsObj.autoUpdate -eq $true)
+            if([Helpers]::CheckMember($agentPoolsObj,"autoUpdate"))
             {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Auto-update of agents is enabled for [$($agentPoolsObj.name)] agent pool.");
+                if($agentPoolsObj.autoUpdate -eq $true)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Auto-update of agents is enabled for [$($agentPoolsObj.name)] agent pool.");
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Auto-update of agents is disabled for [$($agentPoolsObj.name)] agent pool.");
+                }
+                
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Failed,"Auto-update of agents is disabled for [$($agentPoolsObj.name)] agent pool.");
+                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch auto-update details of agent pool.");
             }
 
             $agentPoolsObj =$null;
@@ -110,7 +118,7 @@ class AgentPool: ADOSVTBase
             $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=queue&id={2}" -f $($this.SubscriptionContext.SubscriptionName),$this.ProjectId ,$this.AgentPoolId;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
                                    
-             if([Helpers]::CheckMember($agentPoolsObj,"authorized") -and $agentPoolsObj.authorized)
+            if([Helpers]::CheckMember($agentPoolsObj,"authorized") -and $agentPoolsObj.authorized)
             {
                 $controlResult.AddMessage([VerificationResult]::Failed,"Access permission to all pipeline is enabled for the agent pool.");
             }
