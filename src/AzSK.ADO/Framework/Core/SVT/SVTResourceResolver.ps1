@@ -214,6 +214,7 @@ class SVTResourceResolver: AzSKRoot {
             }
         }
         catch {}
+        # fetch the variable groups count
         if ($projectData["variablegroups"] -eq -1) {
             $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?api-version=6.1-preview.2") -f $($this.organizationName), $projectId;
             try{
@@ -380,7 +381,9 @@ class SVTResourceResolver: AzSKRoot {
                                     if (--$nObj -eq 0) { break; } 
                                 }
                                 # builds count here
-                                $projectData['build'] = $buildDefnsObj.Length;
+                                if(($buildDefnsObj | Measure-Object).Count -gt 0) {
+                                    $projectData['build'] = $buildDefnsObj.Length;
+                                }
                                 $buildDefnsObj = $null;
                                 Remove-Variable buildDefnsObj;
                             }
@@ -443,7 +446,9 @@ class SVTResourceResolver: AzSKRoot {
                                     if (--$nObj -eq 0) { break; } 
                                 }
                                 # release count here
-                                $projectData['release'] = $releaseDefnsObj.Length;
+                                if(($releaseDefnsObj | Measure-Object).Count -gt 0) {
+                                    $projectData['release'] = $releaseDefnsObj.Length;
+                                }
                                 $releaseDefnsObj = $null;
                             }
                         }
@@ -552,6 +557,10 @@ class SVTResourceResolver: AzSKRoot {
                             if (([Helpers]::CheckMember($agentPoolsDefnsObj, "fps.dataProviders.data") ) -and (($agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider") -and $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues)) {
                                 $nObj = $this.MaxObjectsToScan
                                 $taskAgentQueues = $null;
+                                if ($null -ne $agentPoolsDefnsObj) {
+                                    $allAgentPools = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | where-object{$_.pool.isLegacy -eq $false};
+                                    $projectData["agentpools"] = $allAgentPools.Length
+                                }
                                 if ($this.AgentPools -eq "*") {
                                     # We need to filter out legacy agent pools (Hosted, Hosted VS 2017 etc.) as they are not visible to user on the portal. As a result, they won't be able to remediate their respective controls
                                     $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | where-object{$_.pool.isLegacy -eq $false};
@@ -565,10 +574,6 @@ class SVTResourceResolver: AzSKRoot {
                                         $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPools -contains $_.name) } 
                                     }
                                 }
-                                if ($null -ne $taskAgentQueues) {
-                                    $projectData["agentpools"] = $taskAgentQueues.Length
-                                }
-
                                 #Filtering out "Azure Pipelines" agent pool from scan as it is created by ADO by default and some of its settings are not editable (grant access to all pipelines, auto-provisioning etc.)
                                 $taskAgentQueues = $taskAgentQueues | where-object{$_.name -ne "Azure Pipelines"};
                                 
@@ -606,6 +611,9 @@ class SVTResourceResolver: AzSKRoot {
                         if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) {
                     
                             $varGroups = $null;
+                            if($null -ne $variableGroupObj) {
+                                $projectData["variablegroups"] = $variableGroupObj.Length;
+                            }
                             if ($this.VariableGroups -eq "*") {
                                 $varGroups = $variableGroupObj 
                             }
@@ -618,11 +626,6 @@ class SVTResourceResolver: AzSKRoot {
                                     $varGroups = $variableGroupObj | Where-Object { $this.VariableGroups -eq $_.name }  
                                 }
                             }
-
-                            if($null -ne $varGroups) {
-                                $projectData["variablegroups"] = $varGroups.Length;
-                            }
-
                             $nObj = $this.MaxObjectsToScan
                             foreach ($group in $varGroups) {
                                 $resourceId = "organization/$organizationId/project/$projectId/variablegroup/$($group.Id)";
