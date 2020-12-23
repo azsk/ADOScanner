@@ -146,18 +146,18 @@ class User: ADOSVTBase {
                     if (($PATExpri7Days | Measure-Object).Count -gt 0) {
                         $PAT7List = ($PATExpri7Days | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "ValidFrom"; Expression = { $_.validfrom } }, @{Name = "ValidTo"; Expression = { $_.validto } }, @{Name = "Remaining"; Expression = { (New-Timespan -Start $date -End $_.validto).Days } });    
                         $controlResult.AddMessage("The following PATs expire within 7 days: ", $PAT7List )
-                        $controlResult.AdditionalInfo += "Total number of PATs expire within 7 days: " + ($PAT7List | Measure-Object).Count;
+                        $controlResult.AdditionalInfo += "Total number of PATs that will expire within 7 days: " + ($PAT7List | Measure-Object).Count;
                     }
                     if (($PATExpri30Days | Measure-Object).Count -gt 0) {
                         $PAT30List = ($PATExpri30Days | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "ValidFrom"; Expression = { $_.validfrom } }, @{Name = "ValidTo"; Expression = { $_.validto } }, @{Name = "Remaining"; Expression = { (New-Timespan -Start $date -End $_.validto).Days } });    
                         $controlResult.AddMessage("The following PATs expire after 7 days but within 30 days: ", $PAT30List )
-                        $controlResult.AdditionalInfo += "Total number of PATs expire after 7 days but within 30 days: " + ($PAT30List | Measure-Object).Count;
+                        $controlResult.AdditionalInfo += "Total number of PATs that will expire after 7 days but within 30 days: " + ($PAT30List | Measure-Object).Count;
                     }
               
                     if (($PATOther | Measure-Object).Count -gt 0) {
                         $PATOList = ($PATOther | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "ValidFrom"; Expression = { $_.validfrom } }, @{Name = "ValidTo"; Expression = { $_.validto } }, @{Name = "Remaining"; Expression = { (New-Timespan -Start $date -End $_.validto).Days } });    
                         $controlResult.AddMessage("The following PATs expire after 30 days: ", $PATOList )
-                        $controlResult.AdditionalInfo += "Total number of PATs expire after 30 days: " + ($PATOList | Measure-Object).Count;
+                        $controlResult.AdditionalInfo += "Total number of PATs that will expire after 30 days: " + ($PATOList | Measure-Object).Count;
                     }
                     if (($PATExpri7Days | Measure-Object).Count -gt 0) {
                         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -209,9 +209,9 @@ class User: ADOSVTBase {
                     }
                     if($allOrgPATCount -gt 0)
                     {   
-                        $controlResult.AddMessage("Number of active PATs accessible to all organizations: $($allOrgPATCount)");
+                        $controlResult.AddMessage("Total number of active PATs accessible to all organizations: $($allOrgPATCount)");
                         $controlResult.AddMessage([VerificationResult]::Failed, "The below active PATs are accessible to all organizations: ", $allOrgPAT);
-                        $controlResult.AdditionalInfo += "Number of active PATs accessible to all organizations: " + $allOrgPATCount;
+                        $controlResult.AdditionalInfo += "Total number of active PATs accessible to all organizations: " + $allOrgPATCount;
                         $controlResult.AdditionalInfo += "List of active PATs accessible to all organizations: " + [JsonHelper]::ConvertToJsonCustomCompressed($allOrgPAT);
                     }
                     else

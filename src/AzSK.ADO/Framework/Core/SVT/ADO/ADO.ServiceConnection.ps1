@@ -242,6 +242,7 @@ class ServiceConnection: ADOSVTBase
                     # fail the control if restricted group found on service connection
                     if($restrictedGroups)
                     {
+                        $controlResult.AddMessage("Total number of global groups that have access to service connection: ", ($restrictedGroups | Measure-Object).Count)
                         $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant global groups access to service connections. Granting elevated permissions to these groups can risk exposure of service connections to unwarranted individuals.");
                         $controlResult.AddMessage("Global groups that have access to service connection.",$restrictedGroups)
                         $controlResult.SetStateData("Global groups that have access to service connection",$restrictedGroups)
@@ -445,8 +446,8 @@ class ServiceConnection: ADOSVTBase
                         $controlResult.AddMessage([VerificationResult]::Manual,"History period in days (ServiceConnectionHistoryPeriodInDays) to check last running day of service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
                     }
                     $svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
-                    $controlResult.AddMessage("The last run date of Service Connection: $($svcConnLastRunDate)");
-                    $controlResult.AdditionalInfo += "The last run date of Service Connection: " + $svcConnLastRunDate;
+                    $controlResult.AddMessage("Last usage date of service connection: $($svcConnLastRunDate)");
+                    $controlResult.AdditionalInfo += "Last usage date of service connection: " + $svcConnLastRunDate;
                 }
                 else
                 {
