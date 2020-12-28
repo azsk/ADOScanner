@@ -216,8 +216,8 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckPipelineEditPermission",
-      "Rationale": "TBD",
-      "Recommendation": "TBD",
+      "Rationale": "If a broad pool of users (e.g., Contributors) have edit permissions on a pipeline, then integrity of your pipeline can be compromised by a malicious user who edits it.",
+      "Recommendation": "1. Navigate to the build pipeline. 2. Click on Security. 3. Ensure 'Edit build pipeline' permission of Contributors is set to 'Deny'. 4. Repeat this for any other groups that should not have edit access.",
       "Tags": [
         "SDL",
         "TCP",
