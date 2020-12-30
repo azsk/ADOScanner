@@ -139,6 +139,24 @@
         "DP"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_AgentPool_DP_No_Secret_In_Env_Variables",
+      "Description": "TBD",
+      "Id": "AgentPool190",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckCredInEnvironmentVariables",
+      "Rationale": "",
+      "Recommendation": "",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
     }
+
   ]
 }

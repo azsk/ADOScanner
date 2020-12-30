@@ -215,4 +215,79 @@ class AgentPool: ADOSVTBase
         $agentPool = $null;
         return $controlResult
     }
+
+    hidden [ControlResult] CheckCredInEnvironmentVariables([ControlResult] $controlResult)
+    {
+        try 
+        {   
+            $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId ,$this.AgentPoolId;
+            $agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
+            $patterns = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList;
+            if(($patterns | Measure-Object).Count -gt 0)
+            { 
+                $noOfCredFound = 0; 
+                $EnvVariablesConatiningSecret=@()
+                if (([Helpers]::CheckMember($agentPool[0],"fps.dataproviders.data") ) -and ($agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider") -and [Helpers]::CheckMember($agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider","agents") )  
+                {
+                    $Agents = $agentpool.fps.dataproviders.data."ms.vss-build-web.agent-pool-data-provider".agents
+                    $Agents | ForEach-Object {
+
+                        if([Helpers]::CheckMember($_,"userCapabilities"))
+                        {
+                            $EnvVariable=$_.userCapabilities
+                            $refHashTable=@{}
+                            $EnvVariable.psobject.properties | Foreach { $refHashTable[$_.Name] = $_.Value } 
+                            $refHashTable.Keys | Where-Object {
+                                for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) 
+                                {
+                                    if($refHashTable.Item($_) -cmatch $patterns.RegexList[$i])
+                                    {
+                                        $noOfCredFound +=1
+                                        $EnvVariablesConatiningSecret+=$_
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if($noOfCredFound -eq 0) 
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No secrets found in environment variables of Agents in Agent pool.");
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in environment variables of Agents in Agent pool.");
+                        $stateData = @{
+                            VariableList = @();
+                        };
+                        if(($EnvVariablesConatiningSecret | Measure-Object).Count -gt 0 )
+                        {
+                            $varList = $EnvVariablesConatiningSecret | select -Unique | Sort-object
+                            $stateData.VariableList += $varList
+                            $controlResult.AddMessage("`nTotal number of variable(s) containing secret: ", ($varList | Measure-Object).Count);
+                            $controlResult.AddMessage("`nList of variable(s) containing secret: ", $varList);
+                            #$controlResult.AdditionalInfo += "Total number of variable(s) containing secret: " + ($varList | Measure-Object).Count;
+                        }                    
+                    $controlResult.SetStateData("List of variable and variable group containing secret: ", $stateData );
+                    }
+                }            
+                else 
+                { 
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No Agents are there in Agent Pool.");
+                }                
+                $patterns = $null;
+            }            
+            else 
+            {
+                $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting credentials in environment variables for agents are not defined in your organization.");    
+            }            
+        }
+        catch 
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch details of environment variables of agents in agent pool queue history.");
+        }
+        #clearing memory space.
+        $agentPool = $null;
+        return $controlResult
+    }
 }
