@@ -225,6 +225,23 @@
         "SI"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Build_DP_Restrict_Secrets_To_Forked_Builds",
+      "Description": "Do not make secrets available to builds of fork.",
+      "Id": "Build1000",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckForkedBuildTrigger",
+      "Rationale": "If you build public repositories from GitHub, you must consider your stance on fork builds. Forks are especially dangerous since they come from outside your organization.",
+      "Recommendation": "TBD",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
     }  
   ]
 }

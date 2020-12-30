@@ -868,4 +868,34 @@ class Build: ADOSVTBase
 
         return $controlResult;
     }
+    hidden [ControlResult] CheckForkedBuildTrigger([ControlResult] $controlResult)
+    {
+
+        if([Helpers]::CheckMember($this.BuildObj[0],"triggers"))
+        {
+            $pullRequestTrigger = $this.BuildObj[0].triggers | Where-Object {$_.triggerType -eq "pullRequest"}
+
+            if($pullRequestTrigger) 
+            {
+                if(($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true))
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Secrets are available to builds of forked repository.");
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Secrets are not available to builds of forked repository.");  
+                }               
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pull request validation trigger is not enabled for build pipeline.");                    
+            }
+        }
+        else 
+        {
+            $controlResult.AddMessage([VerificationResult]::Passed,"No trigger is enabled for build pipeline.");
+        }
+        
+        return  $controlResult
+    }
 }
