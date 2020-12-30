@@ -229,12 +229,12 @@
     {
       "ControlID": "ADO_Build_DP_Restrict_Secrets_To_Forked_Builds",
       "Description": "Do not make secrets available to builds of fork.",
-      "Id": "Build1000",
+      "Id": "Build240",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckForkedBuildTrigger",
-      "Rationale": "If you build public repositories from GitHub, you must consider your stance on fork builds. Forks are especially dangerous since they come from outside your organization.",
-      "Recommendation": "TBD",
+      "Rationale": "If you build public repositories from GitHub, you must consider your stance on fork builds. Forks are especially dangerous since they come from outside your organization. Secrets can be exposed outside your organization if they are made available to builds of forked repositories.",
+      "Recommendation": "1. Navigate to the build pipeline. -> 2. Triggers -> 3. Pull request validation -> 4. Forks -> 5. Uncheck 'Make secrets available to builds of forks'.",
       "Tags": [
         "SDL",
         "TCP",
