@@ -491,4 +491,46 @@ class Project: ADOSVTBase
        
         return $controlResult
     }
+
+    hidden [ControlResult] CheckSecureFilesPermission([ControlResult] $controlResult) {
+        $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+        $url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($projectId)/_apis/distributedtask/securefiles?api-version=6.1-preview.1"
+        try {
+            $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+            if(([Helpers]::CheckMember($response[0],"count",$false)) -and ($response[0].count -eq 0)) {
+                $controlResult.AddMessage([VerificationResult]::Passed, "There are no secure files present.");
+            }
+            elseif((-not ([Helpers]::CheckMember($response[0],"count"))) -and ($response.Count -gt 0)) {
+                [Hashtable] $secFilesCount = @{
+                    count = 0;
+                    names = @();
+                };
+                foreach ($secFile in $response) {
+                    $url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($projectId)/_apis/build/authorizedresources?type=securefile&id=$($secFile.id)"
+                    $resp = [WebRequestHelper]::InvokeGetWebRequest($url);
+                    if((-not ([Helpers]::CheckMember($resp[0],"count"))) -and ($resp.Count -gt 0)) {
+                        if([Helpers]::CheckMember($resp, "authorized")) {
+                            if($resp.authorized) {
+                                $secFilesCount.count += 1;
+                                $secFilesCount.names += $secFile.name;
+                            }
+                        }
+                    }
+                }
+                if($secFilesCount.count -gt 0) {
+                    foreach ($name in $secFilesCount.names) {
+                        Write-Host "Secure File ($name) is authorized for use in all pipelines."
+                    }
+                    $controlResult.AddMessage([VerificationResult]::Failed, "There are secure files that are authorized for use in all pipelines.");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "There are no secure files that are authorized for use in all pipelines.");
+                }
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of secure files.");
+        }
+        return $controlResult
+    }
 }

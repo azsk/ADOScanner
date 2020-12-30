@@ -208,6 +208,23 @@
         "Best Practice"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Check_Secure_Files_Permission",
+      "Description": "Check Secure Files Permission is enabled or not.",
+      "Id": "Project230",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckSecureFilesPermission",
+      "Rationale": "Check Secure Files Permission is enabled or not.",
+      "Recommendation": "",
+      "Tags": [
+        "SDL",
+        "AuthN",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": true
     }
   ]
 }
