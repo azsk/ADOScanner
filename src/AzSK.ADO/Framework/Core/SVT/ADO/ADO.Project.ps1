@@ -493,4 +493,55 @@ class Project: ADOSVTBase
        
         return $controlResult
     }
+
+    hidden [ControlResult] CheckEnviornmentAccess([ControlResult] $controlResult)
+    {
+        try
+        {
+            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName), $($this.ResourceContext.ResourceName);
+            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            if(-not [Helpers]::CheckMember($responseObj, "Count"))
+            {
+                if(($null -ne $responseObj) -and (($responseObj | Measure-Object).Count -gt 0))
+                {
+                    $environmentsWithOpenAccess = @();
+                    foreach ($item in $responseObj) 
+                    {
+                        $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/environment/{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ResourceContext.ResourceDetails.id), $($item.id);
+                        $apiResponse = [WebRequestHelper]::InvokeGetWebRequest($url);
+                        if (([Helpers]::CheckMember($apiResponse,"allPipelines")) -and ($apiResponse.allPipelines.authorized -eq $true)) 
+                        {
+                            $environmentsWithOpenAccess += $item | Select-Object id, name;
+                        }
+                    }
+
+                    if(($environmentsWithOpenAccess | Measure-Object).Count -gt 0)
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Do not grant environment access to all pipeline");
+                        $controlResult.AddMessage("Total number of environment that are accessible to all pipeline: ", ($environmentsWithOpenAccess | Measure-Object).Count);
+                        $controlResult.AddMessage("Review the list of environment that are accessible to all pipeline: ", $environmentsWithOpenAccess);
+                        $controlResult.AdditionalInfo += "Total number of environment that are accessible to all pipeline: " + ($environmentsWithOpenAccess | Measure-Object).Count;
+                    }
+                    else
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Environment access is not granted to all pipeline");
+                    }
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No environment found in the project");
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "No environment found in the project");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the environments in the project.");
+        }
+       
+        return $controlResult
+    }
 }
