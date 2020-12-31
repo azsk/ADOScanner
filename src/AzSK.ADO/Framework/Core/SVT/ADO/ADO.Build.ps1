@@ -868,6 +868,7 @@ class Build: ADOSVTBase
 
         return $controlResult;
     }
+    
     hidden [ControlResult] CheckForkedBuildTrigger([ControlResult] $controlResult)
     {
 
@@ -905,5 +906,30 @@ class Build: ADOSVTBase
         }
         
         return  $controlResult
+    }
+    
+    hidden [ControlResult] CheckForkedRepoOnSHAgent([ControlResult] $controlResult)
+    {
+        try {
+            #If repo made by fork then only 'isFork' property comes.
+            if ([Helpers]::CheckMember($this.BuildObj.repository, "properties.isFork") -and $this.BuildObj.repository.properties.isFork -eq $true) {
+                #If agent pool is hosted then only 'isHosted' property comes, 'isHosted' property does not comes if pool is non-hosted
+                if ([Helpers]::CheckMember($this.BuildObj, "queue.pool") -and !([Helpers]::CheckMember($this.BuildObj.queue.pool,"isHosted") -and $this.BuildObj.queue.pool.isHosted -eq $true ) ) {
+                    #https://dev.azure.com/{0}/_apis/distributedtask/pools?poolIds={1}&api-version=6.0
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Pipeline builds code from forked repository [$($this.BuildObj.repository.name)] on self-hosted agent [$($this.BuildObj.queue.pool.name)].");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline builds code from forked repository [$($this.BuildObj.repository.name)] on hosted agent [$($this.BuildObj.queue.pool.name)].");
+                }
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline does not build code from forked repository.");
+            }    
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the pipeline details.");
+        }
+                
+        return $controlResult;
     }
 }

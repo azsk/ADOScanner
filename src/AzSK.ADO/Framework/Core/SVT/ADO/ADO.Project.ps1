@@ -493,4 +493,100 @@ class Project: ADOSVTBase
        
         return $controlResult
     }
+    
+    hidden [ControlResult] CheckEnviornmentAccess([ControlResult] $controlResult)
+    {
+        try
+        {
+            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName), $($this.ResourceContext.ResourceName);
+            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+
+            # TODO: When there are no environments configured, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false. Need to revisit.
+            if(([Helpers]::CheckMember($responseObj[0],"count",$false)) -and ($responseObj[0].count -eq 0))
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "No environment has been configured in the project.");
+            }
+            # When environments are configured - the below condition will be true.
+            elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0)) 
+            {
+                $environmentsWithOpenAccess = @();
+                foreach ($item in $responseObj) 
+                {
+                    $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/environment/{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ResourceContext.ResourceDetails.id), $($item.id);
+                    $apiResponse = [WebRequestHelper]::InvokeGetWebRequest($url);
+                    if (([Helpers]::CheckMember($apiResponse,"allPipelines")) -and ($apiResponse.allPipelines.authorized -eq $true)) 
+                    {
+                        $environmentsWithOpenAccess += $item | Select-Object id, name;
+                    }
+                }
+                $environmentsWithOpenAccessCount = ($environmentsWithOpenAccess | Measure-Object).Count;
+                if($environmentsWithOpenAccessCount -gt 0)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Total number of environments in the project that are accessible to all pipelines: $($environmentsWithOpenAccessCount)");
+                    $controlResult.AddMessage("List of environments in the project that are accessible to all pipelines: ", $environmentsWithOpenAccess);
+                    $controlResult.AdditionalInfo += "Total number of environments in the project that are accessible to all pipelines: " + $environmentsWithOpenAccessCount;
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "There are no environments that are accessible to all pipelines.");
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "No environments found in the project.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of environments in the project.");
+        }
+       return $controlResult
+    }
+    
+    hidden [ControlResult] CheckSecureFilesPermission([ControlResult] $controlResult) {
+        # getting the project ID
+        $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+        $url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($projectId)/_apis/distributedtask/securefiles?api-version=6.1-preview.1"
+        try {
+            $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+            # check on response object, if null -> no secure files present
+            if(([Helpers]::CheckMember($response[0],"count",$false)) -and ($response[0].count -eq 0)) {
+                $controlResult.AddMessage([VerificationResult]::Passed, "There are no secure files present.");
+            }
+            # else there are secure files present
+            elseif((-not ([Helpers]::CheckMember($response[0],"count"))) -and ($response.Count -gt 0)) {
+                # object to keep a track of authorized secure files and their count
+                [Hashtable] $secFiles = @{
+                    count = 0;
+                    names = @();
+                };
+                foreach ($secFile in $response) {
+                    $url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($projectId)/_apis/build/authorizedresources?type=securefile&id=$($secFile.id)"
+                    $resp = [WebRequestHelper]::InvokeGetWebRequest($url);
+                    # check if the secure file is authorized
+                    if((-not ([Helpers]::CheckMember($resp[0],"count"))) -and ($resp.Count -gt 0)) {
+                        if([Helpers]::CheckMember($resp, "authorized")) {
+                            if($resp.authorized) {
+                                $secFiles.count += 1;
+                                $secFiles.names += $secFile.name;
+                            }
+                        }
+                    }
+                }
+                # there are secure files present that are authorized
+                if($secFiles.count -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Total number of secure files in the project that are authorized for use in all pipelines: $($secFiles.count)");
+                    $controlResult.AddMessage("List of secure files in the project that are authorized for use in all pipelines: ", $secFiles.names);
+                }
+                # there are no secure files present that are authorized
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "There are no secure files in the project that are authorized for use in all pipelines.");
+                }
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of secure files.");
+        }
+        return $controlResult
+    }
 }
