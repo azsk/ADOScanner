@@ -73,22 +73,29 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
     {
-        $Endpoint = $this.ServiceEndpointsObj
-        $url="https://dev.azure.com/v-himkam/TestHkdemo/_settings/adminservices?resourceId=bd0250fa-2bb4-4663-921d-990d874986e7&view=security" -f $($this.SubscriptionContext.SubscriptionName),$([ServiceConnection]::SecurityNamespaceId),$($this.ProjectId),$($Endpoint.id);
-        $scobj = [WebRequestHelper]::InvokeGetWebRequest($url);
-        <#if(($this.ServiceEndpointsObj | Measure-Object).Count -gt 0)
+        try
         {
-            <#$roles = @();
-            $roles +=   ($this.AgentObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
-            $controlResult.AddMessage("Total number of identities that have access to agent pool: ", ($roles | Measure-Object).Count);
-            $controlResult.AddMessage([VerificationResult]::Verify,"Validate whether following identities have been provided with minimum RBAC access to agent pool.", $roles);
-            $controlResult.SetStateData("Validate whether following identities have been provided with minimum RBAC access to agent pool.", $roles);
-            $controlResult.AdditionalInfo += "Total number of identities that have access to agent pool: " + ($roles | Measure-Object).Count;
+            $url="https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName),$($this.ProjectId),$($this.ServiceEndpointsObj.id);
+            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
+            if($responseObj.Count -gt 0)
+            {
+                $roles = @();
+                $roles +=   ($responseObj | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                $controlResult.AddMessage("Total number of identities that have access to service connection: ", ($roles | Measure-Object).Count);
+                $controlResult.AddMessage([VerificationResult]::Verify,"Validate whether following identities have been provided with minimum RBAC access to service.", $roles);
+                $controlResult.SetStateData("Validate whether following identities have been provided with minimum RBAC access to service connection.", $roles);
+                $controlResult.AdditionalInfo += "Total number of identities that have access to agent pool: " + ($roles | Measure-Object).Count;
+            }
+            elseif(($this.ServiceEndpointsObj | Measure-Object).Count -eq 0)
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed,"No role assignment found")
+            }
         }
-        elseif(($this.ServiceEndpointsObj | Measure-Object).Count -eq 0)
+        catch
         {
-            $controlResult.AddMessage([VerificationResult]::Passed,"No role assignment found")
-        }#>
+            $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch role assignments.")
+        }
+        
         return $controlResult
     }
 
