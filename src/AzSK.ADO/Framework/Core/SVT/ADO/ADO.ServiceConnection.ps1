@@ -81,14 +81,15 @@ class ServiceConnection: ADOSVTBase
             {
                 $roles = @();
                 $roles +=   ($responseObj | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
-                $controlResult.AddMessage("Total number of identities that have access to service connection: ", ($roles | Measure-Object).Count);
-                $controlResult.AddMessage([VerificationResult]::Verify,"Validate whether following identities have been provided with minimum RBAC access to service.", $roles);
-                $controlResult.SetStateData("Validate whether following identities have been provided with minimum RBAC access to service connection.", $roles);
-                $controlResult.AdditionalInfo += "Total number of identities that have access to agent pool: " + ($roles | Measure-Object).Count;
+                $rolesCount = ($roles | Measure-Object).Count;
+                $controlResult.AddMessage("Total number of identities that have access to service connection: $($rolesCount)");
+                $controlResult.AddMessage([VerificationResult]::Verify,"Validate whether following identities have been provided with minimum RBAC access to service connection: ", $roles);
+                $controlResult.SetStateData("List of identities having access to service connection: ", $roles);
+                $controlResult.AdditionalInfo += "Total number of identities that have access to service connection: " + $rolesCount;
             }
             elseif(($this.ServiceEndpointsObj | Measure-Object).Count -eq 0)
             {
-                $controlResult.AddMessage([VerificationResult]::Passed,"No role assignment found")
+                $controlResult.AddMessage([VerificationResult]::Passed,"No role assignments found on service connection.")
             }
         }
         catch
