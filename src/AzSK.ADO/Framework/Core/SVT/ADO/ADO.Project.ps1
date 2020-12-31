@@ -513,10 +513,12 @@ class Project: ADOSVTBase
 
                 foreach ($feed in $feedsObj) 
                 {
+                    #GET https://feeds.dev.azure.com/{organization}/{project}/_apis/packaging/Feeds/{feedId}/permissions?api-version=6.0-preview.1
+                    #Using visualstudio api because new api (dev.azure.com) is givinf null in the displayName property.
                     $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.SubscriptionContext.SubscriptionName, $this.ResourceContext.ResourceName, $feed.Id;
                     $feedPermissionObj = [WebRequestHelper]::InvokeGetWebRequest($url); 
-                    $feedsPermission = ($feedPermissionObj | Where-Object {$_.role -eq "administrator" -or $_.role -eq "contributor"}) | Select-Object -Property @{Name="FeedName"; Expression = {$feed.name}},@{Name="Role"; Expression = {$_.role}},@{Name="Group"; Expression = {$_.displayName}}
-                    
+
+                    $feedsPermission = ($feedPermissionObj | Where-Object {$_.role -eq "administrator" -or $_.role -eq "contributor"}) | Select-Object -Property @{Name="FeedName"; Expression = {$feed.name}},@{Name="Role"; Expression = {$_.role}},@{Name="Group"; Expression = {$_.displayName}} ;
                     $allFeedsPermissionToReview += $feedsPermission | Where-Object { $VerifyGroupsInFeedPermission -contains $_.Group.split('\')[-1] }
                 }
             }
