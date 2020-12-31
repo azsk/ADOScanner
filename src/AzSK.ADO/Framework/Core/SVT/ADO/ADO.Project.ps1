@@ -504,7 +504,7 @@ class Project: ADOSVTBase
             $allFeedsPermissionToReview = @();
             if (($feedsObj | Measure-Object).Count -gt 0) 
             {
-                $controlResult.AddMessage("Total no. of feeds found: $($feedsObj.count)")
+                $controlResult.AddMessage("Total number of feeds found: $($feedsObj.count)")
                 $VerifyGroupsInFeedPermission = $null;
 
                 if ([Helpers]::CheckMember($this.ControlSettings.Project, "VerifyGroupsInFeedPermission")) {
@@ -527,8 +527,7 @@ class Project: ADOSVTBase
             {
                 $controlResult.AddMessage([VerificationResult]::Verify, "Verify groups has access on feeds: ");
 
-                $ftWidth = 512 #Used for table output width to avoid "..." truncation
-                $display = ($allFeedsPermissionToReview |  FT FeedName, Role, Group -AutoSize | Out-String -Width $ftWidth)
+                $display = ($allFeedsPermissionToReview |  FT FeedName, Role, Group -AutoSize | Out-String -Width 512)
                 $controlResult.AddMessage($display)
             }
             else
