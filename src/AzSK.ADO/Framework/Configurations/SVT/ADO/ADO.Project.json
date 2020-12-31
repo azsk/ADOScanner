@@ -208,6 +208,24 @@
         "Best Practice"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Feed_Permission",
+      "Description": "Verify the groups which has administrator or contributor role access.",
+      "Id": "Project250",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckFeedAccess",
+      "Rationale": "TBD",
+      "Recommendation": "Go to Project --> Artifacts --> Select Feed --> Feed Settings --> Permissions --> Groups --> Review the groups which has dministrator and contributor role.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Manual",
+        "AuthZ",
+        "RBAC"
+      ],
+      "Enabled": true
     }
   ]
 }
