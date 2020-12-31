@@ -227,8 +227,8 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Build_DP_Restrict_Secrets_To_Forked_Builds",
-      "Description": "Do not make secrets available to builds of fork.",
+      "ControlID": "ADO_Build_DP_Dont_Make_Secrets_Available_To_Forked_Builds",
+      "Description": "Do not make secrets available to builds of fork repository.",
       "Id": "Build240",
       "ControlSeverity": "High",
       "Automated": "Yes",

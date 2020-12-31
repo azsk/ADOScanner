@@ -877,13 +877,21 @@ class Build: ADOSVTBase
 
             if($pullRequestTrigger) 
             {
-                if(($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true))
+                if([Helpers]::CheckMember($pullRequestTrigger,"forks"))
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Secrets are available to builds of forked repository.");
+
+                    if(($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true))
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Secrets are available to builds of forked repository.");
+                    }
+                    else 
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Secrets are not available to builds of forked repository.");  
+                    }
                 }
-                else 
+                else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Secrets are not available to builds of forked repository.");  
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Secrets are not available to builds of forked repository."); 
                 }               
             }
             else
