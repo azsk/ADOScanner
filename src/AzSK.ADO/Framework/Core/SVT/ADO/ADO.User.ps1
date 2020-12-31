@@ -303,7 +303,7 @@ class User: ADOSVTBase {
                 }
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Manual, "Critical permissions are not defined in your org policy");
+                $controlResult.AddMessage([VerificationResult]::Manual, "Critical permissions are not defined in your organization");
             }      
         }
         catch
