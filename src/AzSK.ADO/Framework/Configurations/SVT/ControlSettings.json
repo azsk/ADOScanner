@@ -272,6 +272,9 @@
     "MinPAMembersPermissible": 2,
     "GroupsToCheckForSCAltMembers": [
       "Project Administrators"
+    ],
+    "GroupsToCheckForFeedPermission": [
+      "Contributors"
     ]
   },
   "ServiceConnection": {

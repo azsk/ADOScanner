@@ -210,9 +210,26 @@
       "Enabled": true
     },
     {
+      "ControlID": "ADO_Project_AuthZ_Restrict_Feed_Permissions",
+      "Description": "Do not allow a broad pool of users to upload packages to feed.",
+      "Id": "Project230",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckFeedAccess",
+      "Rationale": "If a broad pool of users (e.g., Contributors) have permissions to upload package to feed, then integrity of your pipeline can be compromised by a malicious user who uploads a package.",
+      "Recommendation": "Go to Project --> Artifacts --> Select Feed --> Feed Settings --> Permissions --> Groups --> Review users/groups which have administrator and contributor roles.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "AuthZ",
+        "RBAC"
+      ],
+      "Enabled": true
+    },
+    {
       "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Environment",
       "Description": "Do not make environment accessible to all pipelines.",
-      "Id": "Project230",
+      "Id": "Project240",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckEnviornmentAccess",
@@ -229,7 +246,7 @@
     {
       "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secure_Files",
       "Description": "Do not make secure files accessible to all pipelines.",
-      "Id": "Project240",
+      "Id": "Project250",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckSecureFilesPermission",
@@ -243,5 +260,6 @@
       ],
       "Enabled": true
     }
+
   ]
 }

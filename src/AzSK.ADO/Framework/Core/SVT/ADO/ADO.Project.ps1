@@ -493,6 +493,57 @@ class Project: ADOSVTBase
        
         return $controlResult
     }
+
+    hidden [ControlResult] CheckFeedAccess([ControlResult] $controlResult)
+    {
+        try
+        {
+            $url = 'https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds?api-version=6.0-preview.1' -f $this.SubscriptionContext.SubscriptionName, $this.ResourceContext.ResourceName;
+            $feedsObj = [WebRequestHelper]::InvokeGetWebRequest($url); 
+
+            $feedsWithUploadPkgPermission = @();
+            $GroupsToCheckForFeedPermission = $null;
+            if (($feedsObj | Measure-Object).Count -gt 0) 
+            {
+                $controlResult.AddMessage("Total number of feeds found: $($feedsObj.count)")
+
+                if ([Helpers]::CheckMember($this.ControlSettings.Project, "GroupsToCheckForFeedPermission")) {
+                    $GroupsToCheckForFeedPermission = $this.ControlSettings.Project.GroupsToCheckForFeedPermission
+                }
+                
+                foreach ($feed in $feedsObj) 
+                {
+                    #GET https://feeds.dev.azure.com/{organization}/{project}/_apis/packaging/Feeds/{feedId}/permissions?api-version=6.0-preview.1
+                    #Using visualstudio api because new api (dev.azure.com) is giving null in the displayName property.
+                    $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.SubscriptionContext.SubscriptionName, $this.ResourceContext.ResourceName, $feed.Id;
+                    $feedPermissionObj = [WebRequestHelper]::InvokeGetWebRequest($url); 
+
+                    $feedsPermission = ($feedPermissionObj | Where-Object {$_.role -eq "administrator" -or $_.role -eq "contributor"}) | Select-Object -Property @{Name="FeedName"; Expression = {$feed.name}},@{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}} ;
+                    $feedsWithUploadPkgPermission += $feedsPermission | Where-Object { $GroupsToCheckForFeedPermission -contains $_.DisplayName.split('\')[-1] }
+                }
+            }
+ 
+            $feedCount = ($feedsWithUploadPkgPermission | Measure-Object).Count;
+            if ($feedCount -gt 0) 
+            {
+                $controlResult.AddMessage("`nNote: The following groups are considered as 'critical': [$GroupsToCheckForFeedPermission]");
+                $controlResult.AddMessage("`nTotal number of feeds that have contributor/administrator permission: $feedCount");
+                $controlResult.AddMessage([VerificationResult]::Failed, "List of feeds that have contributor/administrator permission: ");
+
+                $display = ($feedsWithUploadPkgPermission |  FT FeedName, Role, DisplayName -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed,  "No feeds found in the project.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Passed,  "Could not fetch project feed settings.");
+        }
+        return $controlResult
+    }
     
     hidden [ControlResult] CheckEnviornmentAccess([ControlResult] $controlResult)
     {
