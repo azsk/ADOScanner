@@ -869,7 +869,7 @@ class Build: ADOSVTBase
         return $controlResult;
     }
     
-    hidden [ControlResult] CheckForkRepo([ControlResult] $controlResult)
+    hidden [ControlResult] CheckForkedRepoOnSHAgent([ControlResult] $controlResult)
     {
         try {
             #If repo made by fork then only 'isFork' property comes.
@@ -877,18 +877,18 @@ class Build: ADOSVTBase
                 #If agent pool is hosted then only 'isHosted' property comes, 'isHosted' property does not comes if pool is non-hosted
                 if ([Helpers]::CheckMember($this.BuildObj, "queue.pool") -and !([Helpers]::CheckMember($this.BuildObj.queue.pool,"isHosted") -and $this.BuildObj.queue.pool.isHosted -eq $true ) ) {
                     #https://dev.azure.com/{0}/_apis/distributedtask/pools?poolIds={1}&api-version=6.0
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Fork repo [$($this.BuildObj.repository.name)] is used with non-hosted agent [$($this.BuildObj.queue.pool.name)].");
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Pipeline builds code from forked repository [$($this.BuildObj.repository.name)] on self-hosted agent [$($this.BuildObj.queue.pool.name)].");
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline is not building fork repo using non-hosted agent.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline builds code from forked repository [$($this.BuildObj.repository.name)] on hosted agent [$($this.BuildObj.queue.pool.name)].");
                 }
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline is not building fork repo using non-hosted agent.");
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline does not build code from forked repository.");
             }    
         }
         catch {
-            $controlResult.AddMessage([VerificationResult]::Error,"Pipeline is not building fork repo using non-hosted agent.");
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the pipeline details.");
         }
                 
         return $controlResult;
