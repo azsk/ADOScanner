@@ -500,28 +500,34 @@ class Project: ADOSVTBase
         {
             $url = 'https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds?api-version=6.0-preview.1' -f $this.SubscriptionContext.SubscriptionName, $this.ResourceContext.ResourceName;
             $feedsObj = [WebRequestHelper]::InvokeGetWebRequest($url); 
+
             $allFeedsPermissionToReview = @();
-            if (($feedsObj | Measure-Object).Count -gt 0) {
+            if (($feedsObj | Measure-Object).Count -gt 0) 
+            {
                 $controlResult.AddMessage("Total no. of feeds found: $($feedsObj.count)")
-                #$VerifyGroupsInFeedPermission = $null;
-                #if ([Helpers]::CheckMember($this.ControlSettings.Project, "VerifyGroupsInFeedPermission")) {
-                #    $VerifyGroupsInFeedPermission = [Helpers]::CheckMember($this.ControlSettings.Project, "VerifyGroupsInFeedPermission")
-                #}
-                foreach ($feed in $feedsObj) {
-                    #$url = 'https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/permissions?api-version=6.0-preview.1' -f $this.SubscriptionContext.SubscriptionName, $this.ResourceContext.ResourceName, $feed.Id;
+                $VerifyGroupsInFeedPermission = $null;
+
+                if ([Helpers]::CheckMember($this.ControlSettings.Project, "VerifyGroupsInFeedPermission")) {
+                    $VerifyGroupsInFeedPermission = $this.ControlSettings.Project.VerifyGroupsInFeedPermission
+                }
+
+                foreach ($feed in $feedsObj) 
+                {
                     $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.SubscriptionContext.SubscriptionName, $this.ResourceContext.ResourceName, $feed.Id;
                     $feedPermissionObj = [WebRequestHelper]::InvokeGetWebRequest($url); 
-                    $feedsPermission = ($feedPermissionObj | Where-Object {$_.role -eq "administrator" -or $_.role -eq "contributor"}) | Select-Object -Property @{Name="FeedName"; Expression = {$feed.name}},@{Name="Permision"; Expression = {$_.role}},@{Name="Group"; Expression = {$_.displayName}}
+                    $feedsPermission = ($feedPermissionObj | Where-Object {$_.role -eq "administrator" -or $_.role -eq "contributor"}) | Select-Object -Property @{Name="FeedName"; Expression = {$feed.name}},@{Name="Role"; Expression = {$_.role}},@{Name="Group"; Expression = {$_.displayName}}
                     
-                    if ([Helpers]::CheckMember($this.ControlSettings.Project, "VerifyGroupsInFeedPermission")) {
-                        $allFeedsPermissionToReview += $feedsPermission | Where-Object { $this.ControlSettings.Project.VerifyGroupsInFeedPermission -contains $_.Group.split('\')[-1] }
-                    }
+                    $allFeedsPermissionToReview += $feedsPermission | Where-Object { $VerifyGroupsInFeedPermission -contains $_.Group.split('\')[-1] }
                 }
             }
-            if ( ($allFeedsPermissionToReview | Measure-Object).Count -gt 0) {
-                $controlResult.AddMessage([VerificationResult]::Verify, "Verify groups present on feeds.");
-    
-                $controlResult.AddMessage("Verify groups has access on feeds: ", $allFeedsPermissionToReview); 
+
+            if ( ($allFeedsPermissionToReview | Measure-Object).Count -gt 0) 
+            {
+                $controlResult.AddMessage([VerificationResult]::Verify, "Verify groups has access on feeds: ");
+
+                $ftWidth = 512 #Used for table output width to avoid "..." truncation
+                $display = ($allFeedsPermissionToReview |  FT FeedName, Role, Group -AutoSize | Out-String -Width $ftWidth)
+                $controlResult.AddMessage($display)
             }
             else
             {

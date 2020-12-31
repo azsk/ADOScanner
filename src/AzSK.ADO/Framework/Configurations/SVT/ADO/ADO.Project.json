@@ -211,7 +211,7 @@
     },
     {
       "ControlID": "ADO_Project_AuthZ_Feed_Permission",
-      "Description": "Verify the groups which has administrator or contributor role access on feeds.",
+      "Description": "Verify the groups which has administrator or contributor access on feeds.",
       "Id": "Project250",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
