@@ -2,9 +2,10 @@ Set-StrictMode -Version Latest
 class AgentPool: ADOSVTBase
 {    
 
-    hidden [PSObject] $AgentObj;
+    hidden [PSObject] $AgentObj; # This is used for fetching agent pool details
     hidden [PSObject] $ProjectId;
     hidden [PSObject] $AgentPoolId;
+    hidden [PSObject] $agentPool; # This is used to fetch agent details in pool
     
     AgentPool([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId,$svtResource) 
     {
@@ -142,15 +143,17 @@ class AgentPool: ADOSVTBase
     {
         try 
         {   
-            $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId ,$this.AgentPoolId;
-            $agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-            
-            if (([Helpers]::CheckMember($agentPool[0], "fps.dataProviders.data") ) -and ($agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider")) 
+            if($null -eq  $this.agentPool)
+            {
+                $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId ,$this.AgentPoolId;
+                $this.agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
+            }
+            if (([Helpers]::CheckMember($this.agentPool[0], "fps.dataProviders.data") ) -and ($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider")) 
             {
                 # $inactiveLimit denotes the upper limit on number of days of inactivity before the agent pool is deemed inactive.
                 $inactiveLimit = $this.ControlSettings.AgentPool.AgentPoolHistoryPeriodInDays
                 #Filtering agent pool jobs specific to the current project.
-                $agentPoolJobs = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs | Where-Object {$_.scopeId -eq $this.ProjectId};
+                $agentPoolJobs = $this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs | Where-Object {$_.scopeId -eq $this.ProjectId};
                  #Arranging in descending order of run time.
                 $agentPoolJobs = $agentPoolJobs | Sort-Object queueTime -Descending
                 #If agent pool has been queued at least once
@@ -180,9 +183,9 @@ class AgentPool: ADOSVTBase
                 else 
                 {
                     #[else] Agent pool is created but nenver run, check creation date greated then 180
-                    if (([Helpers]::CheckMember($agentPool, "fps.dataProviders.data") ) -and ($agentPool.fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider")) 
+                    if (([Helpers]::CheckMember($this.agentPool, "fps.dataProviders.data") ) -and ($this.agentPool.fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider")) 
                     {
-                        $agentPoolDetails = $agentPool.fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider"
+                        $agentPoolDetails = $this.agentPool.fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider"
                         
                         if ((((Get-Date) - $agentPoolDetails.selectedAgentPool.createdOn).Days) -lt $inactiveLimit)
                         {
@@ -212,7 +215,94 @@ class AgentPool: ADOSVTBase
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch agent pool queue history.");
         }
         #clearing memory space.
-        $agentPool = $null;
+        $this.agentPool = $null;
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckCredInEnvironmentVariables([ControlResult] $controlResult)
+    {
+        try 
+        {   
+            if($null -eq  $this.agentPool)
+            {
+                $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId ,$this.AgentPoolId;
+                $this.agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
+            }                 
+            
+                $patterns = $this.ControlSettings.Patterns | Where-Object {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList;
+                if(($patterns | Measure-Object).Count -gt 0)
+                { 
+                    $noOfCredFound = 0; 
+                    $AgentsWithSecretsInEnv=@()
+                    if (([Helpers]::CheckMember($this.agentPool[0],"fps.dataproviders.data") ) -and ($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider") -and [Helpers]::CheckMember($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider","agents") )  
+                    {
+                        $Agents = $this.agentpool.fps.dataproviders.data."ms.vss-build-web.agent-pool-data-provider".agents
+                        
+                        $Agents | ForEach-Object {
+                            $RefAgent = "" | Select-Object "AgentName","Capabilities"
+                            $RefAgent.AgentName = $_.name                            
+                            $EnvVariablesContainingSecret=@()
+                            if([Helpers]::CheckMember($_,"userCapabilities"))
+                            {
+                                $EnvVariable=$_.userCapabilities
+                                $refHashTable=@{}
+                                $EnvVariable.PSObject.properties | ForEach-Object { $refHashTable[$_.Name] = $_.Value } 
+                                $refHashTable.Keys | Where-Object {
+                                    for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) 
+                                    {
+                                        if($refHashTable.Item($_) -cmatch $patterns.RegexList[$i])
+                                        {
+                                            $noOfCredFound += 1
+                                            $EnvVariablesContainingSecret += $_                                            
+                                            break
+                                        }
+                                    }
+                                }
+                            }
+                            $RefAgent.Capabilities = $EnvVariablesContainingSecret  
+                            $AgentsWithSecretsInEnv += $RefAgent                          
+                        }
+                                                
+                        if($noOfCredFound -eq 0) 
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Passed, "No secrets found in user-defined capabilities of agents.");
+                        }
+                        else {
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in user-defined capabilities of agents.");
+                            
+                            $count = ($AgentsWithSecretsInEnv | Measure-Object).Count
+                            if($count -gt 0 )
+                            {
+                                #$varList = $EnvVariablesContainingSecret | select -Unique | Sort-object
+                               # $stateData.AgentsWithCred += $AgentsWithSecretsInEnv.AgentName
+                                $controlResult.AddMessage("`nTotal number of agents that contain secrets in user-defined capabilities: $count")
+                                $controlResult.AddMessage("`nAgent wise list of user-defined capabilities containing secret: ");
+                                $display=($AgentsWithSecretsInEnv | FT AgentName,Capabilities -AutoSize | Out-String -Width 512)
+                                $controlResult.AddMessage($display)
+                                #$controlResult.AdditionalInfo += "Total number of variable(s) containing secret: " + ($varList | Measure-Object).Count;
+                            }                    
+                            $controlResult.SetStateData("Agent wise list of user-defined capabilities containing secret: ", $AgentsWithSecretsInEnv );
+                        }
+                    }            
+                    else 
+                    { 
+                        $controlResult.AddMessage([VerificationResult]::Passed, "There are no agents in the pool.");
+                    }                
+                    $patterns = $null;
+                }            
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting credentials in environment variables for agents are not defined in your organization.");    
+                }   
+            
+                     
+        }
+        catch 
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch details of user-defined capabilities of agents.");
+        }
+        #clearing memory space.
+        $this.agentPool = $null;
         return $controlResult
     }
 }

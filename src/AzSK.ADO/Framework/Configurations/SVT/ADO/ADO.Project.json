@@ -212,7 +212,7 @@
     {
       "ControlID": "ADO_Project_AuthZ_Restrict_Feed_Permissions",
       "Description": "Do not allow a broad pool of users to upload packages to feed.",
-      "Id": "Project250",
+      "Id": "Project230",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckFeedAccess",
@@ -221,9 +221,42 @@
       "Tags": [
         "SDL",
         "TCP",
-        "Manual",
         "AuthZ",
         "RBAC"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Environment",
+      "Description": "Do not make environment accessible to all pipelines.",
+      "Id": "Project240",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckEnviornmentAccess",
+      "Rationale": "To support security of the pipeline operations, environments must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
+      "Recommendation": "To remediate this, go to Project -> Pipelines -> Environments -> select your environment from the list -> click Security -> Under 'Pipeline Permissions', remove pipelines that environment no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secure_Files",
+      "Description": "Do not make secure files accessible to all pipelines.",
+      "Id": "Project250",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckSecureFilesPermission",
+      "Rationale": "To support security of the pipeline operations, secure files must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
+      "Recommendation": "To remediate this, go to Project -> Pipelines -> Library -> Secure Files -> select your secure file from the list -> click Security -> Under 'Pipeline Permissions', remove pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Tags": [
+        "SDL",
+        "AuthZ",
+        "Automated",
+        "Best Practice"
       ],
       "Enabled": true
     }

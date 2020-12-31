@@ -869,6 +869,45 @@ class Build: ADOSVTBase
         return $controlResult;
     }
     
+    hidden [ControlResult] CheckForkedBuildTrigger([ControlResult] $controlResult)
+    {
+
+        if([Helpers]::CheckMember($this.BuildObj[0],"triggers"))
+        {
+            $pullRequestTrigger = $this.BuildObj[0].triggers | Where-Object {$_.triggerType -eq "pullRequest"}
+
+            if($pullRequestTrigger) 
+            {
+                if([Helpers]::CheckMember($pullRequestTrigger,"forks"))
+                {
+
+                    if(($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true))
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Secrets are available to builds of forked repository.");
+                    }
+                    else 
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Secrets are not available to builds of forked repository.");  
+                    }
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Secrets are not available to builds of forked repository."); 
+                }               
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pull request validation trigger is not enabled for build pipeline.");                    
+            }
+        }
+        else 
+        {
+            $controlResult.AddMessage([VerificationResult]::Passed,"No trigger is enabled for build pipeline.");
+        }
+        
+        return  $controlResult
+    }
+    
     hidden [ControlResult] CheckForkedRepoOnSHAgent([ControlResult] $controlResult)
     {
         try {
@@ -891,6 +930,61 @@ class Build: ADOSVTBase
             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the pipeline details.");
         }
                 
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckCIScheduledBuildTrigger([ControlResult] $controlResult)
+    {
+        if(($this.BuildObj | Measure-Object).Count -gt 0)
+        {
+            $sourceobj = $this.BuildObj[0].repository | Select-Object -Property @{Name="Name"; Expression = {$_.Name}},@{Name="Type"; Expression = {$_.type}}
+            if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository.",  $sourceobj);
+            }
+            else {
+                $controlResult.AddMessage("Pipeline code is built from untrusted external repository.",  $sourceobj);
+
+                if ([Helpers]::CheckMember($this.BuildObj[0], "triggers"))
+                {
+                    $CITrigger = $this.BuildObj[0].triggers | Where-Object { $_.triggerType -eq "continuousIntegration"}
+                    $ScheduledTrigger = $this.BuildObj[0].triggers | Where-Object { $_.triggerType -eq "schedule" }
+
+                    if ($CITrigger -or $ScheduledTrigger) 
+                    {
+                        $flag = $false;
+
+                        if ($CITrigger) 
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Continuous integration is enabled for build pipeline."); 
+                            $flag = $true;
+                        }
+                        if ($ScheduledTrigger) 
+                        {
+                            if($flag)
+                            {
+                                $controlResult.AddMessage("Scheduled build is enabled for build pipeline."); 
+                            }
+                            else
+                            {
+                                $controlResult.AddMessage([VerificationResult]::Failed,"Scheduled build is enabled for build pipeline.");
+                            }
+
+                        }
+
+                    }
+                    else 
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Neither continuous integration nor scheduled build are enabled for build pipeline.");                    
+                    }
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No trigger is enabled for build pipeline.");
+                }   
+            }
+        }
+ 
         return $controlResult;
     }
 }
