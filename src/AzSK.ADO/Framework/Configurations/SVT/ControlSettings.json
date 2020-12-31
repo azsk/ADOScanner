@@ -273,7 +273,7 @@
     "GroupsToCheckForSCAltMembers": [
       "Project Administrators"
     ],
-    "VerifyGroupsInFeedPermission": [
+    "GroupsToCheckForFeedPermission": [
       "Contributors"
     ]
   },
