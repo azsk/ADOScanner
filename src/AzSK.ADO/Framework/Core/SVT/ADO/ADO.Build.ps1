@@ -868,4 +868,29 @@ class Build: ADOSVTBase
 
         return $controlResult;
     }
+    
+    hidden [ControlResult] CheckForkRepo([ControlResult] $controlResult)
+    {
+        try {
+            #If repo made by fork then only 'isFork' property comes.
+            if ([Helpers]::CheckMember($this.BuildObj.repository, "properties.isFork") -and $this.BuildObj.repository.properties.isFork -eq $true) {
+                #If agent pool is hosted then only 'isHosted' property comes, 'isHosted' property does not comes if pool is non-hosted
+                if ([Helpers]::CheckMember($this.BuildObj, "queue.pool") -and !([Helpers]::CheckMember($this.BuildObj.queue.pool,"isHosted") -and $this.BuildObj.queue.pool.isHosted -eq $true ) ) {
+                    #https://dev.azure.com/{0}/_apis/distributedtask/pools?poolIds={1}&api-version=6.0
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Fork repo [$($this.BuildObj.repository.name)] is used with non-hosted agent [$($this.BuildObj.queue.pool.name)].");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline is not building fork repo using non-hosted agent.");
+                }
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline is not building fork repo using non-hosted agent.");
+            }    
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,"Pipeline is not building fork repo using non-hosted agent.");
+        }
+                
+        return $controlResult;
+    }
 }
