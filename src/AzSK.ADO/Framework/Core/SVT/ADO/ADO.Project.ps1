@@ -505,7 +505,7 @@ class Project: ADOSVTBase
             # else there are secure files present
             elseif((-not ([Helpers]::CheckMember($response[0],"count"))) -and ($response.Count -gt 0)) {
                 # object to keep a track of authorized secure files and their count
-                [Hashtable] $secFilesCount = @{
+                [Hashtable] $secFiles = @{
                     count = 0;
                     names = @();
                 };
@@ -516,22 +516,20 @@ class Project: ADOSVTBase
                     if((-not ([Helpers]::CheckMember($resp[0],"count"))) -and ($resp.Count -gt 0)) {
                         if([Helpers]::CheckMember($resp, "authorized")) {
                             if($resp.authorized) {
-                                $secFilesCount.count += 1;
-                                $secFilesCount.names += $secFile.name;
+                                $secFiles.count += 1;
+                                $secFiles.names += $secFile.name;
                             }
                         }
                     }
                 }
                 # there are secure files present that are authorized
-                if($secFilesCount.count -gt 0) {
-                    foreach ($name in $secFilesCount.names) {
-                        Write-Host "Secure File ($name) is authorized for use in all pipelines."
-                    }
-                    $controlResult.AddMessage([VerificationResult]::Failed, "There are secure files that are authorized for use in all pipelines.");
+                if($secFiles.count -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Total number of secure files in the project that are authorized for use in all pipelines: $($secFiles.count)");
+                    $controlResult.AddMessage("List of secure files in the project that are authorized for use in all pipelines: ", $secFiles.names);
                 }
                 # there are no secure files present that are authorized
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "There are no secure files that are authorized for use in all pipelines.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "There are no secure files in the project that are authorized for use in all pipelines.");
                 }
             }
         }

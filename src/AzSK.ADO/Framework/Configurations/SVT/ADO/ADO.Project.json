@@ -210,17 +210,17 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Check_Secure_Files_Permission",
-      "Description": "Check Secure Files Permission is enabled or not.",
+      "ControlID": "ADO_Project_AuthZ_Check_Secure_Files_Permission",
+      "Description": "Do not authorize use of secure files in all pipelines.",
       "Id": "Project230",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckSecureFilesPermission",
-      "Rationale": "Check Secure Files Permission is enabled or not.",
+      "Rationale": "To support security of the pipeline operations, secure files must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
       "Recommendation": "",
       "Tags": [
         "SDL",
-        "AuthN",
+        "AuthZ",
         "Automated",
         "Best Practice"
       ],
