@@ -557,7 +557,7 @@ class ServiceConnection: ADOSVTBase
                 $roles +=   ($this.serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
                 $rolesCount = ($roles | Measure-Object).Count;
                 $controlResult.AddMessage("Total number of identities that have access to service connection: $($rolesCount)");
-                $controlResult.AddMessage([VerificationResult]::Verify,"Validate whether following identities have been provided with minimum RBAC access to service connection: ", $roles);
+                $controlResult.AddMessage([VerificationResult]::Verify,"Verify whether following identities have been provided with minimum RBAC access to service connection: ", $roles);
                 $controlResult.SetStateData("List of identities having access to service connection: ", $roles);
                 $controlResult.AdditionalInfo += "Total number of identities that have access to service connection: " + $rolesCount;
             }
