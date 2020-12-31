@@ -259,6 +259,23 @@
         "DP"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Build_DP_Disable_CI_On_External_Sources",
+      "Description": "Do not run continuous integration or scheduled builds on untrusted code from external or public GitHub repositories.",
+      "Id": "Build260",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckCIScheduledBuildTrigger",
+      "Rationale": "Build agents posess a token scoped to either current project or project collection. This token is available to builds triggered via the Continuous Integration and Scheduled Build mechanisms. If an adversary pushed a malicious commit to the upstream public GitHub repo, they can exfiltrate the token and use it to move laterally throughout the ADO organization (or Project).",
+      "Recommendation": "1. Navigate to the build pipeline. -> 2. Triggers -> 3. Disable 'Continuous integration' and 'Scheduled' build.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
     }  
   ]
 }
