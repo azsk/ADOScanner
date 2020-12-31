@@ -502,7 +502,7 @@ class Project: ADOSVTBase
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             if(-not [Helpers]::CheckMember($responseObj, "Count"))
             {
-                if(($null -ne $responseObj) -and (($responseObj | Measure-Object).Count -gt 0))
+                if(($responseObj | Measure-Object).Count -gt 0)
                 {
                     $environmentsWithOpenAccess = @();
                     foreach ($item in $responseObj) 
