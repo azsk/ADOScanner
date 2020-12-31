@@ -238,4 +238,80 @@ class User: ADOSVTBase {
         return $controlResult;
     }
 
+    hidden [ControlResult] CheckPATPermissions([ControlResult] $controlResult) {
+        $controlResult.AddMessage("Currently this control evaluates PATs for all the organizations the user has access to.")
+        try
+        {
+            $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            if(($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "CriticalPATPermissions"))
+            {
+                $patterns = $this.ControlSettings.CriticalPATPermissions
+                if ($responseObj.Count -gt 0)
+                {
+                    $AccessPATList = $responseObj | Where-Object { $_.validto -gt $(Get-Date -Format "yyyy-MM-dd") }
+                    $AccessPATListCount = ($AccessPATList | Measure-Object).Count
+                    if ($AccessPATListCount -gt 0)
+                    {
+                        $fullAccessPATList = $AccessPATList | Where-Object { $_.scope -eq "app_token" }
+                        $fullAccessPATListCount = ($fullAccessPATList | Measure-Object).Count
+                        $PATWithCriticalAccess = @();
+                        foreach ($pat in $AccessPATList) 
+                        {
+                            foreach ($item in $patterns)
+                            {
+                                if($pat.scope.contains($item))
+                                {
+                                    $PATWithCriticalAccess += $pat
+                                    break;
+                                }
+                            }
+                        }
+                        $PATWithCriticalAccessCount = ($PATWithCriticalAccess | Measure-Object).Count
+                        if (($PATWithCriticalAccessCount -gt 0) -or ($fullAccessPATListCount -gt 0))
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Organization contains PATs that are configured with critical permissions.");
+                            if ($PATWithCriticalAccessCount -gt 0)
+                            {
+                                $controlResult.AddMessage("Total number of PATs configured with critical permissions: $($PATWithCriticalAccessCount)");                        
+                                $controlResult.AdditionalInfo += "Total number of PATs configured with critical permissions: " + $PATWithCriticalAccessCount;
+                                $criticalPAT = $PATWithCriticalAccess | Select-Object displayName, scope 
+                                $controlResult.AddMessage("List of PATs configured with critical permissions: ", $criticalPAT);
+                            }
+                            if ($fullAccessPATListCount -gt 0)
+                            {
+                                $controlResult.AddMessage([VerificationResult]::Failed, "Total number of PATs configured with full access: $($fullAccessPATListCount)");                        
+                                $controlResult.AdditionalInfo += "Total number of PATs configured with full access: " + $fullAccessPATListCount;
+                                $fullAccessPAT = $fullAccessPATList | Select-Object displayName, scope 
+                                $controlResult.AddMessage("List of PATs configured with full access: ", $fullAccessPAT);
+                            }
+                        }
+                        else
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Passed, "No PATs configured with critical permissions.");
+                            $controlResult.AdditionalInfo += "No PATs configured with critical permissionss.";
+                        }
+                    }
+                    else
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No active PATs found");
+                    }
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No PATs found");
+                }
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Manual, "Critical permissions are not defined in your org policy");
+            }      
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of PATs");
+        }
+        
+        return $controlResult;
+    }
+
 }
