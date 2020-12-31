@@ -349,5 +349,10 @@
     "Microsoft.Keyvault", 
     "Microsoft.Resources", 
     "Microsoft.OperationalInsights"
+  ],
+  "CriticalPATPermissions": [
+    "vso.build_execute", 
+    "vso.release_execute",
+    "vso.release_manage"
   ]
 }
