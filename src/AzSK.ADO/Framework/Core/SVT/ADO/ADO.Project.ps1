@@ -493,14 +493,18 @@ class Project: ADOSVTBase
     }
 
     hidden [ControlResult] CheckSecureFilesPermission([ControlResult] $controlResult) {
+        # getting the project ID
         $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
         $url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($projectId)/_apis/distributedtask/securefiles?api-version=6.1-preview.1"
         try {
             $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+            # check on response object, if null -> no secure files present
             if(([Helpers]::CheckMember($response[0],"count",$false)) -and ($response[0].count -eq 0)) {
                 $controlResult.AddMessage([VerificationResult]::Passed, "There are no secure files present.");
             }
+            # else there are secure files present
             elseif((-not ([Helpers]::CheckMember($response[0],"count"))) -and ($response.Count -gt 0)) {
+                # object to keep a track of authorized secure files and their count
                 [Hashtable] $secFilesCount = @{
                     count = 0;
                     names = @();
@@ -508,6 +512,7 @@ class Project: ADOSVTBase
                 foreach ($secFile in $response) {
                     $url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($projectId)/_apis/build/authorizedresources?type=securefile&id=$($secFile.id)"
                     $resp = [WebRequestHelper]::InvokeGetWebRequest($url);
+                    # check if the secure file is authorized
                     if((-not ([Helpers]::CheckMember($resp[0],"count"))) -and ($resp.Count -gt 0)) {
                         if([Helpers]::CheckMember($resp, "authorized")) {
                             if($resp.authorized) {
@@ -517,12 +522,14 @@ class Project: ADOSVTBase
                         }
                     }
                 }
+                # there are secure files present that are authorized
                 if($secFilesCount.count -gt 0) {
                     foreach ($name in $secFilesCount.names) {
                         Write-Host "Secure File ($name) is authorized for use in all pipelines."
                     }
                     $controlResult.AddMessage([VerificationResult]::Failed, "There are secure files that are authorized for use in all pipelines.");
                 }
+                # there are no secure files present that are authorized
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "There are no secure files that are authorized for use in all pipelines.");
                 }
