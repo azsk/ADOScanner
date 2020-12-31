@@ -141,14 +141,14 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_AgentPool_DP_No_Secret_In_Env_Variables",
-      "Description": "TBD",
+      "ControlID": "ADO_AgentPool_DP_No_Secrets_In_Capabilities",
+      "Description": "Secrets and keys must not be stored as plain text in agent capabilities.",
       "Id": "AgentPool190",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckCredInEnvironmentVariables",
-      "Rationale": "",
-      "Recommendation": "",
+      "Rationale": "Keeping secrets such as connection strings, passwords, keys, etc. in plain text can expose the credentials to a wider audience and can lead to credential theft.",
+      "Recommendation": "1. Go to agent pool -> 2. Agents -> 3. Select each agent -> 4. Capabilities -> 5. Remove all user defined capabilities that contain secret.",
       "Tags": [
         "SDL",
         "TCP",
