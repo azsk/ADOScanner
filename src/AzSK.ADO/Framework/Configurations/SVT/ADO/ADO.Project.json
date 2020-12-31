@@ -210,9 +210,9 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Project_Dont_Grant_All_Pipelines_Access_To_Environment",
+      "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Environment",
       "Description": "Do not make environment accessible to all pipelines.",
-      "Id": "Project230",
+      "Id": "Project240",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckEnviornmentAccess",
