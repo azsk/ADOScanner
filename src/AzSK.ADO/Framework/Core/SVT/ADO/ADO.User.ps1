@@ -238,7 +238,7 @@ class User: ADOSVTBase {
         return $controlResult;
     }
 
-    hidden [ControlResult] CheckPATPermissions([ControlResult] $controlResult) {
+    hidden [ControlResult] CheckPATCriticalPermissions([ControlResult] $controlResult) {
         $controlResult.AddMessage("Currently this control evaluates PATs for all the organizations the user has access to.")
         try
         {
@@ -254,33 +254,38 @@ class User: ADOSVTBase {
                     if ($AccessPATListCount -gt 0)
                     {
                         $fullAccessPATList = $AccessPATList | Where-Object { $_.scope -eq "app_token" }
+                        $customAccessPATList = $AccessPATList | Where-Object { $_.scope -ne "app_token" }
                         $fullAccessPATListCount = ($fullAccessPATList | Measure-Object).Count
                         $PATWithCriticalAccess = @();
-                        foreach ($pat in $AccessPATList) 
+                        if(($patterns | Measure-Object).Count -gt 0)
                         {
-                            foreach ($item in $patterns)
+                            $controlResult.AddMessage("`nNote: The following permission scopes are considered as 'critical': `n`t[$($patterns -join ', ')]");
+                            foreach ($pat in $customAccessPATList) 
                             {
-                                if($pat.scope.contains($item))
+                                foreach ($item in $patterns)
                                 {
-                                    $PATWithCriticalAccess += $pat
-                                    break;
+                                    if($pat.scope.contains($item))
+                                    {
+                                        $PATWithCriticalAccess += $pat
+                                        break;
+                                    }
                                 }
                             }
                         }
                         $PATWithCriticalAccessCount = ($PATWithCriticalAccess | Measure-Object).Count
                         if (($PATWithCriticalAccessCount -gt 0) -or ($fullAccessPATListCount -gt 0))
                         {
-                            $controlResult.AddMessage([VerificationResult]::Failed, "Organization contains PATs that are configured with critical permissions.");
+                            $controlResult.AddMessage([VerificationResult]::Failed, "`nUser has PATs that are configured with critical permissions.");
                             if ($PATWithCriticalAccessCount -gt 0)
                             {
-                                $controlResult.AddMessage("Total number of PATs configured with critical permissions: $($PATWithCriticalAccessCount)");                        
+                                $controlResult.AddMessage("`nTotal number of PATs configured with critical permissions: $($PATWithCriticalAccessCount)");                        
                                 $controlResult.AdditionalInfo += "Total number of PATs configured with critical permissions: " + $PATWithCriticalAccessCount;
                                 $criticalPAT = $PATWithCriticalAccess | Select-Object displayName, scope 
                                 $controlResult.AddMessage("List of PATs configured with critical permissions: ", $criticalPAT);
                             }
                             if ($fullAccessPATListCount -gt 0)
                             {
-                                $controlResult.AddMessage([VerificationResult]::Failed, "Total number of PATs configured with full access: $($fullAccessPATListCount)");                        
+                                $controlResult.AddMessage([VerificationResult]::Failed, "`nTotal number of PATs configured with full access: $($fullAccessPATListCount)");                        
                                 $controlResult.AdditionalInfo += "Total number of PATs configured with full access: " + $fullAccessPATListCount;
                                 $fullAccessPAT = $fullAccessPATList | Select-Object displayName, scope 
                                 $controlResult.AddMessage("List of PATs configured with full access: ", $fullAccessPAT);
@@ -288,27 +293,27 @@ class User: ADOSVTBase {
                         }
                         else
                         {
-                            $controlResult.AddMessage([VerificationResult]::Passed, "No PATs configured with critical permissions.");
-                            $controlResult.AdditionalInfo += "No PATs configured with critical permissionss.";
+                            $controlResult.AddMessage([VerificationResult]::Passed, "No PATs are configured with critical permissions.");
+                            $controlResult.AdditionalInfo += "No PATs are configured with critical permissionss.";
                         }
                     }
                     else
                     {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No active PATs found");
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No active PATs found.");
                     }
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No PATs found");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No PATs found.");
                 }
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Manual, "Critical permissions are not defined in your organization");
+                $controlResult.AddMessage([VerificationResult]::Manual, "Critical permission scopes for PAT are not defined in your organization.");
             }      
         }
         catch
         {
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of PATs");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of PATs.");
         }
         
         return $controlResult;
