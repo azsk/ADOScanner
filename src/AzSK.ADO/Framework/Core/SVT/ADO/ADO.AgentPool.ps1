@@ -250,6 +250,7 @@ class AgentPool: ADOSVTBase
                                 $refHashTable.Keys | Where-Object {
                                     for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) 
                                     {
+                                        # Using -cmatch as same logic we had applied in build and release controls
                                         if($refHashTable.Item($_) -cmatch $patterns.RegexList[$i])
                                         {
                                             $noOfCredFound += 1
