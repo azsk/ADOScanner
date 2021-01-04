@@ -1494,26 +1494,31 @@ class Organization: ADOSVTBase
                     $RejectedExtensions = $requestedExtensions | Where-Object { $_.requestState -eq "2" }
 
                     $ftWidth = 512 #To avoid "..." truncation
-                    $controlResult.AddMessage("No. of requested extensions that are approved: " + $ApprovedExtensions.Count)
-                    $controlResult.AddMessage("`nExtension details")
-                    $display = ($ApprovedExtensions |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)                                
-                    $controlResult.AddMessage($display)
+                    if(($ApprovedExtensions | Measure-Object).Count -gt 0)
+                    {
+                        $controlResult.AddMessage("No. of requested extensions that are approved: " + $ApprovedExtensions.Count)
+                        $controlResult.AddMessage("`nExtension details")
+                        $display = ($ApprovedExtensions |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)                                
+                        $controlResult.AddMessage($display)
+                    }                    
                     #$controlResult.AdditionalInfo += "No. of requested extensions: " + ($requestedExtensions | Measure-Object).Count;
                     
-                    $controlResult.AddMessage("No. of requested extensions that are pending for approval: " + $PendingExtensionsForApproval.Count)
-                    $controlResult.AddMessage("`nExtension details")
-                    $display = ($PendingExtensionsForApproval |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)                                
-                    $controlResult.AddMessage($display)
-
-                    $controlResult.AddMessage("No. of requested extensions that are rejected: " + $RejectedExtensions.Count)
-                    $controlResult.AddMessage("`nExtension details")
-                    $display = ($RejectedExtensions |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)                                
-                    $controlResult.AddMessage($display)
-
-                     
+                    if(($PendingExtensionsForApproval | Measure-Object).Count -gt 0)
+                    {
+                        $controlResult.AddMessage("No. of requested extensions that are pending for approval: " + $PendingExtensionsForApproval.Count)
+                        $controlResult.AddMessage("`nExtension details")
+                        $display = ($PendingExtensionsForApproval |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)                                
+                        $controlResult.AddMessage($display)
+                    }
                     
-                    #$display = ($extensionList |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)                                
-                    #$controlResult.AddMessage($display)
+                    if(($RejectedExtensions| Measure-Object).Count -gt 0)
+                    {
+                        $controlResult.AddMessage("No. of requested extensions that are rejected: " + $RejectedExtensions.Count)
+                        $controlResult.AddMessage("`nExtension details")
+                        $display = ($RejectedExtensions |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)                                
+                        $controlResult.AddMessage($display)
+                    }  
+                    
                     $controlResult.SetStateData("List of requested extensions: ", $extensionList);
                     #$controlResult.AdditionalInfo += "List of requested extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($extensionList);                               
                 }
