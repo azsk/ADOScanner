@@ -77,64 +77,65 @@ class AutoBugLog {
                 #Loop through all the control results for the current resource
                 $ControlResults | ForEach-Object {
                     $control = $_;                   
-
-                    #filter controls on basis of whether they are baseline or not depending on the value given in autobuglog flag
-                    $LogControlFlag = $false
-                    if ($this.BugLogParameterValue -eq "All") {
-                        $LogControlFlag = $true
-                    }
-                    elseif ($this.BugLogParameterValue -eq "BaselineControls") {
-                        $LogControlFlag = $this.CheckBaselineControl($control.ControlItem.ControlID)				
-                    }
-                    else {
-                        $LogControlFlag = $this.CheckPreviewBaselineControl($control.ControlItem.ControlID)
-                    }
-			
-                    if ($LogControlFlag -and ($control.ControlResults[0].VerificationResult -eq "Failed" -or $control.ControlResults[0].VerificationResult -eq "Verify") ) {
-                
-                        #compute hash of control Id and resource Id	
-                        $hash = $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
-                        #check if a bug with the computed hash exists
-                        #Removed ProjectName param and direcly added [BugLogPathManager]::BugLoggingProject, previously holding in variable and passing in method
-                        $workItem = $this.GetWorkItemByHash($hash, [BugLogPathManager]::BugLoggingProject)
-                        if ($workItem[0].results.count -gt 0) {
-                            #a work item with the hash exists, find if it's state and reactivate if resolved bug
-                            $this.ManageActiveAndResolvedBugs($ProjectName, $control, $workItem, $AssignedTo)
+                    if ($control.ControlItem.ControlID -notin $this.ControlSettings.BugLogging.ExcludeControlsInBugLogging) {                    
+                        #filter controls on basis of whether they are baseline or not depending on the value given in autobuglog flag
+                        $LogControlFlag = $false
+                        if ($this.BugLogParameterValue -eq "All") {
+                            $LogControlFlag = $true
+                        }
+                        elseif ($this.BugLogParameterValue -eq "BaselineControls") {
+                            $LogControlFlag = $this.CheckBaselineControl($control.ControlItem.ControlID)				
                         }
                         else {
-                            if ($printLogBugMsg) {
-                                Write-Host "Determining bugs to log..." -ForegroundColor Cyan
-                            }
-                            $printLogBugMsg = $false;
-
-                            #filling the bug template
-                            $Title = "[ADOScanner] Control failure - {0} for resource {1} {2}"
-                            $Description = "Control failure - {3} for resource {4} {5} </br></br> <b>Control Description: </b> {0} </br></br> <b> Control Result: </b> {6} </br> </br> <b> Rationale:</b> {1} </br></br> <b> Recommendation:</b> {2}"
-                            
-                            $Title = $Title -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName
-                            if ($control.ResourceContext.ResourceTypeName -ne "Organization" -and $control.ResourceContext.ResourceTypeName -ne "Project") {
-                                $Title += " in project " + $control.ResourceContext.ResourceGroupName;
-                            }
-                            $Description = $Description -f $control.ControlItem.Description, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlResults[0].VerificationResult
-                            $Description += "</br></br> <b> Resource Link: </b> <a href='$($control.ResourceContext.ResourceDetails.ResourceLink)' target='_blank'>$($control.ResourceContext.ResourceName)</a>"
-                            $RunStepsForControl = " </br></br> <b>Control Scan Command:</b> Run:  {0}"
-                            $Description += ($RunStepsForControl -f $this.GetControlReproStep($control));
-				            
-                            #check and append any detailed log and state data for the control failure
-                            $log = $this.GetDetailedLogForControl($control);
-                            if ($log) { 
-                                $Description += "<hr></br><b>Some other details for your reference</b> </br><hr> {7} "
-                                $Description = $Description.Replace("{7}", $log)
-					
-                            }				
-                            $Description = $Description.Replace("`"", "'")
-                            $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
-                    
-                            #function to attempt bug logging
-                            $this.AddWorkItem($Title, $Description, $AssignedTo, $Severity, $ProjectName, $control, $hash, $serviceId);
-
+                            $LogControlFlag = $this.CheckPreviewBaselineControl($control.ControlItem.ControlID)
                         }
-                    }
+			
+                        if ($LogControlFlag -and ($control.ControlResults[0].VerificationResult -eq "Failed" -or $control.ControlResults[0].VerificationResult -eq "Verify") ) {
+                
+                            #compute hash of control Id and resource Id 
+                            $hash = $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
+                            #check if a bug with the computed hash exists
+                            #Removed ProjectName param and direcly added [BugLogPathManager]::BugLoggingProject, previously holding in variable and passing in method
+                            $workItem = $this.GetWorkItemByHash($hash, [BugLogPathManager]::BugLoggingProject)
+                            if ($workItem[0].results.count -gt 0) {
+                                #a work item with the hash exists, find if it's state and reactivate if resolved bug
+                                $this.ManageActiveAndResolvedBugs($ProjectName, $control, $workItem, $AssignedTo)
+                            }
+                            else {
+                                if ($printLogBugMsg) {
+                                    Write-Host "Determining bugs to log..." -ForegroundColor Cyan
+                                }
+                                $printLogBugMsg = $false;
+
+                                #filling the bug template
+                                $Title = "[ADOScanner] Control failure - {0} for resource {1} {2}"
+                                $Description = "Control failure - {3} for resource {4} {5} </br></br> <b>Control Description: </b> {0} </br></br> <b> Control Result: </b> {6} </br> </br> <b> Rationale:</b> {1} </br></br> <b> Recommendation:</b> {2}"
+                            
+                                $Title = $Title -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName
+                                if ($control.ResourceContext.ResourceTypeName -ne "Organization" -and $control.ResourceContext.ResourceTypeName -ne "Project") {
+                                    $Title += " in project " + $control.ResourceContext.ResourceGroupName;
+                                }
+                                $Description = $Description -f $control.ControlItem.Description, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlResults[0].VerificationResult
+                                $Description += "</br></br> <b> Resource Link: </b> <a href='$($control.ResourceContext.ResourceDetails.ResourceLink)' target='_blank'>$($control.ResourceContext.ResourceName)</a>"
+                                $RunStepsForControl = " </br></br> <b>Control Scan Command:</b> Run:  {0}"
+                                $Description += ($RunStepsForControl -f $this.GetControlReproStep($control));
+				            
+                                #check and append any detailed log and state data for the control failure
+                                $log = $this.GetDetailedLogForControl($control);
+                                if ($log) {
+                                    $Description += "<hr></br><b>Some other details for your reference</b> </br><hr> {7} "
+                                    $Description = $Description.Replace("{7}", $log)
+					
+                                }               
+                                $Description = $Description.Replace("`"", "'")
+                                $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
+                    
+                                #function to attempt bug logging
+                                $this.AddWorkItem($Title, $Description, $AssignedTo, $Severity, $ProjectName, $control, $hash, $serviceId);
+
+                            }
+                        }
+                    }    
                 }
             }
         }

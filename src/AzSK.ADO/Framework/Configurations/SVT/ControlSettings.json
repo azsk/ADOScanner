@@ -344,7 +344,8 @@
     "ShowBugsInS360" : false,
     "HowFound": "Manual",
     "ComplianceArea": "Security",
-    "ServiceTreeIdType": "Service"
+    "ServiceTreeIdType": "Service",
+    "ExcludeControlsInBugLogging":[]
   },
   "GenerateSecurityEvaluationJsonFile" : false,
   "ResourceProviders": [
