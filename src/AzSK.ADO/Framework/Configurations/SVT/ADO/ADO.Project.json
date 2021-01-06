@@ -259,6 +259,23 @@
         "Best Practice"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_Check_TaskGroup_Reference_In_Inactive_Pipeline",
+      "Description": "TBD",
+      "Id": "Project230",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckTaskGroupReference",
+      "Rationale": "TBD",
+      "Recommendation": "TBD",
+      "Tags": [
+        "SDL",
+        "AuthN",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": true
     }
 
   ]

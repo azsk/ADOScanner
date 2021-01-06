@@ -640,4 +640,149 @@ class Project: ADOSVTBase
         }
         return $controlResult
     }
+
+    hidden [ControlResult] CheckTaskGroupReference([ControlResult] $controlResult)
+    {
+        $sw = [System.Diagnostics.Stopwatch]::StartNew();
+        try
+        {
+            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/taskgroups?api-version=6.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName), $($this.ResourceContext.ResourceDetails.id);
+            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            if(($responseObj | Measure-Object).Count -gt 0 )
+            {
+                $controlResult.AddMessage("Total number of task groups in the project: $(($responseObj | Measure-Object).Count)");
+                $activeTG = @();
+                $inactiveTG = @();
+                $i = 0;
+                Write-Host " Total TG : $(($responseObj | Measure-Object).Count)";
+                foreach ($item in $responseObj) 
+                {
+                    try
+                    {
+                        $buildURL = "https://dev.azure.com/{0}/{1}/_apis/build/Definitions?taskIdFilter={2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ResourceContext.ResourceDetails.id), $($item.id);
+                        $apiBuildResponse = [WebRequestHelper]::InvokeGetWebRequest($buildURL);
+                        if((-not ([Helpers]::CheckMember($apiBuildResponse[0],"count",$false))) -and ($apiBuildResponse.Count -gt 0))
+                        {
+                            #$buildWithReference += $apiBuildResponse | Select-Object id, name;
+                            $foundActiveBuild = $this.CheckBuildReferenceforTG($apiBuildResponse);
+                        }
+                        else {
+                            $foundActiveBuild = $false;
+                        }
+                        $apiBuildResponse = $null;
+
+                        $releaseURL = "https://vsrm.dev.azure.com/{0}/{1}/_apis/Release/definitionEnvironments?taskGroupId={2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ResourceContext.ResourceDetails.id), $($item.id);
+                        $apiReleaseResponse = [WebRequestHelper]::InvokeGetWebRequest($releaseURL);
+                        if((-not ([Helpers]::CheckMember($apiReleaseResponse[0],"count",$false))) -and ($apiReleaseResponse.Count -gt 0))
+                        {
+                            #$releaseWithReference += $apiReleaseResponse | Select-Object releaseDefinitionId, releaseDefinitionName;
+                            $foundActiveRelease = $this.CheckReleaseReferenceforTG($apiReleaseResponse);
+                        }
+                        else {
+                            $foundActiveRelease = $false;
+                        }
+                        $apiReleaseResponse = $null;
+
+                        if($foundActiveBuild -or $foundActiveRelease)
+                        {
+                            $activeTG += $item | Select-Object id, name;
+                        }
+                        else {
+                            $inactiveTG += $item | Select-Object id, name;
+                        }
+                    }
+                    catch
+                    {
+                        #Ignore;
+                    }
+                    finally
+                    {
+                        Write-Host "[ $i ] Completed TG [$($item.name)] : $($sw.Elapsed)";
+                        $i = $i+1;
+                    }
+                }
+
+                $inactiveTGCount = ($inactiveTG | Measure-Object).Count;
+                $activeTGCount = ($activeTG | Measure-Object).Count;
+                if($inactiveTGCount -gt 0)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Inactive task groups was found in the project.");
+                    $controlResult.AddMessage("Total number of inactive task groups in the project: $($inactiveTGCount)");
+                    $controlResult.AddMessage("List of inactive task groups in the project: ", $inactiveTG);
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No inactive task groups was found in the project.");
+                    $controlResult.AddMessage("Total number of active task groups in the project: $($activeTGCount)");
+                    $controlResult.AddMessage("List of active task groups in the project: ", $activeTG);
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "No task groups was found in the project.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of task groups in the project.");
+        }
+        $sw.Stop();
+        $controlResult.AddMessage("Total execution time taken by core function : $($sw.Elapsed)");
+       return $controlResult
+    }
+
+    hidden [bool] CheckBuildReferenceforTG([PSObject] $builds)
+    {
+        if (($builds | Measure-Object).Count -gt 0)
+        {
+            foreach ($build in $builds) 
+            {
+                $buildURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName),$($this.ResourceContext.ResourceDetails.id);
+                $orgURL='https://dev.azure.com/{0}/{1}/_build?view=folders' -f $($this.SubscriptionContext.SubscriptionName),$($this.ResourceContext.ResourceName)
+                $inputbody1="{'contributionIds':['ms.vss-build-web.pipelines-data-provider'],'dataProviderContext':{'properties':{'definitionIds':'$($build.id)','sourcePage':{'url':'$orgURL','routeId':'ms.vss-build-web.pipelines-hub-route','routeValues':{'project':'$($this.ResourceContext.ResourceName)','viewname':'pipelines','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                $responseBuildObj = [WebRequestHelper]::InvokePostWebRequest($buildURL,$inputbody1);
+                if([Helpers]::CheckMember($responseBuildObj,"dataProviders") -and $responseBuildObj.dataProviders.'ms.vss-build-web.pipelines-data-provider' -and [Helpers]::CheckMember($responseBuildObj.dataProviders.'ms.vss-build-web.pipelines-data-provider',"pipelines") -and  $responseBuildObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines)
+                {
+                    $buildRun = $responseBuildObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines
+                    if(($buildRun | Measure-Object).Count -gt 0 )
+                    {
+                        if($null -ne $buildRun[0].latestRun)
+                        {
+                            if ([datetime]::Parse( $buildRun[0].latestRun.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays)))
+                            {
+                                return $true;
+                            }
+                        }
+                    }
+                }
+            } 
+        }
+        return $false;
+    }
+
+    hidden [bool] CheckReleaseReferenceforTG([PSObject] $releases)
+    {
+        if (($releases | Measure-Object).Count -gt 0)
+        {
+            foreach ($release in $releases) 
+            {
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName),$($this.ResourceContext.ResourceDetails.id);
+                $inputbody2 =  "{'contributionIds': ['ms.vss-releaseManagement-web.releases-list-data-provider'],'dataProviderContext': {'properties': {'definitionIds':'$($release.releaseDefinitionId)','definitionId': '$($release.releaseDefinitionId)','fetchAllReleases': true,'sourcePage': {'url': 'https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ResourceContext.ResourceName)/_release?_a=releases&view=mine&definitionId=$($release.releaseDefinitionId)','routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route','routeValues': {'project': '$($this.ResourceContext.ResourceName)','viewname': 'hub-explorer-3-view','controller': 'ContributedPage','action': 'Execute'}}}}}"  | ConvertFrom-Json 
+                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody2);
+                if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider')
+                {
+                    $releaseRun = $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider'.releases
+                    if(($releaseRun | Measure-Object).Count -gt 0 )
+                    {
+                        $releaseRun | ForEach-Object { 
+                            if([datetime]::Parse( $_.createdOn) -gt (Get-Date).AddDays(-$($this.ControlSettings.Release.ReleaseHistoryPeriodInDays)))
+                            {
+                                return $true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return $false;
+    }
 }
