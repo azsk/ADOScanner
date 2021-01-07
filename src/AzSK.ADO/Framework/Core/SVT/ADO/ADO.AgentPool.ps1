@@ -276,6 +276,7 @@ class AgentPool: ADOSVTBase
                                 #$varList = $EnvVariablesContainingSecret | select -Unique | Sort-object
                                # $stateData.AgentsWithCred += $AgentsWithSecretsInEnv.AgentName
                                 $controlResult.AddMessage("`nTotal number of agents that contain secrets in user-defined capabilities: $count")
+                                $controlResult.AdditionalInfo += "Total number of agents that contain secrets in user-defined capabilities: "+ $count;
                                 $controlResult.AddMessage("`nAgent wise list of user-defined capabilities containing secret: ");
                                 $display=($AgentsWithSecretsInEnv | FT AgentName,Capabilities -AutoSize | Out-String -Width 512)
                                 $controlResult.AddMessage($display)

@@ -506,6 +506,7 @@ class Project: ADOSVTBase
             if (($feedsObj | Measure-Object).Count -gt 0) 
             {
                 $controlResult.AddMessage("Total number of feeds found: $($feedsObj.count)")
+                $controlResult.AdditionalInfo += "Total number of feeds found: " + $feedsObj.count;
 
                 if ([Helpers]::CheckMember($this.ControlSettings.Project, "GroupsToCheckForFeedPermission")) {
                     $GroupsToCheckForFeedPermission = $this.ControlSettings.Project.GroupsToCheckForFeedPermission
@@ -529,6 +530,8 @@ class Project: ADOSVTBase
                 $controlResult.AddMessage("`nNote: The following groups are considered as 'critical': [$GroupsToCheckForFeedPermission]");
                 $controlResult.AddMessage("`nTotal number of feeds that have contributor/administrator permission: $feedCount");
                 $controlResult.AddMessage([VerificationResult]::Failed, "List of feeds that have contributor/administrator permission: ");
+                $controlResult.AdditionalInfo += "Total number of groups that are considered as 'critical': " + ($GroupsToCheckForFeedPermission | Measure-Object).Count;
+                $controlResult.AdditionalInfo += "Total number of feeds that have contributor/administrator permission: " + $feedCount;
 
                 $display = ($feedsWithUploadPkgPermission |  FT FeedName, Role, DisplayName -AutoSize | Out-String -Width 512)
                 $controlResult.AddMessage($display)
@@ -628,6 +631,7 @@ class Project: ADOSVTBase
                 if($secFiles.count -gt 0) {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Total number of secure files in the project that are authorized for use in all pipelines: $($secFiles.count)");
                     $controlResult.AddMessage("List of secure files in the project that are authorized for use in all pipelines: ", $secFiles.names);
+                    $controlResult.AdditionalInfo += "Total number of secure files in the project that are authorized for use in all pipelines: " + $secFiles.count;
                 }
                 # there are no secure files present that are authorized
                 else {
