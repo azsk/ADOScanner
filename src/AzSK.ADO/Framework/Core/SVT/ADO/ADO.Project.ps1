@@ -670,7 +670,16 @@ class Project: ADOSVTBase
                             $foundActiveBuild = $false;
                         }
                         $apiBuildResponse = $null;
-
+                    }
+                    catch
+                    {
+                        #Ingnore;
+                        $foundActiveBuild = $false;
+                    }
+                    $foundActiveRelease = $false;
+                    if(-not $foundActiveBuild){
+                    try 
+                    {
                         $releaseURL = "https://vsrm.dev.azure.com/{0}/{1}/_apis/Release/definitionEnvironments?taskGroupId={2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ResourceContext.ResourceDetails.id), $($item.id);
                         $apiReleaseResponse = [WebRequestHelper]::InvokeGetWebRequest($releaseURL);
                         if((-not ([Helpers]::CheckMember($apiReleaseResponse[0],"count",$false))) -and ($apiReleaseResponse.Count -gt 0))
@@ -682,24 +691,24 @@ class Project: ADOSVTBase
                             $foundActiveRelease = $false;
                         }
                         $apiReleaseResponse = $null;
-
-                        if($foundActiveBuild -or $foundActiveRelease)
-                        {
-                            $activeTG += $item | Select-Object id, name;
-                        }
-                        else {
-                            $inactiveTG += $item | Select-Object id, name;
-                        }
                     }
                     catch
                     {
                         #Ignore;
+                        $foundActiveRelease = $false;
                     }
-                    finally
+                    }
+
+                    if($foundActiveBuild -or $foundActiveRelease)
                     {
-                        Write-Host "[ $i ] Completed TG [$($item.name)] : $($sw.Elapsed)";
-                        $i = $i+1;
+                        $activeTG += $item | Select-Object id, name;
                     }
+                    else {
+                        $inactiveTG += $item | Select-Object id, name;
+                    }
+                    
+                    Write-Host "[ $i ] Completed TG [$($item.name)] : $($sw.Elapsed)";
+                    $i = $i+1;
                 }
 
                 $inactiveTGCount = ($inactiveTG | Measure-Object).Count;
@@ -750,6 +759,7 @@ class Project: ADOSVTBase
                             if ([datetime]::Parse( $buildRun[0].latestRun.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays)))
                             {
                                 return $true;
+                                break;
                             }
                         }
                     }
@@ -770,13 +780,15 @@ class Project: ADOSVTBase
                 $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody2);
                 if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider')
                 {
-                    $releaseRun = $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider'.releases
-                    if(($releaseRun | Measure-Object).Count -gt 0 )
+                    $releaseRuns = $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider'.releases
+                    if(($releaseRuns | Measure-Object).Count -gt 0 )
                     {
-                        $releaseRun | ForEach-Object { 
-                            if([datetime]::Parse( $_.createdOn) -gt (Get-Date).AddDays(-$($this.ControlSettings.Release.ReleaseHistoryPeriodInDays)))
+                        if($null -ne $releaseRuns[0].createdOn)
+                        { 
+                            if([datetime]::Parse( $releaseRuns[0].createdOn) -gt (Get-Date).AddDays(-$($this.ControlSettings.Release.ReleaseHistoryPeriodInDays)))
                             {
                                 return $true;
+                                break;
                             }
                         }
                     }
