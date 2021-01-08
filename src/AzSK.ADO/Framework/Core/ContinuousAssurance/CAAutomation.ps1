@@ -94,8 +94,7 @@ class CAAutomation : ADOSVTCommandBase
 
 		if ($null -ne $ScanIntervalInHours -and $ScanIntervalInHours -gt 0)
 		{
-			$this.CRONExp = "0 */$($ScanIntervalInHours) * * *"
-			$this.ScheduleMessage = "Scan will trigger every $($ScanIntervalInHours) hours from 00:00 hours"
+			$this.GetCRONForScanInterval($ScanIntervalInHours);
 		}
 		else
 		{
@@ -226,8 +225,9 @@ class CAAutomation : ADOSVTCommandBase
 
 			if ($null -ne $ScanIntervalInHours -and $ScanIntervalInHours -gt 0)
 			{
-				$this.CRONExp = "0 */$($ScanIntervalInHours) * * *"
-				$this.ScheduleMessage = "Scan will trigger every $($ScanIntervalInHours) hours from 00:00 hours"
+				$this.ScanTriggerLocalTime = $(Get-Date).AddMinutes(20)
+				$this.ScanTriggerTimeUTC = [System.DateTime]::UtcNow.AddMinutes(20)
+				$this.GetCRONForScanInterval($ScanIntervalInHours);
 			}
 
 			#Validate if app settings update is required based on input paramaeters. 
@@ -286,6 +286,33 @@ class CAAutomation : ADOSVTCommandBase
                 [ResourceHelper]::RegisterResourceProviderIfNotRegistered($_);
             }
         }
+    }
+
+    [void] GetCRONForScanInterval($ScanIntervalInHours)
+    {
+        $minute = $this.ScanTriggerTimeUTC.Minute
+        $hour = $this.ScanTriggerTimeUTC.Hour
+        $list = New-Object Collections.Generic.List[Int]
+
+        #between first scan time and 00:00 hrs get "hours" when scan should trigger based on scan interval
+        while ($hour -le 24)
+        {
+            $list.Add($hour)
+            $hour += $ScanIntervalInHours
+        }
+
+        #between 00:00 hrs and first scan time get "hours" when scan should trigger based on scan interval
+        $hour = $this.ScanTriggerTimeUTC.Hour
+        while ($hour -gt 0)
+        {
+            $list.Add($hour)
+            $hour -= $ScanIntervalInHours
+        }
+
+        $list =$list | sort-object -Unique
+        $hoursExpression = $list -join ","
+        $this.CRONExp = "$($minute) $($hoursExpression) * * *"
+        $this.ScheduleMessage = "Scan will trigger every $($ScanIntervalInHours) hours starting from $($this.ScanTriggerLocalTime)"
     }
 
 	[string] ValidateUserPermissions()
