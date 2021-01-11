@@ -112,7 +112,7 @@ class Constants
 	static [string] $AttestationDefaultBranch = "master"; 
 	static [string] $OrgPolicyRepo = "ADOScannerPolicy";
 	static [string] $OrgPolicyDefaultBranch = "master"; 
-	static [string] $OrgPolicyRepoCSEO = "SR-RM-EEE-ADOScannerPolicy";
+	static [string] $OrgPolicyRepoCSEO = "RM-ESP-EEE-ADOScannerPolicy";
 	static [string] $CSEOOrg = "MicrosoftIT";
 	static [string] $OrgAttPrjExtFile = "Org_Config";
 	static [string] $ModuleAutoUpdateAvailableMsg = "A new version of AzSK.ADO is available. Starting the auto-update workflow...`nTo prepare for auto-update, please:`n`t a) Save your work from all active PS sessions including the current one and`n`t b) Close all PS sessions other than the current one. "; 
