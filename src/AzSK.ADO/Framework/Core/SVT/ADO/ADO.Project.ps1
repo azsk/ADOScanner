@@ -643,7 +643,6 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckTaskGroupReference([ControlResult] $controlResult)
     {
-        $sw = [System.Diagnostics.Stopwatch]::StartNew();
         try
         {
             $apiURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/taskgroups?api-version=6.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName), $($this.ResourceContext.ResourceDetails.id);
@@ -653,8 +652,6 @@ class Project: ADOSVTBase
                 $controlResult.AddMessage("Total number of task groups in the project: $(($responseObj | Measure-Object).Count)");
                 $activeTG = @();
                 $inactiveTG = @();
-                $i = 0;
-                Write-Host " Total TG : $(($responseObj | Measure-Object).Count)";
                 foreach ($item in $responseObj) 
                 {
                     try
@@ -706,9 +703,6 @@ class Project: ADOSVTBase
                     else {
                         $inactiveTG += $item | Select-Object id, name;
                     }
-                    
-                    Write-Host "[ $i ] Completed TG [$($item.name)] : $($sw.Elapsed)";
-                    $i = $i+1;
                 }
 
                 $inactiveTGCount = ($inactiveTG | Measure-Object).Count;
@@ -734,8 +728,6 @@ class Project: ADOSVTBase
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of task groups in the project.");
         }
-        $sw.Stop();
-        $controlResult.AddMessage("Total execution time taken by core function : $($sw.Elapsed)");
        return $controlResult
     }
 
