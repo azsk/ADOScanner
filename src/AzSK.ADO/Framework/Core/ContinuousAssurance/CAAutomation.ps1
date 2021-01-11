@@ -295,7 +295,7 @@ class CAAutomation : ADOSVTCommandBase
         $list = New-Object Collections.Generic.List[Int]
 
         #between first scan time and 00:00 hrs get "hours" when scan should trigger based on scan interval
-        while ($hour -le 24)
+        while ($hour -lt 24)
         {
             $list.Add($hour)
             $hour += $ScanIntervalInHours
@@ -303,7 +303,7 @@ class CAAutomation : ADOSVTCommandBase
 
         #between 00:00 hrs and first scan time get "hours" when scan should trigger based on scan interval
         $hour = $this.ScanTriggerTimeUTC.Hour
-        while ($hour -gt 0)
+        while ($hour -ge 0)
         {
             $list.Add($hour)
             $hour -= $ScanIntervalInHours
