@@ -311,7 +311,7 @@ class CAAutomation : ADOSVTCommandBase
 
         $list =$list | sort-object -Unique
         $hoursExpression = $list -join ","
-        $this.CRONExp = "$($minute) $($hoursExpression) * * *"
+        $this.CRONExp = "0 $($minute) $($hoursExpression) * * *"
         $this.ScheduleMessage = "Scan will trigger every $($ScanIntervalInHours) hours starting from $($this.ScanTriggerLocalTime)"
     }
 
