@@ -1468,4 +1468,71 @@ class Organization: ADOSVTBase
         return $controlResult
     }
 
+    hidden [ControlResult] ValidateRequestedExtensions([ControlResult] $controlResult)
+    {
+        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+        $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.SubscriptionContext.SubscriptionName);
+        $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+        
+        try
+        {
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+
+            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and $responseObj[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
+            {
+                $requestedExtensions = $responseObj[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.requestedExtensions
+
+                $ApprovedExtensions = $requestedExtensions | Where-Object { $_.requestState -eq "1" }
+                $PendingExtensionsForApproval = $requestedExtensions | Where-Object { $_.requestState -eq "0" }
+                $RejectedExtensions = $requestedExtensions | Where-Object { $_.requestState -eq "2" }
+
+                if(($PendingExtensionsForApproval| Measure-Object).Count -gt 0)
+                {
+                    $extensionList = @();
+                    $extensionList +=  ($PendingExtensionsForApproval | Select-Object extensionID, publisherId,@{Name="Requested By";Expression={requests.userName}})                                         
+
+                    $ftWidth = 512 #To avoid "..." truncation
+                    <#if(($ApprovedExtensions | Measure-Object).Count -gt 0)
+                    {
+                        $controlResult.AddMessage("No. of requested extensions that are approved: " + $ApprovedExtensions.Count)
+                        $controlResult.AddMessage("`nExtension details")
+                        $display = ($ApprovedExtensions |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)                                
+                        $controlResult.AddMessage($display)
+                    } 
+                    
+                    if(($RejectedExtensions| Measure-Object).Count -gt 0)
+                    {
+                        $controlResult.AddMessage("No. of requested extensions that are rejected: " + $RejectedExtensions.Count)
+                        $controlResult.AddMessage("`nExtension details")
+                        $display = ($RejectedExtensions |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)                                
+                        $controlResult.AddMessage($display)
+                    }                    
+                    #>              
+                    $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the below list of pending requested extensions: ");
+                    $controlResult.AddMessage("No. of requested extensions that are pending for approval: " + $PendingExtensionsForApproval.Count)
+                    $controlResult.AddMessage("`nExtension details")
+                    $display = ($PendingExtensionsForApproval |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)                                
+                    $controlResult.AddMessage($display)
+                    
+                    $controlResult.SetStateData("List of requested extensions: ", $extensionList);
+                    $controlResult.AdditionalInfo += "No. of pending requested extensions: " + ($PendingExtensionsForApproval | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "List of requested extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($extensionList);                               
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No requested extensions found.");
+                } 
+            }
+            else 
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of requested extensions.");    
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of requested extensions.");
+        }
+        return $controlResult
+    }
+
 }

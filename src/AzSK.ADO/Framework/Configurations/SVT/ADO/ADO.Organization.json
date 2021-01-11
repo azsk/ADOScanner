@@ -514,6 +514,23 @@
           "AuthZ"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_SI_Review_Requested_Extensions",
+      "Description": "Carefully review requested extensions for your organization.",
+      "Id": "Organization410",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "ValidateRequestedExtensions",
+      "Rationale": "Approving and running extensions from untrusted source can lead to all type of attacks and loss of sensitive enterprise data.",
+      "Recommendation": "Go to Organization Settings --> Extensions --> Review all the pending requested extensions in organization.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
     }
   ]
 }
