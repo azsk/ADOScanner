@@ -14,20 +14,15 @@ class BugLogHelper {
 
     BugLogHelper([string] $orgName) {
         $this.OrganizationName = $orgName;
-        #$this.UseAzureStorageAccount = $useAzureStorageAccount;
-        #TODO:
+        
         $this.StorageAccount = $env:StorageName;
         $this.StorageRG = $env:StorageRG;
-        #TODO:
-        #$this.StorageAccount = "adoscannersa201021102003";
-        #$this.StorageRG = "ADOScannerRG";
-
-        #get storage
+        
+        #get storage details
         if ($this.StorageRG -and $this.StorageAccount) {
             $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
             $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https
     
-            #$storageAcc = Get-AzStorageAccount -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
             $this.StorageAccountCtx = $StorageContext.Context;
             $this.hasAccessOnStorage = $true;
         }
@@ -40,7 +35,7 @@ class BugLogHelper {
         return [BugLogHelper]::BugLogHelperInstance
     }
 
-    #function to search for existing bugs based on the hash
+    #function to search for existing bugs based on hash id
     hidden [object] GetWorkItemByHashAzureTable([string] $hash, [string] $projectName, [string] $reactiveOldBug) 
     {
         #get table filter by name
@@ -52,10 +47,9 @@ class BugLogHelper {
             #get storage table.
             $cloudTable = (Get-AzStorageTable -Name $tableName -Context $this.StorageAccountCtx).CloudTable;
             if ($cloudTable) {
-                #Get clouddata to do some operation on the table
+                #Get clouddata to do perform read/write operations on the table
     
                 $azTableBugInfo = @();
-                #$azTableBugInfo += Get-AzTableRow -table $cloudTable -columnName "ADOScannerHashId" -value $hash -operator Equal 
                 $azTableBugInfo += Get-AzTableRow -table $cloudTable -CustomFilter "(ADOScannerHashId eq '$hash' and IsDeleted eq 'N')";
 
                 if ($azTableBugInfo -and $azTableBugInfo.count -gt 0) {
@@ -65,16 +59,16 @@ class BugLogHelper {
                     $response = [WebRequestHelper]::InvokeGetWebRequest($uri);
                     if($response -and ($response.count -gt 0) -and ($response.fields."System.State" -ne "Closed"))
                     {
-                        #check for reactive old bug. 
-                        #if status not resolve, send response.
-                        #if status resolved and ReactiveOldBug find true, then send response. (when response goes empty we add new bug)
+                        #check if org policy wants to reactivate resolved bugs. 
+                        #if status is not 'Resolve', send response.
+                        #if status is 'Resolved' and ReactiveOldBug flag is true, then send response. (when response goes empty we add new bug)
                         if (($response.fields."System.State" -ne "Resolved") -or ($response.fields."System.State" -eq "Resolved" -and $reactiveOldBug -eq "ReactiveOldBug") )
                         {
                             $bugObj[0].results += $response; 
                         }  
                     }
                     else {
-                        #if bug status is closed in the ado and isdeleted in 'N' in azuretable then update azure table set isdeleted ='Y'
+                        #if bug state is closed on the ADO side and isDeleted is 'N' in azuretable then update azure table -> set isdeleted ='Y'
                         $azTableBugInfo[0].IsDeleted = "Y";
                         $azTableBugInfo[0] | Update-AzTableRow -Table $cloudTable;
                     }
@@ -126,9 +120,9 @@ class BugLogHelper {
             #get storage table.
             $cloudTable = (Get-AzStorageTable -Name $tableName -Context $this.StorageAccountCtx).CloudTable;
             if ($cloudTable) {
-                #Get clouddata to do some operation on the table
+                #Get clouddata to do perform read/write operations on the table
     
-                #$azTableBugInfo += Get-AzTableRow -table $cloudTable -columnName "ADOScannerHashId" -value $hash -operator Equal 
+                 
                 $azTableBugInfo = @();
                 $azTableBugInfo += Get-AzTableRow -table $cloudTable -CustomFilter "(($hash) and (IsDeleted eq 'N'))";
 
@@ -171,7 +165,7 @@ class BugLogHelper {
             return $true;
         }
         catch {
-            Write-Host "Could not close the bug" -ForegroundColor Red
+            Write-Host "Could not close the bug." -ForegroundColor Red
             return $false
         }
     }
