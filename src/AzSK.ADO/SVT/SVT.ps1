@@ -249,7 +249,13 @@ function Get-AzSKADOSecurityStatus
 		[switch]
 		[Parameter(HelpMessage="Skip organization and user controls.")]
 		[Alias("souc")]
-		$SkipOrgUserControls
+		$SkipOrgUserControls,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage="Name of the repo to fetch org policy.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("rp")]
+		$RepoName
 	)
 	Begin
 	{
