@@ -13,7 +13,7 @@ class AutoBugLog {
     hidden [string] $ServiceIdPassedInCMD;
 
     hidden [bool] $UseAzureStorageAccount = $false;
-    hidden [BugLogCheckerHelper] $BugLogCheckerObj;
+    hidden [BugLogHelper] $BugLogHelperObj;
     hidden [string] $ScanSource;
     
     AutoBugLog([string] $orgName, [InvocationInfo] $invocationContext, [ControlStateExtension] $controlStateExt, $bugLogParameterValue) {
@@ -31,14 +31,14 @@ class AutoBugLog {
         $this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
         #TODO: 
         #$this.ScanSource = "CA";
-        #If UseAzureStorageAccount is true then initialize the BugLogCheckerObj singleton class object.
+        #If UseAzureStorageAccount is true then initialize the BugLogHelperObj singleton class object.
         if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount")) {
             $this.UseAzureStorageAccount = $this.ControlSettings.BugLogging.UseAzureStorageAccount;
             if ($this.UseAzureStorageAccount) {
-                $this.BugLogCheckerObj = [BugLogCheckerHelper]::BugLogCheckerInstance
-		        if (!$this.BugLogCheckerObj) {
+                $this.BugLogHelperObj = [BugLogHelper]::BugLogHelperInstance
+		        if (!$this.BugLogHelperObj) {
 		        	#Settting initial value true so will evaluate in all different cmds.(Powershell keeping static variables in memory in next command also.)
-		        	$this.BugLogCheckerObj = [BugLogCheckerHelper]::GetInstance($this.OrganizationName);
+		        	$this.BugLogHelperObj = [BugLogHelper]::GetInstance($this.OrganizationName);
 		        }
             }
         }
@@ -465,7 +465,7 @@ class AutoBugLog {
         #$this.ScanSource = "CA";
         if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
         {
-            return $this.BugLogCheckerObj.GetWorkItemByHashAzureTable($hash, $ProjectName, $this.ControlSettings.BugLogging.ResolvedBugLogBehaviour);
+            return $this.BugLogHelperObj.GetWorkItemByHashAzureTable($hash, $ProjectName, $this.ControlSettings.BugLogging.ResolvedBugLogBehaviour);
         }
         else 
         {
@@ -569,7 +569,7 @@ class AutoBugLog {
             $control.ControlResults.AddMessage("New Bug", $bugUrl);
             if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
             {
-                $this.BugLogCheckerObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
+                $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
             }
         }
         catch {
@@ -584,7 +584,7 @@ class AutoBugLog {
                     $control.ControlResults.AddMessage("New Bug", $bugUrl)
                     if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
                     {
-                        $this.BugLogCheckerObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
+                        $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
                     }
                 }
                 catch {

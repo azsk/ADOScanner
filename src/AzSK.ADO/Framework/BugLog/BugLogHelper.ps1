@@ -1,7 +1,7 @@
 Set-StrictMode -Version Latest
-class BugLogCheckerHelper {
+class BugLogHelper {
 
-    hidden static [BugLogCheckerHelper] $BugLogCheckerInstance;
+    hidden static [BugLogHelper] $BugLogHelperInstance;
 
     hidden [bool] $UseAzureStorageAccount;
     hidden [string] $OrganizationName;
@@ -12,7 +12,7 @@ class BugLogCheckerHelper {
     hidden [bool] $hasAccessOnStorage = $false;
     hidden [bool] $errorMsgDisplayed = $false
 
-    BugLogCheckerHelper([string] $orgName) {
+    BugLogHelper([string] $orgName) {
         $this.OrganizationName = $orgName;
         #$this.UseAzureStorageAccount = $useAzureStorageAccount;
         #TODO:
@@ -34,10 +34,10 @@ class BugLogCheckerHelper {
         
     }
     
-    #Return BugLogCheckerHelper instance
-    hidden static [BugLogCheckerHelper] GetInstance([string] $orgName) {
-        [BugLogCheckerHelper]::BugLogCheckerInstance = [BugLogCheckerHelper]::new($orgName)
-        return [BugLogCheckerHelper]::BugLogCheckerInstance
+    #Return BugLogHelper instance
+    hidden static [BugLogHelper] GetInstance([string] $orgName) {
+        [BugLogHelper]::BugLogHelperInstance = [BugLogHelper]::new($orgName)
+        return [BugLogHelper]::BugLogHelperInstance
     }
 
     #function to search for existing bugs based on the hash
@@ -84,7 +84,7 @@ class BugLogCheckerHelper {
             }
         }
         catch {
-            Write-Host "Could not access storage account." -Red
+            Write-Host "Could not access storage account." -ForegroundColor Red
         }
         
         return $bugObj;
@@ -145,7 +145,7 @@ class BugLogCheckerHelper {
         }
         catch {
             if (!$this.errorMsgDisplayed) {
-               Write-Host "Could not update entry of closed bug in storage table." -Red  
+               Write-Host "Could not update entry of closed bug in storage table." -ForegroundColor Red  
             }
             return $false;
         }
@@ -171,7 +171,7 @@ class BugLogCheckerHelper {
             return $true;
         }
         catch {
-            Write-Host "Could not close the bug" -Red
+            Write-Host "Could not close the bug" -ForegroundColor Red
             return $false
         }
     }

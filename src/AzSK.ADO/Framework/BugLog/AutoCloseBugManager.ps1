@@ -4,7 +4,7 @@ class AutoCloseBugManager {
     hidden [PSObject] $ControlSettings;
     hidden [string] $ScanSource;
     hidden [bool] $UseAzureStorageAccount = $false;
-    hidden [BugLogCheckerHelper] $BugLogCheckerObj;
+    hidden [BugLogHelper] $BugLogHelperObj;
 
     AutoCloseBugManager([string] $orgName) {
         $this.OrganizationName = $orgName;
@@ -15,10 +15,10 @@ class AutoCloseBugManager {
         if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount", $null)) {
             $this.UseAzureStorageAccount = $this.ControlSettings.BugLogging.UseAzureStorageAccount;
             if ($this.UseAzureStorageAccount) {
-                $this.BugLogCheckerObj = [BugLogCheckerHelper]::BugLogCheckerInstance
-		        if (!$this.BugLogCheckerObj) {
+                $this.BugLogHelperObj = [BugLogHelper]::BugLogHelperInstance
+		        if (!$this.BugLogHelperObj) {
 		        	#Settting initial value true so will evaluate in all different cmds.(Powershell keeping static variables in memory in next command also.)
-		        	$this.BugLogCheckerObj = [BugLogCheckerHelper]::GetInstance($this.OrganizationName);
+		        	$this.BugLogHelperObj = [BugLogHelper]::GetInstance($this.OrganizationName);
 		        }
             }
         }
@@ -98,7 +98,7 @@ class AutoCloseBugManager {
                     if ($QueryKeyWordCount -eq $PassedControlResultsLength) {
                         #to remove OR from the last tag keyword. Ex: Tags: Tag1 OR Tags: Tag2 OR. Remove the last OR from this keyword
                         $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
-                        $response = $this.BugLogCheckerObj.GetTableEntityAndCloseBug($TagSearchKeyword)
+                        $response = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword)
                     }
                 }
                 else {
@@ -132,7 +132,7 @@ class AutoCloseBugManager {
                         if ($QueryKeyWordCount -eq $MaxKeyWordsToQuery) {
                             #query for all these tags and their bugs
                             $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
-                            $response = $this.BugLogCheckerObj.GetTableEntityAndCloseBug($TagSearchKeyword);
+                            $response = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword);
                             #Reinitialize for the next batch
                             $QueryKeyWordCount = 0;
                             $TagSearchKeyword = "";
@@ -186,7 +186,7 @@ class AutoCloseBugManager {
 
         }
         catch {
-            Write-Host "Could not close the bug" -Red
+            Write-Host "Could not close the bug" -ForegroundColor Red
         }
     }
 
