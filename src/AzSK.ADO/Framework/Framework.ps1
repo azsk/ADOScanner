@@ -77,6 +77,7 @@ $FrameworkPath = $PSScriptRoot
 #BugLog
 . $PSScriptRoot\BugLog\BugLogPathManager.ps1
 . $PSScriptRoot\BugLog\BugMetaInfoProvider.ps1
+. $PSScriptRoot\BugLog\BugLogCheckerHelper.ps1
 . $PSScriptRoot\BugLog\AutoBugLog.ps1
 . $PSScriptRoot\BugLog\PublishToJSON.ps1
 . $PSScriptRoot\BugLog\AutoCloseBugManager.ps1
