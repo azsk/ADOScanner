@@ -345,8 +345,7 @@
     "HowFound": "Manual",
     "ComplianceArea": "Security",
     "ServiceTreeIdType": "Service",
-    "ExcludeControlsInBugLogging":[],
-    "UseAzureStorageAccount": true
+    "UseAzureStorageAccount": false
   },
   "GenerateSecurityEvaluationJsonFile" : false,
   "ResourceProviders": [
