@@ -11,6 +11,10 @@ class AutoBugLog {
     hidden [string] $BugLogParameterValue;
     hidden [string] $BugDescriptionField;
     hidden [string] $ServiceIdPassedInCMD;
+
+    hidden [bool] $UseAzureStorageAccount = $false;
+    hidden [BugLogHelper] $BugLogHelperObj;
+    hidden [string] $ScanSource;
     
     AutoBugLog([string] $orgName, [InvocationInfo] $invocationContext, [ControlStateExtension] $controlStateExt, $bugLogParameterValue) {
         $this.OrganizationName = $orgName;
@@ -23,6 +27,18 @@ class AutoBugLog {
         if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "BugAssigneeAndPathCustomFlow", $null)) {
             $this.IsBugLogCustomFlow = $this.ControlSettings.BugLogging.BugAssigneeAndPathCustomFlow;
             $this.ServiceIdPassedInCMD = $InvocationContext.BoundParameters["ServiceId"];
+        }
+        $this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
+        
+        #If UseAzureStorageAccount is true then initialize the BugLogHelperObj singleton class object.
+        if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount")) {
+            $this.UseAzureStorageAccount = $this.ControlSettings.BugLogging.UseAzureStorageAccount;
+            if ($this.UseAzureStorageAccount) {
+                $this.BugLogHelperObj = [BugLogHelper]::BugLogHelperInstance
+		        if (!$this.BugLogHelperObj) {
+		        	$this.BugLogHelperObj = [BugLogHelper]::GetInstance($this.OrganizationName);
+		        }
+            }
         }
 
         # Replace the field reference name for bug description if it is customized
@@ -76,65 +92,64 @@ class AutoBugLog {
                 $printLogBugMsg = $true;
                 #Loop through all the control results for the current resource
                 $ControlResults | ForEach-Object {
-                    $control = $_;                   
-
+                    $control = $_;                                     
                     #filter controls on basis of whether they are baseline or not depending on the value given in autobuglog flag
                     $LogControlFlag = $false
                     if ($this.BugLogParameterValue -eq "All") {
-                        $LogControlFlag = $true
+                            $LogControlFlag = $true
                     }
                     elseif ($this.BugLogParameterValue -eq "BaselineControls") {
-                        $LogControlFlag = $this.CheckBaselineControl($control.ControlItem.ControlID)				
+                            $LogControlFlag = $this.CheckBaselineControl($control.ControlItem.ControlID)				
                     }
                     else {
-                        $LogControlFlag = $this.CheckPreviewBaselineControl($control.ControlItem.ControlID)
+                            $LogControlFlag = $this.CheckPreviewBaselineControl($control.ControlItem.ControlID)
                     }
-			
+		
                     if ($LogControlFlag -and ($control.ControlResults[0].VerificationResult -eq "Failed" -or $control.ControlResults[0].VerificationResult -eq "Verify") ) {
                 
-                        #compute hash of control Id and resource Id	
-                        $hash = $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
-                        #check if a bug with the computed hash exists
-                        #Removed ProjectName param and direcly added [BugLogPathManager]::BugLoggingProject, previously holding in variable and passing in method
-                        $workItem = $this.GetWorkItemByHash($hash, [BugLogPathManager]::BugLoggingProject)
-                        if ($workItem[0].results.count -gt 0) {
-                            #a work item with the hash exists, find if it's state and reactivate if resolved bug
-                            $this.ManageActiveAndResolvedBugs($ProjectName, $control, $workItem, $AssignedTo)
-                        }
-                        else {
-                            if ($printLogBugMsg) {
-                                Write-Host "Determining bugs to log..." -ForegroundColor Cyan
+                            #compute hash of control Id and resource Id 
+                            $hash = $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
+                            #check if a bug with the computed hash exists
+                            #Removed ProjectName param and direcly added [BugLogPathManager]::BugLoggingProject, previously holding in variable and passing in method
+                            $workItem = $this.GetWorkItemByHash($hash, [BugLogPathManager]::BugLoggingProject)
+                            if ($workItem[0].results.count -gt 0) {
+                                #a work item with the hash exists, find if it's state and reactivate if resolved bug
+                                $this.ManageActiveAndResolvedBugs($ProjectName, $control, $workItem, $AssignedTo)
                             }
-                            $printLogBugMsg = $false;
+                            else {
+                                if ($printLogBugMsg) {
+                                    Write-Host "Determining bugs to log..." -ForegroundColor Cyan
+                                }
+                                $printLogBugMsg = $false;
 
-                            #filling the bug template
-                            $Title = "[ADOScanner] Control failure - {0} for resource {1} {2}"
-                            $Description = "Control failure - {3} for resource {4} {5} </br></br> <b>Control Description: </b> {0} </br></br> <b> Control Result: </b> {6} </br> </br> <b> Rationale:</b> {1} </br></br> <b> Recommendation:</b> {2}"
+                                #filling the bug template
+                                $Title = "[ADOScanner] Control failure - {0} for resource {1} {2}"
+                                $Description = "Control failure - {3} for resource {4} {5} </br></br> <b>Control Description: </b> {0} </br></br> <b> Control Result: </b> {6} </br> </br> <b> Rationale:</b> {1} </br></br> <b> Recommendation:</b> {2}"
                             
-                            $Title = $Title -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName
-                            if ($control.ResourceContext.ResourceTypeName -ne "Organization" -and $control.ResourceContext.ResourceTypeName -ne "Project") {
-                                $Title += " in project " + $control.ResourceContext.ResourceGroupName;
-                            }
-                            $Description = $Description -f $control.ControlItem.Description, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlResults[0].VerificationResult
-                            $Description += "</br></br> <b> Resource Link: </b> <a href='$($control.ResourceContext.ResourceDetails.ResourceLink)' target='_blank'>$($control.ResourceContext.ResourceName)</a>"
-                            $RunStepsForControl = " </br></br> <b>Control Scan Command:</b> Run:  {0}"
-                            $Description += ($RunStepsForControl -f $this.GetControlReproStep($control));
+                                $Title = $Title -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName
+                                if ($control.ResourceContext.ResourceTypeName -ne "Organization" -and $control.ResourceContext.ResourceTypeName -ne "Project") {
+                                    $Title += " in project " + $control.ResourceContext.ResourceGroupName;
+                                }
+                                $Description = $Description -f $control.ControlItem.Description, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlResults[0].VerificationResult
+                                $Description += "</br></br> <b> Resource Link: </b> <a href='$($control.ResourceContext.ResourceDetails.ResourceLink)' target='_blank'>$($control.ResourceContext.ResourceName)</a>"
+                                $RunStepsForControl = " </br></br> <b>Control Scan Command:</b> Run:  {0}"
+                                $Description += ($RunStepsForControl -f $this.GetControlReproStep($control));
 				            
-                            #check and append any detailed log and state data for the control failure
-                            $log = $this.GetDetailedLogForControl($control);
-                            if ($log) { 
-                                $Description += "<hr></br><b>Some other details for your reference</b> </br><hr> {7} "
-                                $Description = $Description.Replace("{7}", $log)
+                                #check and append any detailed log and state data for the control failure
+                                $log = $this.GetDetailedLogForControl($control);
+                                if ($log) {
+                                    $Description += "<hr></br><b>Some other details for your reference</b> </br><hr> {7} "
+                                    $Description = $Description.Replace("{7}", $log)
 					
-                            }				
-                            $Description = $Description.Replace("`"", "'")
-                            $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
+                                }               
+                                $Description = $Description.Replace("`"", "'")
+                                $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
                     
-                            #function to attempt bug logging
-                            $this.AddWorkItem($Title, $Description, $AssignedTo, $Severity, $ProjectName, $control, $hash, $serviceId);
+                                #function to attempt bug logging
+                                $this.AddWorkItem($Title, $Description, $AssignedTo, $Severity, $ProjectName, $control, $hash, $serviceId);
 
-                        }
-                    }
+                            }
+                    }    
                 }
             }
         }
@@ -340,11 +355,20 @@ class AutoBugLog {
     
     #function to find active bugs and reactivate resolved bugs
     hidden [void] ManageActiveAndResolvedBugs([string]$ProjectName, [SVTEventContext[]] $control, [object] $workItem, [string] $AssignedTo) {
-		
-		
-        $state = ($workItem[0].results.values[0].fields | where { $_.name -eq "State" })
-        $id = ($workItem[0].results.values[0].fields | where { $_.name -eq "ID" }).value
-
+        
+        #If using azure storage then calling documented api as we have ado id, so response will be different, so added if else condition
+        $state = "";
+        $id = "";
+        if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
+        {
+            $state = $workItem[0].results.fields."System.State"
+            $id = $workItem[0].results.id
+        }
+        else {
+            $state = ($workItem[0].results.values[0].fields | where { $_.name -eq "State" }).value
+            $id = ($workItem[0].results.values[0].fields | where { $_.name -eq "ID" }).value
+        }
+        
         #bug url that redirects user to bug logged in ADO, this is not available via the API response and thus has to be created via the ID of bug
         $bugUrl = "https://{0}.visualstudio.com/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $ProjectName , $id
 
@@ -391,7 +415,7 @@ class AutoBugLog {
 
 
         #change the assignee for resolved bugs only
-        if ($state.value -eq "Resolved") {
+        if ($state -eq "Resolved") {
             $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=5.1" -f $this.OrganizationName, $ProjectName, $id
             $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForResolvedBug.json")
             $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10 
@@ -430,30 +454,36 @@ class AutoBugLog {
     }
 
     #function to search for existing bugs based on the hash
-    hidden [object] GetWorkItemByHash([string] $hash, [string] $ProjectName) {
-		
-        $url = "https://{0}.almsearch.visualstudio.com/{1}/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $this.OrganizationName, $ProjectName
-
-        #TODO: validate set to allow only two values : ReactiveOldBug and CreateNewBug
-        #check for ResolvedBugBehaviour in control settings
-        #takeResults is used to fetch number of workitems to be return. At caller side of this method we are checking if return greter then 0, then manage work item else add new.
-        if ($this.ControlSettings.BugLogging.ResolvedBugLogBehaviour -ne "ReactiveOldBug") {
-            #new bug is to be logged for every resolved bug, hence search for only new/active bug
-            $body = '{"searchText":"{0}","skipResults":0,"takeResults":2,"sortOptions":[],"summarizedHitCountsNeeded":true,"searchFilters":{"Projects":["{1}"],"Work Item Types":["Bug"],"States":["Active","New"]},"filters":[],"includeSuggestions":false}' | ConvertFrom-Json
+    hidden [object] GetWorkItemByHash([string] $hash, [string] $ProjectName) 
+    {
+        if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
+        {
+            return $this.BugLogHelperObj.GetWorkItemByHashAzureTable($hash, $ProjectName, $this.ControlSettings.BugLogging.ResolvedBugLogBehaviour);
         }
-        else {
-            #resolved bug needs to be reactivated, hence search for new/active/resolved bugs
-            $body = '{"searchText":"{0}","skipResults":0,"takeResults":2,"sortOptions":[],"summarizedHitCountsNeeded":true,"searchFilters":{"Projects":["{1}"],"Work Item Types":["Bug"],"States":["Active","New","Resolved"]},"filters":[],"includeSuggestions":false}' | ConvertFrom-Json
-        }
+        else 
+        {
+            $url = "https://{0}.almsearch.visualstudio.com/{1}/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $this.OrganizationName, $ProjectName
 
-        #tag to be searched
-        $body.searchText = "Tags: " + $hash
-        $body.searchFilters.Projects = $ProjectName
-
-        $response = [WebRequestHelper]::InvokePostWebRequest($url, $body)
+            #TODO: validate set to allow only two values : ReactiveOldBug and CreateNewBug
+            #check for ResolvedBugBehaviour in control settings
+            #takeResults is used to fetch number of workitems to be return. At caller side of this method we are checking if return greter then 0, then manage work item else add new.
+            if ($this.ControlSettings.BugLogging.ResolvedBugLogBehaviour -ne "ReactiveOldBug") {
+                #new bug is to be logged for every resolved bug, hence search for only new/active bug
+                $body = '{"searchText":"{0}","skipResults":0,"takeResults":2,"sortOptions":[],"summarizedHitCountsNeeded":true,"searchFilters":{"Projects":["{1}"],"Work Item Types":["Bug"],"States":["Active","New"]},"filters":[],"includeSuggestions":false}' | ConvertFrom-Json
+            }
+            else {
+                #resolved bug needs to be reactivated, hence search for new/active/resolved bugs
+                $body = '{"searchText":"{0}","skipResults":0,"takeResults":2,"sortOptions":[],"summarizedHitCountsNeeded":true,"searchFilters":{"Projects":["{1}"],"Work Item Types":["Bug"],"States":["Active","New","Resolved"]},"filters":[],"includeSuggestions":false}' | ConvertFrom-Json
+            }
     
-        return  $response
-
+            #tag to be searched
+            $body.searchText = "Tags: " + $hash
+            $body.searchFilters.Projects = $ProjectName
+    
+            $response = [WebRequestHelper]::InvokePostWebRequest($url, $body)
+        
+            return  $response
+        }
     }
 
     #function to compute hash and return the tag
@@ -461,8 +491,14 @@ class AutoBugLog {
         $hashedTag = $null
         $stringToHash = "$ResourceId#$ControlId";
         #return the bug tag
-        $hashedTag = "ADOScanID: " + [AutoBugLog]::ComputeHashX($stringToHash)
-        return $hashedTag
+        if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
+        {
+            return [AutoBugLog]::ComputeHashX($stringToHash);
+        }
+        else 
+        {
+            return "ADOScanID: " + [AutoBugLog]::ComputeHashX($stringToHash)
+        }
     }
 
     hidden [void] AddWorkItem([string] $Title, [string] $Description, [string] $AssignedTo, [string]$Severity, [string]$ProjectName, [SVTEventContext[]] $control, [string] $hash, [string] $serviceId) {
@@ -495,7 +531,13 @@ class AutoBugLog {
         $BugTemplate = $BugTemplate.Replace("{2}", $Severity)
         $BugTemplate = $BugTemplate.Replace("{3}", [BugLogPathManager]::AreaPath)
         $BugTemplate = $BugTemplate.Replace("{4}", [BugLogPathManager]::IterationPath)
-        $BugTemplate = $BugTemplate.Replace("{5}", $hash)
+        if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
+        {
+            $BugTemplate = $BugTemplate.Replace("{5}", "ADOScanner")
+        }
+        else {
+            $BugTemplate = $BugTemplate.Replace("{5}", $hash)
+        }
         $BugTemplate = $BugTemplate.Replace("{6}", $AssignedTo)
 
         if ($this.ShowBugsInS360) {
@@ -517,7 +559,11 @@ class AutoBugLog {
         try {
             $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
             $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $this.OrganizationName, $responseObj.id
-            $control.ControlResults.AddMessage("New Bug", $bugUrl)
+            $control.ControlResults.AddMessage("New Bug", $bugUrl);
+            if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
+            {
+                $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
+            }
         }
         catch {
             #handle assignee users who are not part of org any more
@@ -529,6 +575,10 @@ class AutoBugLog {
                     $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
                     $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $this.OrganizationName, $responseObj.id
                     $control.ControlResults.AddMessage("New Bug", $bugUrl)
+                    if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
+                    {
+                        $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
+                    }
                 }
                 catch {
                     Write-Host "Could not log the bug" -ForegroundColor Red
