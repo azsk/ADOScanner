@@ -9,15 +9,13 @@ class AutoCloseBugManager {
     AutoCloseBugManager([string] $orgName) {
         $this.OrganizationName = $orgName;
         $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
-        $This.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
-        #TODO:
-        #$this.ScanSource = "CA"
+        $this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
+        
         if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount", $null)) {
             $this.UseAzureStorageAccount = $this.ControlSettings.BugLogging.UseAzureStorageAccount;
             if ($this.UseAzureStorageAccount) {
                 $this.BugLogHelperObj = [BugLogHelper]::BugLogHelperInstance
 		        if (!$this.BugLogHelperObj) {
-		        	#Settting initial value true so will evaluate in all different cmds.(Powershell keeping static variables in memory in next command also.)
 		        	$this.BugLogHelperObj = [BugLogHelper]::GetInstance($this.OrganizationName);
 		        }
             }
