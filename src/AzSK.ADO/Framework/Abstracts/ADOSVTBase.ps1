@@ -457,11 +457,10 @@ class ADOSVTBase: SVTBase {
 		#perform bug logging after control scans for the current resource
 		if ($BugLogParameterValue) 
 		{
-			#added check azuretable check here, if (azuretable enabled and scan mode is ca) then only allow bug logging.
-			#If not cseo then go to bug logging. 
-			#if cseo then go to only if azuretable enabled and scan mode is ca
+			#added check azuretable check here, if ((azuretable enabled and scan mode is ca) OR azuretable disabed) then only allow bug logging
 			$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
-			if (($this.SubscriptionContext.SubscriptionName -ne [Constants]::CSEOOrg) -or ( ($this.SubscriptionContext.SubscriptionName -eq [Constants]::CSEOOrg) -and [Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount") -and ($this.ControlSettings.BugLogging.UseAzureStorageAccount -eq $true -and ($scanSource -eq "CA") ) ) ) 
+			$isAzureTableEnabled = [Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount");
+			if (!$isAzureTableEnabled -or ($isAzureTableEnabled -and ($scanSource -eq "CA")) )
 			{
 				if (($ControlResults.ControlResults.VerificationResult -contains "Failed") -or ($ControlResults.ControlResults.VerificationResult -contains "Verify")) {
 					$this.BugLoggingPostEvaluation($ControlResults, $BugLogParameterValue)
