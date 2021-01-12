@@ -97,21 +97,20 @@ class AutoBugLog {
                 $printLogBugMsg = $true;
                 #Loop through all the control results for the current resource
                 $ControlResults | ForEach-Object {
-                    $control = $_;                   
-                    if ($control.ControlItem.ControlID -notin $this.ControlSettings.BugLogging.ExcludeControlsInBugLogging) {                    
-                        #filter controls on basis of whether they are baseline or not depending on the value given in autobuglog flag
-                        $LogControlFlag = $false
-                        if ($this.BugLogParameterValue -eq "All") {
+                    $control = $_;                                     
+                    #filter controls on basis of whether they are baseline or not depending on the value given in autobuglog flag
+                    $LogControlFlag = $false
+                    if ($this.BugLogParameterValue -eq "All") {
                             $LogControlFlag = $true
-                        }
-                        elseif ($this.BugLogParameterValue -eq "BaselineControls") {
+                    }
+                    elseif ($this.BugLogParameterValue -eq "BaselineControls") {
                             $LogControlFlag = $this.CheckBaselineControl($control.ControlItem.ControlID)				
-                        }
-                        else {
+                    }
+                    else {
                             $LogControlFlag = $this.CheckPreviewBaselineControl($control.ControlItem.ControlID)
-                        }
-			
-                        if ($LogControlFlag -and ($control.ControlResults[0].VerificationResult -eq "Failed" -or $control.ControlResults[0].VerificationResult -eq "Verify") ) {
+                    }
+		
+                    if ($LogControlFlag -and ($control.ControlResults[0].VerificationResult -eq "Failed" -or $control.ControlResults[0].VerificationResult -eq "Verify") ) {
                 
                             #compute hash of control Id and resource Id 
                             $hash = $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
@@ -155,7 +154,6 @@ class AutoBugLog {
                                 $this.AddWorkItem($Title, $Description, $AssignedTo, $Severity, $ProjectName, $control, $hash, $serviceId);
 
                             }
-                        }
                     }    
                 }
             }
@@ -347,13 +345,13 @@ class AutoBugLog {
                 $Severity = "2 - Important"
             }
             'Moderate' {
-                $Severity = "2 - Important"
+                $Severity = "2 - Moderate"
             }
             'Medium' {
-                $Severity = "2 - Important"
+                $Severity = "2 - Moderate"
             }
             'Low' {
-                $Severity = "2 - Important"
+                $Severity = "2 - Low"
             }
 
         }
