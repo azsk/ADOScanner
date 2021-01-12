@@ -15,8 +15,6 @@ class AutoBugLog {
     hidden [bool] $UseAzureStorageAccount = $false;
     hidden [BugLogCheckerHelper] $BugLogCheckerObj;
     hidden [string] $ScanSource;
-    #will set this false if using azure table storage and does not have access on storage or ot activated.
-    hidden [bool] $allowBugLogging = $true;
     
     AutoBugLog([string] $orgName, [InvocationInfo] $invocationContext, [ControlStateExtension] $controlStateExt, $bugLogParameterValue) {
         $this.OrganizationName = $orgName;
@@ -30,12 +28,11 @@ class AutoBugLog {
             $this.IsBugLogCustomFlow = $this.ControlSettings.BugLogging.BugAssigneeAndPathCustomFlow;
             $this.ServiceIdPassedInCMD = $InvocationContext.BoundParameters["ServiceId"];
         }
-        $This.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
+        $this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
         #TODO: 
         #$this.ScanSource = "CA";
-        #Check if UseAzureStorageAccount prop found in org-policy then set the local variable. 
         #If UseAzureStorageAccount is true then initialize the BugLogCheckerObj singleton class object.
-        if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount", $null)) {
+        if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount")) {
             $this.UseAzureStorageAccount = $this.ControlSettings.BugLogging.UseAzureStorageAccount;
             if ($this.UseAzureStorageAccount) {
                 $this.BugLogCheckerObj = [BugLogCheckerHelper]::BugLogCheckerInstance
@@ -364,6 +361,7 @@ class AutoBugLog {
         
         #TODO: 
         #$this.ScanSource = "CA";
+        #If using azure storage then calling documented api as we have ado id, so response will be different, so added if else condition
         $state = "";
         $id = "";
         if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
@@ -467,7 +465,7 @@ class AutoBugLog {
         #$this.ScanSource = "CA";
         if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
         {
-            return $this.BugLogCheckerObj.GetWorkItemByHashAzureTable($hash, $ProjectName, $this.ControlSettings.BugLogging.ResolvedBugLogBehaviour);
+            return $this.BugLogCheckerObj.GetWorkItemByHashAzureTable($hash, $ProjectName);
         }
         else 
         {

@@ -40,7 +40,7 @@ class BugLogCheckerHelper {
     }
 
     #function to search for existing bugs based on the hash
-    hidden [object] GetWorkItemByHashAzureTable([string] $hash, [string] $projectName, [string] $reactiveOldBug) 
+    hidden [object] GetWorkItemByHashAzureTable([string] $hash, [string] $projectName) 
     {
         #get table filter by name
         $tableName = $this.GetTableName($projectName);
