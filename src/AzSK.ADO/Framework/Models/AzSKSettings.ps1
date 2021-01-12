@@ -270,9 +270,9 @@ class AzSKSettings {
 		{
 			$repoName = [Constants]::OrgPolicyRepoCSEO;
 		}
-		if ([AzSKSettings]::InvocationContext.BoundParameters["RepoName"])
+		if ([AzSKSettings]::InvocationContext.BoundParameters["PolicyRepoName"])
 		{
-			$repoName = [AzSKSettings]::InvocationContext.BoundParameters["RepoName"];
+			$repoName = [AzSKSettings]::InvocationContext.BoundParameters["PolicyRepoName"];
 		}		
 		<#if($projectName)
 		{
