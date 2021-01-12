@@ -23,11 +23,14 @@ class BugLogCheckerHelper {
         #$this.StorageRG = "ADOScannerRG";
 
         #get storage
-        $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
-        $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https
-
-        #$storageAcc = Get-AzStorageAccount -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
-        $this.StorageAccountctx = $StorageContext.Context;
+        if ($this.StorageRG -and $this.StorageAccount) {
+            $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
+            $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https
+    
+            #$storageAcc = Get-AzStorageAccount -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
+            $this.StorageAccountctx = $StorageContext.Context;
+        }
+        
     }
     
     #Return BugLogCheckerHelper instance
