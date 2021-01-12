@@ -465,7 +465,7 @@ class AutoBugLog {
         #$this.ScanSource = "CA";
         if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
         {
-            return $this.BugLogCheckerObj.GetWorkItemByHashAzureTable($hash, $ProjectName);
+            return $this.BugLogCheckerObj.GetWorkItemByHashAzureTable($hash, $ProjectName, $this.ControlSettings.BugLogging.ResolvedBugLogBehaviour);
         }
         else 
         {
