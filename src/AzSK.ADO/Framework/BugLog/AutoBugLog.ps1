@@ -29,15 +29,13 @@ class AutoBugLog {
             $this.ServiceIdPassedInCMD = $InvocationContext.BoundParameters["ServiceId"];
         }
         $this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
-        #TODO: 
-        #$this.ScanSource = "CA";
+        
         #If UseAzureStorageAccount is true then initialize the BugLogHelperObj singleton class object.
         if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount")) {
             $this.UseAzureStorageAccount = $this.ControlSettings.BugLogging.UseAzureStorageAccount;
             if ($this.UseAzureStorageAccount) {
                 $this.BugLogHelperObj = [BugLogHelper]::BugLogHelperInstance
 		        if (!$this.BugLogHelperObj) {
-		        	#Settting initial value true so will evaluate in all different cmds.(Powershell keeping static variables in memory in next command also.)
 		        	$this.BugLogHelperObj = [BugLogHelper]::GetInstance($this.OrganizationName);
 		        }
             }
@@ -330,7 +328,6 @@ class AutoBugLog {
 
     hidden [string] GetSecuritySeverity([string] $ControlSeverity) {
         $Severity = ""
-        #Changed severity of Moderate/Medium/Low to "2 - Important" becase only important/high SecuritySeverity bugs goes in s360
         switch -regex ($ControlSeverity) {
             'Critical' {
                 $Severity = "1 - Critical"
@@ -359,8 +356,6 @@ class AutoBugLog {
     #function to find active bugs and reactivate resolved bugs
     hidden [void] ManageActiveAndResolvedBugs([string]$ProjectName, [SVTEventContext[]] $control, [object] $workItem, [string] $AssignedTo) {
         
-        #TODO: 
-        #$this.ScanSource = "CA";
         #If using azure storage then calling documented api as we have ado id, so response will be different, so added if else condition
         $state = "";
         $id = "";
@@ -461,8 +456,6 @@ class AutoBugLog {
     #function to search for existing bugs based on the hash
     hidden [object] GetWorkItemByHash([string] $hash, [string] $ProjectName) 
     {
-        #TODO: 
-        #$this.ScanSource = "CA";
         if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
         {
             return $this.BugLogHelperObj.GetWorkItemByHashAzureTable($hash, $ProjectName, $this.ControlSettings.BugLogging.ResolvedBugLogBehaviour);
