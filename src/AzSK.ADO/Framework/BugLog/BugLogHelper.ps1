@@ -9,7 +9,6 @@ class BugLogHelper {
 
     hidden [object] $StorageAccountCtx;
     hidden [string] $StorageRG;
-    hidden [bool] $hasAccessOnStorage = $false;
     hidden [bool] $errorMsgDisplayed = $false
 
     BugLogHelper([string] $orgName) {
@@ -24,7 +23,6 @@ class BugLogHelper {
             $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https
     
             $this.StorageAccountCtx = $StorageContext.Context;
-            $this.hasAccessOnStorage = $true;
         }
         
     }
