@@ -342,13 +342,13 @@ class AutoBugLog {
                 $Severity = "2 - Important"
             }
             'Moderate' {
-                $Severity = "2 - Moderate"
+                $Severity = "3 - Moderate"
             }
             'Medium' {
-                $Severity = "2 - Moderate"
+                $Severity = "3 - Moderate"
             }
             'Low' {
-                $Severity = "2 - Low"
+                $Severity = "4 - Low"
             }
 
         }

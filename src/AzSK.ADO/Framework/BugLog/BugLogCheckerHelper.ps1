@@ -9,7 +9,7 @@ class BugLogCheckerHelper {
 
     hidden [object] $StorageAccountCtx;
     hidden [string] $StorageRG;
-    hidden [bool] $hasAccessOnStorage = $true;
+    hidden [bool] $hasAccessOnStorage = $false;
     hidden [bool] $errorMsgDisplayed = $false
 
     BugLogCheckerHelper([string] $orgName) {
@@ -28,7 +28,8 @@ class BugLogCheckerHelper {
             $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https
     
             #$storageAcc = Get-AzStorageAccount -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
-            $this.StorageAccountctx = $StorageContext.Context;
+            $this.StorageAccountCtx = $StorageContext.Context;
+            $this.hasAccessOnStorage = $true;
         }
         
     }
@@ -43,7 +44,7 @@ class BugLogCheckerHelper {
     hidden [object] GetWorkItemByHashAzureTable([string] $hash, [string] $projectName, [string] $reactiveOldBug) 
     {
         #get table filter by name
-        $tableName = $this.GetTableName($projectName);
+        $tableName = $this.GetTableName();
         $bugObj = @(@{});
         $bugObj[0].results = @();
 
@@ -83,7 +84,7 @@ class BugLogCheckerHelper {
             }
         }
         catch {
-            Write-Host "Not able to access storage account."
+            Write-Host "Could not access storage account." -Red
         }
         
         return $bugObj;
@@ -93,7 +94,7 @@ class BugLogCheckerHelper {
     {
         try 
         {
-           $tableName = $this.GetTableName($projectName);
+           $tableName = $this.GetTableName();
 
            #Get table filterd by name.
            $storageTables = Get-AzStorageTable -Context $this.StorageAccountCtx | Select Name;
@@ -119,7 +120,7 @@ class BugLogCheckerHelper {
     hidden [bool] GetTableEntityAndCloseBug([string] $hash) 
     {    
         #get table filter by name
-        $tableName = $this.GetTableName("");
+        $tableName = $this.GetTableName();
 
         try {
             #get storage table.
@@ -144,7 +145,7 @@ class BugLogCheckerHelper {
         }
         catch {
             if (!$this.errorMsgDisplayed) {
-               Write-Host "Not able to access storage account. Could not close the bug." -Red  
+               Write-Host "Could not update entry of closed bug in storage table." -Red  
             }
             return $false;
         }
@@ -152,7 +153,7 @@ class BugLogCheckerHelper {
         return $true;
     } 
 
-    hidden [string] GetTableName([string] $resourceNameToMakeTableName)
+    hidden [string] GetTableName()
     {
         #return ($resourceNameToMakeTableName + "ADOBugInfo") -replace "[^a-zA-Z0-9]"
         return ($this.OrganizationName + "ADOBugInfo") -replace "[^a-zA-Z0-9]"
