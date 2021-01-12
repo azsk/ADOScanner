@@ -357,5 +357,16 @@
     "vso.build_execute", 
     "vso.release_execute",
     "vso.release_manage"
-  ]
+  ],
+  "Repo": {
+    "ActivityThresholdInDays": 180
+  },
+  "EmailPatterns": [
+    "*@microsoft.com",
+    "*@exchange.microsoft.com",
+    "*@ntdev.microsoft.com",
+    "*@microsoftfederal.com"
+  ],
+  "CheckAuthorEmailValidationID": "77ed4bd3-b063-4689-934a-175e4d0a78d7",
+  "CheckCredentialsAndSecretsID": "e67ae10f-cf9a-40bc-8e66-6b3a8216956e"
 }

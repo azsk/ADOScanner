@@ -259,6 +259,92 @@
         "Best Practice"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_Check_Author_Email_Validation_Policy",
+      "Description": "Check Author Email Validation Policy.",
+      "Id": "Project260",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckAuthorEmailValidationPolicy",
+      "Rationale": "Check Author Email Validation Policy.",
+      "Recommendation": "",
+      "Tags": [
+        "SDL",
+        "AuthN",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_Check_Credentials_And_Secrets_Policy",
+      "Description": "Check Credentials And Secrets Policy.",
+      "Id": "Project270",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckCredentialsAndSecretsPolicy",
+      "Rationale": "Check Credentials And Secrets Policy.",
+      "Recommendation": "",
+      "Tags": [
+        "SDL",
+        "AuthN",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_DP_Inactive_Repo",
+      "Description": "Check the repo to be inactive or not.",
+      "Id": "Project280",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckInactiveRepo",
+      "Rationale": "Checks whether the repo is inactive or not based on the last pull-request.",
+      "Recommendation": "Refer: https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pull%20requests/get%20pull%20request?view=azure-devops-rest-6.0",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Repo_Grant_Min_RBAC_Access",
+      "Description": "Get the repo's inherited permissions list.",
+      "Id": "Project290",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckRepoRBACAccess",
+      "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users are granted just enough permissions to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
+      "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/pipelines/policies/permissions?view=vsts",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "RBAC"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Disable_Inherited_Permissions",
+      "Description": "Do not allow inherited permission on repo definitions.",
+      "Id": "Project300",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckInheritedPermissions",
+      "Rationale": "Disabling inherited permissions lets you finely control access to various operations at the repo level for different stakeholders. This ensures that you follow the principle of least privilege and provide access only to the persons that require it.",
+      "Recommendation": "To disable inheritance follow the steps given here: 1.Navigate to the repo pipeline. 2. Select three dots (present at right top). 3. Click Manage Security 4. Add the service lead & service owner as Users with Allow permissions for each permission line item. 5. Disable Inheritance. 6. Add users/groups to your repo definition and provide only required access. As best practice, All teams/groups must be granted minimum required permissions on repo definition.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
     }
 
   ]
