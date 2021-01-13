@@ -10,6 +10,8 @@ class BugLogHelper {
     hidden [object] $StorageAccountCtx;
     hidden [string] $StorageRG;
     hidden [bool] $errorMsgDisplayed = $false
+    hidden [string] $SharedKey
+    hidden [object] $hmacsha
 
     BugLogHelper([string] $orgName) {
         $this.OrganizationName = $orgName;
@@ -21,8 +23,11 @@ class BugLogHelper {
         if ($this.StorageRG -and $this.StorageAccount) {
             $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
             $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https
-    
+            $this.SharedKey = $keys[0].Value;
             $this.StorageAccountCtx = $StorageContext.Context;
+
+            $this.hmacsha = New-Object System.Security.Cryptography.HMACSHA256
+            $this.hmacsha.key = [Convert]::FromBase64String($this.SharedKey)
         }
         
     }
@@ -43,37 +48,30 @@ class BugLogHelper {
 
         <#
         try {
-            #get storage table.
-            $cloudTable = (Get-AzStorageTable -Name $tableName -Context $this.StorageAccountCtx).CloudTable;
-            if ($cloudTable) {
-                #Get clouddata to do perform read/write operations on the table
-    
-                $azTableBugInfo = @();
-                $azTableBugInfo += Get-AzTableRow -table $cloudTable -CustomFilter "(ADOScannerHashId eq '$hash' and IsDeleted eq 'N')";
+            #get storage table data.
+            $azTableBugInfo = @();
+            $azTableBugInfo += $this.GetTableEntity($tableName, $hash); 
+            if ($azTableBugInfo -and $azTableBugInfo.count -gt 0) {
+                $adoBugId = $azTableBugInfo[0].ADOBugId;
 
-                if ($azTableBugInfo -and $azTableBugInfo.count -gt 0) {
-                    $adoBugId = $azTableBugInfo[0].ADOBugId;
-    
-                    $uri = "https://dev.azure.com/$($this.OrganizationName)/$projectName/_apis/wit/workitems/{0}?api-version=6.0" -f $adoBugId;
-                    $response = [WebRequestHelper]::InvokeGetWebRequest($uri);
-                    if($response -and ($response.count -gt 0) -and ($response.fields."System.State" -ne "Closed"))
+                $uri = "https://dev.azure.com/$($this.OrganizationName)/$projectName/_apis/wit/workitems/{0}?api-version=6.0" -f $adoBugId;
+                $response = [WebRequestHelper]::InvokeGetWebRequest($uri);
+                if($response -and ($response.count -gt 0) -and ($response.fields."System.State" -ne "Closed"))
+                {
+                    #check if org policy wants to reactivate resolved bugs. 
+                    #if status is not 'Resolve', send response.
+                    #if status is 'Resolved' and ReactiveOldBug flag is true, then send response. (when response goes empty we add new bug)
+                    if (($response.fields."System.State" -ne "Resolved") -or ($response.fields."System.State" -eq "Resolved" -and $reactiveOldBug -eq "ReactiveOldBug") )
                     {
-                        #check if org policy wants to reactivate resolved bugs. 
-                        #if status is not 'Resolve', send response.
-                        #if status is 'Resolved' and ReactiveOldBug flag is true, then send response. (when response goes empty we add new bug)
-                        if (($response.fields."System.State" -ne "Resolved") -or ($response.fields."System.State" -eq "Resolved" -and $reactiveOldBug -eq "ReactiveOldBug") )
-                        {
-                            $bugObj[0].results += $response; 
-                        }  
-                    }
-                    else {
-                        #if bug state is closed on the ADO side and isDeleted is 'N' in azuretable then update azure table -> set isdeleted ='Y'
-                        $azTableBugInfo[0].IsDeleted = "Y";
-                        $azTableBugInfo[0] | Update-AzTableRow -Table $cloudTable;
-                    }
-
-                    return $bugObj;
+                        $bugObj[0].results += $response; 
+                    }  
                 }
+                else {
+                    #if bug state is closed on the ADO side and isDeleted is 'N' in azuretable then update azure table -> set isdeleted ='Y'
+                    
+                    $this.UpdateTableEntity($tableName, $hash, $adoBugId, $projectName);
+                }
+                return $bugObj;
             }
         }
         catch {
@@ -94,17 +92,12 @@ class BugLogHelper {
            $storageTables = Get-AzStorageTable -Context $this.StorageAccountCtx | Select Name;
 
            #create table if table not found.
-           if ( !$storageTables -or ($storageTables.Count -eq 0) -or !($storageTables.Name -eq $tableName) ) {
-               New-AzStorageTable -Name $tableName -Context $this.StorageAccountCtx;   
+           if ( !$storageTables -or ($storageTables.count -eq 0) -or !($storageTables.Name -eq $tableName) ) {
+               New-AzStorageTable $tableName -Context $this.StorageAccountCtx;
            }
-           #Get cloudTable to do some operations on the table.
-           $cloudTable = (Get-AzStorageTable -Name $tableName -Context $this.StorageAccountCtx).CloudTable;
 
-           #Add data in table.
-           $partitionKey = $hash;
-           $rowKey = $hash + "_" + $ADOBugId;
-           Add-AzTableRow -Table $cloudTable -PartitionKey $partitionKey -RowKey ($rowKey) -property @{"ADOBugId" = $ADOBugId; "ADOScannerHashId" = $hash; "IsDeleted" = "N"; "ProjectName" = $projectName};
-           return $true;           
+           $isDataAddedInTable = $this.AddDataInTable($tableName, $hash, $ADOBugId, $projectName)
+           return $isDataAddedInTable;           
         }
         catch {
             return $false;
@@ -113,30 +106,125 @@ class BugLogHelper {
         return $false
     }
 
+    hidden [object] GetTableEntity($tableName, $hash) {
+        try 
+        {
+            $query = 'ADOScannerHashId eq ''{0}'' and IsDeleted eq ''N''' -f $hash;
+            $resource = '$filter='+[System.Web.HttpUtility]::UrlEncode($query);
+            $table_url = "https://{0}.table.core.windows.net/{1}?{2}" -f $this.StorageAccount, $tableName, $resource
+            $headers = $this.GetHeader($tableName)
+            $item = Invoke-RestMethod -Method Get -Uri $table_url -Headers $headers -ContentType "application/json"
+            return $item.value;
+        }
+        catch
+        {
+            return $null
+        }
+    }
+
+    hidden [bool] AddDataInTable($tableName, $hash, $ADOBugId, $projectName)
+    {
+        $partitionKey = $hash;
+        $rowKey = $hash + "_" + $ADOBugId;
+           
+        try 
+        {
+            #Add data in table.
+            
+            $entity = @{"PartitionKey" = $partitionKey; "RowKey" = $rowKey; "ADOBugId" = $ADOBugId; "ADOScannerHashId" = $hash; "IsDeleted" = "N"; "ProjectName" = $projectName};
+            $table_url = "https://{0}.table.core.windows.net/{1}" -f $this.StorageAccount, $tableName
+            $headers = $this.GetHeader($tableName);
+            $body = $entity | ConvertTo-Json
+            $item = Invoke-RestMethod -Method POST -Uri $table_url -Headers $headers -Body $body -ContentType "application/json"
+            return $true;
+        }
+        catch
+        {
+            Write-Host "Could not push an entry in the table for row key [$rowKey]";
+            return $false;
+        }
+    }
+
+    hidden [bool] UpdateTableEntity($tableName, $hash, $ADOBugId, $projectName)
+    {
+        $PartitionKey = $hash;
+        $Rowkey = $hash + "_" + $ADOBugId;
+        
+        try {
+            #Add data in table.
+           
+            $entity = @{"ADOBugId" = $ADOBugId; "ADOScannerHashId" = $hash; "IsDeleted" = "Y"; "ProjectName" = $projectName};
+            $body = $entity | ConvertTo-Json
+
+            $version = "2017-04-17"
+            $resource = "$tableName(PartitionKey='$PartitionKey',RowKey='$Rowkey')"
+            $table_url = "https://$($this.StorageAccount).table.core.windows.net/$resource"
+            $GMTTime = (Get-Date).ToUniversalTime().toString('R')
+            $stringToSign = "$GMTTime`n/$($this.StorageAccount)/$resource"
+
+            $signature = $this.hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign))
+            $signature = [Convert]::ToBase64String($signature)
+            $body = $entity | ConvertTo-Json
+            $headers = @{
+                'x-ms-date'      = $GMTTime
+                Authorization    = "SharedKeyLite " + $this.StorageAccount + ":" + $signature
+                "x-ms-version"   = $version
+                Accept           = "application/json;odata=minimalmetadata"
+                'If-Match'       = "*"
+                'Content-Length' = $body.length
+            }
+            Invoke-RestMethod -Method MERGE -Uri $table_url -Headers $headers -ContentType "application/json" -Body $body
+
+            return $true;
+        }
+        catch
+        {
+            Write-Host "Could not update the entry in the table for row key [$RowKey]";
+            return $false;
+        }
+    }
+
+    hidden [object] GetHeader($tableName)
+    {
+        $version = "2017-07-29"
+        $GMTTime = (Get-Date).ToUniversalTime().toString('R')
+        $stringToSign = "$GMTTime`n/$($this.StorageAccount)/$tableName"
+        
+        $signature = $this.hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign))
+        $signature = [Convert]::ToBase64String($signature)
+        $headers = @{
+            'x-ms-date'    = $GMTTime
+            Authorization  = "SharedKeyLite " + $this.StorageAccount + ":" + $signature
+            "x-ms-version" = $version
+            Accept         = "application/json;odata=minimalmetadata"
+        }
+        return $headers
+    }
+
     hidden [bool] GetTableEntityAndCloseBug([string] $hash) 
     {    
         #get table filter by name
         $tableName = $this.GetTableName();
         <#
         try {
-            #get storage table.
-            $cloudTable = (Get-AzStorageTable -Name $tableName -Context $this.StorageAccountCtx).CloudTable;
-            if ($cloudTable) {
-                #Get clouddata to do perform read/write operations on the table
-    
-                 
-                $azTableBugInfo = @();
-                $azTableBugInfo += Get-AzTableRow -table $cloudTable -CustomFilter "(($hash) and (IsDeleted eq 'N'))";
 
-                if ($azTableBugInfo -and $azTableBugInfo.count -gt 0) {
-                    foreach ($row in $azTableBugInfo) {
-                        if($this.CloseBug($row[0].ADOBugId, $row[0].projectName) )
-                        {
-                            $row.IsDeleted = "Y";
-                            $row | Update-AzTableRow -Table $cloudTable;
-                        }
-                    } 
-                }
+            #Get clouddata to do perform read/write operations on the table
+            $azTableBugInfo = @();
+
+            $query = '({0}) and IsDeleted eq ''N''' -f $hash;
+            $resource = '$filter='+[System.Web.HttpUtility]::UrlEncode($query);
+            $table_url = "https://{0}.table.core.windows.net/{1}?{2}" -f $this.StorageAccount, $tableName, $resource
+            $headers = $this.GetHeader($tableName)
+            $item = Invoke-RestMethod -Method Get -Uri $table_url -Headers $headers -ContentType "application/json"
+            
+            $azTableBugInfo = $item.value
+            if ($azTableBugInfo -and $azTableBugInfo.count -gt 0) {
+                foreach ($row in $azTableBugInfo) {
+                    if($this.CloseBug($row.ADOBugId, $row.projectName) )
+                    {
+                       $this.UpdateTableEntity($tableName, $row.ADOScannerHashId, $row.ADOBugId, $row.projectName);
+                    }
+                } 
             }
         }
         catch {
