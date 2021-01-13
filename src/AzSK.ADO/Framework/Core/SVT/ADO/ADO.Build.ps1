@@ -239,6 +239,8 @@ class Build: ADOSVTBase
 
             if(($builds | Measure-Object).Count -gt 0 )
             {
+                $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
+                [datetime]$createdDate = $this.BuildObj.createdDate
 
                 if($null -ne $builds[0].latestRun)
                 {
@@ -249,15 +251,14 @@ class Build: ADOSVTBase
 
 
                     else {
-                        $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
-                        [datetime]$createdDate = $this.BuildObj.createdDate
+                        
                         if ((((Get-Date) - $createdDate).Days) -lt $inactiveLimit)
                         {
                             $controlResult.AddMessage([VerificationResult]::Passed, "Build was created within last $inactiveLimit days but never queued.");
                         }
                         else {
                             $controlResult.AddMessage([VerificationResult]::Failed,
-                                "No recent build history found in last $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days");
+                                "No recent build history found in last $inactiveLimit days");
                         }
                     }
 
@@ -265,8 +266,15 @@ class Build: ADOSVTBase
                     $controlResult.AddMessage("Last run date of build pipeline: $($buildLastRunDate)");
                     $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $buildLastRunDate;
                 }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "No build history found.");
+                else { #no build history ever. check whether pipeline has been created recently.
+                    if ((((Get-Date) - $createdDate).Days) -lt $inactiveLimit)
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Build was created within last $inactiveLimit days but never queued.");
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Failed,
+                            "No build history found in last $inactiveLimit days");
+                    }
                     $controlResult.AdditionalInfo += "No build history found.";
                 }
             }

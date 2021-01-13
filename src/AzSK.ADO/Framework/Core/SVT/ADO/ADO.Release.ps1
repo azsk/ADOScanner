@@ -298,11 +298,11 @@ class Release: ADOSVTBase
             }
             else
             {
-                $inactiveLimit = $this.ControlSettings.AgentPool.BuildHistoryPeriodInDays
+                $inactiveLimit = $this.ControlSettings.Release.ReleaseHistoryPeriodInDays
                 [datetime]$createdDate = $this.ReleaseObj.createdOn
                 if ((((Get-Date) - $createdDate).Days) -lt $inactiveLimit)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "Release was created within last $inactiveLimit days but never queued.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Release was created within last $inactiveLimit days but never triggered.");
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Failed,
