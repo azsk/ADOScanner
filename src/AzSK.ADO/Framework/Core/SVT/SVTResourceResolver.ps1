@@ -50,9 +50,6 @@ class SVTResourceResolver: AzSKRoot {
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
         $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);            
         $this.skipOrgUserControls = $skipOrgUserControls
-		if ([RemoteReportHelper]::IsAIOrgTelemetryEnabled()) { 
-			$this.IsAIEnabled = $true; 
-		}
     }
 
     [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllArtifacts, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls) { 
@@ -165,6 +162,10 @@ class SVTResourceResolver: AzSKRoot {
     [void] LoadResourcesForScan() {
         #Call APIS for Organization,User/Builds/Releases/ServiceConnections 
         $organizationId = "";
+
+        if ([RemoteReportHelper]::IsAIOrgTelemetryEnabled()) { 
+            $this.IsAIEnabled = $true; 
+        }
         
         #Checking if org name is correct 
         $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.organizationName);

@@ -308,6 +308,25 @@ class Release: ADOSVTBase
                                                 "No release history found. Release is inactive.");
         }
 
+        # below code provide the details of build artifacts associated with release pipeline
+        if([Helpers]::CheckMember($this.ReleaseObj[0], "artifacts.definitionReference.definition"))
+        {
+            #$associatedBuildArtifacts = $this.ReleaseObj[0].artifacts | where-object {$_.type -eq "Build"}
+            $allArtifacts = $this.ReleaseObj[0].artifacts | Select-Object @{Label="Type"; Expression={$_.type}},  @{Label="Id"; Expression={$_.definitionReference.definition.id}}, @{Label="Name"; Expression={$_.definitionReference.definition.name}}
+            $buildArtifacts = $allArtifacts | where-object {$_.Type -eq "Build"}
+            $otherArtifacts = $allArtifacts | where-object {$_.Type -ne "Build"}
+            if(($null -ne $buildArtifacts) -and ($buildArtifacts | Measure-Object).Count -gt 0)
+            {
+                $controlResult.AddMessage("Build artifacts associated with release pipeline: ", $buildArtifacts);
+                $controlResult.AdditionalInfo += "Build artifacts associated with release pipeline: " + [JsonHelper]::ConvertToJsonCustomCompressed($buildArtifacts);
+            }
+            if(($null -ne $otherArtifacts) -and ($otherArtifacts | Measure-Object).Count -gt 0)
+            {
+                $controlResult.AddMessage("Other artifacts associated with release pipeline: ", $otherArtifacts);
+                $controlResult.AdditionalInfo += "Other artifacts associated with release pipeline: " + [JsonHelper]::ConvertToJsonCustomCompressed($otherArtifacts);
+            }
+        }
+
         $responseObj = $null;
     } 
         return $controlResult

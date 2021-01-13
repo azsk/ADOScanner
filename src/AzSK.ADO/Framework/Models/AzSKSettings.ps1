@@ -270,7 +270,10 @@ class AzSKSettings {
 		{
 			$repoName = [Constants]::OrgPolicyRepoCSEO;
 		}
-		
+		if ([AzSKSettings]::InvocationContext.BoundParameters["PolicyRepoName"])
+		{
+			$repoName = [AzSKSettings]::InvocationContext.BoundParameters["PolicyRepoName"];
+		}		
 		<#if($projectName)
 		{
 			Write-Host -ForegroundColor Green "Online policy URL set to: [$orgName::$projectName::$repoName]"

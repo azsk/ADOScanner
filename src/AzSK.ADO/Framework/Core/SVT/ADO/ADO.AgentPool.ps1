@@ -250,6 +250,7 @@ class AgentPool: ADOSVTBase
                                 $refHashTable.Keys | Where-Object {
                                     for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) 
                                     {
+                                        # Using -cmatch as same logic we had applied in build and release controls
                                         if($refHashTable.Item($_) -cmatch $patterns.RegexList[$i])
                                         {
                                             $noOfCredFound += 1
@@ -276,6 +277,7 @@ class AgentPool: ADOSVTBase
                                 #$varList = $EnvVariablesContainingSecret | select -Unique | Sort-object
                                # $stateData.AgentsWithCred += $AgentsWithSecretsInEnv.AgentName
                                 $controlResult.AddMessage("`nTotal number of agents that contain secrets in user-defined capabilities: $count")
+                                $controlResult.AdditionalInfo += "Total number of agents that contain secrets in user-defined capabilities: "+ $count;
                                 $controlResult.AddMessage("`nAgent wise list of user-defined capabilities containing secret: ");
                                 $display=($AgentsWithSecretsInEnv | FT AgentName,Capabilities -AutoSize | Out-String -Width 512)
                                 $controlResult.AddMessage($display)

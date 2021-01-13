@@ -917,9 +917,11 @@ class Build: ADOSVTBase
                 if ([Helpers]::CheckMember($this.BuildObj, "queue.pool") -and !([Helpers]::CheckMember($this.BuildObj.queue.pool,"isHosted") -and $this.BuildObj.queue.pool.isHosted -eq $true ) ) {
                     #https://dev.azure.com/{0}/_apis/distributedtask/pools?poolIds={1}&api-version=6.0
                     $controlResult.AddMessage([VerificationResult]::Failed,"Pipeline builds code from forked repository [$($this.BuildObj.repository.name)] on self-hosted agent [$($this.BuildObj.queue.pool.name)].");
+                    $controlResult.AdditionalInfo += "Pipeline builds code from forked repository [$($this.BuildObj.repository.name)] on self-hosted agent [$($this.BuildObj.queue.pool.name)].";
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline builds code from forked repository [$($this.BuildObj.repository.name)] on hosted agent [$($this.BuildObj.queue.pool.name)].");
+                    $controlResult.AdditionalInfo += "Pipeline builds code from forked repository [$($this.BuildObj.repository.name)] on hosted agent [$($this.BuildObj.queue.pool.name)].";
                 }
             }
             else {
@@ -941,9 +943,11 @@ class Build: ADOSVTBase
             if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
             {
                 $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository.",  $sourceobj);
+                $controlResult.AdditionalInfo += "Pipeline code is built from trusted repository: " + [JsonHelper]::ConvertToJsonCustomCompressed($sourceobj);
             }
             else {
                 $controlResult.AddMessage("Pipeline code is built from untrusted external repository.",  $sourceobj);
+                $controlResult.AdditionalInfo += "Pipeline code is built from untrusted external repository: " + [JsonHelper]::ConvertToJsonCustomCompressed($sourceobj);
 
                 if ([Helpers]::CheckMember($this.BuildObj[0], "triggers"))
                 {
