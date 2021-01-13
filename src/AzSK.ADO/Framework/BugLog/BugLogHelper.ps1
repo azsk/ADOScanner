@@ -11,6 +11,7 @@ class BugLogHelper {
     hidden [string] $StorageRG;
     hidden [bool] $errorMsgDisplayed = $false
     hidden [string] $SharedKey
+    hidden [object] $hmacsha
 
     BugLogHelper([string] $orgName) {
         $this.OrganizationName = $orgName;
@@ -24,6 +25,9 @@ class BugLogHelper {
             $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https
             $this.SharedKey = $keys[0].Value;
             $this.StorageAccountCtx = $StorageContext.Context;
+
+            $this.hmacsha = New-Object System.Security.Cryptography.HMACSHA256
+            $this.hmacsha.key = [Convert]::FromBase64String($this.SharedKey)
         }
         
     }
@@ -64,7 +68,7 @@ class BugLogHelper {
                 else {
                     #if bug state is closed on the ADO side and isDeleted is 'N' in azuretable then update azure table -> set isdeleted ='Y'
                     
-                    $this.UpdateTableEntry($tableName, $hash, $adoBugId, $projectName);
+                    $this.UpdateTableEntity($tableName, $hash, $adoBugId, $projectName);
                 }
                 return $bugObj;
             }
@@ -83,15 +87,15 @@ class BugLogHelper {
            $tableName = $this.GetTableName();
 
            #Get table filterd by name.
-           $storageTables = Get-AzStorageTable -Context $this.StorageAccountCtx | Select Name
+           $storageTables = Get-AzStorageTable -Context $this.StorageAccountCtx | Select Name;
 
            #create table if table not found.
            if ( !$storageTables -or ($storageTables.count -eq 0) -or !($storageTables.Name -eq $tableName) ) {
-               New-AzStorageTable $tableName -Context $this.StorageAccountCtx
+               New-AzStorageTable $tableName -Context $this.StorageAccountCtx;
            }
 
-           $this.AddDataInTable($tableName, $hash, $ADOBugId, $projectName)
-           return $true;           
+           $isDataAddedInTable = $this.AddDataInTable($tableName, $hash, $ADOBugId, $projectName)
+           return $isDataAddedInTable;           
         }
         catch {
             return $false;
@@ -99,47 +103,51 @@ class BugLogHelper {
     }
 
     hidden [object] GetTableEntity($tableName, $hash) {
-        try {
-        
-        $query = 'ADOScannerHashId eq ''{0}''  and IsDeleted eq ''N''' -f $hash;
-        $resource = '$filter='+[System.Web.HttpUtility]::UrlEncode($query);
-        $table_url = "https://{0}.table.core.windows.net/{1}?{2}" -f $this.StorageAccount, $tableName, $resource
-        $headers = $this.GetHeader($tableName)
-        $item = Invoke-RestMethod -Method Get -Uri $table_url -Headers $headers -ContentType application/json
-        return $item.value;
-      }
-      catch
-      {
-          return $null
-      }
+        try 
+        {
+            $query = 'ADOScannerHashId eq ''{0}'' and IsDeleted eq ''N''' -f $hash;
+            $resource = '$filter='+[System.Web.HttpUtility]::UrlEncode($query);
+            $table_url = "https://{0}.table.core.windows.net/{1}?{2}" -f $this.StorageAccount, $tableName, $resource
+            $headers = $this.GetHeader($tableName)
+            $item = Invoke-RestMethod -Method Get -Uri $table_url -Headers $headers -ContentType "application/json"
+            return $item.value;
+        }
+        catch
+        {
+            return $null
+        }
     }
 
     hidden [bool] AddDataInTable($tableName, $hash, $ADOBugId, $projectName)
     {
-        try {
-            #Add data in table.
-           $partitionKey = $hash;
-           $rowKey = $hash + "_" + $ADOBugId;
+        $partitionKey = $hash;
+        $rowKey = $hash + "_" + $ADOBugId;
            
+        try 
+        {
+            #Add data in table.
+            
             $entity = @{"PartitionKey" = $partitionKey; "RowKey" = $rowKey; "ADOBugId" = $ADOBugId; "ADOScannerHashId" = $hash; "IsDeleted" = "N"; "ProjectName" = $projectName};
             $table_url = "https://{0}.table.core.windows.net/{1}" -f $this.StorageAccount, $tableName
             $headers = $this.GetHeader($tableName);
             $body = $entity | ConvertTo-Json
-            $item = Invoke-RestMethod -Method POST -Uri $table_url -Headers $headers -Body $body -ContentType application/json
+            $item = Invoke-RestMethod -Method POST -Uri $table_url -Headers $headers -Body $body -ContentType "application/json"
             return $true;
         }
         catch
         {
+            Write-Host "Could not push an entry in the table for row key [$rowKey]";
             return $false;
         }
     }
 
-    hidden [bool] UpdateTableEntry($tableName, $hash, $ADOBugId, $projectName)
+    hidden [bool] UpdateTableEntity($tableName, $hash, $ADOBugId, $projectName)
     {
+        $PartitionKey = $hash;
+        $Rowkey = $hash + "_" + $ADOBugId;
+        
         try {
             #Add data in table.
-           $PartitionKey = $hash;
-           $Rowkey = $hash + "_" + $ADOBugId;
            
             $entity = @{"ADOBugId" = $ADOBugId; "ADOScannerHashId" = $hash; "IsDeleted" = "Y"; "ProjectName" = $projectName};
             $body = $entity | ConvertTo-Json
@@ -149,9 +157,8 @@ class BugLogHelper {
             $table_url = "https://$($this.StorageAccount).table.core.windows.net/$resource"
             $GMTTime = (Get-Date).ToUniversalTime().toString('R')
             $stringToSign = "$GMTTime`n/$($this.StorageAccount)/$resource"
-            $hmacsha = New-Object System.Security.Cryptography.HMACSHA256
-            $hmacsha.key = [Convert]::FromBase64String($this.SharedKey)
-            $signature = $hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign))
+
+            $signature = $this.hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign))
             $signature = [Convert]::ToBase64String($signature)
             $body = $entity | ConvertTo-Json
             $headers = @{
@@ -162,12 +169,13 @@ class BugLogHelper {
                 'If-Match'       = "*"
                 'Content-Length' = $body.length
             }
-            $item = Invoke-RestMethod -Method MERGE -Uri $table_url -Headers $headers -ContentType application/json -Body $body
+            Invoke-RestMethod -Method MERGE -Uri $table_url -Headers $headers -ContentType "application/json" -Body $body
 
             return $true;
         }
         catch
         {
+            Write-Host "Could not update the entry in the table for row key [$RowKey]";
             return $false;
         }
     }
@@ -177,9 +185,8 @@ class BugLogHelper {
         $version = "2017-07-29"
         $GMTTime = (Get-Date).ToUniversalTime().toString('R')
         $stringToSign = "$GMTTime`n/$($this.StorageAccount)/$tableName"
-        $hmacsha = New-Object System.Security.Cryptography.HMACSHA256
-        $hmacsha.key = [Convert]::FromBase64String($this.SharedKey)
-        $signature = $hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign))
+        
+        $signature = $this.hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign))
         $signature = [Convert]::ToBase64String($signature)
         $headers = @{
             'x-ms-date'    = $GMTTime
@@ -204,13 +211,14 @@ class BugLogHelper {
             $resource = '$filter='+[System.Web.HttpUtility]::UrlEncode($query);
             $table_url = "https://{0}.table.core.windows.net/{1}?{2}" -f $this.StorageAccount, $tableName, $resource
             $headers = $this.GetHeader($tableName)
-            $item = Invoke-RestMethod -Method Get -Uri $table_url -Headers $headers -ContentType application/json
+            $item = Invoke-RestMethod -Method Get -Uri $table_url -Headers $headers -ContentType "application/json"
+            
             $azTableBugInfo = $item.value
             if ($azTableBugInfo -and $azTableBugInfo.count -gt 0) {
                 foreach ($row in $azTableBugInfo) {
                     if($this.CloseBug($row.ADOBugId, $row.projectName) )
                     {
-                       $this.UpdateTableEntry($tableName, $row.ADOScannerHashId, $row.ADOBugId, $row.projectName);
+                       $this.UpdateTableEntity($tableName, $row.ADOScannerHashId, $row.ADOBugId, $row.projectName);
                     }
                 } 
             }
