@@ -83,11 +83,11 @@ class BugLogHelper {
            $tableName = $this.GetTableName();
 
            #Get table filterd by name.
-           $isTableExist = $this.CheckTableExist($tableName);
+           $storageTables = Get-AzStorageTable -Context $this.StorageAccountCtx | Select Name
 
            #create table if table not found.
-           if ( !$isTableExist) {
-               $this.CreateTable($tableName);
+           if ( !$storageTables -or ($storageTables.count -eq 0) -or !($storageTables.Name -eq $tableName) ) {
+               New-AzStorageTable $tableName -Context $this.StorageAccountCtx
            }
 
            $this.AddDataInTable($tableName, $hash, $ADOBugId, $projectName)
@@ -96,37 +96,6 @@ class BugLogHelper {
         catch {
             return $false;
         } 
-    }
-
-    hidden [bool] CheckTableExist($tableName)
-    {
-        try {
-        
-            $tables = Get-AzStorageTable -Context $this.StorageAccountCtx | Select Name
-            if ($tables -and ($tables.name -eq $tableName))
-            {
-                return $true;
-            }
-            else {
-                return $false;
-            }
-        }
-        catch
-        {
-            return $false;
-        }
-    }
-
-    hidden [bool] CreateTable($tableName)
-    {
-        try {
-            New-AzStorageTable $tableName -Context $this.StorageAccountCtx
-            return $true;
-        }
-        catch
-        {
-            return $false;
-        }
     }
 
     hidden [object] GetTableEntity($tableName, $hash) {
