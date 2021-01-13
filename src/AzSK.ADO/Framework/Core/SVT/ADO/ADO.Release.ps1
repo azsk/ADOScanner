@@ -290,8 +290,16 @@ class Release: ADOSVTBase
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Failed,
-                "No release history found.");
+                $inactiveLimit = $this.ControlSettings.AgentPool.BuildHistoryPeriodInDays
+                [datetime]$createdDate = $this.ReleaseObj.createdOn
+                if ((((Get-Date) - $createdDate).Days) -lt $inactiveLimit)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Release was created within last $inactiveLimit days but never queued.");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Failed,
+                    "No release history found.");
+                }
             }
            
         }
