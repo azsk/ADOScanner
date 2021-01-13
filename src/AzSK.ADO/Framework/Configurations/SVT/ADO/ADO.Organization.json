@@ -533,7 +533,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Organization_AuthN_Disable_SSH_Auth",
+      "ControlID": "ADO_Organization_AuthN_Disable_SSH_Access",
       "Description": "Connecting to Git repos via SSH should be disabled.",
       "Id": "Organization420",
       "ControlSeverity": "Medium",
