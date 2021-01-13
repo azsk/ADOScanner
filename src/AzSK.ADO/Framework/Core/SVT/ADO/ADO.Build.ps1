@@ -249,8 +249,16 @@ class Build: ADOSVTBase
 
 
                     else {
-                        $controlResult.AddMessage([VerificationResult]::Failed,
-                            "No recent build history found in last $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days");
+                        $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
+                        [datetime]$createdDate = $this.BuildObj.createdDate
+                        if ((((Get-Date) - $createdDate).Days) -lt $inactiveLimit)
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Passed, "Build was created within last $inactiveLimit days but never queued.");
+                        }
+                        else {
+                            $controlResult.AddMessage([VerificationResult]::Failed,
+                                "No recent build history found in last $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days");
+                        }
                     }
 
                     $buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
