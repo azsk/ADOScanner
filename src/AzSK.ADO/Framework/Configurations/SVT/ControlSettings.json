@@ -19,7 +19,9 @@
           "ADO_Organization_DP_Dont_Allow_Public_Projects",
           "ADO_Organization_Enable_Audit_Stream",
           "ADO_Organization_BCDR_Min_Admin_Count",
-          "ADO_Organization_AuthN_Use_ALT_Accounts_For_Admin"
+          "ADO_Organization_AuthN_Use_ALT_Accounts_For_Admin",
+          "ADO_Organization_AuthZ_Disable_OAuth_App_Access",
+          "ADO_Organization_AuthN_Disable_SSH_Access"
         ]
       },
       {
@@ -33,7 +35,8 @@
           "ADO_Project_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
           "ADO_Project_AuthN_Use_ALT_Accounts_For_Admin",
           "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secure_Files",
-          "ADO_Project_AuthZ_Restrict_Feed_Permissions"
+          "ADO_Project_AuthZ_Restrict_Feed_Permissions",
+          "ADO_Project_AuthZ_Disable_Inherited_Permissions"
         ]
       },
       {
