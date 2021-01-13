@@ -266,7 +266,7 @@ class Build: ADOSVTBase
                     $controlResult.AddMessage("Last run date of build pipeline: $($buildLastRunDate)");
                     $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $buildLastRunDate;
                 }
-                else {
+                else { #no build history ever. check whether pipeline has been created recently.
                     if ((((Get-Date) - $createdDate).Days) -lt $inactiveLimit)
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Build was created within last $inactiveLimit days but never queued.");
