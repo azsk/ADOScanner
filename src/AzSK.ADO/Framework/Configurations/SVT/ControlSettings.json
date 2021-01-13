@@ -277,6 +277,17 @@
       "Contributors"
     ]
   },
+  "Repo": {
+    "RepoHistoryPeriodInDays": 180,
+    "AuthorEmailValidationPolicyID": "77ed4bd3-b063-4689-934a-175e4d0a78d7",
+    "CredScanPolicyID": "e67ae10f-cf9a-40bc-8e66-6b3a8216956e",
+    "CommitAuthorEmailPattern": [
+      "*@microsoft.com",
+      "*@exchange.microsoft.com",
+      "*@ntdev.microsoft.com",
+      "*@microsoftfederal.com"
+    ]
+  },
   "ServiceConnection": {
     "ServiceConnectionHistoryPeriodInDays": 180,
     "ExemptedGroupIdentities": [
