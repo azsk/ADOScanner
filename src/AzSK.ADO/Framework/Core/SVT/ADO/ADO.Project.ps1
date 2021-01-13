@@ -3,9 +3,11 @@ class Project: ADOSVTBase
 {    
     [PSObject] $PipelineSettingsObj = $null
     hidden $PAMembers = @()
+    hidden $Repos = $null
 
     Project([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId,$svtResource) 
     {
+        $this.Repos = $null
         $this.GetPipelineSettingsObj()
     }
 
@@ -641,6 +643,289 @@ class Project: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of secure files.");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckAuthorEmailValidationPolicy([ControlResult] $controlResult) {
+        # body for post request
+        $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.SubscriptionContext.SubscriptionName);
+        $inputbody = '{"contributionIds":["ms.vss-code-web.repository-policies-data-provider"],"dataProviderContext":{"properties":{"projectId": "","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+        $inputbody.dataProviderContext.properties.projectId = "$($this.ResourceContext.ResourceDetails.id)"
+        $inputbody.dataProviderContext.properties.sourcePage.routeValues.project = "$($this.ResourceContext.ResourceName)"
+        $inputbody.dataProviderContext.properties.sourcePage.url = "https://$($this.SubscriptionContext.SubscriptionName).visualstudio.com/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=policies"
+
+        try {
+            $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+            if ([Helpers]::CheckMember($response, "dataProviders") -and $response.dataProviders.'ms.vss-code-web.repository-policies-data-provider' -and [Helpers]::CheckMember($response.dataProviders.'ms.vss-code-web.repository-policies-data-provider', "policyGroups")) {
+                # fetching policy groups
+                $policyGroups = $response.dataProviders."ms.vss-code-web.repository-policies-data-provider".policyGroups
+                # fetching "Commit author email validation"
+                $authorEmailPolicyId = $this.ControlSettings.Repo.AuthorEmailValidationPolicyID
+                $commitAuthorEmailPattern = $this.ControlSettings.Repo.CommitAuthorEmailPattern
+                if ([Helpers]::CheckMember($policyGroups, $authorEmailPolicyId)) {
+                    $currentScopePoliciesEmail = $policyGroups."$($authorEmailPolicyId)".currentScopePolicies
+                    $controlResult.AddMessage("`nNote: Commits from the following email ids are considered as 'trusted': `n`t[$($commitAuthorEmailPattern -join ', ')]");
+                    # validating email patterns
+                    $flag = 0;
+                    $emailPatterns = $currentScopePoliciesEmail.settings.authorEmailPatterns
+                    $invalidPattern = @()
+                    if ($emailPatterns -eq $null) { $flag = 1; }
+                    else {
+                        foreach ($val in $emailPatterns) {
+                            if ($val -notin $commitAuthorEmailPattern -and (-not [string]::IsNullOrEmpty($val))) {
+                                $flag = 1;
+                                $invalidPattern += $val
+                            }
+                        }
+                    }
+                    if ($flag -eq 0) {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Commit author email validation is set as per the organizational requirements.");
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Verify, "Commit author email validation is not set as per the organizational requirements.");
+                        if($invalidPattern.Count -gt 0) {
+                            $controlResult.AddMessage("List of commit author email patterns that are not trusted: $($invalidPattern)")
+                        }
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "'Commit author email validation' policy is disabled.");
+                }
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies $($_).");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckCredentialsAndSecretsPolicy([ControlResult] $controlResult) {
+        # body for post request
+        $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.SubscriptionContext.SubscriptionName);
+        $inputbody = '{"contributionIds":["ms.vss-code-web.repository-policies-data-provider"],"dataProviderContext":{"properties":{"projectId": "","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+        $inputbody.dataProviderContext.properties.projectId = "$($this.ResourceContext.ResourceDetails.id)"
+        $inputbody.dataProviderContext.properties.sourcePage.routeValues.project = "$($this.ResourceContext.ResourceName)"
+        $inputbody.dataProviderContext.properties.sourcePage.url = "https://$($this.SubscriptionContext.SubscriptionName).visualstudio.com/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=policies"
+        
+        try {
+            $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+            if ([Helpers]::CheckMember($response, "dataProviders") -and $response.dataProviders.'ms.vss-code-web.repository-policies-data-provider' -and [Helpers]::CheckMember($response.dataProviders.'ms.vss-code-web.repository-policies-data-provider', "policyGroups")) { 
+                # fetching policy groups
+                $policyGroups = $response.dataProviders."ms.vss-code-web.repository-policies-data-provider".policyGroups
+                # fetching "Secrets scanning restriction"
+                $credScanId = $this.ControlSettings.Repo.CredScanPolicyID
+                if ([Helpers]::CheckMember($policyGroups, $credScanId)) {
+                    $currentScopePoliciesSecrets = $policyGroups."$($credScanId)".currentScopePolicies
+                    if ($currentScopePoliciesSecrets.isEnabled) {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Check for credentials and other secrets is enabled.");
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Check for credentials and other secrets is disabled.");
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Check for credentials and other secrets is disabled.");
+                }
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies $($_).");
+        }
+        return $controlResult
+    }
+    
+    hidden [PSObject] FetchRepositoriesList() {
+        if($null -eq $this.Repos) {
+            # fetch repositories
+            $repoDefnURL = ("https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ResourceContext.ResourceName)/_apis/git/repositories?api-version=6.0")
+            try {
+                $repoDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($repoDefnURL);
+                $this.Repos = $repoDefnsObj;
+            }
+            catch {
+                $this.Repos = $null
+            }
+        }
+        return $this.Repos
+    }
+    
+    hidden [ControlResult] CheckInactiveRepo([ControlResult] $controlResult) {
+        try {
+            $repoDefnsObj = $this.FetchRepositoriesList()
+            $inactiveRepos = @()
+            $threshold = $this.ControlSettings.Repo.RepoHistoryPeriodInDays
+            if (($repoDefnsObj | Measure-Object).Count -gt 0) {
+                foreach ($repo in $repoDefnsObj) {
+                    $currentDate = Get-Date
+                    # check if repo has commits in past RepoHistoryPeriodInDays days
+                    $thresholdDate = $currentDate.AddDays(-$threshold);
+                    $url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ResourceContext.ResourceName)/_apis/git/repositories/$($repo.id)/commits?searchCriteria.fromDate=$($thresholdDate)&&api-version=6.0"
+                    try{
+                        $res = [WebRequestHelper]::InvokeGetWebRequest($url);
+                        # When there are no commits, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false.
+                        if (([Helpers]::CheckMember($res[0], "count", $false)) -and ($res[0].count -eq 0)) {
+                            $inactiveRepos += $repo.name
+                        }
+                    }
+                    catch{
+                        $controlResult.AddMessage("Could not fetch the history of repository [$($repo.name)].");
+                    }
+                }
+                $inactivecount = $inactiveRepos.Count
+                if ($inactivecount -gt 0) {
+                    $inactiveRepos = $inactiveRepos | sort-object
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Total number of inactive repositories that have no commits in last $($threshold) days: $($inactivecount) ", $inactiveRepos);
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "There are no inactive repositories in the project.");
+                }
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of repositories in the project.", $_);
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckRepoRBACAccess([ControlResult] $controlResult) {
+
+        $accessList = @()
+        #permissionSetId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
+        try{
+
+            $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.SubscriptionContext.SubscriptionName);
+            $refererUrl = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=permissions";
+            $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+            $inputbody.dataProviderContext.properties.sourcePage.url = $refererUrl
+            $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
+            $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.id)"
+
+            # Get list of all users and groups granted permissions on all repositories
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody); 
+
+            # Iterate through each user/group to fetch detailed permissions list
+            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+            {
+                $body = '{"contributionIds":["ms.vss-admin-web.security-view-permissions-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","accountName":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $body.dataProviderContext.properties.sourcePage.url = $refererUrl
+                $body.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
+                $body.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.id)"
+
+                $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { $_.subjectKind -eq "group" } | ForEach-Object { 
+                    $identity = $_ 
+                    $body.dataProviderContext.properties.accountName = $_.principalName
+                    $body.dataProviderContext.properties.subjectDescriptor = $_.descriptor
+
+                    $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body); 
+                    $configuredPermissions = $identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
+                    return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.subjectKind; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
+                }
+
+                $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { $_.subjectKind -eq "user" } | ForEach-Object { 
+                    $identity = $_ 
+                    $body.dataProviderContext.properties.subjectDescriptor = $_.descriptor
+
+                    $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body); 
+                    $configuredPermissions = $identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
+                    return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.subjectKind; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
+                }
+            }
+
+            if(($accessList | Measure-Object).Count -ne 0)
+            {
+                $accessList= $accessList | Select-Object -Property @{Name="IdentityName"; Expression = {$_.IdentityName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Permissions"; Expression = {$_.Permissions}}
+                $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to repositories.", $accessList);
+                $controlResult.SetStateData("List of identities having access to repositories: ", ($responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.subjectKind}},@{Name="Scope"; Expression = {$_.Scope}})); 
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed,"No identities have been explicitly provided access to repositories.");
+            } 
+            $responseObj = $null;
+
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch repositories permission details. $($_) Please verify from portal all teams/groups are granted minimum required permissions.");
+        }
+
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult) {
+        $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+        try {
+            $repoDefnsObj = $this.FetchRepositoriesList()
+            $failedRepos = @()
+            $passedRepos = @()
+            foreach ($repo in $repoDefnsObj) {
+                $url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1"
+                $body = "{
+                    'contributionIds': [
+                        'ms.vss-admin-web.security-view-data-provider'
+                    ],
+                    'dataProviderContext': {
+                        'properties': {
+                            'permissionSetId': '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87',
+                            'permissionSetToken': '',
+                            'sourcePage': {
+                                'url': '',
+                                'routeId': 'ms.vss-admin-web.project-admin-hub-route',
+                                'routeValues': {
+                                    'project': '',
+                                    'adminPivot': 'repositories',
+                                    'controller': 'ContributedPage',
+                                    'action': 'Execute',
+                                    'serviceHost': ''
+                                }
+                            }
+                        }
+                    }
+                }" | ConvertFrom-Json
+                $body.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($repo.id)"
+                $body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$projectId/_settings/repositories?repo=/$($repo.id)&_a=permissionsMid";
+                $body.dataProviderContext.properties.sourcePage.routeValues.project = "$projectId";
+                $response = ""
+                try {
+                    $response = [WebRequestHelper]::InvokePostWebRequest($url, $body);
+                    if ([Helpers]::CheckMember($response, "dataProviders") -and $response.dataProviders.'ms.vss-admin-web.security-view-data-provider' -and [Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.security-view-data-provider', "permissionsContextJson")) {
+                        $permissionsContextJson = $response.dataProviders.'ms.vss-admin-web.security-view-data-provider'.permissionsContextJson
+                        $permissionsContextJson = $permissionsContextJson | ConvertFrom-Json
+                        if ($permissionsContextJson.inheritPermissions) {
+                            $failedRepos += $repo.name
+                        }
+                        else {
+                            $passedRepos += $repo.name
+                        }
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch details for repository $($repo.name). Please verify from portal whether inherited permissions is disabled.");
+                    }
+                }
+                catch {
+                    $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch details for repository $($repo.name). Please verify from portal whether inherited permissions is disabled. $($_).");
+                }
+            }
+            $failedcount = $failedRepos.Count
+            $passedcount = $passedRepos.Count
+            $passedRepos = $passedRepos | sort-object
+            if($failedcount -gt 0){
+                $failedRepos = $failedRepos | sort-object
+                $controlResult.AddMessage([VerificationResult]::Failed, "Inherited permissions are enabled on the below $($failedcount) repositories:", $failedRepos);
+                $controlResult.AddMessage("Inherited permissions are disabled on the below $($passedcount) repositories:", $passedRepos);
+            }
+            else {
+                $controlResult.AddMessage("Inherited permissions are disabled on all repositories.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch list of repositories in the project. $($_).");
         }
         return $controlResult
     }
