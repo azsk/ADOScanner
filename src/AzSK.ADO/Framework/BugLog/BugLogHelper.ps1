@@ -41,6 +41,7 @@ class BugLogHelper {
         $bugObj = @(@{});
         $bugObj[0].results = @();
 
+        <#
         try {
             #get storage table.
             $cloudTable = (Get-AzStorageTable -Name $tableName -Context $this.StorageAccountCtx).CloudTable;
@@ -78,12 +79,13 @@ class BugLogHelper {
         catch {
             Write-Host "Could not access storage account." -ForegroundColor Red
         }
-        
+        #>
         return $bugObj;
     }
 
     hidden [bool] InsertBugInfoInTable([string] $hash, [string] $projectName, [string] $ADOBugId) 
     {
+        <#
         try 
         {
            $tableName = $this.GetTableName();
@@ -107,13 +109,15 @@ class BugLogHelper {
         catch {
             return $false;
         } 
+        #>
+        return $false
     }
 
     hidden [bool] GetTableEntityAndCloseBug([string] $hash) 
     {    
         #get table filter by name
         $tableName = $this.GetTableName();
-
+        <#
         try {
             #get storage table.
             $cloudTable = (Get-AzStorageTable -Name $tableName -Context $this.StorageAccountCtx).CloudTable;
@@ -141,7 +145,7 @@ class BugLogHelper {
             }
             return $false;
         }
-        
+        #>
         return $true;
     } 
 
