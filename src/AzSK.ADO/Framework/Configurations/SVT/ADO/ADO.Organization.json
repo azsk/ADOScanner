@@ -531,6 +531,23 @@
         "SI"
       ],
       "Enabled": true
-    }
+    },
+    {
+      "ControlID": "ADO_Organization_AuthN_Disable_SSH_Auth",
+      "Description": "Connecting to Git repos via SSH should be disabled.",
+      "Id": "Organization420",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckSSHAuthN",
+      "Rationale": "Malicious SSH connections to ADO repos can be used to extract sensitive code/content leading to compromise of corporate data.",
+      "Recommendation": "Go to Organization Settings --> Security --> Policies --> Application connection policies --> Disable 'SSH Authentication'.",
+      "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthN"
+      ],
+      "Enabled": true
+  }
   ]
 }

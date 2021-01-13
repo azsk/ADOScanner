@@ -251,7 +251,7 @@
       "Automated": "Yes",
       "MethodName": "CheckForkedRepoOnSHAgent",
       "Rationale": "If you use GitHub open-source projects, anyone with a GitHub account can fork your repository and propose contributions back. Since pipelines are associated with a repository and not with specific branches, you must assume the code and YAML files are untrusted. (https://docs.microsoft.com/en-us/azure/devops/pipelines/security/repos?view=azure-devops)",
-      "Recommendation": "TBD",
+      "Recommendation": "1. Navigate to build pipeline definition --> 2. Ensure the pipeline does not build code from a forked repository. --> 3. Ensure the pipeline doesn't build code on a self-hosted agent.",
       "Tags": [
         "SDL",
         "TCP",
