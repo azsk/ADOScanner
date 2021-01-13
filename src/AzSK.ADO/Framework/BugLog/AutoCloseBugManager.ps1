@@ -2,24 +2,24 @@ Set-StrictMode -Version Latest
 class AutoCloseBugManager {
     hidden [string] $OrganizationName;
     hidden [PSObject] $ControlSettings;
-    hidden [string] $ScanSource;
-    hidden [bool] $UseAzureStorageAccount = $false;
-    hidden [BugLogHelper] $BugLogHelperObj;
+    #hidden [string] $ScanSource;
+    #hidden [bool] $UseAzureStorageAccount = $false;
+    #hidden [BugLogHelper] $BugLogHelperObj;
 
     AutoCloseBugManager([string] $orgName) {
         $this.OrganizationName = $orgName;
         $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
-        $this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
+        #$this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
         
-        if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount", $null)) {
-            $this.UseAzureStorageAccount = $this.ControlSettings.BugLogging.UseAzureStorageAccount;
-            if ($this.UseAzureStorageAccount) {
-                $this.BugLogHelperObj = [BugLogHelper]::BugLogHelperInstance
-		        if (!$this.BugLogHelperObj) {
-		        	$this.BugLogHelperObj = [BugLogHelper]::GetInstance($this.OrganizationName);
-		        }
-            }
-        }
+        #if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount", $null)) {
+        #    $this.UseAzureStorageAccount = $this.ControlSettings.BugLogging.UseAzureStorageAccount;
+        #    if ($this.UseAzureStorageAccount) {
+        #        $this.BugLogHelperObj = [BugLogHelper]::BugLogHelperInstance
+		#        if (!$this.BugLogHelperObj) {
+		#        	$this.BugLogHelperObj = [BugLogHelper]::GetInstance($this.OrganizationName);
+		#        }
+        #    }
+        #}
     }
 
 
@@ -88,18 +88,18 @@ class AutoCloseBugManager {
                 #check for number of tags in current query
                 $QueryKeyWordCount++;
 
-                if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA")
-                {
+                #if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA")
+                #{
                     #complete the query
-                    $TagSearchKeyword += "(ADOScannerHashId eq '" + $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) + "') or "
-                    #if the query count equals the passing control results, search for bugs for this batch
-                    if ($QueryKeyWordCount -eq $PassedControlResultsLength) {
-                        #to remove OR from the last tag keyword. Ex: Tags: Tag1 OR Tags: Tag2 OR. Remove the last OR from this keyword
-                        $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
-                        $response = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword)
-                    }
-                }
-                else {
+                    #$TagSearchKeyword += "(ADOScannerHashId eq '" + $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) + "') or "
+                    ##if the query count equals the passing control results, search for bugs for this batch
+                    #if ($QueryKeyWordCount -eq $PassedControlResultsLength) {
+                    #    #to remove OR from the last tag keyword. Ex: Tags: Tag1 OR Tags: Tag2 OR. Remove the last OR from this keyword
+                    #    $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
+                    #    $response = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword)
+                    #}
+                #}
+                #else {
                     #complete the query
                     $TagSearchKeyword += "Tags: " + $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) + " OR "
                     #if the query count equals the passing control results, search for bugs for this batch
@@ -117,28 +117,28 @@ class AutoCloseBugManager {
                             }
                         }
                     }
-                }
+                #}
             }
                 #if the number of control results was more than batch size
                 else {
                     $QueryKeyWordCount++;
-                    if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA")
-                    {
-                        $TagSearchKeyword += "(ADOScannerHashId eq '" + $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) + "') or "
-
-                        #if number of tags reaches batch limit
-                        if ($QueryKeyWordCount -eq $MaxKeyWordsToQuery) {
-                            #query for all these tags and their bugs
-                            $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
-                            $response = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword);
-                            #Reinitialize for the next batch
-                            $QueryKeyWordCount = 0;
-                            $TagSearchKeyword = "";
-                            $PassedControlResultsLength -= $MaxKeyWordsToQuery
-                        }
-                    }
-                    else
-                    {
+                    #if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA")
+                    #{
+                    #    $TagSearchKeyword += "(ADOScannerHashId eq '" + $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) + "') or "
+#
+                    #    #if number of tags reaches batch limit
+                    #    if ($QueryKeyWordCount -eq $MaxKeyWordsToQuery) {
+                    #        #query for all these tags and their bugs
+                    #        $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
+                    #        $response = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword);
+                    #        #Reinitialize for the next batch
+                    #        $QueryKeyWordCount = 0;
+                    #        $TagSearchKeyword = "";
+                    #        $PassedControlResultsLength -= $MaxKeyWordsToQuery
+                    #    }
+                    #}
+                    #else
+                    #{
                         $TagSearchKeyword += "Tags: " + $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) + " OR "
                         #if number of tags reaches batch limit
                         if ($QueryKeyWordCount -eq $MaxKeyWordsToQuery) {
@@ -157,7 +157,7 @@ class AutoCloseBugManager {
                         $TagSearchKeyword = "";
                         $PassedControlResultsLength -= $MaxKeyWordsToQuery
                         }
-                    }
+                    #}
                 }
                 
             }
@@ -205,13 +205,13 @@ class AutoCloseBugManager {
         $hashedTag = $null
         $stringToHash = "$ResourceId#$ControlId";
         #return the bug tag
-        if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
-        {
-            return [AutoBugLog]::ComputeHashX($stringToHash);
-        }
-        else {
+        #if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
+        #{
+        #    return [AutoBugLog]::ComputeHashX($stringToHash);
+        #}
+        #else {
             return "ADOScanID: " + [AutoBugLog]::ComputeHashX($stringToHash)
-        }
+        #}
     }
 
 

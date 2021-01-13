@@ -12,9 +12,9 @@ class AutoBugLog {
     hidden [string] $BugDescriptionField;
     hidden [string] $ServiceIdPassedInCMD;
 
-    hidden [bool] $UseAzureStorageAccount = $false;
-    hidden [BugLogHelper] $BugLogHelperObj;
-    hidden [string] $ScanSource;
+    #hidden [bool] $UseAzureStorageAccount = $false;
+    #hidden [BugLogHelper] $BugLogHelperObj;
+    #hidden [string] $ScanSource;
     
     AutoBugLog([string] $orgName, [InvocationInfo] $invocationContext, [ControlStateExtension] $controlStateExt, $bugLogParameterValue) {
         $this.OrganizationName = $orgName;
@@ -28,18 +28,18 @@ class AutoBugLog {
             $this.IsBugLogCustomFlow = $this.ControlSettings.BugLogging.BugAssigneeAndPathCustomFlow;
             $this.ServiceIdPassedInCMD = $InvocationContext.BoundParameters["ServiceId"];
         }
-        $this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
+        #$this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
         
         #If UseAzureStorageAccount is true then initialize the BugLogHelperObj singleton class object.
-        if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount")) {
-            $this.UseAzureStorageAccount = $this.ControlSettings.BugLogging.UseAzureStorageAccount;
-            if ($this.UseAzureStorageAccount) {
-                $this.BugLogHelperObj = [BugLogHelper]::BugLogHelperInstance
-		        if (!$this.BugLogHelperObj) {
-		        	$this.BugLogHelperObj = [BugLogHelper]::GetInstance($this.OrganizationName);
-		        }
-            }
-        }
+        #if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount")) {
+        #    $this.UseAzureStorageAccount = $this.ControlSettings.BugLogging.UseAzureStorageAccount;
+        #    if ($this.UseAzureStorageAccount) {
+        #        $this.BugLogHelperObj = [BugLogHelper]::BugLogHelperInstance
+		#        if (!$this.BugLogHelperObj) {
+		#        	$this.BugLogHelperObj = [BugLogHelper]::GetInstance($this.OrganizationName);
+		#        }
+        #    }
+        #}
 
         # Replace the field reference name for bug description if it is customized
         if ($this.InvocationContext.BoundParameters['BugDescriptionField']) {
@@ -357,17 +357,17 @@ class AutoBugLog {
     hidden [void] ManageActiveAndResolvedBugs([string]$ProjectName, [SVTEventContext[]] $control, [object] $workItem, [string] $AssignedTo) {
         
         #If using azure storage then calling documented api as we have ado id, so response will be different, so added if else condition
-        $state = "";
-        $id = "";
-        if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
-        {
-            $state = $workItem[0].results.fields."System.State"
-            $id = $workItem[0].results.id
-        }
-        else {
+        #$state = "";
+        #$id = "";
+        #if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
+        #{
+        #    $state = $workItem[0].results.fields."System.State"
+        #    $id = $workItem[0].results.id
+        #}
+        #else {
             $state = ($workItem[0].results.values[0].fields | where { $_.name -eq "State" }).value
             $id = ($workItem[0].results.values[0].fields | where { $_.name -eq "ID" }).value
-        }
+        #}
         
         #bug url that redirects user to bug logged in ADO, this is not available via the API response and thus has to be created via the ID of bug
         $bugUrl = "https://{0}.visualstudio.com/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $ProjectName , $id
@@ -456,12 +456,12 @@ class AutoBugLog {
     #function to search for existing bugs based on the hash
     hidden [object] GetWorkItemByHash([string] $hash, [string] $ProjectName) 
     {
-        if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
-        {
-            return $this.BugLogHelperObj.GetWorkItemByHashAzureTable($hash, $ProjectName, $this.ControlSettings.BugLogging.ResolvedBugLogBehaviour);
-        }
-        else 
-        {
+        #if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
+        #{
+        #    return $this.BugLogHelperObj.GetWorkItemByHashAzureTable($hash, $ProjectName, $this.ControlSettings.BugLogging.ResolvedBugLogBehaviour);
+        #}
+        #else 
+        #{
             $url = "https://{0}.almsearch.visualstudio.com/{1}/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $this.OrganizationName, $ProjectName
 
             #TODO: validate set to allow only two values : ReactiveOldBug and CreateNewBug
@@ -483,7 +483,7 @@ class AutoBugLog {
             $response = [WebRequestHelper]::InvokePostWebRequest($url, $body)
         
             return  $response
-        }
+        #}
     }
 
     #function to compute hash and return the tag
@@ -491,14 +491,14 @@ class AutoBugLog {
         $hashedTag = $null
         $stringToHash = "$ResourceId#$ControlId";
         #return the bug tag
-        if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
-        {
-            return [AutoBugLog]::ComputeHashX($stringToHash);
-        }
-        else 
-        {
+        #if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
+        #{
+        #    return [AutoBugLog]::ComputeHashX($stringToHash);
+        #}
+        #else 
+        #{
             return "ADOScanID: " + [AutoBugLog]::ComputeHashX($stringToHash)
-        }
+        #}
     }
 
     hidden [void] AddWorkItem([string] $Title, [string] $Description, [string] $AssignedTo, [string]$Severity, [string]$ProjectName, [SVTEventContext[]] $control, [string] $hash, [string] $serviceId) {
@@ -531,13 +531,13 @@ class AutoBugLog {
         $BugTemplate = $BugTemplate.Replace("{2}", $Severity)
         $BugTemplate = $BugTemplate.Replace("{3}", [BugLogPathManager]::AreaPath)
         $BugTemplate = $BugTemplate.Replace("{4}", [BugLogPathManager]::IterationPath)
-        if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
-        {
-            $BugTemplate = $BugTemplate.Replace("{5}", "ADOScanner")
-        }
-        else {
+        #if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
+        #{
+        #    $BugTemplate = $BugTemplate.Replace("{5}", "ADOScanner")
+        #}
+        #else {
             $BugTemplate = $BugTemplate.Replace("{5}", $hash)
-        }
+        #}
         $BugTemplate = $BugTemplate.Replace("{6}", $AssignedTo)
 
         if ($this.ShowBugsInS360) {
@@ -560,10 +560,10 @@ class AutoBugLog {
             $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
             $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $this.OrganizationName, $responseObj.id
             $control.ControlResults.AddMessage("New Bug", $bugUrl);
-            if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
-            {
-                $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
-            }
+            #if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
+            #{
+            #    $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
+            #}
         }
         catch {
             #handle assignee users who are not part of org any more
@@ -575,10 +575,10 @@ class AutoBugLog {
                     $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
                     $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $this.OrganizationName, $responseObj.id
                     $control.ControlResults.AddMessage("New Bug", $bugUrl)
-                    if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
-                    {
-                        $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
-                    }
+                    #if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
+                    #{
+                    #    $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
+                    #}
                 }
                 catch {
                     Write-Host "Could not log the bug" -ForegroundColor Red

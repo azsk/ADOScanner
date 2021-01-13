@@ -344,8 +344,7 @@
     "ShowBugsInS360" : false,
     "HowFound": "Manual",
     "ComplianceArea": "Security",
-    "ServiceTreeIdType": "Service",
-    "UseAzureStorageAccount": false
+    "ServiceTreeIdType": "Service"
   },
   "GenerateSecurityEvaluationJsonFile" : false,
   "ResourceProviders": [

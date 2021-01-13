@@ -458,14 +458,15 @@ class ADOSVTBase: SVTBase {
 		if ($BugLogParameterValue) 
 		{
 			#added check azuretable check here, if ((azuretable is used for storing bug info and scan mode is CA) OR azuretable bug info is disabed) then only allow bug logging
-			$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
-			$isAzureTableEnabled = [Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount");
-			if (!$isAzureTableEnabled -or ($isAzureTableEnabled -and ($scanSource -eq "CA")) )
-			{
+			#$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
+			#$scanSource = "CA";
+			#$isAzureTableEnabled = [Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount");
+			#if (!$isAzureTableEnabled -or ($isAzureTableEnabled -and ($scanSource -eq "CA")) )
+			#{
 				if (($ControlResults.ControlResults.VerificationResult -contains "Failed") -or ($ControlResults.ControlResults.VerificationResult -contains "Verify")) {
 					$this.BugLoggingPostEvaluation($ControlResults, $BugLogParameterValue)
 				}
-			}
+			#}
 			
 		}
 	}
