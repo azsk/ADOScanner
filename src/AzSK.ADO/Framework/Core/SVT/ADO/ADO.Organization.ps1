@@ -986,27 +986,8 @@ class Organization: ADOSVTBase
         return $controlResult
     }
 
-    hidden [ControlResult] CheckSSHAuthn([ControlResult] $controlResult)
+    hidden [ControlResult] CheckSSHAuthN([ControlResult] $controlResult)
     {
-        <#This control has been currently removed from control JSON file.
-        {
-            "ControlID": "ADO_Organization_AuthN_Enable_SSH_Auth",
-            "Description": "SSH authentication should be enabled for Application connection policies",
-            "Id": "Organization280",
-            "ControlSeverity": "Medium",
-            "Automated": "Yes",
-            "MethodName": "CheckSSHAuthn",
-            "Rationale": "TBD",
-            "Recommendation": "Go to Organization Settings --> Security --> Policies --> Application connection policies --> Enable SSH Authentication",
-            "Tags": [
-                "SDL",
-                "TCP",
-                "Automated",
-                "AuthN"
-            ],
-            "Enabled": true
-        },
-        #>
        if([Helpers]::CheckMember($this.OrgPolicyObj,"applicationConnection"))
        {
             $SSHAuthObj = $this.OrgPolicyObj.applicationConnection | Where-Object {$_.Policy.Name -eq "Policy.DisallowSecureShell"}
@@ -1014,12 +995,10 @@ class Organization: ADOSVTBase
             {
                 if($SSHAuthObj.policy.effectiveValue -eq $true )
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,
-                                                "SSH authentication is enabled for application connection policies.");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Connecting to Git repos via SSH authentication is enabled in the organization.");
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Failed,
-                                                "SSH authentication is disabled for application connection policies");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Connecting to Git repos via SSH authentication is disabled in the organization.");
                 }
             }
        }

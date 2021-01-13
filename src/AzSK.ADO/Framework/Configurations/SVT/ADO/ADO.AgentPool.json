@@ -90,7 +90,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_AgentPool_AuthZ_Project_Dont_Grant_All_Pipeline_Access",
+      "ControlID": "ADO_AgentPool_AuthZ_Dont_Grant_All_Pipelines_Access",
       "Description": "Do not make agent pool accessible to all pipelines in the project.",
       "Id": "AgentPool160",
       "ControlSeverity": "High",
