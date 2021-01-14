@@ -242,7 +242,7 @@ class Build: ADOSVTBase
                 $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
                 [datetime]$createdDate = $this.BuildObj.createdDate
 
-                if($null -ne $builds[0].latestRun)
+                if([Helpers]::CheckMember($builds[0],"latestRun") -and $null -ne $builds[0].latestRun)
                 {
                     if ([datetime]::Parse( $builds[0].latestRun.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays))) {
                         $controlResult.AddMessage([VerificationResult]::Passed,
