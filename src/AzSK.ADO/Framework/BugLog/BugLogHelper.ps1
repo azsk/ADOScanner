@@ -45,8 +45,6 @@ class BugLogHelper {
         $tableName = $this.GetTableName();
         $bugObj = @(@{});
         $bugObj[0].results = @();
-
-        <#
         try {
             #get storage table data.
             $azTableBugInfo = @();
@@ -77,13 +75,12 @@ class BugLogHelper {
         catch {
             Write-Host "Could not access storage account." -ForegroundColor Red
         }
-        #>
+
         return $bugObj;
     }
 
     hidden [bool] InsertBugInfoInTable([string] $hash, [string] $projectName, [string] $ADOBugId) 
     {
-        <#
         try 
         {
            $tableName = $this.GetTableName();
@@ -102,7 +99,6 @@ class BugLogHelper {
         catch {
             return $false;
         } 
-        #>
         return $false
     }
 
@@ -205,7 +201,7 @@ class BugLogHelper {
     {    
         #get table filter by name
         $tableName = $this.GetTableName();
-        <#
+        
         try {
 
             #Get clouddata to do perform read/write operations on the table
@@ -233,7 +229,7 @@ class BugLogHelper {
             }
             return $false;
         }
-        #>
+        
         return $true;
     } 
 
