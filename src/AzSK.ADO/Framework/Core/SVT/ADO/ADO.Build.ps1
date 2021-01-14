@@ -261,10 +261,12 @@ class Build: ADOSVTBase
                                 "No recent build history found in last $inactiveLimit days");
                         }
                     }
-
-                    $buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
-                    $controlResult.AddMessage("Last run date of build pipeline: $($buildLastRunDate)");
-                    $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $buildLastRunDate;
+                    if([Helpers]::CheckMember($builds[0].latestRun,"finishTime"))
+                    {
+                        $buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
+                        $controlResult.AddMessage("Last run date of build pipeline: $($buildLastRunDate)");
+                        $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $buildLastRunDate;
+                    }
                 }
                 else { #no build history ever. check whether pipeline has been created recently.
                     if ((((Get-Date) - $createdDate).Days) -lt $inactiveLimit)
