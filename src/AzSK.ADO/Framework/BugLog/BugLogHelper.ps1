@@ -66,13 +66,17 @@ class BugLogHelper {
                 }
                 else {
                     #if bug state is closed on the ADO side and isDeleted is 'N' in azuretable then update azure table -> set isdeleted ='Y'
-                    
-                    $this.UpdateTableEntity($tableName, $hash, $adoBugId, $projectName);
+                    $isDeleted = $this.DeleteTableEntity($tableName, $hash, $adoBugId);
+                    if ($isDeleted -eq $true) {
+                        $this.AddDataInTable($tableName, $hash, $adoBugId, $projectName, "Y");
+                    }
+                    #$this.UpdateTableEntity($tableName, $hash, $adoBugId, $projectName);
                 }
                 return $bugObj;
             }
         }
         catch {
+            Write-Host $_
             Write-Host "Could not access storage account." -ForegroundColor Red
         }
 
@@ -93,7 +97,7 @@ class BugLogHelper {
                New-AzStorageTable $tableName -Context $this.StorageAccountCtx;
            }
 
-           $isDataAddedInTable = $this.AddDataInTable($tableName, $hash, $ADOBugId, $projectName)
+           $isDataAddedInTable = $this.AddDataInTable($tableName, $hash, $ADOBugId, $projectName, "N")
            return $isDataAddedInTable;           
         }
         catch {
@@ -114,11 +118,13 @@ class BugLogHelper {
         }
         catch
         {
+            Write-Host $_
+            Write-Host "Could not fetch the entry for partition key [$hash] in the table storage.";
             return $null
         }
     }
 
-    hidden [bool] AddDataInTable($tableName, $hash, $ADOBugId, $projectName)
+    hidden [bool] AddDataInTable($tableName, $hash, $ADOBugId, $projectName, $isDeleted)
     {
         $partitionKey = $hash;
         $rowKey = $hash + "_" + $ADOBugId;
@@ -127,7 +133,7 @@ class BugLogHelper {
         {
             #Add data in table.
             
-            $entity = @{"PartitionKey" = $partitionKey; "RowKey" = $rowKey; "ADOBugId" = $ADOBugId; "ADOScannerHashId" = $hash; "IsDeleted" = "N"; "ProjectName" = $projectName};
+            $entity = @{"PartitionKey" = $partitionKey; "RowKey" = $rowKey; "ADOBugId" = $ADOBugId; "ADOScannerHashId" = $hash; "IsDeleted" = $isDeleted; "ProjectName" = $projectName};
             $table_url = "https://{0}.table.core.windows.net/{1}" -f $this.StorageAccount, $tableName
             $headers = $this.GetHeader($tableName);
             $body = $entity | ConvertTo-Json
@@ -136,48 +142,80 @@ class BugLogHelper {
         }
         catch
         {
+            Write-Host $_
             Write-Host "Could not push an entry in the table for row key [$rowKey]";
             return $false;
         }
     }
 
-    hidden [bool] UpdateTableEntity($tableName, $hash, $ADOBugId, $projectName)
-    {
+    #hidden [bool] UpdateTableEntity($tableName, $hash, $ADOBugId, $projectName)
+    #{
+    #    $PartitionKey = $hash;
+    #    $Rowkey = $hash + "_" + $ADOBugId;
+    #    
+    #    try {
+    #        #Add data in table.
+    #       
+    #        $entity = @{"ADOBugId" = $ADOBugId; "ADOScannerHashId" = $hash; "IsDeleted" = "Y"; "ProjectName" = $projectName};
+    #        $body = $entity | ConvertTo-Json
+#
+    #        $version = "2017-04-17"
+    #        $resource = "$tableName(PartitionKey='$PartitionKey',RowKey='$Rowkey')"
+    #        $table_url = "https://$($this.StorageAccount).table.core.windows.net/$resource"
+    #        $GMTTime = (Get-Date).ToUniversalTime().toString('R')
+    #        $stringToSign = "$GMTTime`n/$($this.StorageAccount)/$resource"
+#
+    #        $signature = $this.hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign))
+    #        $signature = [Convert]::ToBase64String($signature)
+    #        $body = $entity | ConvertTo-Json
+    #        $headers = @{
+    #            'x-ms-date'      = $GMTTime
+    #            Authorization    = "SharedKeyLite " + $this.StorageAccount + ":" + $signature
+    #            "x-ms-version"   = $version
+    #            Accept           = "application/json;odata=minimalmetadata"
+    #            'If-Match'       = "*"
+    #            'Content-Length' = $body.length
+    #        }
+    #        Invoke-RestMethod -Method MERGE -Uri $table_url -Headers $headers -Body $body -ContentType "application/json;odata=minimalmetadata"
+#
+    #        return $true;
+    #    }
+    #    catch
+    #    {
+    #        Write-Host $_
+    #        Write-Host "Could not update the entry in the table for row key [$RowKey]";
+    #        return $false;
+    #    }
+    #}
+
+    hidden [bool] DeleteTableEntity($tableName, $hash, $ADOBugId) {
         $PartitionKey = $hash;
         $Rowkey = $hash + "_" + $ADOBugId;
         
         try {
-            #Add data in table.
-           
-            $entity = @{"ADOBugId" = $ADOBugId; "ADOScannerHashId" = $hash; "IsDeleted" = "Y"; "ProjectName" = $projectName};
-            $body = $entity | ConvertTo-Json
-
             $version = "2017-04-17"
             $resource = "$tableName(PartitionKey='$PartitionKey',RowKey='$Rowkey')"
             $table_url = "https://$($this.StorageAccount).table.core.windows.net/$resource"
             $GMTTime = (Get-Date).ToUniversalTime().toString('R')
             $stringToSign = "$GMTTime`n/$($this.StorageAccount)/$resource"
-
             $signature = $this.hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign))
             $signature = [Convert]::ToBase64String($signature)
-            $body = $entity | ConvertTo-Json
             $headers = @{
-                'x-ms-date'      = $GMTTime
-                Authorization    = "SharedKeyLite " + $this.StorageAccount + ":" + $signature
-                "x-ms-version"   = $version
-                Accept           = "application/json;odata=minimalmetadata"
-                'If-Match'       = "*"
-                'Content-Length' = $body.length
+                'x-ms-date'    = $GMTTime
+                Authorization  = "SharedKeyLite " + $($this.StorageAccount) + ":" + $signature
+                "x-ms-version" = $version
+                Accept         = "application/json;odata=minimalmetadata"
+                'If-Match'     = "*"
             }
-            Invoke-RestMethod -Method MERGE -Uri $table_url -Headers $headers -ContentType "application/json" -Body $body
-
-            return $true;
+            $item = Invoke-RestMethod -Method DELETE -Uri $table_url -Headers $headers -ContentType application/http
+            return $true
         }
-        catch
-        {
-            Write-Host "Could not update the entry in the table for row key [$RowKey]";
+        catch {
+            Write-Host $_
+            Write-Host "Could not delete the entry for row key [$Rowkey] in the table storage.";
             return $false;
         }
+        
     }
 
     hidden [object] GetHeader($tableName)
@@ -218,7 +256,11 @@ class BugLogHelper {
                 foreach ($row in $azTableBugInfo) {
                     if($this.CloseBug($row.ADOBugId, $row.projectName) )
                     {
-                       $this.UpdateTableEntity($tableName, $row.ADOScannerHashId, $row.ADOBugId, $row.projectName);
+                        $isDeleted = $this.DeleteTableEntity($tableName, $row.PartitionKey , $row.ADOBugId);
+                        if ($isDeleted -eq $true) {
+                            $this.AddDataInTable($tableName, $row.PartitionKey, $row.ADOBugId, $row.projectName, "Y");
+                        }
+                       #$this.UpdateTableEntity($tableName, $row.ADOScannerHashId, $row.ADOBugId, $row.projectName);
                     }
                 } 
             }
@@ -251,6 +293,7 @@ class BugLogHelper {
             return $true;
         }
         catch {
+            Write-Host $_
             Write-Host "Could not close the bug." -ForegroundColor Red
             return $false
         }
