@@ -95,14 +95,17 @@ class AutoBugLog {
                     $control = $_;                                     
                     #filter controls on basis of whether they are baseline or not depending on the value given in autobuglog flag
                     $LogControlFlag = $false
-                    if ($this.BugLogParameterValue -eq "All") {
+                    if ($this.BugLogParameterValue -eq [BugLogForControls]::All) {
                             $LogControlFlag = $true
                     }
-                    elseif ($this.BugLogParameterValue -eq "BaselineControls") {
+                    elseif ($this.BugLogParameterValue -eq [BugLogForControls]::BaselineControls) {
                             $LogControlFlag = $this.CheckBaselineControl($control.ControlItem.ControlID)				
                     }
-                    else {
+                    elseif ($this.BugLogParameterValue -eq [BugLogForControls]::PreviewBaselineControls) {
                             $LogControlFlag = $this.CheckPreviewBaselineControl($control.ControlItem.ControlID)
+                    }
+                    elseif ($this.BugLogParameterValue -eq [BugLogForControls]::Custom) {
+                        $LogControlFlag = $this.CheckControlInCustomeControlList($control.ControlItem.ControlID)
                     }
 		
                     if ($LogControlFlag -and ($control.ControlResults[0].VerificationResult -eq "Failed" -or $control.ControlResults[0].VerificationResult -eq "Verify") ) {
@@ -629,7 +632,16 @@ class AutoBugLog {
         return $false
     }
 
-    
+    hidden [bool] CheckControlInCustomeControlList($controlId) {
+        if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "CustomControlList")) {
+            $customControlList = $this.ControlSettings.BugLogging | Where-Object { $_.CustomControlList -contains $controlId }
+            if (($customControlList | Measure-Object).Count -gt 0 ) {
+                return $true
+            }
+        }
+        
+        return $false
+    }
     
 }
 

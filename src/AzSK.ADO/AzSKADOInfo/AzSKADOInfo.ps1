@@ -96,7 +96,6 @@ function Get-AzSKADOInfo
 	{
 		try 
 		{
-			$SubscriptionId = $OrganizationName
 			$unsupported = $false
 			if([string]::IsNullOrWhiteSpace($ResourceTypeName))
 			{
@@ -111,6 +110,12 @@ function Get-AzSKADOInfo
 
 			if(-not ([string]::IsNullOrEmpty($InfoType) -or $unsupported))
 			{
+				#Set empty, so org-policy get refreshed in every gadi run in same PS session.
+				[ConfigurationHelper]::PolicyCacheContent = @()
+			    [AzSKSettings]::Instance = $null
+			    [AzSKConfig]::Instance = $null 
+			    [ConfigurationHelper]::ServerConfigMetadata = $null
+			
 				switch ($InfoType.ToString()) 
 				{
 					OrganizationInfo
@@ -128,7 +133,7 @@ function Get-AzSKADOInfo
 							$Full = $false
 						}
 
-						$controlsInfo = [ControlsInfo]::new($SubscriptionId, $PSCmdlet.MyInvocation, $ResourceTypeName, $ControlIds, $UseBaselineControls, $UsePreviewBaselineControls, $FilterTags, $Full, $ControlSeverity, $ControlIdContains);
+						$controlsInfo = [ControlsInfo]::new($OrganizationName, $PSCmdlet.MyInvocation, $ResourceTypeName, $ControlIds, $UseBaselineControls, $UsePreviewBaselineControls, $FilterTags, $Full, $ControlSeverity, $ControlIdContains);
 						if ($controlsInfo) 
 						{
 							return $controlsInfo.InvokeFunction($controlsInfo.GetControlDetails);
@@ -136,7 +141,7 @@ function Get-AzSKADOInfo
 					}
 					HostInfo 
 					{
-						$hInfo = [HostInfo]::new($SubscriptionId, $PSCmdlet.MyInvocation);
+						$hInfo = [HostInfo]::new($OrganizationName, $PSCmdlet.MyInvocation);
 						if ($hInfo) 
 						{
 							return $hInfo.InvokeFunction($hInfo.GetHostInfo);
