@@ -90,12 +90,12 @@ class AgentPool: ADOSVTBase
             $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $($this.SubscriptionContext.SubscriptionName), $this.ResourceContext.resourcename;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
               
-            # TODO: When there var grp is not shared across all pipelines, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false. Need to revisit.
+            # when agentpool api return null object, then this condition will be true and control go into verify.
             if(([Helpers]::CheckMember($agentPoolsObj[0],"count",$false)) -and ($agentPoolsObj[0].count -eq 0))
             {
                 $controlResult.AddMessage([VerificationResult]::Verify, "Unable to check auto update setting for agent pool");
             }
-            # When var grp is shared across all pipelines - the below condition will be true.
+            # when agentpool object contains auto update details, the below condition will be true.
             elseif((-not ([Helpers]::CheckMember($agentPoolsObj[0],"count"))) -and ($agentPoolsObj.Count -gt 0) ) 
             {
                 if(([Helpers]::CheckMember($agentPoolsObj[0],"autoUpdate")) -and ($agentPoolsObj.autoUpdate -eq $true))
