@@ -320,7 +320,8 @@
       "Endpoint Creators",
       "Contributors",
       "Readers"
-    ]
+    ],
+    "checkForActiveResources": true
   },
   "Patterns": [
     {

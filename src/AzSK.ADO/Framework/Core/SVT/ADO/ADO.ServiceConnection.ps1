@@ -7,6 +7,8 @@ class ServiceConnection: ADOSVTBase
     hidden [PSObject] $ServiceConnEndPointDetail = $null;
     hidden [PSObject] $pipelinePermission = $null;
     hidden [PSObject] $serviceEndPointIdentity = $null;
+    hidden [PSObject] $SvcConnActivityDetail = @{isSvcConnActive = $true; svcConnLastRunDate = $null; errorMsg = $null};
+    hidden [bool] $isControlCheckEnabled = $true;
 
     ServiceConnection([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId,$svtResource)
     {
@@ -43,6 +45,22 @@ class ServiceConnection: ADOSVTBase
         }
         catch {
             
+        }
+
+        if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.checkForActiveResources", $false))
+        {
+            $isActiveCheckEnabled = $this.ControlSettings.ServiceConnection.checkForActiveResources;
+            if($isActiveCheckEnabled)
+            {
+                $this.CheckActiveConnection()
+                if ($this.SvcConnActivityDetail.isSvcConnActive)
+                {
+                    $this.isControlCheckEnabled = $true
+                }
+                else {
+                    $this.isControlCheckEnabled = $false
+                }
+            }
         }
     }
 
@@ -187,156 +205,184 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckInheritedPermissions ([ControlResult] $controlResult)
 	{
-        $failMsg = $null
-        try
+        if ($this.isControlCheckEnabled)
         {
-            $Endpoint = $this.ServiceEndpointsObj
-            $apiURL = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?token=endpoints/{2}/{3}&api-version=5.0" -f $($this.SubscriptionContext.SubscriptionName),$([ServiceConnection]::SecurityNamespaceId),$($this.ProjectId),$($Endpoint.id);
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-            if(($responseObj | Measure-Object).Count -eq 0)
+            $failMsg = $null
+            try
             {
-                $inheritPermissionsEnabled += @{EndPointName= $Endpoint.Name; Creator = $Endpoint.createdBy.displayName; inheritPermissions="Unable to fetch permissions inheritance details." }
+                $Endpoint = $this.ServiceEndpointsObj
+                $apiURL = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?token=endpoints/{2}/{3}&api-version=5.0" -f $($this.SubscriptionContext.SubscriptionName),$([ServiceConnection]::SecurityNamespaceId),$($this.ProjectId),$($Endpoint.id);
+                $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                if(($responseObj | Measure-Object).Count -eq 0)
+                {
+                    $inheritPermissionsEnabled += @{EndPointName= $Endpoint.Name; Creator = $Endpoint.createdBy.displayName; inheritPermissions="Unable to fetch permissions inheritance details." }
+                }
+                elseif([Helpers]::CheckMember($responseObj,"inheritPermissions") -and $responseObj.inheritPermissions -eq $true)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Inherited permissions are enabled on service connection.");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Inherited permissions are disabled on service connection.");
+                }
+                
+                $Endpoint = $null; 
+                $responseObj = $null; 
             }
-            elseif([Helpers]::CheckMember($responseObj,"inheritPermissions") -and $responseObj.inheritPermissions -eq $true)
-            {
-                $controlResult.AddMessage([VerificationResult]::Failed,"Inherited permissions are enabled on service connection.");
+            catch {
+                $failMsg = $_
             }
-            else {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Inherited permissions are disabled on service connection.");
-            }
-            
-            $Endpoint = $null; 
-            $responseObj = $null; 
-        }
-        catch {
-            $failMsg = $_
-        }
 
-        if(![string]::IsNullOrEmpty($failMsg))
+            if(![string]::IsNullOrEmpty($failMsg))
+            {
+                $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connections details. $($failMsg)Please verify from portal that permission inheritance is turned OFF for all the service connections");
+            }
+        }
+        else
         {
-            $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connections details. $($failMsg)Please verify from portal that permission inheritance is turned OFF for all the service connections");
+            $controlResult.AddMessage([VerificationResult]::Skipped,$this.SvcConnActivityDetail.errorMsg);
         }
         return $controlResult;
     }
 
     hidden [ControlResult] CheckGlobalGroupsAddedToServiceConnections ([ControlResult] $controlResult)
 	{
-        # Any identity other than teams identity needs to be verified manually as it's details cannot be retrived using API
-        $failMsg = $null
-        try
+        if ($this.isControlCheckEnabled)
         {
-            if ($null -eq $this.serviceEndPointIdentity) {
-                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
-                $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-            }
-            $restrictedGroups = @();
-            
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.RestrictedGlobalGroupsForSerConn") ) 
+            # Any identity other than teams identity needs to be verified manually as it's details cannot be retrived using API
+            $failMsg = $null
+            try
             {
-                $restrictedGlobalGroupsForSerConn = $this.ControlSettings.ServiceConnection.RestrictedGlobalGroupsForSerConn;
-                if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity,"identity"))
+                if ($null -eq $this.serviceEndPointIdentity) {
+                    $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
+                    $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                }
+                $restrictedGroups = @();
+                
+                if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.RestrictedGlobalGroupsForSerConn") ) 
                 {
-                    # match all the identities added on service connection with defined restricted list
-                    $restrictedGroups = $this.serviceEndPointIdentity.identity | Where-Object { $restrictedGlobalGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
-    
-                    # fail the control if restricted group found on service connection
-                    if($restrictedGroups)
+                    $restrictedGlobalGroupsForSerConn = $this.ControlSettings.ServiceConnection.RestrictedGlobalGroupsForSerConn;
+                    if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity,"identity"))
                     {
-                        $controlResult.AddMessage("Total number of global groups that have access to service connection: ", ($restrictedGroups | Measure-Object).Count)
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant global groups access to service connections. Granting elevated permissions to these groups can risk exposure of service connections to unwarranted individuals.");
-                        $controlResult.AddMessage("Global groups that have access to service connection.",$restrictedGroups)
-                        $controlResult.SetStateData("Global groups that have access to service connection",$restrictedGroups)
-                        $controlResult.AdditionalInfo += "Total number of global groups that have access to service connection: " + ($restrictedGroups | Measure-Object).Count;
+                        # match all the identities added on service connection with defined restricted list
+                        $restrictedGroups = $this.serviceEndPointIdentity.identity | Where-Object { $restrictedGlobalGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
+        
+                        # fail the control if restricted group found on service connection
+                        if($restrictedGroups)
+                        {
+                            $controlResult.AddMessage("Total number of global groups that have access to service connection: ", ($restrictedGroups | Measure-Object).Count)
+                            $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant global groups access to service connections. Granting elevated permissions to these groups can risk exposure of service connections to unwarranted individuals.");
+                            $controlResult.AddMessage("Global groups that have access to service connection.",$restrictedGroups)
+                            $controlResult.SetStateData("Global groups that have access to service connection",$restrictedGroups)
+                            $controlResult.AdditionalInfo += "Total number of global groups that have access to service connection: " + ($restrictedGroups | Measure-Object).Count;
+                        }
+                        else{
+                            $controlResult.AddMessage([VerificationResult]::Passed,"No global groups have access to service connection.");
+                        }
                     }
-                    else{
+                    else {
                         $controlResult.AddMessage([VerificationResult]::Passed,"No global groups have access to service connection.");
                     }
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"No global groups have access to service connection.");
+                    $controlResult.AddMessage([VerificationResult]::Manual,"List of restricted global groups for service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
                 }
             }
-            else {
-                $controlResult.AddMessage([VerificationResult]::Manual,"List of restricted global groups for service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
+            catch {
+                $failMsg = $_
+            }
+
+            if(![string]::IsNullOrEmpty($failMsg))
+            {
+                $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connections details. $($failMsg)Please verify from portal that you are not granting global security groups access to service connections");
             }
         }
-        catch {
-            $failMsg = $_
-        }
-
-        if(![string]::IsNullOrEmpty($failMsg))
+        else
         {
-            $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connections details. $($failMsg)Please verify from portal that you are not granting global security groups access to service connections");
+            $controlResult.AddMessage([VerificationResult]::Skipped,$this.SvcConnActivityDetail.errorMsg);
         }
         return $controlResult;
     }
 
     hidden [ControlResult] CheckBuildServiceAccountAccess([ControlResult] $controlResult)
 	{
-        $failMsg = $null
-        try
+        if ($this.isControlCheckEnabled)
         {
-            $isBuildSvcAccGrpFound = $false
-            if ($null -eq $this.serviceEndPointIdentity) {
-                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
-                $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-            }
-            if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))
+            $failMsg = $null
+            try
             {
-                foreach ($identity in $this.serviceEndPointIdentity.identity)
+                $isBuildSvcAccGrpFound = $false
+                if ($null -eq $this.serviceEndPointIdentity) {
+                    $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
+                    $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                }
+                if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))
                 {
-                    if ($identity.uniqueName -like '*Project Collection Build Service Accounts') 
+                    foreach ($identity in $this.serviceEndPointIdentity.identity)
                     {
-                        $isBuildSvcAccGrpFound = $true;
-                        break;
+                        if ($identity.uniqueName -like '*Project Collection Build Service Accounts') 
+                        {
+                            $isBuildSvcAccGrpFound = $true;
+                            break;
+                        }
+                    }
+                    #Faile the control if prj coll Buil Ser Acc Group Found added on serv conn
+                    if($isBuildSvcAccGrpFound -eq $true)
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant 'Project Collection Build Service Account' groups access to service connections.");
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed,"'Project Collection Build Service Account' is not granted access to the service connection.");
                     }
                 }
-                #Faile the control if prj coll Buil Ser Acc Group Found added on serv conn
-                if($isBuildSvcAccGrpFound -eq $true)
-                {
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant 'Project Collection Build Service Account' groups access to service connections.");
-                }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"'Project Collection Build Service Account' is not granted access to the service connection.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"'Project Collection Build Service Account' does not have access to service connection.");
                 }
             }
-            else{
-                $controlResult.AddMessage([VerificationResult]::Passed,"'Project Collection Build Service Account' does not have access to service connection.");
+            catch {
+                $failMsg = $_
+            }
+
+            if(![string]::IsNullOrEmpty($failMsg))
+            {
+                $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connections details. $($failMsg)Please verify from portal that you are not granting global security groups access to service connections");
             }
         }
-        catch {
-            $failMsg = $_
-        }
-
-        if(![string]::IsNullOrEmpty($failMsg))
+        else
         {
-            $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connections details. $($failMsg)Please verify from portal that you are not granting global security groups access to service connections");
+            $controlResult.AddMessage([VerificationResult]::Skipped,$this.SvcConnActivityDetail.errorMsg);
         }
         return $controlResult;
     }
 
     hidden [ControlResult] CheckServiceConnectionBuildAccess([ControlResult] $controlResult)
     {
-        try
+        if ($this.isControlCheckEnabled)
         {
-            if ($null -eq $this.pipelinePermission) {
-               $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=5.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName),$($this.ProjectId),$($this.ServiceEndpointsObj.id) ;
-               $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-            }
-            if([Helpers]::CheckMember($this.pipelinePermission,"allPipelines")) {
-                if($this.pipelinePermission.allPipelines.authorized){
-                   $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant global security access to all pipeline.");
-                } 
+            try
+            {
+                if ($null -eq $this.pipelinePermission) {
+                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=5.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName),$($this.ProjectId),$($this.ServiceEndpointsObj.id) ;
+                $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                }
+                if([Helpers]::CheckMember($this.pipelinePermission,"allPipelines")) {
+                    if($this.pipelinePermission.allPipelines.authorized){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant global security access to all pipeline.");
+                    } 
+                    else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Service connection is not granted access to all pipeline");
+                    }             
+                }
                 else {
-                   $controlResult.AddMessage([VerificationResult]::Passed,"Service connection is not granted access to all pipeline");
-                }             
-             }
-            else {
-             $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not granted access to all pipeline");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not granted access to all pipeline");
+                }
+            }
+            catch {
+                $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connection details. $($_) Please verify from portal that you are not granting all pipeline access to service connections");
             }
         }
-        catch {
-            $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connection details. $($_) Please verify from portal that you are not granting all pipeline access to service connections");
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Skipped,$this.SvcConnActivityDetail.errorMsg);
         }
          
         return $controlResult;
@@ -415,48 +461,31 @@ class ServiceConnection: ADOSVTBase
     }
 
     hidden [ControlResult] CheckInactiveConnection([ControlResult] $controlResult)
-	{             
+	{
         try
         {
-            if ($this.ServiceConnEndPointDetail -and [Helpers]::CheckMember($this.ServiceConnEndPointDetail, "serviceEndpointExecutionHistory") ) 
+            if($null -eq $this.SvcConnActivityDetail.errorMsg)
             {
-                #if this job is still running then finishTime is not available. pass the control
-                if ([Helpers]::CheckMember($this.ServiceConnEndPointDetail.serviceEndpointExecutionHistory[0].data, "finishTime")) 
-                {
-                    #Get the last known usage (job) timestamp of the service connection
-                    $svcLastRunDate = $this.ServiceConnEndPointDetail.serviceEndpointExecutionHistory[0].data.finishTime;
-                    
-                    #format date
-                    $formatLastRunTimeSpan = New-TimeSpan -Start (Get-Date $svcLastRunDate)
-                    
-                    # $inactiveLimit denotes the upper limit on number of days of inactivity before the svc conn is deemed inactive.
-                    if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.ServiceConnectionHistoryPeriodInDays") ) 
-                    {
-                        $inactiveLimit = $this.ControlSettings.ServiceConnection.ServiceConnectionHistoryPeriodInDays
-                        if ($formatLastRunTimeSpan.Days -gt $inactiveLimit)
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Failed, "Service connection has not been used in the last $inactiveLimit days.");
-                        }
-                        else
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Passed, "Service connection has been used in the last $inactiveLimit days.");
-                        }
-                    }
-                    else {
-                        $controlResult.AddMessage([VerificationResult]::Manual,"History period in days (ServiceConnectionHistoryPeriodInDays) to check last running day of service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
-                    }
-                    $svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
-                    $controlResult.AddMessage("Last usage date of service connection: $($svcConnLastRunDate)");
-                    $controlResult.AdditionalInfo += "Last usage date of service connection: " + $svcConnLastRunDate;
-                }
-                else
-                {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection was under use during the control scan.");
-                }
+                $this.CheckActiveConnection()
             }
-            else #service connection was created but never used. (Fail for now)
-            {    
-                $controlResult.AddMessage([VerificationResult]::Failed, "Service connection has never been used.");
+            if ($null -ne $this.SvcConnActivityDetail.svcConnLastRunDate) 
+            {
+                if ($this.SvcConnActivityDetail.isSvcConnActive) {
+                    $controlResult.AddMessage([VerificationResult]::Passed, $this.SvcConnActivityDetail.errorMsg);
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Failed, $this.SvcConnActivityDetail.errorMsg);
+                }
+                $controlResult.AddMessage("Last usage date of service connection: $($this.SvcConnActivityDetail.svcConnLastRunDate)");
+                $controlResult.AdditionalInfo += "Last usage date of service connection: " + $this.SvcConnActivityDetail.svcConnLastRunDate;
+            }
+            elseif ($this.SvcConnActivityDetail.isSvcConnActive)
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, $this.SvcConnActivityDetail.errorMsg);
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed, $this.SvcConnActivityDetail.errorMsg);
             }
         }
         catch
@@ -496,83 +525,150 @@ class ServiceConnection: ADOSVTBase
         return $controlResult;
     }
 
-    hidden [ControlResult] CheckCrossPipelineSharing([ControlResult] $controlResult) {  
-        try 
+    hidden [ControlResult] CheckCrossPipelineSharing([ControlResult] $controlResult) 
+    {
+        if ($this.isControlCheckEnabled)
         {
-            if ($null -eq $this.pipelinePermission) {
-                #Get pipeline access on svc conn
-                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=5.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($this.ServiceEndpointsObj.id) ;
-                $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-            }
-            
-            #check if svc conn is set to "Grant access permission to all pipelines"
-            if ([Helpers]::CheckMember($this.pipelinePermission[0], "allPipelines.authorized") -and $this.pipelinePermission[0].allPipelines.authorized -eq $true) 
+            try 
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Service connection is accessible to all pipelines in the project.");        
-            }
-            elseif ([Helpers]::CheckMember($this.pipelinePermission[0], "pipelines") -and ($this.pipelinePermission[0].pipelines | Measure-Object).Count -gt 1) #Atleast one pipeline has access to svvc conn
-            { 
-                #get the pipelines ids in comma separated string to pass in api to get the pipeline name
-                $pipelinesIds = $this.pipelinePermission[0].pipelines.id -join ","
-                #api call to get the pipeline name
-                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.0" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $pipelinesIds;
-                $pipelineObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-                    
-                # We are fixing the control status here and the state data info will be done as shown below. This is done in case we are not able to fetch the pipeline names. Although, we have the pipeline ids as shown above.
-                $controlResult.AddMessage([VerificationResult]::Verify, "");
-                $pipelines = @();
-                    
-                if ($pipelineObj -and ($pipelineObj | Measure-Object).Count -gt 0) 
+                if ($null -eq $this.pipelinePermission) {
+                    #Get pipeline access on svc conn
+                    $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=5.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($this.ServiceEndpointsObj.id) ;
+                    $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                }
+                
+                #check if svc conn is set to "Grant access permission to all pipelines"
+                if ([Helpers]::CheckMember($this.pipelinePermission[0], "allPipelines.authorized") -and $this.pipelinePermission[0].allPipelines.authorized -eq $true) 
                 {
-                    $pipelines += $pipelineObj.name
-                    $controlResult.AddMessage("Total number of pipelines that have access to the service connection: ", ($pipelines | Measure-Object).Count);
-                    $controlResult.AddMessage("Review the list of pipelines that have access to the service connection: ", $pipelines);
-                    $controlResult.SetStateData("List of pipelines that have access to the service connection: ", $pipelines);   
-                    $controlResult.AdditionalInfo += "Total number of pipelines that have access to the service connection: " + ($pipelines | Measure-Object).Count;
-                }                    
-            } 
-            else 
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Service connection is accessible to all pipelines in the project.");        
+                }
+                elseif ([Helpers]::CheckMember($this.pipelinePermission[0], "pipelines") -and ($this.pipelinePermission[0].pipelines | Measure-Object).Count -gt 1) #Atleast one pipeline has access to svvc conn
+                { 
+                    #get the pipelines ids in comma separated string to pass in api to get the pipeline name
+                    $pipelinesIds = $this.pipelinePermission[0].pipelines.id -join ","
+                    #api call to get the pipeline name
+                    $apiURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.0" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $pipelinesIds;
+                    $pipelineObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                        
+                    # We are fixing the control status here and the state data info will be done as shown below. This is done in case we are not able to fetch the pipeline names. Although, we have the pipeline ids as shown above.
+                    $controlResult.AddMessage([VerificationResult]::Verify, "");
+                    $pipelines = @();
+                        
+                    if ($pipelineObj -and ($pipelineObj | Measure-Object).Count -gt 0) 
+                    {
+                        $pipelines += $pipelineObj.name
+                        $controlResult.AddMessage("Total number of pipelines that have access to the service connection: ", ($pipelines | Measure-Object).Count);
+                        $controlResult.AddMessage("Review the list of pipelines that have access to the service connection: ", $pipelines);
+                        $controlResult.SetStateData("List of pipelines that have access to the service connection: ", $pipelines);   
+                        $controlResult.AdditionalInfo += "Total number of pipelines that have access to the service connection: " + ($pipelines | Measure-Object).Count;
+                    }                    
+                } 
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not shared with multiple pipelines.");
+                }
+            }
+            catch 
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not shared with multiple pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch pipeline permission details for the service connection.");
             }
         }
-        catch 
+        else
         {
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch pipeline permission details for the service connection.");
+            $controlResult.AddMessage([VerificationResult]::Skipped,$this.SvcConnActivityDetail.errorMsg);
         }
-         
         return $controlResult;
     }
 
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
     {
+        if ($this.isControlCheckEnabled)
+        {
+            try
+            {
+                if ($null -eq $this.serviceEndPointIdentity) {
+                    $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
+                    $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                }
+                if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))
+                {
+                    $roles = @();
+                    $roles +=   ($this.serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                    $rolesCount = ($roles | Measure-Object).Count;
+                    $controlResult.AddMessage("Total number of identities that have access to service connection: $($rolesCount)");
+                    $controlResult.AddMessage([VerificationResult]::Verify,"Verify whether following identities have been provided with minimum RBAC access to service connection: ", $roles);
+                    $controlResult.SetStateData("List of identities having access to service connection: ", $roles);
+                    $controlResult.AdditionalInfo += "Total number of identities that have access to service connection: " + $rolesCount;
+                }
+                elseif(($this.ServiceEndpointsObj | Measure-Object).Count -eq 0)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No role assignments found on service connection.")
+                }
+            }
+            catch
+            {
+                $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch role assignments.")
+            }
+        }
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Skipped,$this.SvcConnActivityDetail.errorMsg);
+        }
+        return $controlResult
+    }
+    
+    hidden CheckActiveConnection()
+    {
         try
         {
-            if ($null -eq $this.serviceEndPointIdentity) {
-                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
-                $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-            }
-            if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))
+            if ($this.ServiceConnEndPointDetail -and [Helpers]::CheckMember($this.ServiceConnEndPointDetail, "serviceEndpointExecutionHistory") ) 
             {
-                $roles = @();
-                $roles +=   ($this.serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
-                $rolesCount = ($roles | Measure-Object).Count;
-                $controlResult.AddMessage("Total number of identities that have access to service connection: $($rolesCount)");
-                $controlResult.AddMessage([VerificationResult]::Verify,"Verify whether following identities have been provided with minimum RBAC access to service connection: ", $roles);
-                $controlResult.SetStateData("List of identities having access to service connection: ", $roles);
-                $controlResult.AdditionalInfo += "Total number of identities that have access to service connection: " + $rolesCount;
+                #if this job is still running then finishTime is not available. pass the control
+                if ([Helpers]::CheckMember($this.ServiceConnEndPointDetail.serviceEndpointExecutionHistory[0].data, "finishTime")) 
+                {
+                    #Get the last known usage (job) timestamp of the service connection
+                    $svcLastRunDate = $this.ServiceConnEndPointDetail.serviceEndpointExecutionHistory[0].data.finishTime;
+                    
+                    #format date
+                    $formatLastRunTimeSpan = New-TimeSpan -Start (Get-Date $svcLastRunDate)
+                    
+                    # $inactiveLimit denotes the upper limit on number of days of inactivity before the svc conn is deemed inactive.
+                    if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.ServiceConnectionHistoryPeriodInDays") ) 
+                    {
+                        $inactiveLimit = $this.ControlSettings.ServiceConnection.ServiceConnectionHistoryPeriodInDays
+                        if ($formatLastRunTimeSpan.Days -gt $inactiveLimit)
+                        {
+                            $this.SvcConnActivityDetail.isSvcConnActive = $false;
+                            $this.SvcConnActivityDetail.errorMsg = "Service connection has not been used in the last $inactiveLimit days.";
+                        }
+                        else
+                        {
+                            $this.SvcConnActivityDetail.isSvcConnActive = $true;
+                            $this.SvcConnActivityDetail.errorMsg =  "Service connection has been used in the last $inactiveLimit days.";
+                        }
+                    }
+                    else {
+                        $this.SvcConnActivityDetail.isSvcConnActive = $false;
+                        $this.SvcConnActivityDetail.errorMsg = "History period in days (ServiceConnectionHistoryPeriodInDays) to check last running day of service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.";
+                    }
+                    $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
+                }
+                else
+                {
+                    $this.SvcConnActivityDetail.isSvcConnActive = $true;
+                    $this.SvcConnActivityDetail.errorMsg = "Service connection was under use during the control scan.";
+                }
             }
-            elseif(($this.ServiceEndpointsObj | Measure-Object).Count -eq 0)
+            else #service connection was created but never used. (Fail for now)
             {
-                $controlResult.AddMessage([VerificationResult]::Passed,"No role assignments found on service connection.")
+                $this.SvcConnActivityDetail.isSvcConnActive = $false;
+                $this.SvcConnActivityDetail.errorMsg = "Service connection has never been used.";
             }
         }
         catch
         {
-            $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch role assignments.")
+            $this.SvcConnActivityDetail.isSvcConnActive = $false;
+            $this.SvcConnActivityDetail.errorMsg = "Could not fetch the service connection details.";
         }
-        
-        return $controlResult
     }
-    
 }
