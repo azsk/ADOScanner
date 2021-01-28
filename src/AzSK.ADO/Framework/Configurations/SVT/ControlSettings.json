@@ -367,7 +367,8 @@
     "HowFound": "Manual",
     "ComplianceArea": "Security",
     "ServiceTreeIdType": "Service",
-    "UseAzureStorageAccount": false
+    "UseAzureStorageAccount": false,
+    "CustomControlList": []
   },
   "GenerateSecurityEvaluationJsonFile" : false,
   "ResourceProviders": [

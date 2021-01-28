@@ -198,10 +198,10 @@ function Get-AzSKADOSecurityStatus
 		$AttestationHostProjectName,
 
 
-		[ValidateSet("All","BaselineControls","PreviewBaselineControls")]
+		[ValidateSet("All","BaselineControls","PreviewBaselineControls", "Custom")]
 		[Parameter(Mandatory = $false)]
 		[Alias("abl")]		
-		[string] $AutoBugLog="All",		
+		[string] $AutoBugLog = [BugLogForControls]::All,
 
 		[string]
 		[Parameter(Mandatory=$false)]
