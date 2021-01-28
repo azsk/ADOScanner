@@ -105,7 +105,7 @@ class AutoBugLog {
                             $LogControlFlag = $this.CheckPreviewBaselineControl($control.ControlItem.ControlID)
                     }
                     elseif ($this.BugLogParameterValue -eq [BugLogForControls]::Custom) {
-                        $LogControlFlag = $this.CheckControlInCustomeControlList($control.ControlItem.ControlID)
+                        $LogControlFlag = $this.CheckControlInCustomControlList($control.ControlItem.ControlID)
                     }
 		
                     if ($LogControlFlag -and ($control.ControlResults[0].VerificationResult -eq "Failed" -or $control.ControlResults[0].VerificationResult -eq "Verify") ) {
@@ -632,7 +632,7 @@ class AutoBugLog {
         return $false
     }
 
-    hidden [bool] CheckControlInCustomeControlList($controlId) {
+    hidden [bool] CheckControlInCustomControlList($controlId) {
         if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "CustomControlList")) {
             $customControlList = $this.ControlSettings.BugLogging | Where-Object { $_.CustomControlList -contains $controlId }
             if (($customControlList | Measure-Object).Count -gt 0 ) {
