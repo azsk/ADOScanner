@@ -10,18 +10,18 @@ class SVTControlAttestation
 	hidden [bool] $bulkAttestMode = $false;
 	[AttestationOptions] $attestOptions;
 	hidden [PSObject] $ControlSettings ; 
-	hidden [SubscriptionContext] $SubscriptionContext;
+	hidden [OrganizationContext] $OrganizationContext;
 	hidden [InvocationInfo] $InvocationContext;
 	hidden [Object] $repoProject = @{};
 
-	SVTControlAttestation([SVTEventContext[]] $ctrlResults, [AttestationOptions] $attestationOptions, [SubscriptionContext] $subscriptionContext, [InvocationInfo] $invocationContext)
+	SVTControlAttestation([SVTEventContext[]] $ctrlResults, [AttestationOptions] $attestationOptions, [OrganizationContext] $organizationContext, [InvocationInfo] $invocationContext)
 	{
-		$this.SubscriptionContext = $subscriptionContext;
+		$this.OrganizationContext = $organizationContext;
 		$this.InvocationContext = $invocationContext;
 		$this.ControlResults = $ctrlResults;
 		$this.AttestControlsChoice = $attestationOptions.AttestControls;
 		$this.attestOptions = $attestationOptions;
-		$this.controlStateExtension = [ControlStateExtension]::new($this.SubscriptionContext, $this.InvocationContext)
+		$this.controlStateExtension = [ControlStateExtension]::new($this.OrganizationContext, $this.InvocationContext)
 		$this.controlStateExtension.UniqueRunId = $(Get-Date -format "yyyyMMdd_HHmmss");
 		$this.controlStateExtension.Initialize($true)
 		$this.ControlSettings=$ControlSettingsJson = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
@@ -453,7 +453,7 @@ class SVTControlAttestation
 					$counter = $counter + 1
 					if(($resourceValue | Measure-Object).Count -gt 0)
 					{
-						$SubscriptionId = $resourceValue[0].SubscriptionContext.SubscriptionId
+						$organizationId = $resourceValue[0].OrganizationContext.OrganizationId
 						if($null -ne $resourceValue[0].ResourceContext)
 						{
 							$ResourceId = $resourceValue[0].ResourceContext.ResourceId
@@ -462,7 +462,7 @@ class SVTControlAttestation
 						else
 						{
 							$isSubscriptionScan = $true;
-							Write-Host $([String]::Format([Constants]::ModuleAttestStartHeadingSub, $resourceValue[0].FeatureName, $resourceValue[0].SubscriptionContext.SubscriptionName, $resourceValue[0].SubscriptionContext.SubscriptionId)) -ForegroundColor Cyan
+							Write-Host $([String]::Format([Constants]::ModuleAttestStartHeadingSub, $resourceValue[0].FeatureName, $resourceValue[0].OrganizationContext.OrganizationName, $resourceValue[0].OrganizationContext.OrganizationId)) -ForegroundColor Cyan
 						}	
 						
 						if(($resourceValue[0].FeatureName -eq "Organization" -or $resourceValue[0].FeatureName -eq "Project") -and !$this.controlStateExtension.GetControlStatePermission($resourceValue[0].FeatureName, $resourceValue[0].ResourceContext.ResourceName) )
@@ -613,7 +613,7 @@ class SVTControlAttestation
 						else
 						{
 							$isSubscriptionScan = $true;
-							Write-Host $([String]::Format([Constants]::CompletedAttestAnalysisSub, $resourceValue[0].FeatureName, $resourceValue[0].SubscriptionContext.SubscriptionName, $resourceValue[0].SubscriptionContext.SubscriptionId)) -ForegroundColor Cyan
+							Write-Host $([String]::Format([Constants]::CompletedAttestAnalysisSub, $resourceValue[0].FeatureName, $resourceValue[0].OrganizationContext.OrganizationName, $resourceValue[0].OrganizationContext.OrganizationId)) -ForegroundColor Cyan
 						}	
 					}
 				}
@@ -664,7 +664,7 @@ class SVTControlAttestation
 		    $user = "";
 		    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
 			
-			$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.SubscriptionContext.subscriptionid, $projectName, $attestationRepo
+			$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.OrganizationContext.OrganizationId, $projectName, $attestationRepo
             try
             {
 		        $webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}

@@ -6,12 +6,12 @@ class ADOSVTBase: SVTBase {
 
 	}
 
-	ADOSVTBase([string] $subscriptionId):
-	Base($subscriptionId) {
+	ADOSVTBase([string] $organizationId):
+	Base($organizationId) {
 		$this.CreateInstance();
 	}
-	ADOSVTBase([string] $subscriptionId, [SVTResource] $svtResource):
-	Base($subscriptionId) {		
+	ADOSVTBase([string] $organizationId, [SVTResource] $svtResource):
+	Base($organizationId) {		
 		$this.CreateInstance($svtResource);
 	}
 	#Create instance for organization scan 
@@ -19,7 +19,7 @@ class ADOSVTBase: SVTBase {
 		[Helpers]::AbstractClass($this, [SVTBase]);
 		Write-Host -ForegroundColor Yellow "No mapping!? Do we use this .ctor?"
 		#$this.LoadSvtConfig([SVTMapping]::SubscriptionMapping.JsonFileName);
-		$this.ResourceId = $this.SubscriptionContext.Scope;	
+		$this.ResourceId = $this.OrganizationContext.Scope;	
 	}
    
 	#Add PreviewBaselineControls
@@ -477,7 +477,7 @@ class ADOSVTBase: SVTBase {
 		if (!$AutoBugLog) {
 			#Settting initial value true so will evaluate in all different cmds.(Powershell keeping static variables in memory in next command also.)
 			[BugLogPathManager]::checkValidPathFlag = $true;
-			$AutoBugLog = [AutoBugLog]::GetInstance($this.SubscriptionContext.SubscriptionName, $this.InvocationContext, $this.ControlStateExt, $BugLogParameterValue);
+			$AutoBugLog = [AutoBugLog]::GetInstance($this.OrganizationContext.OrganizationName, $this.InvocationContext, $this.ControlStateExt, $BugLogParameterValue);
 		}
 		$AutoBugLog.LogBugInADO($ControlResults)
 	}

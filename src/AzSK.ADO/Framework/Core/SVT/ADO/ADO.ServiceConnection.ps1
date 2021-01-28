@@ -8,14 +8,14 @@ class ServiceConnection: ADOSVTBase
     hidden [PSObject] $pipelinePermission = $null;
     hidden [PSObject] $serviceEndPointIdentity = $null;
 
-    ServiceConnection([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId,$svtResource)
+    ServiceConnection([string] $organizationId, [SVTResource] $svtResource): Base($organizationId,$svtResource)
     {
         # Get project id 
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
         # Get security namespace identifier of service endpoints.
         if([string]::IsNullOrEmpty([ServiceConnection]::SecurityNamespaceId))
         {
-            $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=5.0" -f $($this.SubscriptionContext.SubscriptionName)
+            $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=5.0" -f $($this.OrganizationContext.OrganizationName)
             $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             [ServiceConnection]::SecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ServiceEndpoints")}).namespaceId
     
@@ -31,8 +31,8 @@ class ServiceConnection: ADOSVTBase
         }
 
         try {
-            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName)
-            $sourcePageUrl = "https://dev.azure.com/{0}/{1}/_settings/adminservices" -f $($this.SubscriptionContext.SubscriptionName), $this.ResourceContext.ResourceGroupName;
+            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName)
+            $sourcePageUrl = "https://dev.azure.com/{0}/{1}/_settings/adminservices" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.ResourceGroupName;
             $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($this.ServiceEndpointsObj.id)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ResourceContext.ResourceGroupName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
     
             $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody); 
@@ -191,7 +191,7 @@ class ServiceConnection: ADOSVTBase
         try
         {
             $Endpoint = $this.ServiceEndpointsObj
-            $apiURL = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?token=endpoints/{2}/{3}&api-version=5.0" -f $($this.SubscriptionContext.SubscriptionName),$([ServiceConnection]::SecurityNamespaceId),$($this.ProjectId),$($Endpoint.id);
+            $apiURL = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?token=endpoints/{2}/{3}&api-version=5.0" -f $($this.OrganizationContext.OrganizationName),$([ServiceConnection]::SecurityNamespaceId),$($this.ProjectId),$($Endpoint.id);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             if(($responseObj | Measure-Object).Count -eq 0)
             {
@@ -226,7 +226,7 @@ class ServiceConnection: ADOSVTBase
         try
         {
             if ($null -eq $this.serviceEndPointIdentity) {
-                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
+                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
                 $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             }
             $restrictedGroups = @();
@@ -278,7 +278,7 @@ class ServiceConnection: ADOSVTBase
         {
             $isBuildSvcAccGrpFound = $false
             if ($null -eq $this.serviceEndPointIdentity) {
-                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
+                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
                 $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             }
             if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))
@@ -320,7 +320,7 @@ class ServiceConnection: ADOSVTBase
         try
         {
             if ($null -eq $this.pipelinePermission) {
-               $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=5.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName),$($this.ProjectId),$($this.ServiceEndpointsObj.id) ;
+               $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.ServiceEndpointsObj.id) ;
                $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             }
             if([Helpers]::CheckMember($this.pipelinePermission,"allPipelines")) {
@@ -501,7 +501,7 @@ class ServiceConnection: ADOSVTBase
         {
             if ($null -eq $this.pipelinePermission) {
                 #Get pipeline access on svc conn
-                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=5.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($this.ServiceEndpointsObj.id) ;
+                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.ServiceEndpointsObj.id) ;
                 $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             }
             
@@ -515,7 +515,7 @@ class ServiceConnection: ADOSVTBase
                 #get the pipelines ids in comma separated string to pass in api to get the pipeline name
                 $pipelinesIds = $this.pipelinePermission[0].pipelines.id -join ","
                 #api call to get the pipeline name
-                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.0" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $pipelinesIds;
+                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.0" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $pipelinesIds;
                 $pipelineObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                     
                 # We are fixing the control status here and the state data info will be done as shown below. This is done in case we are not able to fetch the pipeline names. Although, we have the pipeline ids as shown above.
@@ -549,7 +549,7 @@ class ServiceConnection: ADOSVTBase
         try
         {
             if ($null -eq $this.serviceEndPointIdentity) {
-                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
+                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
                 $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             }
             if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))

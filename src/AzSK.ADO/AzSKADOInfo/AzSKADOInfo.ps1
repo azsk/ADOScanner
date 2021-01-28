@@ -96,7 +96,6 @@ function Get-AzSKADOInfo
 	{
 		try 
 		{
-			$SubscriptionId = $OrganizationName
 			$unsupported = $false
 			if([string]::IsNullOrWhiteSpace($ResourceTypeName))
 			{
@@ -128,7 +127,7 @@ function Get-AzSKADOInfo
 							$Full = $false
 						}
 
-						$controlsInfo = [ControlsInfo]::new($SubscriptionId, $PSCmdlet.MyInvocation, $ResourceTypeName, $ControlIds, $UseBaselineControls, $UsePreviewBaselineControls, $FilterTags, $Full, $ControlSeverity, $ControlIdContains);
+						$controlsInfo = [ControlsInfo]::new($OrganizationName, $PSCmdlet.MyInvocation, $ResourceTypeName, $ControlIds, $UseBaselineControls, $UsePreviewBaselineControls, $FilterTags, $Full, $ControlSeverity, $ControlIdContains);
 						if ($controlsInfo) 
 						{
 							return $controlsInfo.InvokeFunction($controlsInfo.GetControlDetails);
@@ -136,7 +135,7 @@ function Get-AzSKADOInfo
 					}
 					HostInfo 
 					{
-						$hInfo = [HostInfo]::new($SubscriptionId, $PSCmdlet.MyInvocation);
+						$hInfo = [HostInfo]::new($OrganizationName, $PSCmdlet.MyInvocation);
 						if ($hInfo) 
 						{
 							return $hInfo.InvokeFunction($hInfo.GetHostInfo);

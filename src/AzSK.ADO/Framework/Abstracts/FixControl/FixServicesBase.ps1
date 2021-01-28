@@ -6,8 +6,8 @@ class FixServicesBase: FixControlBase
 
     hidden [ResourceConfig] $ResourceConfig = $null;
 
-    FixServicesBase([string] $subscriptionId, [ResourceConfig] $resourceConfig, [string] $resourceGroupName): 
-        Base($subscriptionId)
+    FixServicesBase([string] $organizationId, [ResourceConfig] $resourceConfig, [string] $resourceGroupName): 
+        Base($organizationId)
     {
 		$this.CreateInstance($resourceConfig, $resourceGroupName);
     }

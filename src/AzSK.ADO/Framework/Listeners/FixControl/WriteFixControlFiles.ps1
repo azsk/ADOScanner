@@ -98,7 +98,7 @@ Repair-AzSKSubscriptionSecurity `
 		return $resultContext;
 	}
 
-	hidden [void] InitializeFolder([SubscriptionContext] $subContext, [string[]] $fixControlFileNames, [string] $runScriptContent)
+	hidden [void] InitializeFolder([OrganizationContext] $subContext, [string[]] $fixControlFileNames, [string] $runScriptContent)
 	{
 		$this.SetFolderPath($subContext);
 		Copy-Item (Join-Path $PSScriptRoot $([WriteFixControlFiles]::FixFolderPath)) $this.FolderPath -Recurse
@@ -131,11 +131,11 @@ Repair-AzSKSubscriptionSecurity `
 				$hasSubControls = $false;
 				$hasResourceControls = $false;
 
-				$fixControlEventContext | Group-Object { $_.SubscriptionContext.SubscriptionId } | 
+				$fixControlEventContext | Group-Object { $_.OrganizationContext.OrganizationId } | 
 				ForEach-Object {
 					$sub = $_.Group;
 					$subObject = [FixControlConfig]@{
-						SubscriptionContext = $sub[0].SubscriptionContext;
+						OrganizationContext = $sub[0].OrganizationContext;
 					};
 					$output += $subObject;
 
@@ -181,7 +181,7 @@ Repair-AzSKSubscriptionSecurity `
 						$runScriptContent += [WriteFixControlFiles]::RunAzureServicesSecurity;
 					}
 
-					$this.InitializeFolder(($fixControlEventContext | Select-Object -First 1).SubscriptionContext, $fixControlFileNames, $runScriptContent);
+					$this.InitializeFolder(($fixControlEventContext | Select-Object -First 1).OrganizationContext, $fixControlFileNames, $runScriptContent);
 					[JsonHelper]::ConvertToJsonCustom($output, 15, 15) | Out-File $this.FilePath
 				}				
 			}			

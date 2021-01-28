@@ -3,8 +3,8 @@ Set-StrictMode -Version Latest
 class RemoteReportHelper
 {
 	hidden static [string[]] $IgnoreScanParamList = "DoNotOpenOutputFolder";
-	hidden static [string[]] $AllowedServiceScanParamList = "SubscriptionId", "ResourceGroupNames";
-	hidden static [string[]] $AllowedSubscriptionScanParamList = "SubscriptionId";
+	hidden static [string[]] $AllowedServiceScanParamList = "OrganizationId", "ResourceGroupNames";
+	hidden static [string[]] $AllowedSubscriptionScanParamList = "OrganizationId";
 	hidden static [int] $MaxServiceParamCount = [RemoteReportHelper]::IgnoreScanParamList.Count + [RemoteReportHelper]::AllowedServiceScanParamList.Count;
 	hidden static [int] $MaxSubscriptionParamCount = [RemoteReportHelper]::IgnoreScanParamList.Count + [RemoteReportHelper]::AllowedSubscriptionScanParamList.Count;
 	hidden static [System.Security.Cryptography.SHA256Managed] $sha256AlgForMasking = [System.Security.Cryptography.SHA256Managed]::new();

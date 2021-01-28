@@ -3,6 +3,7 @@ class Context
 {
     [Account] $Account = [Account]::new();
     [Subscription] $Subscription = [Subscription]::new();
+    [Organization] $Organization = [Organization]::new();
     [EnvironmentDetails] $Environment = [EnvironmentDetails]::new();
     [Tenant] $Tenant = [Tenant]::new();
     [string] $AccessToken;
@@ -21,6 +22,11 @@ enum AccountType{
 }
 
 class Subscription{
+    [string] $Id;
+    [string] $Name;
+}
+
+class Organization{
     [string] $Id;
     [string] $Name;
 }

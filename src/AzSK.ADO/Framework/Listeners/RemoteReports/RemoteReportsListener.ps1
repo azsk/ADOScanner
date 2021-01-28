@@ -91,13 +91,13 @@ class RemoteReportsListener: ListenerBase {
 		$SVTEventContext = $SVTEventContexts[0]
 		$scanResult = [SubscriptionScanInfo]::new()
 		$scanResult.ScanKind = [RemoteReportHelper]::GetSubscriptionScanKind($invocationContext.MyCommand.Name, $invocationContext.BoundParameters)
-		$scanResult.SubscriptionId = $SVTEventContext.SubscriptionContext.SubscriptionId
-		$scanResult.SubscriptionName = $SVTEventContext.SubscriptionContext.SubscriptionName
+		$scanResult.OrganizationId = $SVTEventContext.OrganizationContext.OrganizationId
+		$scanResult.OrganizationName = $SVTEventContext.OrganizationContext.OrganizationName
 		$scanResult.Source = [RemoteReportHelper]::GetScanSource()
 		$scanResult.ScannerVersion = $publisher.GetCurrentModuleVersion()
 		# Using module version as control version by default
 		$scanResult.ControlVersion = $publisher.GetCurrentModuleVersion()
-		$scanResult.Metadata = [JsonHelper]::ConvertToJsonCustomCompressed($SVTEventContext.SubscriptionContext.SubscriptionMetadata)
+		$scanResult.Metadata = [JsonHelper]::ConvertToJsonCustomCompressed($SVTEventContext.OrganizationContext.OrganizationMetadata)
 		if(($SVTEventContexts | Measure-Object).Count -gt 0 -and ($SVTEventContexts[0].ControlResults | Measure-Object).Count -gt 0)
 		{
 			$TempCtrlResult = $SVTEventContexts[0].ControlResults[0];
@@ -135,8 +135,8 @@ class RemoteReportsListener: ListenerBase {
 		$SVTEventContextFirst = $SVTEventContexts[0]
 		$scanResult = [ServiceScanInfo]::new()
 		$scanResult.ScanKind = [RemoteReportHelper]::GetServiceScanKind($invocationContext.MyCommand.Name, $invocationContext.BoundParameters)
-		$scanResult.SubscriptionId = $SVTEventContextFirst.SubscriptionContext.SubscriptionId
-		$scanResult.SubscriptionName = $SVTEventContextFirst.SubscriptionContext.SubscriptionName
+		$scanResult.OrganizationId = $SVTEventContextFirst.OrganizationContext.OrganizationId
+		$scanResult.OrganizationName = $SVTEventContextFirst.OrganizationContext.OrganizationName
 		$scanResult.Source = [RemoteReportHelper]::GetScanSource()
 		$scanResult.ScannerVersion = $publisher.GetCurrentModuleVersion()
 		# Using module version as control version by default

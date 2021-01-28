@@ -2,8 +2,8 @@ Set-StrictMode -Version Latest
 
 class ScanInfoBase {
     [ScanInfoVersion] $ScanInfoVersion;
-    [string] $SubscriptionId;
-    [string] $SubscriptionName;
+    [string] $OrganizationId;
+    [string] $OrganizationName;
     [ScanSource] $Source;
     [string] $ScannerVersion;
     [string] $ControlVersion;

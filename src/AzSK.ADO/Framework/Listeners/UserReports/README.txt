@@ -3,17 +3,17 @@
 Each AzSK cmdlet writes output to a folder whose location is determined as below:
 
 --------------------------------------------------------------
-AzSK-Root-Output-Folder = %LocalAppData%\Microsoft\AzSKLogs 
-	E.g., "C:\Users\<userName>\AppData\Local\Microsoft\AzSKLogs"
+AzSK-Root-Output-Folder = %LocalAppData%\Microsoft\AzSK.ADOLogs 
+	E.g., "C:\Users\<userName>\AppData\Local\Microsoft\AzSK.ADOLogs"
 
 --------------------------------------------------------------
-Sub-Folder = Sub_<Subscription Name>\<Timestamp>_<CommandAbbreviation> 
-	E.g., "Sub_[yourSubscriptionName]\20170321_183800_GSS)"
+Sub-Folder = Sub_<Organization Name>\<Timestamp>_<CommandAbbreviation> 
+	E.g., "Sub_[yourOrganizationName]\20170321_183800_GADS)"
 
 
 --------------------------------------------------------------
 Thus, the full path to an output folder for a specific cmdlet might look like: 
-	E.g., "C:\Users\userName\AppData\Local\Microsoft\AzSKLogs\Sub_[yourSubscriptionName]\20170321_183800_GSS"
+	E.g., "C:\Users\userName\AppData\Local\Microsoft\AzSK.ADOLogs\Sub_[yourOrganizationName]\20170321_183800_GADS"
 
 By default, cmdlets open this folder upon completion of the cmdlet (we assume you'd be interested in examining the control evaluation status, etc.)
 
@@ -26,7 +26,7 @@ The contents of the output folder are organized as under:
 
 
  	\AttestationReport-<timestamp>.csv			
-	[This is the summary CSV file listing all applicable controls and their attestation details. This file will be generated only for the cmdlet Get-AzSKInfo -SubscriptionId <SubscriptionId> -InfoType AttestationInfo.]
+	[This is the summary CSV file listing all applicable controls and their attestation details. This file will be generated only for the cmdlet Get-AzSKInfo -OrganizationName <OrganizationName> -InfoType AttestationInfo.]
 
 
   	\<Resource_Group_or_Subscription_Name_Folder>	

@@ -3,8 +3,8 @@ Set-StrictMode -Version Latest
 
 class HostInfo: CommandBase
 {    
-	HostInfo([string] $subscriptionId, [InvocationInfo] $invocationContext): 
-        Base($subscriptionId, $invocationContext) 
+	HostInfo([string] $organizationId, [InvocationInfo] $invocationContext): 
+        Base($organizationId, $invocationContext) 
     { 
 		$this.DoNotOpenOutputFolder = $true;
 	}

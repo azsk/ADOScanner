@@ -182,13 +182,13 @@ class SVTEventContext: AzSKRootEventArgument
 		}
 		else
 		{
-			$uniqueId = $this.SubscriptionContext.Scope;
+			$uniqueId = $this.OrganizationContext.Scope;
 		}
 
 		# Unique Id validation
 		if([string]::IsNullOrWhiteSpace($uniqueId))
 		{
-			throw "Error while evaluating Unique Id. The parameter 'ResourceContext.ResourceId' OR 'SubscriptionContext.Scope' is null or empty."
+			throw "Error while evaluating Unique Id. The parameter 'ResourceContext.ResourceId' OR 'OrganizationContext.Scope' is null or empty."
 		}
 
 		return $uniqueId;

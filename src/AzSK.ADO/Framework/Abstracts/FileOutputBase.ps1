@@ -34,10 +34,10 @@ class FileOutputBase: ListenerBase
 		$this.AddBasePath([Constants]::AzSKLogFolderPath);
 	}
 
-	hidden [string] CalculateFolderPath([SubscriptionContext] $context, [string] $subFolderPath, [int] $pathIndex)
+	hidden [string] CalculateFolderPath([OrganizationContext] $context, [string] $subFolderPath, [int] $pathIndex)
     {
 		$outputPath = "";
-		if($context -and (-not [string]::IsNullOrWhiteSpace($context.SubscriptionName)) -and (-not [string]::IsNullOrWhiteSpace($context.SubscriptionId)))
+		if($context -and (-not [string]::IsNullOrWhiteSpace($context.OrganizationName)) -and (-not [string]::IsNullOrWhiteSpace($context.OrganizationId)))
 		{
 			$isDefaultPath = $false;
 			if($pathIndex -lt $this.BasePaths.Count)
@@ -52,9 +52,9 @@ class FileOutputBase: ListenerBase
 
 			$outputPath = Join-Path $basePath ($([Constants]::AzSKModuleName)+"Logs")  ;
 
-			$sanitizedPath = [Helpers]::SanitizeFolderName($context.SubscriptionName);
+			$sanitizedPath = [Helpers]::SanitizeFolderName($context.OrganizationName);
 			if ([string]::IsNullOrEmpty($sanitizedPath)) {
-				$sanitizedPath = $context.SubscriptionId;
+				$sanitizedPath = $context.OrganizationId;
 			}
 
 			$runPath = $this.RunIdentifier;
@@ -98,32 +98,32 @@ class FileOutputBase: ListenerBase
 		return $outputPath;
 	}
 
-	[string] CalculateFolderPath([SubscriptionContext] $context, [string] $subFolderPath)
+	[string] CalculateFolderPath([OrganizationContext] $context, [string] $subFolderPath)
 	{
 		return $this.CalculateFolderPath($context, $subFolderPath, 0);
 	}
 
-	[string] CalculateFolderPath([SubscriptionContext] $context)
+	[string] CalculateFolderPath([OrganizationContext] $context)
 	{
 		return $this.CalculateFolderPath($context, "");
 	}
 
-	[void] SetFolderPath([SubscriptionContext] $context)
+	[void] SetFolderPath([OrganizationContext] $context)
     {
 		$this.SetFolderPath($context, "");
 	}
 
-    [void] SetFolderPath([SubscriptionContext] $context, [string] $subFolderPath)
+    [void] SetFolderPath([OrganizationContext] $context, [string] $subFolderPath)
     {
         $this.FolderPath = $this.CalculateFolderPath($context, $subFolderPath);
     }
 
-	[string] CalculateFilePath([SubscriptionContext] $context, [string] $fileName)
+	[string] CalculateFilePath([OrganizationContext] $context, [string] $fileName)
 	{
 		return $this.CalculateFilePath($context, "", $fileName);
 	}
 
-	[string] CalculateFilePath([SubscriptionContext] $context, [string] $subFolderPath, [string] $fileName)
+	[string] CalculateFilePath([OrganizationContext] $context, [string] $subFolderPath, [string] $fileName)
     {
 		$outputPath = "";
 		$this.SetFolderPath($context, $subFolderPath); 
@@ -142,12 +142,12 @@ class FileOutputBase: ListenerBase
 		return $outputPath;
 	}
 
-    [void] SetFilePath([SubscriptionContext] $context, [string] $fileName)
+    [void] SetFilePath([OrganizationContext] $context, [string] $fileName)
     {
         $this.SetFilePath($context, "", $fileName);
     }
 
-    [void] SetFilePath([SubscriptionContext] $context, [string] $subFolderPath, [string] $fileName)
+    [void] SetFilePath([OrganizationContext] $context, [string] $subFolderPath, [string] $fileName)
     {
 		$this.FilePath = $this.CalculateFilePath($context, $subFolderPath, $fileName);
     }

@@ -5,8 +5,8 @@ class FixControlBase: AzSKRoot
     hidden [PSObject] $ControlSettings
 	hidden [ControlParam[]] $Controls = @();
 
-    FixControlBase([string] $subscriptionId): 
-        Base($subscriptionId)
+    FixControlBase([string] $organizationId): 
+        Base($organizationId)
     { 
 		[Helpers]::AbstractClass($this, [FixControlBase]); 
 	}

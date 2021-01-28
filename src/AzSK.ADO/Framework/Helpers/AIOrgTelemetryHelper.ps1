@@ -172,10 +172,10 @@ class AIOrgTelemetryHelper {
 			}
             try 
 			{
-                $azureContext = [ContextHelper]::GetCurrentContext()
+                $organizationContext = [ContextHelper]::GetCurrentContext()
                 try 
 				{
-                    $Properties.Add([TelemetryKeys]::SubscriptionId, $azureContext.Subscription.Id)
+                    $Properties.Add([TelemetryKeys]::OrganizationId, $organizationContext.Organization.Id)
                 }
                 catch
 				{
@@ -184,7 +184,7 @@ class AIOrgTelemetryHelper {
 				}
                 try 
 				{
-                    $Properties.Add([TelemetryKeys]::SubscriptionName, $azureContext.Subscription.Name)
+                    $Properties.Add([TelemetryKeys]::OrganizationName, $organizationContext.Organization.Name)
                 }
                 catch
 				{
@@ -193,7 +193,7 @@ class AIOrgTelemetryHelper {
 				}
                 try 
 				{
-                    $Properties.Add("AzureEnv", $azureContext.Environment.Name)
+                    $Properties.Add("AzureEnv", $organizationContext.Environment.Name)
                 }
                 catch
 				{
@@ -202,7 +202,7 @@ class AIOrgTelemetryHelper {
 				}
                 try 
 				{
-                    $Properties.Add("TenantId", $azureContext.Tenant.Id)
+                    $Properties.Add("TenantId", $organizationContext.Tenant.Id)
                 }
                 catch
 				{
@@ -211,7 +211,7 @@ class AIOrgTelemetryHelper {
 				}
                 try 
 				{
-                    $Properties.Add("AccountId", $azureContext.Account.Id)
+                    $Properties.Add("AccountId", $organizationContext.Account.Id)
                 }
                 catch
 				{
@@ -222,7 +222,7 @@ class AIOrgTelemetryHelper {
 				{
                     if ($Properties.ContainsKey("RunIdentifier")) {
                         $actualRunId = $Properties["RunIdentifier"]
-                        $Properties["UniqueRunIdentifier"] = [RemoteReportHelper]::Mask($azureContext.Account.Id + '##' + $actualRunId.ToString())
+                        $Properties["UniqueRunIdentifier"] = [RemoteReportHelper]::Mask($organizationContext.Account.Id + '##' + $actualRunId.ToString())
                     }
                 }
                 catch
@@ -232,7 +232,7 @@ class AIOrgTelemetryHelper {
 				}
                 try 
 				{
-                    $Properties.Add("AccountType", $azureContext.Account.Type);
+                    $Properties.Add("AccountType", $organizationContext.Account.Type);
                 }
                 catch
 				{
@@ -406,11 +406,11 @@ class AIOrgTelemetryHelper {
     if([AIOrgTelemetryHelper]::CommonProperties)
 	 {	
 		try{
-		$EventObj.data.baseData.properties.Add("SubscriptionId",[AIOrgTelemetryHelper]::CommonProperties.SubscriptionId)
-		$EventObj.data.baseData.properties.Add("SubscriptionName",[AIOrgTelemetryHelper]::CommonProperties.SubscriptionName)		
-		$azureContext = [ContextHelper]::GetCurrentContext()
-		$EventObj.data.baseData.properties.Add("TenantId", $azureContext.Tenant.Id)
-		$EventObj.data.baseData.properties.Add("AccountId", $azureContext.Account.Id)
+		$EventObj.data.baseData.properties.Add("OrganizationId",[AIOrgTelemetryHelper]::CommonProperties.OrganizationId)
+		$EventObj.data.baseData.properties.Add("OrganizationName",[AIOrgTelemetryHelper]::CommonProperties.OrganizationName)		
+		$organizationContext = [ContextHelper]::GetCurrentContext()
+		$EventObj.data.baseData.properties.Add("TenantId", $organizationContext.Tenant.Id)
+		$EventObj.data.baseData.properties.Add("AccountId", $organizationContext.Account.Id)
 		}
 		catch{
 			# Eat the current exception which typically happens to avoid any break in event push

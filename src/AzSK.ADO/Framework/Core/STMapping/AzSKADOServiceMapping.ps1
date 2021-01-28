@@ -14,10 +14,10 @@ class AzSKADOServiceMapping: CommandBase
     $ReleaseSTDetails =@();
 
 
-	AzSKADOServiceMapping([string] $subscriptionId, [string] $projectName, [string] $buildFileLocation, [string] $releaseFileLocation, [string] $mappingType, [InvocationInfo] $invocationContext): 
-        Base($subscriptionId, $invocationContext) 
+	AzSKADOServiceMapping([string] $organizationId, [string] $projectName, [string] $buildFileLocation, [string] $releaseFileLocation, [string] $mappingType, [InvocationInfo] $invocationContext): 
+        Base($organizationId, $invocationContext) 
     { 
-        $this.OrgName = $subscriptionId
+        $this.OrgName = $organizationId
         $this.ProjectName = $projectName
         $this.BuildMappingsFilePath = $buildFileLocation
         $this.ReleaseMappingsFilePath = $releaseFileLocation

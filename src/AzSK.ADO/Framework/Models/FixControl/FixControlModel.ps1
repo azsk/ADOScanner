@@ -2,7 +2,7 @@
 
 class FixControlConfig
 {
-	[SubscriptionContext] $SubscriptionContext;
+	[OrganizationContext] $OrganizationContext;
 	[ResourceGroupConfig[]] $ResourceGroups = @();
 	[ControlParam[]] $SubscriptionControls = @();
 }

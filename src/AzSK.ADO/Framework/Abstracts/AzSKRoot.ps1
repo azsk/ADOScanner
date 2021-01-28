@@ -9,29 +9,29 @@ Set-StrictMode -Version Latest
 class AzSKRoot: EventBase
 { 
     #Region: Properties
-    [SubscriptionContext] $SubscriptionContext;
+    [OrganizationContext] $OrganizationContext;
 	[bool] $RunningLatestPSModule = $true;
 	static [bool] $IsDetailedScanRequired = $false;
     #EndRegion
 
     #Region: Constructor 
-    AzSKRoot([string] $subscriptionId)
+    AzSKRoot([string] $organizationName)
     {
         #Initialize context 
         $ContextHelper = [ContextHelper]::new()
-        $this.SubscriptionContext = $ContextHelper.SetContext($subscriptionId)
+        $this.OrganizationContext = $ContextHelper.SetContext($organizationName)
     }
 
-    AzSKRoot([string] $subscriptionId, [System.Security.SecureString] $PATToken)
+    AzSKRoot([string] $organizationName, [System.Security.SecureString] $PATToken)
     {
         #Initialize context 
         $ContextHelper = [ContextHelper]::new()
         if($PATToken)
         {
-            $this.SubscriptionContext = $ContextHelper.SetContext($subscriptionId,$PATToken)
+            $this.OrganizationContext = $ContextHelper.SetContext($organizationName,$PATToken)
         }
         else {
-            $this.SubscriptionContext = $ContextHelper.SetContext($subscriptionId)
+            $this.OrganizationContext = $ContextHelper.SetContext($organizationName)
         }
     }
     
@@ -46,7 +46,7 @@ class AzSKRoot: EventBase
 	hidden [AzSKRootEventArgument] CreateRootEventArgumentObject() 
 	{
 		return [AzSKRootEventArgument]@{
-            SubscriptionContext = $this.SubscriptionContext;
+            OrganizationContext = $this.OrganizationContext;
         };
 	}
 
