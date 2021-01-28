@@ -11,7 +11,7 @@ class LSRSubscription
 	[string] $SubscriptionId = "";
 	[string] $SubscriptionName = "";
 	[LSRScanDetails] $ScanDetails = $null;
-	[string] $OrganizationMetadata = "";
+	[string] $SubscriptionMetadata = "";
 	[string] $SchemaVersion = "";
 
 
