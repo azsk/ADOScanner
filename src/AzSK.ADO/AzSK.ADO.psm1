@@ -171,6 +171,46 @@ function Set-AzSKADOPolicySettings {
     }
 }
 
+function Set-AzSKADOUsageTelemetryLevel {
+    <#
+	.SYNOPSIS
+	This command would help to set telemetry level.
+	.DESCRIPTION
+	This command would help to set telemetry level.
+
+	.PARAMETER Level
+		Provide the telemetry level
+
+	#>
+    Param(
+        [Parameter(Mandatory = $true, HelpMessage = "Provide the telemetry level")]
+        [ValidateSet("None", "Anonymous")]
+        [string]
+		[Alias("lvl")]
+        $Level
+    )
+    Begin {
+        [CommandHelper]::BeginCommand($PSCmdlet.MyInvocation);
+        [ListenerHelper]::RegisterListeners();
+    }
+    Process {
+        try {
+            $azskSettings = [ConfigurationManager]::GetLocalAzSKSettings();
+            $azskSettings.UsageTelemetryLevel = $Level
+            [ConfigurationManager]::UpdateAzSKSettings($azskSettings);
+            [EventBase]::PublishGenericCustomMessage("Successfully set usage telemetry level");
+            # clearing session state so that telemetry setting will be immediately effective 
+            [ConfigOverride]::ClearConfigInstance()           
+        }
+        catch {
+            [EventBase]::PublishGenericException($_);
+        }
+    }
+    End {
+        [ListenerHelper]::UnregisterListeners();
+    }
+}
+
 #$FrameworkPath = $PSScriptRoot
 
 . $FrameworkPath\Helpers\AliasHelper.ps1
