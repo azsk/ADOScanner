@@ -311,7 +311,7 @@ class SVTBase: AzSKRoot
 				}
 				else
 				{
-					$this.PublishCustomMessage("No controls have been found to evaluate for Subscription", [MessageType]::Warning);
+					$this.PublishCustomMessage("No controls have been found to evaluate for Organization", [MessageType]::Warning);
 				}
 			}
 			else
