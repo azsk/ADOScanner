@@ -488,7 +488,7 @@ class SVTControlAttestation
 								[ControlResult[]] $matchedControlResults = @();
 								$controlItem.ControlResults | ForEach-Object {
 									$controlResult = $_
-									if($controlResult.ActualVerificationResult -ne [VerificationResult]::Passed -and $controlResult.ActualVerificationResult -ne [VerificationResult]::Error -and $controlResult.ActualVerificationResult -ne [VerificationResult]::Skipped)
+									if($controlResult.ActualVerificationResult -ne [VerificationResult]::Passed -and $controlResult.ActualVerificationResult -ne [VerificationResult]::Error)
 									{
 										if($this.AttestControlsChoice -eq [AttestControls]::All)
 										{

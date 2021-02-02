@@ -7,7 +7,7 @@ class ServiceConnection: ADOSVTBase
     hidden [PSObject] $ServiceConnEndPointDetail = $null;
     hidden [PSObject] $pipelinePermission = $null;
     hidden [PSObject] $serviceEndPointIdentity = $null;
-    hidden [PSObject] $SvcConnActivityDetail = @{isSvcConnActive = $true; svcConnLastRunDate = $null; errorMsg = $null};
+    hidden [PSObject] $SvcConnActivityDetail = @{isSvcConnActive = $true; svcConnLastRunDate = $null; message = $null};
 
     ServiceConnection([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId,$svtResource)
     {
@@ -46,7 +46,8 @@ class ServiceConnection: ADOSVTBase
             
         }
 
-        if($null -eq $this.SvcConnActivityDetail.errorMsg)
+        # add comments
+        if($null -eq $this.SvcConnActivityDetail.message)
         {
             $this.CheckActiveConnection()
             if ($this.SvcConnActivityDetail.isSvcConnActive) {
@@ -229,7 +230,6 @@ class ServiceConnection: ADOSVTBase
         {
             $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connections details. $($failMsg)Please verify from portal that permission inheritance is turned OFF for all the service connections");
         }
-
         return $controlResult;
     }
 
@@ -282,7 +282,6 @@ class ServiceConnection: ADOSVTBase
         {
             $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connections details. $($failMsg)Please verify from portal that you are not granting global security groups access to service connections");
         }
-        
         return $controlResult;
     }
 
@@ -327,7 +326,6 @@ class ServiceConnection: ADOSVTBase
         {
             $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connections details. $($failMsg)Please verify from portal that you are not granting global security groups access to service connections");
         }
-        
         return $controlResult;
     }
 
@@ -434,24 +432,27 @@ class ServiceConnection: ADOSVTBase
 	{
         try
         {
-            if ($null -ne $this.SvcConnActivityDetail.svcConnLastRunDate) 
+            if ($this.SvcConnActivityDetail.message -eq 'Could not fetch the service connection details.') {
+                $controlResult.AddMessage([VerificationResult]::Error, $this.SvcConnActivityDetail.message);
+            }
+            elseif ($null -ne $this.SvcConnActivityDetail.svcConnLastRunDate) 
             {
                 if ($this.SvcConnActivityDetail.isSvcConnActive) {
-                    $controlResult.AddMessage([VerificationResult]::Passed, $this.SvcConnActivityDetail.errorMsg);
+                    $controlResult.AddMessage([VerificationResult]::Passed, $this.SvcConnActivityDetail.message);
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Failed, $this.SvcConnActivityDetail.errorMsg);
+                    $controlResult.AddMessage([VerificationResult]::Failed, $this.SvcConnActivityDetail.message);
                 }
                 $controlResult.AddMessage("Last usage date of service connection: $($this.SvcConnActivityDetail.svcConnLastRunDate)");
                 $controlResult.AdditionalInfo += "Last usage date of service connection: " + $this.SvcConnActivityDetail.svcConnLastRunDate;
             }
             elseif ($this.SvcConnActivityDetail.isSvcConnActive)
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, $this.SvcConnActivityDetail.errorMsg);
+                $controlResult.AddMessage([VerificationResult]::Passed, $this.SvcConnActivityDetail.message);
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, $this.SvcConnActivityDetail.errorMsg);
+                $controlResult.AddMessage([VerificationResult]::Failed, $this.SvcConnActivityDetail.message);
             }
         }
         catch
@@ -593,36 +594,35 @@ class ServiceConnection: ADOSVTBase
                         if ($formatLastRunTimeSpan.Days -gt $inactiveLimit)
                         {
                             $this.SvcConnActivityDetail.isSvcConnActive = $false;
-                            $this.SvcConnActivityDetail.errorMsg = "Service connection has not been used in the last $inactiveLimit days.";
+                            $this.SvcConnActivityDetail.message = "Service connection has not been used in the last $inactiveLimit days.";
                         }
                         else
                         {
                             $this.SvcConnActivityDetail.isSvcConnActive = $true;
-                            $this.SvcConnActivityDetail.errorMsg =  "Service connection has been used in the last $inactiveLimit days.";
+                            $this.SvcConnActivityDetail.message =  "Service connection has been used in the last $inactiveLimit days.";
                         }
                     }
                     else {
                         $this.SvcConnActivityDetail.isSvcConnActive = $false;
-                        $this.SvcConnActivityDetail.errorMsg = "History period in days (ServiceConnectionHistoryPeriodInDays) to check last running day of service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.";
+                        $this.SvcConnActivityDetail.message = "History period in days (ServiceConnectionHistoryPeriodInDays) to check last running day of service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.";
                     }
                     $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
                 }
                 else
                 {
                     $this.SvcConnActivityDetail.isSvcConnActive = $true;
-                    $this.SvcConnActivityDetail.errorMsg = "Service connection was under use during the control scan.";
+                    $this.SvcConnActivityDetail.message = "Service connection was under use during the control scan.";
                 }
             }
             else #service connection was created but never used. (Fail for now)
             {
                 $this.SvcConnActivityDetail.isSvcConnActive = $false;
-                $this.SvcConnActivityDetail.errorMsg = "Service connection has never been used.";
+                $this.SvcConnActivityDetail.message = "Service connection has never been used.";
             }
         }
         catch
         {
-            $this.SvcConnActivityDetail.isSvcConnActive = $false;
-            $this.SvcConnActivityDetail.errorMsg = "Could not fetch the service connection details.";
+            $this.SvcConnActivityDetail.message = "Could not fetch the service connection details.";
         }
     }
 }

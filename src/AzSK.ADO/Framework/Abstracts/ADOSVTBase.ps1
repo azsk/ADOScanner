@@ -461,15 +461,24 @@ class ADOSVTBase: SVTBase {
 			#added check azuretable check here, if ((azuretable is used for storing bug info and scan mode is CA) OR azuretable bug info is disabed) then only allow bug logging
 			$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
 			$isAzureTableEnabled = [Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount");
+			
+			#if bug logging is enabled for inactive resources, then only bug will be logged for inactive resources.
+			if([Helpers]::CheckMember($this.ControlSettings.BugLogging, "BugLogForInactiveResources"))
+			{
+				$bugLogForInactiveResources = $true;
+			}
+			else {
+				$bugLogForInactiveResources = $this.isResourceActive;
+			}
 			if (!$isAzureTableEnabled -or ($isAzureTableEnabled -and ($scanSource -eq "CA")) )
 			{
-				if ($this.isResourceActive) {
+				if ($bugLogForInactiveResources) {
 					if (($ControlResults.ControlResults.VerificationResult -contains "Failed") -or ($ControlResults.ControlResults.VerificationResult -contains "Verify")) {
 						$this.BugLoggingPostEvaluation($ControlResults, $BugLogParameterValue)
 					}
 				}
 				else {
-					$this.PublishCustomMessage("Bug can not be logged for inactive resources", [MessageType]::Warning);
+					$this.PublishCustomMessage("Bug logging is disabled for inactive resources.", [MessageType]::Info);
 				}
 			}
 			
