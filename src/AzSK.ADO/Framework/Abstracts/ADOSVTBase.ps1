@@ -6,12 +6,12 @@ class ADOSVTBase: SVTBase {
 
 	}
 
-	ADOSVTBase([string] $organizationId):
-	Base($organizationId) {
+	ADOSVTBase([string] $organizationName):
+	Base($organizationName) {
 		$this.CreateInstance();
 	}
-	ADOSVTBase([string] $organizationId, [SVTResource] $svtResource):
-	Base($organizationId) {		
+	ADOSVTBase([string] $organizationName, [SVTResource] $svtResource):
+	Base($organizationName) {		
 		$this.CreateInstance($svtResource);
 	}
 	#Create instance for organization scan 

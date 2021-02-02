@@ -16,8 +16,8 @@ class ControlsInfo: CommandBase
 	hidden [string] $ControlSeverity
 	hidden [string] $ControlIdContains
 
-	ControlsInfo([string] $organizationId, [InvocationInfo] $invocationContext, [string] $resourceTypeName, [string] $controlIdString, [bool] $OnlyBaselineControls,[bool] $OnlyPreviewBaselineControls, 
-					[string] $filterTagsString, [bool] $full, [string] $controlSeverity, [string] $controlIdContains) :  Base($organizationId, $invocationContext)
+	ControlsInfo([string] $organizationName, [InvocationInfo] $invocationContext, [string] $resourceTypeName, [string] $controlIdString, [bool] $OnlyBaselineControls,[bool] $OnlyPreviewBaselineControls, 
+					[string] $filterTagsString, [bool] $full, [string] $controlSeverity, [string] $controlIdContains) :  Base($organizationName, $invocationContext)
     { 
 		$this.ResourceTypeName = $resourceTypeName;
 		$this.OnlyBaselineControls = $OnlyBaselineControls;

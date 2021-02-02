@@ -40,13 +40,13 @@ class SVTBase: AzSKRoot
 	[bool] $IsAIEnabled = $false;
 	#EndRegion
 
-	SVTBase([string] $organizationId):
-        Base($organizationId)
+	SVTBase([string] $organizationName):
+        Base($organizationName)
     {		
 
 	}
-	SVTBase([string] $organizationId, [SVTResource] $svtResource):
-	Base($organizationId, [SVTResource] $svtResource)
+	SVTBase([string] $organizationName, [SVTResource] $svtResource):
+	Base($organizationName, [SVTResource] $svtResource)
 	{		
 		$this.CreateInstance($svtResource);
 	}
