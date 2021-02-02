@@ -2,6 +2,7 @@ class ADOSVTBase: SVTBase {
 
 	hidden [ControlStateExtension] $ControlStateExt;
 	hidden [AzSKSettings] $AzSKSettings;
+	hidden [bool] $isResourceActive = $true;
 	ADOSVTBase() {
 
 	}
@@ -462,8 +463,13 @@ class ADOSVTBase: SVTBase {
 			$isAzureTableEnabled = [Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount");
 			if (!$isAzureTableEnabled -or ($isAzureTableEnabled -and ($scanSource -eq "CA")) )
 			{
-				if (($ControlResults.ControlResults.VerificationResult -contains "Failed") -or ($ControlResults.ControlResults.VerificationResult -contains "Verify")) {
-					$this.BugLoggingPostEvaluation($ControlResults, $BugLogParameterValue)
+				if ($this.isResourceActive) {
+					if (($ControlResults.ControlResults.VerificationResult -contains "Failed") -or ($ControlResults.ControlResults.VerificationResult -contains "Verify")) {
+						$this.BugLoggingPostEvaluation($ControlResults, $BugLogParameterValue)
+					}
+				}
+				else {
+					$this.PublishCustomMessage("Bug can not be logged for inactive resources", [MessageType]::Warning);
 				}
 			}
 			
