@@ -2,6 +2,7 @@ class ADOSVTBase: SVTBase {
 
 	hidden [ControlStateExtension] $ControlStateExt;
 	hidden [AzSKSettings] $AzSKSettings;
+	# below variable will be used by multiple SVT classes (e.g ServiceConnection, Builds, Release etc.) and overrides for every individual resource.
 	hidden [bool] $isResourceActive = $true;
 	ADOSVTBase() {
 
@@ -462,23 +463,33 @@ class ADOSVTBase: SVTBase {
 			$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
 			$isAzureTableEnabled = [Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount");
 			
-			#if bug logging is enabled for inactive resources, then only bug will be logged for inactive resources.
-			if([Helpers]::CheckMember($this.ControlSettings.BugLogging, "BugLogForInactiveResources"))
+			# if bug logging is enabled for inactive resources, then only bug will be logged for inactive resources.
+			if([Helpers]::CheckMember($this.ControlSettings.BugLogging, "LogBugsForInactiveResources", $false))
 			{
-				$bugLogForInactiveResources = $true;
+				if ($this.ControlSettings.BugLogging.LogBugsForInactiveResources -eq $true)
+				{
+					$logBugsForInactiveResources = $true;
+				}
+				else
+				{
+					$logBugsForInactiveResources = $this.isResourceActive;
+				}
 			}
-			else {
-				$bugLogForInactiveResources = $this.isResourceActive;
+			# if required field is not present in the controlSettings,json then follow the older approach
+			else
+			{
+				$logBugsForInactiveResources = $true;
 			}
+
 			if (!$isAzureTableEnabled -or ($isAzureTableEnabled -and ($scanSource -eq "CA")) )
 			{
-				if ($bugLogForInactiveResources) {
+				if ($logBugsForInactiveResources) {
 					if (($ControlResults.ControlResults.VerificationResult -contains "Failed") -or ($ControlResults.ControlResults.VerificationResult -contains "Verify")) {
 						$this.BugLoggingPostEvaluation($ControlResults, $BugLogParameterValue)
 					}
 				}
 				else {
-					$this.PublishCustomMessage("Bug logging is disabled for inactive resources.", [MessageType]::Info);
+					$this.PublishCustomMessage("The current resource is inactive. Bug logging is disabled for inactive resources.", [MessageType]::Warning);
 				}
 			}
 			

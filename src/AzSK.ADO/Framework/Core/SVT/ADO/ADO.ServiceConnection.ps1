@@ -7,7 +7,7 @@ class ServiceConnection: ADOSVTBase
     hidden [PSObject] $ServiceConnEndPointDetail = $null;
     hidden [PSObject] $pipelinePermission = $null;
     hidden [PSObject] $serviceEndPointIdentity = $null;
-    hidden [PSObject] $SvcConnActivityDetail = @{isSvcConnActive = $true; svcConnLastRunDate = $null; message = $null};
+    hidden [PSObject] $SvcConnActivityDetail = @{isSvcConnActive = $true; svcConnLastRunDate = $null; message = $null; isComputed = $false};
 
     ServiceConnection([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId,$svtResource)
     {
@@ -46,17 +46,21 @@ class ServiceConnection: ADOSVTBase
             
         }
 
-        # overiding the '$this.isResourceActive' variable based on the service connection status.
-        # if detail message about service connection status is not available, then first compute the correct status.
-        if($null -eq $this.SvcConnActivityDetail.message)
+        
+        # if service connection activity check function is not computed, then first compute the function to get the correct status of service connection.
+        if($this.SvcConnActivityDetail.isComputed -eq $false)
         {
             $this.CheckActiveConnection()
-            if ($this.SvcConnActivityDetail.isSvcConnActive) {
-                $this.isResourceActive = $true
-            }
-            else {
-                $this.isResourceActive = $false
-            }
+        }
+
+        # overiding the '$this.isResourceActive' global variable based on the current status of service connection .
+        if ($this.SvcConnActivityDetail.isSvcConnActive)
+        {
+            $this.isResourceActive = $true
+        }
+        else
+        {
+            $this.isResourceActive = $false
         }
         
     }
@@ -577,6 +581,7 @@ class ServiceConnection: ADOSVTBase
     {
         try
         {
+
             if ($this.ServiceConnEndPointDetail -and [Helpers]::CheckMember($this.ServiceConnEndPointDetail, "serviceEndpointExecutionHistory") ) 
             {
                 #if this job is still running then finishTime is not available. pass the control
@@ -605,7 +610,7 @@ class ServiceConnection: ADOSVTBase
                     }
                     else {
                         $this.SvcConnActivityDetail.isSvcConnActive = $false;
-                        $this.SvcConnActivityDetail.message = "History period in days (ServiceConnectionHistoryPeriodInDays) to check last running day of service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.";
+                        $this.SvcConnActivityDetail.message = "Could not fetch the inactive days limit for service connection.";
                     }
                     $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
                 }
@@ -625,5 +630,6 @@ class ServiceConnection: ADOSVTBase
         {
             $this.SvcConnActivityDetail.message = "Could not fetch the service connection details.";
         }
+        $this.SvcConnActivityDetail.isComputed = $true
     }
 }
