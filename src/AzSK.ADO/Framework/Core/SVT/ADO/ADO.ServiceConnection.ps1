@@ -46,7 +46,8 @@ class ServiceConnection: ADOSVTBase
             
         }
 
-        # add comments
+        # overiding the '$this.isResourceActive' variable based on the service connection status.
+        # if detail message about service connection status is not available, then first compute the correct status.
         if($null -eq $this.SvcConnActivityDetail.message)
         {
             $this.CheckActiveConnection()
