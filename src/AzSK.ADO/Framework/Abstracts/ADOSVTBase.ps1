@@ -141,6 +141,9 @@ class ADOSVTBase: SVTBase {
 				# Copy the current result to Actual Result field
 				$currentItem.ActualVerificationResult = $currentItem.VerificationResult;
 
+				# override the default value with current status
+				$currentItem.IsResourceActive = $this.IsResourceActive;
+
 				#Logic to append the control result with the permissions metadata
 				[SessionContext] $sc = $currentItem.CurrentSessionContext;
 				$sc.Permissions.HasAttestationWritePermissions = $this.ControlStateExt.HasControlStateWriteAccessPermissions();
