@@ -2,7 +2,7 @@ class ADOSVTBase: SVTBase {
 
 	hidden [ControlStateExtension] $ControlStateExt;
 	hidden [AzSKSettings] $AzSKSettings;
-	# below variable will be used by multiple SVT classes (e.g ServiceConnection, Builds, Release etc.) and overrides for every individual resource.
+	# below variable will be used by SVT's and overriden for each individual resource.
 	hidden [bool] $isResourceActive = $true;
 	ADOSVTBase() {
 
