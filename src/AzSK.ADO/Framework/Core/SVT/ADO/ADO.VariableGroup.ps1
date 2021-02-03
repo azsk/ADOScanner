@@ -6,7 +6,7 @@ class VariableGroup: ADOSVTBase
     hidden [PSObject] $ProjectId;
     hidden [PSObject] $VarGrpId;
     
-    VariableGroup([string] $organizationId, [SVTResource] $svtResource): Base($organizationId,$svtResource) 
+    VariableGroup([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0];
         $this.VarGrpId = $this.ResourceContext.ResourceDetails.id

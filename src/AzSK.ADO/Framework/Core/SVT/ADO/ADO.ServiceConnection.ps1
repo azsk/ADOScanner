@@ -8,7 +8,7 @@ class ServiceConnection: ADOSVTBase
     hidden [PSObject] $pipelinePermission = $null;
     hidden [PSObject] $serviceEndPointIdentity = $null;
 
-    ServiceConnection([string] $organizationId, [SVTResource] $svtResource): Base($organizationId,$svtResource)
+    ServiceConnection([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         # Get project id 
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]

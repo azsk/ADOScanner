@@ -376,7 +376,7 @@ class ControlStateExtension
 		$user = "";
 		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
 	   
-		$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.OrganizationContext.OrganizationId, $projectName, $attestationRepo 
+		$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo 
         try {
 		$webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
 		$branchName = [Constants]::AttestationDefaultBranch;
@@ -387,7 +387,7 @@ class ControlStateExtension
 		
 		$branchId = ($webRequest.value | where {$_.name -eq "refs/heads/"+$branchName}).ObjectId
 
-		$uri = [Constants]::AttRepoStorageUri -f $this.OrganizationContext.OrganizationId, $projectName, $attestationRepo  
+		$uri = [Constants]::AttRepoStorageUri -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo  
 		$body = $this.CreateBody($fileContent, $fileName, $branchId, $branchName);
 		$webRequestResult = Invoke-RestMethod -Uri $uri -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body
 
@@ -511,7 +511,7 @@ class ControlStateExtension
 								$attestationRepo =  $this.ControlSettings.AttestationRepo;
 							}
 
-							$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.OrganizationContext.OrganizationId, $projectName, $attestationRepo
+							$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo
 							$webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
 							[ControlStateExtension]::IsOrgAttestationProjectFound = $true # Policy project and repo found
 						}
@@ -549,7 +549,7 @@ class ControlStateExtension
 		    $user = "";
 		    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
 		    
-		    $uri = [Constants]::StorageUri -f $this.OrganizationContext.OrganizationId, $this.OrganizationContext.OrganizationId, [Constants]::OrgAttPrjExtFile 
+		    $uri = [Constants]::StorageUri -f $this.OrganizationContext.OrganizationName, $this.OrganizationContext.OrganizationName, [Constants]::OrgAttPrjExtFile 
 			$webRequestResult = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
 			#If repo is not found, we will fall into the catch block from IRM call above
 			[ControlStateExtension]::IsOrgAttestationProjectFound = $true # Policy project found
@@ -583,14 +583,14 @@ class ControlStateExtension
 			return $false
 		}
 			   
-		$uri = [Constants]::StorageUri -f $this.OrganizationContext.OrganizationId, $this.OrganizationContext.OrganizationId, $fileName
+		$uri = [Constants]::StorageUri -f $this.OrganizationContext.OrganizationName, $this.OrganizationContext.OrganizationName, $fileName
 		try {
 			$webRequestResult = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
 			Write-Host "Project $($webRequestResult.Project) is already configured to store attestation details for organization-specific controls." -ForegroundColor Yellow
 		}
 		catch {
 			$body = @{"id" = "$fileName"; "Project" = $projectName; } | ConvertTo-Json
-			$uri = [Constants]::StorageUri -f $this.OrganizationContext.OrganizationId, $this.OrganizationContext.OrganizationId, $fileName  
+			$uri = [Constants]::StorageUri -f $this.OrganizationContext.OrganizationName, $this.OrganizationContext.OrganizationName, $fileName  
 			try {
 				$webRequestResult = Invoke-RestMethod -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -Body $body	
 				return $true;
@@ -625,7 +625,7 @@ class ControlStateExtension
 			if ([Helpers]::CheckMember($this.ControlSettings,"AttestationRepo")) {
 				$attestationRepo =  $this.ControlSettings.AttestationRepo;
 			}
-		   $uri = [Constants]::GetAttRepoStorageUri -f $this.OrganizationContext.OrganizationId, $projectName, $attestationRepo, $fileName, $branchName 
+		   $uri = [Constants]::GetAttRepoStorageUri -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo, $fileName, $branchName 
 		   $webRequestResult = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
            if ($webRequestResult) {
 			# COmmenting this code out. We will be handling encoding-decoding to b64 at SetStateData and WriteDetailedLogs.ps1
@@ -670,7 +670,7 @@ class ControlStateExtension
 		$user = "";
 		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
 		
-		$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.OrganizationContext.OrganizationId, $projectName, $attestationRepo
+		$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo
         $webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
 		$branchId = ($webRequest.value | where {$_.name -eq 'refs/heads/master'}).ObjectId
 		
@@ -687,7 +687,7 @@ class ControlStateExtension
 
 		try
 		{
-		   $uri = [Constants]::AttRepoStorageUri -f $this.OrganizationContext.OrganizationId, $projectName, $attestationRepo 
+		   $uri = [Constants]::AttRepoStorageUri -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo 
 		   $webRequestResult = Invoke-RestMethod -Uri $uri -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body
 		}
 		catch{

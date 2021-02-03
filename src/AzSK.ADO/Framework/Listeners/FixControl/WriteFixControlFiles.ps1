@@ -131,7 +131,7 @@ Repair-AzSKSubscriptionSecurity `
 				$hasSubControls = $false;
 				$hasResourceControls = $false;
 
-				$fixControlEventContext | Group-Object { $_.OrganizationContext.OrganizationId } | 
+				$fixControlEventContext | Group-Object { $_.OrganizationContext.OrganizationName } | 
 				ForEach-Object {
 					$sub = $_.Group;
 					$subObject = [FixControlConfig]@{

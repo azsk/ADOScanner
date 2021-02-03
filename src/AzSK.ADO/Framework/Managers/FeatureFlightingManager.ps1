@@ -6,7 +6,7 @@ class FeatureFlightingManager
 {
 	hidden static [FeatureFlight] $FeatureFlight = $null;
 
-	hidden static [bool] GetFeatureStatus([string] $FeatureName, [string] $OrganizationId)
+	hidden static [bool] GetFeatureStatus([string] $FeatureName, [string] $OrganizationName)
     {
 		$featureStatus = $true;
 		if($null -eq [FeatureFlightingManager]::FeatureFlight)
@@ -31,12 +31,12 @@ class FeatureFlightingManager
 					$featureStatus = $false;	
 				}
 				#Check if the sub is marked under disabled list for this feature
-				elseif(($feature.DisabledForSubs | Measure-Object).Count -gt 0 -and ($feature.DisabledForSubs | Where-Object { $_ -eq $OrganizationId } | Measure-Object).Count -eq 1)
+				elseif(($feature.DisabledForSubs | Measure-Object).Count -gt 0 -and ($feature.DisabledForSubs | Where-Object { $_ -eq $OrganizationName } | Measure-Object).Count -eq 1)
 				{
 					$featureStatus = $false;	
 				}
 				#Check if the sub is marked under enabled list or * for this feature
-				elseif(($feature.EnabledForSubs | Measure-Object).Count -gt 0 -and ($feature.EnabledForSubs | Where-Object { $_ -eq $OrganizationId -or $_ -eq "*"} | Measure-Object).Count -eq 0)
+				elseif(($feature.EnabledForSubs | Measure-Object).Count -gt 0 -and ($feature.EnabledForSubs | Where-Object { $_ -eq $OrganizationName -or $_ -eq "*"} | Measure-Object).Count -eq 0)
 				{
 					$featureStatus = $false;
 				}

@@ -6,7 +6,7 @@ class Build: ADOSVTBase
     hidden static [string] $SecurityNamespaceId = $null;
     hidden static [PSObject] $BuildVarNames = @{};
     
-    Build([string] $organizationId, [SVTResource] $svtResource): Base($organizationId,$svtResource) 
+    Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
         # Get security namespace identifier of current build.
         if ([string]::IsNullOrEmpty([Build]::SecurityNamespaceId) ) {

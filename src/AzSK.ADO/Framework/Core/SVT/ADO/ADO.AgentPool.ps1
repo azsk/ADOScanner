@@ -7,7 +7,7 @@ class AgentPool: ADOSVTBase
     hidden [PSObject] $AgentPoolId;
     hidden [PSObject] $agentPool; # This is used to fetch agent details in pool
     
-    AgentPool([string] $organizationId, [SVTResource] $svtResource): Base($organizationId,$svtResource) 
+    AgentPool([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
         $this.AgentPoolId =  ($this.ResourceContext.ResourceId -split "agentpool/")[-1]
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]

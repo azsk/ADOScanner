@@ -5,7 +5,7 @@ class Project: ADOSVTBase
     hidden $PAMembers = @()
     hidden $Repos = $null
 
-    Project([string] $organizationId, [SVTResource] $svtResource): Base($organizationId,$svtResource) 
+    Project([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
         $this.Repos = $null
         $this.GetPipelineSettingsObj()

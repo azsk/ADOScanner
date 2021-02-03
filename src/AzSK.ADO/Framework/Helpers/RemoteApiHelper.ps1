@@ -95,10 +95,10 @@ class RemoteApiHelper {
         #will remove $awaitedTelemetryList and consequent condition check once we are ready to use the APIs for the properties in the list
         $awaitedTelemetryList = @("SecureScore", "ThreatDetection", "ASCRecommendations", "SecurityEventsTier")
 		$ASCTelemetryData | Get-Member -Type Property | ForEach-Object {
-            if($_.Name -ne "OrganizationId" -and (-not ($null -eq $ASCTelemetryData.($_.Name) -or "" -eq $ASCTelemetryData.($_.Name))) -and $awaitedTelemetryList -notcontains $_.Name)
+            if($_.Name -ne "OrganizationName" -and (-not ($null -eq $ASCTelemetryData.($_.Name) -or "" -eq $ASCTelemetryData.($_.Name))) -and $awaitedTelemetryList -notcontains $_.Name)
             {
                 $ascProperty = New-Object psobject -Property @{
-                    OrganizationId = $ASCTelemetryData.OrganizationId;
+                    OrganizationName = $ASCTelemetryData.OrganizationName;
                     FeatureName = "ASC";
                     SubFeatureName = $_.Name;
                     ResourceId = $null;

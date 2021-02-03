@@ -453,7 +453,7 @@ class SVTControlAttestation
 					$counter = $counter + 1
 					if(($resourceValue | Measure-Object).Count -gt 0)
 					{
-						$organizationId = $resourceValue[0].OrganizationContext.OrganizationId
+						$OrganizationName = $resourceValue[0].OrganizationContext.OrganizationName
 						if($null -ne $resourceValue[0].ResourceContext)
 						{
 							$ResourceId = $resourceValue[0].ResourceContext.ResourceId
@@ -664,7 +664,7 @@ class SVTControlAttestation
 		    $user = "";
 		    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
 			
-			$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.OrganizationContext.OrganizationId, $projectName, $attestationRepo
+			$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo
             try
             {
 		        $webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}

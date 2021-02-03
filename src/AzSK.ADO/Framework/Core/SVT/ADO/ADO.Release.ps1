@@ -7,7 +7,7 @@ class Release: ADOSVTBase
     hidden static [string] $securityNamespaceId = $null;
     hidden static [PSObject] $ReleaseVarNames = @{};
     
-    Release([string] $organizationId, [SVTResource] $svtResource): Base($organizationId,$svtResource) 
+    Release([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
         [system.gc]::Collect();
         # Get release object

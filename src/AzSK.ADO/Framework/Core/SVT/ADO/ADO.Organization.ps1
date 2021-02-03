@@ -6,7 +6,7 @@ class Organization: ADOSVTBase
     [PSObject] $OrgPolicyObj = $null
     #TODO: testing below line
     hidden [string] $SecurityNamespaceId;
-    Organization([string] $organizationId, [SVTResource] $svtResource): Base($organizationId,$svtResource) 
+    Organization([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     { 
         $this.GetOrgPolicyObject()
         $this.GetPipelineSettingsObj()

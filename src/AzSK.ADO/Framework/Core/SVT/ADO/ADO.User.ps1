@@ -1,7 +1,7 @@
 Set-StrictMode -Version Latest 
 class User: ADOSVTBase {    
 
-    User([string] $organizationId, [SVTResource] $svtResource): Base($organizationId, $svtResource) {
+    User([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
     }
 

@@ -37,7 +37,7 @@ class FileOutputBase: ListenerBase
 	hidden [string] CalculateFolderPath([OrganizationContext] $context, [string] $subFolderPath, [int] $pathIndex)
     {
 		$outputPath = "";
-		if($context -and (-not [string]::IsNullOrWhiteSpace($context.OrganizationName)) -and (-not [string]::IsNullOrWhiteSpace($context.OrganizationId)))
+		if($context -and (-not [string]::IsNullOrWhiteSpace($context.OrganizationName)))
 		{
 			$isDefaultPath = $false;
 			if($pathIndex -lt $this.BasePaths.Count)
@@ -54,7 +54,7 @@ class FileOutputBase: ListenerBase
 
 			$sanitizedPath = [Helpers]::SanitizeFolderName($context.OrganizationName);
 			if ([string]::IsNullOrEmpty($sanitizedPath)) {
-				$sanitizedPath = $context.OrganizationId;
+				$sanitizedPath = $context.OrganizationName;
 			}
 
 			$runPath = $this.RunIdentifier;
