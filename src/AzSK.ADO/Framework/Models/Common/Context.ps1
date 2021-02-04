@@ -2,7 +2,6 @@ Set-StrictMode -Version Latest
 class Context
 {
     [Account] $Account = [Account]::new();
-    [Subscription] $Subscription = [Subscription]::new();
     [Organization] $Organization = [Organization]::new();
     [EnvironmentDetails] $Environment = [EnvironmentDetails]::new();
     [Tenant] $Tenant = [Tenant]::new();
@@ -19,11 +18,6 @@ enum AccountType{
     User
     ServicePrincipal
     ServiceAccount
-}
-
-class Subscription{
-    [string] $Id;
-    [string] $Name;
 }
 
 class Organization{

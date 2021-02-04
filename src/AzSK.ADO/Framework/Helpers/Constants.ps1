@@ -33,7 +33,7 @@ class Constants
 
 	static [string] $DefaultInfoCmdMsg = "This command provides overall information about different components of the AzSK.ADO which includes organization information, security controls information, attestation information, host information. 'Get-AzSKADOInfo' command can be used with 'InfoType' parameter to fetch information.`r`n" + 
 					"`r`nFollowing InfoType parameter values are currently supported by Get-AzSKADOInfo cmdlet.`r`n" +
-					"`tOrganizationInfo : To get version details about different component of AzSK.ADO configured in Subscription.`r`n" +
+					"`tOrganizationInfo : To get version details about different component of AzSK.ADO configured in organization.`r`n" +
 					"`tControlInfo      : To get baseline, severity, description, rationale etc information about security controls.`r`n" +
 					"`tAttestationInfo  : To get statistics, attestation justification, expiry etc information about controls attestation.`r`n" +
 					"`tHostInfo         : To get information about machine details.`r`n" +

@@ -164,12 +164,7 @@ class ContextHelper {
         $contextObj.Tenant.Id = $context.TenantId 
         $contextObj.AccessToken = $context.AccessToken
         
-        # Here subscription basically means ADO organization (due to framework).
-        # We do not get ADO organization Id as part of current context. Hence appending org name to both Id and Name param.
-        $contextObj.Subscription = [Subscription]::new()
-        $contextObj.Subscription.Id = [ContextHelper]::orgName
-        $contextObj.Subscription.Name = [ContextHelper]::orgName 
-
+        # We do not get ADO organization Id as part of current context. Hence appending org name to both Id and Name param.        
         $contextObj.Organization = [Organization]::new()
         $contextObj.Organization.Id = [ContextHelper]::orgName
         $contextObj.Organization.Name = [ContextHelper]::orgName 
@@ -187,11 +182,10 @@ class ContextHelper {
         $contextObj.Tenant.Id =  [string]::Empty
         $contextObj.AccessToken = [System.Net.NetworkCredential]::new("", $patToken).Password
         
-        # Here subscription basically means ADO organization (due to framework).
         # We do not get ADO organization Id as part of current context. Hence appending org name to both Id and Name param.
-        $contextObj.Subscription = [Subscription]::new()
-        $contextObj.Subscription.Id = [ContextHelper]::orgName
-        $contextObj.Subscription.Name = [ContextHelper]::orgName 
+        $contextObj.Organization = [Organization]::new()
+        $contextObj.Organization.Id = [ContextHelper]::orgName
+        $contextObj.Organization.Name = [ContextHelper]::orgName 
 
         #$contextObj.AccessToken = $patToken
         #$contextObj.AccessToken =  ConvertTo-SecureString -String $context.AccessToken -asplaintext -Force
