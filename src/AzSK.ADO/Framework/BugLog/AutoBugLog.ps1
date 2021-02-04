@@ -117,7 +117,7 @@ class AutoBugLog {
                             $workItem = $this.GetWorkItemByHash($hash, [BugLogPathManager]::BugLoggingProject)
                             if ($workItem[0].results.count -gt 0) {
                                 #a work item with the hash exists, find if it's state and reactivate if resolved bug
-                                $this.ManageActiveAndResolvedBugs($ProjectName, $control, $workItem, $AssignedTo)
+                                $this.ManageActiveAndResolvedBugs($ProjectName, $control, $workItem, $AssignedTo, $serviceId)
                             }
                             else {
                                 if ($printLogBugMsg) {
@@ -357,19 +357,27 @@ class AutoBugLog {
     }
     
     #function to find active bugs and reactivate resolved bugs
-    hidden [void] ManageActiveAndResolvedBugs([string]$ProjectName, [SVTEventContext[]] $control, [object] $workItem, [string] $AssignedTo) {
+    hidden [void] ManageActiveAndResolvedBugs([string]$ProjectName, [SVTEventContext[]] $control, [object] $workItem, [string] $AssignedTo, [string] $serviceId) {
         
         #If using azure storage then calling documented api as we have ado id, so response will be different, so added if else condition
         $state = "";
         $id = "";
+        #serviceid return in the bug api response to match with current scanned resource service id.
+        $srvId = ""; 
         if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
         {
             $state = $workItem[0].results.fields."System.State"
             $id = $workItem[0].results.id
+            if ($this.ShowBugsInS360) {
+                $srvId = $workItem[0].results.fields."Security.ServiceHierarchyId"
+            }
         }
         else {
             $state = ($workItem[0].results.values[0].fields | where { $_.name -eq "State" }).value
             $id = ($workItem[0].results.values[0].fields | where { $_.name -eq "ID" }).value
+            if ($this.ShowBugsInS360) {
+                $srvId = ($workItem[0].results.values[0].fields | where { $_.name -eq "Security.ServiceHierarchyId" }).value
+            }
         }
         
         #bug url that redirects user to bug logged in ADO, this is not available via the API response and thus has to be created via the ID of bug
@@ -418,11 +426,20 @@ class AutoBugLog {
 
 
         #change the assignee for resolved bugs only
+        $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=5.1" -f $this.OrganizationName, $ProjectName, $id
         if ($state -eq "Resolved") {
-            $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=5.1" -f $this.OrganizationName, $ProjectName, $id
-            $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForResolvedBug.json")
-            $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10 
-            $BugTemplate = $BugTemplate.Replace("{0}", $AssignedTo)           
+            $BugTemplate = $null;
+            #Check if serviceid is not null and current resource scanned serviceid and bug respons serviceid is not equal, then update the service data.
+            if ($this.ShowBugsInS360 -and $serviceId -and ($srvId -ne $serviceId)) 
+            {
+                $BugTemplate = $this.S360BugTemplate($serviceId, $control.ControlItem.ControlSeverity, $true, $AssignedTo)        
+            }
+            else 
+            {
+                $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForResolvedBug.json")
+                $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10 
+                $BugTemplate = $BugTemplate.Replace("{0}", $AssignedTo)           
+            }
             $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)                
             try {
                 #TODO: shift all this as a patch request in webrequesthelper class and manage accented characters as well
@@ -451,9 +468,56 @@ class AutoBugLog {
             }
         }
         else {
-            $control.ControlResults.AddMessage("Active Bug", $bugUrl)
+            $control.ControlResults.AddMessage("Active Bug", $bugUrl);
+            #Update the serviceid details, if serviceid not null and not matched with bug response serviceid.
+            if ($this.ShowBugsInS360 -and $serviceId -and ($srvId -ne $serviceId)) 
+            {
+                $BugTemplate = $null;
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)                
+                try 
+                {
+                    $BugTemplate = $this.S360BugTemplate($serviceId, $control.ControlItem.ControlSeverity, "", ""); 
+                    $responseObj = Invoke-RestMethod -Uri $url -Method Patch  -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
+                }
+                catch {
+                    Write-Host "Could not update service tree details."
+                }
+            }
         }
-    
+    }
+
+    #status has value if it is called from resolved to activate bug, else the value is empty, if status not needed to change
+    hidden [object] S360BugTemplate($serviceId, $controlSeverity, $status, $assignedTo)
+    {
+        $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForUpdateS360Bug.json");
+        #Activate resolved bug, else update serviceid details only.
+        if ($status) {
+            $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10 
+            $BugTemplate = $BugTemplate.Replace("{0}", "Active")           
+            $BugTemplate = $BugTemplate.Replace("{1}", $AssignedTo)           
+        }
+        else {
+            $BugTemplate = $BugTemplate | Where {$_.path -ne "/fields/System.State" -and $_.path -ne "/fields/System.AssignedTo" }
+            $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10
+        }
+        $secSeverity = "";
+        if ($this.InvocationContext.BoundParameters["SecuritySeverity"]) {
+            $secSeverity = $this.InvocationContext.BoundParameters["SecuritySeverity"];
+        }
+        else {
+            $secSeverity = $controlSeverity;
+        }
+        $SecuritySeverity = $this.GetSecuritySeverity($secSeverity)		
+        $BugTemplate = $BugTemplate.Replace("{2}", $this.controlsettings.BugLogging.HowFound)
+        #ComplianceArea
+        $BugTemplate = $BugTemplate.Replace("{3}", $this.controlsettings.BugLogging.ComplianceArea)
+        #ServiceHierarchyId
+        $BugTemplate = $BugTemplate.Replace("{4}", $serviceId)
+        #ServiceHierarchyIdType
+        $BugTemplate = $BugTemplate.Replace("{5}", $this.controlsettings.BugLogging.ServiceTreeIdType)
+        #Severity
+        $BugTemplate = $BugTemplate.Replace("{6}", $SecuritySeverity)
+        return $BugTemplate;
     }
 
     #function to search for existing bugs based on the hash
@@ -516,7 +580,15 @@ class AutoBugLog {
 
         if ($this.ShowBugsInS360) {
             $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForNewBugS360.json")
-            $SecuritySeverity = $this.GetSecuritySeverity($control.ControlItem.ControlSeverity)		
+            #Check if security severity passed in the command parameter, if passed take command parameter else take control severity.
+            $secSeverity = "";
+            if ($this.InvocationContext.BoundParameters["SecuritySeverity"]) {
+                $secSeverity = $this.InvocationContext.BoundParameters["SecuritySeverity"];
+            }
+            else {
+                $secSeverity = $control.ControlItem.ControlSeverity;
+            }
+            $SecuritySeverity = $this.GetSecuritySeverity($secSeverity)		
         }
         else {
             $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForNewBug.json");

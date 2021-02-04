@@ -214,6 +214,11 @@ function Get-AzSKADOSecurityStatus
 		$IterationPath,
 
 		[string]
+		[Parameter(Mandatory=$false)]
+		[Alias("ssv")]
+		$SecuritySeverity,
+
+		[string]
 		[Parameter(HelpMessage="Specify the custom field reference name for bug description.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("bdf")]
