@@ -117,7 +117,12 @@ function Set-AzSKADOPolicySettings {
         [Parameter(Mandatory = $false, HelpMessage = "Provide scanner tool name")]
         [string]
         [Alias("stn")]
-        $SecretsScanToolName
+        $SecretsScanToolName,
+
+        [Parameter(Mandatory = $false, HelpMessage = "Branch that hosts ADO organization-specific policy")]
+        [string]
+        [Alias("bid")]
+        $BranchId
     )
     Begin {
         [CommandHelper]::BeginCommand($PSCmdlet.MyInvocation);
@@ -150,6 +155,11 @@ function Set-AzSKADOPolicySettings {
             else
             {
                 $azskSettings.EnableOrgControlAttestation = $false
+            }
+            
+            if (-not [string]::IsNullOrWhiteSpace($BranchId)) 
+            {
+                $azskSettings.BranchId = $BranchId;
             }
 
             if($SecretsScanToolFolder -and $SecretsScanToolName)
