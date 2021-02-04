@@ -149,7 +149,7 @@ class ConfigurationHelper {
 
 					if (-not [ConfigurationHelper]::IsIssueLogged) {
 						if ([Helpers]::CheckMember($_, "Exception.Response.StatusCode") -and $_.Exception.Response.StatusCode.ToString().ToLower() -eq "unauthorized") {
-							[EventBase]::PublishGenericCustomMessage(("Not able to fetch org-specific policy. The current Azure subscription is not linked to your org tenant."), [MessageType]::Warning);
+							[EventBase]::PublishGenericCustomMessage(("Not able to fetch org-specific policy. The current organization is not linked to your org tenant."), [MessageType]::Warning);
 							[ConfigurationHelper]::IsIssueLogged = $true
 						}
 						elseif ($bFetchingSCMD ) {
@@ -264,7 +264,7 @@ class ConfigurationHelper {
 
 					if (-not [ConfigurationHelper]::IsIssueLogged) {
 						if ([Helpers]::CheckMember($_, "Exception.Response.StatusCode") -and $_.Exception.Response.StatusCode.ToString().ToLower() -eq "unauthorized") {
-							[EventBase]::PublishGenericCustomMessage(("Not able to fetch org-specific policy. The current Azure subscription is not linked to your org tenant."), [MessageType]::Warning);
+							[EventBase]::PublishGenericCustomMessage(("Not able to fetch org-specific policy. The current organization is not linked to your org tenant."), [MessageType]::Warning);
 							[ConfigurationHelper]::IsIssueLogged = $true
 						}
 						elseif ($fileName -eq [Constants]::ServerConfigMetadataFileName) {

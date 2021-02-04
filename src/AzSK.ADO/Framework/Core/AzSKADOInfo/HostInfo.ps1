@@ -39,7 +39,7 @@ class HostInfo: CommandBase
 		$this.PublishCustomMessage([Constants]::DoubleDashLine, [MessageType]::Default);
 		$this.PublishCustomMessage("`n`n"); 
 		$this.PublishCustomMessage("`r`nAz context`r`n" + [Constants]::SingleDashLine, [MessageType]::Default);
-		$this.PublishCustomMessage([Helpers]::ConvertObjectToString(($rmContext | Select-Object -Property Subscription, Tenant), $false), [MessageType]::Default);
+		$this.PublishCustomMessage([Helpers]::ConvertObjectToString(($rmContext | Select-Object -Property Organization, Tenant), $false), [MessageType]::Default);
 	
 		[MessageData[]] $returnMsgs = @();
 		$returnMsgs += [MessageData]::new("Returning ADO Host Info.");
