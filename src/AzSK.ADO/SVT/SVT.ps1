@@ -214,7 +214,7 @@ function Get-AzSKADOSecurityStatus
 		$IterationPath,
 
 		[string]
-		[Parameter(Mandatory=$false)]
+		[Parameter(Mandatory = $false, HelpMessage = "Specify the security severity of bugs to be logged.")]
 		[Alias("ssv")]
 		$SecuritySeverity,
 

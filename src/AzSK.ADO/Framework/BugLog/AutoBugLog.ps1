@@ -432,7 +432,7 @@ class AutoBugLog {
             #Check if serviceid is not null and current resource scanned serviceid and bug respons serviceid is not equal, then update the service data.
             if ($this.ShowBugsInS360 -and $serviceId -and ($serviceIdInLoggedBug -ne $serviceId)) 
             {
-                $BugTemplate = $this.S360BugTemplate($serviceId, $control.ControlItem.ControlSeverity, $true, $AssignedTo)        
+                $BugTemplate = $this.UpdateSTBugTemplate($serviceId, $control.ControlItem.ControlSeverity, $true, $AssignedTo)        
             }
             else 
             {
@@ -476,30 +476,32 @@ class AutoBugLog {
                 $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)                
                 try 
                 {
-                    $BugTemplate = $this.S360BugTemplate($serviceId, $control.ControlItem.ControlSeverity, "", ""); 
+                    $BugTemplate = $this.UpdateSTBugTemplate($serviceId, $control.ControlItem.ControlSeverity, $false, $AssignedTo); 
                     $responseObj = Invoke-RestMethod -Uri $url -Method Patch  -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
                 }
                 catch {
-                    Write-Host "Could not update service tree details."
+                    Write-Host "Could not update service tree details in the bug."
                 }
             }
         }
     }
 
     #status has value if it is called from resolved to activate bug, else the value is empty, if status not needed to change
-    hidden [object] S360BugTemplate($serviceId, $controlSeverity, $status, $assignedTo)
+    hidden [object] UpdateSTBugTemplate($serviceId, $controlSeverity, $reactivateBug, $assignedTo)
     {
-        $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForUpdateS360Bug.json");
+        $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForUpdateBugS360.json");
         #Activate resolved bug, else update serviceid details only.
-        if ($status) {
+        if ($reactivateBug) {
             $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10 
             $BugTemplate = $BugTemplate.Replace("{0}", "Active")           
-            $BugTemplate = $BugTemplate.Replace("{1}", $AssignedTo)           
         }
         else {
-            $BugTemplate = $BugTemplate | Where {$_.path -ne "/fields/System.State" -and $_.path -ne "/fields/System.AssignedTo" }
+            $BugTemplate = $BugTemplate | Where {$_.path -ne "/fields/System.State" }
             $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10
         }
+        $BugTemplate = $BugTemplate.Replace("{1}", $AssignedTo)           
+
+        #$secSeverity used to get calculated value of security severity (if supplied in command parameter then get it from command, else get from control severity)
         $secSeverity = "";
         if ($this.InvocationContext.BoundParameters["SecuritySeverity"]) {
             $secSeverity = $this.InvocationContext.BoundParameters["SecuritySeverity"];
