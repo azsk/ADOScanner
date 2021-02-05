@@ -368,6 +368,7 @@
     "ComplianceArea": "Security",
     "ServiceTreeIdType": "Service",
     "UseAzureStorageAccount": false,
+    "LogBugsForInactiveResources": true,
     "CustomControlList": []
   },
   "GenerateSecurityEvaluationJsonFile" : false,
