@@ -84,7 +84,7 @@ function Get-AzSKADOSecurityStatus
 
 		[switch]
 		[Parameter(HelpMessage="Scan all supported resources present under organization like build, release, projects etc.")]
-		[Alias("sar", "ScanAllArtifacts")]
+		[Alias("sar", "saa" , "ScanAllArtifacts")]
 		$ScanAllResources,
 
 		[string] 
