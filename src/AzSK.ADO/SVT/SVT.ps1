@@ -83,9 +83,9 @@ function Get-AzSKADOSecurityStatus
 		$VariableGroupNames,
 
 		[switch]
-		[Parameter(HelpMessage="Scan all supported artificats present under organization like build, release, projects etc.")]
-		[Alias("saa")]
-		$ScanAllArtifacts,
+		[Parameter(HelpMessage="Scan all supported resources present under organization like build, release, projects etc.")]
+		[Alias("sar", "saa" , "ScanAllArtifacts")]
+		$ScanAllResources,
 
 		[string] 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Comma separated control ids to filter the security controls. e.g.: ADO_Organization_AuthN_Use_AAD_Auth, ADO_Organization_SI_Review_InActive_Users etc.")]
@@ -330,7 +330,7 @@ function Get-AzSKADOSecurityStatus
 				}
 			}
 
-			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls);
+			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls);
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus) 
 			{	
