@@ -447,6 +447,7 @@ class AutoBugLog {
                 $control.ControlResults.AddMessage("Resolved Bug", $bugUrl)
             }
             catch {
+                $areaPath = [BugLogPathManager]::AreaPath
                 #if the user to whom the bug has been assigneed is not a member of org any more
                 if ($_.ErrorDetails.Message -like '*System.AssignedTo*') {
                     $body = $BugTemplate | ConvertFrom-Json
@@ -462,18 +463,16 @@ class AutoBugLog {
                     }
                 }
                 elseif ($_.ErrorDetails.Message -like '*Invalid Area*') {
-                    Write-Host "Please verify the area path. Area path should belong under the same project area." -ForegroundColor Red
+                    Write-Host "Could not reactivate the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." -ForegroundColor Red
                 }
                 elseif ($_.ErrorDetails.Message -like '*Invalid tree name given for work item*' -and $_.ErrorDetails.Message -like '*System.AreaPath*') {
-                    Write-Host "Please verify the area path. Area path should belong under the same project area." -ForegroundColor Red
+                    Write-Host "Could not reactivate the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." -ForegroundColor Red
                 }
                 elseif ($_.ErrorDetails.Message -like '*The current user does not have permissions to save work items under the specified area path*') {
-                    $areaPath = [BugLogPathManager]::AreaPath
-                    Write-Host "Could not log the bug. You do not have permissions to save work items under the area path [$($areaPath)]." -ForegroundColor Red
+                    Write-Host "Could not reactivate the bug. You do not have permissions to save work items under the area path [$areaPath]." -ForegroundColor Red
                 }
                 else {
-                    Write-Host "Could not reactivate the bug" -ForegroundColor Red
-
+                    Write-Host "Could not reactivate the bug." -ForegroundColor Red
                 }
             }
         }
@@ -491,15 +490,15 @@ class AutoBugLog {
                 }
                 catch 
                 {
+                    $areaPath = [BugLogPathManager]::AreaPath
                     if ($_.ErrorDetails.Message -like '*Invalid Area*') {
-                        Write-Host "Please verify the area path. Area path should belong under the same project area." -ForegroundColor Red
+                        Write-Host "Could not update service tree details in the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." -ForegroundColor Red
                     }
                     elseif ($_.ErrorDetails.Message -like '*Invalid tree name given for work item*' -and $_.ErrorDetails.Message -like '*System.AreaPath*') {
-                        Write-Host "Please verify the area path. Area path should belong under the same project area." -ForegroundColor Red
+                        Write-Host "Could not update service tree details in the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." -ForegroundColor Red
                     }
                     elseif ($_.ErrorDetails.Message -like '*The current user does not have permissions to save work items under the specified area path*') {
-                        $areaPath = [BugLogPathManager]::AreaPath
-                        Write-Host "Could not log the bug. You do not have permissions to save work items under the area path [$($areaPath)]." -ForegroundColor Red
+                        Write-Host "Could not update service tree details in the bug. You do not have permissions to save work items under the area path [$areaPath]." -ForegroundColor Red
                     }
                     else {
                         Write-Host "Could not update service tree details in the bug."
