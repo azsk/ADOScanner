@@ -467,6 +467,7 @@ class ADOSVTBase: SVTBase {
 			$isAzureTableEnabled = [Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount");
 			
 			# if bug logging is enabled for inactive resources, then only bug will be logged for inactive resources.
+			# using checkmember without null check, if field is present in control settings but no value has been set then allow bug logging for inactive resources.
 			if([Helpers]::CheckMember($this.ControlSettings.BugLogging, "LogBugsForInactiveResources", $false))
 			{
 				if ($this.ControlSettings.BugLogging.LogBugsForInactiveResources -eq $true)
