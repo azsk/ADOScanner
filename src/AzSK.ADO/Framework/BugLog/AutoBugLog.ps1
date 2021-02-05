@@ -461,6 +461,16 @@ class AutoBugLog {
                         Write-Host "Could not reactivate the bug" -ForegroundColor Red
                     }
                 }
+                elseif ($_.ErrorDetails.Message -like '*Invalid Area*') {
+                    Write-Host "Please verify the area path. Area path should belong under the same project area." -ForegroundColor Red
+                }
+                elseif ($_.ErrorDetails.Message -like '*Invalid tree name given for work item*' -and $_.ErrorDetails.Message -like '*System.AreaPath*') {
+                    Write-Host "Please verify the area path. Area path should belong under the same project area." -ForegroundColor Red
+                }
+                elseif ($_.ErrorDetails.Message -like '*The current user does not have permissions to save work items under the specified area path*') {
+                    $areaPath = [BugLogPathManager]::AreaPath
+                    Write-Host "Could not log the bug. You do not have permissions to save work items under the area path [$($areaPath)]." -ForegroundColor Red
+                }
                 else {
                     Write-Host "Could not reactivate the bug" -ForegroundColor Red
 
@@ -479,8 +489,21 @@ class AutoBugLog {
                     $BugTemplate = $this.UpdateSTBugTemplate($serviceId, $control.ControlItem.ControlSeverity, $false, $AssignedTo); 
                     $responseObj = Invoke-RestMethod -Uri $url -Method Patch  -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
                 }
-                catch {
-                    Write-Host "Could not update service tree details in the bug."
+                catch 
+                {
+                    if ($_.ErrorDetails.Message -like '*Invalid Area*') {
+                        Write-Host "Please verify the area path. Area path should belong under the same project area." -ForegroundColor Red
+                    }
+                    elseif ($_.ErrorDetails.Message -like '*Invalid tree name given for work item*' -and $_.ErrorDetails.Message -like '*System.AreaPath*') {
+                        Write-Host "Please verify the area path. Area path should belong under the same project area." -ForegroundColor Red
+                    }
+                    elseif ($_.ErrorDetails.Message -like '*The current user does not have permissions to save work items under the specified area path*') {
+                        $areaPath = [BugLogPathManager]::AreaPath
+                        Write-Host "Could not log the bug. You do not have permissions to save work items under the area path [$($areaPath)]." -ForegroundColor Red
+                    }
+                    else {
+                        Write-Host "Could not update service tree details in the bug."
+                    }
                 }
             }
         }
@@ -519,6 +542,8 @@ class AutoBugLog {
         $BugTemplate = $BugTemplate.Replace("{5}", $this.controlsettings.BugLogging.ServiceTreeIdType)
         #Severity
         $BugTemplate = $BugTemplate.Replace("{6}", $SecuritySeverity)
+
+        $BugTemplate = $BugTemplate.Replace("{7}", [BugLogPathManager]::AreaPath)
         return $BugTemplate;
     }
 
@@ -665,6 +690,9 @@ class AutoBugLog {
             }
             #handle the case wherein due to global search area/ iteration paths from different projects passed the checkvalidpath function
             elseif ($_.ErrorDetails.Message -like '*Invalid Area/Iteration id*') {
+                Write-Host "Please verify the area and iteration path. They should belong under the same project area." -ForegroundColor Red
+            }
+            elseif ($_.ErrorDetails.Message -like '*Invalid tree name given for work item*' -and $_.ErrorDetails.Message -like '*System.AreaPath*') {
                 Write-Host "Please verify the area and iteration path. They should belong under the same project area." -ForegroundColor Red
             }
             elseif ($_.ErrorDetails.Message -like '*The current user does not have permissions to save work items under the specified area path*') {

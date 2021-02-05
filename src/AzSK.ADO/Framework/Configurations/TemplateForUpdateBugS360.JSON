@@ -40,5 +40,11 @@
         "op": "add",
         "path": "/fields/Security.Severity",
         "value": "{6}"
+    },
+    {
+        "op": "add",
+        "path": "/fields/System.AreaPath",
+        "from": null,
+        "value": "{7}"
     }
 ]
