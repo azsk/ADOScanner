@@ -363,20 +363,20 @@ class AutoBugLog {
         $state = "";
         $id = "";
         #serviceid return in the bug api response to match with current scanned resource service id.
-        $srvId = ""; 
+        $serviceIdInLoggedBug = ""; 
         if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
         {
             $state = $workItem[0].results.fields."System.State"
             $id = $workItem[0].results.id
             if ($this.ShowBugsInS360) {
-                $srvId = $workItem[0].results.fields."Security.ServiceHierarchyId"
+                $serviceIdInLoggedBug = $workItem[0].results.fields."Security.ServiceHierarchyId"
             }
         }
         else {
             $state = ($workItem[0].results.values[0].fields | where { $_.name -eq "State" }).value
             $id = ($workItem[0].results.values[0].fields | where { $_.name -eq "ID" }).value
             if ($this.ShowBugsInS360) {
-                $srvId = ($workItem[0].results.values[0].fields | where { $_.name -eq "Security.ServiceHierarchyId" }).value
+                $serviceIdInLoggedBug = ($workItem[0].results.values[0].fields | where { $_.name -eq "Security.ServiceHierarchyId" }).value
             }
         }
         
@@ -430,7 +430,7 @@ class AutoBugLog {
         if ($state -eq "Resolved") {
             $BugTemplate = $null;
             #Check if serviceid is not null and current resource scanned serviceid and bug respons serviceid is not equal, then update the service data.
-            if ($this.ShowBugsInS360 -and $serviceId -and ($srvId -ne $serviceId)) 
+            if ($this.ShowBugsInS360 -and $serviceId -and ($serviceIdInLoggedBug -ne $serviceId)) 
             {
                 $BugTemplate = $this.S360BugTemplate($serviceId, $control.ControlItem.ControlSeverity, $true, $AssignedTo)        
             }
@@ -470,7 +470,7 @@ class AutoBugLog {
         else {
             $control.ControlResults.AddMessage("Active Bug", $bugUrl);
             #Update the serviceid details, if serviceid not null and not matched with bug response serviceid.
-            if ($this.ShowBugsInS360 -and $serviceId -and ($srvId -ne $serviceId)) 
+            if ($this.ShowBugsInS360 -and $serviceId -and ($serviceIdInLoggedBug -ne $serviceId)) 
             {
                 $BugTemplate = $null;
                 $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)                
