@@ -368,14 +368,18 @@ class AutoBugLog {
         {
             $state = $workItem[0].results.fields."System.State"
             $id = $workItem[0].results.id
-            if ($this.ShowBugsInS360) {
+            #Check ShowBugsInS360 and Security.ServiceHierarchyId property exist in object.
+            if ($this.ShowBugsInS360 -and ($workItem[0].results.fields.PSobject.Properties.name -match "Security.ServiceHierarchyId")) 
+            {
                 $serviceIdInLoggedBug = $workItem[0].results.fields."Security.ServiceHierarchyId"
             }
         }
         else {
             $state = ($workItem[0].results.values[0].fields | where { $_.name -eq "State" }).value
             $id = ($workItem[0].results.values[0].fields | where { $_.name -eq "ID" }).value
-            if ($this.ShowBugsInS360) {
+            #Check ShowBugsInS360 and Security.ServiceHierarchyId property exist in object.
+            if ($this.ShowBugsInS360 -and ($workItem[0].results.values[0].fields.PSobject.Properties.name -match "Security.ServiceHierarchyId")) 
+            {
                 $serviceIdInLoggedBug = ($workItem[0].results.values[0].fields | where { $_.name -eq "Security.ServiceHierarchyId" }).value
             }
         }
