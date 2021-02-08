@@ -164,7 +164,7 @@ class ContextHelper {
         $contextObj.Tenant.Id = $context.TenantId 
         $contextObj.AccessToken = $context.AccessToken
         
-        # We do not get ADO organization Id as part of current context. Hence appending org name to both Id and Name param.        
+        # We do not get ADO organization id as part of current context. Hence appending org name to both id and name param.        
         $contextObj.Organization = [Organization]::new()
         $contextObj.Organization.Id = [ContextHelper]::orgName
         $contextObj.Organization.Name = [ContextHelper]::orgName 

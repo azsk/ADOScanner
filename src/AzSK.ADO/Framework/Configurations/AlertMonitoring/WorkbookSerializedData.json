@@ -194,14 +194,14 @@
                         "cellValue": "selectedTab",
                         "linkTarget": "parameter",
                         "linkLabel": "Organization Security",
-                        "subTarget": "SubscriptionSecurity",
+                        "subTarget": "OrganizationSecurity",
                         "style": "link"
                     },
                     {
                         "cellValue": "selectedTab",
                         "linkTarget": "parameter",
                         "linkLabel": "Project Security",
-                        "subTarget": "ERSecurity",
+                        "subTarget": "ProjectSecurity",
                         "style": "link"
                     },
                     {
@@ -271,7 +271,7 @@
                 "comparison": "isEqualTo",
                 "value": "Overview"
             },
-            "name": "chart-SubscriptionSecuritySummary"
+            "name": "chart-OrganizationSecuritySummary"
         },
         {
             "type": 3,
@@ -405,7 +405,7 @@
                 "noDataMessage": "No failed controls found",
                 "exportFieldName": "OrganizationName",
                 "exportParameterName": "param_selectOrganizationName",
-                "exportDefaultValue": "All Subscriptions",
+                "exportDefaultValue": "All Organization",
                 "showExportToExcel": true,
                 "queryType": 0,
                 "resourceType": "microsoft.operationalinsights/workspaces",
@@ -426,15 +426,15 @@
             "conditionalVisibility": {
                 "parameterName": "selectedTab",
                 "comparison": "isEqualTo",
-                "value": "SubscriptionSecurity"
+                "value": "OrganizationSecurity"
             },
-            "name": "table-SubscriptionFailedControlCount"
+            "name": "table-OrganizationFailedControlCount"
         },
         {
             "type": 3,
             "content": {
                 "version": "KqlItem/1.0",
-                "query": "let sel_param_HasRequiredAccess_b = dynamic([{param_HasRequiredAccess_b}]);\r\nlet sel_param_IsBaselineControl_b = dynamic([{param_IsBaselineControl_b}]);\r\nlet sel_param_IsPreviewBaselineControl_b = dynamic([{param_IsPreviewBaselineControl_b}]);\r\nlet sel_param_OrganizationName_s = dynamic([{param_OrganizationName_s}]);\r\nlet sel_param_ResourceType = dynamic([{param_ResourceType}]);\r\nlet sel_param_ControlSeverity_s = dynamic([{param_ControlSeverity_s}]);\r\nAzSK_ADO_CL\r\n| where array_length(sel_param_HasRequiredAccess_b) == 0 or HasRequiredAccess_b in (sel_param_HasRequiredAccess_b)\r\n| where array_length(sel_param_IsBaselineControl_b) == 0 or IsBaselineControl_b in (sel_param_IsBaselineControl_b)\r\n| where array_length(sel_param_IsPreviewBaselineControl_b) == 0 or IsPreviewBaselineControl_b in (sel_param_IsPreviewBaselineControl_b)\r\n| where array_length(sel_param_OrganizationName_s) == 0 or OrganizationName_s in (sel_param_OrganizationName_s)\r\n| where array_length(sel_param_ControlSeverity_s) == 0 or ControlSeverity_s in (sel_param_ControlSeverity_s)\r\n| where FeatureName_s == \"Organization\"\r\n| extend ControlStatus = iff(ControlStatus_s == \"Passed\", \"Passed\",\"Failed\")\r\n| where ControlStatus==\"Failed\"\r\n| where '{param_selectOrganizationName}' == \"All Subscriptions\" or OrganizationName_s == '{param_selectOrganizationName}'\r\n| extend combined = strcat(ResourceId, \"_\", OrganizationName_s) \r\n| make-series dcount(combined) default=0 on TimeGenerated in range(ago(7d), now(), 1d) by OrganizationName_s\r\n| mvexpand dcount_combined, TimeGenerated\r\n| project todatetime(TimeGenerated), OrganizationName_s, toint(dcount_combined)\r\n| render areachart",
+                "query": "let sel_param_HasRequiredAccess_b = dynamic([{param_HasRequiredAccess_b}]);\r\nlet sel_param_IsBaselineControl_b = dynamic([{param_IsBaselineControl_b}]);\r\nlet sel_param_IsPreviewBaselineControl_b = dynamic([{param_IsPreviewBaselineControl_b}]);\r\nlet sel_param_OrganizationName_s = dynamic([{param_OrganizationName_s}]);\r\nlet sel_param_ResourceType = dynamic([{param_ResourceType}]);\r\nlet sel_param_ControlSeverity_s = dynamic([{param_ControlSeverity_s}]);\r\nAzSK_ADO_CL\r\n| where array_length(sel_param_HasRequiredAccess_b) == 0 or HasRequiredAccess_b in (sel_param_HasRequiredAccess_b)\r\n| where array_length(sel_param_IsBaselineControl_b) == 0 or IsBaselineControl_b in (sel_param_IsBaselineControl_b)\r\n| where array_length(sel_param_IsPreviewBaselineControl_b) == 0 or IsPreviewBaselineControl_b in (sel_param_IsPreviewBaselineControl_b)\r\n| where array_length(sel_param_OrganizationName_s) == 0 or OrganizationName_s in (sel_param_OrganizationName_s)\r\n| where array_length(sel_param_ControlSeverity_s) == 0 or ControlSeverity_s in (sel_param_ControlSeverity_s)\r\n| where FeatureName_s == \"Organization\"\r\n| extend ControlStatus = iff(ControlStatus_s == \"Passed\", \"Passed\",\"Failed\")\r\n| where ControlStatus==\"Failed\"\r\n| where '{param_selectOrganizationName}' == \"All Organization\" or OrganizationName_s == '{param_selectOrganizationName}'\r\n| extend combined = strcat(ResourceId, \"_\", OrganizationName_s) \r\n| make-series dcount(combined) default=0 on TimeGenerated in range(ago(7d), now(), 1d) by OrganizationName_s\r\n| mvexpand dcount_combined, TimeGenerated\r\n| project todatetime(TimeGenerated), OrganizationName_s, toint(dcount_combined)\r\n| render areachart",
                 "size": 0,
                 "showAnalytics": true,
                 "title": "Failed Control Count Trend (last 7d) - {param_selectOrganizationName}",
@@ -458,9 +458,9 @@
             "conditionalVisibility": {
                 "parameterName": "selectedTab",
                 "comparison": "isEqualTo",
-                "value": "SubscriptionSecurity"
+                "value": "OrganizationSecurity"
             },
-            "name": "chart-SubscriptionFailedControl_7dTrend"
+            "name": "chart-OrganizationFailedControl_7dTrend"
         },
         {
             "type": 1,
@@ -471,15 +471,15 @@
                 {
                     "parameterName": "selectedTab",
                     "comparison": "isEqualTo",
-                    "value": "SubscriptionSecurity"
+                    "value": "OrganizationSecurity"
                 },
                 {
                     "parameterName": "param_selectOrganizationName",
                     "comparison": "isEqualTo",
-                    "value": "All Subscriptions"
+                    "value": "All Organization"
                 }
             ],
-            "name": "text-SubscriptionFailedControl_RowSelect"
+            "name": "text-OrganizationFailedControl_RowSelect"
         },
         {
             "type": 3,
@@ -532,15 +532,15 @@
                 {
                     "parameterName": "param_selectOrganizationName",
                     "comparison": "isNotEqualTo",
-                    "value": "All Subscriptions"
+                    "value": "All Organization"
                 },
                 {
                     "parameterName": "selectedTab",
                     "comparison": "isEqualTo",
-                    "value": "SubscriptionSecurity"
+                    "value": "OrganizationSecurity"
                 }
             ],
-            "name": "table-SubscriptionFailedControlDetails",
+            "name": "table-OrganizationFailedControlDetails",
             "styleSettings": {
                 "showBorder": true
             }
@@ -554,19 +554,19 @@
                 {
                     "parameterName": "selectedTab",
                     "comparison": "isEqualTo",
-                    "value": "SubscriptionSecurity"
+                    "value": "OrganizationSecurity"
                 },
                 {
                     "parameterName": "param_selectOrganizationName",
                     "comparison": "isNotEqualTo",
-                    "value": "All Subscriptions"
+                    "value": "All Organization"
                 },
                 {
                     "parameterName": "param_subsecControlId",
                     "comparison": "isEqualTo"
                 }
             ],
-            "name": "text-SubscriptionFailedControlDetails_RowSelect"
+            "name": "text-OrganizationFailedControlDetails_RowSelect"
         },
         {
             "type": 1,
@@ -577,20 +577,20 @@
                 {
                     "parameterName": "selectedTab",
                     "comparison": "isEqualTo",
-                    "value": "SubscriptionSecurity"
+                    "value": "OrganizationSecurity"
                 },
                 {
                     "parameterName": "param_subsecControlId",
                     "comparison": "isNotEqualTo"
                 }
             ],
-            "name": "text-SubscriptionFailedControlDetails_DrillDownDetails"
+            "name": "text-OrganizationFailedControlDetails_DrillDownDetails"
         },
         {
             "type": 3,
             "content": {
                 "version": "KqlItem/1.0",
-                "query": "let sel_param_HasRequiredAccess_b = dynamic([{param_HasRequiredAccess_b}]);\r\nlet sel_param_IsBaselineControl_b = dynamic([{param_IsBaselineControl_b}]);\r\nlet sel_param_IsPreviewBaselineControl_b = dynamic([{param_IsPreviewBaselineControl_b}]);\r\nlet sel_param_OrganizationName_s = dynamic([{param_OrganizationName_s}]);\r\nlet sel_param_ResourceType = dynamic([{param_ResourceType}]);\r\nlet sel_param_ControlSeverity_s = dynamic([{param_ControlSeverity_s}]);\r\nlet sel_param_Env_s = dynamic([{param_Env_s}]);\r\nAzSK_ADO_CL\r\n| where array_length(sel_param_HasRequiredAccess_b) == 0 or HasRequiredAccess_b in (sel_param_HasRequiredAccess_b)\r\n| where array_length(sel_param_IsBaselineControl_b) == 0 or IsBaselineControl_b in (sel_param_IsBaselineControl_b)\r\n| where array_length(sel_param_IsPreviewBaselineControl_b) == 0 or IsPreviewBaselineControl_b in (sel_param_IsPreviewBaselineControl_b)\r\n| where array_length(sel_param_OrganizationName_s) == 0 or OrganizationName_s in (sel_param_OrganizationName_s)\r\n| where array_length(sel_param_ControlSeverity_s) == 0 or ControlSeverity_s in (sel_param_ControlSeverity_s)\r\n| where FeatureName_s == \"Organization\"\r\n| extend ControlStatus = iff(ControlStatus_s == \"Passed\", \"Passed\",\"Failed\")\r\n| where ControlStatus==\"Failed\"\r\n| where '{param_selectOrganizationName}' == \"All Subscriptions\" or OrganizationName_s == '{param_selectOrganizationName}'\r\n| extend combined = strcat(ResourceId, \"_\", OrganizationName_s) \r\n| make-series dcount(combined) default=0 on TimeGenerated in range(ago(30d), now(), 1d) by OrganizationName_s\r\n| mvexpand dcount_combined, TimeGenerated\r\n| project todatetime(TimeGenerated), OrganizationName_s, toint(dcount_combined)\r\n| render areachart",
+                "query": "let sel_param_HasRequiredAccess_b = dynamic([{param_HasRequiredAccess_b}]);\r\nlet sel_param_IsBaselineControl_b = dynamic([{param_IsBaselineControl_b}]);\r\nlet sel_param_IsPreviewBaselineControl_b = dynamic([{param_IsPreviewBaselineControl_b}]);\r\nlet sel_param_OrganizationName_s = dynamic([{param_OrganizationName_s}]);\r\nlet sel_param_ResourceType = dynamic([{param_ResourceType}]);\r\nlet sel_param_ControlSeverity_s = dynamic([{param_ControlSeverity_s}]);\r\nlet sel_param_Env_s = dynamic([{param_Env_s}]);\r\nAzSK_ADO_CL\r\n| where array_length(sel_param_HasRequiredAccess_b) == 0 or HasRequiredAccess_b in (sel_param_HasRequiredAccess_b)\r\n| where array_length(sel_param_IsBaselineControl_b) == 0 or IsBaselineControl_b in (sel_param_IsBaselineControl_b)\r\n| where array_length(sel_param_IsPreviewBaselineControl_b) == 0 or IsPreviewBaselineControl_b in (sel_param_IsPreviewBaselineControl_b)\r\n| where array_length(sel_param_OrganizationName_s) == 0 or OrganizationName_s in (sel_param_OrganizationName_s)\r\n| where array_length(sel_param_ControlSeverity_s) == 0 or ControlSeverity_s in (sel_param_ControlSeverity_s)\r\n| where FeatureName_s == \"Organization\"\r\n| extend ControlStatus = iff(ControlStatus_s == \"Passed\", \"Passed\",\"Failed\")\r\n| where ControlStatus==\"Failed\"\r\n| where '{param_selectOrganizationName}' == \"All Organization\" or OrganizationName_s == '{param_selectOrganizationName}'\r\n| extend combined = strcat(ResourceId, \"_\", OrganizationName_s) \r\n| make-series dcount(combined) default=0 on TimeGenerated in range(ago(30d), now(), 1d) by OrganizationName_s\r\n| mvexpand dcount_combined, TimeGenerated\r\n| project todatetime(TimeGenerated), OrganizationName_s, toint(dcount_combined)\r\n| render areachart",
                 "size": 0,
                 "showAnalytics": true,
                 "title": "Failed Control Count Trend (last 30d) - {param_selectOrganizationName}",
@@ -613,9 +613,9 @@
             "conditionalVisibility": {
                 "parameterName": "selectedTab",
                 "comparison": "isEqualTo",
-                "value": "SubscriptionSecurity"
+                "value": "OrganizationSecurity"
             },
-            "name": "SubscriptionFailedControl_30dTrend"
+            "name": "OrganizationFailedControl_30dTrend"
         },
         {
             "type": 3,
@@ -648,7 +648,7 @@
             "conditionalVisibility": {
               "parameterName": "selectedTab",
               "comparison": "isEqualTo",
-              "value": "ERSecurity"
+              "value": "ProjectSecurity"
             },
             "name": "table-PrFailedControlCount"
         },
@@ -684,7 +684,7 @@
             "conditionalVisibility": {
                 "parameterName": "selectedTab",
                 "comparison": "isEqualTo",
-                "value": "ERSecurity"
+                "value": "ProjectSecurity"
             },
             "name": "table-ERFailedControlCount"
         },
@@ -716,7 +716,7 @@
             "conditionalVisibility": {
                 "parameterName": "selectedTab",
                 "comparison": "isEqualTo",
-                "value": "ERSecurity"
+                "value": "ProjectSecurity"
             },
             "name": "chart-ERFailedControl_7dTrend"
         },
@@ -729,7 +729,7 @@
                 {
                     "parameterName": "selectedTab",
                     "comparison": "isEqualTo",
-                    "value": "ERSecurity"
+                    "value": "ProjectSecurity"
                 },
                 {
                     "parameterName": "param_selectERControl",
@@ -761,7 +761,7 @@
                     },
                     {
                         "fieldName": "OrganizationName",
-                        "parameterName": "param_ERSecResourceSubId",
+                        "parameterName": "param_ERSecResourceOrgName",
                         "parameterType": 1
                     },
                     {
@@ -799,7 +799,7 @@
                 {
                     "parameterName": "selectedTab",
                     "comparison": "isEqualTo",
-                    "value": "ERSecurity"
+                    "value": "ProjectSecurity"
                 }
             ],
             "name": "table-ERFailedControlDetails",
@@ -816,7 +816,7 @@
                 {
                     "parameterName": "selectedTab",
                     "comparison": "isEqualTo",
-                    "value": "ERSecurity"
+                    "value": "ProjectSecurity"
                 },
                 {
                     "parameterName": "param_selectERControl",
@@ -839,7 +839,7 @@
                 {
                     "parameterName": "selectedTab",
                     "comparison": "isEqualTo",
-                    "value": "ERSecurity"
+                    "value": "ProjectSecurity"
                 },
                 {
                     "parameterName": "param_ERSecControlId",
@@ -874,7 +874,7 @@
             "conditionalVisibility": {
                 "parameterName": "selectedTab",
                 "comparison": "isEqualTo",
-                "value": "ERSecurity"
+                "value": "ProjectSecurity"
             },
             "name": "chart-ERFailedControl_30dTrend"
         },
@@ -1236,7 +1236,7 @@
                     },
                     {
                         "fieldName": "OrganizationName",
-                        "parameterName": "param_resourceSecResourceSubId",
+                        "parameterName": "param_resourceSecResourceOrgName",
                         "parameterType": 1
                     },
                     {
@@ -1308,7 +1308,7 @@
         {
             "type": 1,
             "content": {
-                "json": "### Recommendation for control Id: '{param_resourceSecControlId}'\r\n{param_resourceSecRecommendation}\r\n\r\n<br/>\r\n### Resource scan commands for '{param_resourceSecResourceName}'\r\n\r\n**Scan all controls for the resource** <br/>\r\nGet-AzSKADOSecurityStatus -OrganizationName \"{param_resourceSecResourceSubId}\" -ProjectNames \"{param_resourceSecResourceRg}\" -ResourceNames \"{param_resourceSecResourceName}\" -UseBaselineControls\r\n\r\n**Scan '{param_resourceSecControlId}' control for the resource** <br/>\r\nGet-AzSKADOSecurityStatus -OrganizationName \"{param_resourceSecResourceSubId}\" -ProjectNames \"{param_resourceSecResourceRg}\" -ResourceNames \"{param_resourceSecResourceName}\" -ControlIds \"{param_resourceSecControlId}\"\r\n\r\n<br/>"
+                "json": "### Recommendation for control Id: '{param_resourceSecControlId}'\r\n{param_resourceSecRecommendation}\r\n\r\n<br/>\r\n### Resource scan commands for '{param_resourceSecResourceName}'\r\n\r\n**Scan all controls for the resource** <br/>\r\nGet-AzSKADOSecurityStatus -OrganizationName \"{param_resourceSecResourceOrgName}\" -ProjectNames \"{param_resourceSecResourceRg}\" -ResourceNames \"{param_resourceSecResourceName}\" -UseBaselineControls\r\n\r\n**Scan '{param_resourceSecControlId}' control for the resource** <br/>\r\nGet-AzSKADOSecurityStatus -OrganizationName \"{param_resourceSecResourceOrgName}\" -ProjectNames \"{param_resourceSecResourceRg}\" -ResourceNames \"{param_resourceSecResourceName}\" -ControlIds \"{param_resourceSecControlId}\"\r\n\r\n<br/>"
             },
             "conditionalVisibilities": [
                 {
@@ -1357,7 +1357,7 @@
             "type": 3,
             "content": {
                 "version": "KqlItem/1.0",
-                "query": "AzSK_ADO_CL\r\n| where TimeGenerated > ago(3d)\r\n| summarize arg_max(TimeGenerated, *) by OrganizationName_s\r\n| project OrganizationName=OrganizationName_s, LastScanTime=TimeGenerated, OrganizationName_s\r\n| join kind=leftouter\r\n(\r\n    AzSK_ADO_CL\r\n    | where ScannedBy_s == ''\r\n    | summarize arg_max(TimeGenerated, *) by OrganizationName_s\r\n    | project OrganizationName=OrganizationName_s, LastCAScanTime=TimeGenerated\r\n)\r\non OrganizationName\r\n| join kind=leftouter\r\n(\r\n    AzSK_ADO_CL\r\n    | where ScannedBy_s != ''\r\n    | summarize arg_max(TimeGenerated, *) by OrganizationName_s\r\n    | project OrganizationName=OrganizationName_s, LastUserScanTime=TimeGenerated, LastUserScannedBy=ScannedBy_s\r\n)\r\non OrganizationName\r\n| join kind=leftouter\r\n(\r\n    AzSK_ADO_CL\r\n    | extend ControlStatus = iff(ControlStatus_s == \"Passed\", \"Passed\",\"Failed\")\r\n    | where ControlStatus == \"Failed\"\r\n    | summarize arg_max(TimeGenerated, *) by OrganizationName_s\r\n    | project OrganizationName=OrganizationName_s, LastFailedControlTime=TimeGenerated\r\n)\r\non OrganizationName\r\n| extend FullScanCommand = strcat(\"Get-AzSKADOSecurityStatus -OrganizationName \\\"\", OrganizationName, \"\\\" -UseBaselineControls -ScanAllArtifact\")\r\n| extend SubscriptionScanCommand = strcat(\"Get-AzSKADOSecurityStatus -OrganizationName \\\"\", OrganizationName_s, \"\\\" -UseBaselineControls -ResourceTypeName Organization\")\r\n| extend ResourceScanCommand = strcat(\"Get-AzSKADOSecurityStatus -OrganizationName \\\"\", OrganizationName_s, \"\\\" -UseBaselineControls -ResourceTypeName Build_Release_SvcConn_AgentPool_User\")\r\n| project OrganizationName, LastScanTime, LastCAScanTime, LastUserScanTime, LastUserScannedBy, LastFailedControlTime, FullScanCommand, SubscriptionScanCommand, ResourceScanCommand\r\n| sort by OrganizationName asc",
+                "query": "AzSK_ADO_CL\r\n| where TimeGenerated > ago(3d)\r\n| summarize arg_max(TimeGenerated, *) by OrganizationName_s\r\n| project OrganizationName=OrganizationName_s, LastScanTime=TimeGenerated, OrganizationName_s\r\n| join kind=leftouter\r\n(\r\n    AzSK_ADO_CL\r\n    | where ScannedBy_s == ''\r\n    | summarize arg_max(TimeGenerated, *) by OrganizationName_s\r\n    | project OrganizationName=OrganizationName_s, LastCAScanTime=TimeGenerated\r\n)\r\non OrganizationName\r\n| join kind=leftouter\r\n(\r\n    AzSK_ADO_CL\r\n    | where ScannedBy_s != ''\r\n    | summarize arg_max(TimeGenerated, *) by OrganizationName_s\r\n    | project OrganizationName=OrganizationName_s, LastUserScanTime=TimeGenerated, LastUserScannedBy=ScannedBy_s\r\n)\r\non OrganizationName\r\n| join kind=leftouter\r\n(\r\n    AzSK_ADO_CL\r\n    | extend ControlStatus = iff(ControlStatus_s == \"Passed\", \"Passed\",\"Failed\")\r\n    | where ControlStatus == \"Failed\"\r\n    | summarize arg_max(TimeGenerated, *) by OrganizationName_s\r\n    | project OrganizationName=OrganizationName_s, LastFailedControlTime=TimeGenerated\r\n)\r\non OrganizationName\r\n| extend FullScanCommand = strcat(\"Get-AzSKADOSecurityStatus -OrganizationName \\\"\", OrganizationName, \"\\\" -UseBaselineControls -ScanAllArtifact\")\r\n| extend OrganizationScanCommand = strcat(\"Get-AzSKADOSecurityStatus -OrganizationName \\\"\", OrganizationName_s, \"\\\" -UseBaselineControls -ResourceTypeName Organization\")\r\n| extend ResourceScanCommand = strcat(\"Get-AzSKADOSecurityStatus -OrganizationName \\\"\", OrganizationName_s, \"\\\" -UseBaselineControls -ResourceTypeName Build_Release_SvcConn_AgentPool_User\")\r\n| project OrganizationName, LastScanTime, LastCAScanTime, LastUserScanTime, LastUserScannedBy, LastFailedControlTime, FullScanCommand, OrganizationScanCommand, ResourceScanCommand\r\n| sort by OrganizationName asc",
                 "size": 3,
                 "showAnalytics": true,
                 "title": "Connected Organizations",
@@ -1372,12 +1372,12 @@
                     },
                     {
                         "fieldName": "OrganizationName",
-                        "parameterName": "param_infoSubName",
+                        "parameterName": "param_infoOrgName",
                         "parameterType": 1
                     },
                     {
-                        "fieldName": "SubscriptionScanCommand",
-                        "parameterName": "param_infoSubScan",
+                        "fieldName": "OrganizationScanCommand",
+                        "parameterName": "param_infoOrgScan",
                         "parameterType": 1
                     },
                     {
@@ -1397,7 +1397,7 @@
                             "formatOptions": {}
                         },
                         {
-                            "columnMatch": "SubscriptionScanCommand",
+                            "columnMatch": "OrganizationScanCommand",
                             "formatter": 5,
                             "formatOptions": {}
                         },
@@ -1415,12 +1415,12 @@
                 "comparison": "isEqualTo",
                 "value": "Explore"
             },
-            "name": "table-ConnectedSubscriptions"
+            "name": "table-ConnectedOrganizations"
         },
         {
             "type": 1,
             "content": {
-                "json": "### Organization scan commands\r\n\r\n**Scan '{param_infoSubName}' for organization and resource controls** <br/>\r\n{param_infoFullScan}\r\n\r\n**Scan '{param_infoSubName}' for only organization controls** <br/>\r\n{param_infoSubScan}\r\n\r\n**Scan '{param_infoSubName}' for only resource controls** <br/>\r\n{param_infoResourceScan}\r\n\r\n<br/>\r\n<br/>"
+                "json": "### Organization scan commands\r\n\r\n**Scan '{param_infoOrgName}' for organization and resource controls** <br/>\r\n{param_infoFullScan}\r\n\r\n**Scan '{param_infoOrgName}' for only organization controls** <br/>\r\n{param_infoOrgScan}\r\n\r\n**Scan '{param_infoOrgName}' for only resource controls** <br/>\r\n{param_infoResourceScan}\r\n\r\n<br/>\r\n<br/>"
             },
             "conditionalVisibilities": [
                 {
@@ -1429,11 +1429,11 @@
                     "value": "Explore"
                 },
                 {
-                    "parameterName": "param_infoSubName",
+                    "parameterName": "param_infoOrgName",
                     "comparison": "isNotEqualTo"
                 }
             ],
-            "name": "text-ConnectedSubscriptions_DrillDownDetails"
+            "name": "text-ConnectedOrganizations_DrillDownDetails"
         },
         {
             "type": 1,
@@ -1447,11 +1447,11 @@
                     "value": "Explore"
                 },
                 {
-                    "parameterName": "param_infoSubName",
+                    "parameterName": "param_infoOrgName",
                     "comparison": "isEqualTo"
                 }
             ],
-            "name": "text-ConnectedSubscriptions_RowSelect"
+            "name": "text-ConnectedOrganizations_RowSelect"
         },
         {
             "type": 1,

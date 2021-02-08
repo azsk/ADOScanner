@@ -280,17 +280,17 @@ class UsageTelemetry: ListenerBase {
 		}
 	}
 
-	static [void] PushSubscriptionScanResults(
+	static [void] PushOrganizationScanResults(
 		[UsageTelemetry] $Publisher, `
 		[SVTEventContext[]] $SVTEventContexts)
 	{
 		$eventData = @{
-			[TelemetryKeys]::FeatureGroup = [FeatureGroup]::Subscription;
-			"ScanKind" = [RemoteReportHelper]::GetSubscriptionScanKind(
+			[TelemetryKeys]::FeatureGroup = [FeatureGroup]::Organization;
+			"ScanKind" = [RemoteReportHelper]::GetOrganizationScanKind(
 				$Publisher.InvocationContext.MyCommand.Name,
 				$Publisher.InvocationContext.BoundParameters);
 		}
-        $subscriptionscantelemetryEvents = [System.Collections.ArrayList]::new()
+        $organizationScanTelemetryEvents = [System.Collections.ArrayList]::new()
 
 		$SVTEventContexts | ForEach-Object {
 			$context = $_
@@ -313,9 +313,9 @@ class UsageTelemetry: ListenerBase {
 				$telemetryEvent.Name = "Control Scanned"
 				$telemetryEvent.Properties = $eventDataClone
 				$telemetryEvent = [UsageTelemetry]::SetCommonProperties($telemetryEvent,$Publisher);
-				$subscriptionscantelemetryEvents.Add($telemetryEvent)
+				$organizationScanTelemetryEvents.Add($telemetryEvent)
 		}
-            [AIOrgTelemetryHelper]::PublishEvent($subscriptionscantelemetryEvents,"Usage")
+            [AIOrgTelemetryHelper]::PublishEvent($organizationScanTelemetryEvents,"Usage")
 	}
 
 	static [void] PushServiceScanResults(

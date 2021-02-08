@@ -39,7 +39,7 @@ class ControlResultBase {
 	[int] $MaximumAllowedGraceDays=0;
 }
 
-class SubscriptionControlResult : ControlResultBase {
+class OrganizationControlResult : ControlResultBase {
 }
 
 class ServiceControlResult : ControlResultBase {
@@ -47,9 +47,9 @@ class ServiceControlResult : ControlResultBase {
     [string] $NestedResourceName;
 }
 
-class SubscriptionScanInfo : ScanInfoBase {
-    [SubscriptionScanKind] $ScanKind;
-    [SubscriptionControlResult[]] $ControlResults;
+class OrganizationScanInfo : ScanInfoBase {
+    [OrganizationScanKind] $ScanKind;
+    [OrganizationControlResult[]] $ControlResults;
 }
 
 class ServiceScanInfo : ScanInfoBase {

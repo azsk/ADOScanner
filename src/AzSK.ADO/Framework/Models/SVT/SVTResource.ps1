@@ -1,6 +1,6 @@
 ﻿Set-StrictMode -Version Latest 
 
-class SubscriptionMapping
+class OrganizationMapping
 {    
 	[string] $JsonFileName
     [string] $ClassName
@@ -8,7 +8,7 @@ class SubscriptionMapping
     [string] $FixFileName = "";
 }
 
-class ResourceTypeMapping: SubscriptionMapping
+class ResourceTypeMapping: OrganizationMapping
 {
     [string] $ResourceTypeName
     [string] $ResourceType

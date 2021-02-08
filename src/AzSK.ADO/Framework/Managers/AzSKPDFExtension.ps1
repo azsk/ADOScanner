@@ -33,7 +33,7 @@ class AzSKPDFExtension
 				#$AzSKReportDoc.PageSetup.TopMargin = $margin
 				$AzSKReportDoc.PageSetup.BottomMargin = $margin
 
-				$isSubscriptionCore = $false
+				$isOrganizationCore = $false
 
 				$selection = $Word.Selection
 				$selection.WholeStory
@@ -108,7 +108,7 @@ class AzSKPDFExtension
 				{
 					[AzSKPDFExtension]::WriteText($selection, 'Unable to find the required security report under the report folder.','No Spacing', $false, $true, $false)
 					[AzSKPDFExtension]::WriteText($selection, 'Or','No Spacing', $true, $true, $false)
-					[AzSKPDFExtension]::WriteText($selection, 'No controls have been found to evaluate for the Subscription.','No Spacing', $false, $true, $false)
+					[AzSKPDFExtension]::WriteText($selection, 'No controls have been found to evaluate for the organization.','No Spacing', $false, $true, $false)
 					#throw "Didn't find the required security report under the report folder.";
 				}
 				else
@@ -166,9 +166,9 @@ class AzSKPDFExtension
 							 }
 							 else
 							 {
-								$isSubscriptionCore = $true
-								$AzSKReportTable.Cell($x,3).Range.Text="Subscription"
-								$AzSKReportTable.Cell($x,4).Range.Text="Subscription"
+								$isOrganizationCore = $true
+								$AzSKReportTable.Cell($x,3).Range.Text="Organization"
+								$AzSKReportTable.Cell($x,4).Range.Text="Organization"
 							 }
 							 $AzSKReportTable.Cell($x,5).Range.Text=$control.ControlSeverity
 							 $AzSKReportTable.Cell($x,6).Range.Text=$control.Description
@@ -237,9 +237,9 @@ class AzSKPDFExtension
 					Get-ChildItem -Path $reportFolderPath -Directory | Where-Object {-not ($_.Name -eq "etc")} | ForEach-Object {
 						$rootfolder = $_
 
-						if($isSubscriptionCore)
+						if($isOrganizationCore)
 						{
-							[AzSKPDFExtension]::WriteText($selection, 'Subscription Name: '+ ($rootfolder.Name),'Heading 2', $false, $true, $false)
+							[AzSKPDFExtension]::WriteText($selection, 'Organization Name: '+ ($rootfolder.Name),'Heading 2', $false, $true, $false)
 						}
 						else
 						{

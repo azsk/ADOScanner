@@ -100,7 +100,7 @@ class WriteEnvironmentFile: FileOutputBase
 		$this.AddOutputLog([Constants]::DoubleDashLine);
 
 		$this.AddOutputLog("Az context");
-		$this.AddOutputLog([Helpers]::ConvertObjectToString(($rmContext | Select-Object -Property Environment, Subscription, Tenant), $false));
+		$this.AddOutputLog([Helpers]::ConvertObjectToString(($rmContext | Select-Object -Property Environment, Organization, Tenant), $false));
 		$this.AddOutputLog([Constants]::DoubleDashLine);
 	}
 

@@ -101,7 +101,7 @@ class WriteDetailedLog: FileOutputBase
 				}
 				else
 				{
-					$currentInstance.AddOutputLog(("Checking: [{0}]-[$($Event.SourceArgs.ControlItem.Description)] for subscription [{1}]" -f 
+					$currentInstance.AddOutputLog(("Checking: [{0}]-[$($Event.SourceArgs.ControlItem.Description)] for organization [{1}]" -f 
                         $Event.SourceArgs.FeatureName, 
                         $Event.SourceArgs.OrganizationContext.OrganizationName), 
                     $true);  
@@ -302,7 +302,7 @@ class WriteDetailedLog: FileOutputBase
 					}
 					else
 					{		
-						$this.AddOutputLog(("**{3}**: [{0}]-[{2}] for subscription: [{1}]" -f 
+						$this.AddOutputLog(("**{3}**: [{0}]-[{2}] for organization: [{1}]" -f 
 								$eventContext.FeatureName, 
 								$eventContext.OrganizationContext.OrganizationName, 
 								$eventContext.ControlItem.Description, 

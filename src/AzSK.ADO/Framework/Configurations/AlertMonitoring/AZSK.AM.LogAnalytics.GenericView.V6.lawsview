@@ -498,7 +498,7 @@
                                         },
                                         {
                                             "query": "AzSK_ADO_CL | where TimeGenerated > ago(3d) | where HasRequiredAccess_b == true | where FeatureName_s == \"Organization\" | extend ControlStatus = iff(ControlStatus_s == \"Passed\", \"Passed\",\"Failed\") | summarize arg_max(TimeGenerated, *) by OrganizationName_s, ResourceId, ControlId_s | where ControlStatus == \"Failed\" | summarize AggregatedValue = count() by ControlId_s",
-                                            "displayName": "Distribution of Failed Subscription Controls for last scan done with required access including NonBaseline controls"
+                                            "displayName": "Distribution of Failed Organization Controls for last scan done with required access including NonBaseline controls"
                                         },
                                         {
                                             "query": "AzSK_ADO_CL | where TimeGenerated > ago(3d) | where HasRequiredAccess_b == true | where FeatureName_s != \"Organization\" | summarize arg_max(TimeGenerated, *) by OrganizationName_s, ResourceId, ControlId_s | summarize AggregatedValue = count() by ControlId_s,ControlStatus_s",

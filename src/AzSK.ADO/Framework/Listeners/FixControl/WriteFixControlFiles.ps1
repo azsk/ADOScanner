@@ -142,7 +142,7 @@ Repair-AzSKSubscriptionSecurity `
 					$sub | Where-Object { -not $_.IsResource() } |
 					ForEach-Object {
 						$hasSubControls = $true;
-						$subObject.SubscriptionControls += $this.CreateControlParam($_);
+						$subObject.OrganizationControls += $this.CreateControlParam($_);
 					};
 
 					$sub | Where-Object { $_.IsResource() } | Group-Object { $_.ResourceContext.ResourceGroupName } | 

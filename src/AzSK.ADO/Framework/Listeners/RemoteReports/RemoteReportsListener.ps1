@@ -40,8 +40,8 @@ class RemoteReportsListener: ListenerBase {
 				$invocationContext = [System.Management.Automation.InvocationInfo] $currentInstance.InvocationContext
 				$SVTEventContexts = [SVTEventContext[]] $Event.SourceArgs
 				$featureGroup = [RemoteReportHelper]::GetFeatureGroup($SVTEventContexts)
-				if($featureGroup -eq [FeatureGroup]::Subscription){
-					[RemoteReportsListener]::ReportSubscriptionScan($currentInstance, $invocationContext, $SVTEventContexts)
+				if($featureGroup -eq [FeatureGroup]::Organization){
+					[RemoteReportsListener]::ReportOrganizationScan($currentInstance, $invocationContext, $SVTEventContexts)
 				}elseif($featureGroup -eq [FeatureGroup]::Service){
 					[RemoteReportsListener]::ReportServiceScan($currentInstance, $invocationContext, $SVTEventContexts)
 				}else{
@@ -83,14 +83,14 @@ class RemoteReportsListener: ListenerBase {
     }
 
 
-	static [void] ReportSubscriptionScan(
+	static [void] ReportOrganizationScan(
 		[RemoteReportsListener] $publisher, `
 		[System.Management.Automation.InvocationInfo]  $invocationContext, `
 		[SVTEventContext[]] $SVTEventContexts)
 	{
 		$SVTEventContext = $SVTEventContexts[0]
-		$scanResult = [SubscriptionScanInfo]::new()
-		$scanResult.ScanKind = [RemoteReportHelper]::GetSubscriptionScanKind($invocationContext.MyCommand.Name, $invocationContext.BoundParameters)
+		$scanResult = [OrganizationScanInfo]::new()
+		$scanResult.ScanKind = [RemoteReportHelper]::GetOrganizationScanKind($invocationContext.MyCommand.Name, $invocationContext.BoundParameters)
 		$scanResult.OrganizationId = $SVTEventContext.OrganizationContext.OrganizationId
 		$scanResult.OrganizationName = $SVTEventContext.OrganizationContext.OrganizationName
 		$scanResult.Source = [RemoteReportHelper]::GetScanSource()
@@ -109,11 +109,11 @@ class RemoteReportsListener: ListenerBase {
 		$SVTEventContexts | ForEach-Object {
 			$context = $_
 			if ($context.ControlItem.Enabled) {
-				$result = [RemoteReportHelper]::BuildSubscriptionControlResult($context.ControlResults[0], $context.ControlItem)
+				$result = [RemoteReportHelper]::BuildOrganizationControlResult($context.ControlResults[0], $context.ControlItem)
 				$results.Add($result)
 			}
 			else {
-				$result = [SubscriptionControlResult]::new()
+				$result = [OrganizationControlResult]::new()
 				$result.ControlId = $context.ControlItem.ControlID
 				$result.ControlIntId = $context.ControlItem.Id
 				$result.ActualVerificationResult = [VerificationResult]::Disabled
@@ -123,8 +123,8 @@ class RemoteReportsListener: ListenerBase {
 				$results.Add($result)
 			}
 		}
-		$scanResult.ControlResults = [SubscriptionControlResult[]] $results
-		[RemoteApiHelper]::PostSubscriptionScanResult($scanResult)
+		$scanResult.ControlResults = [OrganizationControlResult[]] $results
+		[RemoteApiHelper]::PostOrganizationScanResult($scanResult)
 	}
 
 	static [void] ReportServiceScan(

@@ -40,8 +40,8 @@ class AIOrgTelemetry: ListenerBase {
 				$invocationContext = [System.Management.Automation.InvocationInfo] $currentInstance.InvocationContext
 				$SVTEventContexts = [SVTEventContext[]] $Event.SourceArgs
 				$featureGroup = [RemoteReportHelper]::GetFeatureGroup($SVTEventContexts)
-				if($featureGroup -eq [FeatureGroup]::Subscription){
-					$currentInstance.PushSubscriptionScanResults($SVTEventContexts)
+				if($featureGroup -eq [FeatureGroup]::Organization){
+					$currentInstance.PushOrganizationScanResults($SVTEventContexts)
 				}elseif($featureGroup -eq [FeatureGroup]::Service){
 					$currentInstance.PushServiceScanResults($SVTEventContexts)
 				}else{
@@ -131,13 +131,13 @@ class AIOrgTelemetry: ListenerBase {
 
     }
 
-	hidden [void] PushSubscriptionScanResults([SVTEventContext[]] $SVTEventContexts)
+	hidden [void] PushOrganizationScanResults([SVTEventContext[]] $SVTEventContexts)
 	{
 		$SVTEventContextFirst = $SVTEventContexts[0]
 		$baseProperties = @{
 			"RunIdentifier" = $this.RunIdentifier;
-			[TelemetryKeys]::FeatureGroup = [FeatureGroup]::Subscription;
-			"ScanKind" = [RemoteReportHelper]::GetSubscriptionScanKind(
+			[TelemetryKeys]::FeatureGroup = [FeatureGroup]::Organization;
+			"ScanKind" = [RemoteReportHelper]::GetOrganizationScanKind(
 				$this.InvocationContext.MyCommand.Name,
 				$this.InvocationContext.BoundParameters);
 			"OrganizationMetadata" = [JsonHelper]::ConvertToJsonCustomCompressed($SVTEventContextFirst.OrganizationContext.OrganizationMetadata);

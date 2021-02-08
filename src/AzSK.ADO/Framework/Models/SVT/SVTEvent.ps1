@@ -199,7 +199,7 @@ class SVTEventContext: AzSKRootEventArgument
 #Get rid/move to another place if still needed.
 class TelemetryRBAC
 {
-	[string] $SubscriptionId="";
+	[string] $OrganizationName="";
 	[string] $Scope="";
 	[string] $DisplayName="";
 	[string] $MemberType="";

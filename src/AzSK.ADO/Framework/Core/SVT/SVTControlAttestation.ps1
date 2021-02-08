@@ -48,13 +48,13 @@ class SVTControlAttestation
 		return [AttestationStatus]::None
 	}
 
-	[ControlState] ComputeEffectiveControlState([ControlState] $controlState, [string] $ControlSeverity, [bool] $isSubscriptionControl, [SVTEventContext] $controlItem, [ControlResult] $controlResult)
+	[ControlState] ComputeEffectiveControlState([ControlState] $controlState, [string] $ControlSeverity, [bool] $isOrganizationControl, [SVTEventContext] $controlItem, [ControlResult] $controlResult)
 	{
 		Write-Host "$([Constants]::SingleDashLine)" -ForegroundColor Cyan
 		Write-Host "ControlId            : $($controlState.ControlId)`nControlSeverity      : $ControlSeverity`nDescription          : $($controlItem.ControlItem.Description)`nCurrentControlStatus : $($controlState.ActualVerificationResult)`n"		
 		if(-not $controlResult.CurrentSessionContext.Permissions.HasRequiredAccess)
 		{
-			Write-Host "Skipping attestation process for this control. You do not have required permissions to evaluate this control. `nNote: If your permissions were elevated recently, please run the 'Disconnect-AzAccount' command to clear the Azure cache and try again." -ForegroundColor Yellow
+			Write-Host "Skipping attestation process for this control. You do not have required permissions to evaluate this control." -ForegroundColor Yellow
 			return $controlState;
 		}
 		if(-not $this.isControlAttestable($controlItem, $controlResult))
@@ -257,7 +257,7 @@ class SVTControlAttestation
 		return $controlState;
 	}
 
-	[ControlState] ComputeEffectiveControlStateInBulkMode([ControlState] $controlState, [string] $ControlSeverity, [bool] $isSubscriptionControl, [SVTEventContext] $controlItem, [ControlResult] $controlResult)
+	[ControlState] ComputeEffectiveControlStateInBulkMode([ControlState] $controlState, [string] $ControlSeverity, [bool] $isOrganizationControl, [SVTEventContext] $controlItem, [ControlResult] $controlResult)
 	{
 		Write-Host "$([Constants]::SingleDashLine)" -ForegroundColor Cyan		
 		Write-Host "ControlId            : $($controlState.ControlId)`nControlSeverity      : $ControlSeverity`nDescription          : $($controlItem.ControlItem.Description)`nCurrentControlStatus : $($controlState.ActualVerificationResult)`n"
@@ -449,7 +449,7 @@ class SVTControlAttestation
 					$resourceValueKey = $resource.Name
 					$this.dirtyCommitState = $false;
 					$resourceValue = $resource.Group;		
-					$isSubscriptionScan = $false;
+					$isOrganizationScan = $false;
 					$counter = $counter + 1
 					if(($resourceValue | Measure-Object).Count -gt 0)
 					{
@@ -461,7 +461,7 @@ class SVTControlAttestation
 						}
 						else
 						{
-							$isSubscriptionScan = $true;
+							$isOrganizationScan = $true;
 							Write-Host $([String]::Format([Constants]::ModuleAttestStartHeadingSub, $resourceValue[0].FeatureName, $resourceValue[0].OrganizationContext.OrganizationName, $resourceValue[0].OrganizationContext.OrganizationId)) -ForegroundColor Cyan
 						}	
 						
@@ -555,11 +555,11 @@ class SVTControlAttestation
 										$controlState.ResourceId = $resourceValueKey;
 										if($this.bulkAttestMode)
 										{
-											$controlState = $this.ComputeEffectiveControlStateInBulkMode($controlState, $controlSeverity, $isSubscriptionScan, $controlItem, $controlResult)										
+											$controlState = $this.ComputeEffectiveControlStateInBulkMode($controlState, $controlSeverity, $isOrganizationScan, $controlItem, $controlResult)										
 										}
 										else
 										{
-											$controlState = $this.ComputeEffectiveControlState($controlState, $controlSeverity, $isSubscriptionScan, $controlItem, $controlResult)										
+											$controlState = $this.ComputeEffectiveControlState($controlState, $controlSeverity, $isOrganizationScan, $controlItem, $controlResult)										
 										}
 										
 										$resourceControlStates +=$controlState;
@@ -612,7 +612,7 @@ class SVTControlAttestation
 						}
 						else
 						{
-							$isSubscriptionScan = $true;
+							$isOrganizationScan = $true;
 							Write-Host $([String]::Format([Constants]::CompletedAttestAnalysisSub, $resourceValue[0].FeatureName, $resourceValue[0].OrganizationContext.OrganizationName, $resourceValue[0].OrganizationContext.OrganizationId)) -ForegroundColor Cyan
 						}	
 					}

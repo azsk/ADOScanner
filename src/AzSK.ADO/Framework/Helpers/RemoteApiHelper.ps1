@@ -51,8 +51,8 @@ class RemoteApiHelper {
         return [RemoteApiHelper]::GetContent($uri, $postContent, "application/json")
     }
 
-    static [void] PostSubscriptionScanResult($scanResult) {
-        [RemoteApiHelper]::PostJsonContent("/scanresults/subscription", $scanResult) | Out-Null
+    static [void] PostOrganizationScanResult($scanResult) {
+        [RemoteApiHelper]::PostJsonContent("/scanresults/organization", $scanResult) | Out-Null
     }
 
     static [void] PostServiceScanResult($scanResult) {
