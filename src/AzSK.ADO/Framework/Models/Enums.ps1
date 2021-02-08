@@ -177,3 +177,13 @@ enum BugLogForControls
 	PreviewBaselineControls
 	Custom
 }
+
+enum SecuritySeverity 
+{
+	Critical
+	High
+	Important
+	Moderate
+	Medium
+	Low
+}
