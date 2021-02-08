@@ -692,7 +692,7 @@ class AutoBugLog {
                 Write-Host "Please verify the area and iteration path. They should belong under the same project area." -ForegroundColor Red
             }
             elseif ($_.ErrorDetails.Message -like '*Invalid tree name given for work item*' -and $_.ErrorDetails.Message -like '*System.AreaPath*') {
-                Write-Host "Please verify the area and iteration path. They should belong under the same project area." -ForegroundColor Red
+                Write-Host "Please verify the area and iteration path are valid." -ForegroundColor Red
             }
             elseif ($_.ErrorDetails.Message -like '*The current user does not have permissions to save work items under the specified area path*') {
                 $areaPath = [BugLogPathManager]::AreaPath
