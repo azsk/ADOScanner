@@ -5,6 +5,7 @@ class Build: ADOSVTBase
     hidden [PSObject] $BuildObj;
     hidden static [string] $SecurityNamespaceId = $null;
     hidden static [PSObject] $BuildVarNames = @{};
+    hidden [PSObject] $buildActivityDetail = @{isBuildActive = $true; buildLastRunDate = $null; buildCreationDate = $null; message = $null; isComputed = $false};
     
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
@@ -23,6 +24,22 @@ class Build: ADOSVTBase
         if(($this.BuildObj | Measure-Object).Count -eq 0)
         {
             throw [SuppressedException] "Unable to find build pipeline in [Organization: $($this.OrganizationContext.OrganizationName)] [Project: $($this.ResourceContext.ResourceGroupName)]."
+        }
+
+        # if build activity check function is not computed, then first compute the function to get the correct status of build.
+        if($this.buildActivityDetail.isComputed -eq $false)
+        {
+            $this.CheckActiveBuilds()
+        }
+
+        # overiding the '$this.isResourceActive' global variable based on the current status of build.
+        if ($this.buildActivityDetail.isBuildActive)
+        {
+            $this.isResourceActive = $true
+        }
+        else
+        {
+            $this.isResourceActive = $false
         }
     }
 
@@ -207,92 +224,48 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckForInactiveBuilds([ControlResult] $controlResult)
     {
-        if($this.BuildObj)
+        try
         {
-            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.BuildObj.project.id);
-
-        $orgURL='https://dev.azure.com/{0}/{1}/_build?view=folders' -f $($this.OrganizationContext.OrganizationName),$($this.BuildObj.project.name)
-        $inputbody="{'contributionIds':['ms.vss-build-web.pipelines-data-provider'],'dataProviderContext':{'properties':{'definitionIds':'$($this.BuildObj.id)','sourcePage':{'url':'$orgURL','routeId':'ms.vss-build-web.pipelines-hub-route','routeValues':{'project':'$($this.BuildObj.project.name)','viewname':'pipelines','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-
-        $sw = [System.Diagnostics.Stopwatch]::StartNew();
-        $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
-        $sw.Stop()
-
-        #Below code added to send perf telemtry
-        if ($this.IsAIEnabled)
-        {
-            $properties =  @{ 
-                TimeTakenInMs = $sw.ElapsedMilliseconds;
-                ApiUrl = $apiURL; 
-                Resourcename = $this.ResourceContext.ResourceName;
-                ResourceType = $this.ResourceContext.ResourceType;
-                PartialScanIdentifier = $this.PartialScanIdentifier;
-                CalledBy = "CheckForInactiveBuilds";
-            }
-            [AIOrgTelemetryHelper]::PublishEvent( "Api Call Trace",$properties, @{})
-        }
-
-        if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider' -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider',"pipelines") -and  $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines)
-        {
-
-            $builds = $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines
-
-            if(($builds | Measure-Object).Count -gt 0 )
+            if ($this.buildActivityDetail.message -eq 'Could not fetch build details.')
             {
-                $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
-                [datetime]$createdDate = $this.BuildObj.createdDate
-
-                if([Helpers]::CheckMember($builds[0],"latestRun") -and $null -ne $builds[0].latestRun)
-                {
-                    if ([datetime]::Parse( $builds[0].latestRun.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays))) {
-                        $controlResult.AddMessage([VerificationResult]::Passed,
-                            "Found recent builds triggered within $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days");
-                    }               
-
-
-                    else {
-                        
-                        if ((((Get-Date) - $createdDate).Days) -lt $inactiveLimit)
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Passed, "Build was created within last $inactiveLimit days but never queued.");
-                        }
-                        else {
-                            $controlResult.AddMessage([VerificationResult]::Failed,
-                                "No recent build history found in last $inactiveLimit days");
-                        }
-                    }
-                    if([Helpers]::CheckMember($builds[0].latestRun,"finishTime"))
-                    {
-                        $buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
-                        $controlResult.AddMessage("Last run date of build pipeline: $($buildLastRunDate)");
-                        $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $buildLastRunDate;
-                    }
-                }
-                else { #no build history ever. check whether pipeline has been created recently.
-                    if ((((Get-Date) - $createdDate).Days) -lt $inactiveLimit)
-                    {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "Build was created within last $inactiveLimit days but never queued.");
-                    }
-                    else {
-                        $controlResult.AddMessage([VerificationResult]::Failed,
-                            "No build history found in last $inactiveLimit days");
-                    }
-                    $controlResult.AdditionalInfo += "No build history found.";
-                }
+                $controlResult.AddMessage([VerificationResult]::Error, $this.buildActivityDetail.message);
+            }
+            elseif($this.buildActivityDetail.isBuildActive)
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, $this.buildActivityDetail.message);
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Failed,
-                "No build history found.");
+                if ($null -ne $this.buildActivityDetail.buildCreationDate)
+                {
+                    $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
+                    if ((((Get-Date) - $this.buildActivityDetail.buildCreationDate).Days) -lt $inactiveLimit)
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Build was created within last $($inactiveLimit) days but never queued.");
+                    }
+                    else 
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed, "No build history found in last $($inactiveLimit) days.");
+                    }
+                    $controlResult.AddMessage("The build was created on: $($this.buildActivityDetail.buildCreationDate)");
+                    $controlResult.AdditionalInfo += "The build was created on: " + $this.buildActivityDetail.buildCreationDate;
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, $this.buildActivityDetail.message);
+                }
             }
-            $builds = $null;
-            $responseObj = $null;
+
+            if ($null -ne $this.buildActivityDetail.buildLastRunDate)
+            {
+                $controlResult.AddMessage("Last run date of build pipeline: $($this.buildActivityDetail.buildLastRunDate)");
+                $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $this.buildActivityDetail.buildLastRunDate;
+            }
         }
-        else {
-            $controlResult.AddMessage([VerificationResult]::Failed,
-                                                "No build history found. Build is inactive.");
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch build details.");
         }
-    }
         return $controlResult
     }
 
@@ -1008,5 +981,91 @@ class Build: ADOSVTBase
         }
  
         return $controlResult;
+    }
+
+    hidden CheckActiveBuilds()
+    {
+        try
+        {
+            if($this.BuildObj)
+            {
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.BuildObj.project.id);
+                $orgURL='https://dev.azure.com/{0}/{1}/_build?view=folders' -f $($this.OrganizationContext.OrganizationName),$($this.BuildObj.project.name)
+                $inputbody="{'contributionIds':['ms.vss-build-web.pipelines-data-provider'],'dataProviderContext':{'properties':{'definitionIds':'$($this.BuildObj.id)','sourcePage':{'url':'$orgURL','routeId':'ms.vss-build-web.pipelines-hub-route','routeValues':{'project':'$($this.BuildObj.project.name)','viewname':'pipelines','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+
+                $sw = [System.Diagnostics.Stopwatch]::StartNew();
+                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+                $sw.Stop()
+
+                #Below code added to send perf telemtry
+                if ($this.IsAIEnabled)
+                {
+                    $properties =  @{ 
+                        TimeTakenInMs = $sw.ElapsedMilliseconds;
+                        ApiUrl = $apiURL; 
+                        Resourcename = $this.ResourceContext.ResourceName;
+                        ResourceType = $this.ResourceContext.ResourceType;
+                        PartialScanIdentifier = $this.PartialScanIdentifier;
+                        CalledBy = "CheckForInactiveBuilds";
+                    }
+                    [AIOrgTelemetryHelper]::PublishEvent( "Api Call Trace",$properties, @{})
+                }
+
+                if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider' -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider',"pipelines") -and  $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines)
+                {
+
+                    $builds = $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines
+
+                    if(($builds | Measure-Object).Count -gt 0 )
+                    {
+                        $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
+                        [datetime]$createdDate = $this.BuildObj.createdDate
+                        $this.buildActivityDetail.buildCreationDate = $createdDate;
+                        if([Helpers]::CheckMember($builds[0],"latestRun") -and $null -ne $builds[0].latestRun)
+                        {
+                            if ([datetime]::Parse( $builds[0].latestRun.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays))) 
+                            {
+                                $this.buildActivityDetail.isBuildActive = $true;
+                                $this.buildActivityDetail.message = "Found recent builds triggered within $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days";
+                            }               
+                            else 
+                            {
+                                $this.buildActivityDetail.isBuildActive = $false;
+                                $this.buildActivityDetail.message = "No recent build history found in last $inactiveLimit days.";
+                            }
+
+                            if([Helpers]::CheckMember($builds[0].latestRun,"finishTime"))
+                            {
+                                $this.buildActivityDetail.buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
+                            }
+                        }
+                        else 
+                        { 
+                            #no build history ever. 
+                            $this.buildActivityDetail.isBuildActive = $false;
+                            $this.buildActivityDetail.message = "No build history found.";
+                        }
+                    }
+                    else
+                    {
+                        $this.buildActivityDetail.isBuildActive = $false;
+                        $this.buildActivityDetail.message = "No build history found.";
+                    }
+                    $builds = $null;
+                    $responseObj = $null;
+                }
+                else
+                {
+                    $this.buildActivityDetail.isBuildActive = $false;
+                    $this.buildActivityDetail.message = "No build history found. Build is inactive.";
+                }
+            }
+        }
+        catch
+        {
+            $this.buildActivityDetail.message = "Could not fetch build details.";
+        }
+        
+        $this.buildActivityDetail.isComputed = $true
     }
 }
