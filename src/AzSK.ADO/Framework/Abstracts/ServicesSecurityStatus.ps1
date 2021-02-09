@@ -230,7 +230,10 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 				
 				if([Organization]::InstalledextensionInfo)
 				{
+					# Default value if property 'ExtensionsLastUpdatedInYears' not exist in ControlSettings
 					$years = 2
+					
+					# Fetching property 'ExtensionsLastUpdatedInYears' from ControlSettings to print in csv column.
 					if([Helpers]::CheckMember($svtObject.ControlSettings, "Organization.ExtensionsLastUpdatedInYears"))
                     {
                         $years = $svtObject.ControlSettings.Organization.ExtensionsLastUpdatedInYears
