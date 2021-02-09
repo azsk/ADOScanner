@@ -7,6 +7,7 @@ class ServiceConnection: ADOSVTBase
     hidden [PSObject] $ServiceConnEndPointDetail = $null;
     hidden [PSObject] $pipelinePermission = $null;
     hidden [PSObject] $serviceEndPointIdentity = $null;
+    hidden [PSObject] $SvcConnActivityDetail = @{isSvcConnActive = $true; svcConnLastRunDate = $null; message = $null; isComputed = $false};
 
     ServiceConnection([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -44,6 +45,24 @@ class ServiceConnection: ADOSVTBase
         catch {
             
         }
+
+        
+        # if service connection activity check function is not computed, then first compute the function to get the correct status of service connection.
+        if($this.SvcConnActivityDetail.isComputed -eq $false)
+        {
+            $this.CheckActiveConnection()
+        }
+
+        # overiding the '$this.isResourceActive' global variable based on the current status of service connection .
+        if ($this.SvcConnActivityDetail.isSvcConnActive)
+        {
+            $this.isResourceActive = $true
+        }
+        else
+        {
+            $this.isResourceActive = $false
+        }
+        
     }
 
     [ControlItem[]] ApplyServiceFilters([ControlItem[]] $controls)
@@ -238,7 +257,7 @@ class ServiceConnection: ADOSVTBase
                 {
                     # match all the identities added on service connection with defined restricted list
                     $restrictedGroups = $this.serviceEndPointIdentity.identity | Where-Object { $restrictedGlobalGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
-    
+
                     # fail the control if restricted group found on service connection
                     if($restrictedGroups)
                     {
@@ -320,19 +339,21 @@ class ServiceConnection: ADOSVTBase
         try
         {
             if ($null -eq $this.pipelinePermission) {
-               $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.ServiceEndpointsObj.id) ;
-               $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+
+            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.ServiceEndpointsObj.id) ;
+            $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            
             }
             if([Helpers]::CheckMember($this.pipelinePermission,"allPipelines")) {
                 if($this.pipelinePermission.allPipelines.authorized){
-                   $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant global security access to all pipeline.");
+                $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant global security access to all pipeline.");
                 } 
                 else {
-                   $controlResult.AddMessage([VerificationResult]::Passed,"Service connection is not granted access to all pipeline");
+                $controlResult.AddMessage([VerificationResult]::Passed,"Service connection is not granted access to all pipeline");
                 }             
-             }
+            }
             else {
-             $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not granted access to all pipeline");
+            $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not granted access to all pipeline");
             }
         }
         catch {
@@ -415,48 +436,30 @@ class ServiceConnection: ADOSVTBase
     }
 
     hidden [ControlResult] CheckInactiveConnection([ControlResult] $controlResult)
-	{             
+	{
         try
         {
-            if ($this.ServiceConnEndPointDetail -and [Helpers]::CheckMember($this.ServiceConnEndPointDetail, "serviceEndpointExecutionHistory") ) 
-            {
-                #if this job is still running then finishTime is not available. pass the control
-                if ([Helpers]::CheckMember($this.ServiceConnEndPointDetail.serviceEndpointExecutionHistory[0].data, "finishTime")) 
-                {
-                    #Get the last known usage (job) timestamp of the service connection
-                    $svcLastRunDate = $this.ServiceConnEndPointDetail.serviceEndpointExecutionHistory[0].data.finishTime;
-                    
-                    #format date
-                    $formatLastRunTimeSpan = New-TimeSpan -Start (Get-Date $svcLastRunDate)
-                    
-                    # $inactiveLimit denotes the upper limit on number of days of inactivity before the svc conn is deemed inactive.
-                    if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.ServiceConnectionHistoryPeriodInDays") ) 
-                    {
-                        $inactiveLimit = $this.ControlSettings.ServiceConnection.ServiceConnectionHistoryPeriodInDays
-                        if ($formatLastRunTimeSpan.Days -gt $inactiveLimit)
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Failed, "Service connection has not been used in the last $inactiveLimit days.");
-                        }
-                        else
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Passed, "Service connection has been used in the last $inactiveLimit days.");
-                        }
-                    }
-                    else {
-                        $controlResult.AddMessage([VerificationResult]::Manual,"History period in days (ServiceConnectionHistoryPeriodInDays) to check last running day of service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
-                    }
-                    $svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
-                    $controlResult.AddMessage("Last usage date of service connection: $($svcConnLastRunDate)");
-                    $controlResult.AdditionalInfo += "Last usage date of service connection: " + $svcConnLastRunDate;
-                }
-                else
-                {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection was under use during the control scan.");
-                }
+            if ($this.SvcConnActivityDetail.message -eq 'Could not fetch the service connection details.') {
+                $controlResult.AddMessage([VerificationResult]::Error, $this.SvcConnActivityDetail.message);
             }
-            else #service connection was created but never used. (Fail for now)
-            {    
-                $controlResult.AddMessage([VerificationResult]::Failed, "Service connection has never been used.");
+            elseif ($null -ne $this.SvcConnActivityDetail.svcConnLastRunDate) 
+            {
+                if ($this.SvcConnActivityDetail.isSvcConnActive) {
+                    $controlResult.AddMessage([VerificationResult]::Passed, $this.SvcConnActivityDetail.message);
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Failed, $this.SvcConnActivityDetail.message);
+                }
+                $controlResult.AddMessage("Last usage date of service connection: $($this.SvcConnActivityDetail.svcConnLastRunDate)");
+                $controlResult.AdditionalInfo += "Last usage date of service connection: " + $this.SvcConnActivityDetail.svcConnLastRunDate;
+            }
+            elseif ($this.SvcConnActivityDetail.isSvcConnActive)
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, $this.SvcConnActivityDetail.message);
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed, $this.SvcConnActivityDetail.message);
             }
         }
         catch
@@ -496,7 +499,8 @@ class ServiceConnection: ADOSVTBase
         return $controlResult;
     }
 
-    hidden [ControlResult] CheckCrossPipelineSharing([ControlResult] $controlResult) {  
+    hidden [ControlResult] CheckCrossPipelineSharing([ControlResult] $controlResult) 
+    {
         try 
         {
             if ($null -eq $this.pipelinePermission) {
@@ -540,7 +544,7 @@ class ServiceConnection: ADOSVTBase
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch pipeline permission details for the service connection.");
         }
-         
+        
         return $controlResult;
     }
 
@@ -575,4 +579,59 @@ class ServiceConnection: ADOSVTBase
         return $controlResult
     }
     
+    hidden CheckActiveConnection()
+    {
+        try
+        {
+
+            if ($this.ServiceConnEndPointDetail -and [Helpers]::CheckMember($this.ServiceConnEndPointDetail, "serviceEndpointExecutionHistory") ) 
+            {
+                #if this job is still running then finishTime is not available. pass the control
+                if ([Helpers]::CheckMember($this.ServiceConnEndPointDetail.serviceEndpointExecutionHistory[0].data, "finishTime")) 
+                {
+                    #Get the last known usage (job) timestamp of the service connection
+                    $svcLastRunDate = $this.ServiceConnEndPointDetail.serviceEndpointExecutionHistory[0].data.finishTime;
+                    
+                    #format date
+                    $formatLastRunTimeSpan = New-TimeSpan -Start (Get-Date $svcLastRunDate)
+                    
+                    # $inactiveLimit denotes the upper limit on number of days of inactivity before the svc conn is deemed inactive.
+                    if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.ServiceConnectionHistoryPeriodInDays") ) 
+                    {
+                        $inactiveLimit = $this.ControlSettings.ServiceConnection.ServiceConnectionHistoryPeriodInDays
+                        if ($formatLastRunTimeSpan.Days -gt $inactiveLimit)
+                        {
+                            $this.SvcConnActivityDetail.isSvcConnActive = $false;
+                            $this.SvcConnActivityDetail.message = "Service connection has not been used in the last $inactiveLimit days.";
+                        }
+                        else
+                        {
+                            $this.SvcConnActivityDetail.isSvcConnActive = $true;
+                            $this.SvcConnActivityDetail.message =  "Service connection has been used in the last $inactiveLimit days.";
+                        }
+                    }
+                    else {
+                        $this.SvcConnActivityDetail.isSvcConnActive = $false;
+                        $this.SvcConnActivityDetail.message = "Could not fetch the inactive days limit for service connection.";
+                    }
+                    $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
+                }
+                else
+                {
+                    $this.SvcConnActivityDetail.isSvcConnActive = $true;
+                    $this.SvcConnActivityDetail.message = "Service connection was under use during the control scan.";
+                }
+            }
+            else #service connection was created but never used. (Fail for now)
+            {
+                $this.SvcConnActivityDetail.isSvcConnActive = $false;
+                $this.SvcConnActivityDetail.message = "Service connection has never been used.";
+            }
+        }
+        catch
+        {
+            $this.SvcConnActivityDetail.message = "Could not fetch the service connection details.";
+        }
+        $this.SvcConnActivityDetail.isComputed = $true
+    }
 }

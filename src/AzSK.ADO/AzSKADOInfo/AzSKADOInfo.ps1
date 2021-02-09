@@ -110,6 +110,12 @@ function Get-AzSKADOInfo
 
 			if(-not ([string]::IsNullOrEmpty($InfoType) -or $unsupported))
 			{
+				#Set empty, so org-policy get refreshed in every gadi run in same PS session.
+				[ConfigurationHelper]::PolicyCacheContent = @()
+			    [AzSKSettings]::Instance = $null
+			    [AzSKConfig]::Instance = $null 
+			    [ConfigurationHelper]::ServerConfigMetadata = $null
+			
 				switch ($InfoType.ToString()) 
 				{
 					OrganizationInfo

@@ -2,6 +2,8 @@ class ADOSVTBase: SVTBase {
 
 	hidden [ControlStateExtension] $ControlStateExt;
 	hidden [AzSKSettings] $AzSKSettings;
+	# below variable will be used by SVT's and overriden for each individual resource.
+	hidden [bool] $isResourceActive = $true;
 	ADOSVTBase() {
 
 	}
@@ -138,6 +140,9 @@ class ADOSVTBase: SVTBase {
 				$currentItem = $_;
 				# Copy the current result to Actual Result field
 				$currentItem.ActualVerificationResult = $currentItem.VerificationResult;
+
+				# override the default value with current status
+				$currentItem.IsResourceActive = $this.IsResourceActive;
 
 				#Logic to append the control result with the permissions metadata
 				[SessionContext] $sc = $currentItem.CurrentSessionContext;
@@ -460,10 +465,36 @@ class ADOSVTBase: SVTBase {
 			#added check azuretable check here, if ((azuretable is used for storing bug info and scan mode is CA) OR azuretable bug info is disabed) then only allow bug logging
 			$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
 			$isAzureTableEnabled = [Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount");
+			
+			# using checkmember without null check, if field is present in control settings but no value has been set then allow bug logging for inactive resources.
+			if([Helpers]::CheckMember($this.ControlSettings.BugLogging, "LogBugsForInactiveResources", $false))
+			{
+				# if bug logging is enabled for inactive resources, then only bug will be logged for inactive resources.
+				if ($this.ControlSettings.BugLogging.LogBugsForInactiveResources -eq $false)
+				{
+					$logBugsForInactiveResources = $this.isResourceActive;
+				}
+				# if bug logging is not enabled or its value has not been set in control setting, then treat bug logging is active for all resources.
+				else
+				{
+					$logBugsForInactiveResources = $true;
+				}
+			}
+			# if required field is not present in the controlSettings,json then follow the older approach
+			else
+			{
+				$logBugsForInactiveResources = $true;
+			}
+
 			if (!$isAzureTableEnabled -or ($isAzureTableEnabled -and ($scanSource -eq "CA")) )
 			{
-				if (($ControlResults.ControlResults.VerificationResult -contains "Failed") -or ($ControlResults.ControlResults.VerificationResult -contains "Verify")) {
-					$this.BugLoggingPostEvaluation($ControlResults, $BugLogParameterValue)
+				if ($logBugsForInactiveResources) {
+					if (($ControlResults.ControlResults.VerificationResult -contains "Failed") -or ($ControlResults.ControlResults.VerificationResult -contains "Verify")) {
+						$this.BugLoggingPostEvaluation($ControlResults, $BugLogParameterValue)
+					}
+				}
+				else {
+					$this.PublishCustomMessage("The current resource is inactive. Bug logging is disabled for inactive resources.", [MessageType]::Warning);
 				}
 			}
 			

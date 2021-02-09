@@ -61,6 +61,7 @@ class ControlResult
 	[DateTime] $ScanStartDateTime
 	[DateTime] $ScanEndDateTime
 	[String[]] $AdditionalInfo
+	[bool] $IsResourceActive = $true;
 
     [void] AddMessage([MessageData] $messageData)
     {

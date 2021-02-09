@@ -1077,7 +1077,7 @@ class CAAutomation : ADOSVTCommandBase
                     if(-not [string]::IsNullOrEmpty( $this.ExtendedCommand ))
                     {
                         $AppSettingsHT["ExtendedCommand"] = $this.ExtendedCommand
-                        $this.PublishCustomMessage("Updating ExtendedCommand overrides the default '-ScanAllArtifacts' behavior of CA.`r`nIf you need that, please specify '-saa' switch in your update CA '-ExtendedCommand'", [MessageType]::Info);
+                        $this.PublishCustomMessage("Updating ExtendedCommand overrides the default '-ScanAllResources' behavior of CA.`r`nIf you need that, please specify '-saa' switch in your update CA '-ExtendedCommand'", [MessageType]::Info);
                     }
                     if(-not [string]::IsNullOrEmpty( $this.ProjectNames ))
                     {

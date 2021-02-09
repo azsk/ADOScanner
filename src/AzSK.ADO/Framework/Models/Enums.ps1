@@ -169,3 +169,21 @@ enum AIOrgTelemetryStatus
 	Enabled
 	Disabled
 }
+
+enum BugLogForControls 
+{
+	All
+	BaselineControls
+	PreviewBaselineControls
+	Custom
+}
+
+enum SecuritySeverity 
+{
+	Critical
+	High
+	Important
+	Moderate
+	Medium
+	Low
+}

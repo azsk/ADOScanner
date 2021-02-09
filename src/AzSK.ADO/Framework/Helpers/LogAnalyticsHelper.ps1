@@ -122,6 +122,7 @@ Class LogAnalyticsHelper{
 			$out.PolicyOrgName = $AzSKContext.PolicyOrgName
 			$out.IsControlInGrace = $ControlResult.IsControlInGrace
 			$out.ScannedBy=[ContextHelper]::GetCurrentSessionUser()
+			$out.IsResourceActive = $ControlResult.IsResourceActive
 			#mapping the attestation properties
 			if($null -ne $ControlResult -and $null -ne $ControlResult.StateManagement -and $null -ne $ControlResult.StateManagement.AttestedStateData)
 			{
@@ -421,6 +422,7 @@ Class LAWSModel {
 	[string] $Env
 	[string] $ComponentId
 	[String[]] $AdditionalInfo
+	[bool] $IsResourceActive
 }
 
 Class LAWSResourceInvModel{

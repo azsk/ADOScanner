@@ -1,0 +1,50 @@
+[
+    {
+        "op": "add",
+        "path": "/fields/System.State",
+        "from": null,
+        "value": "{0}"
+    },
+    {
+        "op": "add",
+        "path": "/fields/Microsoft.VSTS.Common.ResolvedReason",
+        "value": ""
+    },
+    {
+        "op": "add",
+        "path": "/fields/System.AssignedTo",
+        "from": null,
+        "value": "{1}"
+    },
+    {
+        "op": "add",
+        "path": "/fields/Security.HowFound",
+        "value": "{2}"
+    },
+    {
+        "op": "add",
+        "path": "/fields/Security.ComplianceArea",
+        "value": "{3}"
+    },
+    {
+        "op": "add",
+        "path": "/fields/Security.ServiceHierarchyId",
+        "value": "{4}"
+    },
+    {
+        "op": "add",
+        "path": "/fields/Security.ServiceHierarchyIdType",
+        "value": "{5}"
+    },
+    {
+        "op": "add",
+        "path": "/fields/Security.Severity",
+        "value": "{6}"
+    },
+    {
+        "op": "add",
+        "path": "/fields/System.AreaPath",
+        "from": null,
+        "value": "{7}"
+    }
+]
