@@ -2,11 +2,11 @@
 Class Resolver : AzSKRoot {
 
     # Indicates to fetch all resource groups
-	Resolver([string] $subscriptionId):Base($subscriptionId)
+	Resolver([string] $organizationName):Base($organizationName)
     {
         
     }
-    Resolver([string] $subscriptionId,  [System.Security.SecureString] $PATToken):Base($subscriptionId, $PATToken)
+    Resolver([string] $organizationName,  [System.Security.SecureString] $PATToken):Base($organizationName, $PATToken)
     {
         
     }

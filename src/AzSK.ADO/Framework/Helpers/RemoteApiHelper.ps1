@@ -51,8 +51,8 @@ class RemoteApiHelper {
         return [RemoteApiHelper]::GetContent($uri, $postContent, "application/json")
     }
 
-    static [void] PostSubscriptionScanResult($scanResult) {
-        [RemoteApiHelper]::PostJsonContent("/scanresults/subscription", $scanResult) | Out-Null
+    static [void] PostOrganizationScanResult($scanResult) {
+        [RemoteApiHelper]::PostJsonContent("/scanresults/organization", $scanResult) | Out-Null
     }
 
     static [void] PostServiceScanResult($scanResult) {
@@ -95,10 +95,10 @@ class RemoteApiHelper {
         #will remove $awaitedTelemetryList and consequent condition check once we are ready to use the APIs for the properties in the list
         $awaitedTelemetryList = @("SecureScore", "ThreatDetection", "ASCRecommendations", "SecurityEventsTier")
 		$ASCTelemetryData | Get-Member -Type Property | ForEach-Object {
-            if($_.Name -ne "SubscriptionId" -and (-not ($null -eq $ASCTelemetryData.($_.Name) -or "" -eq $ASCTelemetryData.($_.Name))) -and $awaitedTelemetryList -notcontains $_.Name)
+            if($_.Name -ne "OrganizationName" -and (-not ($null -eq $ASCTelemetryData.($_.Name) -or "" -eq $ASCTelemetryData.($_.Name))) -and $awaitedTelemetryList -notcontains $_.Name)
             {
                 $ascProperty = New-Object psobject -Property @{
-                    SubscriptionId = $ASCTelemetryData.SubscriptionId;
+                    OrganizationName = $ASCTelemetryData.OrganizationName;
                     FeatureName = "ASC";
                     SubFeatureName = $_.Name;
                     ResourceId = $null;
@@ -114,9 +114,9 @@ class RemoteApiHelper {
 
     hidden static [psobject] ConvertToSimpleSet([SVTEventContext[]] $contexts) {
         $firstContext = $contexts[0]
-        $set = "" | Select-Object "SubscriptionId", "SubscriptionName", "Source", "ScannerVersion", "ControlVersion", "ControlSet"
-        $set.SubscriptionId = $firstContext.SubscriptionContext.SubscriptionId
-        $set.SubscriptionName = $firstContext.SubscriptionContext.SubscriptionName
+        $set = "" | Select-Object "OrganizationId", "OrganizationName", "Source", "ScannerVersion", "ControlVersion", "ControlSet"
+        $set.OrganizationId = $firstContext.OrganizationContext.OrganizationId
+        $set.OrganizationName = $firstContext.OrganizationContext.OrganizationName
         $set.Source = [RemoteReportHelper]::GetScanSource()
         #RENAME
         $module = Get-Module 'AzSK*' | Select-Object -First 1

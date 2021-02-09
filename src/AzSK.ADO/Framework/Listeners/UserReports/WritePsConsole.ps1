@@ -274,7 +274,7 @@ class WritePsConsole: FileOutputBase
 				}
 				else
 				{
-					$startHeading = ([Constants]::ModuleStartHeadingSub -f $Event.SourceArgs.FeatureName, $Event.SourceArgs.SubscriptionContext.SubscriptionName, $Event.SourceArgs.SubscriptionContext.SubscriptionId);					
+					$startHeading = ([Constants]::ModuleStartHeadingSub -f $Event.SourceArgs.FeatureName, $Event.SourceArgs.OrganizationContext.OrganizationName, $Event.SourceArgs.OrganizationContext.OrganizationId);					
 				}
                 $currentInstance.WriteMessage($startHeading, [MessageType]::Info);
             }
@@ -297,7 +297,7 @@ class WritePsConsole: FileOutputBase
 					}
 					else
 					{
-						$currentInstance.WriteMessage(([Constants]::CompletedAnalysisSub  -f $props.FeatureName, $props.SubscriptionContext.SubscriptionName, $props.SubscriptionContext.SubscriptionId), [MessageType]::Update);
+						$currentInstance.WriteMessage(([Constants]::CompletedAnalysisSub  -f $props.FeatureName, $props.OrganizationContext.OrganizationName, $props.OrganizationContext.OrganizationId), [MessageType]::Update);
 					}
 				}
             }
@@ -329,7 +329,7 @@ class WritePsConsole: FileOutputBase
 				}
 				else
 				{
-					$AnalysingControlHeadingMsg =([Constants]::AnalysingControlHeadingSub  -f $Event.SourceArgs.FeatureName, $Event.SourceArgs.ControlItem.Description,$Event.SourceArgs.SubscriptionContext.SubscriptionName)
+					$AnalysingControlHeadingMsg =([Constants]::AnalysingControlHeadingSub  -f $Event.SourceArgs.FeatureName, $Event.SourceArgs.ControlItem.Description,$Event.SourceArgs.OrganizationContext.OrganizationName)
 				}
 				$currentInstance.WriteMessage($AnalysingControlHeadingMsg, [MessageType]::Info)                             
             }
@@ -644,7 +644,7 @@ class WritePsConsole: FileOutputBase
 	{
 		$arg = $event.SourceArgs | Select-Object -First 1;
 	
-		$this.SetFilePath($arg.SubscriptionContext, [FileOutputBase]::ETCFolderPath, "PowerShellOutput.LOG");  	
+		$this.SetFilePath($arg.OrganizationContext, [FileOutputBase]::ETCFolderPath, "PowerShellOutput.LOG");  	
 		
 		$currentVersion = $this.GetCurrentModuleVersion();
 		$moduleName = $this.GetModuleName();

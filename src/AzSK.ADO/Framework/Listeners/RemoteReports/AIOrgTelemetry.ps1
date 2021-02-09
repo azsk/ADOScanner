@@ -40,8 +40,8 @@ class AIOrgTelemetry: ListenerBase {
 				$invocationContext = [System.Management.Automation.InvocationInfo] $currentInstance.InvocationContext
 				$SVTEventContexts = [SVTEventContext[]] $Event.SourceArgs
 				$featureGroup = [RemoteReportHelper]::GetFeatureGroup($SVTEventContexts)
-				if($featureGroup -eq [FeatureGroup]::Subscription){
-					$currentInstance.PushSubscriptionScanResults($SVTEventContexts)
+				if($featureGroup -eq [FeatureGroup]::Organization){
+					$currentInstance.PushOrganizationScanResults($SVTEventContexts)
 				}elseif($featureGroup -eq [FeatureGroup]::Service){
 					$currentInstance.PushServiceScanResults($SVTEventContexts)
 				}else{
@@ -131,16 +131,16 @@ class AIOrgTelemetry: ListenerBase {
 
     }
 
-	hidden [void] PushSubscriptionScanResults([SVTEventContext[]] $SVTEventContexts)
+	hidden [void] PushOrganizationScanResults([SVTEventContext[]] $SVTEventContexts)
 	{
 		$SVTEventContextFirst = $SVTEventContexts[0]
 		$baseProperties = @{
 			"RunIdentifier" = $this.RunIdentifier;
-			[TelemetryKeys]::FeatureGroup = [FeatureGroup]::Subscription;
-			"ScanKind" = [RemoteReportHelper]::GetSubscriptionScanKind(
+			[TelemetryKeys]::FeatureGroup = [FeatureGroup]::Organization;
+			"ScanKind" = [RemoteReportHelper]::GetOrganizationScanKind(
 				$this.InvocationContext.MyCommand.Name,
 				$this.InvocationContext.BoundParameters);
-			"SubscriptionMetadata" = [JsonHelper]::ConvertToJsonCustomCompressed($SVTEventContextFirst.SubscriptionContext.SubscriptionMetadata);
+			"OrganizationMetadata" = [JsonHelper]::ConvertToJsonCustomCompressed($SVTEventContextFirst.OrganizationContext.OrganizationMetadata);
 		}
 		$this.PushControlResults($SVTEventContexts, $baseProperties)
 	}
@@ -293,37 +293,37 @@ class AIOrgTelemetry: ListenerBase {
 				# No need to break execution
 			}
             try {
-                $azureContext = [ContextHelper]::GetCurrentContext()
+                $organizationContext = [ContextHelper]::GetCurrentContext()
                 try {
-                    $telemetryEvent.properties.Add([TelemetryKeys]::SubscriptionId, $azureContext.Subscription.Id)
+                    $telemetryEvent.properties.Add([TelemetryKeys]::OrganizationId, $organizationContext.Organization.Id)
                 }
                 catch {
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
 					# No need to break execution
 				}
                 try {
-                    $telemetryEvent.properties.Add([TelemetryKeys]::SubscriptionName, $azureContext.Subscription.Name)
+                    $telemetryEvent.properties.Add([TelemetryKeys]::OrganizationName, $organizationContext.Organization.Name)
                 }
                 catch {
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
 					# No need to break execution
 				}
                 try {
-                    $telemetryEvent.properties.Add("AzureEnv", $azureContext.Environment.Name)
+                    $telemetryEvent.properties.Add("ADOEnv", $organizationContext.Environment.Name)
                 }
                 catch {
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
 					# No need to break execution
 				}
                 try {
-                    $telemetryEvent.properties.Add("TenantId", $azureContext.Tenant.Id)
+                    $telemetryEvent.properties.Add("TenantId", $organizationContext.Tenant.Id)
                 }
                 catch {
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
 					# No need to break execution
 				}
                 try {
-                    $telemetryEvent.properties.Add("AccountId", $azureContext.Account.Id)
+                    $telemetryEvent.properties.Add("AccountId", $organizationContext.Account.Id)
                 }
                 catch {
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
@@ -333,11 +333,11 @@ class AIOrgTelemetry: ListenerBase {
                     if ($telemetryEvent.Properties.ContainsKey("RunIdentifier")) {
                         $actualRunId = $telemetryEvent.Properties["RunIdentifier"]
 						if ($telemetryEvent.Properties.ContainsKey("UniqueRunIdentifier")) {
-							$telemetryEvent.Properties["UniqueRunIdentifier"] = [RemoteReportHelper]::Mask($azureContext.Account.Id + '##' + $actualRunId.ToString())
+							$telemetryEvent.Properties["UniqueRunIdentifier"] = [RemoteReportHelper]::Mask($organizationContext.Account.Id + '##' + $actualRunId.ToString())
 						}
 						else
 						{
-							$telemetryEvent.properties.Add("UniqueRunIdentifier", [RemoteReportHelper]::Mask($azureContext.Account.Id + '##' + $actualRunId.ToString()))
+							$telemetryEvent.properties.Add("UniqueRunIdentifier", [RemoteReportHelper]::Mask($organizationContext.Account.Id + '##' + $actualRunId.ToString()))
 						}
                     }
                 }
@@ -346,7 +346,7 @@ class AIOrgTelemetry: ListenerBase {
 					# No need to break execution
 				}
                 try {
-                    $telemetryEvent.properties.Add("AccountType", $azureContext.Account.Type);
+                    $telemetryEvent.properties.Add("AccountType", $organizationContext.Account.Type);
                 }
                 catch {
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again

@@ -19,15 +19,15 @@ class AzSKRootEvent {
 	static [string] $PolicyMigrationCommandCompleted = "AzSK.Command.PolicyMigrationCompleted"
 }
 
-class SubscriptionContext {
-    [string] $SubscriptionId = "";
-    [string] $SubscriptionName = "";
+class OrganizationContext {
+    [string] $OrganizationId = "";
+    [string] $OrganizationName = "";
     [string] $Scope = "";
-    hidden [hashtable] $SubscriptionMetadata = @{}
+    hidden [hashtable] $OrganizationMetadata = @{}
 }
 
 class AzSKRootEventArgument {
-    [SubscriptionContext] $SubscriptionContext;
+    [OrganizationContext] $OrganizationContext;
     [MessageData[]] $Messages = @();
     hidden [System.Management.Automation.ErrorRecord] $ExceptionMessage
 }

@@ -10,8 +10,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	[bool] $IsBugLoggingEnabled = $false;
 	$ActualResourcesPerRsrcType = @(); # Resources count based on resource type . This count is evaluated before comparison with resource tracker file.
 
-	ServicesSecurityStatus([string] $subscriptionId, [InvocationInfo] $invocationContext, [SVTResourceResolver] $resolver):
-        Base($subscriptionId, $invocationContext)
+	ServicesSecurityStatus([string] $organizationName, [InvocationInfo] $invocationContext, [SVTResourceResolver] $resolver):
+        Base($organizationName, $invocationContext)
     {
 		if(-not $resolver)
 		{
@@ -194,20 +194,20 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 						#If $extensionSVTClassFilePath is null => use the built-in type from our module.
 						if([string]::IsNullOrWhiteSpace($extensionSVTClassFilePath))
 						{
-							$svtObject = New-Object -TypeName $svtClassName -ArgumentList $this.SubscriptionContext.SubscriptionId, $_
+							$svtObject = New-Object -TypeName $svtClassName -ArgumentList $this.OrganizationContext.OrganizationName, $_
 						}
 						else #Use extended type.
 						{
 							# file has to be loaded here due to scope contraint
 							Write-Warning "########## Loading extended type [$extensionSVTClassName] into memory ##########"
 							. $extensionSVTClassFilePath
-							$svtObject = New-Object -TypeName $extensionSVTClassName -ArgumentList $this.SubscriptionContext.SubscriptionId, $_
+							$svtObject = New-Object -TypeName $extensionSVTClassName -ArgumentList $this.OrganizationContext.OrganizationName, $_
 						}
 					}
 					else 
 					{
                        # Extended type is already loaded. Create an instance of that type.
-					   $svtObject = New-Object -TypeName $extensionSVTClassName -ArgumentList $this.SubscriptionContext.SubscriptionId, $_						
+					   $svtObject = New-Object -TypeName $extensionSVTClassName -ArgumentList $this.OrganizationContext.OrganizationName, $_						
 					}
 
 				}
@@ -336,7 +336,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
     #Rescan controls post attestation
 	hidden [SVTEventContext[]] ScanAttestedControls()
 	{
-		[ControlStateExtension] $ControlStateExt = [ControlStateExtension]::new($this.SubscriptionContext, $this.InvocationContext);
+		[ControlStateExtension] $ControlStateExt = [ControlStateExtension]::new($this.OrganizationContext, $this.InvocationContext);
 		$ControlStateExt.UniqueRunId = $this.ControlStateExt.UniqueRunId;
 		$ControlStateExt.Initialize($false);
 		#$ControlStateExt.ComputeControlStateIndexer();
@@ -499,7 +499,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
             {
                 #Load ControlSetting Resource Types and Filter resources
                 if($this.CentralStorageAccount){
-                    [PartialScanManager] $partialScanMngr = [PartialScanManager]::GetInstance($this.CentralStorageAccount, $this.SubscriptionContext.SubscriptionId);   
+                    [PartialScanManager] $partialScanMngr = [PartialScanManager]::GetInstance($this.CentralStorageAccount, $this.OrganizationContext.OrganizationName);   
                 }
                 else{
                     [PartialScanManager] $partialScanMngr = [PartialScanManager]::GetInstance();
@@ -508,7 +508,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                 #Validate if active resources list already available in store
                 #If list not available in store. Get resources filtered by baseline resource types and store it storage
 				$nonScannedResourcesList = @();
-				if(($partialScanMngr.IsPartialScanInProgress($this.SubscriptionContext.SubscriptionId) -eq [ActiveStatus]::Yes)  )
+				if(($partialScanMngr.IsPartialScanInProgress($this.OrganizationContext.OrganizationName) -eq [ActiveStatus]::Yes)  )
                 {
 					$this.IsPartialCommitScanActive = $true;
                     $allResourcesList = $partialScanMngr.GetAllListedResources()
@@ -553,7 +553,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                         }
                           
                     }   
-                    [AIOrgTelemetryHelper]::PublishEvent( "Partial Commit Details",@{"TotalSVTResources"= $($ScanResourcesList |Measure-Object).Count;"ScanCompletedResourcesCount"=$CompletedResources; "NonScannedResourcesCount" = $IncompleteScans;"ErrorStateResourcesCount"= $InErrorResources;"SubscriptionId"=$this.SubscriptionContext.SubscriptionId;"PartialScanIdentifier"=$this.PartialScanIdentifier;}, $null)
+                    [AIOrgTelemetryHelper]::PublishEvent( "Partial Commit Details",@{"TotalSVTResources"= $($ScanResourcesList |Measure-Object).Count;"ScanCompletedResourcesCount"=$CompletedResources; "NonScannedResourcesCount" = $IncompleteScans;"ErrorStateResourcesCount"= $InErrorResources;"OrganizationName"=$this.OrganizationContext.OrganizationName;"PartialScanIdentifier"=$this.PartialScanIdentifier;}, $null)
                 }
                 catch{
                     #Continue exexution if telemetry is not sent 

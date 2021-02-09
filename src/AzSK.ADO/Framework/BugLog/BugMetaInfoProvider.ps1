@@ -77,7 +77,7 @@ class BugMetaInfoProvider {
     hidden [string] GetAssigneeFallback([SVTEventContext[]] $ControlResult) {
         $ResourceType = $ControlResult.ResourceContext.ResourceTypeName
         $ResourceName = $ControlResult.ResourceContext.ResourceName
-        $organizationName = $ControlResult.SubscriptionContext.SubscriptionName;
+        $organizationName = $ControlResult.OrganizationContext.OrganizationName;
         switch -regex ($ResourceType) {
             #assign to the creator of service connection
             'ServiceConnection' {

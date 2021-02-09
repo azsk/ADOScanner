@@ -31,8 +31,8 @@ class SVTCommandBase: CommandBase {
     #EndRegion
 
     #Region Constructor
-    SVTCommandBase([string] $subscriptionId, [InvocationInfo] $invocationContext):
-    Base($subscriptionId, $invocationContext) {
+    SVTCommandBase([string] $organizationName, [InvocationInfo] $invocationContext):
+    Base($organizationName, $invocationContext) {
         
         #Adding below auto update call here bcz this code runs very earlier befor resource fetching.
         $this.CheckModuleVersion();
@@ -45,7 +45,7 @@ class SVTCommandBase: CommandBase {
 
     hidden [SVTEventContext] CreateSVTEventContextObject() {
         return [SVTEventContext]@{
-            SubscriptionContext = $this.SubscriptionContext;
+            OrganizationContext = $this.OrganizationContext;
             PartialScanIdentifier = $this.PartialScanIdentifier
             };
     }

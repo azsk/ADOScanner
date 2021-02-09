@@ -7,11 +7,11 @@ class AgentPool: ADOSVTBase
     hidden [PSObject] $AgentPoolId;
     hidden [PSObject] $agentPool; # This is used to fetch agent details in pool
     
-    AgentPool([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId,$svtResource) 
+    AgentPool([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
         $this.AgentPoolId =  ($this.ResourceContext.ResourceId -split "agentpool/")[-1]
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-        $apiURL = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($this.ProjectId)_$($this.AgentPoolId)";
+        $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($this.ProjectId)_$($this.AgentPoolId)";
         $this.AgentObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
     }
@@ -64,7 +64,7 @@ class AgentPool: ADOSVTBase
     {
         try {
             #Only agent pools created from org setting has this settings..
-            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $($this.SubscriptionContext.SubscriptionName), $this.ResourceContext.resourcename;
+            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
               
             if ((($agentPoolsObj | Measure-Object).Count -gt 0) -and $agentPoolsObj.autoProvision -eq $true) {
@@ -87,7 +87,7 @@ class AgentPool: ADOSVTBase
         try
         {
             #autoUpdate setting is available only at org level settings.
-            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $($this.SubscriptionContext.SubscriptionName), $this.ResourceContext.resourcename;
+            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
               
             if([Helpers]::CheckMember($agentPoolsObj,"autoUpdate"))
@@ -120,7 +120,7 @@ class AgentPool: ADOSVTBase
     hidden [ControlResult] CheckPrjAllPipelineAccess([ControlResult] $controlResult)
     {
         try {
-            $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=queue&id={2}" -f $($this.SubscriptionContext.SubscriptionName),$this.ProjectId ,$this.AgentPoolId;
+            $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=queue&id={2}" -f $($this.OrganizationContext.OrganizationName),$this.ProjectId ,$this.AgentPoolId;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
                                    
             if([Helpers]::CheckMember($agentPoolsObj,"authorized") -and $agentPoolsObj.authorized)
@@ -145,7 +145,7 @@ class AgentPool: ADOSVTBase
         {   
             if($null -eq  $this.agentPool)
             {
-                $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId ,$this.AgentPoolId;
+                $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.OrganizationContext.OrganizationName), $this.ProjectId ,$this.AgentPoolId;
                 $this.agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
             }
             if (([Helpers]::CheckMember($this.agentPool[0], "fps.dataProviders.data") ) -and ($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider")) 
@@ -225,7 +225,7 @@ class AgentPool: ADOSVTBase
         {   
             if($null -eq  $this.agentPool)
             {
-                $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId ,$this.AgentPoolId;
+                $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.OrganizationContext.OrganizationName), $this.ProjectId ,$this.AgentPoolId;
                 $this.agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
             }                 
             

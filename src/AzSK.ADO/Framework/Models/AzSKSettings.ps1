@@ -37,7 +37,7 @@ class AzSKSettings {
     hidden static [AzSKSettings] $Instance = $null;
 	hidden static [string] $FileName = "AzSKSettings.json";
 	[bool] $StoreComplianceSummaryInUserSubscriptions;	
-	static [SubscriptionContext] $SubscriptionContext
+	static [OrganizationContext] $OrganizationContext
 	static [InvocationInfo] $InvocationContext
 	[string] $BranchId;
 	[bool] $EnableOrgControlAttestation = $false;
@@ -47,16 +47,16 @@ class AzSKSettings {
 	{	
 	}
 
-	static InitContexts([SubscriptionContext] $subscriptionContext, [InvocationInfo] $invocationContext)
+	static InitContexts([OrganizationContext] $organizationContext, [InvocationInfo] $invocationContext)
 	{
-		[AzSKSettings]::SubscriptionContext = $subscriptionContext;
+		[AzSKSettings]::OrganizationContext = $organizationContext;
 		[AzSKSettings]::InvocationContext = $invocationContext;		
 	}
 
-    AzSKSettings([SubscriptionContext] $subscriptionContext, [InvocationInfo] $invocationContext)
+    AzSKSettings([OrganizationContext] $organizationContext, [InvocationInfo] $invocationContext)
 	{
 		#Write-Host -ForegroundColor Yellow "Investigate!"
-		[AzSKSettings]::SubscriptionContext = $subscriptionContext;
+		[AzSKSettings]::OrganizationContext = $organizationContext;
 		[AzSKSettings]::InvocationContext = $invocationContext;	
 	}
 	
@@ -228,7 +228,7 @@ class AzSKSettings {
 	hidden static [string] SetServerPolicyUrl([string] $onlinePolicyStoreUrl, $branch, $policyProject)
 	{
 		$projectName = "";
-		$orgName = [AzSKSettings]::SubscriptionContext.SubscriptionName;
+		$orgName = [AzSKSettings]::OrganizationContext.OrganizationName;
 		
 		if([AzSKSettings]::InvocationContext.BoundParameters["PolicyProject"]){
 			$projectName = [AzSKSettings]::InvocationContext.BoundParameters["PolicyProject"];

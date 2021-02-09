@@ -40,13 +40,13 @@ class SVTBase: AzSKRoot
 	[bool] $IsAIEnabled = $false;
 	#EndRegion
 
-	SVTBase([string] $subscriptionId):
-        Base($subscriptionId)
+	SVTBase([string] $organizationName):
+        Base($organizationName)
     {		
 
 	}
-	SVTBase([string] $subscriptionId, [SVTResource] $svtResource):
-	Base($subscriptionId, [SVTResource] $svtResource)
+	SVTBase([string] $organizationName, [SVTResource] $svtResource):
+	Base($organizationName, [SVTResource] $svtResource)
 	{		
 		$this.CreateInstance($svtResource);
 	}
@@ -246,7 +246,7 @@ class SVTBase: AzSKRoot
 				Reference = $this.SVTConfig.Reference;
 			};
 
-            SubscriptionContext = $this.SubscriptionContext;
+            OrganizationContext = $this.OrganizationContext;
             ResourceContext = $this.ResourceContext;
 			PartialScanIdentifier = $this.PartialScanIdentifier
 			
@@ -311,7 +311,7 @@ class SVTBase: AzSKRoot
 				}
 				else
 				{
-					$this.PublishCustomMessage("No controls have been found to evaluate for Subscription", [MessageType]::Warning);
+					$this.PublishCustomMessage("No controls have been found to evaluate for organization", [MessageType]::Warning);
 				}
 			}
 			else

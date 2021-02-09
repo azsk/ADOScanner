@@ -34,7 +34,7 @@ class WriteDataFile: FileOutputBase
             $currentInstance = [WriteDataFile]::GetInstance();
             try 
             {
-                $currentInstance.SetFilePath($Event.SourceArgs.SubscriptionContext, [FileOutputBase]::ETCFolderPath, ("SecurityEvaluationData-" + $currentInstance.RunIdentifier + ".json"));
+                $currentInstance.SetFilePath($Event.SourceArgs.OrganizationContext, [FileOutputBase]::ETCFolderPath, ("SecurityEvaluationData-" + $currentInstance.RunIdentifier + ".json"));
             }
             catch 
             {

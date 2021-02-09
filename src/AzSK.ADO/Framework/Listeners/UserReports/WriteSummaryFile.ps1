@@ -33,7 +33,7 @@ class WriteSummaryFile: FileOutputBase
             $currentInstance = [WriteSummaryFile]::GetInstance();
             try 
             {
-                $currentInstance.SetFilePath($Event.SourceArgs.SubscriptionContext, ("SecurityReport-" + $currentInstance.RunIdentifier + ".csv"));
+                $currentInstance.SetFilePath($Event.SourceArgs.OrganizationContext, ("SecurityReport-" + $currentInstance.RunIdentifier + ".csv"));
                 [FileOutputBase]::CSVFilePath = $currentInstance.FilePath
             }
             catch 
@@ -47,13 +47,13 @@ class WriteSummaryFile: FileOutputBase
 			
 			if(($Event.SourceArgs.ControlResults|Where-Object{$_.VerificationResult -ne[VerificationResult]::NotScanned}|Measure-Object).Count -gt 0)
 			{
-				$currentInstance.SetFilePath($Event.SourceArgs[0].SubscriptionContext, ("SecurityReport-" + $currentInstance.RunIdentifier + ".csv"));
+				$currentInstance.SetFilePath($Event.SourceArgs[0].OrganizationContext, ("SecurityReport-" + $currentInstance.RunIdentifier + ".csv"));
 			}
 			else
 			{
 				# While running GAI -InfoType AttestationInfo, no controls are evaluated. So the value of VerificationResult is by default NotScanned for all controls.
 				# In that case the csv file should be renamed to AttestationReport.
-				$currentInstance.SetFilePath($Event.SourceArgs[0].SubscriptionContext, ("AttestationReport-" + $currentInstance.RunIdentifier + ".csv"));
+				$currentInstance.SetFilePath($Event.SourceArgs[0].OrganizationContext, ("AttestationReport-" + $currentInstance.RunIdentifier + ".csv"));
 			}
 
 			# Export CSV Report
@@ -79,7 +79,7 @@ class WriteSummaryFile: FileOutputBase
 				$message = $Event.SourceArgs.Messages | Select-Object -First 1
 				if($message -and $message.DataObject)
 				{
-					$filePath = $currentInstance.CalculateFilePath($Event.SourceArgs.SubscriptionContext, [FileOutputBase]::ETCFolderPath, ("UnsupportedResources-" + $currentInstance.RunIdentifier + ".csv.LOG"));
+					$filePath = $currentInstance.CalculateFilePath($Event.SourceArgs.OrganizationContext, [FileOutputBase]::ETCFolderPath, ("UnsupportedResources-" + $currentInstance.RunIdentifier + ".csv.LOG"));
 					$message.DataObject | Export-Csv $filePath -NoTypeInformation
                 }
             }
@@ -113,7 +113,7 @@ class WriteSummaryFile: FileOutputBase
 						$fileExtension = $message.DataObject.FileExtension
 					}
 						
-					$filePath = $currentInstance.CalculateFilePath($Event.SourceArgs.SubscriptionContext, $folderPath, ($fileName + "." + $fileExtension));
+					$filePath = $currentInstance.CalculateFilePath($Event.SourceArgs.OrganizationContext, $folderPath, ($fileName + "." + $fileExtension));
 					$message.DataObject.MessageData | Export-Csv $filePath -NoTypeInformation
                 }
             }
@@ -131,7 +131,7 @@ class WriteSummaryFile: FileOutputBase
 				$printMessage="";
 				if($message -and $message.DataObject)
 				{
-					$filePath = $currentInstance.CalculateFilePath($Event.SourceArgs.SubscriptionContext, [FileOutputBase]::ETCFolderPath, ("ExcludedResources-" + $currentInstance.RunIdentifier + ".txt.LOG"));
+					$filePath = $currentInstance.CalculateFilePath($Event.SourceArgs.OrganizationContext, [FileOutputBase]::ETCFolderPath, ("ExcludedResources-" + $currentInstance.RunIdentifier + ".txt.LOG"));
 					
 					$ExcludedType = $message.DataObject.ExcludedResourceType
 					if($ExcludedType -eq 'All')
@@ -281,8 +281,8 @@ class WriteSummaryFile: FileOutputBase
 					}
 					else
 					{
-					    $csvItem.ResourceId = $item.SubscriptionContext.scope;
-						$csvItem.DetailedLogFile = "/$([Helpers]::SanitizeFolderName($item.SubscriptionContext.SubscriptionName))/$($item.FeatureName).LOG"
+					    $csvItem.ResourceId = $item.OrganizationContext.scope;
+						$csvItem.DetailedLogFile = "/$([Helpers]::SanitizeFolderName($item.OrganizationContext.OrganizationName))/$($item.FeatureName).LOG"
 						
 					}
 

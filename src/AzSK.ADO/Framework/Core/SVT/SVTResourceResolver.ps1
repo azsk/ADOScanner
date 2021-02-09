@@ -219,7 +219,7 @@ class SVTResourceResolver: AzSKRoot {
 
             $this.PublishCustomMessage("Getting project configurations...");
             #TODO: By default api return only 100 projects. Added $top=1000 to fetch first 1000 projects. If there are morethan 1000 projects, pagination is implemented to fetch them
-            $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=5.1' -f $($this.SubscriptionContext.SubscriptionName);
+            $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=5.1' -f $($this.OrganizationContext.OrganizationName);
             $responseObj = "";
             try { 
                 $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL) ;
@@ -296,10 +296,10 @@ class SVTResourceResolver: AzSKRoot {
                         if ($this.BuildNames -eq "*") {
                             if ([string]::IsNullOrEmpty($topNQueryString)) {
                                 $topNQueryString = '&$top=10000'
-                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1&queryOrder=lastModifiedDescending" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $thisProj.name;
+                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1&queryOrder=lastModifiedDescending" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
                             }
                             else {
-                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $thisProj.name;                               
+                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;                               
                             }
                             $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL) 
                             if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
@@ -322,10 +322,10 @@ class SVTResourceResolver: AzSKRoot {
                             for ($i = 0; $i -lt $this.BuildNames.Count; $i++) {
                                 #If service id based scan then send all build ids to api as comma separated in one go.
                                 if ($this.isServiceIdBasedScan -eq $true) {
-                                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.1-preview.7" -f $($this.SubscriptionContext.SubscriptionName), $projectName, ($this.BuildIds -join ",");
+                                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.1-preview.7" -f $($this.OrganizationContext.OrganizationName), $projectName, ($this.BuildIds -join ",");
                                 }    
                                 else { #If normal scan (not service id based) then send each build name in api one by one.
-                                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?name={2}&api-version=5.1-preview.7" -f $($this.SubscriptionContext.SubscriptionName), $projectName, $this.BuildNames[$i];
+                                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?name={2}&api-version=5.1-preview.7" -f $($this.OrganizationContext.OrganizationName), $projectName, $this.BuildNames[$i];
                                 }
                                 $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL) 
                                 if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
@@ -361,12 +361,12 @@ class SVTResourceResolver: AzSKRoot {
                         }
                         if ($this.ReleaseNames -eq "*") 
                         {
-                            $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=4.1-preview.3" +$topNQueryString) -f $($this.SubscriptionContext.SubscriptionName), $projectName;
+                            $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=4.1-preview.3" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $projectName;
                             $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);
                             if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
                                 $nObj = $this.MaxObjectsToScan
                                 foreach ($relDef in $releaseDefnsObj) {
-                                    $link = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId={2}" -f $this.SubscriptionContext.SubscriptionName, $projectName, $relDef.url.split('/')[-1];
+                                    $link = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId={2}" -f $this.OrganizationContext.OrganizationName, $projectName, $relDef.url.split('/')[-1];
                                     $releaseResourceId = "organization/$organizationId/project/$projectId/release/$($relDef.id)";
                                     $this.AddSVTResource($relDef.name, $projectName, "ADO.Release", $releaseResourceId, $null, $link);
                                     
@@ -382,15 +382,15 @@ class SVTResourceResolver: AzSKRoot {
                                 for ($i = 0; $i -lt $this.ReleaseNames.Count; $i++) {
                                     #If service id based scan then send all release ids to api as comma separated in one go.
                                     if ($this.isServiceIdBasedScan -eq $true) {
-                                        $url = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?definitionIdFilter={2}&api-version=6.0" -f $($this.SubscriptionContext.SubscriptionName), $projectName, ($this.ReleaseIds -join ",");
+                                        $url = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?definitionIdFilter={2}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $projectName, ($this.ReleaseIds -join ",");
                                     }
                                     else { #If normal scan (not service id based) then send each release name in api one by one.
-                                        $url = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?searchText={2}&isExactNameMatch=true&api-version=6.0" -f $($this.SubscriptionContext.SubscriptionName), $projectName, $this.ReleaseNames[$i];
+                                        $url = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?searchText={2}&isExactNameMatch=true&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $projectName, $this.ReleaseNames[$i];
                                     }
                                     $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($url);
                                     
                                     foreach ($relDef in $releaseDefnsObj) {
-                                        $link = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId={2}" -f $this.SubscriptionContext.SubscriptionName, $projectName, $relDef.url.split('/')[-1];
+                                        $link = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId={2}" -f $this.OrganizationContext.OrganizationName, $projectName, $relDef.url.split('/')[-1];
                                         $releaseResourceId = "organization/$organizationId/project/$projectId/release/$($relDef.id)";
                                         $this.AddSVTResource($relDef.name, $projectName, "ADO.Release", $releaseResourceId, $null, $link); 
                                     }
@@ -473,7 +473,7 @@ class SVTResourceResolver: AzSKRoot {
                             $this.PublishCustomMessage("Getting agent pools configurations...");
                         }
                         # Here we are fetching all the agent pools in the project and then filtering out. But in build & release we fetch them individually unless '*' is used for fetching all of them.
-                        $agentPoolsDefnURL = ("https://dev.azure.com/{0}/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $($this.SubscriptionContext.SubscriptionName), $projectName;
+                        $agentPoolsDefnURL = ("https://dev.azure.com/{0}/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $($this.OrganizationContext.OrganizationName), $projectName;
                         try {
                         
                             $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
@@ -503,9 +503,9 @@ class SVTResourceResolver: AzSKRoot {
                                 $taskAgentQueues = $taskAgentQueues | where-object{$_.name -ne "Azure Pipelines"};
                                 
                                 foreach ($taq in $taskAgentQueues) {
-                                    $resourceId = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/{1}_{2}" -f $($this.SubscriptionContext.SubscriptionName), $($taq.projectId), $taq.id
+                                    $resourceId = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/{1}_{2}" -f $($this.OrganizationContext.OrganizationName), $($taq.projectId), $taq.id
                                     $agtpoolResourceId = "organization/$organizationId/project/$projectId/agentpool/$($taq.id)";
-                                    $link = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&view=security" -f $($this.SubscriptionContext.SubscriptionName), $($taq.projectId), $taq.id
+                                    $link = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&view=security" -f $($this.OrganizationContext.OrganizationName), $($taq.projectId), $taq.id
                                     $this.AddSVTResource($taq.name, $projectName, "ADO.AgentPool", $agtpoolResourceId, $null, $link);
                                     
                                     if (--$nObj -eq 0) { break; }
@@ -739,18 +739,18 @@ class SVTResourceResolver: AzSKRoot {
             $projectData['taskGroups'] = ($responseList | Measure-Object).Count
 
             # fetch the builds count
-            $resourceURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1&queryOrder=lastModifiedDescending&`$top=10000") -f $($this.SubscriptionContext.SubscriptionName), $projectName;
+            $resourceURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1&queryOrder=lastModifiedDescending&`$top=10000") -f $($this.OrganizationContext.OrganizationName), $projectName;
             $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
             $projectData['build'] = ($responseList | Measure-Object).Count
 
             # fetch the release count
-            $resourceURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=4.1-preview.3&`$top=10000") -f $($this.SubscriptionContext.SubscriptionName), $projectName;
+            $resourceURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=4.1-preview.3&`$top=10000") -f $($this.OrganizationContext.OrganizationName), $projectName;
             $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
             $projectData['release'] = ($responseList | Measure-Object).Count;
 
             # fetch the agent pools count
             if($projectData["agentPools"] -eq -1) {
-                $agentPoolsDefnURL = ("https://dev.azure.com/{0}/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $($this.SubscriptionContext.SubscriptionName), $projectName;
+                $agentPoolsDefnURL = ("https://dev.azure.com/{0}/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $($this.OrganizationContext.OrganizationName), $projectName;
                 $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
                 if (([Helpers]::CheckMember($agentPoolsDefnsObj, "fps.dataProviders.data") ) -and (($agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider") -and $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues)) {
                     $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues;

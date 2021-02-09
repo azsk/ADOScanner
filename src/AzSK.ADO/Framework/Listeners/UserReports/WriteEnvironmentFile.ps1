@@ -32,7 +32,7 @@ class WriteEnvironmentFile: FileOutputBase
             $currentInstance = [WriteEnvironmentFile]::GetInstance();
             try 
             {
-				$currentInstance.CommandStartedAction($Event.SourceArgs.SubscriptionContext);
+				$currentInstance.CommandStartedAction($Event.SourceArgs.OrganizationContext);
             }
             catch 
             {
@@ -44,7 +44,7 @@ class WriteEnvironmentFile: FileOutputBase
             $currentInstance = [WriteEnvironmentFile]::GetInstance();
             try 
             {
-				$currentInstance.CommandStartedAction($Event.SourceArgs.SubscriptionContext);
+				$currentInstance.CommandStartedAction($Event.SourceArgs.OrganizationContext);
             }
             catch 
             {
@@ -73,7 +73,7 @@ class WriteEnvironmentFile: FileOutputBase
        $this.AddOutputLog($message, $false);  
     } 
 
-	[void] CommandStartedAction([SubscriptionContext] $context)
+	[void] CommandStartedAction([OrganizationContext] $context)
 	{     
 		$this.SetFilePath($context, [FileOutputBase]::ETCFolderPath, "EnvironmentDetails.LOG");  	
 		$this.AddOutputLog([Constants]::DoubleDashLine);
@@ -100,7 +100,7 @@ class WriteEnvironmentFile: FileOutputBase
 		$this.AddOutputLog([Constants]::DoubleDashLine);
 
 		$this.AddOutputLog("Az context");
-		$this.AddOutputLog([Helpers]::ConvertObjectToString(($rmContext | Select-Object -Property Environment, Subscription, Tenant), $false));
+		$this.AddOutputLog([Helpers]::ConvertObjectToString(($rmContext | Select-Object -Property Environment, Organization, Tenant), $false));
 		$this.AddOutputLog([Constants]::DoubleDashLine);
 	}
 

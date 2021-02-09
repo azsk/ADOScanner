@@ -369,7 +369,7 @@ class CAAutomation : ADOSVTCommandBase
             #Resolve projectNames if * is used in command
             if ($this.ProjectNames -eq "*")
             {
-                $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=5.1' -f $($this.SubscriptionContext.SubscriptionName);
+                $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=5.1' -f $($this.OrganizationContext.OrganizationName);
                 $responseObj = "";
                 try { 
                     $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);

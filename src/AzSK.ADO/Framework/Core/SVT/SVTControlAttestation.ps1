@@ -10,18 +10,18 @@ class SVTControlAttestation
 	hidden [bool] $bulkAttestMode = $false;
 	[AttestationOptions] $attestOptions;
 	hidden [PSObject] $ControlSettings ; 
-	hidden [SubscriptionContext] $SubscriptionContext;
+	hidden [OrganizationContext] $OrganizationContext;
 	hidden [InvocationInfo] $InvocationContext;
 	hidden [Object] $repoProject = @{};
 
-	SVTControlAttestation([SVTEventContext[]] $ctrlResults, [AttestationOptions] $attestationOptions, [SubscriptionContext] $subscriptionContext, [InvocationInfo] $invocationContext)
+	SVTControlAttestation([SVTEventContext[]] $ctrlResults, [AttestationOptions] $attestationOptions, [OrganizationContext] $organizationContext, [InvocationInfo] $invocationContext)
 	{
-		$this.SubscriptionContext = $subscriptionContext;
+		$this.OrganizationContext = $organizationContext;
 		$this.InvocationContext = $invocationContext;
 		$this.ControlResults = $ctrlResults;
 		$this.AttestControlsChoice = $attestationOptions.AttestControls;
 		$this.attestOptions = $attestationOptions;
-		$this.controlStateExtension = [ControlStateExtension]::new($this.SubscriptionContext, $this.InvocationContext)
+		$this.controlStateExtension = [ControlStateExtension]::new($this.OrganizationContext, $this.InvocationContext)
 		$this.controlStateExtension.UniqueRunId = $(Get-Date -format "yyyyMMdd_HHmmss");
 		$this.controlStateExtension.Initialize($true)
 		$this.ControlSettings=$ControlSettingsJson = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
@@ -48,13 +48,13 @@ class SVTControlAttestation
 		return [AttestationStatus]::None
 	}
 
-	[ControlState] ComputeEffectiveControlState([ControlState] $controlState, [string] $ControlSeverity, [bool] $isSubscriptionControl, [SVTEventContext] $controlItem, [ControlResult] $controlResult)
+	[ControlState] ComputeEffectiveControlState([ControlState] $controlState, [string] $ControlSeverity, [bool] $isOrganizationControl, [SVTEventContext] $controlItem, [ControlResult] $controlResult)
 	{
 		Write-Host "$([Constants]::SingleDashLine)" -ForegroundColor Cyan
 		Write-Host "ControlId            : $($controlState.ControlId)`nControlSeverity      : $ControlSeverity`nDescription          : $($controlItem.ControlItem.Description)`nCurrentControlStatus : $($controlState.ActualVerificationResult)`n"		
 		if(-not $controlResult.CurrentSessionContext.Permissions.HasRequiredAccess)
 		{
-			Write-Host "Skipping attestation process for this control. You do not have required permissions to evaluate this control. `nNote: If your permissions were elevated recently, please run the 'Disconnect-AzAccount' command to clear the Azure cache and try again." -ForegroundColor Yellow
+			Write-Host "Skipping attestation process for this control. You do not have required permissions to evaluate this control." -ForegroundColor Yellow
 			return $controlState;
 		}
 		if(-not $this.isControlAttestable($controlItem, $controlResult))
@@ -257,7 +257,7 @@ class SVTControlAttestation
 		return $controlState;
 	}
 
-	[ControlState] ComputeEffectiveControlStateInBulkMode([ControlState] $controlState, [string] $ControlSeverity, [bool] $isSubscriptionControl, [SVTEventContext] $controlItem, [ControlResult] $controlResult)
+	[ControlState] ComputeEffectiveControlStateInBulkMode([ControlState] $controlState, [string] $ControlSeverity, [bool] $isOrganizationControl, [SVTEventContext] $controlItem, [ControlResult] $controlResult)
 	{
 		Write-Host "$([Constants]::SingleDashLine)" -ForegroundColor Cyan		
 		Write-Host "ControlId            : $($controlState.ControlId)`nControlSeverity      : $ControlSeverity`nDescription          : $($controlItem.ControlItem.Description)`nCurrentControlStatus : $($controlState.ActualVerificationResult)`n"
@@ -449,11 +449,11 @@ class SVTControlAttestation
 					$resourceValueKey = $resource.Name
 					$this.dirtyCommitState = $false;
 					$resourceValue = $resource.Group;		
-					$isSubscriptionScan = $false;
+					$isOrganizationScan = $false;
 					$counter = $counter + 1
 					if(($resourceValue | Measure-Object).Count -gt 0)
 					{
-						$SubscriptionId = $resourceValue[0].SubscriptionContext.SubscriptionId
+						$OrganizationName = $resourceValue[0].OrganizationContext.OrganizationName
 						if($null -ne $resourceValue[0].ResourceContext)
 						{
 							$ResourceId = $resourceValue[0].ResourceContext.ResourceId
@@ -461,8 +461,8 @@ class SVTControlAttestation
 						}
 						else
 						{
-							$isSubscriptionScan = $true;
-							Write-Host $([String]::Format([Constants]::ModuleAttestStartHeadingSub, $resourceValue[0].FeatureName, $resourceValue[0].SubscriptionContext.SubscriptionName, $resourceValue[0].SubscriptionContext.SubscriptionId)) -ForegroundColor Cyan
+							$isOrganizationScan = $true;
+							Write-Host $([String]::Format([Constants]::ModuleAttestStartHeadingSub, $resourceValue[0].FeatureName, $resourceValue[0].OrganizationContext.OrganizationName, $resourceValue[0].OrganizationContext.OrganizationId)) -ForegroundColor Cyan
 						}	
 						
 						if(($resourceValue[0].FeatureName -eq "Organization" -or $resourceValue[0].FeatureName -eq "Project") -and !$this.controlStateExtension.GetControlStatePermission($resourceValue[0].FeatureName, $resourceValue[0].ResourceContext.ResourceName) )
@@ -555,11 +555,11 @@ class SVTControlAttestation
 										$controlState.ResourceId = $resourceValueKey;
 										if($this.bulkAttestMode)
 										{
-											$controlState = $this.ComputeEffectiveControlStateInBulkMode($controlState, $controlSeverity, $isSubscriptionScan, $controlItem, $controlResult)										
+											$controlState = $this.ComputeEffectiveControlStateInBulkMode($controlState, $controlSeverity, $isOrganizationScan, $controlItem, $controlResult)										
 										}
 										else
 										{
-											$controlState = $this.ComputeEffectiveControlState($controlState, $controlSeverity, $isSubscriptionScan, $controlItem, $controlResult)										
+											$controlState = $this.ComputeEffectiveControlState($controlState, $controlSeverity, $isOrganizationScan, $controlItem, $controlResult)										
 										}
 										
 										$resourceControlStates +=$controlState;
@@ -612,8 +612,8 @@ class SVTControlAttestation
 						}
 						else
 						{
-							$isSubscriptionScan = $true;
-							Write-Host $([String]::Format([Constants]::CompletedAttestAnalysisSub, $resourceValue[0].FeatureName, $resourceValue[0].SubscriptionContext.SubscriptionName, $resourceValue[0].SubscriptionContext.SubscriptionId)) -ForegroundColor Cyan
+							$isOrganizationScan = $true;
+							Write-Host $([String]::Format([Constants]::CompletedAttestAnalysisSub, $resourceValue[0].FeatureName, $resourceValue[0].OrganizationContext.OrganizationName, $resourceValue[0].OrganizationContext.OrganizationId)) -ForegroundColor Cyan
 						}	
 					}
 				}
@@ -664,7 +664,7 @@ class SVTControlAttestation
 		    $user = "";
 		    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
 			
-			$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.SubscriptionContext.subscriptionid, $projectName, $attestationRepo
+			$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo
             try
             {
 		        $webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
