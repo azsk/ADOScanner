@@ -309,7 +309,7 @@ class AIOrgTelemetry: ListenerBase {
 					# No need to break execution
 				}
                 try {
-                    $telemetryEvent.properties.Add("AzureEnv", $organizationContext.Environment.Name)
+                    $telemetryEvent.properties.Add("ADOEnv", $organizationContext.Environment.Name)
                 }
                 catch {
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again

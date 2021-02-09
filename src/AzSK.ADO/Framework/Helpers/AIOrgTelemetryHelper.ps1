@@ -193,7 +193,7 @@ class AIOrgTelemetryHelper {
 				}
                 try 
 				{
-                    $Properties.Add("AzureEnv", $organizationContext.Environment.Name)
+                    $Properties.Add("ADOEnv", $organizationContext.Environment.Name)
                 }
                 catch
 				{

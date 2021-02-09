@@ -555,7 +555,7 @@ class UsageTelemetry: ListenerBase {
 					# No need to break execution
 				}
 				try{
-					$Properties.Add("AzureEnv", $organizationContext.Environment.Name)
+					$Properties.Add("ADOEnv", $organizationContext.Environment.Name)
 				} 
 				catch {
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
@@ -706,7 +706,7 @@ class UsageTelemetry: ListenerBase {
 					# No need to break execution
 				}
 				try{
-					$eventObj.properties.Add("AzureEnv", $organizationContext.Environment.Name)
+					$eventObj.properties.Add("ADOEnv", $organizationContext.Environment.Name)
 				}
 				catch{
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
