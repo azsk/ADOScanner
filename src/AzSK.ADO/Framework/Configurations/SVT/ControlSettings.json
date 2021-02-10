@@ -259,8 +259,7 @@
       "Microsoft",
       "Microsoft DevLabs"
     ],
-    "KnownExtensionPublisherIds":[
-      " "],
+    "KnownExtensionPublisherIds":[""],
     "NonProductionExtensionIndicators":["DevTest", "Demo", "Preview", "Deprecated"],
     "ExtensionsLastUpdatedInYears": 2,
     "ExtensionCriticalScopes":["vso.agentpools_manage","vso.build_execute","vso.code_write","vso.code_manage","vso.code_full",

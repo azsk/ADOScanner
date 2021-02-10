@@ -419,20 +419,20 @@ class Organization: ADOSVTBase
                     if([AzSKRoot]::IsDetailedScanRequired -eq $false)
                     {
                         #if([Helpers]::CheckMember($this.ControlSettings, "Organization.KnownExtensionPublishersId"))
-                        #{$KnownExtPublishersId = $this.ControlSettings.Organization.KnownExtensionPublishersId;}
-                        $KnownExtPublishers = $this.ControlSettings.Organization.KnownExtensionPublishers;
+                        #{$knownExtPublishersId = $this.ControlSettings.Organization.KnownExtensionPublishersId;}
+                        $knownExtPublishers = $this.ControlSettings.Organization.KnownExtensionPublishers;
 
-                        $KnownExtensions = @();
-                        #$KnownExtensions += $extensionList | Where-Object {$_.publisherId -in $KnownExtPublishersId}
-                        $KnownExtensions += $extensionList | Where-Object {$_.publisherName -in $KnownExtPublishers}
-                        $KnownCount = ($KnownExtensions | Measure-Object).Count
+                        $knownExtensions = @();
+                        #$knownExtensions += $extensionList | Where-Object {$_.publisherId -in $KnownExtPublishersId}
+                        $knownExtensions += $extensionList | Where-Object {$_.publisherName -in $knownExtPublishers}
+                        $knownCount = ($knownExtensions | Measure-Object).Count
                     
                         $unKnownExtensions = @(); #Publishers not Known by Microsoft
                         #$unKnownExtensions += $extensionList | Where-Object {$_.publisherId -notin $KnownExtPublishersId}
-                        $unKnownExtensions += $extensionList | Where-Object {$_.publisherName -notin $KnownExtPublishers}
+                        $unKnownExtensions += $extensionList | Where-Object {$_.publisherName -notin $knownExtPublishers}
                         $unKnownCount = ($unKnownExtensions | Measure-Object).Count
                     
-                        $controlResult.AddMessage("`nNote: The following publishers are considered as 'known publishers': `n`t[$($KnownExtPublishers -join ', ')]"); 
+                        $controlResult.AddMessage("`nNote: The following publishers are considered as 'known publishers': `n`t[$($knownExtPublishers -join ', ')]"); 
 
                         if($unKnownCount -gt 0){
                             $controlResult.AddMessage("`nNo. of extensions (from publishers not in 'known publishers' list): $unKnownCount");
@@ -443,21 +443,21 @@ class Organization: ADOSVTBase
                             $controlResult.AdditionalInfo += "Installed extensions (from 'unknown publishers'): " + [JsonHelper]::ConvertToJsonCustomCompressed($unKnownExtensions);
                         }
 
-                        if($KnownCount -gt 0){
-                            $controlResult.AddMessage("`nNo. of  extensions (from publishers in the 'known publishers' list): $KnownCount");
-                            $controlResult.AdditionalInfo += "No. of extensions (from publishers in the 'known publishers' list): " + $KnownCount;
+                        if($knownCount -gt 0){
+                            $controlResult.AddMessage("`nNo. of  extensions (from publishers in the 'known publishers' list): $knownCount");
+                            $controlResult.AdditionalInfo += "No. of extensions (from publishers in the 'known publishers' list): " + $knownCount;
                             $controlResult.AddMessage("`nExtension details: ")
-                            $display = ($KnownExtensions|FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
+                            $display = ($knownExtensions|FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
                             $controlResult.AddMessage($display)
                         }
 
                         $stateData = @{
-                            Known_Extensions = @();
-                            UnKnown_Extensions = @();
+                            known_Extensions = @();
+                            unKnown_Extensions = @();
                         };
 
-                        $stateData.Known_Extensions += $KnownExtensions
-                        $stateData.Known_Extensions += $unKnownExtensions
+                        $stateData.known_Extensions += $KnownExtensions
+                        $stateData.unKnown_Extensions += $unKnownExtensions
 
                         $controlResult.SetStateData("List of installed extensions: ", $stateData);
                     }
@@ -465,65 +465,62 @@ class Organization: ADOSVTBase
                     ## Deep scan start
                     if([AzSKRoot]::IsDetailedScanRequired -eq $true)
                     {   
-                        $IsKnownPublishersPropertyPresent = $false
-                        $IslastUpdatedPropertyPresent = $false
-                        $IsCriticalScopesPropertyPresent = $false
-                        $IsNonProdIndicatorsPropertyPresent = $false
+                        $isKnownPublishersPropertyPresent = $false
+                        $islastUpdatedPropertyPresent = $false
+                        $isCriticalScopesPropertyPresent = $false
+                        $isNonProdIndicatorsPropertyPresent = $false
 
                         if($null -ne $this.ControlSettings)
                         {   
                             if([Helpers]::CheckMember($this.ControlSettings, "Organization.KnownExtensionPublishers"))
                             {
-                                $KnownExtPublishers = $this.ControlSettings.Organization.KnownExtensionPublishers;
-                                $IsKnownPublishersPropertyPresent = $true
+                                $knownExtPublishers = $this.ControlSettings.Organization.KnownExtensionPublishers;
+                                $isKnownPublishersPropertyPresent = $true
                             }
                             else {
-                                $KnownExtPublishers = @()
+                                $knownExtPublishers = @()
                             }
 
                             if([Helpers]::CheckMember($this.ControlSettings, "Organization.ExtensionsLastUpdatedInYears"))
                             {
-                                $ExtensionsLastUpdatedInYears = $this.ControlSettings.Organization.ExtensionsLastUpdatedInYears
-                                $IslastUpdatedPropertyPresent = $true
+                                $extensionsLastUpdatedInYears = $this.ControlSettings.Organization.ExtensionsLastUpdatedInYears
+                                $islastUpdatedPropertyPresent = $true
                             }
                             else {
-                                $ExtensionsLastUpdatedInYears = 2 
+                                $extensionsLastUpdatedInYears = 2 ##Default value
                             }
                             
                             if([Helpers]::CheckMember($this.ControlSettings, "Organization.ExtensionCriticalScopes") )
                             {
-                                $ExtensionCriticalScopes=$this.ControlSettings.Organization.ExtensionCriticalScopes;
-                                $IsCriticalScopesPropertyPresent = $true
+                                $extensionCriticalScopes=$this.ControlSettings.Organization.ExtensionCriticalScopes;
+                                $isCriticalScopesPropertyPresent = $true
                             }
                             else{
-                                $ExtensionCriticalScopes = @()
+                                $extensionCriticalScopes = @()
                             }
 
                             if([Helpers]::CheckMember($this.ControlSettings, "Organization.NonProductionExtensionIndicators"))
                             {
-                                $NonProductionExtensionIndicators =$this.ControlSettings.Organization.NonProductionExtensionIndicators;
-                                $IsNonProdIndicatorsPropertyPresent = $true
+                                $nonProductionExtensionIndicators =$this.ControlSettings.Organization.NonProductionExtensionIndicators;
+                                $isNonProdIndicatorsPropertyPresent = $true
                             }
                             else {
-                                $NonProductionExtensionIndicators = @()
-                            }
-
-                            $date = Get-Date                            
-                            $thresholdDate = $date.AddYears(-$ExtensionsLastUpdatedInYears)
+                                $nonProductionExtensionIndicators = @()
+                            }                            
                             
                             $controlResult.AddMessage([Constants]::HashLine)   
-                            if( !($IsKnownPublishersPropertyPresent -and $IslastUpdatedPropertyPresent -and $IsCriticalScopesPropertyPresent -and $IsNonProdIndicatorsPropertyPresent))
+                            if( !($isKnownPublishersPropertyPresent -and $islastUpdatedPropertyPresent -and $isCriticalScopesPropertyPresent -and $isNonProdIndicatorsPropertyPresent))
                             {
-                                $controlResult.AddMessage("***Some settings are not present in configuration.***")
+                                $controlResult.AddMessage("***Note: Some settings are not present in the policy configuration.***")
                             }                         
-                            $controlResult.AddMessage("`nNote: Apart from this LOG, a combined listing of all extensions and their security sensitive attributes has been output to the '$($this.ResourceContext.ResourceName)"+"_ExtensionInfo.CSV' file in the current folder.Columns with value as 'N/A' indicate that data was not available.")
+                            $controlResult.AddMessage("`nNote: Apart from this LOG, a combined listing of all extensions and their security sensitive attributes has been output to the '$($this.ResourceContext.ResourceName)"+"_ExtensionInfo.CSV' file in the current folder. Columns with value as 'N/A' indicate that data was not available.")
                             
                             $infotable = @{ 
-                                "KnownPublisher" = "Yes/No based on if extension is from [$($KnownExtPublishers -join ', ')]";
-                                "Too Old(>$($ExtensionsLastUpdatedInYears)year(s))" = "Yes/No based on if extension has not been updated by publishers for more than [$ExtensionsLastUpdatedInYears] year(s)";
+                                "KnownPublisher" = "Yes/No based on if extension is from [$($knownExtPublishers -join ', ')]";
+                                "Too Old(>$($extensionsLastUpdatedInYears)year(s))" = "Yes/No based on if extension has not been updated by publishers for more than [$extensionsLastUpdatedInYears] year(s)";
                                 "SensitivePermissions" = "Lists if any permissions requested by extension are in the sesitive list. (See bottom of this table for the full list of sensitive permission)";
                                 "NonProd (GalleryFlag)" = "Yes/No based on if the gallery flags in the manifest mention 'preview'";
-                                "NonProd (ExtensionName)" = "Yes/No based on if extension name indicates [$($NonProductionExtensionIndicators -join ', ')]";
+                                "NonProd (ExtensionName)" = "Yes/No based on if extension name indicates [$($nonProductionExtensionIndicators -join ', ')]";
                                 "TopPublisher" = "Yes/No based on if extension's publishers have 'Top Publisher' certification";
                                 "PrivateVisibility" = "Yes/No based on if extension has 'private' visibility for the org" 
                             }                  
@@ -531,36 +528,38 @@ class Organization: ADOSVTBase
                             $helperTable = $infotable.keys | Select @{l='Column';e={$_}},@{l='Interpretation';e={$infotable.$_}} | Format-Table -AutoSize | Out-String -Width $ftWidth
                             $controlResult.AddMessage("$helperTable")
                             $controlResult.AddMessage("The following extension permissions are considered senstive:")
-                            if(!$IsCriticalScopesPropertyPresent)
+                            if(!$isCriticalScopesPropertyPresent)
                             {
-                                $controlResult.AddMessage("***'Extension critical scopes' setting is not present in configuration.***")
+                                $controlResult.AddMessage("***'Extension critical scopes' setting is not present in the policy configuration.***")
                             } 
-                            $controlResult.AddMessage($ExtensionCriticalScopes )
+                            $controlResult.AddMessage($extensionCriticalScopes )
 
                             $combinedTable=@()
-                            $KnownExtensions=@()
+                            $knownExtensions=@()
                             $unKnownExtensions = @()
                             $staleExtensionList = @()
-                            $ExtensionListWithCriticalScopes = @()
-                            $ExtensionListWithNonProductionExtensionIndicators=@()
+                            $extensionListWithCriticalScopes = @()
+                            $extensionListWithNonProductionExtensionIndicators=@()
                             $privateExtensions = @()
                             $nonProdExtensions = @()
-                            $topPublisherExt = @()
+                            $topPublisherExtensions = @()
+                            [Organization]::InstalledExtensionInfo = @()
+
+                            $date = Get-Date                            
+                            $thresholdDate = $date.AddYears(-$extensionsLastUpdatedInYears)
 
                             $extensionList | ForEach-Object {
-                                $extensionInfo="" | Select-Object ExtensionName,PublisherId,PublisherName,Version,KnownPublisher,TooOld,LastPublished,SensitivePermissions,Scopes,ProductionReady,Preview,TopPublisher,PrivateVisibility
-                                #$extensionInfo = Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old(>2years)"; Expression = { $_.Updated } },lastPublished,@{Name = "Sensitive Permissions"; Expression = { $_.scopes} },@{Name = "Non Prod[Gallery flags]"; Expression = { $_.ProductionReady}},@{Name = "Non Prod[Extension Name]"; Expression = { $_.Preview }},TopPublisher,PrivateVisibility
+                                $extensionInfo="" | Select-Object ExtensionName,PublisherId,PublisherName,Version,KnownPublisher,TooOld,LastPublished,SensitivePermissions,Scopes,NonProdByName,Preview,TopPublisher,PrivateVisibility
                                 $extensionInfo.ExtensionName = $_.extensionName
                                 $extensionInfo.PublisherId = $_.publisherId
                                 $extensionInfo.PublisherName = $_.publisherName
                                 $extensionInfo.Version = $_.version
                                 $extensionInfo.LastPublished = $_.lastPublished
-                                #$extensionInfo.Scopes = (@($_.scopes) -join ',') #TBD some scopes arenot displayed if count is high
 
-                                if($_.publisherName -in $KnownExtPublishers)
+                                if($_.publisherName -in $knownExtPublishers)
                                 {
                                     $extensionInfo.KnownPublisher = "Yes"
-                                    $KnownExtensions += $_
+                                    $knownExtensions += $_
                                 }
                                 else {
                                     $extensionInfo.KnownPublisher = "No"
@@ -575,26 +574,34 @@ class Organization: ADOSVTBase
                                     $extensionInfo.TooOld = "No"
                                 }
 
-                                $riskyScopes = @($_.scopes | ? {$_ -in $ExtensionCriticalScopes})
+                                $riskyScopes = @($_.scopes | ? {$_ -in $extensionCriticalScopes})
                                 if($riskyScopes.count -gt 0)
                                 {
                                     $extensionInfo.SensitivePermissions = "Yes"
-                                    $ExtensionListWithCriticalScopes += $_
+                                    $extensionListWithCriticalScopes += $_
                                     $extensionInfo.Scopes = ($riskyScopes -join ',' )
                                 }
                                 else {
                                     $extensionInfo.SensitivePermissions = "No"
                                 }
                                 
-                                if($_.extensionName -in $NonProductionExtensionIndicators)
-                                {
-                                    $extensionInfo.ProductionReady = "No"
-                                    $ExtensionListWithNonProductionExtensionIndicators += $_
+                                $isExtensionNameInIndicators = $false
+                                for($j=0;$j -lt $nonProductionExtensionIndicators.Count;$j++)
+                                    {
+                                        if( $_.extensionName -match $nonProductionExtensionIndicators[$j])
+                                        {
+                                            $isExtensionNameInIndicators = $true
+                                            break
+                                        }
+                                    }
+                                if($isExtensionNameInIndicators)
+                                {    
+                                    $extensionInfo.NonProdByName = "Yes"
+                                    $extensionListWithNonProductionExtensionIndicators += $_
                                 }
                                 else {
-                                  $extensionInfo.ProductionReady = "Yes"   
+                                    $extensionInfo.NonProdByName = "No"   
                                 }
-
                                 
                                     $url="https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery?api-version=6.1-preview.1"
                                     $inputbody = "{
@@ -645,7 +652,7 @@ class Organization: ADOSVTBase
                                         if($publisherFlags -match "Certified")
                                         {
                                             $extensionInfo.TopPublisher = "Yes"
-                                            $topPublisherExt+=$_
+                                            $topPublisherExtensions+=$_
                                         }
                                         else {
                                             $extensionInfo.TopPublisher = "No"
@@ -656,40 +663,40 @@ class Organization: ADOSVTBase
                             
                             
                             $controlResult.AddMessage([Constants]::HashLine)                          
-                            $controlResult.AddMessage([Constants]::SingleDashLine +"`nLooking for extensions from Known publishers`n"+[Constants]::SingleDashLine)
-                            $controlResult.AddMessage("`nNote: The following are considered as 'Known' publishers: `n`t[$($KnownExtPublishers -join ', ')]");
+                            $controlResult.AddMessage([Constants]::SingleDashLine +"`nLooking for extensions from known publishers`n"+[Constants]::SingleDashLine) 
+                            $controlResult.AddMessage("`nNote: The following are considered as 'known' publishers: `n`t[$($knownExtPublishers -join ', ')]");
                             if(!$IsKnownPublishersPropertyPresent)
                                 {
-                                    $controlResult.AddMessage("***'known publisher' setting is not present in configuration.***")
+                                    $controlResult.AddMessage("***'Known publisher' setting is not present in the policy configuration.***")
                                 } 
                             $unKnownCount = ($unKnownExtensions | Measure-Object).Count
                             if($unKnownCount -gt 0){
                                                                
-                                $controlResult.AddMessage("`nNo. of extensions (from publishers not in 'Known publishers' list): $unKnownCount");
-                                $controlResult.AdditionalInfo += "No. of installed extensions (from publishers not in 'Known publishers' list): " + $unKnownCount;
+                                $controlResult.AddMessage("`nNo. of extensions (from publishers not in 'known publishers' list): $unKnownCount");
+                                $controlResult.AdditionalInfo += "No. of installed extensions (from publishers not in 'known publishers' list): " + $unKnownCount;
                                 $controlResult.AddMessage("`nExtension details: ")
                                 $display = ($unKnownExtensions |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
                                 $controlResult.AddMessage($display)
-                                $controlResult.AdditionalInfo += "Installed extensions (from unKnown publishers): " + [JsonHelper]::ConvertToJsonCustomCompressed($unKnownExtensions);
+                                $controlResult.AdditionalInfo += "Installed extensions (from unknown publishers): " + [JsonHelper]::ConvertToJsonCustomCompressed($unKnownExtensions);
                             }
 
-                            $KnownCount = ($KnownExtensions | Measure-Object).Count        
-                            if($KnownCount -gt 0){
-                                $controlResult.AddMessage("`nNo. of  extensions (from publishers in the 'Known publishers' list): $KnownCount");
-                                $controlResult.AdditionalInfo += "No. of extensions (from publishers in the 'Known publishers' list): " + $KnownCount;
+                            $knownCount = ($knownExtensions | Measure-Object).Count        
+                            if($knownCount -gt 0){
+                                $controlResult.AddMessage("`nNo. of  extensions (from publishers in the 'known publishers' list): $knownCount");
+                                $controlResult.AdditionalInfo += "No. of extensions (from publishers in the 'known publishers' list): " + $knownCount;
                                 $controlResult.AddMessage("`nExtension details: ")
-                                $display = ($KnownExtensions|FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
+                                $display = ($knownExtensions|FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
                                 $controlResult.AddMessage($display)
                             }
                             
 
                             $stateData = @{
-                                Known_Extensions = @();
-                                UnKnown_Extensions = @();
+                                known_Extensions = @();
+                                unKnown_Extensions = @();
                             };
         
-                            $stateData.Known_Extensions += $KnownExtensions
-                            $stateData.UnKnown_Extensions += $unKnownExtensions
+                            $stateData.known_Extensions += $knownExtensions
+                            $stateData.unKnown_Extensions += $unKnownExtensions
                             $controlResult.SetStateData("List of installed extensions: ", $stateData);
 
                             
@@ -697,48 +704,45 @@ class Organization: ADOSVTBase
                             if($staleExtensionList.count -gt 0)
                                 {
                                     $controlResult.AddMessage([Constants]::HashLine)                          
-                                    $controlResult.AddMessage([Constants]::SingleDashLine +"`nLooking for extensions that have not been updated by publishers for more than [$ExtensionsLastUpdatedInYears] years...`n" +[Constants]::SingleDashLine)
-                                    if(!$IslastUpdatedPropertyPresent)
+                                    $controlResult.AddMessage([Constants]::SingleDashLine +"`nLooking for extensions that have not been updated by publishers for more than [$extensionsLastUpdatedInYears] years...`n" +[Constants]::SingleDashLine)
+                                    if(!$islastUpdatedPropertyPresent)
                                     {
-                                        $controlResult.AddMessage("***'Last Updated' setting is not present in configuration.***")
+                                        $controlResult.AddMessage("***'Last Updated' setting is not present in the policy configuration.***")
                                     }
-                                    $controlResult.AddMessage("`nNo. of extensions that haven't been updated in the last [$ExtensionsLastUpdatedInYears] years: "+ $staleExtensionList.count)
+                                    $controlResult.AddMessage("`nNo. of extensions that haven't been updated in the last [$extensionsLastUpdatedInYears] years: "+ $staleExtensionList.count)
                                     $controlResult.AddMessage("`nExtension details (oldest first): ")
                                     $display = ($staleExtensionList| Sort-Object lastPublished | FT ExtensionName, PublisherId, PublisherName, version, lastPublished -AutoSize | Out-String -Width $ftWidth)
                                     $controlResult.AddMessage($display)
-                                }
-
-                            
+                                }                           
                         
-                            
-                            if($ExtensionListWithCriticalScopes.count -gt 0)
+                            if($extensionListWithCriticalScopes.count -gt 0)
                                 {  
                                     $controlResult.AddMessage([Constants]::HashLine)                            
                                     $controlResult.AddMessage([Constants]::SingleDashLine + "`nLooking for extensions that have sensitive access permissions...`n" + [Constants]::SingleDashLine)
-                                    if(!$IsCriticalScopesPropertyPresent)
+                                    if(!$isCriticalScopesPropertyPresent)
                                     {
-                                        $controlResult.AddMessage("***'Extension critical scopes' setting is not present in configuration.***")
+                                        $controlResult.AddMessage("***'Extension critical scopes' setting is not present in the policy configuration.***")
                                     } 
-                                    $controlResult.AddMessage("Note: The following permissions are considered sensitive: `n`t[$($ExtensionCriticalScopes -join ', ')]")
-                                    $controlResult.AddMessage("`nNo. of extensions that have sensitive access permissions: "+ $ExtensionListWithCriticalScopes.count)                        
+                                    $controlResult.AddMessage("Note: The following permissions are considered sensitive: `n`t[$($extensionCriticalScopes -join ', ')]")
+                                    $controlResult.AddMessage("`nNo. of extensions that have sensitive access permissions: "+ $extensionListWithCriticalScopes.count)                        
                                     $controlResult.AddMessage("`nExtension details: ")
-                                    $display= ($ExtensionListWithCriticalScopes | FT ExtensionName, PublisherId, PublisherName, scopes  -AutoSize | Out-String -Width $ftWidth)
+                                    $display= ($extensionListWithCriticalScopes | FT ExtensionName, PublisherId, PublisherName, scopes  -AutoSize | Out-String -Width $ftWidth)
                                     $controlResult.AddMessage($display) 
                                 }
                             
                             
-                            if($ExtensionListWithNonProductionExtensionIndicators.count -gt 0)
+                            if($extensionListWithNonProductionExtensionIndicators.count -gt 0)
                                 {   
                                     $controlResult.AddMessage([Constants]::HashLine)
                                     $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that are not production ready...`n"+[Constants]::SingleDashLine)
-                                    if(!$IsNonProdIndicatorsPropertyPresent)
+                                    if(!$isNonProdIndicatorsPropertyPresent)
                                     {
-                                        $controlResult.AddMessage("***'NonProd extension indicators' setting is not present in configuration.***")
+                                        $controlResult.AddMessage("***'Non-production extension indicators' setting is not present in the policy configuration.***")
                                     } 
-                                    $controlResult.AddMessage("Note: This checks for extensions with words [$($NonProductionExtensionIndicators -join ', ')] in their names.")
-                                    $controlResult.AddMessage("`nNo. of non-production extensions (based on name):  "+ $ExtensionListWithNonProductionExtensionIndicators.count)
+                                    $controlResult.AddMessage("Note: This checks for extensions with words [$($nonProductionExtensionIndicators -join ', ')] in their names.")
+                                    $controlResult.AddMessage("`nNo. of non-production extensions (based on name):  "+ $extensionListWithNonProductionExtensionIndicators.count)
                                     $controlResult.AddMessage("`nExtension details:  ")
-                                    $controlResult.AddMessage( ($ExtensionListWithNonProductionExtensionIndicators | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth))
+                                    $controlResult.AddMessage( ($extensionListWithNonProductionExtensionIndicators | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth))
                                 }
 
                             if($nonProdExtensions.count -gt 0)
@@ -750,13 +754,13 @@ class Organization: ADOSVTBase
                                 $controlResult.AddMessage(($nonProdExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth));
                             } 
     
-                            if($topPublisherExt.count -gt 0)
+                            if($topPublisherExtensions.count -gt 0)
                             {   
                                 $controlResult.AddMessage([Constants]::HashLine)
                                 $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that are from publishers with a 'Top Publisher' certification...`n"+[Constants]::SingleDashLine);
-                                $controlResult.AddMessage("`nNo. of installed extensions from 'Top Publishers': "+$topPublisherExt.count);
+                                $controlResult.AddMessage("`nNo. of installed extensions from 'Top Publishers': "+$topPublisherExtensions.count);
                                 $controlResult.AddMessage("`nExtension details: ")
-                                $controlResult.AddMessage(($topPublisherExt | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth) );
+                                $controlResult.AddMessage(($topPublisherExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth) );
                             }
                                 
                             if($privateExtensions.count -gt 0)
