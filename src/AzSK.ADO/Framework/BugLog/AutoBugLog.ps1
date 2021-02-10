@@ -52,8 +52,7 @@ class AutoBugLog {
 
         #Check whether LogBugForUnmappedResource variable exist in policy fiile.
         $LogBugForUnmappedResourceVarExistInPolicy = [bool]($this.ControlSettings.BugLogging -match "LogBugForUnmappedResource");
-
-        #IfLogBugForUnmappedResource exist in the policy file then get it's value.
+        #If LogBugForUnmappedResource exist in the policy file then get it's value.
         if ($LogBugForUnmappedResourceVarExistInPolicy) {
             $this.LogBugForUnmappedResource = $this.ControlSettings.BugLogging.LogBugForUnmappedResource;
         }
