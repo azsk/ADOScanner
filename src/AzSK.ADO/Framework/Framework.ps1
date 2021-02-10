@@ -126,6 +126,7 @@ $FrameworkPath = $PSScriptRoot
 
 . $PSScriptRoot\Core\AzSKADOInfo\HostInfo.ps1
 . $PSScriptRoot\Core\AzSKADOInfo\ControlsInfo.ps1
+. $PSScriptRoot\Core\AzSKADOInfo\UserInfo.ps1
 . $PSScriptRoot\Core\STMapping\AzSKADOServiceMapping.ps1
 
 . $PSScriptRoot\Core\SVT\SVTResourceResolver.ps1
