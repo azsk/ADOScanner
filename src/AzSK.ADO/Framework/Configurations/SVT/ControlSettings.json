@@ -132,7 +132,7 @@
       ]
     }
   ],
-  "AllowAttestationResourceType": [
+  "AttestableResourceTypes": [
     "Organization",
     "Project",
     "Build",
@@ -151,7 +151,7 @@
     }
   },
   "DefaultAttestationPeriodForExemptControl" : 180,
-  "AllowAttestationByGroups": [
+  "GroupsWithAttestPermission": [
     {
       "ResourceType": "Organization",
       "GroupNames": [

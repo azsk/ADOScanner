@@ -412,9 +412,9 @@ class SVTControlAttestation
 			$filteredControlResults = @()
 			$allowedResourcesToAttest = @()
 
-			if($null -ne $this.ControlSettings.AllowAttestationResourceType)
+			if($null -ne $this.ControlSettings.AttestableResourceTypes)
 			{
-				$allowedResourcesToAttest = $this.ControlSettings.AllowAttestationResourceType
+				$allowedResourcesToAttest = $this.ControlSettings.AttestableResourceTypes
 				$attNonEnabledResource = $this.ControlResults | Where {$_.FeatureName -notin $allowedResourcesToAttest }
 			}
 			
