@@ -5,7 +5,7 @@ class Organization: ADOSVTBase
     [PSObject] $PipelineSettingsObj = $null
     [PSObject] $OrgPolicyObj = $null
     static $InstalledExtensionInfo
-   ## $FolderPath=""
+    
     #TODO: testing below line
     hidden [string] $SecurityNamespaceId;
     Organization([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId,$svtResource) 
