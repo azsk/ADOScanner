@@ -100,7 +100,7 @@ class ADOUserPermissions: CommandBase {
 					}
 				}" | ConvertFrom-Json;
 				$body.dataProviderContext.properties.subjectDescriptor = $userDescriptor;
-				$body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/SafetiTestVSO/_settings/groups?subjectDescriptor=$($userDescriptor)";
+				$body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.organizationName)/_settings/groups?subjectDescriptor=$($userDescriptor)";
 				$response = ""
                 try {
 					$response = [WebRequestHelper]::InvokePostWebRequest($url, $body);
