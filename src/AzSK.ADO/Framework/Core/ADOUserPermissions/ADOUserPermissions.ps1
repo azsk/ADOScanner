@@ -3,20 +3,20 @@ Set-StrictMode -Version Latest
 
 class ADOUserPermissions: CommandBase {
     
-    hidden [string] $subscriptionId;
+    hidden [string] $organizationName;
 	hidden [string] $userMail;
 	hidden [string] $projectName;
 
-	ADOUserPermissions([string] $subscriptionId, [string] $userMail, [string] $ProjectName, [InvocationInfo] $invocationContext):
-	Base($subscriptionId, $invocationContext) {
-        $this.subscriptionId = $subscriptionId;
+	ADOUserPermissions([string] $organizationName, [string] $userMail, [string] $ProjectName, [InvocationInfo] $invocationContext):
+	Base($organizationName, $invocationContext) {
+        $this.organizationName = $organizationName;
 		$this.userMail = $userMail;
 		$this.projectName = $ProjectName;
 	}
 
 	[PSObject] GetUserList() {
 		# fetching the users list to get the user descriptor mapped against user email id
-		$url = "https://vssps.dev.azure.com/$($this.subscriptionId)/_apis/graph/users?api-version=6.0-preview.1"
+		$url = "https://vssps.dev.azure.com/$($this.organizationName)/_apis/graph/users?api-version=6.0-preview.1"
 		[PSObject] $users = $null;
 		try {
 			$response = [WebRequestHelper]::InvokeGetWebRequest($url);
@@ -51,14 +51,14 @@ class ADOUserPermissions: CommandBase {
 		}
 		else {
 			# fetching membership details
-			$url = "https://vssps.dev.azure.com/$($this.subscriptionId)/_apis/Graph/Memberships/$($userDescriptor)"
+			$url = "https://vssps.dev.azure.com/$($this.organizationName)/_apis/Graph/Memberships/$($userDescriptor)"
 			try {
 				$response = [WebRequestHelper]::InvokeGetWebRequest($url);
 				$returnMsgs += [MessageData]::new("User is a member of:")
 				Write-Host "User is a Member of:"
 				$formattedData = @()
 				foreach ($obj in $response) {
-					$url = "https://vssps.dev.azure.com/$($this.subscriptionId)/_apis/graph/groups/$($obj.containerDescriptor)?api-version=6.0-preview.1";
+					$url = "https://vssps.dev.azure.com/$($this.organizationName)/_apis/graph/groups/$($obj.containerDescriptor)?api-version=6.0-preview.1";
 					$res = [WebRequestHelper]::InvokeGetWebRequest($url);
 					$data = $res.principalName.Split("\");
 					$formattedData += @{
@@ -78,7 +78,7 @@ class ADOUserPermissions: CommandBase {
 			# fetching permission details based on project names parameter
 			if ($this.projectName -eq "") {
 				# if there are no project names provided, permissions details of org level needs to be displayed
-				$url = "https://dev.azure.com/$($this.subscriptionId)/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1";
+				$url = "https://dev.azure.com/$($this.organizationName)/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1";
 				$body = "{
 					'contributionIds':[
 						'ms.vss-admin-web.org-admin-groups-permissions-pivot-data-provider'
@@ -119,7 +119,7 @@ class ADOUserPermissions: CommandBase {
 			}
 			else {
 				# if project names are provided, permissions details of project level needs to be displayed
-				$url = "https://dev.azure.com/$($this.subscriptionId)/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1"
+				$url = "https://dev.azure.com/$($this.organizationName)/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1"
 				$body = "{
 					'contributionIds':[
 						'ms.vss-admin-web.org-admin-groups-permissions-pivot-data-provider'
@@ -142,7 +142,7 @@ class ADOUserPermissions: CommandBase {
 					}
 				}" | ConvertFrom-Json;
 				$body.dataProviderContext.properties.subjectDescriptor = $userDescriptor;
-				$body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.subscriptionId)/$($this.projectName)/_settings/permissions";
+				$body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.organizationName)/$($this.projectName)/_settings/permissions";
 				$body.dataProviderContext.properties.sourcePage.routeValues.project = $this.projectName
 				$response = ""
 				try {
