@@ -247,8 +247,8 @@ class Build: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed, "No build history found in last $($inactiveLimit) days.");
                     }
-                    $controlResult.AddMessage("The build was created on: $($this.buildActivityDetail.buildCreationDate)");
-                    $controlResult.AdditionalInfo += "The build was created on: " + $this.buildActivityDetail.buildCreationDate;
+                    $controlResult.AddMessage("The build pipeline was created on: $($this.buildActivityDetail.buildCreationDate)");
+                    $controlResult.AdditionalInfo += "The build pipeline was created on: " + $this.buildActivityDetail.buildCreationDate;
                 }
                 else 
                 {

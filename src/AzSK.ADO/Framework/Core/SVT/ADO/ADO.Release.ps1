@@ -6,7 +6,7 @@ class Release: ADOSVTBase
     hidden [string] $ProjectId;
     hidden static [string] $securityNamespaceId = $null;
     hidden static [PSObject] $ReleaseVarNames = @{};
-    hidden [PSObject] $releaseActivityDetail = @{isReleaseActive = $true; latestReleaseCreationDate = $null; releaseCreationDate = $null; message = $null; isComputed = $false};
+    hidden [PSObject] $releaseActivityDetail = @{isReleaseActive = $true; latestReleaseTriggerDate = $null; releaseCreationDate = $null; message = $null; isComputed = $false};
     
     Release([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
@@ -279,8 +279,8 @@ class Release: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed, $this.releaseActivityDetail.message);
                     }
-                    $controlResult.AddMessage("The release was created on: $($this.releaseActivityDetail.releaseCreationDate)");
-                    $controlResult.AdditionalInfo += "The release was created on: " + $this.releaseActivityDetail.releaseCreationDate;
+                    $controlResult.AddMessage("The release pipeline was created on: $($this.releaseActivityDetail.releaseCreationDate)");
+                    $controlResult.AdditionalInfo += "The release pipeline was created on: " + $this.releaseActivityDetail.releaseCreationDate;
                 }
                 else 
                 {
@@ -288,10 +288,10 @@ class Release: ADOSVTBase
                 }
             }
 
-            if ($null -ne $this.releaseActivityDetail.latestReleaseCreationDate)
+            if ($null -ne $this.releaseActivityDetail.latestReleaseTriggerDate)
             {
-                $controlResult.AddMessage("Last release date of pipeline: $($this.releaseActivityDetail.latestReleaseCreationDate)");
-                $controlResult.AdditionalInfo += "Last release date of pipeline: " + $this.releaseActivityDetail.latestReleaseCreationDate;
+                $controlResult.AddMessage("Last release date of pipeline: $($this.releaseActivityDetail.latestReleaseTriggerDate)");
+                $controlResult.AdditionalInfo += "Last release date of pipeline: " + $this.releaseActivityDetail.latestReleaseTriggerDate;
             }
         }
         catch
@@ -1037,8 +1037,8 @@ class Release: ADOSVTBase
                         $this.releaseActivityDetail.isReleaseActive = $false;
                         $this.releaseActivityDetail.message = "No recent release history found in last $($this.ControlSettings.Release.ReleaseHistoryPeriodInDays) days";
                     }
-                    $latestReleaseCreationDate = [datetime]::Parse($releases[0].createdOn);
-                    $this.releaseActivityDetail.latestReleaseCreationDate = $latestReleaseCreationDate;
+                    $latestReleaseTriggerDate = [datetime]::Parse($releases[0].createdOn);
+                    $this.releaseActivityDetail.latestReleaseTriggerDate = $latestReleaseTriggerDate;
                 }
                 else
                 {

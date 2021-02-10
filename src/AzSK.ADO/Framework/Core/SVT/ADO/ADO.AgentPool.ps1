@@ -174,11 +174,11 @@ class AgentPool: ADOSVTBase
                     $inactiveLimit = $this.ControlSettings.AgentPool.AgentPoolHistoryPeriodInDays
                     if ((((Get-Date) - $this.agentPoolActivityDetail.agentPoolCreationDate).Days) -lt $inactiveLimit)
                     {
-                        $controlResult.AddMessage([VerificationResult]::Passed, $this.agentPoolActivityDetail.message);
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Agent pool was created within last $inactiveLimit days but never queued.");
                     }
                     else 
                     {
-                        $controlResult.AddMessage([VerificationResult]::Failed, $this.agentPoolActivityDetail.message);
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Agent pool has not been queued from last $inactiveLimit days.");
                     }
                     $controlResult.AddMessage("The agent pool was created on: $($this.agentPoolActivityDetail.agentPoolCreationDate)");
                     $controlResult.AdditionalInfo += "The agent pool was created on: " + $this.agentPoolActivityDetail.agentPoolCreationDate;
@@ -340,15 +340,6 @@ class AgentPool: ADOSVTBase
                     if (([Helpers]::CheckMember($this.agentPool, "fps.dataProviders.data") ) -and ($this.agentPool.fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider")) 
                     {
                         $agentPoolDetails = $this.agentPool.fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider"
-                        
-                        if ((((Get-Date) - $agentPoolDetails.selectedAgentPool.createdOn).Days) -lt $inactiveLimit)
-                        {
-                            $this.agentPoolActivityDetail.message = "Agent pool was created within last $inactiveLimit days but never queued.";
-                        }
-                        else 
-                        {
-                            $this.agentPoolActivityDetail.message = "Agent pool has not been queued from last $inactiveLimit days.";
-                        }
                         $this.agentPoolActivityDetail.agentPoolCreationDate = $agentPoolDetails.selectedAgentPool.createdOn;
                     }
                     else 
