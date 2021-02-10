@@ -178,7 +178,7 @@ class SVTResourceResolver: AzSKRoot {
             Remove-Variable inputbody;
         }
         catch {
-            Write-Host 'Organization not found: Incorrect organization name or you do not have neccessary permission to access the organization.' -ForegroundColor Red
+            Write-Host 'Organization not found: Incorrect organization name or you do not have necessary permission to access the organization.' -ForegroundColor Red
             throw;
         }
         if ($this.ResourceTypeName -in ([ResourceTypeName]::Organization, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User) -and ([string]::IsNullOrEmpty($this.serviceId)) ) 
@@ -225,7 +225,7 @@ class SVTResourceResolver: AzSKRoot {
                 $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL) ;
             }
             catch {
-                Write-Host 'Project not found: Incorrect project name or you do not have neccessary permission to access the project.' -ForegroundColor Red
+                Write-Host 'Project not found: Incorrect project name or you do not have necessary permission to access the project.' -ForegroundColor Red
                 throw;
             }
             if (([Helpers]::CheckMember($responseObj, "count") -and $responseObj[0].count -gt 0) -or (($responseObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($responseObj[0], "name")))

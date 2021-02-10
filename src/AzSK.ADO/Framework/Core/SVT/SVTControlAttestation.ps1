@@ -412,10 +412,9 @@ class SVTControlAttestation
 			$filteredControlResults = @()
 			$allowedResourcesToAttest = @()
 
-			if($null -ne $this.ControlSettings.AllowAttestationResourceType)
+			if([Helpers]::CheckMember($this.ControlSettings,"AttestableResourceTypes") -and $null -ne $this.ControlSettings.AttestableResourceTypes)
 			{
-				$allowedResourcesToAttest = $this.ControlSettings.AllowAttestationResourceType
-				$attNonEnabledResource = $this.ControlResults | Where {$_.FeatureName -notin $allowedResourcesToAttest }
+				$allowedResourcesToAttest = $this.ControlSettings.AttestableResourceTypes;
 			}
 			
 			$filteredControlResults += ($this.ControlResults | Where {$_.FeatureName -in $allowedResourcesToAttest }) | Group-Object { $_.GetUniqueId() }  

@@ -579,7 +579,7 @@ class ControlStateExtension
                    
 		}
 		catch {
-			Write-Host "$($projectName) Project not found: Incorrect project name or you do not have neccessary permission to access the project." -ForegroundColor Red
+			Write-Host "$($projectName) Project not found: Incorrect project name or you do not have necessary permission to access the project." -ForegroundColor Red
 			return $false
 		}
 			   
@@ -897,7 +897,7 @@ class ControlStateExtension
 	      {	
 	    	$this.HasControlStateWritePermissions = 0
 	 
-			$allowedGrpForOrgAtt = $this.ControlSettings.AllowAttestationByGroups | where { $_.ResourceType -eq "Organization" } | select-object -property GroupNames 
+			$allowedGrpForOrgAtt = $this.ControlSettings.GroupsWithAttestPermission | where { $_.ResourceType -eq "Organization" } | select-object -property GroupNames 
 	    	
             $url= "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($this.OrganizationContext.OrganizationName);
 			$postbody="{'contributionIds':['ms.vss-admin-web.org-admin-groups-data-provider'],'dataProviderContext':{'properties':{'sourcePage':{'url':'https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_settings/groups','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'groups','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
@@ -910,7 +910,7 @@ class ControlStateExtension
 
 			if($featureName -ne "Organization")
 			{
-			   $allowedGrpForAtt = $this.ControlSettings.AllowAttestationByGroups | where { $_.ResourceType -eq $featureName } | select-object -property GroupNames 	    	
+			   $allowedGrpForAtt = $this.ControlSettings.GroupsWithAttestPermission | where { $_.ResourceType -eq $featureName } | select-object -property GroupNames 	    	
 			   $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
                $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
                $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($resourceName)/_settings/permissions";
