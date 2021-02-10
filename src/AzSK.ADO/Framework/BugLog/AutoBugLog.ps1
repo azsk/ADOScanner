@@ -82,8 +82,9 @@ class AutoBugLog {
                 $metaProviderObj = [BugMetaInfoProvider]::new();   
                 $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging, $this.IsBugLogCustomFlow, $this.ServiceIdPassedInCMD);
                 $serviceId = $metaProviderObj.ServiceId
-                #Log bug only if LogBugForUnmappedResource is enabled (default value is true) and resouce is mapped to serviceid
-                if($this.LogBugForUnmappedResource -and $serviceId)
+                #Log bug only if LogBugForUnmappedResource is enabled (default value is true) or resource is mapped to serviceid
+                #Restrict bug logging, if resource is not mapped to serviceid and LogBugForUnmappedResource is not enabled.
+                if($this.LogBugForUnmappedResource -or $serviceId)
                 {
                     #Set ShowBugsInS360 if customebuglog is enabled and sericeid not null and ShowBugsInS360 enabled in policy
                     if ($this.IsBugLogCustomFlow -and (-not [string]::IsNullOrEmpty($serviceId)) -and ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "ShowBugsInS360") -and $this.ControlSettings.BugLogging.ShowBugsInS360) ) {
