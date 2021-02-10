@@ -239,7 +239,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                         $years = $svtObject.ControlSettings.Organization.ExtensionsLastUpdatedInYears
 					}
 					$folderpath=([WriteFolderPath]::GetInstance().FolderPath) + "\$($_.ResourceName)"+"_ExtensionInfo.csv";
-					[Organization]::InstalledextensionInfo | Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old(>$($years)year(s))"; Expression = { $_.Updated } },lastPublished,@{Name = "Sensitive Permissions"; Expression = { $_.scopes} },@{Name = "NonProd (Galleryflags)"; Expression = { $_.ProductionReady}},@{Name = "NonProd (ExtensionName)"; Expression = { $_.Preview }},TopPublisher,PrivateVisibility | Export-Csv -Path $folderpath -NoTypeInformation
+					[Organization]::InstalledextensionInfo | Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old(>$($years)year(s))"; Expression = { $_.TooOld } },lastPublished,@{Name = "Sensitive Permissions"; Expression = { $_.scopes} },@{Name = "NonProd (Galleryflags)"; Expression = { $_.ProductionReady}},@{Name = "NonProd (ExtensionName)"; Expression = { $_.Preview }},TopPublisher,PrivateVisibility | Export-Csv -Path $folderpath -NoTypeInformation
 					
 				}
 

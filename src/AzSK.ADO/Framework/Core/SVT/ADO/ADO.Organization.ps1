@@ -548,7 +548,7 @@ class Organization: ADOSVTBase
                             $topPublisherExt = @()
 
                             $extensionList | ForEach-Object {
-                                $extensionInfo="" | Select-Object ExtensionName,PublisherId,PublisherName,Version,KnownPublisher,Updated,LastPublished,SensitivePermissions,Scopes,ProductionReady,Preview,TopPublisher,PrivateVisibility
+                                $extensionInfo="" | Select-Object ExtensionName,PublisherId,PublisherName,Version,KnownPublisher,TooOld,LastPublished,SensitivePermissions,Scopes,ProductionReady,Preview,TopPublisher,PrivateVisibility
                                 #$extensionInfo = Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old(>2years)"; Expression = { $_.Updated } },lastPublished,@{Name = "Sensitive Permissions"; Expression = { $_.scopes} },@{Name = "Non Prod[Gallery flags]"; Expression = { $_.ProductionReady}},@{Name = "Non Prod[Extension Name]"; Expression = { $_.Preview }},TopPublisher,PrivateVisibility
                                 $extensionInfo.ExtensionName = $_.extensionName
                                 $extensionInfo.PublisherId = $_.publisherId
@@ -569,10 +569,10 @@ class Organization: ADOSVTBase
                                 if(([datetime] $_.lastPublished) -lt $thresholdDate)
                                 {
                                     $staleExtensionList += $_
-                                    $extensionInfo.Updated = "No"
+                                    $extensionInfo.TooOld = "Yes"
                                 }
                                 else {
-                                    $extensionInfo.Updated = "Yes"
+                                    $extensionInfo.TooOld = "No"
                                 }
 
                                 $riskyScopes = @($_.scopes | ? {$_ -in $ExtensionCriticalScopes})
