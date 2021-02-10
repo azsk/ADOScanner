@@ -56,7 +56,13 @@ class CommandHelper
             Noun = "AzSKADOServiceMapping";
             ShortName = "gsm";
 			IsLatestRequired = $false;
-        }
+        },
+		[CommandDetails]@{
+            Verb = "Get";
+            Noun = "AzSKADOUserPermissions";
+            ShortName = "gup";
+			IsLatestRequired = $false;
+		}
     );
 
 	static BeginCommand([InvocationInfo] $invocationContext)

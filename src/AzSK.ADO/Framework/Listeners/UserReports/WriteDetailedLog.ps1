@@ -151,7 +151,12 @@ class WriteDetailedLog: FileOutputBase
             {
 				if($Event.SourceArgs.Messages)
 				{
-					$currentInstance.SetFilePath($Event.SourceArgs.SubscriptionContext, $Event.SourceArgs.SubscriptionContext.SubscriptionName, "Detailed.LOG");
+					if($Event.Sender.InvocationContext.InvocationName -eq "Get-AzSKADOUserPermissions") {
+						$currentInstance.SetFilePath($Event.SourceArgs.SubscriptionContext, $Event.SourceArgs.SubscriptionContext.SubscriptionName, "UserInfo.LOG");
+					}
+					else {
+						$currentInstance.SetFilePath($Event.SourceArgs.SubscriptionContext, $Event.SourceArgs.SubscriptionContext.SubscriptionName, "Detailed.LOG");
+					}
 					$Event.SourceArgs.Messages | ForEach-Object {
 						$currentInstance.AddOutputLog($_);
 					}
