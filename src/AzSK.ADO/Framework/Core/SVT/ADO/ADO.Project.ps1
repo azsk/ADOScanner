@@ -300,9 +300,11 @@ class Project: ADOSVTBase
 
          $usersObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
 
-         $usersObj.dataProviders."ms.vss-admin-web.org-admin-members-data-provider".identities  | ForEach-Object {
-            $groupmember += $_;
-        }  
+         if([Helpers]::CheckMember($usersObj.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities")) {
+            $usersObj.dataProviders."ms.vss-admin-web.org-admin-members-data-provider".identities  | ForEach-Object {
+                $groupmember += $_;
+            }  
+        }
 
         $grpmember = ($groupmember | Select-Object -Property @{Name="Name"; Expression = {$_.displayName}},@{Name="mailAddress"; Expression = {$_.mailAddress}});
         if ($grpmember -ne $null) {
