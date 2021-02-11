@@ -33,7 +33,7 @@ function Get-AzSKADOInfo
 	#>
 	Param(
 		[Parameter(Mandatory = $false)]
-		[ValidateSet("OrganizationInfo", "ControlInfo", "HostInfo")] 
+		[ValidateSet("OrganizationInfo", "ControlInfo", "HostInfo", "UserInfo")] 
 		[Alias("it")]
 		$InfoType,
 
@@ -87,7 +87,7 @@ function Get-AzSKADOInfo
 		$DoNotOpenOutputFolder,
 
 		[string]
-		[Parameter(Mandatory = $false, ParameterSetName = "UserInfo", HelpMessage="User email/principal name for which the permission evaluation has to be performed.")]
+		[Parameter(Mandatory = $false, HelpMessage="User email/principal name for which the permission evaluation has to be performed.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("email", "UserEmail")]
 		$PrincipalName
@@ -100,93 +100,87 @@ function Get-AzSKADOInfo
 
 	Process
 	{
-		if ($PSCmdlet.ParameterSetName -eq 'UserInfo') {
-			try {
-				if($ProjectNames -eq "*" -or $ProjectNames -match "\,") {
-					Write-Host "Parameter set 'UserInfo' only accepts scan for single project, try again with one project name (or no project name for organization level scan)." -ForegroundColor Red
-				}
-				else {
-					$mapping = [UserInfo]::new($OrganizationName, $PrincipalName, $ProjectNames, $PSCmdlet.MyInvocation);
-					return $mapping.InvokeFunction($mapping.GetPermissionDetails);
-				}
-			}
-			catch {
-				[EventBase]::PublishGenericException($_);
-			}
-		}
-		else {
-			try 
+		try 
+		{
+			$unsupported = $false
+			if([string]::IsNullOrWhiteSpace($ResourceTypeName))
 			{
-				$unsupported = $false
-				if([string]::IsNullOrWhiteSpace($ResourceTypeName))
+				$ResourceTypeName = [ResourceTypeName]::All
+			}
+			elseif ($ResourceTypeName -match "_")
+			{
+				$unsupported = $true
+				Write-Host -ForegroundColor Yellow "Combo ResourceTypeNames are not supported in this command.`r`nUse individual names or run use All and apply filter in CSV."
+			}
+
+
+			if(-not ([string]::IsNullOrEmpty($InfoType) -or $unsupported))
+			{
+				#Set empty, so org-policy get refreshed in every gadi run in same PS session.
+				[ConfigurationHelper]::PolicyCacheContent = @()
+				[AzSKSettings]::Instance = $null
+				[AzSKConfig]::Instance = $null 
+				[ConfigurationHelper]::ServerConfigMetadata = $null
+			
+				switch ($InfoType.ToString()) 
 				{
-					$ResourceTypeName = [ResourceTypeName]::All
-				}
-				elseif ($ResourceTypeName -match "_")
-				{
-					$unsupported = $true
-					Write-Host -ForegroundColor Yellow "Combo ResourceTypeNames are not supported in this command.`r`nUse individual names or run use All and apply filter in CSV."
-				}
-	
-	
-				if(-not ([string]::IsNullOrEmpty($InfoType) -or $unsupported))
-				{
-					#Set empty, so org-policy get refreshed in every gadi run in same PS session.
-					[ConfigurationHelper]::PolicyCacheContent = @()
-					[AzSKSettings]::Instance = $null
-					[AzSKConfig]::Instance = $null 
-					[ConfigurationHelper]::ServerConfigMetadata = $null
-				
-					switch ($InfoType.ToString()) 
+					OrganizationInfo
 					{
-						OrganizationInfo
+						Write-Host -ForegroundColor Yellow "OrganizationInfo support is yet to be implemented."
+					}
+					ControlInfo 
+					{
+						If($PSCmdlet.MyInvocation.BoundParameters["Verbose"] -and $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent)
 						{
-							Write-Host -ForegroundColor Yellow "OrganizationInfo support is yet to be implemented."
+							$Full = $true
 						}
-						ControlInfo 
+						else
 						{
-							If($PSCmdlet.MyInvocation.BoundParameters["Verbose"] -and $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent)
-							{
-								$Full = $true
-							}
-							else
-							{
-								$Full = $false
-							}
-	
-							$controlsInfo = [ControlsInfo]::new($OrganizationName, $PSCmdlet.MyInvocation, $ResourceTypeName, $ControlIds, $UseBaselineControls, $UsePreviewBaselineControls, $FilterTags, $Full, $ControlSeverity, $ControlIdContains);
-							if ($controlsInfo) 
-							{
-								return $controlsInfo.InvokeFunction($controlsInfo.GetControlDetails);
-							}
+							$Full = $false
 						}
-						HostInfo 
+
+						$controlsInfo = [ControlsInfo]::new($OrganizationName, $PSCmdlet.MyInvocation, $ResourceTypeName, $ControlIds, $UseBaselineControls, $UsePreviewBaselineControls, $FilterTags, $Full, $ControlSeverity, $ControlIdContains);
+						if ($controlsInfo) 
 						{
-							$hInfo = [HostInfo]::new($OrganizationName, $PSCmdlet.MyInvocation);
-							if ($hInfo) 
-							{
-								return $hInfo.InvokeFunction($hInfo.GetHostInfo);
-							}
-						}
-						AttestationInfo
-						{
-							Write-Host -ForegroundColor Yellow "AttestationInfo support is yet to be implemented."
-						}
-						Default
-						{
-							Write-Host $([Constants]::DefaultInfoCmdMsg)
+							return $controlsInfo.InvokeFunction($controlsInfo.GetControlDetails);
 						}
 					}
-				}
-				else
-				{
-					Write-Host $([Constants]::DefaultInfoCmdMsg)
+					HostInfo 
+					{
+						$hInfo = [HostInfo]::new($OrganizationName, $PSCmdlet.MyInvocation);
+						if ($hInfo) 
+						{
+							return $hInfo.InvokeFunction($hInfo.GetHostInfo);
+						}
+					}
+					AttestationInfo
+					{
+						Write-Host -ForegroundColor Yellow "AttestationInfo support is yet to be implemented."
+					}
+					UserInfo
+					{
+						if($ProjectNames -eq "*" -or $ProjectNames -match "\,") {
+							Write-Host "Parameter set 'UserInfo' only accepts scan for single project, try again with one project name (or no project name for organization level scan)." -ForegroundColor Red
+						}
+						else {
+							$mapping = [UserInfo]::new($OrganizationName, $PrincipalName, $ProjectNames, $PSCmdlet.MyInvocation);
+							return $mapping.InvokeFunction($mapping.GetPermissionDetails);
+						}
+					}
+					Default
+					{
+						Write-Host $([Constants]::DefaultInfoCmdMsg)
+					}
 				}
 			}
-			catch 
+			else
 			{
-				[EventBase]::PublishGenericException($_);
+				Write-Host $([Constants]::DefaultInfoCmdMsg)
 			}
+		}
+		catch 
+		{
+			[EventBase]::PublishGenericException($_);
 		}
 	}
 
