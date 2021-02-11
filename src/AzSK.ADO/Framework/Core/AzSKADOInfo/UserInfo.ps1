@@ -55,7 +55,7 @@ class UserInfo: CommandBase {
 			try {
 				$response = [WebRequestHelper]::InvokeGetWebRequest($url);
 				$returnMsgs += [MessageData]::new("User is a member of:")
-				Write-Host "User is a Member of:"
+				$this.PublishCustomMessage("User is a Member of:")
 				$formattedData = @()
 				foreach ($obj in $response) {
 					$url = "https://vssps.dev.azure.com/$($this.organizationName)/_apis/graph/groups/$($obj.containerDescriptor)?api-version=6.0-preview.1";
@@ -68,15 +68,15 @@ class UserInfo: CommandBase {
 				}
 				$formattedData = $formattedData | select-object @{Name="Group Name"; Expression={$_.Group}}, @{Name="User or scope"; Expression={$_.Scope}} | Out-String
 				$returnMsgs += $formattedData
-				Write-Host($formattedData)
+				$this.PublishCustomMessage($formattedData)
 			}
 			catch {
 				[EventBase]::PublishGenericException($_);
 			}
-			Write-Host([Constants]::DoubleDashLine | Out-String)
+			$this.PublishCustomMessage([Constants]::DoubleDashLine)
 			$returnMsgs += [Constants]::DoubleDashLine;
 			# fetching permission details based on project names parameter
-			if ($this.projectName -eq "") {
+			if ([string]::IsNullOrWhiteSpace($this.projectName)) {
 				# if there are no project names provided, permissions details of org level needs to be displayed
 				$url = "https://dev.azure.com/$($this.organizationName)/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1";
 				$body = "{
@@ -105,12 +105,12 @@ class UserInfo: CommandBase {
                 try {
 					$response = [WebRequestHelper]::InvokePostWebRequest($url, $body);
 					$returnMsgs += [MessageData]::new("User permissions (organization level):")
-					Write-Host "User permissions (organization level):"
+					$this.PublishCustomMessage("User permissions (organization level):")
 					if ([Helpers]::CheckMember($response, "dataProviders") -and $response.dataProviders.'ms.vss-admin-web.org-admin-groups-permissions-pivot-data-provider' -and [Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-groups-permissions-pivot-data-provider', "subjectPermissions")) {
 						$permissions = $response.dataProviders.'ms.vss-admin-web.org-admin-groups-permissions-pivot-data-provider'.subjectPermissions
 						$formattedData = $permissions | select-object @{Name="DisplayName"; Expression = {$_.displayName}}, @{Name="Permissions"; Expression = {$_.permissionDisplayString}} | Out-String
 						$returnMsgs += $formattedData
-						Write-Host ($formattedData)
+						$this.PublishCustomMessage($formattedData)
 					}
 				}
 				catch {
@@ -148,12 +148,12 @@ class UserInfo: CommandBase {
 				try {
 					$response = [WebRequestHelper]::InvokePostWebRequest($url, $body);
 					$returnMsgs += [MessageData]::new("User permissions for project [$($this.projectName)]:")
-					Write-Host "User permissions for project [$($this.projectName)]:"
+					$this.PublishCustomMessage("User permissions for project [$($this.projectName)]:")
 					if ([Helpers]::CheckMember($response, "dataProviders") -and $response.dataProviders.'ms.vss-admin-web.org-admin-groups-permissions-pivot-data-provider' -and [Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-groups-permissions-pivot-data-provider', "subjectPermissions")) {
 						$permissions = $response.dataProviders.'ms.vss-admin-web.org-admin-groups-permissions-pivot-data-provider'.subjectPermissions
 						$formattedData = $permissions | select-object @{Name="DisplayName"; Expression = {$_.displayName}}, @{Name="Permissions"; Expression = {$_.permissionDisplayString}} | Out-String
 						$returnMsgs += $formattedData
-						Write-Host ($formattedData)
+						$this.PublishCustomMessage($formattedData)
 					}
 				}
 				catch {
@@ -161,7 +161,7 @@ class UserInfo: CommandBase {
 				}
 			}
 		}
-		Write-Host([Constants]::DoubleDashLine | Out-String)
+		$this.PublishCustomMessage([Constants]::DoubleDashLine)
 		$returnMsgs += [Constants]::DoubleDashLine;
 		return $returnMsgs
 	}

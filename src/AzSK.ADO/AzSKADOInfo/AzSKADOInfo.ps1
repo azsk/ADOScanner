@@ -160,11 +160,14 @@ function Get-AzSKADOInfo
 					UserInfo
 					{
 						if($ProjectNames -eq "*" -or $ProjectNames -match "\,") {
-							Write-Host "Parameter set 'UserInfo' only accepts scan for single project, try again with one project name (or no project name for organization level scan)." -ForegroundColor Red
+							Write-Host "InfoType 'UserInfo' only accepts scan for single project, try again with one project name (or without -projectname parameter for organization level info)." -ForegroundColor Red
+						}
+						elseif ([string]::IsNullOrWhiteSpace($PrincipalName)) {
+							Write-Host "InfoType 'UserInfo' requires principal name parameter to scan." -ForegroundColor Red
 						}
 						else {
-							$mapping = [UserInfo]::new($OrganizationName, $PrincipalName, $ProjectNames, $PSCmdlet.MyInvocation);
-							return $mapping.InvokeFunction($mapping.GetPermissionDetails);
+							$userInfo = [UserInfo]::new($OrganizationName, $PrincipalName, $ProjectNames, $PSCmdlet.MyInvocation);
+							return $userInfo.InvokeFunction($userInfo.GetPermissionDetails);
 						}
 					}
 					Default
