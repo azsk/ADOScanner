@@ -5,6 +5,7 @@ class Organization: ADOSVTBase
     [PSObject] $PipelineSettingsObj = $null
     [PSObject] $OrgPolicyObj = $null
     static $InstalledExtensionInfo
+    hidden [PSObject] $sharedExtensionObject; # This is used to fetch shared extension object so that it can be used in installed extension control where top publisher could not be computed.
     
     #TODO: testing below line
     hidden [string] $SecurityNamespaceId;
@@ -544,6 +545,7 @@ class Organization: ADOSVTBase
                             $nonProdExtensions = @()
                             $topPublisherExtensions = @()
                             [Organization]::InstalledExtensionInfo = @()
+                            $AllInstalledExtensions = @() # This variable gets all installed extensions details from $sharedExtensionObject
 
                             $date = Get-Date                            
                             $thresholdDate = $date.AddYears(-$extensionsLastUpdatedInYears)
@@ -630,8 +632,35 @@ class Organization: ADOSVTBase
                                     if([Helpers]::CheckMember($responseobject.results[0], "extensions") -eq $false )
                                     {
                                         $extensionInfo.PrivateVisibility = "Yes"
-                                        $extensionInfo.Preview = "N/A"  
-                                        $extensionInfo.TopPublisher = "N/A" 
+                                        $extensionInfo.Preview = "N/A" 
+                                        
+                                        if($null -eq $this.sharedExtensionObject)
+                                        {
+                                            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+                                            $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.SubscriptionContext.SubscriptionName);
+                                            $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                                            $this.sharedExtensionObject = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+                                        }
+                                        
+                                        if(($AllInstalledExtensions.Count -eq 0) -and [Helpers]::CheckMember($this.sharedExtensionObject[0],"dataProviders") -and $this.sharedExtensionObject.dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
+                                        {                                 
+                                            # Using sharedExtension Object so that we can get details of all extensions from shared extension api and later use it to compute top publisher for installed extension
+                                            $AllInstalledExtensions = $this.sharedExtensionObject[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.installedextensions
+                                        }
+                                        $currentExtension = $_
+
+                                        #This refernce variable contains current private extension's top publisher details
+                                        $refVar = @($AllInstalledExtensions | Where-Object {$_.extensionId -eq $currentExtension.extensionId  })
+
+                                        #count is also used as if two extensions have same extension id then $refVar will contain 2 elements
+                                        if($refVar.isCertifiedPublisher -and $refVar.count -eq 1)
+                                        {
+                                            $extensionInfo.TopPublisher = "Yes"
+                                        }
+                                        else {
+                                            $extensionInfo.TopPublisher = "No"
+                                        }
+                                         
                                         $privateExtensions += $_
                                     }
                                     else
@@ -797,18 +826,20 @@ class Organization: ADOSVTBase
     }
 
     hidden [ControlResult] ValidateSharedExtensions([ControlResult] $controlResult)
-    {
-        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
-        $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.SubscriptionContext.SubscriptionName);
-        $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-        
+    {         
         try
         {
-            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
-
-            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and $responseObj[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
+            if($null -eq $this.sharedExtensionObject)
             {
-                $sharedExtensions = $responseObj[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.sharedExtensions
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+                $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.SubscriptionContext.SubscriptionName);
+                $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                $this.sharedExtensionObject = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+            }
+
+            if([Helpers]::CheckMember($this.sharedExtensionObject[0],"dataProviders") -and $this.sharedExtensionObject.dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
+            {
+                $sharedExtensions = $this.sharedExtensionObject[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.sharedExtensions
 
                 if(($sharedExtensions | Measure-Object).Count -gt 0)
                 {
