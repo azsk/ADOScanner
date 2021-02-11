@@ -5,7 +5,7 @@ class Organization: ADOSVTBase
     [PSObject] $PipelineSettingsObj = $null
     [PSObject] $OrgPolicyObj = $null
     static $InstalledExtensionInfo
-    hidden [PSObject] $sharedExtensionObject; # This is used to fetch shared extension object so that it can be used in installed extension control where top publisher could not be computed.
+    hidden [PSObject] $allExtensionsObj; # This is used to fetch all extensions (shared+installed+requested) object so that it can be used in installed extension control where top publisher could not be computed.
     
     #TODO: testing below line
     hidden [string] $SecurityNamespaceId;
@@ -518,7 +518,7 @@ class Organization: ADOSVTBase
                             
                             $infotable = @{ 
                                 "KnownPublisher" = "Yes/No based on if extension is from [$($knownExtPublishers -join ', ')]";
-                                "Too Old(>$($extensionsLastUpdatedInYears)year(s))" = "Yes/No based on if extension has not been updated by publishers for more than [$extensionsLastUpdatedInYears] year(s)";
+                                "Too Old (>$($extensionsLastUpdatedInYears)year(s))" = "Yes/No based on if extension has not been updated by publishers for more than [$extensionsLastUpdatedInYears] year(s)";
                                 "SensitivePermissions" = "Lists if any permissions requested by extension are in the sesitive list. (See bottom of this table for the full list of sensitive permission)";
                                 "NonProd (GalleryFlag)" = "Yes/No based on if the gallery flags in the manifest mention 'preview'";
                                 "NonProd (ExtensionName)" = "Yes/No based on if extension name indicates [$($nonProductionExtensionIndicators -join ', ')]";
@@ -545,7 +545,7 @@ class Organization: ADOSVTBase
                             $nonProdExtensions = @()
                             $topPublisherExtensions = @()
                             [Organization]::InstalledExtensionInfo = @()
-                            $allInstalledExtensions = @() # This variable gets all installed extensions details from $sharedExtensionObject
+                            $allInstalledExtensions = @() # This variable gets all installed extensions details from $allExtensionsObj
 
                             $date = Get-Date                            
                             $thresholdDate = $date.AddYears(-$extensionsLastUpdatedInYears)
@@ -634,31 +634,37 @@ class Organization: ADOSVTBase
                                         $extensionInfo.PrivateVisibility = "Yes"
                                         $extensionInfo.Preview = "N/A" 
                                         
-                                        if($null -eq $this.sharedExtensionObject)
+                                        if($null -eq $this.allExtensionsObj)
                                         {
                                             $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
                                             $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.OrganizationContext.OrganizationName);
                                             $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-                                            $this.sharedExtensionObject = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+                                            $this.allExtensionsObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
                                         }
                                         
-                                        if(($allInstalledExtensions.Count -eq 0) -and [Helpers]::CheckMember($this.sharedExtensionObject[0],"dataProviders") -and $this.sharedExtensionObject.dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
+                                        if(($allInstalledExtensions.Count -eq 0) -and [Helpers]::CheckMember($this.allExtensionsObj[0],"dataProviders") -and $this.allExtensionsObj.dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
                                         {                                 
                                             # Using sharedExtension Object so that we can get details of all extensions from shared extension api and later use it to compute top publisher for installed extension
-                                            $allInstalledExtensions = $this.sharedExtensionObject[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.installedextensions
+                                            $allInstalledExtensions = $this.allExtensionsObj[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.installedextensions
                                         }
                                         $currentExtension = $_
 
                                         #This refernce variable contains current private extension's top publisher details
-                                        $refVar = @($allInstalledExtensions | Where-Object {$_.extensionId -eq $currentExtension.extensionId  })
+                                        $refVar = ($allInstalledExtensions | Where-Object {($_.extensionId -eq $currentExtension.extensionId) -and ($_.publisherId -eq $currentExtension.publisherId) })
 
-                                        #count is also used as if two extensions have same extension id then $refVar will contain 2 elements
-                                        if($refVar.isCertifiedPublisher -and $refVar.count -eq 1)
+                                        # if refvar is null then making N/A for top publisher
+                                        if($refVar)
                                         {
-                                            $extensionInfo.TopPublisher = "Yes"
+                                            if($refVar.isCertifiedPublisher)
+                                            {
+                                                $extensionInfo.TopPublisher = "Yes"
+                                            }
+                                            else {
+                                                $extensionInfo.TopPublisher = "No"
+                                            }
                                         }
                                         else {
-                                            $extensionInfo.TopPublisher = "No"
+                                            $extensionInfo.TopPublisher = "N/A"
                                         }
                                          
                                         $privateExtensions += $_
@@ -829,17 +835,17 @@ class Organization: ADOSVTBase
     {        
         try
         {
-            if($null -eq $this.sharedExtensionObject)
+            if($null -eq $this.allExtensionsObj)
             {
                 $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
                 $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.OrganizationContext.OrganizationName);
                 $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-                $this.sharedExtensionObject = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+                $this.allExtensionsObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
             }
 
-            if([Helpers]::CheckMember($this.sharedExtensionObject[0],"dataProviders") -and $this.sharedExtensionObject.dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
+            if([Helpers]::CheckMember($this.allExtensionsObj[0],"dataProviders") -and $this.allExtensionsObj.dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
             {
-                $sharedExtensions = $this.sharedExtensionObject[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.sharedExtensions
+                $sharedExtensions = $this.allExtensionsObj[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.sharedExtensions
 
                 if(($sharedExtensions | Measure-Object).Count -gt 0)
                 {
