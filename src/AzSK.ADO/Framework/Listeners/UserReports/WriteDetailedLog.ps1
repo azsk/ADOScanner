@@ -151,7 +151,7 @@ class WriteDetailedLog: FileOutputBase
             {
 				if($Event.SourceArgs.Messages)
 				{
-					if($Event.Sender.InvocationContext.InvocationName -eq "Get-AzSKADOInfo" -and $Event.Sender.InvocationContext.BoundParameters.InfoType -eq "UserInfo") {
+					if($($Event.Sender.InvocationContext.BoundParameters.Keys).indexOf('InfoType') -ge 0 -and $Event.Sender.InvocationContext.BoundParameters.InfoType -eq "UserInfo") {
 						$currentInstance.SetFilePath($Event.SourceArgs.OrganizationContext, $Event.SourceArgs.OrganizationContext.OrganizationName, "UserInfo.LOG");
 					}
 					else {

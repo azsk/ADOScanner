@@ -14,7 +14,7 @@ class UserInfo: CommandBase {
 		$this.projectName = $ProjectName;
 	}
 
-	[PSObject] GetUserList() {
+	[string] GetUserDescriptor() {
 		# fetching the users list to get the user descriptor mapped against user email id
 		$url = "https://vssps.dev.azure.com/$($this.organizationName)/_apis/graph/users?api-version=6.0-preview.1"
 		[PSObject] $users = $null;
@@ -22,41 +22,39 @@ class UserInfo: CommandBase {
 			$response = [WebRequestHelper]::InvokeGetWebRequest($url);
 			if($response.count -gt 0) {
 				$users = $response;
-				[EventBase]::PublishGenericCustomMessage("Successfully fetched users list.");
 			}
 			else {
 				$users = $null;
-				[EventBase]::PublishGenericCustomMessage("Problem fetching users list.");
 			}
 		}
 		catch {
             [EventBase]::PublishGenericException($_);
 		}
-		return $users;
-	} 
-	
-	[MessageData[]] GetPermissionDetails() {
-		[MessageData[]] $returnMsgs = @();
-		# getting the user descriptor
-		$users = $this.GetUserList()
-		# extracting selected users descriptor
 		$userDescriptor = ""
 		foreach ($user in $users) {
 			if([Helpers]::CheckMember($user, "mailAddress") -and $user.mailAddress -eq $this.userMail -and [Helpers]::CheckMember($user, "descriptor")) {
 				$userDescriptor = $user.descriptor;
+				break;
 			}
 		}
-		if($userDescriptor -eq "") {
-			[EventBase]::PublishGenericCustomMessage("Problem fetching user's descriptor.");
+		return $userDescriptor;
+	}
+	
+	[MessageData[]] GetPermissionDetails() {
+		[MessageData[]] $returnMsgs = @();
+		# getting the selected users descriptor
+		$userDescriptor = $this.GetUserDescriptor()
+		
+		if([string]::IsNullOrWhiteSpace($userDescriptor)) {
+			$this.PublishCustomMessage("Could not find the user in the organization. Please validate the principal name of the user.");
 		}
 		else {
 			# fetching membership details
 			$url = "https://vssps.dev.azure.com/$($this.organizationName)/_apis/Graph/Memberships/$($userDescriptor)"
 			try {
 				$response = [WebRequestHelper]::InvokeGetWebRequest($url);
-				$returnMsgs += [MessageData]::new("User is a member of:")
-				$this.PublishCustomMessage("User is a Member of:")
 				$formattedData = @()
+				
 				foreach ($obj in $response) {
 					$url = "https://vssps.dev.azure.com/$($this.organizationName)/_apis/graph/groups/$($obj.containerDescriptor)?api-version=6.0-preview.1";
 					$res = [WebRequestHelper]::InvokeGetWebRequest($url);
@@ -66,6 +64,9 @@ class UserInfo: CommandBase {
 						Scope = $data[0];
 					}
 				}
+				# add count
+				$returnMsgs += [MessageData]::new("Total number of groups user is a member of:")
+				$this.PublishCustomMessage("Total number of groups user is a member of:")
 				$formattedData = $formattedData | select-object @{Name="Group Name"; Expression={$_.Group}}, @{Name="User or scope"; Expression={$_.Scope}} | Out-String
 				$returnMsgs += $formattedData
 				$this.PublishCustomMessage($formattedData)

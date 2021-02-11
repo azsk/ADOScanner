@@ -87,7 +87,7 @@ function Get-AzSKADOInfo
 		$DoNotOpenOutputFolder,
 
 		[string]
-		[Parameter(Mandatory = $false, HelpMessage="User email/principal name for which the permission evaluation has to be performed.")]
+		[Parameter(Mandatory = $false, HelpMessage="User email/principal name for which permissions information is requested.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("email", "UserEmail")]
 		$PrincipalName
@@ -160,11 +160,11 @@ function Get-AzSKADOInfo
 					UserInfo
 					{
 						if($ProjectNames -eq "*" -or $ProjectNames -match "\,") {
-							Write-Host "InfoType 'UserInfo' only accepts scan for single project, try again with one project name (or without -projectname parameter for organization level info)." -ForegroundColor Red
+							Write-Host "This command currently supports information for a single project. Please provide a single project name." -ForegroundColor Red
 						}
 						elseif ([string]::IsNullOrWhiteSpace($PrincipalName)) {
 							$currentUser = [ContextHelper]::GetCurrentSessionUser();
-							Write-Host "InfoType 'UserInfo' requires principal name parameter to scan. If not provided, it'll take the context of current logged in user." -ForegroundColor Yellow
+							# Write-Host "InfoType 'UserInfo' requires principal name parameter to scan. If not provided, it'll take the context of current logged in user." -ForegroundColor Yellow
 							$userInfo = [UserInfo]::new($OrganizationName, $currentUser, $ProjectNames, $PSCmdlet.MyInvocation);
 							return $userInfo.InvokeFunction($userInfo.GetPermissionDetails);
 						}
