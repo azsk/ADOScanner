@@ -370,7 +370,7 @@
     "UseAzureStorageAccount": false,
     "LogBugsForInactiveResources": true,
     "CustomControlList": [],
-    "LogBugForUnmappedResource": true
+    "LogBugsForUnmappedResource": true
   },
   "GenerateSecurityEvaluationJsonFile" : false,
   "ResourceProviders": [

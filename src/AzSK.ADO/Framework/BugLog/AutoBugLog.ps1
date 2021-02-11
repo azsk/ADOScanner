@@ -15,7 +15,7 @@ class AutoBugLog {
     hidden [bool] $UseAzureStorageAccount = $false;
     hidden [BugLogHelper] $BugLogHelperObj;
     hidden [string] $ScanSource;
-    hidden [bool] $LogBugForUnmappedResource = $true;
+    hidden [bool] $LogBugsForUnmappedResource = $true;
     
     AutoBugLog([string] $orgName, [InvocationInfo] $invocationContext, [ControlStateExtension] $controlStateExt, $bugLogParameterValue) {
         $this.OrganizationName = $orgName;
@@ -50,11 +50,11 @@ class AutoBugLog {
             $this.BugDescriptionField = "/fields/" + $this.ControlSettings.BugLogging.BugDescriptionField
         }
 
-        #Check whether LogBugForUnmappedResource variable exist in policy fiile.
-        $LogBugForUnmappedResourceVarExistInPolicy = [bool]($this.ControlSettings.BugLogging -match "LogBugForUnmappedResource");
+        #Check whether LogBugsForUnmappedResource variable exist in policy fiile.
+        $LogBugsForUnmappedResourceVarExistInPolicy = $this.ControlSettings.BugLogging.PSobject.Properties | where-object {$_.Name -eq "LogBugsForUnmappedResource"} 
         #If LogBugForUnmappedResource exist in the policy file then get it's value.
-        if ($LogBugForUnmappedResourceVarExistInPolicy) {
-            $this.LogBugForUnmappedResource = $this.ControlSettings.BugLogging.LogBugForUnmappedResource;
+        if ($LogBugsForUnmappedResourceVarExistInPolicy) {
+            $this.LogBugsForUnmappedResource = $LogBugsForUnmappedResourceVarExistInPolicy.Value;
         }
     }
     
@@ -83,11 +83,11 @@ class AutoBugLog {
                 $serviceId = $metaProviderObj.ServiceId
                 #Log bug only if LogBugForUnmappedResource is enabled (default value is true) or resource is mapped to serviceid
                 #Restrict bug logging, if resource is not mapped to serviceid and LogBugForUnmappedResource is not enabled.
-                if($this.LogBugForUnmappedResource -or $serviceId)
+                if($this.LogBugsForUnmappedResource -or $serviceId)
                 {
                     #Set ShowBugsInS360 if customebuglog is enabled and sericeid not null and ShowBugsInS360 enabled in policy
                     if ($this.IsBugLogCustomFlow -and (-not [string]::IsNullOrEmpty($serviceId)) -and ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "ShowBugsInS360") -and $this.ControlSettings.BugLogging.ShowBugsInS360) ) {
-                    $this.ShowBugsInS360 = $true;    
+                        $this.ShowBugsInS360 = $true;
                     }
                     else {
                         $this.ShowBugsInS360 = $false;
