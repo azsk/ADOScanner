@@ -163,7 +163,10 @@ function Get-AzSKADOInfo
 							Write-Host "InfoType 'UserInfo' only accepts scan for single project, try again with one project name (or without -projectname parameter for organization level info)." -ForegroundColor Red
 						}
 						elseif ([string]::IsNullOrWhiteSpace($PrincipalName)) {
-							Write-Host "InfoType 'UserInfo' requires principal name parameter to scan." -ForegroundColor Red
+							$currentUser = [ContextHelper]::GetCurrentSessionUser();
+							Write-Host "InfoType 'UserInfo' requires principal name parameter to scan. If not provided, it'll take the context of current logged in user." -ForegroundColor Yellow
+							$userInfo = [UserInfo]::new($OrganizationName, $currentUser, $ProjectNames, $PSCmdlet.MyInvocation);
+							return $userInfo.InvokeFunction($userInfo.GetPermissionDetails);
 						}
 						else {
 							$userInfo = [UserInfo]::new($OrganizationName, $PrincipalName, $ProjectNames, $PSCmdlet.MyInvocation);
