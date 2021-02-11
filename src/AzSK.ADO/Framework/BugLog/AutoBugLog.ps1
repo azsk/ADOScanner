@@ -159,6 +159,9 @@ class AutoBugLog {
                             }
                         }    
                     }
+                }
+                else {
+                    Write-Host "Bug logging is disabled for resources that are not mapped to any service." -ForegroundColor Yellow
                 }    
             }
         }
