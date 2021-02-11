@@ -9,7 +9,7 @@ class Organization: ADOSVTBase
     
     #TODO: testing below line
     hidden [string] $SecurityNamespaceId;
-    Organization([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId,$svtResource) 
+    Organization([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     { 
         $this.GetOrgPolicyObject()
         $this.GetPipelineSettingsObj()
@@ -19,7 +19,7 @@ class Organization: ADOSVTBase
     {
         try
         {   
-            $uri ="https://dev.azure.com/{0}/_settings/organizationPolicy?__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName);
+            $uri ="https://dev.azure.com/{0}/_settings/organizationPolicy?__rt=fps&__ver=2" -f $($this.OrganizationContext.OrganizationName);
             $response = [WebRequestHelper]::InvokeGetWebRequest($uri);
             
             if($response -and [Helpers]::CheckMember($response.fps.dataProviders,"data") -and $response.fps.dataProviders.data.'ms.vss-admin-web.organization-policies-data-provider')
@@ -29,9 +29,9 @@ class Organization: ADOSVTBase
         }
         catch # Added above new api to get User policy settings, old api is not returning. Fallback to old API in catch
         {
-            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/Contribution/dataProviders/query?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/Contribution/dataProviders/query?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
 
-            $orgUrl = "https://dev.azure.com/{0}" -f $($this.SubscriptionContext.SubscriptionName);
+            $orgUrl = "https://dev.azure.com/{0}" -f $($this.OrganizationContext.OrganizationName);
             $inputbody =  "{'contributionIds':['ms.vss-org-web.collection-admin-policy-data-provider'],'context':{'properties':{'sourcePage':{'url':'$orgUrl/_settings/policy','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'policy','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
             $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
             if([Helpers]::CheckMember($responseObj,"data") -and $responseObj.data.'ms.vss-org-web.collection-admin-policy-data-provider')
@@ -43,9 +43,9 @@ class Organization: ADOSVTBase
     
     GetPipelineSettingsObj()
     {
-        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
 
-        $orgUrl = "https://dev.azure.com/{0}" -f $($this.SubscriptionContext.SubscriptionName);
+        $orgUrl = "https://dev.azure.com/{0}" -f $($this.OrganizationContext.OrganizationName);
         #$inputbody =  "{'contributionIds':['ms.vss-org-web.collection-admin-policy-data-provider'],'context':{'properties':{'sourcePage':{'url':'$orgUrl/_settings/policy','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'policy','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
         $inputbody = "{'contributionIds':['ms.vss-build-web.pipelines-org-settings-data-provider'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgUrl/_settings/pipelinessettings','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'pipelinessettings','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
         
@@ -55,7 +55,7 @@ class Organization: ADOSVTBase
             $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
         }
         catch{
-            #Write-Host "Pipeline settings for the organization [$($this.SubscriptionContext.SubscriptionName)] can not be fetched."
+            #Write-Host "Pipeline settings for the organization [$($this.OrganizationContext.OrganizationName)] can not be fetched."
         }
         
       
@@ -68,7 +68,7 @@ class Organization: ADOSVTBase
               }
             }
             catch {
-                #Write-Host "Pipeline settings for the organization [$($this.SubscriptionContext.SubscriptionName)] can not be fetched."
+                #Write-Host "Pipeline settings for the organization [$($this.OrganizationContext.OrganizationName)] can not be fetched."
             }
             
         }
@@ -79,9 +79,9 @@ class Organization: ADOSVTBase
         try
         {
             #api call to get PCSA descriptor which used to get PCSA members api call.
-            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
             $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}' 
-            $body = ($body.Replace("{0}", $this.SubscriptionContext.SubscriptionName)) | ConvertFrom-Json
+            $body = ($body.Replace("{0}", $this.OrganizationContext.OrganizationName)) | ConvertFrom-Json
             $response = [WebRequestHelper]::InvokePostWebRequest($url,$body);    
        
             $accname = "Project Collection Service Accounts"; #Enterprise Service Accounts
@@ -93,10 +93,10 @@ class Organization: ADOSVTBase
                 if(($prcollobj | Measure-Object).Count -gt 0)
                 {
                     #pai call to get PCSA members
-                    $prmemberurl = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+                    $prmemberurl = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
                     $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{1}/_settings/groups?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'
                     $inputbody = $inputbody.Replace("{0}",$prcollobj.descriptor)
-                    $inputbody = $inputbody.Replace("{1}",$this.SubscriptionContext.SubscriptionName) | ConvertFrom-Json
+                    $inputbody = $inputbody.Replace("{1}",$this.OrganizationContext.OrganizationName) | ConvertFrom-Json
                     
                     $responsePrCollObj = [WebRequestHelper]::InvokePostWebRequest($prmemberurl,$inputbody);
                     $responsePrCollData = $responsePrCollObj.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
@@ -144,9 +144,9 @@ class Organization: ADOSVTBase
                 if (($adminGroupNames | Measure-Object).Count -gt 0) 
                 {
                     #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
-                    $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+                    $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
                     $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}' 
-                    $body = ($body.Replace("{0}", $this.SubscriptionContext.SubscriptionName)) | ConvertFrom-Json
+                    $body = ($body.Replace("{0}", $this.OrganizationContext.OrganizationName)) | ConvertFrom-Json
                     $response = [WebRequestHelper]::InvokePostWebRequest($url,$body);    
                     
                     if ($response -and [Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider") 
@@ -166,7 +166,7 @@ class Organization: ADOSVTBase
                                 # [AdministratorHelper]::AllPCAMembers is a static variable. Always needs to be initialized. At the end of each iteration, it will be populated with members of that particular admin group.
                                 [AdministratorHelper]::AllPCAMembers = @();
                                 # Helper function to fetch flattened out list of group members.
-                                [AdministratorHelper]::FindPCAMembers($adminGroups[$i].descriptor, $this.SubscriptionContext.SubscriptionName)
+                                [AdministratorHelper]::FindPCAMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName)
                                 
                                 $groupMembers = @();
                                 # Add the members of current group to this temp variable.
@@ -181,7 +181,7 @@ class Organization: ADOSVTBase
                                 # [AdministratorHelper]::AllPCAMembers is a static variable. Needs to be reinitialized as it might contain group info from the previous for loop.
                                 [AdministratorHelper]::AllPCAMembers = @();
                                 # Helper function to fetch flattened out list of group members.
-                                [AdministratorHelper]::FindPCAMembers($PCSAGroup.descriptor, $this.SubscriptionContext.SubscriptionName)
+                                [AdministratorHelper]::FindPCAMembers($PCSAGroup.descriptor, $this.OrganizationContext.OrganizationName)
 
                                 $groupMembers = @();
                                 # Add the members of current group to this temp variable.
@@ -290,7 +290,7 @@ class Organization: ADOSVTBase
     {
         try 
         {
-            $apiURL = "https://dev.azure.com/{0}/_settings/organizationAad?__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName);
+            $apiURL = "https://dev.azure.com/{0}/_settings/organizationAad?__rt=fps&__ver=2" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             
             if(([Helpers]::CheckMember($responseObj[0],"fps.dataProviders.data") ) -and  (($responseObj[0].fps.dataProviders.data."ms.vss-admin-web.organization-admin-aad-data-provider") -and $responseObj[0].fps.dataProviders.data."ms.vss-admin-web.organization-admin-aad-data-provider".orgnizationTenantData) -and (-not [string]::IsNullOrWhiteSpace($responseObj[0].fps.dataProviders.data."ms.vss-admin-web.organization-admin-aad-data-provider".orgnizationTenantData.domain)))
@@ -402,7 +402,7 @@ class Organization: ADOSVTBase
     {
         try 
         {           
-            $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=4.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+            $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=4.1-preview.1" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             
             if(($responseObj | Measure-Object).Count -gt 0 ) #includes both custom installed and built in extensions.
@@ -636,8 +636,8 @@ class Organization: ADOSVTBase
                                         
                                         if($null -eq $this.sharedExtensionObject)
                                         {
-                                            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
-                                            $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.SubscriptionContext.SubscriptionName);
+                                            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
+                                            $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.OrganizationContext.OrganizationName);
                                             $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
                                             $this.sharedExtensionObject = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
                                         }
@@ -826,13 +826,13 @@ class Organization: ADOSVTBase
     }
 
     hidden [ControlResult] ValidateSharedExtensions([ControlResult] $controlResult)
-    {         
+    {        
         try
         {
             if($null -eq $this.sharedExtensionObject)
             {
-                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
-                $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.SubscriptionContext.SubscriptionName);
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
+                $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.OrganizationContext.OrganizationName);
                 $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
                 $this.sharedExtensionObject = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
             }
@@ -876,7 +876,7 @@ class Organization: ADOSVTBase
     {
         try 
         {
-            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=5.1-preview.3" -f $($this.SubscriptionContext.SubscriptionName);
+            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=5.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL); # returns a maximum of 100 guest users
             $guestUsers = @()
             if(($responseObj -ne $null) -and $responseObj.Count -gt 0 -and ([Helpers]::CheckMember($responseObj[0], 'members')))
@@ -885,7 +885,7 @@ class Organization: ADOSVTBase
                 $continuationToken =  $responseObj[0].continuationToken # Use the continuationToken for pagination
                 while ($continuationToken -ne $null){
                     $urlEncodedToken = [System.Web.HttpUtility]::UrlEncode($continuationToken)
-                    $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?continuationToken=$urlEncodedToken&%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=5.1-preview.3" -f $($this.SubscriptionContext.SubscriptionName);
+                    $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?continuationToken=$urlEncodedToken&%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=5.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
                     try{
                         $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                         $guestUsers += $responseObj[0].members
@@ -910,7 +910,7 @@ class Organization: ADOSVTBase
                     $guestListDetailed = $guestList | ForEach-Object {
                         try{
                             $guestUser = $_ 
-                            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/userentitlements/{1}?api-version=6.0-preview.3" -f $($this.SubscriptionContext.SubscriptionName), $($guestUser.Id);
+                            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/userentitlements/{1}?api-version=6.0-preview.3" -f $($this.OrganizationContext.OrganizationName), $($guestUser.Id);
                             $projectEntitlements = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                             $userProjectEntitlements = $projectEntitlements[0].projectEntitlements
                         }
@@ -958,7 +958,7 @@ class Organization: ADOSVTBase
     hidden [ControlResult] CheckExtensionManagers([ControlResult] $controlResult)
     {
 
-        $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/securityroles/scopes/ems.manage.ui/roleassignments/resources/ems-ui" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/securityroles/scopes/ems.manage.ui/roleassignments/resources/ems-ui" -f $($this.OrganizationContext.OrganizationName);
         
         try 
         {
@@ -999,7 +999,7 @@ class Organization: ADOSVTBase
     {
         try {
             $topInactiveUsers = $this.ControlSettings.Organization.TopInactiveUserCount 
-            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?top={1}&filter=&sortOption=lastAccessDate+ascending" -f $($this.SubscriptionContext.SubscriptionName), $topInActiveUsers;
+            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?top={1}&filter=&sortOption=lastAccessDate+ascending" -f $($this.OrganizationContext.OrganizationName), $topInActiveUsers;
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
             if($responseObj.Count -gt 0)
@@ -1065,7 +1065,7 @@ class Organization: ADOSVTBase
     {
         try 
         {
-            $apiURL = "https://dev.azure.com/{0}/_apis/OrganizationSettings/DisconnectedUser" -f $($this.SubscriptionContext.SubscriptionName);
+            $apiURL = "https://dev.azure.com/{0}/_apis/OrganizationSettings/DisconnectedUser" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             
             #disabling null check to CheckMember because if there are no disconnected users - it will return null.
@@ -1098,10 +1098,10 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
     {
-        $url= "https://vssps.dev.azure.com/{0}/_apis/graph/groups?api-version=5.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+        $url= "https://vssps.dev.azure.com/{0}/_apis/graph/groups?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName);
         $groupsObj = [WebRequestHelper]::InvokeGetWebRequest($url);
 
-        $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?top=50&filter=&sortOption=lastAccessDate+ascending" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?top=50&filter=&sortOption=lastAccessDate+ascending" -f $($this.OrganizationContext.OrganizationName);
         $usersObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
         $Users =  @()
@@ -1130,10 +1130,10 @@ class Organization: ADOSVTBase
     hidden [ControlResult] JustifyGroupMember([ControlResult] $controlResult)
     {   
         $grpmember = @();   
-        $url= "https://vssps.dev.azure.com/{0}/_apis/graph/groups?api-version=5.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+        $url= "https://vssps.dev.azure.com/{0}/_apis/graph/groups?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName);
         $groupsObj = [WebRequestHelper]::InvokeGetWebRequest($url);
          
-        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview" -f $($this.OrganizationContext.OrganizationName);
 
         $membercount =0;
         Foreach ($group in $groupsObj){
@@ -1142,12 +1142,14 @@ class Organization: ADOSVTBase
          $inputbody =  '{"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
         
          $inputbody.dataProviderContext.properties.subjectDescriptor = $descriptor;
-         $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/_settings/groups?subjectDescriptor=$($descriptor)";
+         $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_settings/groups?subjectDescriptor=$($descriptor)";
          $usersObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
 
-         $usersObj.dataProviders."ms.vss-admin-web.org-admin-members-data-provider".identities  | ForEach-Object {
-            $groupmember += $_;
-        }  
+         if([Helpers]::CheckMember($usersObj.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities")) {
+            $usersObj.dataProviders."ms.vss-admin-web.org-admin-members-data-provider".identities  | ForEach-Object {
+                $groupmember += $_;
+            }  
+        }
 
         $grpmember = ($groupmember | Select-Object -Property @{Name="Name"; Expression = {$_.displayName}},@{Name="mailAddress"; Expression = {$_.mailAddress}});
         if ($grpmember -ne $null) {
@@ -1512,7 +1514,7 @@ class Organization: ADOSVTBase
     {
         try
         {
-            $url ="https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=5.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+            $url ="https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);     
             $autoInjExt = @();
             
@@ -1555,7 +1557,7 @@ class Organization: ADOSVTBase
     {
         $TotalPCAMembers=0
         $PCAMembers = @()
-        $PCAMembers += [AdministratorHelper]::GetTotalPCAMembers($this.SubscriptionContext.SubscriptionName)
+        $PCAMembers += [AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName)
         $TotalPCAMembers = ($PCAMembers| Measure-Object).Count
         $PCAMembers = $PCAMembers | Select-Object displayName,mailAddress
         $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization")
@@ -1578,7 +1580,7 @@ class Organization: ADOSVTBase
         
         $TotalPCAMembers=0
         $PCAMembers = @()
-        $PCAMembers += [AdministratorHelper]::GetTotalPCAMembers($this.SubscriptionContext.SubscriptionName)
+        $PCAMembers += [AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName)
         $TotalPCAMembers = ($PCAMembers| Measure-Object).Count
         $PCAMembers = $PCAMembers | Select-Object displayName,mailAddress
         $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization")
@@ -1602,7 +1604,7 @@ class Organization: ADOSVTBase
         
         try
         {
-            $url ="https://auditservice.dev.azure.com/{0}/_apis/audit/streams?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+            $url ="https://auditservice.dev.azure.com/{0}/_apis/audit/streams?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);  
             
             # If no audit streams are configured, 'count' property is available for $responseObj[0] and its value is 0. 
@@ -1649,8 +1651,8 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] ValidateRequestedExtensions([ControlResult] $controlResult)
     {
-        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
-        $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
+        $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.OrganizationContext.OrganizationName);
         $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
         
         try

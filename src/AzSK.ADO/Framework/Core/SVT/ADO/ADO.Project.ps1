@@ -5,7 +5,7 @@ class Project: ADOSVTBase
     hidden $PAMembers = @()
     hidden $Repos = $null
 
-    Project([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId,$svtResource) 
+    Project([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
         $this.Repos = $null
         $this.GetPipelineSettingsObj()
@@ -13,11 +13,11 @@ class Project: ADOSVTBase
 
     GetPipelineSettingsObj()
     {
-        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
         #TODO: testing adding below line commenting above line
-        #$apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+        #$apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
 
-        $orgUrl = "https://dev.azure.com/{0}" -f $($this.SubscriptionContext.SubscriptionName);
+        $orgUrl = "https://dev.azure.com/{0}" -f $($this.OrganizationContext.OrganizationName);
         $projectName = $this.ResourceContext.ResourceName;
         #$inputbody =  "{'contributionIds':['ms.vss-org-web.collection-admin-policy-data-provider'],'context':{'properties':{'sourcePage':{'url':'$orgUrl/_settings/policy','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'policy','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
         $inputbody = "{'contributionIds':['ms.vss-build-web.pipelines-general-settings-data-provider'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgUrl/$projectName/_settings/settings','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$projectName','adminPivot':'settings','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
@@ -230,9 +230,9 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
     {
-        $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.SubscriptionContext.SubscriptionName);
+        $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
         $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
-        $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
+        $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
         $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project =$this.ResourceContext.ResourceName;
 
         $groupsObj = [WebRequestHelper]::InvokePostWebRequest($url,$inputbody); 
@@ -242,10 +242,10 @@ class Project: ADOSVTBase
             $Allgroups += $_;
         }  
 
-        $descrurl ='https://vssps.dev.azure.com/{0}/_apis/graph/descriptors/{1}?api-version=5.0-preview.1' -f $($this.SubscriptionContext.SubscriptionName), $this.ResourceContext.ResourceId.split('/')[-1];
+        $descrurl ='https://vssps.dev.azure.com/{0}/_apis/graph/descriptors/{1}?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.ResourceId.split('/')[-1];
         $descr = [WebRequestHelper]::InvokeGetWebRequest($descrurl);
 
-        $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Graph/Users?scopeDescriptor={1}" -f $($this.SubscriptionContext.SubscriptionName), $descr[0];
+        $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Graph/Users?scopeDescriptor={1}" -f $($this.OrganizationContext.OrganizationName), $descr[0];
         $usersObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
         <# $Users =  @()
@@ -274,9 +274,9 @@ class Project: ADOSVTBase
     hidden [ControlResult] JustifyGroupMember([ControlResult] $controlResult)
     {   
         $grpmember = @();   
-        $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.SubscriptionContext.SubscriptionName);
+        $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
         $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
-        $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
+        $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
         $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project =$this.ResourceContext.ResourceName;
 
         $groupsObj = [WebRequestHelper]::InvokePostWebRequest($url,$inputbody); 
@@ -286,7 +286,7 @@ class Project: ADOSVTBase
             $groups += $_;
         } 
          
-        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview" -f $($this.OrganizationContext.OrganizationName);
 
         $membercount =0;
         Foreach ($group in $groups){
@@ -295,14 +295,16 @@ class Project: ADOSVTBase
          $inputbody =  '{"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
                        
          $inputbody.dataProviderContext.properties.subjectDescriptor = $descriptor;
-         $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ResourceContext.ResourceName)/_settings/permissions?subjectDescriptor=$($descriptor)";
+         $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions?subjectDescriptor=$($descriptor)";
          $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project =$this.ResourceContext.ResourceName;
 
          $usersObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
 
-         $usersObj.dataProviders."ms.vss-admin-web.org-admin-members-data-provider".identities  | ForEach-Object {
-            $groupmember += $_;
-        }  
+         if([Helpers]::CheckMember($usersObj.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities")) {
+            $usersObj.dataProviders."ms.vss-admin-web.org-admin-members-data-provider".identities  | ForEach-Object {
+                $groupmember += $_;
+            }  
+        }
 
         $grpmember = ($groupmember | Select-Object -Property @{Name="Name"; Expression = {$_.displayName}},@{Name="mailAddress"; Expression = {$_.mailAddress}});
         if ($grpmember -ne $null) {
@@ -327,7 +329,7 @@ class Project: ADOSVTBase
     {
         $TotalPAMembers = 0;
         if (($this.PAMembers | Measure-Object).Count -eq 0) {
-            $this.PAMembers += [AdministratorHelper]::GetTotalPAMembers($this.SubscriptionContext.SubscriptionName,$this.ResourceContext.ResourceName)
+            $this.PAMembers += [AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
             $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
         }
         $TotalPAMembers = ($this.PAMembers | Measure-Object).Count
@@ -350,7 +352,7 @@ class Project: ADOSVTBase
     {
         $TotalPAMembers = 0;
         if (($this.PAMembers | Measure-Object).Count -eq 0) {
-            $this.PAMembers += [AdministratorHelper]::GetTotalPAMembers($this.SubscriptionContext.SubscriptionName,$this.ResourceContext.ResourceName)
+            $this.PAMembers += [AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
             $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
         }
         $TotalPAMembers = ($this.PAMembers | Measure-Object).Count
@@ -380,9 +382,9 @@ class Project: ADOSVTBase
                 if (($adminGroupNames | Measure-Object).Count -gt 0) 
                 {
                     #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
-                    $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.SubscriptionContext.SubscriptionName);
+                    $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
                     $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
-                    $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
+                    $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
                     $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
         
                     $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);    
@@ -402,7 +404,7 @@ class Project: ADOSVTBase
                                 # [AdministratorHelper]::AllPAMembers is a static variable. Always needs ro be initialized. At the end of each iteration, it will be populated with members of that particular admin group.
                                 [AdministratorHelper]::AllPAMembers = @();
                                 # Helper function to fetch flattened out list of group members.
-                                [AdministratorHelper]::FindPAMembers($adminGroups[$i].descriptor,  $this.SubscriptionContext.SubscriptionName, $this.ResourceContext.ResourceName)
+                                [AdministratorHelper]::FindPAMembers($adminGroups[$i].descriptor,  $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceName)
                                 
                                 $groupMembers = @();
                                 # Add the members of current group to this temp variable.
@@ -500,7 +502,7 @@ class Project: ADOSVTBase
     {
         try
         {
-            $url = 'https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds?api-version=6.0-preview.1' -f $this.SubscriptionContext.SubscriptionName, $this.ResourceContext.ResourceName;
+            $url = 'https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds?api-version=6.0-preview.1' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceName;
             $feedsObj = [WebRequestHelper]::InvokeGetWebRequest($url); 
 
             $feedsWithUploadPkgPermission = @();
@@ -518,7 +520,7 @@ class Project: ADOSVTBase
                 {
                     #GET https://feeds.dev.azure.com/{organization}/{project}/_apis/packaging/Feeds/{feedId}/permissions?api-version=6.0-preview.1
                     #Using visualstudio api because new api (dev.azure.com) is giving null in the displayName property.
-                    $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.SubscriptionContext.SubscriptionName, $this.ResourceContext.ResourceName, $feed.Id;
+                    $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceName, $feed.Id;
                     $feedPermissionObj = [WebRequestHelper]::InvokeGetWebRequest($url); 
 
                     $feedsPermission = ($feedPermissionObj | Where-Object {$_.role -eq "administrator" -or $_.role -eq "contributor"}) | Select-Object -Property @{Name="FeedName"; Expression = {$feed.name}},@{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}} ;
@@ -554,7 +556,7 @@ class Project: ADOSVTBase
     {
         try
         {
-            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName), $($this.ResourceContext.ResourceName);
+            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
             # TODO: When there are no environments configured, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false. Need to revisit.
@@ -568,7 +570,7 @@ class Project: ADOSVTBase
                 $environmentsWithOpenAccess = @();
                 foreach ($item in $responseObj) 
                 {
-                    $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/environment/{2}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ResourceContext.ResourceDetails.id), $($item.id);
+                    $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/environment/{2}" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceDetails.id), $($item.id);
                     $apiResponse = [WebRequestHelper]::InvokeGetWebRequest($url);
                     if (([Helpers]::CheckMember($apiResponse,"allPipelines")) -and ($apiResponse.allPipelines.authorized -eq $true)) 
                     {
@@ -602,7 +604,7 @@ class Project: ADOSVTBase
     hidden [ControlResult] CheckSecureFilesPermission([ControlResult] $controlResult) {
         # getting the project ID
         $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-        $url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($projectId)/_apis/distributedtask/securefiles?api-version=6.1-preview.1"
+        $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($projectId)/_apis/distributedtask/securefiles?api-version=6.1-preview.1"
         try {
             $response = [WebRequestHelper]::InvokeGetWebRequest($url);
             # check on response object, if null -> no secure files present
@@ -617,7 +619,7 @@ class Project: ADOSVTBase
                     names = @();
                 };
                 foreach ($secFile in $response) {
-                    $url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($projectId)/_apis/build/authorizedresources?type=securefile&id=$($secFile.id)"
+                    $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($projectId)/_apis/build/authorizedresources?type=securefile&id=$($secFile.id)"
                     $resp = [WebRequestHelper]::InvokeGetWebRequest($url);
                     # check if the secure file is authorized
                     if((-not ([Helpers]::CheckMember($resp[0],"count"))) -and ($resp.Count -gt 0)) {
@@ -649,11 +651,11 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckAuthorEmailValidationPolicy([ControlResult] $controlResult) {
         # body for post request
-        $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.SubscriptionContext.SubscriptionName);
+        $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
         $inputbody = '{"contributionIds":["ms.vss-code-web.repository-policies-data-provider"],"dataProviderContext":{"properties":{"projectId": "","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
         $inputbody.dataProviderContext.properties.projectId = "$($this.ResourceContext.ResourceDetails.id)"
         $inputbody.dataProviderContext.properties.sourcePage.routeValues.project = "$($this.ResourceContext.ResourceName)"
-        $inputbody.dataProviderContext.properties.sourcePage.url = "https://$($this.SubscriptionContext.SubscriptionName).visualstudio.com/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=policies"
+        $inputbody.dataProviderContext.properties.sourcePage.url = "https://$($this.OrganizationContext.OrganizationName).visualstudio.com/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=policies"
 
         try {
             $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
@@ -705,11 +707,11 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckCredentialsAndSecretsPolicy([ControlResult] $controlResult) {
         # body for post request
-        $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.SubscriptionContext.SubscriptionName);
+        $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
         $inputbody = '{"contributionIds":["ms.vss-code-web.repository-policies-data-provider"],"dataProviderContext":{"properties":{"projectId": "","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
         $inputbody.dataProviderContext.properties.projectId = "$($this.ResourceContext.ResourceDetails.id)"
         $inputbody.dataProviderContext.properties.sourcePage.routeValues.project = "$($this.ResourceContext.ResourceName)"
-        $inputbody.dataProviderContext.properties.sourcePage.url = "https://$($this.SubscriptionContext.SubscriptionName).visualstudio.com/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=policies"
+        $inputbody.dataProviderContext.properties.sourcePage.url = "https://$($this.OrganizationContext.OrganizationName).visualstudio.com/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=policies"
         
         try {
             $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
@@ -744,7 +746,7 @@ class Project: ADOSVTBase
     hidden [PSObject] FetchRepositoriesList() {
         if($null -eq $this.Repos) {
             # fetch repositories
-            $repoDefnURL = ("https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ResourceContext.ResourceName)/_apis/git/repositories?api-version=6.0")
+            $repoDefnURL = ("https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/git/repositories?api-version=6.0")
             try {
                 $repoDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($repoDefnURL);
                 $this.Repos = $repoDefnsObj;
@@ -766,7 +768,7 @@ class Project: ADOSVTBase
                     $currentDate = Get-Date
                     # check if repo has commits in past RepoHistoryPeriodInDays days
                     $thresholdDate = $currentDate.AddDays(-$threshold);
-                    $url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ResourceContext.ResourceName)/_apis/git/repositories/$($repo.id)/commits?searchCriteria.fromDate=$($thresholdDate)&&api-version=6.0"
+                    $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/git/repositories/$($repo.id)/commits?searchCriteria.fromDate=$($thresholdDate)&&api-version=6.0"
                     try{
                         $res = [WebRequestHelper]::InvokeGetWebRequest($url);
                         # When there are no commits, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false.
@@ -800,8 +802,8 @@ class Project: ADOSVTBase
         #permissionSetId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
         try{
 
-            $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.SubscriptionContext.SubscriptionName);
-            $refererUrl = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=permissions";
+            $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+            $refererUrl = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=permissions";
             $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
             $inputbody.dataProviderContext.properties.sourcePage.url = $refererUrl
             $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
@@ -865,7 +867,7 @@ class Project: ADOSVTBase
             $failedRepos = @()
             $passedRepos = @()
             foreach ($repo in $repoDefnsObj) {
-                $url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1"
+                $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1"
                 $body = "{
                     'contributionIds': [
                         'ms.vss-admin-web.security-view-data-provider'
@@ -889,7 +891,7 @@ class Project: ADOSVTBase
                     }
                 }" | ConvertFrom-Json
                 $body.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($repo.id)"
-                $body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$projectId/_settings/repositories?repo=/$($repo.id)&_a=permissionsMid";
+                $body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$projectId/_settings/repositories?repo=/$($repo.id)&_a=permissionsMid";
                 $body.dataProviderContext.properties.sourcePage.routeValues.project = "$projectId";
                 $response = ""
                 try {

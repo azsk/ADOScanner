@@ -2,8 +2,8 @@ Set-StrictMode -Version Latest
 
 class ScanInfoBase {
     [ScanInfoVersion] $ScanInfoVersion;
-    [string] $SubscriptionId;
-    [string] $SubscriptionName;
+    [string] $OrganizationId;
+    [string] $OrganizationName;
     [ScanSource] $Source;
     [string] $ScannerVersion;
     [string] $ControlVersion;
@@ -39,7 +39,7 @@ class ControlResultBase {
 	[int] $MaximumAllowedGraceDays=0;
 }
 
-class SubscriptionControlResult : ControlResultBase {
+class OrganizationControlResult : ControlResultBase {
 }
 
 class ServiceControlResult : ControlResultBase {
@@ -47,9 +47,9 @@ class ServiceControlResult : ControlResultBase {
     [string] $NestedResourceName;
 }
 
-class SubscriptionScanInfo : ScanInfoBase {
-    [SubscriptionScanKind] $ScanKind;
-    [SubscriptionControlResult[]] $ControlResults;
+class OrganizationScanInfo : ScanInfoBase {
+    [OrganizationScanKind] $ScanKind;
+    [OrganizationControlResult[]] $ControlResults;
 }
 
 class ServiceScanInfo : ScanInfoBase {

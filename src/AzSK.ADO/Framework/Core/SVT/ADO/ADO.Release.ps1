@@ -6,22 +6,39 @@ class Release: ADOSVTBase
     hidden [string] $ProjectId;
     hidden static [string] $securityNamespaceId = $null;
     hidden static [PSObject] $ReleaseVarNames = @{};
+    hidden [PSObject] $releaseActivityDetail = @{isReleaseActive = $true; latestReleaseTriggerDate = $null; releaseCreationDate = $null; message = $null; isComputed = $false};
     
-    Release([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId,$svtResource) 
+    Release([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
         [system.gc]::Collect();
         # Get release object
         $releaseId =  ($this.ResourceContext.ResourceId -split "release/")[-1]
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-        $apiURL = "https://vsrm.dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ProjectId)/_apis/Release/definitions/$releaseId"
+        $apiURL = "https://vsrm.dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ProjectId)/_apis/Release/definitions/$releaseId"
         $this.ReleaseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
         # Get security namespace identifier of current release pipeline.
         if ([string]::IsNullOrEmpty([Release]::SecurityNamespaceId)) {
-            $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=5.0" -f $($this.SubscriptionContext.SubscriptionName)
+            $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=5.0" -f $($this.OrganizationContext.OrganizationName)
             $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             [Release]::SecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ReleaseManagement") -and ($_.actions.name -contains "ViewReleaseDefinition")}).namespaceId
     
             $securityNamespacesObj = $null;
+        }
+
+        # if release activity check function is not computed, then first compute the function to get the correct status of release.
+        if($this.releaseActivityDetail.isComputed -eq $false)
+        {
+            $this.CheckActiveReleases()
+        }
+
+        # overiding the '$this.isResourceActive' global variable based on the current status of release.
+        if ($this.releaseActivityDetail.isReleaseActive)
+        {
+            $this.isResourceActive = $true
+        }
+        else
+        {
+            $this.isResourceActive = $false
         }
     }
 
@@ -148,7 +165,7 @@ class Release: ADOSVTBase
                             $varGrps | ForEach-Object {
                                 try
                                 {
-                                    $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}") -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId, $_;
+                                    $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}") -f $($this.OrganizationContext.OrganizationName), $this.ProjectId, $_;
                                     $varGrpObj += [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
                                 }
                                 catch
@@ -239,111 +256,78 @@ class Release: ADOSVTBase
 
     hidden [ControlResult] CheckForInactiveReleases([ControlResult] $controlResult)
     {        
-        if($this.ReleaseObj)
+        try
         {
-            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName),$this.ProjectId;
-            $inputbody =  "{
-                'contributionIds': [
-                    'ms.vss-releaseManagement-web.releases-list-data-provider'
-                ],
-                'dataProviderContext': {
-                    'properties': {
-                        'definitionIds': '$($this.ReleaseObj.id)',
-                        'definitionId': '$($this.ReleaseObj.id)',
-                        'fetchAllReleases': true,
-                        'sourcePage': {
-                            'url': 'https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ResourceContext.ResourceGroupName)/_release?_a=releases&view=mine&definitionId=$($this.ReleaseObj.id)',
-                            'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
-                            'routeValues': {
-                                'project': '$($this.ResourceContext.ResourceGroupName)',
-                                'viewname': 'hub-explorer-3-view',
-                                'controller': 'ContributedPage',
-                                'action': 'Execute'
-                            }
-                        }
-                    }
-                }
-            }"  | ConvertFrom-Json 
-
-        $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
-
-        if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider')
-        {
-
-            $releases = $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider'.releases
-
-            if(($releases | Measure-Object).Count -gt 0 )
+            if ($this.releaseActivityDetail.message -eq 'Could not fetch release details.')
             {
-                $recentReleases = @()
-                 $releases | ForEach-Object { 
-                    if([datetime]::Parse( $_.createdOn) -gt (Get-Date).AddDays(-$($this.ControlSettings.Release.ReleaseHistoryPeriodInDays)))
-                    {
-                        $recentReleases+=$_
-                    }
-                }
-                
-                if(($recentReleases | Measure-Object).Count -gt 0 )
-                {
-                    $controlResult.AddMessage([VerificationResult]::Passed,
-                    "Found recent releases triggered within $($this.ControlSettings.Release.ReleaseHistoryPeriodInDays) days");
-                }
-                else
-                {
-                    $controlResult.AddMessage([VerificationResult]::Failed,
-                    "No recent release history found in last $($this.ControlSettings.Release.ReleaseHistoryPeriodInDays) days");
-                }
-                $latestReleaseCreationDate = [datetime]::Parse($releases[0].createdOn);
-                $controlResult.AddMessage("Last release date of pipeline: $($latestReleaseCreationDate)");
-                $controlResult.AdditionalInfo += "Last release date of pipeline: " + $latestReleaseCreationDate;
+                $controlResult.AddMessage([VerificationResult]::Error, $this.releaseActivityDetail.message);
+            }
+            elseif ($this.releaseActivityDetail.isReleaseActive)
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, $this.releaseActivityDetail.message);
             }
             else
             {
-                $inactiveLimit = $this.ControlSettings.Release.ReleaseHistoryPeriodInDays
-                [datetime]$createdDate = $this.ReleaseObj.createdOn
-                if ((((Get-Date) - $createdDate).Days) -lt $inactiveLimit)
+                if ($null -ne $this.releaseActivityDetail.releaseCreationDate)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "Release was created within last $inactiveLimit days but never triggered.");
+                    $inactiveLimit = $this.ControlSettings.Release.ReleaseHistoryPeriodInDays
+                    if ((((Get-Date) - $this.releaseActivityDetail.releaseCreationDate).Days) -lt $inactiveLimit)
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Release was created within last $inactiveLimit days but never triggered.");
+                    }
+                    else 
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed, $this.releaseActivityDetail.message);
+                    }
+                    $controlResult.AddMessage("The release pipeline was created on: $($this.releaseActivityDetail.releaseCreationDate)");
+                    $controlResult.AdditionalInfo += "The release pipeline was created on: " + $this.releaseActivityDetail.releaseCreationDate;
                 }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Failed,
-                    "No release history found.");
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, $this.releaseActivityDetail.message);
                 }
             }
-           
+
+            if ($null -ne $this.releaseActivityDetail.latestReleaseTriggerDate)
+            {
+                $controlResult.AddMessage("Last release date of pipeline: $($this.releaseActivityDetail.latestReleaseTriggerDate)");
+                $controlResult.AdditionalInfo += "Last release date of pipeline: " + $this.releaseActivityDetail.latestReleaseTriggerDate;
+            }
         }
-        else {
-            $controlResult.AddMessage([VerificationResult]::Failed,
-                                                "No release history found. Release is inactive.");
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch release details.");
         }
 
         # below code provide the details of build artifacts associated with release pipeline
-        if([Helpers]::CheckMember($this.ReleaseObj[0], "artifacts.definitionReference.definition"))
+        if ($this.ReleaseObj)
         {
-            #$associatedBuildArtifacts = $this.ReleaseObj[0].artifacts | where-object {$_.type -eq "Build"}
-            $allArtifacts = $this.ReleaseObj[0].artifacts | Select-Object @{Label="Type"; Expression={$_.type}},  @{Label="Id"; Expression={$_.definitionReference.definition.id}}, @{Label="Name"; Expression={$_.definitionReference.definition.name}}
-            $buildArtifacts = $allArtifacts | where-object {$_.Type -eq "Build"}
-            $otherArtifacts = $allArtifacts | where-object {$_.Type -ne "Build"}
-            if(($null -ne $buildArtifacts) -and ($buildArtifacts | Measure-Object).Count -gt 0)
+            if([Helpers]::CheckMember($this.ReleaseObj[0], "artifacts.definitionReference.definition"))
             {
-                $controlResult.AddMessage("Build artifacts associated with release pipeline: ", $buildArtifacts);
-                $controlResult.AdditionalInfo += "Build artifacts associated with release pipeline: " + [JsonHelper]::ConvertToJsonCustomCompressed($buildArtifacts);
-            }
-            if(($null -ne $otherArtifacts) -and ($otherArtifacts | Measure-Object).Count -gt 0)
-            {
-                $controlResult.AddMessage("Other artifacts associated with release pipeline: ", $otherArtifacts);
-                $controlResult.AdditionalInfo += "Other artifacts associated with release pipeline: " + [JsonHelper]::ConvertToJsonCustomCompressed($otherArtifacts);
+                #$associatedBuildArtifacts = $this.ReleaseObj[0].artifacts | where-object {$_.type -eq "Build"}
+                $allArtifacts = $this.ReleaseObj[0].artifacts | Select-Object @{Label="Type"; Expression={$_.type}},  @{Label="Id"; Expression={$_.definitionReference.definition.id}}, @{Label="Name"; Expression={$_.definitionReference.definition.name}}
+                $buildArtifacts = $allArtifacts | where-object {$_.Type -eq "Build"}
+                $otherArtifacts = $allArtifacts | where-object {$_.Type -ne "Build"}
+                if(($null -ne $buildArtifacts) -and ($buildArtifacts | Measure-Object).Count -gt 0)
+                {
+                    $controlResult.AddMessage("Build artifacts associated with release pipeline: ", $buildArtifacts);
+                    $controlResult.AdditionalInfo += "Build artifacts associated with release pipeline: " + [JsonHelper]::ConvertToJsonCustomCompressed($buildArtifacts);
+                }
+                if(($null -ne $otherArtifacts) -and ($otherArtifacts | Measure-Object).Count -gt 0)
+                {
+                    $controlResult.AddMessage("Other artifacts associated with release pipeline: ", $otherArtifacts);
+                    $controlResult.AdditionalInfo += "Other artifacts associated with release pipeline: " + [JsonHelper]::ConvertToJsonCustomCompressed($otherArtifacts);
+                }
             }
         }
 
-        $responseObj = $null;
-    } 
         return $controlResult
     }
 
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult)
     {
         # Here 'permissionSet' = security namespace identifier, 'token' = project id
-        $apiURL = "https://dev.azure.com/{0}/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&style=min" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $([Release]::SecurityNamespaceId), $($this.ProjectId), $($this.ReleaseObj.id);
+        $apiURL = "https://dev.azure.com/{0}/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&style=min" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $([Release]::SecurityNamespaceId), $($this.ProjectId), $($this.ReleaseObj.id);
         $header = [WebRequestHelper]::GetAuthHeaderFromUri($apiURL);
         $responseObj = Invoke-RestMethod -Method Get -Uri $apiURL -Headers $header -UseBasicParsing
         $responseObj = ($responseObj.SelectNodes("//script") | Where-Object { $_.class -eq "permissions-context" }).InnerXML | ConvertFrom-Json; 
@@ -454,7 +438,7 @@ class Release: ADOSVTBase
         {
             # This functions is to check users permissions on release definition. Groups' permissions check is not added here.
             $releaseDefinitionPath = $this.ReleaseObj.Path.Trim("\").Replace(" ","+").Replace("\","%2F")
-            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/ReadExplicitIdentitiesJson?__v=5&permissionSetId={2}&permissionSetToken={3}%2F{4}%2F{5}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath) ,$($this.ReleaseObj.id);
+            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/ReadExplicitIdentitiesJson?__v=5&permissionSetId={2}&permissionSetToken={3}%2F{4}%2F{5}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath) ,$($this.ReleaseObj.id);
 
             $sw = [System.Diagnostics.Stopwatch]::StartNew();
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
@@ -498,7 +482,7 @@ class Release: ADOSVTBase
                         $identity = $_ 
                         if($exemptedUserIdentities -notcontains $identity.TeamFoundationId)
                         {
-                            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($identity.TeamFoundationId) ,$([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath), $($this.ReleaseObj.id);
+                            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($identity.TeamFoundationId) ,$([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath), $($this.ReleaseObj.id);
                             $identityPermissions = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                             $configuredPermissions = $identityPermissions.Permissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
                             return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.IdentityType; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
@@ -507,7 +491,7 @@ class Release: ADOSVTBase
 
                     $accessList += $responseObj.identities | Where-Object { $_.IdentityType -eq "group" } | ForEach-Object {
                         $identity = $_ 
-                        $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($identity.TeamFoundationId) ,$([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath), $($this.ReleaseObj.id);
+                        $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($identity.TeamFoundationId) ,$([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath), $($this.ReleaseObj.id);
                         $identityPermissions = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                         $configuredPermissions = $identityPermissions.Permissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
                         return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.IdentityType; IsAadGroup = $identity.IsAadGroup ;Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
@@ -711,14 +695,14 @@ class Release: ADOSVTBase
         
         if(($taskGroups | Measure-Object).Count -gt 0)
         {   
-            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName)
+            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName)
             $projectName = $this.ResourceContext.ResourceGroupName
             
             try
             {
                 $taskGroups | ForEach-Object {
                     $taskGrpId = $_.taskId
-                    $taskGrpURL="https://dev.azure.com/{0}/{1}/_taskgroup/{2}" -f $($this.SubscriptionContext.SubscriptionName), $($projectName), $($taskGrpId)
+                    $taskGrpURL="https://dev.azure.com/{0}/{1}/_taskgroup/{2}" -f $($this.OrganizationContext.OrganizationName), $($projectName), $($taskGrpId)
                     $permissionSetToken = "$($this.projectId)/$taskGrpId"
                     
                     #permissionSetId = 'f6a4de49-dbe2-4704-86dc-f8ec1a294436' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
@@ -848,7 +832,7 @@ class Release: ADOSVTBase
             try
             {   
                 $varGrps | ForEach-Object{
-                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($_);
+                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($_);
                     $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
                     if(($responseObj | Measure-Object).Count -gt 0)
                     {
@@ -856,7 +840,7 @@ class Release: ADOSVTBase
                         if((-not [string]::IsNullOrEmpty($contributorsObj)) -and ($contributorsObj.role.name -ne 'Reader')){
                             
                             #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
-                            $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}") -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($_);
+                            $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($_);
                             $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
                             
                             $editableVarGrps += $varGrpObj[0].name
@@ -892,7 +876,7 @@ class Release: ADOSVTBase
     hidden [ControlResult] CheckPipelineEditPermission([ControlResult] $controlResult)
     {
 
-        $orgName = $($this.SubscriptionContext.SubscriptionName)
+        $orgName = $($this.OrganizationContext.OrganizationName)
         $projectName = $this.ResourceContext.ResourceGroupName
         $releaseId = $this.ReleaseObj.id
         $permissionSetToken = "$($this.projectId)/$releaseId"
@@ -994,5 +978,91 @@ class Release: ADOSVTBase
         }
 
         return $controlResult;
+    }
+
+    hidden CheckActiveReleases()
+    {
+        try
+        {
+            if($this.ReleaseObj)
+            {
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$this.ProjectId;
+                $inputbody =  "{
+                    'contributionIds': [
+                        'ms.vss-releaseManagement-web.releases-list-data-provider'
+                    ],
+                    'dataProviderContext': {
+                        'properties': {
+                            'definitionIds': '$($this.ReleaseObj.id)',
+                            'definitionId': '$($this.ReleaseObj.id)',
+                            'fetchAllReleases': true,
+                            'sourcePage': {
+                                'url': 'https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceGroupName)/_release?_a=releases&view=mine&definitionId=$($this.ReleaseObj.id)',
+                                'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
+                                'routeValues': {
+                                    'project': '$($this.ResourceContext.ResourceGroupName)',
+                                    'viewname': 'hub-explorer-3-view',
+                                    'controller': 'ContributedPage',
+                                    'action': 'Execute'
+                                }
+                            }
+                        }
+                    }
+                }"  | ConvertFrom-Json 
+
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+
+            if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider')
+            {
+
+                $releases = $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider'.releases
+
+                if(($releases | Measure-Object).Count -gt 0 )
+                {
+                    $recentReleases = @()
+                    $releases | ForEach-Object { 
+                        if([datetime]::Parse( $_.createdOn) -gt (Get-Date).AddDays(-$($this.ControlSettings.Release.ReleaseHistoryPeriodInDays)))
+                        {
+                            $recentReleases+=$_
+                        }
+                    }
+                    
+                    if(($recentReleases | Measure-Object).Count -gt 0 )
+                    {
+                        $this.releaseActivityDetail.isReleaseActive = $true;
+                        $this.releaseActivityDetail.message = "Found recent releases triggered within $($this.ControlSettings.Release.ReleaseHistoryPeriodInDays) days";
+                    }
+                    else
+                    {
+                        $this.releaseActivityDetail.isReleaseActive = $false;
+                        $this.releaseActivityDetail.message = "No recent release history found in last $($this.ControlSettings.Release.ReleaseHistoryPeriodInDays) days";
+                    }
+                    $latestReleaseTriggerDate = [datetime]::Parse($releases[0].createdOn);
+                    $this.releaseActivityDetail.latestReleaseTriggerDate = $latestReleaseTriggerDate;
+                }
+                else
+                {
+                    # no release history ever.
+                    $this.releaseActivityDetail.isReleaseActive = $false;
+                    [datetime] $createdDate = $this.ReleaseObj.createdOn
+                    $this.releaseActivityDetail.releaseCreationDate = $createdDate
+                    $this.releaseActivityDetail.message = "No release history found.";
+                }
+            
+            }
+            else
+            {
+                $this.releaseActivityDetail.isReleaseActive = $false;
+                $this.releaseActivityDetail.message = "No release history found. Release is inactive.";
+            }
+
+            $responseObj = $null;
+            }
+        }
+        catch
+        {
+            $this.releaseActivityDetail.message = "Could not fetch release details.";
+        }
+        $this.releaseActivityDetail.isComputed = $true
     }
 }

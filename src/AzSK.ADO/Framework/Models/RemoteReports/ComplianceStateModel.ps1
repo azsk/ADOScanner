@@ -3,7 +3,7 @@ Set-StrictMode -Version Latest
 #ADOCleanup: Remove this...not needed for ADOScanner.
 class ComplianceStateTableEntity
 {
-	#partition key = resourceid/subscriptionid
+	#partition key = resourceid/OrganizationId
 	[string] $PartitionKey; 
 	#row key = controlid
     [string] $RowKey;	

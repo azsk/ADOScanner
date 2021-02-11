@@ -64,7 +64,7 @@ enum ScanSource
 enum FeatureGroup
 {
 	Unknown
-    Subscription
+    Organization
     Service
 }
 
@@ -72,10 +72,10 @@ enum ServiceScanKind
 {
     Partial
     ResourceGroup
-    Subscription
+    Organization
 }
 
-enum SubscriptionScanKind
+enum OrganizationScanKind
 {
     Partial
     Complete
@@ -105,7 +105,7 @@ enum CAReportsLocation
 
 enum InfoType
 {
-	SubscriptionInfo
+	OrganizationInfo
 	ControlInfo
 	HostInfo
 	AttestationInfo
@@ -168,4 +168,22 @@ enum AIOrgTelemetryStatus
 	Undefined
 	Enabled
 	Disabled
+}
+
+enum BugLogForControls 
+{
+	All
+	BaselineControls
+	PreviewBaselineControls
+	Custom
+}
+
+enum SecuritySeverity 
+{
+	Critical
+	High
+	Important
+	Moderate
+	Medium
+	Low
 }

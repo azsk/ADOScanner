@@ -85,7 +85,7 @@ class WebhookOutput: ListenerBase
 		[PSObject[]] $output = @();
 		[array] $eventContext.ControlResults | ForEach-Object{
 			Set-Variable -Name ControlResult -Value $_ -Scope Local
-			$out = "" | Select-Object ResourceType, ResourceGroup, Reference, ResourceName, ChildResourceName, ControlStatus, ActualVerificationResult, ControlId, SubscriptionName, SubscriptionId, FeatureName, Source, Recommendation, ControlSeverity, TimeTakenInMs, AttestationStatus, AttestedBy, Justification
+			$out = "" | Select-Object ResourceType, ResourceGroup, Reference, ResourceName, ChildResourceName, ControlStatus, ActualVerificationResult, ControlId, OrganizationName, OrganizationId, FeatureName, Source, Recommendation, ControlSeverity, TimeTakenInMs, AttestationStatus, AttestedBy, Justification
 			if($eventContext.IsResource())
 			{
 				$out.ResourceType=$eventContext.ResourceContext.ResourceType
@@ -98,8 +98,8 @@ class WebhookOutput: ListenerBase
 			$out.ControlStatus=$ControlResult.VerificationResult.ToString()
 			$out.ActualVerificationResult=$ControlResult.ActualVerificationResult.ToString()
 			$out.ControlId=$eventContext.ControlItem.ControlID
-			$out.SubscriptionName=$eventContext.SubscriptionContext.SubscriptionName
-			$out.SubscriptionId=$eventContext.SubscriptionContext.SubscriptionId
+			$out.OrganizationName=$eventContext.OrganizationContext.OrganizationName
+			$out.OrganizationId=$eventContext.OrganizationContext.OrganizationId
 			$out.FeatureName=$eventContext.FeatureName
 			$out.Recommendation=$eventContext.ControlItem.Recommendation
 			$out.ControlSeverity=$eventContext.ControlItem.ControlSeverity.ToString()

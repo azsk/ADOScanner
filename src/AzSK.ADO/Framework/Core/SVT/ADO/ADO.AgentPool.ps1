@@ -6,14 +6,30 @@ class AgentPool: ADOSVTBase
     hidden [PSObject] $ProjectId;
     hidden [PSObject] $AgentPoolId;
     hidden [PSObject] $agentPool; # This is used to fetch agent details in pool
+    hidden [PSObject] $agentPoolActivityDetail = @{isAgentPoolActive = $true; agentPoolLastRunDate = $null; agentPoolCreationDate = $null; message = $null; isComputed = $false};
     
-    AgentPool([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId,$svtResource) 
+    AgentPool([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
         $this.AgentPoolId =  ($this.ResourceContext.ResourceId -split "agentpool/")[-1]
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-        $apiURL = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($this.ProjectId)_$($this.AgentPoolId)";
+        $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($this.ProjectId)_$($this.AgentPoolId)";
         $this.AgentObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
+        # if agent pool activity check function is not computed, then first compute the function to get the correct status of agent pool.
+        if($this.agentPoolActivityDetail.isComputed -eq $false)
+        {
+            $this.CheckActiveAgentPool()
+        }
+
+        # overiding the '$this.isResourceActive' global variable based on the current status of agent pool.
+        if ($this.agentPoolActivityDetail.isAgentPoolActive)
+        {
+            $this.isResourceActive = $true
+        }
+        else
+        {
+            $this.isResourceActive = $false
+        }
     }
 
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
@@ -64,7 +80,7 @@ class AgentPool: ADOSVTBase
     {
         try {
             #Only agent pools created from org setting has this settings..
-            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $($this.SubscriptionContext.SubscriptionName), $this.ResourceContext.resourcename;
+            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
               
             if ((($agentPoolsObj | Measure-Object).Count -gt 0) -and $agentPoolsObj.autoProvision -eq $true) {
@@ -87,7 +103,7 @@ class AgentPool: ADOSVTBase
         try
         {
             #autoUpdate setting is available only at org level settings.
-            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $($this.SubscriptionContext.SubscriptionName), $this.ResourceContext.resourcename;
+            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
               
             if([Helpers]::CheckMember($agentPoolsObj,"autoUpdate"))
@@ -120,7 +136,7 @@ class AgentPool: ADOSVTBase
     hidden [ControlResult] CheckPrjAllPipelineAccess([ControlResult] $controlResult)
     {
         try {
-            $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=queue&id={2}" -f $($this.SubscriptionContext.SubscriptionName),$this.ProjectId ,$this.AgentPoolId;
+            $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=queue&id={2}" -f $($this.OrganizationContext.OrganizationName),$this.ProjectId ,$this.AgentPoolId;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
                                    
             if([Helpers]::CheckMember($agentPoolsObj,"authorized") -and $agentPoolsObj.authorized)
@@ -143,76 +159,45 @@ class AgentPool: ADOSVTBase
     {
         try 
         {   
-            if($null -eq  $this.agentPool)
+            if ($this.agentPoolActivityDetail.message -eq 'Could not fetch agent pool details.')
             {
-                $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId ,$this.AgentPoolId;
-                $this.agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
+                $controlResult.AddMessage([VerificationResult]::Error, $this.agentPoolActivityDetail.message);
             }
-            if (([Helpers]::CheckMember($this.agentPool[0], "fps.dataProviders.data") ) -and ($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider")) 
+            elseif($this.agentPoolActivityDetail.isAgentPoolActive)
             {
-                # $inactiveLimit denotes the upper limit on number of days of inactivity before the agent pool is deemed inactive.
-                $inactiveLimit = $this.ControlSettings.AgentPool.AgentPoolHistoryPeriodInDays
-                #Filtering agent pool jobs specific to the current project.
-                $agentPoolJobs = $this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs | Where-Object {$_.scopeId -eq $this.ProjectId};
-                 #Arranging in descending order of run time.
-                $agentPoolJobs = $agentPoolJobs | Sort-Object queueTime -Descending
-                #If agent pool has been queued at least once
-                if (($agentPoolJobs | Measure-Object).Count -gt 0) 
+                $controlResult.AddMessage([VerificationResult]::Passed, $this.agentPoolActivityDetail.message);
+            }
+            else
+            {
+                if ($null -ne $this.agentPoolActivityDetail.agentPoolCreationDate)
                 {
-                        #Get the last queue timestamp of the agent pool
-                        if ([Helpers]::CheckMember($agentPoolJobs[0], "finishTime")) 
-                        {
-                            $agtPoolLastRunDate = $agentPoolJobs[0].finishTime;
-                            
-                            if ((((Get-Date) - $agtPoolLastRunDate).Days) -gt $inactiveLimit)
-                            {
-                                $controlResult.AddMessage([VerificationResult]::Failed, "Agent pool has not been queued in the last $inactiveLimit days.");
-                            }
-                            else 
-                            {
-                                $controlResult.AddMessage([VerificationResult]::Passed,"Agent pool has been queued in the last $inactiveLimit days.");
-                            }
-                            $controlResult.AddMessage("Last queue date of agent pool: $($agtPoolLastRunDate)");
-                            $controlResult.AdditionalInfo += "Last queue date of agent pool: " + $agtPoolLastRunDate;
-                        }
-                        else 
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Passed,"Agent pool was being queued during control evaluation.");
-                        }
-                }
-                else 
-                {
-                    #[else] Agent pool is created but nenver run, check creation date greated then 180
-                    if (([Helpers]::CheckMember($this.agentPool, "fps.dataProviders.data") ) -and ($this.agentPool.fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider")) 
+                    $inactiveLimit = $this.ControlSettings.AgentPool.AgentPoolHistoryPeriodInDays
+                    if ((((Get-Date) - $this.agentPoolActivityDetail.agentPoolCreationDate).Days) -lt $inactiveLimit)
                     {
-                        $agentPoolDetails = $this.agentPool.fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider"
-                        
-                        if ((((Get-Date) - $agentPoolDetails.selectedAgentPool.createdOn).Days) -lt $inactiveLimit)
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Passed, "Agent pool was created within last $inactiveLimit days but never queued.");
-                        }
-                        else 
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Failed, "Agent pool has not been queued from last $inactiveLimit days.");
-                        }
-                        $agtPoolCreationDate = $agentPoolDetails.selectedAgentPool.createdOn;
-                        $controlResult.AddMessage("The agent pool was created on: $($agtPoolCreationDate)");
-                        $controlResult.AdditionalInfo += "The agent pool was created on: " + $agtPoolCreationDate;
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Agent pool was created within last $inactiveLimit days but never queued.");
                     }
                     else 
                     {
-                        $controlResult.AddMessage([VerificationResult]::Error, "Agent pool details not found. Verify agent pool manually.");
-                    }                    
-                } 
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Agent pool has not been queued from last $inactiveLimit days.");
+                    }
+                    $controlResult.AddMessage("The agent pool was created on: $($this.agentPoolActivityDetail.agentPoolCreationDate)");
+                    $controlResult.AdditionalInfo += "The agent pool was created on: " + $this.agentPoolActivityDetail.agentPoolCreationDate;
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, $this.agentPoolActivityDetail.message);
+                }
             }
-            else 
-            { 
-                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch agent pool queue history.");
+
+            if ($null -ne $this.agentPoolActivityDetail.agentPoolLastRunDate)
+            {
+                $controlResult.AddMessage("Last queue date of agent pool: $($this.agentPoolActivityDetail.agentPoolLastRunDate)");
+                $controlResult.AdditionalInfo += "Last queue date of agent pool: " + $this.agentPoolActivityDetail.agentPoolLastRunDate;
             }
         }
         catch 
         {
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch agent pool queue history.");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch agent pool details.");
         }
         #clearing memory space.
         $this.agentPool = $null;
@@ -225,7 +210,7 @@ class AgentPool: ADOSVTBase
         {   
             if($null -eq  $this.agentPool)
             {
-                $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.SubscriptionContext.SubscriptionName), $this.ProjectId ,$this.AgentPoolId;
+                $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.OrganizationContext.OrganizationName), $this.ProjectId ,$this.AgentPoolId;
                 $this.agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
             }                 
             
@@ -306,5 +291,72 @@ class AgentPool: ADOSVTBase
         #clearing memory space.
         $this.agentPool = $null;
         return $controlResult
+    }
+
+    hidden CheckActiveAgentPool()
+    {
+        try 
+        {
+            $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.OrganizationContext.OrganizationName), $this.ProjectId ,$this.AgentPoolId;
+            $this.agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
+            if (([Helpers]::CheckMember($this.agentPool[0], "fps.dataProviders.data") ) -and ($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider")) 
+            {
+                # $inactiveLimit denotes the upper limit on number of days of inactivity before the agent pool is deemed inactive.
+                $inactiveLimit = $this.ControlSettings.AgentPool.AgentPoolHistoryPeriodInDays
+                #Filtering agent pool jobs specific to the current project.
+                $agentPoolJobs = $this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs | Where-Object {$_.scopeId -eq $this.ProjectId};
+                 #Arranging in descending order of run time.
+                $agentPoolJobs = $agentPoolJobs | Sort-Object queueTime -Descending
+                #If agent pool has been queued at least once
+                if (($agentPoolJobs | Measure-Object).Count -gt 0) 
+                {
+                        #Get the last queue timestamp of the agent pool
+                        if ([Helpers]::CheckMember($agentPoolJobs[0], "finishTime")) 
+                        {
+                            $agtPoolLastRunDate = $agentPoolJobs[0].finishTime;
+                            
+                            if ((((Get-Date) - $agtPoolLastRunDate).Days) -gt $inactiveLimit)
+                            {
+                                $this.agentPoolActivityDetail.isAgentPoolActive = $false;
+                                $this.agentPoolActivityDetail.message = "Agent pool has not been queued in the last $inactiveLimit days.";
+                            }
+                            else 
+                            {
+                                $this.agentPoolActivityDetail.isAgentPoolActive = $true;
+                                $this.agentPoolActivityDetail.message = "Agent pool has been queued in the last $inactiveLimit days.";
+                            }
+                            $this.agentPoolActivityDetail.agentPoolLastRunDate = $agtPoolLastRunDate;
+                        }
+                        else 
+                        {
+                            $this.agentPoolActivityDetail.isAgentPoolActive = $true;
+                            $this.agentPoolActivityDetail.message = "Agent pool was being queued during control evaluation.";
+                        }
+                }
+                else 
+                {
+                    #[else] Agent pool is created but nenver run, check creation date greated then 180
+                    $this.agentPoolActivityDetail.isAgentPoolActive = $false;
+                    if (([Helpers]::CheckMember($this.agentPool, "fps.dataProviders.data") ) -and ($this.agentPool.fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider")) 
+                    {
+                        $agentPoolDetails = $this.agentPool.fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider"
+                        $this.agentPoolActivityDetail.agentPoolCreationDate = $agentPoolDetails.selectedAgentPool.createdOn;
+                    }
+                    else 
+                    {
+                        $this.agentPoolActivityDetail.message = "Could not fetch agent pool details.";
+                    }                    
+                }
+            }
+            else 
+            {
+                $this.agentPoolActivityDetail.message = "Could not fetch agent pool details.";
+            }
+        }
+        catch 
+        {
+            $this.agentPoolActivityDetail.message = "Could not fetch agent pool details.";
+        }
+        $this.agentPoolActivityDetail.isComputed = $true
     }
 }

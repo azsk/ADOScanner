@@ -103,8 +103,8 @@ Class LogAnalyticsHelper{
 			$out.ControlStatus=$ControlResult.VerificationResult.ToString()
 			$out.ActualVerificationResult=$ControlResult.ActualVerificationResult.ToString()
 			$out.ControlId=$eventContext.ControlItem.ControlID
-			$out.SubscriptionName=$eventContext.SubscriptionContext.SubscriptionName
-			$out.SubscriptionId=$eventContext.SubscriptionContext.SubscriptionId
+			$out.OrganizationName=$eventContext.OrganizationContext.OrganizationName
+			$out.OrganizationId=$eventContext.OrganizationContext.OrganizationId
 			$out.FeatureName=$eventContext.FeatureName
 			$out.Recommendation=$eventContext.ControlItem.Recommendation
 			$out.ControlSeverity=$eventContext.ControlItem.ControlSeverity.ToString()
@@ -122,6 +122,7 @@ Class LogAnalyticsHelper{
 			$out.PolicyOrgName = $AzSKContext.PolicyOrgName
 			$out.IsControlInGrace = $ControlResult.IsControlInGrace
 			$out.ScannedBy=[ContextHelper]::GetCurrentSessionUser()
+			$out.IsResourceActive = $ControlResult.IsResourceActive
 			#mapping the attestation properties
 			if($null -ne $ControlResult -and $null -ne $ControlResult.StateManagement -and $null -ne $ControlResult.StateManagement.AttestedStateData)
 			{
@@ -188,8 +189,8 @@ Class LogAnalyticsHelper{
         foreach ($item in $contexts) {
 			$set = [LAWSResourceInvModel]::new()
 			$set.RunIdentifier = $AzSKContext.RunIdentifier
-			$set.SubscriptionId = $item.SubscriptionContext.SubscriptionId
-			$set.SubscriptionName = $item.SubscriptionContext.SubscriptionName
+			$set.OrganizationId = $item.OrganizationContext.OrganizationId
+			$set.OrganizationName = $item.OrganizationContext.OrganizationName
 			$set.Source = $AzSKContext.Source
 			$set.ScannerVersion = $AzSKContext.Version
 			$set.FeatureName = $item.FeatureName
@@ -305,8 +306,8 @@ Class LogAnalyticsHelper{
 			foreach($resource in [ResourceInventory]::FilteredResources){
 				$set = [LAWSResourceModel]::new()
 				$set.RunIdentifier = $AzSKContext.RunIdentifier
-				$set.SubscriptionId = $resource.SubscriptionId
-				#$set.SubscriptionName = $item.SubscriptionContext.SubscriptionName
+				$set.OrganizationId = $resource.OrganizationId
+				#$set.OrganizationName = $item.OrganizationContext.OrganizationName
 				$set.Source = $AzSKContext.Source
 				$set.ScannerVersion = $AzSKContext.Version
 				$set.ResourceType = $resource.ResourceType				
@@ -393,8 +394,8 @@ Class LAWSModel {
 	[string] $ControlStatus 
 	[string] $ActualVerificationResult 
 	[string] $ControlId 
-	[string] $SubscriptionName 
-	[string] $SubscriptionId 
+	[string] $OrganizationName 
+	[string] $OrganizationId 
 	[string] $FeatureName 
 	[string] $Source 
 	[string] $Recommendation 
@@ -421,12 +422,13 @@ Class LAWSModel {
 	[string] $Env
 	[string] $ComponentId
 	[String[]] $AdditionalInfo
+	[bool] $IsResourceActive
 }
 
 Class LAWSResourceInvModel{
 	[string] $RunIdentifier
-	[string] $SubscriptionId
-	[string] $SubscriptionName
+	[string] $OrganizationId
+	[string] $OrganizationName
 	[string] $Source
 	[string] $ScannerVersion
 	[string] $FeatureName
@@ -444,7 +446,7 @@ Class LAWSResourceInvModel{
 
 Class LAWSResourceModel{
 	[string] $RunIdentifier
-	[string] $SubscriptionId
+	[string] $OrganizationId
 	[string] $Source
 	[string] $ScannerVersion
 	[string] $ResourceType
@@ -468,8 +470,8 @@ Class CommandModel{
 	[string] $MethodName
 	[string] $ModuleName
 	[string] $Parameters
-	[string] $SubscriptionId
-	[string] $SubscriptionName
+	[string] $OrganizationId
+	[string] $OrganizationName
 }
 class CredHygieneAlert{
     [int] $ExpiryDueInDays
@@ -477,6 +479,6 @@ class CredHygieneAlert{
 	[string] $CredentialName 
 	[string] $CredentialGroup
     [string] $LastUpdatedBy
-	[string] $SubscriptionId
-	[string] $SubscriptionName
+	[string] $OrganizationId
+	[string] $OrganizationName
 }

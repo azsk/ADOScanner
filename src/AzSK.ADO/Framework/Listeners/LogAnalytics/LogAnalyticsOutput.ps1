@@ -83,7 +83,7 @@ class LogAnalyticsOutput: ListenerBase
 				# 	try
 				# 	{
 				# 		$invocationContext = [System.Management.Automation.InvocationInfo] $currentInstance.InvocationContext
-				# 		if(!$invocationContext.BoundParameters.ContainsKey("SubscriptionId")) {return;}
+				# 		if(!$invocationContext.BoundParameters.ContainsKey("OrganizationId")) {return;}
 				# 		[LogAnalyticsHelper]::PostResourceInventory($currentInstance.GetAzSKContextDetails())
 				# 	}
 				# 	catch
@@ -282,10 +282,10 @@ class LogAnalyticsOutput: ListenerBase
 		$commandModel.MethodName = $this.InvocationContext.InvocationName;
 		$commandModel.Parameters	=$(($this.InvocationContext.BoundParameters | Out-String).TrimEnd())
 		
-		if([Helpers]::CheckMember($arg,"SubscriptionContext"))
+		if([Helpers]::CheckMember($arg,"OrganizationContext"))
 		{
-			$commandModel.SubscriptionId = $arg.SubscriptionContext.SubscriptionId
-			$commandModel.SubscriptionName =  $arg.SubscriptionContext.SubscriptionName
+			$commandModel.OrganizationId = $arg.OrganizationContext.OrganizationId
+			$commandModel.OrganizationName =  $arg.OrganizationContext.OrganizationName
 		}
 		if([Helpers]::CheckMember($arg,"PartialScanIdentifier"))
 		{

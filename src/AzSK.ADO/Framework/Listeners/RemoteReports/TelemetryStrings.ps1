@@ -1,7 +1,7 @@
 Set-StrictMode -Version Latest
 class TelemetryKeys {
-    static [string] $SubscriptionId = "SubscriptionId";
-    static [string] $SubscriptionName = "SubscriptionName";
+    static [string] $OrganizationId = "OrganizationId";
+    static [string] $OrganizationName = "OrganizationName";
     static [string] $FeatureGroup = "FeatureGroup";
     static [string] $Feature = "Feature";
     static [string] $ResourceName = "ResourceName";

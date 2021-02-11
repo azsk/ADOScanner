@@ -112,44 +112,44 @@ class ContextHelper {
     }
 
 
-    hidden [SubscriptionContext] SetContext([string] $subscriptionId)
+    hidden [OrganizationContext] SetContext([string] $organizationName)
     {
-        if((-not [string]::IsNullOrEmpty($subscriptionId)))
+        if((-not [string]::IsNullOrEmpty($organizationName)))
               {
-                     $SubscriptionContext = [SubscriptionContext]@{
-                           SubscriptionId = $subscriptionId;
-                           Scope = "/Organization/$subscriptionId";
-                           SubscriptionName = $subscriptionId;
+                     $OrganizationContext = [OrganizationContext]@{
+                           OrganizationId = $organizationName;
+                           Scope = "/Organization/$organizationName";
+                           OrganizationName = $organizationName;
                      };
-                     # $subscriptionId contains the organization name (due to framework).
-                     [ContextHelper]::orgName = $subscriptionId;
+                     # $organizationId contains the organization name (due to framework).
+                     [ContextHelper]::orgName = $organizationName;
                      [ContextHelper]::GetCurrentContext()                  
               }
               else
               {
-                     throw [SuppressedException] ("OrganizationName name [$subscriptionId] is either malformed or incorrect.")
+                     throw [SuppressedException] ("OrganizationName name [$organizationName] is either malformed or incorrect.")
         }
-        return $SubscriptionContext;
+        return $OrganizationContext;
     }
 
-    hidden [SubscriptionContext] SetContext([string] $subscriptionId, [System.Security.SecureString] $PATToken)
+    hidden [OrganizationContext] SetContext([string] $organizationName, [System.Security.SecureString] $PATToken)
     {
-        if((-not [string]::IsNullOrEmpty($subscriptionId)))
+        if((-not [string]::IsNullOrEmpty($organizationName)))
               {
-                     $SubscriptionContext = [SubscriptionContext]@{
-                           SubscriptionId = $subscriptionId;
-                           Scope = "/Organization/$subscriptionId";
-                           SubscriptionName = $subscriptionId;
+                     $OrganizationContext = [OrganizationContext]@{
+                           OrganizationId = $organizationName;
+                           Scope = "/Organization/$organizationName";
+                           OrganizationName = $organizationName;
                      };
-                     # $subscriptionId contains the organization name (due to framework).
-                     [ContextHelper]::orgName = $subscriptionId;
+                     # $organizationId contains the organization name (due to framework).
+                     [ContextHelper]::orgName = $organizationName;
                      [ContextHelper]::GetCurrentContext($PATToken)         
               }
               else
               {
-                     throw [SuppressedException] ("OrganizationName name [$subscriptionId] is either malformed or incorrect.")
+                     throw [SuppressedException] ("OrganizationName name [$organizationName] is either malformed or incorrect.")
         }
-        return $SubscriptionContext;
+        return $OrganizationContext;
     }
 
     static [void] ResetCurrentContext()
@@ -164,11 +164,11 @@ class ContextHelper {
         $contextObj.Tenant.Id = $context.TenantId 
         $contextObj.AccessToken = $context.AccessToken
         
-        # Here subscription basically means ADO organization (due to framework).
-        # We do not get ADO organization Id as part of current context. Hence appending org name to both Id and Name param.
-        $contextObj.Subscription = [Subscription]::new()
-        $contextObj.Subscription.Id = [ContextHelper]::orgName
-        $contextObj.Subscription.Name = [ContextHelper]::orgName 
+        # We do not get ADO organization id as part of current context. Hence appending org name to both id and name param.        
+        $contextObj.Organization = [Organization]::new()
+        $contextObj.Organization.Id = [ContextHelper]::orgName
+        $contextObj.Organization.Name = [ContextHelper]::orgName 
+        
         
         $contextObj.TokenExpireTimeLocal = $context.ExpiresOn.LocalDateTime
         #$contextObj.AccessToken =  ConvertTo-SecureString -String $context.AccessToken -asplaintext -Force
@@ -182,11 +182,10 @@ class ContextHelper {
         $contextObj.Tenant.Id =  [string]::Empty
         $contextObj.AccessToken = [System.Net.NetworkCredential]::new("", $patToken).Password
         
-        # Here subscription basically means ADO organization (due to framework).
         # We do not get ADO organization Id as part of current context. Hence appending org name to both Id and Name param.
-        $contextObj.Subscription = [Subscription]::new()
-        $contextObj.Subscription.Id = [ContextHelper]::orgName
-        $contextObj.Subscription.Name = [ContextHelper]::orgName 
+        $contextObj.Organization = [Organization]::new()
+        $contextObj.Organization.Id = [ContextHelper]::orgName
+        $contextObj.Organization.Name = [ContextHelper]::orgName 
 
         #$contextObj.AccessToken = $patToken
         #$contextObj.AccessToken =  ConvertTo-SecureString -String $context.AccessToken -asplaintext -Force

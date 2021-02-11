@@ -369,7 +369,7 @@ class CAAutomation : ADOSVTCommandBase
             #Resolve projectNames if * is used in command
             if ($this.ProjectNames -eq "*")
             {
-                $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=5.1' -f $($this.SubscriptionContext.SubscriptionName);
+                $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=5.1' -f $($this.OrganizationContext.OrganizationName);
                 $responseObj = "";
                 try { 
                     $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
@@ -1077,7 +1077,7 @@ class CAAutomation : ADOSVTCommandBase
                     if(-not [string]::IsNullOrEmpty( $this.ExtendedCommand ))
                     {
                         $AppSettingsHT["ExtendedCommand"] = $this.ExtendedCommand
-                        $this.PublishCustomMessage("Updating ExtendedCommand overrides the default '-ScanAllArtifacts' behavior of CA.`r`nIf you need that, please specify '-saa' switch in your update CA '-ExtendedCommand'", [MessageType]::Info);
+                        $this.PublishCustomMessage("Updating ExtendedCommand overrides the default '-ScanAllResources' behavior of CA.`r`nIf you need that, please specify '-saa' switch in your update CA '-ExtendedCommand'", [MessageType]::Info);
                     }
                     if(-not [string]::IsNullOrEmpty( $this.ProjectNames ))
                     {

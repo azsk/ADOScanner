@@ -280,17 +280,17 @@ class UsageTelemetry: ListenerBase {
 		}
 	}
 
-	static [void] PushSubscriptionScanResults(
+	static [void] PushOrganizationScanResults(
 		[UsageTelemetry] $Publisher, `
 		[SVTEventContext[]] $SVTEventContexts)
 	{
 		$eventData = @{
-			[TelemetryKeys]::FeatureGroup = [FeatureGroup]::Subscription;
-			"ScanKind" = [RemoteReportHelper]::GetSubscriptionScanKind(
+			[TelemetryKeys]::FeatureGroup = [FeatureGroup]::Organization;
+			"ScanKind" = [RemoteReportHelper]::GetOrganizationScanKind(
 				$Publisher.InvocationContext.MyCommand.Name,
 				$Publisher.InvocationContext.BoundParameters);
 		}
-        $subscriptionscantelemetryEvents = [System.Collections.ArrayList]::new()
+        $organizationScanTelemetryEvents = [System.Collections.ArrayList]::new()
 
 		$SVTEventContexts | ForEach-Object {
 			$context = $_
@@ -313,9 +313,9 @@ class UsageTelemetry: ListenerBase {
 				$telemetryEvent.Name = "Control Scanned"
 				$telemetryEvent.Properties = $eventDataClone
 				$telemetryEvent = [UsageTelemetry]::SetCommonProperties($telemetryEvent,$Publisher);
-				$subscriptionscantelemetryEvents.Add($telemetryEvent)
+				$organizationScanTelemetryEvents.Add($telemetryEvent)
 		}
-            [AIOrgTelemetryHelper]::PublishEvent($subscriptionscantelemetryEvents,"Usage")
+            [AIOrgTelemetryHelper]::PublishEvent($organizationScanTelemetryEvents,"Usage")
 	}
 
 	static [void] PushServiceScanResults(
@@ -539,51 +539,51 @@ class UsageTelemetry: ListenerBase {
 				# No need to break execution
 			}
 			try{
-				$azureContext = [ContextHelper]::GetCurrentContext()
+				$organizationContext = [ContextHelper]::GetCurrentContext()
 				try{
-					$Properties.Add([TelemetryKeys]::SubscriptionId, [RemoteReportHelper]::Mask($azureContext.Subscription.Id))
+					$Properties.Add([TelemetryKeys]::OrganizationId, [RemoteReportHelper]::Mask($organizationContext.Organization.Id))
 				}
 				catch {
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
 					# No need to break execution
 				}
 				try{
-					$Properties.Add([TelemetryKeys]::SubscriptionName, [RemoteReportHelper]::Mask($azureContext.Subscription.Name))
+					$Properties.Add([TelemetryKeys]::OrganizationName, [RemoteReportHelper]::Mask($organizationContext.Organization.Name))
 				}
 				catch {
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
 					# No need to break execution
 				}
 				try{
-					$Properties.Add("AzureEnv", $azureContext.Environment.Name)
+					$Properties.Add("ADOEnv", $organizationContext.Environment.Name)
 				} 
 				catch {
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
 					# No need to break execution
 				}
 				try{
-					$Properties.Add("TenantId", [RemoteReportHelper]::Mask($azureContext.Tenant.Id))
+					$Properties.Add("TenantId", [RemoteReportHelper]::Mask($organizationContext.Tenant.Id))
 				}
 				catch {
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
 					# No need to break execution
 				}
 				try{
-					$Properties.Add("AccountId", [RemoteReportHelper]::Mask($azureContext.Account.Id))
+					$Properties.Add("AccountId", [RemoteReportHelper]::Mask($organizationContext.Account.Id))
 				}
 				catch {
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
 					# No need to break execution
 				}
 				try{
-					$Properties.Add("RunIdentifier",  [RemoteReportHelper]::Mask($azureContext.Account.Id + '##' + $Publisher.RunIdentifier));
+					$Properties.Add("RunIdentifier",  [RemoteReportHelper]::Mask($organizationContext.Account.Id + '##' + $Publisher.RunIdentifier));
 				}
 				catch
 				{
 					$Properties.Add("RunIdentifier",  $Publisher.RunIdentifier);
 				}
 				try{
-					$Properties.Add("AccountType", $azureContext.Account.Type)
+					$Properties.Add("AccountType", $organizationContext.Account.Type)
 				}
 				catch {
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
@@ -690,50 +690,50 @@ class UsageTelemetry: ListenerBase {
 				# No need to break execution
 			}
 			try{
-				$azureContext = [ContextHelper]::GetCurrentContext()
+				$organizationContext = [ContextHelper]::GetCurrentContext()
 				try{
-					$eventObj.properties.Add([TelemetryKeys]::SubscriptionId, [RemoteReportHelper]::Mask($azureContext.Subscription.Id))
+					$eventObj.properties.Add([TelemetryKeys]::OrganizationId, [RemoteReportHelper]::Mask($organizationContext.Organization.Id))
 				}
 				catch{
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
 					# No need to break execution
 				}
 				try{
-					$eventObj.properties.Add([TelemetryKeys]::SubscriptionName, [RemoteReportHelper]::Mask($azureContext.Subscription.Name))
+					$eventObj.properties.Add([TelemetryKeys]::OrganizationName, [RemoteReportHelper]::Mask($organizationContext.Organization.Name))
 				}
 				catch{
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
 					# No need to break execution
 				}
 				try{
-					$eventObj.properties.Add("AzureEnv", $azureContext.Environment.Name)
+					$eventObj.properties.Add("ADOEnv", $organizationContext.Environment.Name)
 				}
 				catch{
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
 					# No need to break execution
 				}
 				try{
-					$eventObj.properties.Add("TenantId", [RemoteReportHelper]::Mask($azureContext.Tenant.Id))
+					$eventObj.properties.Add("TenantId", [RemoteReportHelper]::Mask($organizationContext.Tenant.Id))
 				}
 				catch{
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
 					# No need to break execution
 				}
 				try{
-					$eventObj.properties.Add("AccountId", [RemoteReportHelper]::Mask($azureContext.Account.Id))
+					$eventObj.properties.Add("AccountId", [RemoteReportHelper]::Mask($organizationContext.Account.Id))
 				}
 				catch{
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
 					# No need to break execution
 				}
 				try{
-					$eventObj.properties.Add("RunIdentifier",  [RemoteReportHelper]::Mask($azureContext.Account.Id + '##' + $Publisher.RunIdentifier));
+					$eventObj.properties.Add("RunIdentifier",  [RemoteReportHelper]::Mask($organizationContext.Account.Id + '##' + $Publisher.RunIdentifier));
 				}
 				catch{
 					$eventObj.properties.Add("RunIdentifier",  $Publisher.RunIdentifier);
 				}
 				try{
-					$eventObj.properties.Add("AccountType", $azureContext.Account.Type)
+					$eventObj.properties.Add("AccountType", $organizationContext.Account.Type)
 				}
 				catch{
 					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
