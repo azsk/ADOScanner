@@ -457,7 +457,7 @@ class Organization: ADOSVTBase
                             unKnown_Extensions = @();
                         };
 
-                        $stateData.known_Extensions += $KnownExtensions
+                        $stateData.known_Extensions += $knownExtensions
                         $stateData.unKnown_Extensions += $unKnownExtensions
 
                         $controlResult.SetStateData("List of installed extensions: ", $stateData);
@@ -545,7 +545,7 @@ class Organization: ADOSVTBase
                             $nonProdExtensions = @()
                             $topPublisherExtensions = @()
                             [Organization]::InstalledExtensionInfo = @()
-                            $AllInstalledExtensions = @() # This variable gets all installed extensions details from $sharedExtensionObject
+                            $allInstalledExtensions = @() # This variable gets all installed extensions details from $sharedExtensionObject
 
                             $date = Get-Date                            
                             $thresholdDate = $date.AddYears(-$extensionsLastUpdatedInYears)
@@ -642,15 +642,15 @@ class Organization: ADOSVTBase
                                             $this.sharedExtensionObject = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
                                         }
                                         
-                                        if(($AllInstalledExtensions.Count -eq 0) -and [Helpers]::CheckMember($this.sharedExtensionObject[0],"dataProviders") -and $this.sharedExtensionObject.dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
+                                        if(($allInstalledExtensions.Count -eq 0) -and [Helpers]::CheckMember($this.sharedExtensionObject[0],"dataProviders") -and $this.sharedExtensionObject.dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
                                         {                                 
                                             # Using sharedExtension Object so that we can get details of all extensions from shared extension api and later use it to compute top publisher for installed extension
-                                            $AllInstalledExtensions = $this.sharedExtensionObject[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.installedextensions
+                                            $allInstalledExtensions = $this.sharedExtensionObject[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.installedextensions
                                         }
                                         $currentExtension = $_
 
                                         #This refernce variable contains current private extension's top publisher details
-                                        $refVar = @($AllInstalledExtensions | Where-Object {$_.extensionId -eq $currentExtension.extensionId  })
+                                        $refVar = @($allInstalledExtensions | Where-Object {$_.extensionId -eq $currentExtension.extensionId  })
 
                                         #count is also used as if two extensions have same extension id then $refVar will contain 2 elements
                                         if($refVar.isCertifiedPublisher -and $refVar.count -eq 1)
