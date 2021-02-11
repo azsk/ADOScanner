@@ -15,6 +15,7 @@ class AutoBugLog {
     hidden [bool] $UseAzureStorageAccount = $false;
     hidden [BugLogHelper] $BugLogHelperObj;
     hidden [string] $ScanSource;
+    hidden [bool] $LogBugsForUnmappedResource = $true;
     
     AutoBugLog([string] $orgName, [InvocationInfo] $invocationContext, [ControlStateExtension] $controlStateExt, $bugLogParameterValue) {
         $this.OrganizationName = $orgName;
@@ -48,6 +49,13 @@ class AutoBugLog {
         elseif ([Helpers]::CheckMember($this.controlsettings.BugLogging, 'BugDescriptionField') -and -not ([string]::IsNullOrEmpty($this.ControlSettings.BugLogging.BugDescriptionField))) {
             $this.BugDescriptionField = "/fields/" + $this.ControlSettings.BugLogging.BugDescriptionField
         }
+
+        #Check whether LogBugsForUnmappedResource variable exist in policy fiile.
+        $LogBugsForUnmappedResourceVarExistInPolicy = $this.ControlSettings.BugLogging.PSobject.Properties | where-object {$_.Name -eq "LogBugsForUnmappedResource"} 
+        #If LogBugForUnmappedResource exist in the policy file then get it's value.
+        if ($LogBugsForUnmappedResourceVarExistInPolicy) {
+            $this.LogBugsForUnmappedResource = $LogBugsForUnmappedResourceVarExistInPolicy.Value;
+        }
     }
     
     #Return AutoBugLog instance
@@ -73,43 +81,40 @@ class AutoBugLog {
                 $metaProviderObj = [BugMetaInfoProvider]::new();   
                 $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging, $this.IsBugLogCustomFlow, $this.ServiceIdPassedInCMD);
                 $serviceId = $metaProviderObj.ServiceId
-
-                #Set ShowBugsInS360 if customebuglog is enabled and sericeid not null and ShowBugsInS360 enabled in policy
-                if ($this.IsBugLogCustomFlow -and (-not [string]::IsNullOrEmpty($serviceId)) -and ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "ShowBugsInS360") -and $this.ControlSettings.BugLogging.ShowBugsInS360) ) {
-                    $this.ShowBugsInS360 = $true;    
-                }
-                else {
-                    $this.ShowBugsInS360 = $false;
-                }
-
-                #Obtain area and iteration paths
-                #Removed these local variable taking directly from BugLogPathManager static variable
-                #$AreaPath = [BugLogPathManager]::AreaPath
-                #$IterationPath = [BugLogPathManager]::IterationPath       
-                #$BugLoggingProject = [BugLogPathManager]::BugLoggingProject #This project should be used to check if current bug exists or not
-
-                #this falg is added to restrict 'Determining bug logging' message should print only once 
-                $printLogBugMsg = $true;
-                #Loop through all the control results for the current resource
-                $ControlResults | ForEach-Object {
-                    $control = $_;                                     
-                    #filter controls on basis of whether they are baseline or not depending on the value given in autobuglog flag
-                    $LogControlFlag = $false
-                    if ($this.BugLogParameterValue -eq [BugLogForControls]::All) {
-                            $LogControlFlag = $true
+                #Log bug only if LogBugForUnmappedResource is enabled (default value is true) or resource is mapped to serviceid
+                #Restrict bug logging, if resource is not mapped to serviceid and LogBugForUnmappedResource is not enabled.
+                if($this.LogBugsForUnmappedResource -or $serviceId)
+                {
+                    #Set ShowBugsInS360 if customebuglog is enabled and sericeid not null and ShowBugsInS360 enabled in policy
+                    if ($this.IsBugLogCustomFlow -and (-not [string]::IsNullOrEmpty($serviceId)) -and ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "ShowBugsInS360") -and $this.ControlSettings.BugLogging.ShowBugsInS360) ) {
+                        $this.ShowBugsInS360 = $true;
                     }
-                    elseif ($this.BugLogParameterValue -eq [BugLogForControls]::BaselineControls) {
-                            $LogControlFlag = $this.CheckBaselineControl($control.ControlItem.ControlID)				
+                    else {
+                        $this.ShowBugsInS360 = $false;
                     }
-                    elseif ($this.BugLogParameterValue -eq [BugLogForControls]::PreviewBaselineControls) {
-                            $LogControlFlag = $this.CheckPreviewBaselineControl($control.ControlItem.ControlID)
-                    }
-                    elseif ($this.BugLogParameterValue -eq [BugLogForControls]::Custom) {
-                        $LogControlFlag = $this.CheckControlInCustomControlList($control.ControlItem.ControlID)
-                    }
-		
-                    if ($LogControlFlag -and ($control.ControlResults[0].VerificationResult -eq "Failed" -or $control.ControlResults[0].VerificationResult -eq "Verify") ) {
-                
+    
+                    #this falg is added to restrict 'Determining bug logging' message should print only once 
+                    $printLogBugMsg = $true;
+                    #Loop through all the control results for the current resource
+                    $ControlResults | ForEach-Object {
+                        $control = $_;                                     
+                        #filter controls on basis of whether they are baseline or not depending on the value given in autobuglog flag
+                        $LogControlFlag = $false
+                        if ($this.BugLogParameterValue -eq [BugLogForControls]::All) {
+                                $LogControlFlag = $true
+                        }
+                        elseif ($this.BugLogParameterValue -eq [BugLogForControls]::BaselineControls) {
+                                $LogControlFlag = $this.CheckBaselineControl($control.ControlItem.ControlID)				
+                        }
+                        elseif ($this.BugLogParameterValue -eq [BugLogForControls]::PreviewBaselineControls) {
+                                $LogControlFlag = $this.CheckPreviewBaselineControl($control.ControlItem.ControlID)
+                        }
+                        elseif ($this.BugLogParameterValue -eq [BugLogForControls]::Custom) {
+                            $LogControlFlag = $this.CheckControlInCustomControlList($control.ControlItem.ControlID)
+                        }
+		    
+                        if ($LogControlFlag -and ($control.ControlResults[0].VerificationResult -eq "Failed" -or $control.ControlResults[0].VerificationResult -eq "Verify") ) 
+                        {
                             #compute hash of control Id and resource Id 
                             $hash = $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
                             #check if a bug with the computed hash exists
@@ -152,8 +157,12 @@ class AutoBugLog {
                                 $this.AddWorkItem($Title, $Description, $AssignedTo, $Severity, $ProjectName, $control, $hash, $serviceId);
 
                             }
-                    }    
+                        }    
+                    }
                 }
+                else {
+                    Write-Host "Bug logging is disabled for resources that are not mapped to any service." -ForegroundColor Yellow
+                }    
             }
         }
 

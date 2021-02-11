@@ -369,7 +369,8 @@
     "ServiceTreeIdType": "Service",
     "UseAzureStorageAccount": false,
     "LogBugsForInactiveResources": true,
-    "CustomControlList": []
+    "CustomControlList": [],
+    "LogBugsForUnmappedResource": true
   },
   "GenerateSecurityEvaluationJsonFile" : false,
   "ResourceProviders": [
