@@ -255,18 +255,17 @@
   "Organization": {
     "InactiveUserActivityLogsPeriodInDays": 90,
     "TopInactiveUserCount": 100,
-    "TrustedExtensionPublishers": [
+    "KnownExtensionPublishers": [
       "Microsoft",
       "Microsoft DevLabs"
     ],
-    "TrustedExtensionPublisherIds":[
-      " "],
+    "KnownExtensionPublisherIds":[""],
     "NonProductionExtensionIndicators":["DevTest", "Demo", "Preview", "Deprecated"],
     "ExtensionsLastUpdatedInYears": 2,
     "ExtensionCriticalScopes":["vso.agentpools_manage","vso.build_execute","vso.code_write","vso.code_manage","vso.code_full",
-                      "vso.code_status","vso.memberentitlementmanagement_write","vso.extension_manage",
+                      "vso.code_status","vso.extension_manage",
                       "vso.extension.data_write","vso.graph_manage","vso.identity_manage","vso.loadtest_write",
-                      "vso.machinegroup_manage","vso.gallery_manage","vso.notification_write","vso.notification_manage",
+                      "vso.machinegroup_manage","vso.memberentitlementmanagement_write","vso.gallery_manage","vso.notification_write","vso.notification_manage",
                       "vso.packaging_write","vso.packaging_manage","vso.project_write","vso.project_manage","vso.release_execute",
                       "vso.release_manage","vso.security_manage","vso.serviceendpoint_manage","vso.settings_write",
                       "vso.symbols_write","vso.symbols_manage","vso.taskgroups_write","vso.taskgroups_manage",

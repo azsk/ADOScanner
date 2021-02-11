@@ -228,6 +228,21 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					$result += $currentResourceResults;
 				}
 				
+				if([Organization]::InstalledextensionInfo)
+				{
+					# Default value if property 'ExtensionsLastUpdatedInYears' not exist in ControlSettings
+					$years = 2
+					
+					# Fetching property 'ExtensionsLastUpdatedInYears' from ControlSettings to print in csv column.
+					if([Helpers]::CheckMember($svtObject.ControlSettings, "Organization.ExtensionsLastUpdatedInYears"))
+                    {
+                        $years = $svtObject.ControlSettings.Organization.ExtensionsLastUpdatedInYears
+					}
+					$folderpath=([WriteFolderPath]::GetInstance().FolderPath) + "\$($_.ResourceName)"+"_ExtensionInfo.csv";
+					[Organization]::InstalledextensionInfo | Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old (>$($years)year(s))"; Expression = { $_.TooOld } },lastPublished,@{Name = "Sensitive Permissions"; Expression = { $_.scopes} },@{Name = "NonProd (ExtensionName)"; Expression = { $_.NonProdByName}},@{Name = "NonProd (Galleryflags) "; Expression = { $_.Preview }},TopPublisher,PrivateVisibility | Export-Csv -Path $folderpath -NoTypeInformation #The NoTypeInformation parameter removes the #TYPE information header from the CSV output 
+					
+				}
+
 				$memoryUsage = 0
 				if(($result | Measure-Object).Count -gt 0 -and $this.UsePartialCommits)
 				{
