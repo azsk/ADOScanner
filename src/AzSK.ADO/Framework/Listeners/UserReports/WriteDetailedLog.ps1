@@ -151,7 +151,12 @@ class WriteDetailedLog: FileOutputBase
             {
 				if($Event.SourceArgs.Messages)
 				{
-					$currentInstance.SetFilePath($Event.SourceArgs.OrganizationContext, $Event.SourceArgs.OrganizationContext.OrganizationName, "Detailed.LOG");
+					if($($Event.Sender.InvocationContext.BoundParameters.Keys).indexOf('InfoType') -ge 0 -and $Event.Sender.InvocationContext.BoundParameters.InfoType -eq "UserInfo") {
+						$currentInstance.SetFilePath($Event.SourceArgs.OrganizationContext, $Event.SourceArgs.OrganizationContext.OrganizationName, "UserInfo.LOG");
+					}
+					else {
+						$currentInstance.SetFilePath($Event.SourceArgs.OrganizationContext, $Event.SourceArgs.OrganizationContext.OrganizationName, "Detailed.LOG");
+					}
 					$Event.SourceArgs.Messages | ForEach-Object {
 						$currentInstance.AddOutputLog($_);
 					}
