@@ -160,7 +160,7 @@ function Get-AzSKADOInfo
 					UserInfo
 					{
 						if($ProjectNames -eq "*" -or $ProjectNames -match "\,") {
-							Write-Host "This command currently supports information for a single project. Please provide a single project name." -ForegroundColor Red
+							Write-Host "This command currently supports user permission information for a single project. Please provide a single project name." -ForegroundColor Red
 						}
 						elseif ([string]::IsNullOrWhiteSpace($PrincipalName)) {
 							$currentUser = [ContextHelper]::GetCurrentSessionUser();
