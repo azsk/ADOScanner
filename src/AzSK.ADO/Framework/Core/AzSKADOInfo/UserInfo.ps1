@@ -17,25 +17,24 @@ class UserInfo: CommandBase {
 	[string] GetUserDescriptor() {
 		# fetching the users list to get the user descriptor mapped against user email id
 		$url = "https://vssps.dev.azure.com/$($this.organizationName)/_apis/graph/users?api-version=6.0-preview.1"
-		[PSObject] $users = $null;
+		[PSObject] $allUsers = $null;
 		try {
 			$response = [WebRequestHelper]::InvokeGetWebRequest($url);
 			if($response.count -gt 0) {
-				$users = $response;
+				$allUsers = $response;
 			}
 			else {
-				$users = $null;
+				$allUsers = $null;
 			}
 		}
 		catch {
-            [EventBase]::PublishGenericException($_);
+			$this.PublishCustomMessage("Could not fetch the list of users in the organization.", [MessageType]::Error)
+            # [EventBase]::PublishGenericException($_);
 		}
 		$userDescriptor = ""
-		foreach ($user in $users) {
-			if([Helpers]::CheckMember($user, "mailAddress") -and $user.mailAddress -eq $this.userMail -and [Helpers]::CheckMember($user, "descriptor")) {
-				$userDescriptor = $user.descriptor;
-				break;
-			}
+		$user = $allUsers | Where-Object { $_.mailAddress -eq $this.userMail }
+		if([Helpers]::CheckMember($user, "descriptor")) {
+			$userDescriptor = $user.descriptor;
 		}
 		return $userDescriptor;
 	}
@@ -54,7 +53,7 @@ class UserInfo: CommandBase {
 			try {
 				$response = [WebRequestHelper]::InvokeGetWebRequest($url);
 				$formattedData = @()
-				
+				$count = 0
 				foreach ($obj in $response) {
 					$url = "https://vssps.dev.azure.com/$($this.organizationName)/_apis/graph/groups/$($obj.containerDescriptor)?api-version=6.0-preview.1";
 					$res = [WebRequestHelper]::InvokeGetWebRequest($url);
@@ -63,16 +62,17 @@ class UserInfo: CommandBase {
 						Group = $data[1];
 						Scope = $data[0];
 					}
+					$count += 1;
 				}
-				# add count
-				$returnMsgs += [MessageData]::new("Total number of groups user is a member of:")
-				$this.PublishCustomMessage("Total number of groups user is a member of:")
+				$returnMsgs += [MessageData]::new("Total number of groups user is a member of: $($count)")
+				$this.PublishCustomMessage("Total number of groups user is a member of: $($count) `n")
 				$formattedData = $formattedData | select-object @{Name="Group Name"; Expression={$_.Group}}, @{Name="User or scope"; Expression={$_.Scope}} | Out-String
 				$returnMsgs += $formattedData
 				$this.PublishCustomMessage($formattedData)
 			}
 			catch {
-				[EventBase]::PublishGenericException($_);
+				$this.PublishCustomMessage("Could not fetch the membership details for the user.", [MessageType]::Error)
+				# [EventBase]::PublishGenericException($_);
 			}
 			$this.PublishCustomMessage([Constants]::DoubleDashLine)
 			$returnMsgs += [Constants]::DoubleDashLine;
@@ -106,7 +106,7 @@ class UserInfo: CommandBase {
                 try {
 					$response = [WebRequestHelper]::InvokePostWebRequest($url, $body);
 					$returnMsgs += [MessageData]::new("User permissions (organization level):")
-					$this.PublishCustomMessage("User permissions (organization level):")
+					$this.PublishCustomMessage("User permissions (organization level): `n")
 					if ([Helpers]::CheckMember($response, "dataProviders") -and $response.dataProviders.'ms.vss-admin-web.org-admin-groups-permissions-pivot-data-provider' -and [Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-groups-permissions-pivot-data-provider', "subjectPermissions")) {
 						$permissions = $response.dataProviders.'ms.vss-admin-web.org-admin-groups-permissions-pivot-data-provider'.subjectPermissions
 						$formattedData = $permissions | select-object @{Name="DisplayName"; Expression = {$_.displayName}}, @{Name="Permissions"; Expression = {$_.permissionDisplayString}} | Out-String
@@ -115,7 +115,8 @@ class UserInfo: CommandBase {
 					}
 				}
 				catch {
-					[EventBase]::PublishGenericException($_);
+					$this.PublishCustomMessage("Could not fetch the user permissions for the organization [$($this.organizationName)].", [MessageType]::Error)
+					# [EventBase]::PublishGenericException($_);
 				}
 			}
 			else {
@@ -149,7 +150,7 @@ class UserInfo: CommandBase {
 				try {
 					$response = [WebRequestHelper]::InvokePostWebRequest($url, $body);
 					$returnMsgs += [MessageData]::new("User permissions for project [$($this.projectName)]:")
-					$this.PublishCustomMessage("User permissions for project [$($this.projectName)]:")
+					$this.PublishCustomMessage("User permissions for project [$($this.projectName)]: `n")
 					if ([Helpers]::CheckMember($response, "dataProviders") -and $response.dataProviders.'ms.vss-admin-web.org-admin-groups-permissions-pivot-data-provider' -and [Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-groups-permissions-pivot-data-provider', "subjectPermissions")) {
 						$permissions = $response.dataProviders.'ms.vss-admin-web.org-admin-groups-permissions-pivot-data-provider'.subjectPermissions
 						$formattedData = $permissions | select-object @{Name="DisplayName"; Expression = {$_.displayName}}, @{Name="Permissions"; Expression = {$_.permissionDisplayString}} | Out-String
@@ -158,7 +159,8 @@ class UserInfo: CommandBase {
 					}
 				}
 				catch {
-					[EventBase]::PublishGenericException($_);
+					$this.PublishCustomMessage("Could not fetch the user permissions for project [$($this.projectName)]. Please validate the project name.", [MessageType]::Error)
+					# [EventBase]::PublishGenericException($_);
 				}
 			}
 		}
