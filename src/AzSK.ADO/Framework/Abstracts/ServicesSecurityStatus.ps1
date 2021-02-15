@@ -240,7 +240,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					}
 					$folderpath=([WriteFolderPath]::GetInstance().FolderPath) + "\$($_.ResourceName)"+"_ExtensionInfo.csv";
 					[Organization]::InstalledextensionInfo | Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old (>$($years)year(s))"; Expression = { $_.TooOld } },lastPublished,@{Name = "Sensitive Permissions"; Expression = { $_.scopes} },@{Name = "NonProd (ExtensionName)"; Expression = { $_.NonProdByName}},@{Name = "NonProd (Galleryflags) "; Expression = { $_.Preview }},TopPublisher,PrivateVisibility | Export-Csv -Path $folderpath -NoTypeInformation #The NoTypeInformation parameter removes the #TYPE information header from the CSV output 
-					
+					[Organization]::InstalledExtensionInfo = @()   # Clearing the static variable value so that extensioninfo.csv file only gets generated only once and when computed during the installed extension control
 				}
 
 				$memoryUsage = 0
