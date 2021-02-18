@@ -145,7 +145,7 @@ class AutoBugLog {
 
                                 $ADOScannerDocLink = "https://microsoftit.visualstudio.com/OneITVSO/_wiki/wikis/OneITVSO.wiki/15868/ADO-Security-Scanner-for-CSEO?anchor=installing-and-scanning-locally";                       
                                 if ($this.IsBugLogCustomFlow) {
-                                    $Description += "</br></br>For more info, please visit <a href='$ADOScannerDocLink' target='_blank'>here</a>. </br>"
+                                    $Description += "</br></br><b>Reference: </b> <a href='$ADOScannerDocLink' target='_blank'>CSEO ADO Scanner Wiki</a>. </br>"
                                 }
 				            
                                 #check and append any detailed log and state data for the control failure
