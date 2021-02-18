@@ -142,13 +142,17 @@ class AutoBugLog {
                                 $Description += "</br></br> <b> Resource Link: </b> <a href='$($control.ResourceContext.ResourceDetails.ResourceLink)' target='_blank'>$($control.ResourceContext.ResourceName)</a>"
                                 $RunStepsForControl = " </br></br> <b>Control Scan Command:</b> Run:  {0}"
                                 $Description += ($RunStepsForControl -f $this.GetControlReproStep($control));
+
+                                $ADOScannerDocLink = "https://microsoftit.visualstudio.com/OneITVSO/_wiki/wikis/OneITVSO.wiki/15868/ADO-Security-Scanner-for-CSEO?anchor=installing-and-scanning-locally";                       
+                                if ($this.IsBugLogCustomFlow) {
+                                    $Description += "</br></br>For more info, please visit <a href='$ADOScannerDocLink' target='_blank'>here</a>. </br>"
+                                }
 				            
                                 #check and append any detailed log and state data for the control failure
                                 $log = $this.GetDetailedLogForControl($control);
                                 if ($log) {
                                     $Description += "<hr></br><b>Some other details for your reference</b> </br><hr> {7} "
                                     $Description = $Description.Replace("{7}", $log)
-					
                                 }               
                                 $Description = $Description.Replace("`"", "'")
                                 $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
@@ -607,11 +611,9 @@ class AutoBugLog {
         }
     }
 
-    hidden [void] AddWorkItem([string] $Title, [string] $Description, [string] $AssignedTo, [string]$Severity, [string]$ProjectName, [SVTEventContext[]] $control, [string] $hash, [string] $serviceId) {
-		
-		
-        #logging new bugs
-		
+    #Logging new bugs
+    hidden [void] AddWorkItem([string] $Title, [string] $Description, [string] $AssignedTo, [string]$Severity, [string]$ProjectName, [SVTEventContext[]] $control, [string] $hash, [string] $serviceId) 
+    {	
         $apiurl = 'https://dev.azure.com/{0}/{1}/_apis/wit/workitems/$bug?api-version=5.1' -f $this.OrganizationName, $ProjectName;
 
         $BugTemplate = $null;
@@ -645,8 +647,7 @@ class AutoBugLog {
         $BugTemplate = $BugTemplate.Replace("{2}", $Severity)
         $BugTemplate = $BugTemplate.Replace("{3}", [BugLogPathManager]::AreaPath)
         $BugTemplate = $BugTemplate.Replace("{4}", [BugLogPathManager]::IterationPath)
-        if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
-        {
+        if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") {
             $BugTemplate = $BugTemplate.Replace("{5}", "ADOScanner")
         }
         else {
@@ -662,20 +663,16 @@ class AutoBugLog {
             $BugTemplate = $BugTemplate.Replace("{9}", $serviceId)
             #ServiceHierarchyIdType
             $BugTemplate = $BugTemplate.Replace("{10}", $this.controlsettings.BugLogging.ServiceTreeIdType)
-            
             #Severity
             $BugTemplate = $BugTemplate.Replace("{11}", $SecuritySeverity)
         }
 
-        $responseObj = $null
         $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($apiurl)
-
         try {
             $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
             $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $this.OrganizationName, $responseObj.id
             $control.ControlResults.AddMessage("New Bug", $bugUrl);
-            if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
-            {
+            if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") {
                 $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
             }
         }
@@ -689,16 +686,13 @@ class AutoBugLog {
                     $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
                     $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $this.OrganizationName, $responseObj.id
                     $control.ControlResults.AddMessage("New Bug", $bugUrl)
-                    if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
-                    {
+                    if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") {
                         $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
                     }
                 }
                 catch {
                     Write-Host "Could not log the bug" -ForegroundColor Red
                 }
-
-
             }
             #handle the case wherein due to global search area/ iteration paths from different projects passed the checkvalidpath function
             elseif ($_.ErrorDetails.Message -like '*Invalid Area/Iteration id*') {
@@ -715,8 +709,6 @@ class AutoBugLog {
                 Write-Host "Could not log the bug" -ForegroundColor Red
             }
         }
-		
-		
     }
 
     #the next two functions to check baseline and preview baseline, are duplicate controls that are present in ADOSVTBase as well.
