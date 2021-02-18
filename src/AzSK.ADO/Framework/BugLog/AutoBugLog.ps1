@@ -140,7 +140,7 @@ class AutoBugLog {
                                 }
                                 $Description = $Description -f $control.ControlItem.Description, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlResults[0].VerificationResult
                                 $Description += "</br></br> <b> Resource Link: </b> <a href='$($control.ResourceContext.ResourceDetails.ResourceLink)' target='_blank'>$($control.ResourceContext.ResourceName)</a>"
-                                $RunStepsForControl = " </br></br> <b>Control Scan Command:</b> Run:  {0}"
+                                $RunStepsForControl = " </br></br> <b>Scan command you should run:</b></br>{0}"
                                 $Description += ($RunStepsForControl -f $this.GetControlReproStep($control));
 
                                 $ADOScannerDocLink = "https://microsoftit.visualstudio.com/OneITVSO/_wiki/wikis/OneITVSO.wiki/15868/ADO-Security-Scanner-for-CSEO?anchor=installing-and-scanning-locally";                       
