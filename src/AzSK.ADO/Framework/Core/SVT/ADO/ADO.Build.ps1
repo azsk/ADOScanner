@@ -11,14 +11,14 @@ class Build: ADOSVTBase
     {
         # Get security namespace identifier of current build.
         if ([string]::IsNullOrEmpty([Build]::SecurityNamespaceId) ) {
-            $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=5.0" -f $($this.OrganizationContext.OrganizationName)
+            $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($this.OrganizationContext.OrganizationName)
             $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             [Build]::SecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "Build") -and ($_.actions.name -contains "ViewBuilds")}).namespaceId
         }
         $buildId = $this.ResourceContext.ResourceDetails.id
         $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
         # Get build object
-        $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$projectId/_apis/build/Definitions/$buildId";
+        $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$projectId/_apis/build/Definitions/$($buildId)?api-version=6.0";
         $this.BuildObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
         if(($this.BuildObj | Measure-Object).Count -eq 0)

@@ -10,13 +10,13 @@ class VariableGroup: ADOSVTBase
     {
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0];
         $this.VarGrpId = $this.ResourceContext.ResourceDetails.id
-        $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ProjectId)/_apis/distributedtask/variablegroups/$($this.VarGrpId)"
+        $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ProjectId)/_apis/distributedtask/variablegroups/$($this.VarGrpId)?api-version=6.1-preview.2"
         $this.VarGrp = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
     }
     hidden [ControlResult] CheckPipelineAccess([ControlResult] $controlResult)
     {
-        $url = 'https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=variablegroup&id={2}&api-version=5.1-preview.1' -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId) ,$($this.VarGrpId);
+        $url = 'https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=variablegroup&id={2}&api-version=6.0-preview.1' -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId) ,$($this.VarGrpId);
         try 
         {
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);

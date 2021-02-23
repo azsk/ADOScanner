@@ -439,7 +439,7 @@ class AutoBugLog {
 
 
         #change the assignee for resolved bugs only
-        $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=5.1" -f $this.OrganizationName, $ProjectName, $id
+        $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=6.0" -f $this.OrganizationName, $ProjectName, $id
         if ($state -eq "Resolved") {
             $BugTemplate = $null;
             #Check if serviceid is not null and current resource scanned serviceid and bug respons serviceid is not equal, then update the service data.
@@ -587,7 +587,7 @@ class AutoBugLog {
             $body.searchFilters.Projects = $ProjectName
     
             $response = [WebRequestHelper]::InvokePostWebRequest($url, $body)
-        
+            
             return  $response
         }
     }
@@ -612,7 +612,7 @@ class AutoBugLog {
 		
         #logging new bugs
 		
-        $apiurl = 'https://dev.azure.com/{0}/{1}/_apis/wit/workitems/$bug?api-version=5.1' -f $this.OrganizationName, $ProjectName;
+        $apiurl = 'https://dev.azure.com/{0}/{1}/_apis/wit/workitems/$bug?api-version=6.0' -f $this.OrganizationName, $ProjectName;
 
         $BugTemplate = $null;
         $SecuritySeverity = "";

@@ -85,7 +85,7 @@ class BugMetaInfoProvider {
             }
             #assign to the creator of agent pool
             'AgentPool' {
-                $apiurl = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $organizationName, $ResourceName
+                $apiurl = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $organizationName, $ResourceName
                 try {
                     $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                     return $response.createdBy.uniqueName
@@ -103,7 +103,7 @@ class BugMetaInfoProvider {
                 $definitionId = $ControlResult.ResourceContext.ResourceDetails.id;
     
                 try {
-                    $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/builds?definitions={2}&api-version=5.1" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                    $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/builds?definitions={2}&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
 			    	
                     $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                     #check for recent trigger
@@ -112,7 +112,7 @@ class BugMetaInfoProvider {
                     }
                     #if no triggers found assign to the creator
                     else {
-                        $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=5.1" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                        $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
                         $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                         return $response.authoredBy.uniqueName
                     }
@@ -126,7 +126,7 @@ class BugMetaInfoProvider {
             'Release' {
                 $definitionId = ($ControlResult.ResourceContext.ResourceId -split "release/")[-1];
                 try {
-                    $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/releases?definitionId={2}&api-version=5.1" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                    $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/releases?definitionId={2}&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
                     $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                     #check for recent trigger
                     if ([Helpers]::CheckMember($response, "modifiedBy")) {
@@ -134,7 +134,7 @@ class BugMetaInfoProvider {
                     }
                     #if no triggers found assign to the creator
                     else {
-                        $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions/{2}?&api-version=5.1" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                        $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions/{2}?&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
                         $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                         return $response.createdBy.uniqueName
                     }

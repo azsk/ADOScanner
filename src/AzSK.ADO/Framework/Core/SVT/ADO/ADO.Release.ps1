@@ -14,11 +14,11 @@ class Release: ADOSVTBase
         # Get release object
         $releaseId =  ($this.ResourceContext.ResourceId -split "release/")[-1]
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-        $apiURL = "https://vsrm.dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ProjectId)/_apis/Release/definitions/$releaseId"
+        $apiURL = "https://vsrm.dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ProjectId)/_apis/Release/definitions/$($releaseId)?api-version=6.0"
         $this.ReleaseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
         # Get security namespace identifier of current release pipeline.
         if ([string]::IsNullOrEmpty([Release]::SecurityNamespaceId)) {
-            $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=5.0" -f $($this.OrganizationContext.OrganizationName)
+            $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($this.OrganizationContext.OrganizationName)
             $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             [Release]::SecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ReleaseManagement") -and ($_.actions.name -contains "ViewReleaseDefinition")}).namespaceId
     
@@ -165,7 +165,7 @@ class Release: ADOSVTBase
                             $varGrps | ForEach-Object {
                                 try
                                 {
-                                    $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}") -f $($this.OrganizationContext.OrganizationName), $this.ProjectId, $_;
+                                    $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $this.ProjectId, $_;
                                     $varGrpObj += [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
                                 }
                                 catch
@@ -840,7 +840,7 @@ class Release: ADOSVTBase
                         if((-not [string]::IsNullOrEmpty($contributorsObj)) -and ($contributorsObj.role.name -ne 'Reader')){
                             
                             #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
-                            $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($_);
+                            $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($_);
                             $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
                             
                             $editableVarGrps += $varGrpObj[0].name

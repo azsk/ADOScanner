@@ -219,7 +219,7 @@ class SVTResourceResolver: AzSKRoot {
 
             $this.PublishCustomMessage("Getting project configurations...");
             #TODO: By default api return only 100 projects. Added $top=1000 to fetch first 1000 projects. If there are morethan 1000 projects, pagination is implemented to fetch them
-            $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=5.1' -f $($this.OrganizationContext.OrganizationName);
+            $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=6.0' -f $($this.OrganizationContext.OrganizationName);
             $responseObj = "";
             try { 
                 $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL) ;
@@ -296,10 +296,10 @@ class SVTResourceResolver: AzSKRoot {
                         if ($this.BuildNames -eq "*") {
                             if ([string]::IsNullOrEmpty($topNQueryString)) {
                                 $topNQueryString = '&$top=10000'
-                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1&queryOrder=lastModifiedDescending" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
+                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
                             }
                             else {
-                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;                               
+                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;                               
                             }
                             $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL) 
                             if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
@@ -322,10 +322,10 @@ class SVTResourceResolver: AzSKRoot {
                             for ($i = 0; $i -lt $this.BuildNames.Count; $i++) {
                                 #If service id based scan then send all build ids to api as comma separated in one go.
                                 if ($this.isServiceIdBasedScan -eq $true) {
-                                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.1-preview.7" -f $($this.OrganizationContext.OrganizationName), $projectName, ($this.BuildIds -join ",");
+                                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $projectName, ($this.BuildIds -join ",");
                                 }    
                                 else { #If normal scan (not service id based) then send each build name in api one by one.
-                                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?name={2}&api-version=5.1-preview.7" -f $($this.OrganizationContext.OrganizationName), $projectName, $this.BuildNames[$i];
+                                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?name={2}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $projectName, $this.BuildNames[$i];
                                 }
                                 $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL) 
                                 if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
@@ -361,7 +361,7 @@ class SVTResourceResolver: AzSKRoot {
                         }
                         if ($this.ReleaseNames -eq "*") 
                         {
-                            $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=4.1-preview.3" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $projectName;
+                            $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $projectName;
                             $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);
                             if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
                                 $nObj = $this.MaxObjectsToScan
@@ -424,7 +424,7 @@ class SVTResourceResolver: AzSKRoot {
                         }
                     
                         # Here we are fetching all the svc conns in the project and then filtering out. But in build & release we fetch them individually unless '*' is used for fetching all of them.
-                        $serviceEndpointURL = ("https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/endpoints?api-version=4.1-preview.1") -f $($this.organizationName), $($projectName);
+                        $serviceEndpointURL = ("https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/endpoints?api-version=6.0-preview.4") -f $($this.organizationName), $($projectName);
                         $serviceEndpointObj = [WebRequestHelper]::InvokeGetWebRequest($serviceEndpointURL)
                         $TotalSvc += ($serviceEndpointObj | Measure-Object).Count
                         # service connection count here
@@ -724,7 +724,7 @@ class SVTResourceResolver: AzSKRoot {
     [void] GetResourceCount($projectName, $organizationId, $projectId, $projectData) {
         try{
             # fetching the repository count of a project
-            $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/git/repositories?api-version=6.0"
+            $resourceURL = "https://dev.azure.com/$($this.organizationName)/$($projectName)/_apis/git/repositories?api-version=6.1-preview.1"
             $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
             $projectData['repositories'] = ($responseList | Measure-Object).Count
 
@@ -739,12 +739,12 @@ class SVTResourceResolver: AzSKRoot {
             $projectData['taskGroups'] = ($responseList | Measure-Object).Count
 
             # fetch the builds count
-            $resourceURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1&queryOrder=lastModifiedDescending&`$top=10000") -f $($this.OrganizationContext.OrganizationName), $projectName;
+            $resourceURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0&queryOrder=lastModifiedDescending&`$top=10000") -f $($this.OrganizationContext.OrganizationName), $projectName;
             $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
             $projectData['build'] = ($responseList | Measure-Object).Count
 
             # fetch the release count
-            $resourceURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=4.1-preview.3&`$top=10000") -f $($this.OrganizationContext.OrganizationName), $projectName;
+            $resourceURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0&`$top=10000") -f $($this.OrganizationContext.OrganizationName), $projectName;
             $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
             $projectData['release'] = ($responseList | Measure-Object).Count;
 

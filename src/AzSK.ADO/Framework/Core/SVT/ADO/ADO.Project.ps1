@@ -242,10 +242,10 @@ class Project: ADOSVTBase
             $Allgroups += $_;
         }  
 
-        $descrurl ='https://vssps.dev.azure.com/{0}/_apis/graph/descriptors/{1}?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.ResourceId.split('/')[-1];
+        $descrurl ='https://vssps.dev.azure.com/{0}/_apis/graph/descriptors/{1}?api-version=6.0-preview.1' -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.ResourceId.split('/')[-1];
         $descr = [WebRequestHelper]::InvokeGetWebRequest($descrurl);
 
-        $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Graph/Users?scopeDescriptor={1}" -f $($this.OrganizationContext.OrganizationName), $descr[0];
+        $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Graph/Users?scopeDescriptor={1}&api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $descr[0];
         $usersObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
         <# $Users =  @()
@@ -619,7 +619,7 @@ class Project: ADOSVTBase
                     names = @();
                 };
                 foreach ($secFile in $response) {
-                    $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($projectId)/_apis/build/authorizedresources?type=securefile&id=$($secFile.id)"
+                    $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($projectId)/_apis/build/authorizedresources?type=securefile&id=$($secFile.id)&api-version=6.0-preview.1"
                     $resp = [WebRequestHelper]::InvokeGetWebRequest($url);
                     # check if the secure file is authorized
                     if((-not ([Helpers]::CheckMember($resp[0],"count"))) -and ($resp.Count -gt 0)) {
@@ -746,7 +746,7 @@ class Project: ADOSVTBase
     hidden [PSObject] FetchRepositoriesList() {
         if($null -eq $this.Repos) {
             # fetch repositories
-            $repoDefnURL = ("https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/git/repositories?api-version=6.0")
+            $repoDefnURL = ("https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/git/repositories?api-version=6.1-preview.1")
             try {
                 $repoDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($repoDefnURL);
                 $this.Repos = $repoDefnsObj;
