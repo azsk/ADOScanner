@@ -41,6 +41,12 @@ class Build: ADOSVTBase
         {
             $this.isResourceActive = $false
         }
+
+        # calculating the inactivity period in days for the build. If there is no build history, then setting it with negative value.
+        if ($null -ne $this.buildActivityDetail.buildLastRunDate)
+        {
+            $this.InactiveFromDays = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
+        }
     }
 
     [ControlItem[]] ApplyServiceFilters([ControlItem[]] $controls)
@@ -260,6 +266,9 @@ class Build: ADOSVTBase
             {
                 $controlResult.AddMessage("Last run date of build pipeline: $($this.buildActivityDetail.buildLastRunDate)");
                 $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $this.buildActivityDetail.buildLastRunDate;
+                $buildInactivePeriod = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
+                $controlResult.AddMessage("The build was inactive from last $($buildInactivePeriod) days.");
+                $controlResult.AdditionalInfo += "The build was inactive from last $($buildInactivePeriod) days.";
             }
         }
         catch

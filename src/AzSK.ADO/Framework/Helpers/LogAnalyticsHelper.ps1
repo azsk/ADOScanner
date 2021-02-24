@@ -123,6 +123,7 @@ Class LogAnalyticsHelper{
 			$out.IsControlInGrace = $ControlResult.IsControlInGrace
 			$out.ScannedBy=[ContextHelper]::GetCurrentSessionUser()
 			$out.IsResourceActive = $ControlResult.IsResourceActive
+			$out.InactiveFromDays = $ControlResult.InactiveFromDays
 			#mapping the attestation properties
 			if($null -ne $ControlResult -and $null -ne $ControlResult.StateManagement -and $null -ne $ControlResult.StateManagement.AttestedStateData)
 			{
@@ -423,6 +424,7 @@ Class LAWSModel {
 	[string] $ComponentId
 	[String[]] $AdditionalInfo
 	[bool] $IsResourceActive
+	[int] $InactiveFromDays
 }
 
 Class LAWSResourceInvModel{

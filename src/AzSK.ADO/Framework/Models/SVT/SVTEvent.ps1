@@ -62,6 +62,7 @@ class ControlResult
 	[DateTime] $ScanEndDateTime
 	[String[]] $AdditionalInfo
 	[bool] $IsResourceActive = $true;
+	[int] $InactiveFromDays=-1;
 
     [void] AddMessage([MessageData] $messageData)
     {
