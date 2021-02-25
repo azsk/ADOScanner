@@ -382,5 +382,6 @@
     "vso.build_execute", 
     "vso.release_execute",
     "vso.release_manage"
-  ]
+  ],
+  "ADOScannerDocLink":"https://github.com/azsk/ADOScanner-docs/tree/master/01-Setup%20and%20Getting%20started#setup"
 }

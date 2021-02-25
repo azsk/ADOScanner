@@ -79,7 +79,7 @@ class AutoBugLog {
             if ([BugLogPathManager]::CheckIfPathIsValid($this.OrganizationName, $ProjectName, $this.InvocationContext, $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $this.IsBugLogCustomFlow)) {
                 #Obtain the assignee for the current resource, will be same for all the control failures for this particular resource
                 $metaProviderObj = [BugMetaInfoProvider]::new();   
-                $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging, $this.IsBugLogCustomFlow, $this.ServiceIdPassedInCMD);
+                $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging, $this.IsBugLogCustomFlow, $this.ServiceIdPassedInCMD, $this.InvocationContext);
                 $serviceId = $metaProviderObj.ServiceId
                 #Log bug only if LogBugForUnmappedResource is enabled (default value is true) or resource is mapped to serviceid
                 #Restrict bug logging, if resource is not mapped to serviceid and LogBugForUnmappedResource is not enabled.
@@ -143,11 +143,15 @@ class AutoBugLog {
                                 $RunStepsForControl = " </br></br> <b>Scan command (you can use to verify fix):</b></br>{0}"
                                 $Description += ($RunStepsForControl -f $this.GetControlReproStep($control));
 
-                                $ADOScannerDocLink = "https://microsoftit.visualstudio.com/OneITVSO/_wiki/wikis/OneITVSO.wiki/15868/ADO-Security-Scanner-for-CSEO?anchor=installing-and-scanning-locally";                       
-                                if ($this.IsBugLogCustomFlow) {
-                                    $Description += "</br></br><b>Reference: </b> <a href='$ADOScannerDocLink' target='_blank'>CSEO ADO Scanner Wiki</a> </br>"
-                                }
-				            
+                                if([Helpers]::CheckMember($this.ControlSettings,"ADOScannerDocLink"))
+                                {
+                                    if ($this.IsBugLogCustomFlow) {
+                                        $Description += "</br></br><b>Reference: </b> <a href='$($this.ControlSettings.ADOScannerDocLink)' target='_blank'>CSEO ADO Scanner Wiki</a> </br>"
+                                    }
+                                    else {
+                                        $Description += "</br></br><b>Reference: </b> <a href='$($this.ControlSettings.ADOScannerDocLink)' target='_blank'>ADO Scanner Documentation</a> </br>"   
+                                    }
+                                }		            
                                 #check and append any detailed log and state data for the control failure
                                 $log = $this.GetDetailedLogForControl($control);
                                 if ($log) {
