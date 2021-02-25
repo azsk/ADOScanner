@@ -151,7 +151,7 @@
       "Automated": "Yes",
       "MethodName": "CheckServiceConnectionBuildAccess",
       "Rationale": "To support security of the pipeline operations, connections must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
-      "Recommendation": "To remediate this, navigate to the service connections settings page for your project -> select your service connection from the list -> click Edit -> uncheck 'Grant access permission to all pipelines'.",
+      "Recommendation": "To remediate this, navigate to the service connections settings page for your project -> select your service connection from the list -> click Edit -> uncheck 'Grant access permission to all pipelines'. Select your service connection from the list -> click on three dots -> click Security -> Under 'Pipeline Permissions', remove pipelines that service connection no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
       "Tags": [
         "SDL",
         "TCP",
