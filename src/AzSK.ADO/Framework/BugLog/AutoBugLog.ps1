@@ -132,31 +132,19 @@ class AutoBugLog {
 
                                 #filling the bug template
                                 $Title = "[ADOScanner] Control failure - {0} for resource {1} {2}"
-                                $Description = "Control failure - {3} for resource {4} {5} </br></br> <b>Control Description: </b> {0} </br></br> <b> Control Result: </b> {6} </br> </br> <b> Rationale:</b> {1} </br></br> <b> Recommendation:</b> {2}"
-                            
                                 $Title = $Title -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName
                                 if ($control.ResourceContext.ResourceTypeName -ne "Organization" -and $control.ResourceContext.ResourceTypeName -ne "Project") {
                                     $Title += " in project " + $control.ResourceContext.ResourceGroupName;
                                 }
-                                $Description = $Description -f $control.ControlItem.Description, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlResults[0].VerificationResult
-                                $Description += "</br></br> <b> Resource Link: </b> <a href='$($control.ResourceContext.ResourceDetails.ResourceLink)' target='_blank'>$($control.ResourceContext.ResourceName)</a>"
-                                $RunStepsForControl = " </br></br> <b>Scan command (you can use to verify fix):</b></br>{0}"
-                                $Description += ($RunStepsForControl -f $this.GetControlReproStep($control));
 
-                                if([Helpers]::CheckMember($this.ControlSettings,"ADOScannerDocLink"))
-                                {
-                                    if ($this.IsBugLogCustomFlow) {
-                                        $Description += "</br></br><b>Reference: </b> <a href='$($this.ControlSettings.ADOScannerDocLink)' target='_blank'>CSEO ADO Scanner Wiki</a> </br>"
-                                    }
-                                    else {
-                                        $Description += "</br></br><b>Reference: </b> <a href='$($this.ControlSettings.ADOScannerDocLink)' target='_blank'>ADO Scanner Documentation</a> </br>"   
-                                    }
-                                }		            
+                                $scanCommand = $this.GetControlReproStep($control);
+                                $Description = $this.ControlSettings.BugLogging.Description -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlItem.Description, $control.ControlResults[0].VerificationResult, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ResourceContext.ResourceDetails.ResourceLink, $control.ResourceContext.ResourceName, $scanCommand
+                                                                    
                                 #check and append any detailed log and state data for the control failure
                                 $log = $this.GetDetailedLogForControl($control);
                                 if ($log) {
-                                    $Description += "<hr></br><b>Some other details for your reference</b> </br><hr> {7} "
-                                    $Description = $Description.Replace("{7}", $log)
+                                    $Description += "<hr></br><b>Some other details for your reference</b> </br><hr> {0} "
+                                    $Description = $Description.Replace("{0}", $log)
                                 }               
                                 $Description = $Description.Replace("`"", "'")
                                 $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
