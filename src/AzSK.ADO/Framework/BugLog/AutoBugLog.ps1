@@ -384,17 +384,17 @@ class AutoBugLog {
             }
         }
         else {
-            $state = ($workItem[0].results.values[0].fields | where { $_.name -eq "State" }).value
-            $id = ($workItem[0].results.values[0].fields | where { $_.name -eq "ID" }).value
+            $state = $workItem[0].results[0].fields."system.state"
+            $id = $workItem[0].results[0].fields."system.id"
             #Check ShowBugsInS360 and Security.ServiceHierarchyId property exist in object.
-            if ($this.ShowBugsInS360 -and ($workItem[0].results.values[0].fields.PSobject.Properties.name -match "Security.ServiceHierarchyId")) 
+            if ($this.ShowBugsInS360 -and ($workItem[0].results[0].fields.PSobject.Properties.name -match "Security.ServiceHierarchyId")) 
             {
-                $serviceIdInLoggedBug = ($workItem[0].results.values[0].fields | where { $_.name -eq "Security.ServiceHierarchyId" }).value
+                $serviceIdInLoggedBug = ($workItem[0].results[0].fields | where { $_.name -eq "Security.ServiceHierarchyId" }).value
             }
         }
         
         #bug url that redirects user to bug logged in ADO, this is not available via the API response and thus has to be created via the ID of bug
-        $bugUrl = "https://{0}.visualstudio.com/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $ProjectName , $id
+        $bugUrl = "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $ProjectName , $id
 
         #TODO : whether the bug is active or resolved, we have to ensure the state of the bug remains active after this function  
         #if a PCA assigns this to a non PCA, the control can never be fixed for org/project controls. to tackle this, reassign it to the original owner PCA
@@ -568,26 +568,25 @@ class AutoBugLog {
         }
         else 
         {
-            $url = "https://{0}.almsearch.visualstudio.com/{1}/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $this.OrganizationName, $ProjectName
-
+            $url = "https://almsearch.dev.azure.com/{0}/{1}/_apis/search/workitemsearchresults?api-version=6.0-preview.1" -f $this.OrganizationName, $ProjectName
             #TODO: validate set to allow only two values : ReactiveOldBug and CreateNewBug
             #check for ResolvedBugBehaviour in control settings
             #takeResults is used to fetch number of workitems to be return. At caller side of this method we are checking if return greter then 0, then manage work item else add new.
             if ($this.ControlSettings.BugLogging.ResolvedBugLogBehaviour -ne "ReactiveOldBug") {
                 #new bug is to be logged for every resolved bug, hence search for only new/active bug
-                $body = '{"searchText":"{0}","skipResults":0,"takeResults":2,"sortOptions":[],"summarizedHitCountsNeeded":true,"searchFilters":{"Projects":["{1}"],"Work Item Types":["Bug"],"States":["Active","New"]},"filters":[],"includeSuggestions":false}' | ConvertFrom-Json
+                $body = '{"searchText": "{0}","$skip": 0,"$top": 2,"filters": {"System.TeamProject": ["{1}"],"System.WorkItemType": ["Bug"],"System.State": ["New","Active"]}}'| ConvertFrom-Json
             }
             else {
                 #resolved bug needs to be reactivated, hence search for new/active/resolved bugs
-                $body = '{"searchText":"{0}","skipResults":0,"takeResults":2,"sortOptions":[],"summarizedHitCountsNeeded":true,"searchFilters":{"Projects":["{1}"],"Work Item Types":["Bug"],"States":["Active","New","Resolved"]},"filters":[],"includeSuggestions":false}' | ConvertFrom-Json
+                $body = '{"searchText": "{0}","$skip": 0,"$top": 2,"filters": {"System.TeamProject": ["{1}"],"System.WorkItemType": ["Bug"],"System.State": ["New","Active","Resolved"]}}'| ConvertFrom-Json
             }
     
             #tag to be searched
             $body.searchText = "Tags: " + $hash
-            $body.searchFilters.Projects = $ProjectName
+            $body.filters."System.TeamProject" = $ProjectName
     
             $response = [WebRequestHelper]::InvokePostWebRequest($url, $body)
-            
+
             return  $response
         }
     }
