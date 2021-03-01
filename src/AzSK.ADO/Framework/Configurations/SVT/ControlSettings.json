@@ -271,6 +271,7 @@
                       "vso.symbols_write","vso.symbols_manage","vso.taskgroups_write","vso.taskgroups_manage",
                       "vso.dashboards_manage","vso.test_write","vso.tokenadministration","vso.profile_write",
                       "vso.variablegroups_write","vso.variablegroups_manage","vso.wiki_write","vso.work_write","vso.work_full"],
+    "ExemptedExtensionNames":["Azure DevTest Labs Tasks"],
     "MaxPCAMembersPermissible": 5,
     "MinPCAMembersPermissible": 2,
     "GroupsToCheckForSCAltMembers": [
