@@ -95,6 +95,12 @@ class AutoBugLog {
     
                     #this falg is added to restrict 'Determining bug logging' message should print only once 
                     $printLogBugMsg = $true;
+
+                    #Local variable to store description default template.
+                    $bugDescription = "Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a>  </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs/tree/master/01-Setup%20and%20Getting%20started#setup' target='_blank'>ADO Scanner Documentation</a> </br>";
+                    if ([Helpers]::CheckMember($this.controlsettings.BugLogging, "Description")) {
+                        $bugDescription = $this.ControlSettings.BugLogging.Description;
+                    }
                     #Loop through all the control results for the current resource
                     $ControlResults | ForEach-Object {
                         $control = $_;                                     
@@ -138,7 +144,7 @@ class AutoBugLog {
                                 }
 
                                 $scanCommand = $this.GetControlReproStep($control);
-                                $Description = $this.ControlSettings.BugLogging.Description -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlItem.Description, $control.ControlResults[0].VerificationResult, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ResourceContext.ResourceDetails.ResourceLink, $control.ResourceContext.ResourceName, $scanCommand
+                                $Description = $bugDescription -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlItem.Description, $control.ControlResults[0].VerificationResult, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ResourceContext.ResourceDetails.ResourceLink, $control.ResourceContext.ResourceName, $scanCommand
                                                                     
                                 #check and append any detailed log and state data for the control failure
                                 $log = $this.GetDetailedLogForControl($control);
