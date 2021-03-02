@@ -363,7 +363,7 @@
     "DomainName": "microsoft.com",
     "BugDescriptionField" : "",
     "ShowBugsInS360" : false,
-    "HowFound": "Manual",
+    "HowFound": "ADO Scanner",
     "ComplianceArea": "Security",
     "ServiceTreeIdType": "Service",
     "UseAzureStorageAccount": false,
