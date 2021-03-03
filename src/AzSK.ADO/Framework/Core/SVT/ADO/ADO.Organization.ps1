@@ -531,7 +531,7 @@ class Organization: ADOSVTBase
                                 "NonProd (ExtensionName)" = "Yes/No [if extension name indicates [$($nonProductionExtensionIndicators -join ', ')]]";
                                 "TopPublisher" = "Yes/No [if extension's publisher has 'Top Publisher' certification]";
                                 "PrivateVisibility" = "Yes/No [if extension has 'private' visibility for the org]" ;
-                                "Score" = "secure Score of extension (see bottom of this table for scoring scheme)"
+                                "Score" = "Secure score of extension (see bottom of this table for scoring scheme)"
                             }  
 
                             $scoretable = @(
