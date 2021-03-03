@@ -38,6 +38,11 @@ class ControlStateExtension
 		
 		$this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");	
 		$this.AttestationBody = [ConfigurationManager]::LoadServerConfigFile("ADOAttestation.json");
+
+		if (!$this.AzSKSettings) 
+		{	
+			$this.AzSKSettings = [ConfigurationManager]::GetAzSKSettings();				
+		}
 	}
 
 	static [string] ComputeHashX([string] $dataToHash)
