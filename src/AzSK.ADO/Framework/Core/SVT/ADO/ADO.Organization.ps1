@@ -466,7 +466,7 @@ class Organization: ADOSVTBase
                     ## Deep scan start
                     if([AzSKRoot]::IsDetailedScanRequired -eq $true)
                     {   
-                        Write-host "You have requested for detailed scan, it will take few minutes.." -ForegroundColor Yellow
+                        $this.PublishCustomMessage("You have requested for detailed scan, it will take few minutes..",[MessageType]::Warning);
                         $isKnownPublishersPropertyPresent = $false
                         $islastUpdatedPropertyPresent = $false
                         $isCriticalScopesPropertyPresent = $false
@@ -510,9 +510,10 @@ class Organization: ADOSVTBase
                                 $nonProductionExtensionIndicators = @()
                             }                            
                             
+                            $ExemptedExtensionNames = @()
                             if([Helpers]::CheckMember($this.ControlSettings, "Organization.ExemptedExtensionNames"))
                             {
-                                $ExemptedExtensionNames =@($this.ControlSettings.Organization.ExemptedExtensionNames);
+                                $ExemptedExtensionNames += $this.ControlSettings.Organization.ExemptedExtensionNames;
                             }  
 
                             $controlResult.AddMessage([Constants]::HashLine)   
@@ -530,18 +531,18 @@ class Organization: ADOSVTBase
                                 "NonProd (ExtensionName)" = "Yes/No [if extension name indicates [$($nonProductionExtensionIndicators -join ', ')]]";
                                 "TopPublisher" = "Yes/No [if extension's publisher has 'Top Publisher' certification]";
                                 "PrivateVisibility" = "Yes/No [if extension has 'private' visibility for the org]" ;
-                                "Score" = "Secure Score of extension (see bottom of this table for scoring scheme)"
+                                "Score" = "secure Score of extension (see bottom of this table for scoring scheme)"
                             }  
 
                             $scoretable = @(
-                                New-Object psobject -Property $([ordered] @{"Parameter"="'Top Publisher' certification";"Score(if Yes)"="+10"; "Score(if No)" = "0"});
-                                New-Object psobject -Property $([ordered] @{"Parameter"="Known publishers";"Score(if Yes)"="+10"; "Score(if No)" = "0"});
-                                New-Object psobject -Property $([ordered] @{"Parameter"="Too Old ( x years )";"Score(if Yes)"="-5*(time (in years) when extension was published last beyond threshhold)"; "Score(if No)" = "0"})
-                                New-Object psobject -Property $([ordered] @{"Parameter"="Sensitive permissions(n)";"Score(if Yes)"="-5*(no. of sensitive permmissions found)"; "Score(if No)" = "0"});
-                                New-Object psobject -Property $([ordered] @{"Parameter"="NonProd (GalleryFlag)";"Score(if Yes)"="-10"; "Score(if No)" = "+10"})
-                                New-Object psobject -Property $([ordered] @{"Parameter"="NonProd (ExtensionName)";"Score(if Yes)"="-10"; "Score(if No)" = "+10"})
-                                New-Object psobject -Property $([ordered] @{"Parameter"="Private visibility";"Score(if Yes)"="-10"; "Score(if No)" = "+10"})
-                                New-Object psobject -Property $([ordered] @{"Parameter"="Average Rating ";"Score(if Yes)"="2*(Marketplace average rating)"; "Score(if No)" = "0"})
+                                New-Object psobject -Property $([ordered] @{"Parameter"="'Top Publisher' certification";"Score (if Yes)"="+10"; "Score (if No)" = "0"});
+                                New-Object psobject -Property $([ordered] @{"Parameter"="Known publishers";"Score (if Yes)"="+10"; "Score (if No)" = "0"});
+                                New-Object psobject -Property $([ordered] @{"Parameter"="Too Old ( x years )";"Score (if Yes)"="-5*(time (in years) when extension was last published beyond threshhold)"; "Score (if No)" = "0"})
+                                New-Object psobject -Property $([ordered] @{"Parameter"="Sensitive permissions(n)";"Score (if Yes)"="-5*(no. of sensitive permmissions found)"; "Score (if No)" = "0"});
+                                New-Object psobject -Property $([ordered] @{"Parameter"="NonProd (GalleryFlag)";"Score (if Yes)"="-10"; "Score (if No)" = "+10"})
+                                New-Object psobject -Property $([ordered] @{"Parameter"="NonProd (ExtensionName)";"Score (if Yes)"="-10"; "Score (if No)" = "+10"})
+                                New-Object psobject -Property $([ordered] @{"Parameter"="Private visibility";"Score (if Yes)"="-10"; "Score (if No)" = "+10"})
+                                New-Object psobject -Property $([ordered] @{"Parameter"="Average Rating ";"Score (if Yes)"="2*(Marketplace average rating)"; "Score (if No)" = "0"})
                             ) | Format-Table -AutoSize | Out-String -Width $ftWidth
                             
                             $helperTable = $infotable.keys | Select @{l='Column';e={$_}},@{l='Interpretation';e={$infotable.$_}} | Format-Table -AutoSize | Out-String -Width $ftWidth
@@ -581,7 +582,8 @@ class Organization: ADOSVTBase
                                 $extensionInfo.Score = 0
                                 $extensionInfo.MaxScore = 0                                
                                 
-                                $extensionInfo.MaxScore += 10
+                                # Checking for known publishers
+                                $extensionInfo.MaxScore += 10 # Known publisher score
                                 if($_.publisherName -in $knownExtPublishers)
                                 {
                                     $extensionInfo.KnownPublisher = "Yes"
@@ -593,6 +595,7 @@ class Organization: ADOSVTBase
                                     $unKnownExtensions += $_
                                 }
                                 
+                                # Checking whether extension is too old or not
                                 if(([datetime] $_.lastPublished) -lt $thresholdDate)
                                 {
                                     $staleExtensionList += $_
@@ -603,7 +606,8 @@ class Organization: ADOSVTBase
                                 else {
                                     $extensionInfo.TooOld = "No"                                    
                                 }
-
+                                
+                                # Checking whether extension have sensitive permissions
                                 $riskyScopes = @($_.scopes | ? {$_ -in $extensionCriticalScopes})
                                 if($riskyScopes.count -gt 0)
                                 {
@@ -615,8 +619,8 @@ class Organization: ADOSVTBase
                                     $extensionInfo.SensitivePermissions = "None"
                                 }
                                 
-                                
-                                $extensionInfo.MaxScore += 10
+                                # Checking whether extension name comes under exempted extension name or non prod indicators
+                                $extensionInfo.MaxScore += 10 # Score for extension Name  not in non prod indicators
                                 if($_.extensionName -in $ExemptedExtensionNames)
                                 {
                                     $extensionInfo.NonProdByName = "No"  
@@ -730,7 +734,7 @@ class Organization: ADOSVTBase
                                         if($extensionflags -match 'Preview')
                                         {
                                             $extensionInfo.Preview = "Yes"
-                                            $nonProdExtensions+=$_
+                                            $nonProdExtensions += $_
                                             $extensionInfo.Score -= 10
                                         }
                                         else {
@@ -742,7 +746,7 @@ class Organization: ADOSVTBase
                                         if($publisherFlags -match "Certified")
                                         {
                                             $extensionInfo.TopPublisher = "Yes"
-                                            $topPublisherExtensions+=$_
+                                            $topPublisherExtensions += $_
                                             $extensionInfo.Score += 10
                                         }
                                         else {
