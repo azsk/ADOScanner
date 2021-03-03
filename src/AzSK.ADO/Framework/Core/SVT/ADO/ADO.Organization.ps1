@@ -466,7 +466,7 @@ class Organization: ADOSVTBase
                     ## Deep scan start
                     if([AzSKRoot]::IsDetailedScanRequired -eq $true)
                     {   
-                        $this.PublishCustomMessage("You have requested for detailed scan, it will take few minutes..",[MessageType]::Warning);
+                        $this.PublishCustomMessage("You have requested for detailed scan, it will take few minutes..`n",[MessageType]::Warning);
                         $isKnownPublishersPropertyPresent = $false
                         $islastUpdatedPropertyPresent = $false
                         $isCriticalScopesPropertyPresent = $false
