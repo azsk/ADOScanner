@@ -451,7 +451,7 @@ class ControlStateExtension
 
 	[string] GetProject(){
 		$projectName = "";
-		if ([Helpers]::CheckMember($this.ControlSettings, "EnableMultiProjectStorage") -and [Helpers]::CheckMember($this.ControlSettings, "ProjectToStoreAttestation")) {
+		if ([Helpers]::CheckMember($this.ControlSettings, "EnableMultiProjectAttestation") -and [Helpers]::CheckMember($this.ControlSettings, "ProjectToStoreAttestation")) {
 			return $this.ControlSettings.ProjectToStoreAttestation;
 		}
 		if ($this.resourceType -eq "Organization" -or $this.resourceType -eq $null) 
