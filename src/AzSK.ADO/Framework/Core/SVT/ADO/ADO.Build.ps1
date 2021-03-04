@@ -268,7 +268,6 @@ class Build: ADOSVTBase
                 $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $this.buildActivityDetail.buildLastRunDate;
                 $buildInactivePeriod = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
                 $controlResult.AddMessage("The build was inactive from last $($buildInactivePeriod) days.");
-                $controlResult.AdditionalInfo += "The build was inactive from last $($buildInactivePeriod) days.";
             }
         }
         catch

@@ -300,7 +300,6 @@ class Release: ADOSVTBase
                 $controlResult.AdditionalInfo += "Last release date of pipeline: " + $this.releaseActivityDetail.latestReleaseTriggerDate;
                 $releaseInactivePeriod = ((Get-Date) - $this.releaseActivityDetail.latestReleaseTriggerDate).Days
                 $controlResult.AddMessage("The release was inactive from last $($releaseInactivePeriod) days.");
-                $controlResult.AdditionalInfo += "The release was inactive from last $($releaseInactivePeriod) days.";
             }
         }
         catch

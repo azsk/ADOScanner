@@ -30,6 +30,12 @@ class AgentPool: ADOSVTBase
         {
             $this.isResourceActive = $false
         }
+
+        # calculating the inactivity period in days for the agent pool. If there is no use history, then setting it with negative value.
+        if ($null -ne $this.agentPoolActivityDetail.agentPoolLastRunDate)
+        {
+            $this.InactiveFromDays = ((Get-Date) - $this.agentPoolActivityDetail.agentPoolLastRunDate).Days
+        }
     }
 
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
@@ -193,6 +199,8 @@ class AgentPool: ADOSVTBase
             {
                 $controlResult.AddMessage("Last queue date of agent pool: $($this.agentPoolActivityDetail.agentPoolLastRunDate)");
                 $controlResult.AdditionalInfo += "Last queue date of agent pool: " + $this.agentPoolActivityDetail.agentPoolLastRunDate;
+                $agentPoolInactivePeriod = ((Get-Date) - $this.agentPoolActivityDetail.agentPoolLastRunDate).Days
+                $controlResult.AddMessage("The agent pool was inactive from last $($agentPoolInactivePeriod) days.");
             }
         }
         catch 
