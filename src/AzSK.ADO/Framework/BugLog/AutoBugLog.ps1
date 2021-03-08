@@ -97,7 +97,7 @@ class AutoBugLog {
                     $printLogBugMsg = $true;
 
                     #Local variable to store description default template.
-                    $bugDescription = "Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a>  </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs/tree/master/01-Setup%20and%20Getting%20started#setup' target='_blank'>ADO Scanner Documentation</a> </br>";
+                    $bugDescription = "Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a>  </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>";
                     if ([Helpers]::CheckMember($this.controlsettings.BugLogging, "Description")) {
                         $bugDescription = $this.ControlSettings.BugLogging.Description;
                     }
