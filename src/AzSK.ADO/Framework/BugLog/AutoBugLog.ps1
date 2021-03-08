@@ -149,8 +149,8 @@ class AutoBugLog {
                                 #check and append any detailed log and state data for the control failure
                                 $log = $this.GetDetailedLogForControl($control);
                                 if ($log) {
-                                    $Description += "<hr></br><b>Some other details for your reference</b> </br><hr> {0} "
-                                    $Description = $Description.Replace("{0}", $log)
+                                    $Description += "<hr></br><b>Some other details for your reference</b> </br><hr> {10} "
+                                    $Description = $Description.Replace("{10}", $log)
                                 }               
                                 $Description = $Description.Replace("`"", "'")
                                 $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
