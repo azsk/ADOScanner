@@ -578,7 +578,7 @@ class Organization: ADOSVTBase
                                 $extensionInfo.PublisherId = $_.publisherId
                                 $extensionInfo.PublisherName = $_.publisherName
                                 $extensionInfo.Version = $_.version
-                                $extensionInfo.LastPublished = ([datetime] $_.lastPublished).ToString("yyyy-MM-dd")
+                                $extensionInfo.LastPublished = ([datetime] $_.lastPublished).ToString("MM-dd-yyyy")
                                 $extensionInfo.Score = 0
                                 $extensionInfo.MaxScore = 0                                
                                 
@@ -838,7 +838,7 @@ class Organization: ADOSVTBase
                                     }
                                     $controlResult.AddMessage("`nNo. of extensions that haven't been updated in the last [$extensionsLastUpdatedInYears] years: "+ $staleExtensionList.count)
                                     $controlResult.AddMessage("`nExtension details (oldest first): ")
-                                    $display = ($staleExtensionList| Sort-Object lastPublished | FT ExtensionName, @{Name = "lastPublished"; Expression = { ([datetime] $_.lastPublished).ToString("yyyy-MM-dd")} }, PublisherId, PublisherName, version -AutoSize | Out-String -Width $ftWidth)
+                                    $display = ($staleExtensionList| Sort-Object lastPublished | FT ExtensionName, @{Name = "lastPublished (MM-dd-yyyy)"; Expression = { ([datetime] $_.lastPublished).ToString("MM-dd-yyyy")} }, PublisherId, PublisherName, version -AutoSize | Out-String -Width $ftWidth)
                                     $controlResult.AddMessage($display)
                                 }                           
                         
