@@ -168,14 +168,16 @@ class SVTResourceResolver: AzSKRoot {
         }
         
         #Checking if org name is correct 
-        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.organizationName);
-        
-        $inputbody = "{'contributionIds':['ms.vss-features.my-organizations-data-provider'],'dataProviderContext':{'properties':{'sourcePage':{'url':'https://dev.azure.com/$($this.organizationName)','routeId':'ms.vss-tfs-web.suite-me-page-route','routeValues':{'view':'projects','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-        try {
-            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
-            $organizationId = ($responseObj[0].dataProviders."ms.vss-features.my-organizations-data-provider".organizations | Where-Object {$_.name -eq $this.organizationName}).id
-            $inputbody = $null;
-            Remove-Variable inputbody;
+        $apiURL = "https://app.vssps.visualstudio.com/_apis/accounts"
+        $responseObj = "";
+        try { 
+            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL) ;
+            if (-not [string]::IsNullOrEmpty($responseObj) -and ($responseObj | Measure-Object).Count -gt 0)
+            {
+                $organizationId = ($responseObj | where {$_.accountname -eq $this.organizationname}).AccountId
+            }
+            Remove-Variable responseObj;
+
         }
         catch {
             Write-Host 'Organization not found: Incorrect organization name or you do not have necessary permission to access the organization.' -ForegroundColor Red
