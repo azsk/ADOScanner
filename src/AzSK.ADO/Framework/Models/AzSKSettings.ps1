@@ -43,6 +43,8 @@ class AzSKSettings {
 	[bool] $EnableOrgControlAttestation = $false;
 	[string] $PolicyProject = $null;
 	
+	[string] $AttestationRepo = "";
+    [string] $AttestationBranch = "";
 	AzSKSettings()
 	{	
 	}

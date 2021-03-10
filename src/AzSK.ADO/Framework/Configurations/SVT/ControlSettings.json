@@ -168,6 +168,8 @@
   ],
   "AttestationRepo": "",
   "AttestationBranch": "",
+  "EnableMultiProjectAttestation": false,
+  "ProjectToStoreAttestation": "",
   "IsAllowLongRunningScan": true,
   "LongRunningScanCheckPoint": 1000,
   "DefaultValidAttestationStates": [
