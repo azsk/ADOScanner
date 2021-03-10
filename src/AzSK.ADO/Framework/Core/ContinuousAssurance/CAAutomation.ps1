@@ -1056,7 +1056,7 @@ class CAAutomation : ADOSVTCommandBase
                     #Step 9: Get Identity details of function app to provide access on keyvault and storage
                     $FuncApp = Get-AzWebApp -Name $this.FuncAppName -ResourceGroupName $this.RGname		
                     $FuncAppIdentity= $FuncApp.Identity.PrincipalId 						
-                    $MSIAccessToKV = Set-AzKeyVaultAccessPolicy -VaultName $this.KeyVaultName -ResourceGroupName $this.RGname -PermissionsToSecrets get,list,update -PassThru -ObjectId $FuncAppIdentity
+                    $MSIAccessToKV = Set-AzKeyVaultAccessPolicy -VaultName $this.KeyVaultName -ResourceGroupName $this.RGname -PermissionsToSecrets get,list,set -PassThru -ObjectId $FuncAppIdentity
                     $IsMSIAccess = $MSIAccessToKV.AccessPolicies | ForEach-Object { if ($_.ObjectId -match $FuncAppIdentity ) {return $true }}
                     if($IsMSIAccess -eq $true) 
                     {
