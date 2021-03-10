@@ -453,6 +453,7 @@ class ControlStateExtension
 
 	[string] GetProject(){
 		$projectName = "";
+		#If EnableMultiProjectAttestation is enabled and ProjectToStoreAttestation has project, only then ProjectToStoreAttestation will be used as central attestation location.
 		if ([Helpers]::CheckMember($this.ControlSettings, "EnableMultiProjectAttestation") -and [Helpers]::CheckMember($this.ControlSettings, "ProjectToStoreAttestation")) {
 			return $this.ControlSettings.ProjectToStoreAttestation;
 		}
