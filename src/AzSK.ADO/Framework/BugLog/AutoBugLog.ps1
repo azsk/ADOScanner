@@ -163,7 +163,7 @@ class AutoBugLog {
                         }
                         catch
                         {
-                            Write-Host "Could not log the bug." -ForegroundColor Red
+                            Write-Host "Could not log/reactivate the bug for resource $($control.ResourceContext.ResourceName) and control $($control.ControlItem.ControlID)." -ForegroundColor Red
                         } 
                     }
                 }
