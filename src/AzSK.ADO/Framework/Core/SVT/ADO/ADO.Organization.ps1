@@ -525,24 +525,24 @@ class Organization: ADOSVTBase
                             
                             $infotable = [ordered] @{ 
                                 "KnownPublisher" = "Yes/No [if extension is from [$($knownExtPublishers -join ', ')]]";
-                                "Too Old (>$($extensionsLastUpdatedInYears)year(s))" = "Yes/No [if extension has not been updated by publishers for more than [$extensionsLastUpdatedInYears] year(s)]";
-                                "SensitivePermissions" = "Lists if any permissions requested by extension are in the sesitive list. (see bottom of this table for the full list of sensitive permission)";
+                                "Too Old (> $($extensionsLastUpdatedInYears)year(s))" = "Yes/No [if extension has not been updated by publishers for more than [$extensionsLastUpdatedInYears] year(s)]";
+                                "SensitivePermissions" = "Lists if any permissions requested by extension are in the sensitive permissions list. (See list below for the full list of permissions considered to be sensitive.)";
                                 "NonProd (GalleryFlag)" = "Yes/No [if the gallery flags in the manifest mention 'preview']";
                                 "NonProd (ExtensionName)" = "Yes/No [if extension name indicates [$($nonProductionExtensionIndicators -join ', ')]]";
                                 "TopPublisher" = "Yes/No [if extension's publisher has 'Top Publisher' certification]";
-                                "PrivateVisibility" = "Yes/No [if extension has 'private' visibility for the org]" ;
-                                "Score" = "Secure score of extension (see bottom of this table for scoring scheme)"
+                                "PrivateVisibility" = "Yes/No [if extension has been shared privately with the org]" ;
+                                "Score" = "Secure score of extension. (See further below for the scoring scheme.) "
                             }  
 
                             $scoretable = @(
                                 New-Object psobject -Property $([ordered] @{"Parameter"="'Top Publisher' certification";"Score (if Yes)"="+10"; "Score (if No)" = "0"});
                                 New-Object psobject -Property $([ordered] @{"Parameter"="Known publishers";"Score (if Yes)"="+10"; "Score (if No)" = "0"});
-                                New-Object psobject -Property $([ordered] @{"Parameter"="Too Old ( x years )";"Score (if Yes)"="-5*(time (in years) when extension was last published beyond threshhold)"; "Score (if No)" = "0"})
-                                New-Object psobject -Property $([ordered] @{"Parameter"="Sensitive permissions(n)";"Score (if Yes)"="-5*(no. of sensitive permmissions found)"; "Score (if No)" = "0"});
+                                New-Object psobject -Property $([ordered] @{"Parameter"="Too Old ( x years )";"Score (if Yes)"="-5*(No. of years when extension was last published before threshhold)"; "Score (if No)" = "0"})
+                                New-Object psobject -Property $([ordered] @{"Parameter"="Sensitive permissions(n)";"Score (if Yes)"="-5*(No. of sensitive permmissions found)"; "Score (if No)" = "0"});
                                 New-Object psobject -Property $([ordered] @{"Parameter"="NonProd (GalleryFlag)";"Score (if Yes)"="-10"; "Score (if No)" = "+10"})
                                 New-Object psobject -Property $([ordered] @{"Parameter"="NonProd (ExtensionName)";"Score (if Yes)"="-10"; "Score (if No)" = "+10"})
                                 New-Object psobject -Property $([ordered] @{"Parameter"="Private visibility";"Score (if Yes)"="-10"; "Score (if No)" = "+10"})
-                                New-Object psobject -Property $([ordered] @{"Parameter"="Average Rating ";"Score (if Yes)"="2*(Marketplace average rating)"; "Score (if No)" = "0"})
+                                New-Object psobject -Property $([ordered] @{"Parameter"="Average Rating ";"Score (if Yes)"="+2*(Marketplace average rating)"; "Score (if No)" = "0"})
                             ) | Format-Table -AutoSize | Out-String -Width $ftWidth
                             
                             $helperTable = $infotable.keys | Select @{l='Column';e={$_}},@{l='Interpretation';e={$infotable.$_}} | Format-Table -AutoSize | Out-String -Width $ftWidth
@@ -578,7 +578,7 @@ class Organization: ADOSVTBase
                                 $extensionInfo.PublisherId = $_.publisherId
                                 $extensionInfo.PublisherName = $_.publisherName
                                 $extensionInfo.Version = $_.version
-                                $extensionInfo.LastPublished = $_.lastPublished
+                                $extensionInfo.LastPublished = ([datetime] $_.lastPublished).ToString("MM-dd-yyyy")
                                 $extensionInfo.Score = 0
                                 $extensionInfo.MaxScore = 0                                
                                 
@@ -787,8 +787,8 @@ class Organization: ADOSVTBase
                                     
                                 $combinedTable += $extensionInfo                                
                             }
-                            
-                            
+                            $MaxScore = $combinedTable[0].MaxScore
+                            $controlResult.AddMessage("Note: Using this scheme an extension can get a maximum secure score of $MaxScore.`n")
                             $controlResult.AddMessage([Constants]::HashLine)                          
                             $controlResult.AddMessage([Constants]::SingleDashLine +"`nLooking for extensions from known publishers`n"+[Constants]::SingleDashLine) 
                             $controlResult.AddMessage("`nNote: The following are considered as 'known' publishers: `n`t[$($knownExtPublishers -join ', ')]");
@@ -838,7 +838,7 @@ class Organization: ADOSVTBase
                                     }
                                     $controlResult.AddMessage("`nNo. of extensions that haven't been updated in the last [$extensionsLastUpdatedInYears] years: "+ $staleExtensionList.count)
                                     $controlResult.AddMessage("`nExtension details (oldest first): ")
-                                    $display = ($staleExtensionList| Sort-Object lastPublished | FT ExtensionName, lastPublished, PublisherId, PublisherName, version -AutoSize | Out-String -Width $ftWidth)
+                                    $display = ($staleExtensionList| Sort-Object lastPublished | FT ExtensionName, @{Name = "lastPublished (MM-dd-yyyy)"; Expression = { ([datetime] $_.lastPublished).ToString("MM-dd-yyyy")} }, PublisherId, PublisherName, version -AutoSize | Out-String -Width $ftWidth)
                                     $controlResult.AddMessage($display)
                                 }                           
                         
