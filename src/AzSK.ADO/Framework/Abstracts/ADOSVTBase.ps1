@@ -4,6 +4,8 @@ class ADOSVTBase: SVTBase {
 	hidden [AzSKSettings] $AzSKSettings;
 	# below variable will be used by SVT's and overriden for each individual resource.
 	hidden [bool] $isResourceActive = $true;
+	# below variable will contains the inactivity period for resources in days.
+	hidden [int] $InactiveFromDays = -1;
 	ADOSVTBase() {
 
 	}
@@ -143,7 +145,7 @@ class ADOSVTBase: SVTBase {
 
 				# override the default value with current status
 				$currentItem.IsResourceActive = $this.IsResourceActive;
-
+				$currentItem.InactiveFromDays = $this.InactiveFromDays;
 				#Logic to append the control result with the permissions metadata
 				[SessionContext] $sc = $currentItem.CurrentSessionContext;
 				$sc.Permissions.HasAttestationWritePermissions = $this.ControlStateExt.HasControlStateWriteAccessPermissions();
@@ -462,10 +464,6 @@ class ADOSVTBase: SVTBase {
 		#perform bug logging after control scans for the current resource
 		if ($BugLogParameterValue) 
 		{
-			#added check azuretable check here, if ((azuretable is used for storing bug info and scan mode is CA) OR azuretable bug info is disabed) then only allow bug logging
-			$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
-			$isAzureTableEnabled = [Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount");
-			
 			# using checkmember without null check, if field is present in control settings but no value has been set then allow bug logging for inactive resources.
 			if([Helpers]::CheckMember($this.ControlSettings.BugLogging, "LogBugsForInactiveResources", $false))
 			{
@@ -485,7 +483,9 @@ class ADOSVTBase: SVTBase {
 			{
 				$logBugsForInactiveResources = $true;
 			}
-
+			#added check azuretable check here, if ((azuretable is used for storing bug info and scan mode is CA) OR azuretable bug info is disabed) then only allow bug logging
+			$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
+			$isAzureTableEnabled = [Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount");
 			if (!$isAzureTableEnabled -or ($isAzureTableEnabled -and ($scanSource -eq "CA")) )
 			{
 				if ($logBugsForInactiveResources) {

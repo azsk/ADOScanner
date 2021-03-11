@@ -168,6 +168,8 @@
   ],
   "AttestationRepo": "",
   "AttestationBranch": "",
+  "EnableMultiProjectAttestation": false,
+  "ProjectToStoreAttestation": "",
   "IsAllowLongRunningScan": true,
   "LongRunningScanCheckPoint": 1000,
   "DefaultValidAttestationStates": [
@@ -271,6 +273,7 @@
                       "vso.symbols_write","vso.symbols_manage","vso.taskgroups_write","vso.taskgroups_manage",
                       "vso.dashboards_manage","vso.test_write","vso.tokenadministration","vso.profile_write",
                       "vso.variablegroups_write","vso.variablegroups_manage","vso.wiki_write","vso.work_write","vso.work_full"],
+    "ExemptedExtensionNames":["Azure DevTest Labs Tasks"],
     "MaxPCAMembersPermissible": 5,
     "MinPCAMembersPermissible": 2,
     "GroupsToCheckForSCAltMembers": [
@@ -363,13 +366,14 @@
     "DomainName": "microsoft.com",
     "BugDescriptionField" : "",
     "ShowBugsInS360" : false,
-    "HowFound": "Manual",
+    "HowFound": "ADO Scanner",
     "ComplianceArea": "Security",
     "ServiceTreeIdType": "Service",
     "UseAzureStorageAccount": false,
     "LogBugsForInactiveResources": true,
     "CustomControlList": [],
-    "LogBugsForUnmappedResource": true
+    "LogBugsForUnmappedResource": true,
+    "Description":"Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a>  </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>"
   },
   "GenerateSecurityEvaluationJsonFile" : false,
   "ResourceProviders": [

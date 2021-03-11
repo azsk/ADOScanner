@@ -239,7 +239,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                         $years = $svtObject.ControlSettings.Organization.ExtensionsLastUpdatedInYears
 					}
 					$folderpath=([WriteFolderPath]::GetInstance().FolderPath) + "\$($_.ResourceName)"+"_ExtensionInfo.csv";
-					[Organization]::InstalledextensionInfo | Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old (>$($years)year(s))"; Expression = { $_.TooOld } },lastPublished,@{Name = "Sensitive Permissions"; Expression = { $_.scopes} },@{Name = "NonProd (ExtensionName)"; Expression = { $_.NonProdByName}},@{Name = "NonProd (Galleryflags) "; Expression = { $_.Preview }},TopPublisher,PrivateVisibility | Export-Csv -Path $folderpath -NoTypeInformation #The NoTypeInformation parameter removes the #TYPE information header from the CSV output 
+					$MaxScore = [Organization]::InstalledextensionInfo[0].MaxScore
+					[Organization]::InstalledextensionInfo | Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old (>$($years)year(s))"; Expression = { $_.TooOld } },@{Name = "LastPublished (MM-dd-yyyy)"; Expression = { $_.lastPublished} },@{Name = "Sensitive Permissions"; Expression = { $_.SensitivePermissions} },@{Name = "NonProd (ExtensionName)"; Expression = { $_.NonProdByName}},@{Name = "NonProd (Galleryflags) "; Expression = { $_.Preview }},TopPublisher,PrivateVisibility,NoOfInstalls,MarketPlaceAverageRating,@{Name = "Score (Out of $($MaxScore))"; Expression = { $_.Score } } | Export-Csv -Path $folderpath -NoTypeInformation #The NoTypeInformation parameter removes the #TYPE information header from the CSV output 
 					[Organization]::InstalledExtensionInfo = @()   # Clearing the static variable value so that extensioninfo.csv file gets generated only once and when computed during the installed extension control
 				}
 

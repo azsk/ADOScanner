@@ -79,7 +79,7 @@ class AutoBugLog {
             if ([BugLogPathManager]::CheckIfPathIsValid($this.OrganizationName, $ProjectName, $this.InvocationContext, $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $this.IsBugLogCustomFlow)) {
                 #Obtain the assignee for the current resource, will be same for all the control failures for this particular resource
                 $metaProviderObj = [BugMetaInfoProvider]::new();   
-                $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging, $this.IsBugLogCustomFlow, $this.ServiceIdPassedInCMD);
+                $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging, $this.IsBugLogCustomFlow, $this.ServiceIdPassedInCMD, $this.InvocationContext);
                 $serviceId = $metaProviderObj.ServiceId
                 #Log bug only if LogBugForUnmappedResource is enabled (default value is true) or resource is mapped to serviceid
                 #Restrict bug logging, if resource is not mapped to serviceid and LogBugForUnmappedResource is not enabled.
@@ -95,6 +95,12 @@ class AutoBugLog {
     
                     #this falg is added to restrict 'Determining bug logging' message should print only once 
                     $printLogBugMsg = $true;
+
+                    #Local variable to store description default template.
+                    $bugDescription = "Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a>  </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>";
+                    if ([Helpers]::CheckMember($this.controlsettings.BugLogging, "Description")) {
+                        $bugDescription = $this.ControlSettings.BugLogging.Description;
+                    }
                     #Loop through all the control results for the current resource
                     $ControlResults | ForEach-Object {
                         $control = $_;
@@ -126,38 +132,33 @@ class AutoBugLog {
                                     #a work item with the hash exists, find if it's state and reactivate if resolved bug
                                     $this.ManageActiveAndResolvedBugs($ProjectName, $control, $workItem, $AssignedTo, $serviceId)
                                 }
-                                else {
-                                    if ($printLogBugMsg) {
-                                        Write-Host "Determining bugs to log..." -ForegroundColor Cyan
-                                    }
-                                    $printLogBugMsg = $false;
+                            else {
+                                if ($printLogBugMsg) {
+                                    Write-Host "Determining bugs to log..." -ForegroundColor Cyan
+                                }
+                                $printLogBugMsg = $false;
 
-                                    #filling the bug template
-                                    $Title = "[ADOScanner] Control failure - {0} for resource {1} {2}"
-                                    $Description = "Control failure - {3} for resource {4} {5} </br></br> <b>Control Description: </b> {0} </br></br> <b> Control Result: </b> {6} </br> </br> <b> Rationale:</b> {1} </br></br> <b> Recommendation:</b> {2}"
-                                
-                                    $Title = $Title -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName
-                                    if ($control.ResourceContext.ResourceTypeName -ne "Organization" -and $control.ResourceContext.ResourceTypeName -ne "Project") {
-                                        $Title += " in project " + $control.ResourceContext.ResourceGroupName;
-                                    }
-                                    $Description = $Description -f $control.ControlItem.Description, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlResults[0].VerificationResult
-                                    $Description += "</br></br> <b> Resource Link: </b> <a href='$($control.ResourceContext.ResourceDetails.ResourceLink)' target='_blank'>$($control.ResourceContext.ResourceName)</a>"
-                                    $RunStepsForControl = " </br></br> <b>Control Scan Command:</b> Run:  {0}"
-                                    $Description += ($RunStepsForControl -f $this.GetControlReproStep($control));
-                                
-                                    #check and append any detailed log and state data for the control failure
-                                    $log = $this.GetDetailedLogForControl($control);
-                                    if ($log) {
-                                        $Description += "<hr></br><b>Some other details for your reference</b> </br><hr> {7} "
-                                        $Description = $Description.Replace("{7}", $log)
-                        
-                                    }               
-                                    $Description = $Description.Replace("`"", "'")
-                                    $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
-                        
-                                    #function to attempt bug logging
-                                    $this.AddWorkItem($Title, $Description, $AssignedTo, $Severity, $ProjectName, $control, $hash, $serviceId);
+                                #filling the bug template
+                                $Title = "[ADOScanner] Control failure - {0} for resource {1} {2}"
+                                $Title = $Title -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName
+                                if ($control.ResourceContext.ResourceTypeName -ne "Organization" -and $control.ResourceContext.ResourceTypeName -ne "Project") {
+                                    $Title += " in project " + $control.ResourceContext.ResourceGroupName;
+                                }
 
+                                $scanCommand = $this.GetControlReproStep($control);
+                                $Description = $bugDescription -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlItem.Description, $control.ControlResults[0].VerificationResult, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ResourceContext.ResourceDetails.ResourceLink, $control.ResourceContext.ResourceName, $scanCommand
+                                                                    
+                                #check and append any detailed log and state data for the control failure
+                                $log = $this.GetDetailedLogForControl($control);
+                                if ($log) {
+                                    $Description += "<hr></br><b>Some other details for your reference</b> </br><hr> {10} "
+                                    $Description = $Description.Replace("{10}", $log)
+                                }               
+                                $Description = $Description.Replace("`"", "'")
+                                $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
+                    
+                                #function to attempt bug logging
+                                $this.AddWorkItem($Title, $Description, $AssignedTo, $Severity, $ProjectName, $control, $hash, $serviceId);
                                 }
                             }
                         }
@@ -612,13 +613,11 @@ class AutoBugLog {
             return "ADOScanID: " + [AutoBugLog]::ComputeHashX($stringToHash)
         }
     }
-
-    hidden [void] AddWorkItem([string] $Title, [string] $Description, [string] $AssignedTo, [string]$Severity, [string]$ProjectName, [SVTEventContext[]] $control, [string] $hash, [string] $serviceId) {
-		
-		
-        #logging new bugs
-		
-        $apiurl = 'https://dev.azure.com/{0}/{1}/_apis/wit/workitems/$bug?api-version=6.0' -f $this.OrganizationName, $ProjectName;
+    
+    #Logging new bugs
+    hidden [void] AddWorkItem([string] $Title, [string] $Description, [string] $AssignedTo, [string]$Severity, [string]$ProjectName, [SVTEventContext[]] $control, [string] $hash, [string] $serviceId) 
+    {	
+        $apiurl = 'https://dev.azure.com/{0}/{1}/_apis/wit/workitems/$bug?api-version=5.1' -f $this.OrganizationName, $ProjectName;
 
         $BugTemplate = $null;
         $SecuritySeverity = "";
@@ -651,8 +650,7 @@ class AutoBugLog {
         $BugTemplate = $BugTemplate.Replace("{2}", $Severity)
         $BugTemplate = $BugTemplate.Replace("{3}", [BugLogPathManager]::AreaPath)
         $BugTemplate = $BugTemplate.Replace("{4}", [BugLogPathManager]::IterationPath)
-        if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
-        {
+        if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") {
             $BugTemplate = $BugTemplate.Replace("{5}", "ADOScanner")
         }
         else {
@@ -668,20 +666,16 @@ class AutoBugLog {
             $BugTemplate = $BugTemplate.Replace("{9}", $serviceId)
             #ServiceHierarchyIdType
             $BugTemplate = $BugTemplate.Replace("{10}", $this.controlsettings.BugLogging.ServiceTreeIdType)
-            
             #Severity
             $BugTemplate = $BugTemplate.Replace("{11}", $SecuritySeverity)
         }
 
-        $responseObj = $null
         $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($apiurl)
-
         try {
             $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
             $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $this.OrganizationName, $responseObj.id
             $control.ControlResults.AddMessage("New Bug", $bugUrl);
-            if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
-            {
+            if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") {
                 $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
             }
         }
@@ -695,16 +689,13 @@ class AutoBugLog {
                     $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
                     $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $this.OrganizationName, $responseObj.id
                     $control.ControlResults.AddMessage("New Bug", $bugUrl)
-                    if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") 
-                    {
+                    if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") {
                         $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
                     }
                 }
                 catch {
                     Write-Host "Could not log the bug" -ForegroundColor Red
                 }
-
-
             }
             #handle the case wherein due to global search area/ iteration paths from different projects passed the checkvalidpath function
             elseif ($_.ErrorDetails.Message -like '*Invalid Area/Iteration id*') {
@@ -721,8 +712,6 @@ class AutoBugLog {
                 Write-Host "Could not log the bug" -ForegroundColor Red
             }
         }
-		
-		
     }
 
     #the next two functions to check baseline and preview baseline, are duplicate controls that are present in ADOSVTBase as well.

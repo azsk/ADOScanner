@@ -4,14 +4,16 @@ class BugMetaInfoProvider {
     hidden [PSObject] $ControlSettingsBugLog
     hidden [string] $ServiceId
     hidden static [PSObject] $ServiceTreeInfo
+    hidden [PSObject] $InvocationContext
 
     BugMetaInfoProvider() {
     }
 
-    hidden [string] GetAssignee([SVTEventContext[]] $ControlResult, $controlSettingsBugLog, $isBugLogCustomFlow, $serviceIdPassedInCMD) {
+    hidden [string] GetAssignee([SVTEventContext[]] $ControlResult, $controlSettingsBugLog, $isBugLogCustomFlow, $serviceIdPassedInCMD, $invocationContext) {
         $this.ControlSettingsBugLog = $controlSettingsBugLog;
         #flag to check if pluggable bug logging interface (service tree)
         if ($isBugLogCustomFlow) {
+            $this.InvocationContext = $invocationContext;	
             return $this.BugLogCustomFlow($ControlResult, $serviceIdPassedInCMD)
         }
         else {
@@ -59,7 +61,10 @@ class BugMetaInfoProvider {
             if([BugMetaInfoProvider]::ServiceTreeInfo)
             {
                 $this.ServiceId = [BugMetaInfoProvider]::ServiceTreeInfo.serviceId;
-                [BugLogPathManager]::AreaPath = [BugMetaInfoProvider]::ServiceTreeInfo.areaPath.Replace("\", "\\");
+                #Check if area path is not supplied in command parameter then only set from service tree.
+                if (!$this.InvocationContext.BoundParameters["AreaPath"]) {
+                    [BugLogPathManager]::AreaPath = [BugMetaInfoProvider]::ServiceTreeInfo.areaPath.Replace("\", "\\");
+                }
                 $domainNameForAssignee = ""
                 if([Helpers]::CheckMember($this.ControlSettingsBugLog, "DomainName"))
                 {

@@ -38,6 +38,11 @@ class ControlStateExtension
 		
 		$this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");	
 		$this.AttestationBody = [ConfigurationManager]::LoadServerConfigFile("ADOAttestation.json");
+
+		if (!$this.AzSKSettings) 
+		{	
+			$this.AzSKSettings = [ConfigurationManager]::GetAzSKSettings();				
+		}
 	}
 
 	static [string] ComputeHashX([string] $dataToHash)
@@ -371,6 +376,10 @@ class ControlStateExtension
 		if ([Helpers]::CheckMember($this.ControlSettings,"AttestationRepo")) {
 			$attestationRepo =  $this.ControlSettings.AttestationRepo;
 		}
+		#Get attesttion repo name from local azsksettings.json file if AttestationRepo varibale value is not empty.
+		if ($this.AzSKSettings.AttestationRepo) {
+			$attestationRepo = $this.AzSKSettings.AttestationRepo;
+		}
 
 		$rmContext = [ContextHelper]::GetCurrentContext();
 		$user = "";
@@ -383,6 +392,10 @@ class ControlStateExtension
 		#Get attesttion branch name from controlsetting file if AttestationBranch varibale value is not empty.
 		if ([Helpers]::CheckMember($this.ControlSettings,"AttestationBranch")) {
 			$branchName =  $this.ControlSettings.AttestationBranch;
+		}
+		#Get attesttion branch name from local azsksettings.json file if AttestationBranch varibale value is not empty.
+		if ($this.AzSKSettings.AttestationBranch) {
+			$branchName = $this.AzSKSettings.AttestationBranch;
 		}
 		
 		$branchId = ($webRequest.value | where {$_.name -eq "refs/heads/"+$branchName}).ObjectId
@@ -440,6 +453,10 @@ class ControlStateExtension
 
 	[string] GetProject(){
 		$projectName = "";
+		#If EnableMultiProjectAttestation is enabled and ProjectToStoreAttestation has project, only then ProjectToStoreAttestation will be used as central attestation location.
+		if ([Helpers]::CheckMember($this.ControlSettings, "EnableMultiProjectAttestation") -and [Helpers]::CheckMember($this.ControlSettings, "ProjectToStoreAttestation")) {
+			return $this.ControlSettings.ProjectToStoreAttestation;
+		}
 		if ($this.resourceType -eq "Organization" -or $this.resourceType -eq $null) 
 		{
 			if($this.InvocationContext)
@@ -506,10 +523,14 @@ class ControlStateExtension
 							$user = "";
 							$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
 						
-						        #Get attesttion repo name from controlsetting file if AttestationRepo varibale value is not empty.
+						    #Get attesttion repo name from controlsetting file if AttestationRepo varibale value is not empty.
 							if ([Helpers]::CheckMember($this.ControlSettings,"AttestationRepo")) {
 								$attestationRepo =  $this.ControlSettings.AttestationRepo;
 							}
+							#Get attesttion repo name from local azsksettings.json file if AttestationRepo varibale value is not empty.
+		                    if ($this.AzSKSettings.AttestationRepo) {
+		                    	$attestationRepo = $this.AzSKSettings.AttestationRepo;
+		                    }
 
 							$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=6.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo
 							$webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
@@ -610,6 +631,10 @@ class ControlStateExtension
 		#Get attesttion branch name from controlsetting file if AttestationBranch varibale value is not empty.
 		if ([Helpers]::CheckMember($this.ControlSettings,"AttestationBranch")) {
 			$branchName =  $this.ControlSettings.AttestationBranch;
+		}
+		#Get attesttion branch name from local azsksettings.json file if AttestationBranch varibale value is not empty.
+		if ($this.AzSKSettings.AttestationBranch) {
+			$branchName = $this.AzSKSettings.AttestationBranch;
 		} 
 
 		$fileName = $this.CreatePath($fileName);
@@ -624,6 +649,10 @@ class ControlStateExtension
 			#Get attesttion repo name from controlsetting file if AttestationRepo varibale value is not empty.
 			if ([Helpers]::CheckMember($this.ControlSettings,"AttestationRepo")) {
 				$attestationRepo =  $this.ControlSettings.AttestationRepo;
+			}
+			#Get attesttion repo name from local azsksettings.json file if AttestationRepo varibale value is not empty.
+			if ($this.AzSKSettings.AttestationRepo) {
+				$attestationRepo = $this.AzSKSettings.AttestationRepo;
 			}
 		   $uri = [Constants]::GetAttRepoStorageUri -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo, $fileName, $branchName 
 		   $webRequestResult = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
@@ -665,6 +694,10 @@ class ControlStateExtension
 		if ([Helpers]::CheckMember($this.ControlSettings,"AttestationRepo")) {
 			$attestationRepo =  $this.ControlSettings.AttestationRepo;
 		}
+		#Get attesttion repo name from local azsksettings.json file if AttestationRepo varibale value is not empty.
+		if ($this.AzSKSettings.AttestationRepo) {
+			$attestationRepo = $this.AzSKSettings.AttestationRepo;
+		}
 
 		$rmContext = [ContextHelper]::GetCurrentContext();
 		$user = "";
@@ -682,6 +715,10 @@ class ControlStateExtension
 		#Get attesttion branch name from controlsetting file if AttestationBranch varibale value is not empty.
 		if ([Helpers]::CheckMember($this.ControlSettings,"AttestationBranch")) {
 			$branchName =  $this.ControlSettings.AttestationBranch;
+		}
+		#Get attesttion branch name from local azsksettings.json file if AttestationBranch varibale value is not empty.
+		if ($this.AzSKSettings.AttestationBranch) {
+			$branchName = $this.AzSKSettings.AttestationBranch;
 		}
 		$body = $body.Replace('{2}',$branchName)
 

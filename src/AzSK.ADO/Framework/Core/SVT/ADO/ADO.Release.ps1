@@ -40,6 +40,13 @@ class Release: ADOSVTBase
         {
             $this.isResourceActive = $false
         }
+
+        # calculating the inactivity period in days for the release. If there is no release history, then setting it with negative value.
+        # This will ensure inactive period is always computed irrespective of whether inactive control is scanned or not.
+        if ($null -ne $this.releaseActivityDetail.latestReleaseTriggerDate)
+        {
+            $this.InactiveFromDays = ((Get-Date) - $this.releaseActivityDetail.latestReleaseTriggerDate).Days
+        }
     }
 
     hidden [ControlResult] CheckCredInReleaseVariables([ControlResult] $controlResult)
@@ -292,6 +299,8 @@ class Release: ADOSVTBase
             {
                 $controlResult.AddMessage("Last release date of pipeline: $($this.releaseActivityDetail.latestReleaseTriggerDate)");
                 $controlResult.AdditionalInfo += "Last release date of pipeline: " + $this.releaseActivityDetail.latestReleaseTriggerDate;
+                $releaseInactivePeriod = ((Get-Date) - $this.releaseActivityDetail.latestReleaseTriggerDate).Days
+                $controlResult.AddMessage("The release was inactive from last $($releaseInactivePeriod) days.");
             }
         }
         catch
