@@ -402,7 +402,7 @@ class Organization: ADOSVTBase
     {
         try 
         {           
-            $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=4.1-preview.1" -f $($this.OrganizationContext.OrganizationName);
+            $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             
             if(($responseObj | Measure-Object).Count -gt 0 ) #includes both custom installed and built in extensions.
@@ -974,7 +974,7 @@ class Organization: ADOSVTBase
     {
         try 
         {
-            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=5.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
+            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL); # returns a maximum of 100 guest users
             $guestUsers = @()
             if(($responseObj -ne $null) -and $responseObj.Count -gt 0 -and ([Helpers]::CheckMember($responseObj[0], 'members')))
@@ -983,7 +983,7 @@ class Organization: ADOSVTBase
                 $continuationToken =  $responseObj[0].continuationToken # Use the continuationToken for pagination
                 while ($continuationToken -ne $null){
                     $urlEncodedToken = [System.Web.HttpUtility]::UrlEncode($continuationToken)
-                    $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?continuationToken=$urlEncodedToken&%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=5.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
+                    $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?continuationToken=$urlEncodedToken&%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
                     try{
                         $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                         $guestUsers += $responseObj[0].members
@@ -1008,7 +1008,7 @@ class Organization: ADOSVTBase
                     $guestListDetailed = $guestList | ForEach-Object {
                         try{
                             $guestUser = $_ 
-                            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/userentitlements/{1}?api-version=6.0-preview.3" -f $($this.OrganizationContext.OrganizationName), $($guestUser.Id);
+                            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/userentitlements/{1}?api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName), $($guestUser.Id);
                             $projectEntitlements = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                             $userProjectEntitlements = $projectEntitlements[0].projectEntitlements
                         }
@@ -1097,7 +1097,7 @@ class Organization: ADOSVTBase
     {
         try {
             $topInactiveUsers = $this.ControlSettings.Organization.TopInactiveUserCount 
-            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?top={1}&filter=&sortOption=lastAccessDate+ascending" -f $($this.OrganizationContext.OrganizationName), $topInActiveUsers;
+            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?top={1}&filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName), $topInActiveUsers;
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
             if($responseObj.Count -gt 0)
@@ -1196,10 +1196,10 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
     {
-        $url= "https://vssps.dev.azure.com/{0}/_apis/graph/groups?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName);
+        $url= "https://vssps.dev.azure.com/{0}/_apis/graph/groups?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
         $groupsObj = [WebRequestHelper]::InvokeGetWebRequest($url);
 
-        $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?top=50&filter=&sortOption=lastAccessDate+ascending" -f $($this.OrganizationContext.OrganizationName);
+        $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?top=50&filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
         $usersObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
         $Users =  @()
@@ -1228,7 +1228,7 @@ class Organization: ADOSVTBase
     hidden [ControlResult] JustifyGroupMember([ControlResult] $controlResult)
     {   
         $grpmember = @();   
-        $url= "https://vssps.dev.azure.com/{0}/_apis/graph/groups?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName);
+        $url= "https://vssps.dev.azure.com/{0}/_apis/graph/groups?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
         $groupsObj = [WebRequestHelper]::InvokeGetWebRequest($url);
          
         $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview" -f $($this.OrganizationContext.OrganizationName);
@@ -1612,7 +1612,7 @@ class Organization: ADOSVTBase
     {
         try
         {
-            $url ="https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName);
+            $url ="https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);     
             $autoInjExt = @();
             
@@ -1702,7 +1702,7 @@ class Organization: ADOSVTBase
         
         try
         {
-            $url ="https://auditservice.dev.azure.com/{0}/_apis/audit/streams?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
+            $url ="https://auditservice.dev.azure.com/{0}/_apis/audit/streams?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);  
             
             # If no audit streams are configured, 'count' property is available for $responseObj[0] and its value is 0. 

@@ -87,7 +87,7 @@ class AgentPool: ADOSVTBase
     {
         try {
             #Only agent pools created from org setting has this settings..
-            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
+            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
               
             if ((($agentPoolsObj | Measure-Object).Count -gt 0) -and $agentPoolsObj.autoProvision -eq $true) {
@@ -110,7 +110,7 @@ class AgentPool: ADOSVTBase
         try
         {
             #autoUpdate setting is available only at org level settings.
-            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
+            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
               
             if([Helpers]::CheckMember($agentPoolsObj,"autoUpdate"))
@@ -143,7 +143,7 @@ class AgentPool: ADOSVTBase
     hidden [ControlResult] CheckPrjAllPipelineAccess([ControlResult] $controlResult)
     {
         try {
-            $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=queue&id={2}" -f $($this.OrganizationContext.OrganizationName),$this.ProjectId ,$this.AgentPoolId;
+            $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=queue&id={2}&api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$this.ProjectId ,$this.AgentPoolId;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
                                    
             if([Helpers]::CheckMember($agentPoolsObj,"authorized") -and $agentPoolsObj.authorized)

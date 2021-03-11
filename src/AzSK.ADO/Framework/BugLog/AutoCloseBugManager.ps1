@@ -109,10 +109,10 @@ class AutoCloseBugManager {
                         $response = $this.GetWorkItemByHash($TagSearchKeyword,$MaxKeyWordsToQuery)
                         #if bug was present
                         if ($response[0].results.count -gt 0) {
-                            $response.results.values | ForEach-Object {
+                            $response.results | ForEach-Object {
                                 #close the bug
-                                $id = ($_.fields | where { $_.name -eq "ID" }).value
-                                $Project = $_.project
+                                $id = $_.fields."system.id"
+                                $Project = $_.project.name
                                 $this.CloseBug($id, $Project)
                             }
                         }
@@ -169,7 +169,7 @@ class AutoCloseBugManager {
 
     #function to close an active bug
     hidden [void] CloseBug([string] $id, [string] $Project) {
-        $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=5.1" -f $this.OrganizationName, $Project, $id
+        $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=6.0" -f $this.OrganizationName, $Project, $id
         
         #load the closed bug template
         $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForClosedBug.Json")
@@ -191,10 +191,10 @@ class AutoCloseBugManager {
     #function to retrieve all new/active/resolved bugs 
     hidden [object] GetWorkItemByHash([string] $hash,[int] $MaxKeyWordsToQuery) 
     {
-        $url = "https://{0}.almsearch.visualstudio.com/_apis/search/workItemQueryResults?api-version=5.1-preview" -f $this.OrganizationName
+        $url = "https://almsearch.dev.azure.com/{0}/_apis/search/workitemsearchresults?api-version=6.0-preview.1" -f $this.OrganizationName
         #take results have been doubled, as their might be chances for a bug to be logged more than once, if the tag id is copied.
         #in this case we want all the instances of this bug to be closed
-        $body = "{'searchText':'{0}','skipResults':0,'takeResults':$(($MaxKeyWordsToQuery)*2),'sortOptions':[],'summarizedHitCountsNeeded':true,'searchFilters':{'Projects':[],'Work Item Types':['Bug'],'States':['Active','New','Resolved']},'filters':[],'includeSuggestions':false}" | ConvertFrom-Json
+        $body = '{"searchText": "{0}","$skip": 0,"$top": 60,"filters": {"System.TeamProject": [],"System.WorkItemType": ["Bug"],"System.State": ["New","Active","Resolved"]}}'| ConvertFrom-Json
         $body.searchText = $hash
         $response = [WebRequestHelper]:: InvokePostWebRequest($url, $body)
         return  $response

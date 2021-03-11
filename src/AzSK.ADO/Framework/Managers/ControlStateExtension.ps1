@@ -385,7 +385,7 @@ class ControlStateExtension
 		$user = "";
 		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
 	   
-		$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo 
+		$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=6.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo 
         try {
 		$webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
 		$branchName = [Constants]::AttestationDefaultBranch;
@@ -532,7 +532,7 @@ class ControlStateExtension
 		                    	$attestationRepo = $this.AzSKSettings.AttestationRepo;
 		                    }
 
-							$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo
+							$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=6.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo
 							$webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
 							[ControlStateExtension]::IsOrgAttestationProjectFound = $true # Policy project and repo found
 						}
@@ -703,7 +703,7 @@ class ControlStateExtension
 		$user = "";
 		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
 		
-		$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo
+		$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=6.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo
         $webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
 		$branchId = ($webRequest.value | where {$_.name -eq 'refs/heads/master'}).ObjectId
 		

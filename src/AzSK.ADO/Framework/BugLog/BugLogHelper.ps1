@@ -283,7 +283,7 @@ class BugLogHelper {
 
     #function to close an active bug
     hidden [bool] CloseBug([string] $id, [string] $Project) {
-        $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=5.1" -f $this.OrganizationName, $Project, $id
+        $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=6.0" -f $this.OrganizationName, $Project, $id
         #load the closed bug template
         $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForClosedBug.Json")
         $BugTemplate = $BugTemplate | ConvertTo-Json -Depth 10

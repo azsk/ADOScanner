@@ -49,7 +49,7 @@ class UserInfo: CommandBase {
 		}
 		else {
 			# fetching membership details
-			$url = "https://vssps.dev.azure.com/$($this.organizationName)/_apis/Graph/Memberships/$($userDescriptor)"
+			$url = "https://vssps.dev.azure.com/$($this.organizationName)/_apis/Graph/Memberships/$($userDescriptor)?api-version=6.0-preview.1"
 			try {
 				$response = [WebRequestHelper]::InvokeGetWebRequest($url);
 				$formattedData = @()

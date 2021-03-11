@@ -16,7 +16,7 @@ class ServiceConnection: ADOSVTBase
         # Get security namespace identifier of service endpoints.
         if([string]::IsNullOrEmpty([ServiceConnection]::SecurityNamespaceId))
         {
-            $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=5.0" -f $($this.OrganizationContext.OrganizationName)
+            $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($this.OrganizationContext.OrganizationName)
             $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             [ServiceConnection]::SecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ServiceEndpoints")}).namespaceId
     
@@ -217,7 +217,7 @@ class ServiceConnection: ADOSVTBase
         try
         {
             $Endpoint = $this.ServiceEndpointsObj
-            $apiURL = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?token=endpoints/{2}/{3}&api-version=5.0" -f $($this.OrganizationContext.OrganizationName),$([ServiceConnection]::SecurityNamespaceId),$($this.ProjectId),$($Endpoint.id);
+            $apiURL = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?token=endpoints/{2}/{3}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$([ServiceConnection]::SecurityNamespaceId),$($this.ProjectId),$($Endpoint.id);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             if(($responseObj | Measure-Object).Count -eq 0)
             {
@@ -347,7 +347,7 @@ class ServiceConnection: ADOSVTBase
         {
             if ($null -eq $this.pipelinePermission) {
 
-            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.ServiceEndpointsObj.id) ;
+            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.ServiceEndpointsObj.id) ;
             $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             
             }
@@ -514,7 +514,7 @@ class ServiceConnection: ADOSVTBase
         {
             if ($null -eq $this.pipelinePermission) {
                 #Get pipeline access on svc conn
-                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.ServiceEndpointsObj.id) ;
+                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.ServiceEndpointsObj.id) ;
                 $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             }
             
@@ -528,7 +528,7 @@ class ServiceConnection: ADOSVTBase
                 #get the pipelines ids in comma separated string to pass in api to get the pipeline name
                 $pipelinesIds = $this.pipelinePermission[0].pipelines.id -join ","
                 #api call to get the pipeline name
-                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?definitionIds={2}&api-version=5.0" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $pipelinesIds;
+                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?definitionIds={2}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $pipelinesIds;
                 $pipelineObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                     
                 # We are fixing the control status here and the state data info will be done as shown below. This is done in case we are not able to fetch the pipeline names. Although, we have the pipeline ids as shown above.

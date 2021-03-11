@@ -88,7 +88,7 @@ class AzSKADOServiceMapping: CommandBase
             data = @();
         };
         try{
-            $serviceEndpointURL = ("https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/endpoints?api-version=4.1-preview.1") -f $this.OrgName, $this.ProjectName;
+            $serviceEndpointURL = ("https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/endpoints?api-version=6.0-preview.4") -f $this.OrgName, $this.ProjectName;
             $serviceEndpointObj = [WebRequestHelper]::InvokeGetWebRequest($serviceEndpointURL)
 
             $Connections = $null
@@ -224,7 +224,7 @@ class AzSKADOServiceMapping: CommandBase
             data = @();
         };
 
-        $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=4.1-preview.3" +$topNQueryString) -f $($this.OrgName), $this.ProjectName;
+        $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrgName), $this.ProjectName;
         $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);
           
         if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
@@ -261,7 +261,7 @@ class AzSKADOServiceMapping: CommandBase
                     if(($varGrps | Measure-Object).Count -gt 0)
                     {
                         $varGrps | ForEach-Object{
-                            $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}") -f $this.OrgName, $this.projectId, $_;
+                            $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;
                             $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
 
                             $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $releaseObj[0].id) };
@@ -280,7 +280,7 @@ class AzSKADOServiceMapping: CommandBase
 
 
         try {
-            $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=4.1&queryOrder=lastModifiedDescending" + $topNQueryString) -f $($this.OrgName), $this.ProjectName;
+            $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" + $topNQueryString) -f $($this.OrgName), $this.ProjectName;
             $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL) 
             
             if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
