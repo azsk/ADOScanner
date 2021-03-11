@@ -394,6 +394,13 @@ class SVTControlAttestation
 				Write-Host "No control results found." -ForegroundColor Yellow
 			}
 			
+            # If ApprovedException is enabled in ControlSettings, Validate the AttestationStatus and terminate the flow if any mismatch
+            if ([Helpers]::CheckMember($this.ControlSettings,"RequireApprovedException") -and  $this.ControlSettings.RequireApprovedException -and $this.attestOptions.AttestationStatus -ne "ApprovedException")
+			{
+                Write-Host "Controls can only be attested using Approved Exception as required by your Org's Policy." -ForegroundColor Red
+				break;
+			}
+			
 			if ($this.attestOptions.AttestationStatus -eq "ApprovedException" -and  [string]::IsNullOrWhiteSpace($this.attestOptions.ApprovedExceptionID)) {
 				Write-Host "Exception id is mandatory for approved exception." -ForegroundColor Cyan
 				$exceptionId = Read-Host "Please enter the approved exception id"
