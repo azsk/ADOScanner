@@ -391,7 +391,7 @@ class AutoBugLog {
             }
         }
         else {
-            $state = $workItem[0].results.fields."system.sta"
+            $state = $workItem[0].results.fields."system.state"
             $id = $workItem[0].results.fields."system.id"
             #Check ShowBugsInS360 and Security.ServiceHierarchyId property exist in object.
             if ($this.ShowBugsInS360 -and ($workItem[0].results[0].fields.PSobject.Properties.name -match "Security.ServiceHierarchyId")) 
