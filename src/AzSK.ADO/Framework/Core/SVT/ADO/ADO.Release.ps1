@@ -42,6 +42,7 @@ class Release: ADOSVTBase
         }
 
         # calculating the inactivity period in days for the release. If there is no release history, then setting it with negative value.
+        # This will ensure inactive period is always computed irrespective of whether inactive control is scanned or not.
         if ($null -ne $this.releaseActivityDetail.latestReleaseTriggerDate)
         {
             $this.InactiveFromDays = ((Get-Date) - $this.releaseActivityDetail.latestReleaseTriggerDate).Days
