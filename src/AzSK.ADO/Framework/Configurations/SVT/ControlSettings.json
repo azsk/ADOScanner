@@ -150,6 +150,7 @@
       "Low": 90
     }
   },
+  "RequireApprovedException" : false, 
   "DefaultAttestationPeriodForExemptControl" : 180,
   "GroupsWithAttestPermission": [
     {

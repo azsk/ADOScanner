@@ -236,7 +236,7 @@ class ControlStateExtension
 							try
 							{
 								# If ApprovedException is enabled in control settings, skip the control state evaluation if ExceptionID is not available in attested files
-                                if ([Helpers]::CheckMember($this.ControlSettings,"RequiredApprovedException") -and  $this.ControlSettings.RequiredApprovedException -eq $true -and [string]::IsNullOrWhiteSpace($_.state.ApprovedExceptionID)) {
+                                if ([Helpers]::CheckMember($this.ControlSettings,"RequireApprovedException") -and  $this.ControlSettings.RequireApprovedException -eq $true -and [string]::IsNullOrWhiteSpace($_.state.ApprovedExceptionID)) {
                                     write-host "Skipping Control state evaluation based on Attestation as ApprovedExceptionID is not available for attested control" -ForegroundColor Red
                                 }
                                 else {
