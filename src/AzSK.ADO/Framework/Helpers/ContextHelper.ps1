@@ -84,8 +84,10 @@ class ContextHelper {
             $tokenInfo['ExpiresOn'] = $request_time.AddSeconds($expiry)
             $refreshToken = ConvertTo-SecureString  $response.refresh_token -AsPlainText -Force
             Set-AzKeyVaultSecret -VaultName $env:KeyVaultName -Name "RefreshTokenForADOScan" -SecretValue $refreshToken | out-null
+            Write-Host "Token fetched"
         }
         catch{
+            write-host "error fetching access token"
             return $null
         }
         return $tokenInfo
@@ -195,6 +197,9 @@ class ContextHelper {
         $contextObj.Organization.Name = [ContextHelper]::orgName
 
         if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret)) { # this if block will be executed for OAuth based scan
+            Write-Host "inside ConvertToContextObject block"
+            $context
+
             $contextObj.AccessToken = $context.AccessToken
             $contextObj.TokenExpireTimeLocal = $context.ExpiresOn
         }

@@ -541,7 +541,7 @@ class CAAutomation : ADOSVTCommandBase
                     Remove-PSDrive -Name 'HKCR'
                 }
             }
-            $localHostURL = Read-Host "Provide localhost url: " 
+            $localHostURL = Read-Host "Provide localhost url" 
             $code = $localHostURL.Replace("https://localhost/?code=","")
 
             #get refresh token

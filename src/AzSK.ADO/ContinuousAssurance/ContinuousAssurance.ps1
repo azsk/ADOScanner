@@ -167,7 +167,7 @@ function Install-AzSKADOContinuousAssurance
 
             if ([string]::IsNullOrWhiteSpace($ClientSecret) -and $PSCmdlet.ParameterSetName -eq 'OAuthBasedCA' )
             {
-                $ClientSecret = Read-Host "Provide ClientSecret for OAuth application:" #-AsSecureString
+                $ClientSecret = Read-Host "Provide ClientSecret for OAuth application" #-AsSecureString
             }
 
             $resolver = [Resolver]::new($OrganizationName)
