@@ -62,6 +62,7 @@ class ControlResult
 	[DateTime] $ScanEndDateTime
 	[String[]] $AdditionalInfo
 	[bool] $IsResourceActive = $true;
+	# If there is no usage history for resource or if it is Org/Project/User control then default value is set to -1.
 	[int] $InactiveFromDays = -1;
 
     [void] AddMessage([MessageData] $messageData)
