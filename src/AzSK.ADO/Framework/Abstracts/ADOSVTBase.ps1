@@ -164,8 +164,10 @@ class ADOSVTBase: SVTBase {
 					# Process the state if its available
 					$childResourceState = $controlState | Where-Object { $_.ChildResourceName -eq $currentItem.ChildResourceName } | Select-Object -First 1;
 					if ($childResourceState) {
-						# Skip passed ones from State Management
-						if ($currentItem.ActualVerificationResult -ne [VerificationResult]::Passed) {
+						if ([Helpers]::CheckMember($this.ControlSettings, "EnforceApprovedException") -and $this.ControlSettings.EnforceApprovedException -eq $true -and (-not [Helpers]::CheckMember($childResourceState.state, "ApprovedExceptionID") -or [string]::IsNullOrWhiteSpace($childResourceState.state.ApprovedExceptionID))) {
+							write-host "Attestation details for this control will not be respected as it doesn't have an associated approved exception id." -ForegroundColor Yellow
+						}
+						elseif ($currentItem.ActualVerificationResult -ne [VerificationResult]::Passed) { # Skip passed ones from State Management
 							#compare the states
 							if (($childResourceState.ActualVerificationResult -eq $currentItem.ActualVerificationResult) -and $childResourceState.State) {
 				
