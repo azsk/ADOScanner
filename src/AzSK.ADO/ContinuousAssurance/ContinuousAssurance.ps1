@@ -138,7 +138,7 @@ function Install-AzSKADOContinuousAssurance
 		[string]
 		$OAuthAppId,
 
-		[Parameter(Mandatory = $false, ParameterSetName = "OAuthBasedCA")]
+		[Parameter(Mandatory = $true, ParameterSetName = "OAuthBasedCA")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("csec")]
 		[string]

@@ -550,7 +550,6 @@ class CAAutomation : ADOSVTCommandBase
             try {
                 $response = Invoke-WebRequest -Uri $url -ContentType "application/x-www-form-urlencoded" -Method POST -Body $body
                 $response = $response.Content | ConvertFrom-Json
-                $response
                 $this.OAuthRefreshToken = ConvertTo-SecureString  $response.refresh_token -AsPlainText -Force
             }
             catch {
@@ -561,8 +560,8 @@ class CAAutomation : ADOSVTCommandBase
         catch{
             $this.messages += $Error
             return $false
-		}
-		return $true
+        }
+        return $true
     }
     
     # ICA to setup using PATToken, by storing it in created KV and access it using system assigned identity of function app
@@ -1053,7 +1052,8 @@ class CAAutomation : ADOSVTCommandBase
                         }
                     }
 
-                    #Step 9: Get Identity details of function app to provide access on keyvault and storage
+                    #Step 9: Get Identity details of function app to provide access on keyvault and storage 
+                    #Providing set permission on keyvault to update refresh token
                     $FuncApp = Get-AzWebApp -Name $this.FuncAppName -ResourceGroupName $this.RGname		
                     $FuncAppIdentity= $FuncApp.Identity.PrincipalId 						
                     $MSIAccessToKV = Set-AzKeyVaultAccessPolicy -VaultName $this.KeyVaultName -ResourceGroupName $this.RGname -PermissionsToSecrets get,list,set -PassThru -ObjectId $FuncAppIdentity
