@@ -235,9 +235,10 @@ class ControlStateExtension
 						$ControlStatesJson | ForEach-Object {
 							try
 							{
-								# If ApprovedException is enabled in control settings, skip the control state evaluation if ExceptionID is not available in attested files
-                                if ([Helpers]::CheckMember($this.ControlSettings,"RequireApprovedException") -and  $this.ControlSettings.RequireApprovedException -eq $true -and [string]::IsNullOrWhiteSpace($_.state.ApprovedExceptionID)) {
-                                    write-host "Skipping Control state evaluation based on Attestation as ApprovedExceptionID is not available for attested control" -ForegroundColor Red
+								# If EnforceApprovedException is enabled in control settings, skip the control state evaluation if ExceptionID is not available in attested files
+								# Check if the field ApprovedExceptionID is present in attested file and its value is not empty
+                                if ([Helpers]::CheckMember($this.ControlSettings,"EnforceApprovedException") -and  $this.ControlSettings.EnforceApprovedException -eq $true -and (-not [Helpers]::CheckMember($_.state,"ApprovedExceptionID") -or [string]::IsNullOrWhiteSpace($_.state.ApprovedExceptionID))) {
+                                    write-host "Attestation details for this control will not be respected as it doesn't have an associated approved exception id." -ForegroundColor Yellow
                                 }
                                 else {
                                     $controlState = [ControlState] $_
