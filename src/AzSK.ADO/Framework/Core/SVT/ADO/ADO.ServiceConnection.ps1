@@ -62,6 +62,13 @@ class ServiceConnection: ADOSVTBase
         {
             $this.isResourceActive = $false
         }
+
+        # calculating the inactivity period in days for the service connection. If there is no usage history, then setting it with negative value.
+        # This will ensure inactive period is always computed irrespective of whether inactive control is scanned or not.
+        if ($null -ne $this.SvcConnActivityDetail.svcConnLastRunDate)
+        {
+            $this.InactiveFromDays = ((Get-Date) - $this.SvcConnActivityDetail.svcConnLastRunDate).Days
+        }
         
     }
 
@@ -452,6 +459,8 @@ class ServiceConnection: ADOSVTBase
                 }
                 $controlResult.AddMessage("Last usage date of service connection: $($this.SvcConnActivityDetail.svcConnLastRunDate)");
                 $controlResult.AdditionalInfo += "Last usage date of service connection: " + $this.SvcConnActivityDetail.svcConnLastRunDate;
+                $SvcConnInactivePeriod = ((Get-Date) - $this.SvcConnActivityDetail.svcConnLastRunDate).Days
+                $controlResult.AddMessage("The service connection was inactive from last $($SvcConnInactivePeriod) days.");
             }
             elseif ($this.SvcConnActivityDetail.isSvcConnActive)
             {
