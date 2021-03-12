@@ -648,6 +648,7 @@ class SVTControlAttestation
         {
             $projectName = $resource.Group[0].ResourceContext.ResourceGroupName;
 		}
+		#If EnableMultiProjectAttestation is enabled and ProjectToStoreAttestation has project, only then ProjectToStoreAttestation will be used as central attestation location.
 		if ([Helpers]::CheckMember($this.ControlSettings, "EnableMultiProjectAttestation") -and [Helpers]::CheckMember($this.ControlSettings, "ProjectToStoreAttestation")) {
 			$projectName = $this.ControlSettings.ProjectToStoreAttestation;
 		}
