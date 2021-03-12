@@ -13,6 +13,7 @@ class SVTControlAttestation
 	hidden [OrganizationContext] $OrganizationContext;
 	hidden [InvocationInfo] $InvocationContext;
 	hidden [Object] $repoProject = @{};
+	hidden [AzSKSettings] $AzSKSettings;
 
 	SVTControlAttestation([SVTEventContext[]] $ctrlResults, [AttestationOptions] $attestationOptions, [OrganizationContext] $organizationContext, [InvocationInfo] $invocationContext)
 	{
@@ -27,6 +28,10 @@ class SVTControlAttestation
 		$this.ControlSettings=$ControlSettingsJson = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
 		$this.repoProject.projectsWithRepo = @();
 		$this.repoProject.projectsWithoutRepo = @();
+		if (!$this.AzSKSettings) 
+		{	
+			$this.AzSKSettings = [ConfigurationManager]::GetAzSKSettings();				
+		}
 	}
 
 	[AttestationStatus] GetAttestationValue([string] $AttestationCode)
@@ -643,6 +648,10 @@ class SVTControlAttestation
         {
             $projectName = $resource.Group[0].ResourceContext.ResourceGroupName;
 		}
+		#If EnableMultiProjectAttestation is enabled and ProjectToStoreAttestation has project, only then ProjectToStoreAttestation will be used as central attestation location.
+		if ([Helpers]::CheckMember($this.ControlSettings, "EnableMultiProjectAttestation") -and [Helpers]::CheckMember($this.ControlSettings, "ProjectToStoreAttestation")) {
+			$projectName = $this.ControlSettings.ProjectToStoreAttestation;
+		}
 		
 		if($projectName -in $this.repoProject.projectsWithRepo)
 		{
@@ -659,6 +668,12 @@ class SVTControlAttestation
 			if ([Helpers]::CheckMember($this.ControlSettings,"AttestationRepo")) {
 				$attestationRepo =  $this.ControlSettings.AttestationRepo;
 			}
+
+			#Get attesttion repo name from local azsksettings.json file if AttestationRepo varibale value is not empty.
+			if ($this.AzSKSettings.AttestationRepo) {
+				$attestationRepo = $this.AzSKSettings.AttestationRepo;
+			}
+
             $rmContext = [ContextHelper]::GetCurrentContext();
 		    $user = "";
 		    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
