@@ -509,7 +509,7 @@ class CAAutomation : ADOSVTCommandBase
             $scope = $this.OAuthAuthorizedScopes.Trim()
             $scope = $this.OAuthAuthorizedScopes.Replace(" ", "%20")
             $callbackUrl = "https://localhost"
-            $url = "https://app.vssps.visualstudio.com/oauth2/authorize?client_id=$($this.OAuthApplicationId)&response_type=Assertion&state=blah&scope=$($scope)&redirect_uri=$($callbackUrl)"
+            $url = "https://app.vssps.visualstudio.com/oauth2/authorize?client_id=$($this.OAuthApplicationId)&response_type=Assertion&scope=$($scope)&redirect_uri=$($callbackUrl)"
 
             #Get Default browser
             $DefaultSettingPath = 'HKCU:\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice'
