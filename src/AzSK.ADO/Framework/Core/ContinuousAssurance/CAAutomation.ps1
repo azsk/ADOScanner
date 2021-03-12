@@ -22,6 +22,8 @@ class CAAutomation : ADOSVTCommandBase
     hidden [string] $LASecretName = "LAKeyForADOScan"
     hidden [string] $AltLASecretName = "AltLAKeyForADOScan"
     hidden [string] $IdentitySecretName = "IdentityIdForADOScan"
+    hidden [string] $OAuthClientSecretName = "ClientSecretForADOScan"
+    hidden [string] $OAuthRefreshTokenSecretName = "RefreshTokenForADOScan"
     hidden [string] $StorageKind = "StorageV2"
     hidden [string] $StorageType = "Standard_LRS"
     hidden [string] $LAWSName = "ADOScannerLAWS"
@@ -37,6 +39,10 @@ class CAAutomation : ADOSVTCommandBase
     hidden [string] $WebhookAuthZHeaderName
     hidden [string] $WebhookAuthZHeaderValue
     hidden [bool] $AllowSelfSignedWebhookCertificate
+    hidden [string] $OAuthApplicationId
+    hidden [string] $OAuthClientSecret
+    hidden [string]  $OAuthAuthorizedScopes
+    hidden [System.Security.SecureString] $OAuthRefreshToken
 	
 	#UCA params for dev-test support
 	hidden [string] $RsrcTimeStamp = $null  #We will apply UCA to function app with this timestamp, e.g., "200830092449"
@@ -70,9 +76,12 @@ class CAAutomation : ADOSVTCommandBase
 		[string] $Proj, `
 		[string] $IdentityResourceId, `
 		[string] $ExtCmd, `
-		[int] $ScanIntervalInHours,
+		[int] $ScanIntervalInHours, `
 		[InvocationInfo] $invocationContext, `
-		[bool] $CreateLAWS) : Base($OrgName, $invocationContext)
+		[bool] $CreateLAWS, `
+		[string] $OAuthAppId, `
+		[string] $ClientSecret, `
+		[string] $AuthorizedScopes) : Base($OrgName, $invocationContext)
     {
 		$this.SubscriptionId = $SubId
 		$this.OrganizationToScan = $OrgName
@@ -91,6 +100,9 @@ class CAAutomation : ADOSVTCommandBase
 		$this.ScanTriggerLocalTime = $(Get-Date).AddMinutes(20)
 		$this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
 		$this.CreateLAWS = $CreateLAWS
+		$this.OAuthClientSecret = $ClientSecret
+		$this.OAuthApplicationId = $OAuthAppId
+		$this.OAuthAuthorizedScopes = $AuthorizedScopes
 
 		if ($null -ne $ScanIntervalInHours -and $ScanIntervalInHours -gt 0)
 		{
@@ -488,6 +500,69 @@ class CAAutomation : ADOSVTCommandBase
             throw;
         }
     }
+
+    [boolean] GetOAuthAccessToken()
+    {
+        try
+        {
+            #generate authorize url
+            $scope = $this.OAuthAuthorizedScopes.Trim()
+            $scope = $this.OAuthAuthorizedScopes.Replace(" ", "%20")
+            $callbackUrl = "https://localhost"
+            $url = "https://app.vssps.visualstudio.com/oauth2/authorize?client_id=$($this.OAuthApplicationId)&response_type=Assertion&scope=$($scope)&redirect_uri=$($callbackUrl)"
+
+            #Get Default browser
+            $DefaultSettingPath = 'HKCU:\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice'
+            $DefaultBrowserName = (Get-Item $DefaultSettingPath | Get-ItemProperty).ProgId
+            
+            #Handle for Edge
+            ##edge will not open with the specified shell open command in the HKCR.
+            if($DefaultBrowserName -eq 'AppXq0fevzme2pys62n3e0fbqa7peapykr8v') {
+                #Open url in edge
+                Start-Process Microsoft-edge:$URL 
+            }
+            else {
+                try {
+                    #Create PSDrive to HKEY_CLASSES_ROOT
+                    $null = New-PSDrive -PSProvider registry -Root 'HKEY_CLASSES_ROOT' -Name 'HKCR'
+                    #Get the default browser executable command/path
+                    $DefaultBrowserOpenCommand = (Get-Item "HKCR:\$DefaultBrowserName\shell\open\command" | Get-ItemProperty).'(default)'
+                    $DefaultBrowserPath = [regex]::Match($DefaultBrowserOpenCommand,'\".+?\"')
+                    #Open URL in browser
+                    Start-Process -FilePath $DefaultBrowserPath -ArgumentList $URL   
+                }
+                catch {
+                    # test exception flow here
+                    $this.messages += $Error
+                    return $false
+                }
+                finally {
+                    #Clean up PSDrive for 'HKEY_CLASSES_ROOT
+                    Remove-PSDrive -Name 'HKCR'
+                }
+            }
+            $localHostURL = Read-Host "Provide localhost url" 
+            $code = $localHostURL.Replace("https://localhost/?code=","")
+
+            #get refresh token
+            $url = "https://app.vssps.visualstudio.com/oauth2/token"
+            $body = "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&client_assertion=$($this.OAuthClientSecret)&grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=$($code)&redirect_uri=$($callbackUrl)"
+            try {
+                $response = Invoke-WebRequest -Uri $url -ContentType "application/x-www-form-urlencoded" -Method POST -Body $body
+                $response = $response.Content | ConvertFrom-Json
+                $this.OAuthRefreshToken = ConvertTo-SecureString  $response.refresh_token -AsPlainText -Force
+            }
+            catch {
+                $this.messages += $Error
+                return $false
+            }
+        }
+        catch{
+            $this.messages += $Error
+            return $false
+        }
+        return $true
+    }
     
     # ICA to setup using PATToken, by storing it in created KV and access it using system assigned identity of function app
 	[MessageData[]] InstallAzSKADOContinuousAssurance()
@@ -883,6 +958,227 @@ class CAAutomation : ADOSVTCommandBase
             {
                 $this.PublishCustomMessage([Constants]::SingleDashLine);
                 $this.PublishCustomMessage([Constants]::CentralCAMsg);
+            }
+		}
+		return $messageData
+    }
+    
+    #ICA to setup scans using OAuth application.
+    [MessageData[]] InstallAzSKADOOAuthBasedContinuousAssurance()
+    {
+
+		[MessageData[]] $messageData = @();
+		$this.messages += ([Constants]::DoubleDashLine + "`r`nStarted setting up Continuous Assurance (CA)`r`n"+[Constants]::DoubleDashLine);
+		$this.PublishCustomMessage($this.messages, [MessageType]::Info);
+		try
+		{
+            # Authorize OAuth-compliant application permissions to access resources and generate refresh token
+            $isTokenFetched = $this.GetOAuthAccessToken();
+            if ($isTokenFetched -eq $true)
+            {
+                $output = $this.ValidateUserPermissions();
+                if($output -ne 'OK') # if there is some while validating permissions output will contain exception
+                {
+                    $this.PublishCustomMessage("Error validating permissions on the subscription", [MessageType]::Error);
+                    $messageData += [MessageData]::new($output)
+                }
+                else 
+                {	
+                    
+                    $this.RegisterResourceProvider();
+                    $this.CreateResources(); #Step 1,2,3,4,5       
+
+                    #Step 6a: Create Function app
+                    $FuncApp = New-AzFunctionApp -DockerImageName $this.ImageName -SubscriptionId $this.SubscriptionId -Name $this.FuncAppName -ResourceGroupName $this.RGname -StorageAccountName $this.StorageName -IdentityType SystemAssigned -PlanName $this.AppServicePlanName
+                    if($null -eq $FuncApp) 
+                    {
+                        $this.PublishCustomMessage("Function app [$($this.FuncAppName)] creation failed", [MessageType]::Error);
+                    }
+                    else
+                    {
+                        $this.PublishCustomMessage("Function app [$($this.FuncAppName)] created", [MessageType]::Update);
+                        $this.CreatedResources += $FuncApp.Id
+                    }
+                    
+                    #Step 7: Validate if AI got created
+                    $AppInsight = Get-AzResource -Name $this.AppInsightsName -ResourceType Microsoft.Insights/components
+                    if($null -eq $AppInsight) 
+                    {
+                        $this.PublishCustomMessage("Application Insights [$($this.AppInsightsName)] creation failed", [MessageType]::Error);
+                    }
+                    else
+                    {
+                        $this.PublishCustomMessage("Application Insights [$($this.AppInsightsName)] created", [MessageType]::Update);
+                        $this.CreatedResources += $AppInsight.ResourceId
+                    }
+                    
+                    
+                    #Step 8a: Add OAuth Client secret and refresh token to key vault secret
+                    $secureStringsecret = ConvertTo-SecureString $this.OAuthClientSecret -AsPlainText -Force
+                    $CreatedSecret = Set-AzKeyVaultSecret -VaultName $this.KeyVaultName -Name $this.OAuthClientSecretName -SecretValue $secureStringsecret 
+                    if($null -eq $CreatedSecret) 
+                    {
+                        $this.PublishCustomMessage("OAuth Client secret creation in Azure key vault failed", [MessageType]::Error);
+                    }
+                    else
+                    {
+                        $this.PublishCustomMessage("OAuth Client secret created in Azure key vault", [MessageType]::Update);
+                    }
+
+                    $CreatedtokenSecret = Set-AzKeyVaultSecret -VaultName $this.KeyVaultName -Name $this.OAuthRefreshTokenSecretName -SecretValue $this.OAuthRefreshToken 
+                    if($null -eq $CreatedtokenSecret) 
+                    {
+                        $this.PublishCustomMessage("OAuth refresh token secret creation in Azure key vault failed", [MessageType]::Error);
+                    }
+                    else
+                    {
+                        $this.PublishCustomMessage("OAuth refresh token secret created in Azure key vault", [MessageType]::Update);
+                    }
+
+
+                    #Step 8b: Add LA Shared Key to key vault secret
+                    $CreatedLASecret = $null
+                    if (-not [string]::IsNullOrEmpty($this.LAWSSharedKey))
+                    {
+                        $secureStringKey = ConvertTo-SecureString $this.LAWSSharedKey -AsPlainText -Force
+                        $CreatedLASecret = Set-AzKeyVaultSecret -VaultName $this.KeyVaultName -Name $this.LASecretName -SecretValue $secureStringKey 
+                        if($null -eq $CreatedLASecret) 
+                        {
+                            $this.PublishCustomMessage("LA shared key secret creation in Azure key vault failed", [MessageType]::Error);
+                        }
+                        else
+                        {
+                            $this.PublishCustomMessage("LA shared key secret created in Azure key vault", [MessageType]::Update);
+                        }
+                    }
+
+                    #Step 9: Get Identity details of function app to provide access on keyvault and storage 
+                    #Providing set permission on keyvault to update refresh token
+                    $FuncApp = Get-AzWebApp -Name $this.FuncAppName -ResourceGroupName $this.RGname		
+                    $FuncAppIdentity= $FuncApp.Identity.PrincipalId 						
+                    $MSIAccessToKV = Set-AzKeyVaultAccessPolicy -VaultName $this.KeyVaultName -ResourceGroupName $this.RGname -PermissionsToSecrets get,list,set -PassThru -ObjectId $FuncAppIdentity
+                    $IsMSIAccess = $MSIAccessToKV.AccessPolicies | ForEach-Object { if ($_.ObjectId -match $FuncAppIdentity ) {return $true }}
+                    if($IsMSIAccess -eq $true) 
+                    {
+                        $this.PublishCustomMessage("MSI access to Azure key vault provided", [MessageType]::Update);
+                    }
+                    else
+                    {
+                        $this.PublishCustomMessage("MSI access to Azure key vault failed", [MessageType]::Error);
+                    }
+
+                    $MSIAccessToSA = New-AzRoleAssignment -ObjectId $FuncAppIdentity  -RoleDefinitionName "Contributor" -ResourceName $this.StorageName -ResourceGroupName $this.RGname -ResourceType Microsoft.Storage/storageAccounts
+                    if($null -eq $MSIAccessToSA) 
+                    {
+                        $this.PublishCustomMessage("MSI access to storage failed", [MessageType]::Error);
+                    }
+                    else
+                    {
+                        $this.PublishCustomMessage("MSI access to storage provided", [MessageType]::Update);
+                    }
+
+
+
+                    #Step 10: Configure required env variables in function app for scan
+                    $identitySecretUri = $CreatedSecret.Id
+                    $identitySecretUri = $identitySecretUri.Substring(0,$identitySecretUri.LastIndexOf('/'))
+                    $identitySecretUri = "@Microsoft.KeyVault(SecretUri=$identitySecretUri)"
+
+                    $tokenSecretUri = $CreatedtokenSecret.Id
+                    $tokenSecretUri = $tokenSecretUri.Substring(0,$tokenSecretUri.LastIndexOf('/'))
+                    $tokenSecretUri = "@Microsoft.KeyVault(SecretUri=$tokenSecretUri)"
+
+                    $sharedKeyUri = ""
+                    if (-not [string]::IsNullOrEmpty($CreatedLASecret))
+                    {
+                        $sharedKeyUri = $CreatedLASecret.Id
+                        $sharedKeyUri = $sharedKeyUri.Substring(0,$sharedKeyUri.LastIndexOf('/'))
+                        $sharedKeyUri = "@Microsoft.KeyVault(SecretUri=$sharedKeyUri)"
+                    }
+
+                    
+                    #Turn on "Always ON" for function app and also fetch existing app settings and append the required ones. This has to be done as appsettings get overwritten
+                    $WebApp = Get-AzWebApp -Name $this.FuncAppName -ResourceGroupName $this.RGname #-AlwaysOn $true
+                    $ExistingAppSettings = $WebApp.SiteConfig.AppSettings 
+            
+                    #convert existing app settings from list to hashtable
+                    $AppSettingsHT = @{}
+                    foreach ($Setting in $ExistingAppSettings) 
+                    {
+                        $AppSettingsHT["$($Setting.Name)"] = "$($Setting.value)"
+                    }
+            
+                    $NewAppSettings = @{
+                                    "ScheduleTriggerTime" = $this.CRONExp;
+                                    "SubscriptionId" = $this.SubscriptionId;
+                                    "LAWSId" = $this.LAWSId;
+                                    "LAWSSharedKey" = $sharedKeyUri;
+                                    "OrgName" = $this.OrganizationToScan;
+                                    "StorageRG" = $this.RGname;
+                                    "ProjectNames" = $this.ProjectNames;
+                                    "ExtendedCommand" = $this.ExtendedCommand;
+                                    "StorageName" = $this.StorageName;
+                                    "KeyVaultName" = $this.KeyVaultName;
+                                    "AzSKADOModuleEnv" = $this.ModuleEnv;
+                                    "AzSKADOVersion" = "";
+                                    "ClientSecret" = $identitySecretUri;
+                                    "RefreshToken" = $tokenSecretUri;
+                                }
+                    $AppSettings = $NewAppSettings + $AppSettingsHT 
+            
+                    $updatedWebApp = Update-AzFunctionAppSetting -Name $this.FuncAppName -ResourceGroupName $this.RGname -AppSetting $AppSettings -Force
+                    if($updatedWebApp.Count -ne $AppSettings.Count) 
+                    {
+                        $this.PublishCustomMessage("App settings update failed", [MessageType]::Error);
+                    }
+                    else
+                    {
+                        $this.PublishCustomMessage("App settings updated", [MessageType]::Update);
+                    }
+            
+                    $this.PublishCustomMessage("`r`nSetup Complete!", [MessageType]::Update);
+                    Restart-AzFunctionApp -name $this.FuncAppName -ResourceGroupName $this.RGname -SubscriptionId $this.SubscriptionId -Force
+
+                    $this.PublishCustomMessage($this.ScheduleMessage, [MessageType]::Update);
+                    $this.SetupComplete = $true
+                    $this.DoNotOpenOutputFolder = $true
+                    $messageData += [MessageData]::new("The following resources were created in resource group [$($this.RGName)] as part of AzSK.ADO Continuous Assurance", ($this.CreatedResources| Out-String))
+                }
+            }
+            else
+            {
+				$this.PublishCustomMessage("CA Setup could not be completed. Unable to validate OAuth application.", [MessageType]::Warning);
+            }
+		}
+		catch
+		{
+			$this.PublishCustomMessage("ADO Scanner CA setup failed!", [MessageType]::Error);
+			$this.PublishCustomMessage($_, [MessageType]::Error);
+			$messageData += [MessageData]::new($Error)
+		}
+		finally
+		{
+			if ($this.SetupComplete -eq $false)
+			{
+				$this.PublishCustomMessage("CA Setup could not be completed. Deleting created resources...", [MessageType]::Warning);
+				if ($this.CreatedResources.Count -ne 0)
+				{
+					Foreach ($resourceId in $this.CreatedResources)
+					{
+						Remove-AzResource -ResourceId $resourceId -Force
+						$Index = $resourceId.LastIndexOf('/') + 1 ;
+						$ResourceName = $resourceId.Substring($Index)
+
+						$this.PublishCustomMessage("Deleted resource: [$($ResourceName)]", [MessageType]::Info);
+					}
+				}
+				else{
+					$this.PublishCustomMessage("No resource was created.", [MessageType]::Info);
+				}
+            }
+            else
+            {
+                $this.PublishCustomMessage([Constants]::SingleDashLine);
             }
 		}
 		return $messageData

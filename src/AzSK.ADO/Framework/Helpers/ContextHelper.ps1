@@ -30,25 +30,31 @@ class ContextHelper {
             [AuthenticationResult] $result = $null;
 
             $azSKUI = $null;
-            if ( !$authNRefresh -and ($azSKUI = Get-Variable 'AzSKADOLoginUI' -Scope Global -ErrorAction 'Ignore')) {
-                if ($azSKUI.Value -eq 1) {
-                    $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Always 
-                    $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior 
-                    $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
-                }
-                else {
-                    $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto 
-                    $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior 
-                    $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
-                }
+            if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret)) { # this if block will be executed for OAuth based scan
+                $tokenInfo = [ContextHelper]::GetOAuthAccessToken()
+                [ContextHelper]::ConvertToContextObject($tokenInfo)
             }
             else {
-                $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto 
-                $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior 
-                $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
-            }
+                if ( !$authNRefresh -and ($azSKUI = Get-Variable 'AzSKADOLoginUI' -Scope Global -ErrorAction 'Ignore')) {
+                    if ($azSKUI.Value -eq 1) {
+                        $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Always
+                        $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
+                        $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+                    }
+                    else {
+                        $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
+                        $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
+                        $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+                    }
+                }
+                else {
+                    $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
+                    $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
+                    $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+                }
 
-            [ContextHelper]::ConvertToContextObject($result)
+                [ContextHelper]::ConvertToContextObject($result)
+            }
         }
         return [ContextHelper]::currentContext
     }
@@ -60,6 +66,31 @@ class ContextHelper {
             [ContextHelper]::ConvertToContextObject($PATToken)
         }
         return [ContextHelper]::currentContext
+    }
+
+    hidden static [PSObject] GetOAuthAccessToken() {
+        $tokenInfo = @{};
+        try{
+            $url = "https://app.vssps.visualstudio.com/oauth2/token"
+            # exchange refresh token with new access token
+            $body = "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&client_assertion=$($env:ClientSecret)&grant_type=refresh_token&assertion=$($env:RefreshToken)&redirect_uri=https://localhost/"
+        
+            $res = Invoke-WebRequest -Uri $url -ContentType "application/x-www-form-urlencoded" -Method POST -Body $body
+            $response = $res.Content | ConvertFrom-Json
+
+            $tokenInfo['AccessToken'] = $response.access_token
+            $expiry = $response.expires_in
+            $request_time = get-date
+            $tokenInfo['ExpiresOn'] = $request_time.AddSeconds($expiry)
+            $refreshToken = ConvertTo-SecureString  $response.refresh_token -AsPlainText -Force
+            Set-AzKeyVaultSecret -VaultName $env:KeyVaultName -Name "RefreshTokenForADOScan" -SecretValue $refreshToken | out-null
+        }
+        catch{
+            write-Host "Error fetching OAuth access token"
+            Write-Host $_
+            return $null
+        }
+        return $tokenInfo
     }
 
     static [string] GetAccessToken([string] $resourceAppIdUri) {
@@ -160,18 +191,23 @@ class ContextHelper {
     hidden static ConvertToContextObject([PSObject] $context)
     {
         $contextObj = [Context]::new()
-        $contextObj.Account.Id = $context.UserInfo.DisplayableId
-        $contextObj.Tenant.Id = $context.TenantId 
-        $contextObj.AccessToken = $context.AccessToken
-        
-        # We do not get ADO organization id as part of current context. Hence appending org name to both id and name param.        
+        # We do not get ADO organization id as part of current context. Hence appending org name to both id and name param.
         $contextObj.Organization = [Organization]::new()
         $contextObj.Organization.Id = [ContextHelper]::orgName
-        $contextObj.Organization.Name = [ContextHelper]::orgName 
-        
-        
-        $contextObj.TokenExpireTimeLocal = $context.ExpiresOn.LocalDateTime
-        #$contextObj.AccessToken =  ConvertTo-SecureString -String $context.AccessToken -asplaintext -Force
+        $contextObj.Organization.Name = [ContextHelper]::orgName
+
+        if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret)) { # this if block will be executed for OAuth based scan
+            $contextObj.AccessToken = $context.AccessToken
+            $contextObj.TokenExpireTimeLocal = $context.ExpiresOn
+        }
+        else {
+            $contextObj.Account.Id = $context.UserInfo.DisplayableId
+            $contextObj.Tenant.Id = $context.TenantId
+            $contextObj.AccessToken = $context.AccessToken
+
+            $contextObj.TokenExpireTimeLocal = $context.ExpiresOn.LocalDateTime
+            #$contextObj.AccessToken =  ConvertTo-SecureString -String $context.AccessToken -asplaintext -Force
+        }
         [ContextHelper]::currentContext = $contextObj
     }
 
