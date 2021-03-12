@@ -84,7 +84,6 @@ class ContextHelper {
             $tokenInfo['ExpiresOn'] = $request_time.AddSeconds($expiry)
             $refreshToken = ConvertTo-SecureString  $response.refresh_token -AsPlainText -Force
             Set-AzKeyVaultSecret -VaultName $env:KeyVaultName -Name "RefreshTokenForADOScan" -SecretValue $refreshToken | out-null
-            Write-Host "OAuth access token fetched"
         }
         catch{
             write-Host "Error fetching OAuth access token"

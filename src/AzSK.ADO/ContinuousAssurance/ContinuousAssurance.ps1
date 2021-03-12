@@ -164,11 +164,6 @@ function Install-AzSKADOContinuousAssurance
                 $PATToken = Read-Host "Provide PAT for [$OrganizationName] org:" -AsSecureString
             }
 
-            if ([string]::IsNullOrWhiteSpace($ClientSecret) -and $PSCmdlet.ParameterSetName -eq 'OAuthBasedCA' )
-            {
-                $ClientSecret = Read-Host "Provide ClientSecret for OAuth application" #-AsSecureString
-            }
-
             $resolver = [Resolver]::new($OrganizationName)
 
             $caAccount = [CAAutomation]::new($SubscriptionId, $Location,`
