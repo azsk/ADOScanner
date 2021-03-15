@@ -146,9 +146,9 @@ class AutoCloseBugManager {
                         $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
                         $response = $this.GetWorkItemByHash($TagSearchKeyword,$MaxKeyWordsToQuery)
                         if ($response[0].results.count -gt 0) {
-                            $response.results.values | ForEach-Object {
-                                $id = ($_.fields | where { $_.name -eq "ID" }).value
-                                $Project = $_.project
+                            $response.results | ForEach-Object {
+                                $id = $_.fields."system.id"
+                                $Project = $_.project.name
                                 $this.CloseBug($id, $Project)
                             }
                         }
