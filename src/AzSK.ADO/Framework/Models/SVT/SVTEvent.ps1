@@ -60,7 +60,10 @@ class ControlResult
 	[int] $TimeTakenInMs	
 	[DateTime] $ScanStartDateTime
 	[DateTime] $ScanEndDateTime
-	[PSObject[]] $AdditionalInfo
+	[String[]] $AdditionalInfo
+	[bool] $IsResourceActive = $true;
+	# If there is no usage history for resource or if it is Org/Project/User control then default value is set to -1.
+	[int] $InactiveFromDays = -1;
 
     [void] AddMessage([MessageData] $messageData)
     {
@@ -182,13 +185,13 @@ class SVTEventContext: AzSKRootEventArgument
 		}
 		else
 		{
-			$uniqueId = $this.SubscriptionContext.Scope;
+			$uniqueId = $this.OrganizationContext.Scope;
 		}
 
 		# Unique Id validation
 		if([string]::IsNullOrWhiteSpace($uniqueId))
 		{
-			throw "Error while evaluating Unique Id. The parameter 'ResourceContext.ResourceId' OR 'SubscriptionContext.Scope' is null or empty."
+			throw "Error while evaluating Unique Id. The parameter 'ResourceContext.ResourceId' OR 'OrganizationContext.Scope' is null or empty."
 		}
 
 		return $uniqueId;
@@ -199,7 +202,7 @@ class SVTEventContext: AzSKRootEventArgument
 #Get rid/move to another place if still needed.
 class TelemetryRBAC
 {
-	[string] $SubscriptionId="";
+	[string] $OrganizationName="";
 	[string] $Scope="";
 	[string] $DisplayName="";
 	[string] $MemberType="";

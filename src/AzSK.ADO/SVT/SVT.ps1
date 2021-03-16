@@ -83,9 +83,9 @@ function Get-AzSKADOSecurityStatus
 		$VariableGroupNames,
 
 		[switch]
-		[Parameter(HelpMessage="Scan all supported artificats present under organization like build, release, projects etc.")]
-		[Alias("saa")]
-		$ScanAllArtifacts,
+		[Parameter(HelpMessage="Scan all supported resources present under organization like build, release, projects etc.")]
+		[Alias("sar", "saa" , "ScanAllArtifacts")]
+		$ScanAllResources,
 
 		[string] 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Comma separated control ids to filter the security controls. e.g.: ADO_Organization_AuthN_Use_AAD_Auth, ADO_Organization_SI_Review_InActive_Users etc.")]
@@ -198,10 +198,10 @@ function Get-AzSKADOSecurityStatus
 		$AttestationHostProjectName,
 
 
-		[ValidateSet("All","BaselineControls","PreviewBaselineControls")]
+		[ValidateSet("All","BaselineControls","PreviewBaselineControls", "Custom")]
 		[Parameter(Mandatory = $false)]
 		[Alias("abl")]		
-		[string] $AutoBugLog="All",		
+		[string] $AutoBugLog = [BugLogForControls]::All,
 
 		[string]
 		[Parameter(Mandatory=$false)]
@@ -212,6 +212,11 @@ function Get-AzSKADOSecurityStatus
 		[Parameter(Mandatory=$false)]
 		[Alias("ipt")]
 		$IterationPath,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage = "Specify the security severity of bugs to be logged.")]
+		[Alias("ssv")]
+		$SecuritySeverity,
 
 		[string]
 		[Parameter(HelpMessage="Specify the custom field reference name for bug description.")]
@@ -249,7 +254,13 @@ function Get-AzSKADOSecurityStatus
 		[switch]
 		[Parameter(HelpMessage="Skip organization and user controls.")]
 		[Alias("souc")]
-		$SkipOrgUserControls
+		$SkipOrgUserControls,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage="Name of the repository containing org policy endpoint.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("prn")]
+		$PolicyRepoName 
 	)
 	Begin
 	{
@@ -324,7 +335,7 @@ function Get-AzSKADOSecurityStatus
 				}
 			}
 
-			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllArtifacts, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls);
+			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls);
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus) 
 			{	

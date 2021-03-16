@@ -158,7 +158,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Build_SI_Disable_Task_Group_Edit_Permission",
+      "ControlID": "ADO_Build_SI_Limit_Task_Group_Edit_Permission",
       "Description": "Do not use task groups that are editable by a broad pool of users.",
       "Id": "Build200",
       "ControlSeverity": "High",
@@ -175,7 +175,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Build_SI_Disable_Variable_Group_Edit_Permission",
+      "ControlID": "ADO_Build_SI_Limit_Variable_Group_Edit_Permission",
       "Description": "Do not use variable groups that are editable by a broad pool of users.",
       "Id": "Build210",
       "ControlSeverity": "High",
@@ -210,19 +210,70 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Build_SI_Disable_Pipeline_Edit_Permission",
+      "ControlID": "ADO_Build_SI_Limit_Pipeline_Edit_Permission",
       "Description": "Do not allow build pipeline to be edited by a broad pool of users.",
       "Id": "Build230",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckPipelineEditPermission",
-      "Rationale": "TBD",
-      "Recommendation": "TBD",
+      "Rationale": "If a broad pool of users (e.g., Contributors) have edit permissions on a pipeline, then integrity of your pipeline can be compromised by a malicious user who edits it.",
+      "Recommendation": "1. Navigate to the build pipeline. 2. Click on Security. 3. Ensure 'Edit build pipeline' permission of Contributors is set to 'Deny'. 4. Repeat this for any other groups that should not have edit access.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
         "SI"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Build_DP_Dont_Make_Secrets_Available_To_Forked_Builds",
+      "Description": "Do not make secrets available to builds of fork repository.",
+      "Id": "Build240",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckForkedBuildTrigger",
+      "Rationale": "If you build public repositories from GitHub, you must consider your stance on fork builds. Forks are especially dangerous since they come from outside your organization. Secrets can be exposed outside your organization if they are made available to builds of forked repositories.",
+      "Recommendation": "1. Navigate to the build pipeline. -> 2. Triggers -> 3. Pull request validation -> 4. Forks -> 5. Uncheck 'Make secrets available to builds of forks'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
+    },
+    {  
+      "ControlID": "ADO_Build_DP_Do_Not_Use_Forked_Repo_With_Self_Hosted_Agent",
+      "Description": "Do not allow build pipeline to build code from forked repository on self-hosted agent.",
+      "Id": "Build250",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckForkedRepoOnSHAgent",
+      "Rationale": "If you use GitHub open-source projects, anyone with a GitHub account can fork your repository and propose contributions back. Since pipelines are associated with a repository and not with specific branches, you must assume the code and YAML files are untrusted. (https://docs.microsoft.com/en-us/azure/devops/pipelines/security/repos?view=azure-devops)",
+      "Recommendation": "1. Navigate to build pipeline definition --> 2. Ensure the pipeline does not build code from a forked repository. --> 3. Ensure the pipeline doesn't build code on a self-hosted agent.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Build_DP_Disable_CI_On_External_Sources",
+      "Description": "Do not run continuous integration or scheduled builds on untrusted code from external or public GitHub repositories.",
+      "Id": "Build260",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckCIScheduledBuildTrigger",
+      "Rationale": "Build agents posess a token scoped to either current project or project collection. This token is available to builds triggered via the Continuous Integration and Scheduled Build mechanisms. If an adversary pushed a malicious commit to the upstream public GitHub repo, they can exfiltrate the token and use it to move laterally throughout the ADO organization (or Project).",
+      "Recommendation": "1. Navigate to the build pipeline. -> 2. Triggers -> 3. Disable 'Continuous integration' and 'Scheduled' build.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
       ],
       "Enabled": true
     }  

@@ -39,13 +39,13 @@ class WriteDetailedLog: FileOutputBase
 					if ($Event.SourceArgs.FeatureName -eq "Project") {
 						$parentFolder = $Event.SourceArgs.ResourceContext.ResourceName
 					}
-					$currentInstance.SetFilePath($Event.SourceArgs.SubscriptionContext, $parentFolder, ($Event.SourceArgs.FeatureName + ".LOG"));            
+					$currentInstance.SetFilePath($Event.SourceArgs.OrganizationContext, $parentFolder, ($Event.SourceArgs.FeatureName + ".LOG"));            
 					$startHeading = ([Constants]::ModuleStartHeading -f $Event.SourceArgs.FeatureName, $Event.SourceArgs.ResourceContext.ResourceGroupName, $Event.SourceArgs.ResourceContext.ResourceName);
 				}
 				else
 				{
-					$currentInstance.SetFilePath($Event.SourceArgs.SubscriptionContext, $Event.SourceArgs.SubscriptionContext.SubscriptionName, ($Event.SourceArgs.FeatureName + ".LOG"));                       
-					$startHeading = ([Constants]::ModuleStartHeadingSub -f $Event.SourceArgs.FeatureName, $Event.SourceArgs.SubscriptionContext.SubscriptionName, $Event.SourceArgs.SubscriptionContext.SubscriptionId);
+					$currentInstance.SetFilePath($Event.SourceArgs.OrganizationContext, $Event.SourceArgs.OrganizationContext.OrganizationName, ($Event.SourceArgs.FeatureName + ".LOG"));                       
+					$startHeading = ([Constants]::ModuleStartHeadingSub -f $Event.SourceArgs.FeatureName, $Event.SourceArgs.OrganizationContext.OrganizationName, $Event.SourceArgs.OrganizationContext.OrganizationId);
 				}
 				$currentInstance.AddOutputLog($startHeading);
             }
@@ -68,7 +68,7 @@ class WriteDetailedLog: FileOutputBase
 					}
 					else
 					{
-						$currentInstance.AddOutputLog(([Constants]::CompletedAnalysisSub  -f $props.FeatureName, $props.SubscriptionContext.SubscriptionName, $props.SubscriptionContext.SubscriptionId));
+						$currentInstance.AddOutputLog(([Constants]::CompletedAnalysisSub  -f $props.FeatureName, $props.OrganizationContext.OrganizationName, $props.OrganizationContext.OrganizationId));
 					}
 				}
 				else
@@ -101,9 +101,9 @@ class WriteDetailedLog: FileOutputBase
 				}
 				else
 				{
-					$currentInstance.AddOutputLog(("Checking: [{0}]-[$($Event.SourceArgs.ControlItem.Description)] for subscription [{1}]" -f 
+					$currentInstance.AddOutputLog(("Checking: [{0}]-[$($Event.SourceArgs.ControlItem.Description)] for organization [{1}]" -f 
                         $Event.SourceArgs.FeatureName, 
-                        $Event.SourceArgs.SubscriptionContext.SubscriptionName), 
+                        $Event.SourceArgs.OrganizationContext.OrganizationName), 
                     $true);  
 				}
             }
@@ -133,7 +133,7 @@ class WriteDetailedLog: FileOutputBase
             {
 				if($Event.SourceArgs.Messages)
 				{
-					$currentInstance.SetFilePath($Event.SourceArgs.SubscriptionContext, $Event.SourceArgs.SubscriptionContext.SubscriptionName, "Detailed.LOG");
+					$currentInstance.SetFilePath($Event.SourceArgs.OrganizationContext, $Event.SourceArgs.OrganizationContext.OrganizationName, "Detailed.LOG");
 					$Event.SourceArgs.Messages | ForEach-Object {
 						$currentInstance.AddOutputLog($_);
 					}
@@ -151,7 +151,12 @@ class WriteDetailedLog: FileOutputBase
             {
 				if($Event.SourceArgs.Messages)
 				{
-					$currentInstance.SetFilePath($Event.SourceArgs.SubscriptionContext, $Event.SourceArgs.SubscriptionContext.SubscriptionName, "Detailed.LOG");
+					if($($Event.Sender.InvocationContext.BoundParameters.Keys).indexOf('InfoType') -ge 0 -and $Event.Sender.InvocationContext.BoundParameters.InfoType -eq "UserInfo") {
+						$currentInstance.SetFilePath($Event.SourceArgs.OrganizationContext, $Event.SourceArgs.OrganizationContext.OrganizationName, "UserInfo.LOG");
+					}
+					else {
+						$currentInstance.SetFilePath($Event.SourceArgs.OrganizationContext, $Event.SourceArgs.OrganizationContext.OrganizationName, "Detailed.LOG");
+					}
 					$Event.SourceArgs.Messages | ForEach-Object {
 						$currentInstance.AddOutputLog($_);
 					}
@@ -302,9 +307,9 @@ class WriteDetailedLog: FileOutputBase
 					}
 					else
 					{		
-						$this.AddOutputLog(("**{3}**: [{0}]-[{2}] for subscription: [{1}]" -f 
+						$this.AddOutputLog(("**{3}**: [{0}]-[{2}] for organization: [{1}]" -f 
 								$eventContext.FeatureName, 
-								$eventContext.SubscriptionContext.SubscriptionName, 
+								$eventContext.OrganizationContext.OrganizationName, 
 								$eventContext.ControlItem.Description, 
 								$_.VerificationResult.ToString()));     
 					}

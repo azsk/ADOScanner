@@ -17,8 +17,8 @@ class CommandBase: AzSKRoot {
 	#EndRegion
 
 	#Region: Constructor 
-    CommandBase([string] $subscriptionId, [InvocationInfo] $invocationContext):
-    Base($subscriptionId) {
+    CommandBase([string] $organizationName, [InvocationInfo] $invocationContext):
+    Base($organizationName) {
 
         [Helpers]::AbstractClass($this, [CommandBase]);
 		
@@ -30,7 +30,7 @@ class CommandBase: AzSKRoot {
 		
 		#Validate if privacy is accepted by user
 		#Ensure that AzSKSettings statics are setup at this point (before calling Privacy notice)
-		[AzSKSettings]::InitContexts($this.SubscriptionContext, $this.InvocationContext);
+		[AzSKSettings]::InitContexts($this.OrganizationContext, $this.InvocationContext);
 		[PrivacyNotice]::ValidatePrivacyAcceptance()
 
 		#Initialize common parameter sets
@@ -172,7 +172,7 @@ class CommandBase: AzSKRoot {
 				$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
 			}
 			#call the AutoCloseBugManager
-			$AutoClose=[AutoCloseBugManager]::new($this.SubscriptionContext.SubscriptionName);
+			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 			$AutoClose.AutoCloseBug($methodResult)
 		}
 		# Publish command complete events
@@ -194,10 +194,10 @@ class CommandBase: AzSKRoot {
                         # Do nothing
                     }
                     Landscape {
-                        [AzSKPDFExtension]::GeneratePDF($folderpath, $this.SubscriptionContext, $this.InvocationContext, $true);
+                        [AzSKPDFExtension]::GeneratePDF($folderpath, $this.OrganizationContext, $this.InvocationContext, $true);
                     }
                     Portrait {
-                        [AzSKPDFExtension]::GeneratePDF($folderpath, $this.SubscriptionContext, $this.InvocationContext, $false);
+                        [AzSKPDFExtension]::GeneratePDF($folderpath, $this.OrganizationContext, $this.InvocationContext, $false);
                     }
                 }
             }

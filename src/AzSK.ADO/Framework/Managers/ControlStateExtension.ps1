@@ -15,7 +15,7 @@ class ControlStateExtension
 	hidden [int] $retryCount = 3;
 	hidden [string] $UniqueRunId;
 
-	hidden [SubscriptionContext] $SubscriptionContext;
+	hidden [OrganizationContext] $OrganizationContext;
 	hidden [InvocationInfo] $InvocationContext;
 	hidden [PSObject] $ControlSettings; 
 	hidden [PSObject] $resourceType;
@@ -31,13 +31,18 @@ class ControlStateExtension
 	hidden [AzSKSettings] $AzSKSettings;
 
 
-	ControlStateExtension([SubscriptionContext] $subscriptionContext, [InvocationInfo] $invocationContext)
+	ControlStateExtension([OrganizationContext] $organizationContext, [InvocationInfo] $invocationContext)
 	{
-		$this.SubscriptionContext = $subscriptionContext;
+		$this.OrganizationContext = $organizationContext;
 		$this.InvocationContext = $invocationContext;	
 		
 		$this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");	
 		$this.AttestationBody = [ConfigurationManager]::LoadServerConfigFile("ADOAttestation.json");
+
+		if (!$this.AzSKSettings) 
+		{	
+			$this.AzSKSettings = [ConfigurationManager]::GetAzSKSettings();				
+		}
 	}
 
 	static [string] ComputeHashX([string] $dataToHash)
@@ -371,12 +376,16 @@ class ControlStateExtension
 		if ([Helpers]::CheckMember($this.ControlSettings,"AttestationRepo")) {
 			$attestationRepo =  $this.ControlSettings.AttestationRepo;
 		}
+		#Get attesttion repo name from local azsksettings.json file if AttestationRepo varibale value is not empty.
+		if ($this.AzSKSettings.AttestationRepo) {
+			$attestationRepo = $this.AzSKSettings.AttestationRepo;
+		}
 
 		$rmContext = [ContextHelper]::GetCurrentContext();
 		$user = "";
 		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
 	   
-		$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.SubscriptionContext.subscriptionid, $projectName, $attestationRepo 
+		$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=6.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo 
         try {
 		$webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
 		$branchName = [Constants]::AttestationDefaultBranch;
@@ -384,10 +393,14 @@ class ControlStateExtension
 		if ([Helpers]::CheckMember($this.ControlSettings,"AttestationBranch")) {
 			$branchName =  $this.ControlSettings.AttestationBranch;
 		}
+		#Get attesttion branch name from local azsksettings.json file if AttestationBranch varibale value is not empty.
+		if ($this.AzSKSettings.AttestationBranch) {
+			$branchName = $this.AzSKSettings.AttestationBranch;
+		}
 		
 		$branchId = ($webRequest.value | where {$_.name -eq "refs/heads/"+$branchName}).ObjectId
 
-		$uri = [Constants]::AttRepoStorageUri -f $this.SubscriptionContext.subscriptionid, $projectName, $attestationRepo  
+		$uri = [Constants]::AttRepoStorageUri -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo  
 		$body = $this.CreateBody($fileContent, $fileName, $branchId, $branchName);
 		$webRequestResult = Invoke-RestMethod -Uri $uri -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body
 
@@ -440,6 +453,10 @@ class ControlStateExtension
 
 	[string] GetProject(){
 		$projectName = "";
+		#If EnableMultiProjectAttestation is enabled and ProjectToStoreAttestation has project, only then ProjectToStoreAttestation will be used as central attestation location.
+		if ([Helpers]::CheckMember($this.ControlSettings, "EnableMultiProjectAttestation") -and [Helpers]::CheckMember($this.ControlSettings, "ProjectToStoreAttestation")) {
+			return $this.ControlSettings.ProjectToStoreAttestation;
+		}
 		if ($this.resourceType -eq "Organization" -or $this.resourceType -eq $null) 
 		{
 			if($this.InvocationContext)
@@ -506,12 +523,16 @@ class ControlStateExtension
 							$user = "";
 							$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
 						
-						        #Get attesttion repo name from controlsetting file if AttestationRepo varibale value is not empty.
+						    #Get attesttion repo name from controlsetting file if AttestationRepo varibale value is not empty.
 							if ([Helpers]::CheckMember($this.ControlSettings,"AttestationRepo")) {
 								$attestationRepo =  $this.ControlSettings.AttestationRepo;
 							}
+							#Get attesttion repo name from local azsksettings.json file if AttestationRepo varibale value is not empty.
+		                    if ($this.AzSKSettings.AttestationRepo) {
+		                    	$attestationRepo = $this.AzSKSettings.AttestationRepo;
+		                    }
 
-							$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.SubscriptionContext.subscriptionid, $projectName, $attestationRepo
+							$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=6.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo
 							$webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
 							[ControlStateExtension]::IsOrgAttestationProjectFound = $true # Policy project and repo found
 						}
@@ -549,7 +570,7 @@ class ControlStateExtension
 		    $user = "";
 		    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
 		    
-		    $uri = [Constants]::StorageUri -f $this.SubscriptionContext.subscriptionid, $this.SubscriptionContext.subscriptionid, [Constants]::OrgAttPrjExtFile 
+		    $uri = [Constants]::StorageUri -f $this.OrganizationContext.OrganizationName, $this.OrganizationContext.OrganizationName, [Constants]::OrgAttPrjExtFile 
 			$webRequestResult = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
 			#If repo is not found, we will fall into the catch block from IRM call above
 			[ControlStateExtension]::IsOrgAttestationProjectFound = $true # Policy project found
@@ -568,7 +589,7 @@ class ControlStateExtension
 		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user, $rmContext.AccessToken)))
 		$fileName = [Constants]::OrgAttPrjExtFile 
 
-		$apiURL = "https://dev.azure.com/{0}/_apis/projects/{1}?api-version=6.0" -f $($this.SubscriptionContext.SubscriptionName), $projectName;
+		$apiURL = "https://dev.azure.com/{0}/_apis/projects/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $projectName;
 		try { 
 			$responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL) ;
 			#$projects = $responseObj | Where-Object { $projectName -contains $_.name }
@@ -579,18 +600,18 @@ class ControlStateExtension
                    
 		}
 		catch {
-			Write-Host "$($projectName) Project not found: Incorrect project name or you do not have neccessary permission to access the project." -ForegroundColor Red
+			Write-Host "$($projectName) Project not found: Incorrect project name or you do not have necessary permission to access the project." -ForegroundColor Red
 			return $false
 		}
 			   
-		$uri = [Constants]::StorageUri -f $this.SubscriptionContext.subscriptionid, $this.SubscriptionContext.subscriptionid, $fileName
+		$uri = [Constants]::StorageUri -f $this.OrganizationContext.OrganizationName, $this.OrganizationContext.OrganizationName, $fileName
 		try {
 			$webRequestResult = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
 			Write-Host "Project $($webRequestResult.Project) is already configured to store attestation details for organization-specific controls." -ForegroundColor Yellow
 		}
 		catch {
 			$body = @{"id" = "$fileName"; "Project" = $projectName; } | ConvertTo-Json
-			$uri = [Constants]::StorageUri -f $this.SubscriptionContext.subscriptionid, $this.SubscriptionContext.subscriptionid, $fileName  
+			$uri = [Constants]::StorageUri -f $this.OrganizationContext.OrganizationName, $this.OrganizationContext.OrganizationName, $fileName  
 			try {
 				$webRequestResult = Invoke-RestMethod -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -Body $body	
 				return $true;
@@ -610,6 +631,10 @@ class ControlStateExtension
 		#Get attesttion branch name from controlsetting file if AttestationBranch varibale value is not empty.
 		if ([Helpers]::CheckMember($this.ControlSettings,"AttestationBranch")) {
 			$branchName =  $this.ControlSettings.AttestationBranch;
+		}
+		#Get attesttion branch name from local azsksettings.json file if AttestationBranch varibale value is not empty.
+		if ($this.AzSKSettings.AttestationBranch) {
+			$branchName = $this.AzSKSettings.AttestationBranch;
 		} 
 
 		$fileName = $this.CreatePath($fileName);
@@ -625,7 +650,11 @@ class ControlStateExtension
 			if ([Helpers]::CheckMember($this.ControlSettings,"AttestationRepo")) {
 				$attestationRepo =  $this.ControlSettings.AttestationRepo;
 			}
-		   $uri = [Constants]::GetAttRepoStorageUri -f $this.SubscriptionContext.subscriptionid, $projectName, $attestationRepo, $fileName, $branchName 
+			#Get attesttion repo name from local azsksettings.json file if AttestationRepo varibale value is not empty.
+			if ($this.AzSKSettings.AttestationRepo) {
+				$attestationRepo = $this.AzSKSettings.AttestationRepo;
+			}
+		   $uri = [Constants]::GetAttRepoStorageUri -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo, $fileName, $branchName 
 		   $webRequestResult = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
            if ($webRequestResult) {
 			# COmmenting this code out. We will be handling encoding-decoding to b64 at SetStateData and WriteDetailedLogs.ps1
@@ -665,12 +694,16 @@ class ControlStateExtension
 		if ([Helpers]::CheckMember($this.ControlSettings,"AttestationRepo")) {
 			$attestationRepo =  $this.ControlSettings.AttestationRepo;
 		}
+		#Get attesttion repo name from local azsksettings.json file if AttestationRepo varibale value is not empty.
+		if ($this.AzSKSettings.AttestationRepo) {
+			$attestationRepo = $this.AzSKSettings.AttestationRepo;
+		}
 
 		$rmContext = [ContextHelper]::GetCurrentContext();
 		$user = "";
 		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
 		
-		$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=5.0" -f $this.SubscriptionContext.subscriptionid, $projectName, $attestationRepo
+		$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=6.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo
         $webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
 		$branchId = ($webRequest.value | where {$_.name -eq 'refs/heads/master'}).ObjectId
 		
@@ -683,11 +716,15 @@ class ControlStateExtension
 		if ([Helpers]::CheckMember($this.ControlSettings,"AttestationBranch")) {
 			$branchName =  $this.ControlSettings.AttestationBranch;
 		}
+		#Get attesttion branch name from local azsksettings.json file if AttestationBranch varibale value is not empty.
+		if ($this.AzSKSettings.AttestationBranch) {
+			$branchName = $this.AzSKSettings.AttestationBranch;
+		}
 		$body = $body.Replace('{2}',$branchName)
 
 		try
 		{
-		   $uri = [Constants]::AttRepoStorageUri -f $this.SubscriptionContext.subscriptionid, $projectName, $attestationRepo 
+		   $uri = [Constants]::AttRepoStorageUri -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo 
 		   $webRequestResult = Invoke-RestMethod -Uri $uri -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body
 		}
 		catch{
@@ -897,10 +934,10 @@ class ControlStateExtension
 	      {	
 	    	$this.HasControlStateWritePermissions = 0
 	 
-			$allowedGrpForOrgAtt = $this.ControlSettings.AllowAttestationByGroups | where { $_.ResourceType -eq "Organization" } | select-object -property GroupNames 
+			$allowedGrpForOrgAtt = $this.ControlSettings.GroupsWithAttestPermission | where { $_.ResourceType -eq "Organization" } | select-object -property GroupNames 
 	    	
-            $url= "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($this.SubscriptionContext.SubscriptionName);
-			$postbody="{'contributionIds':['ms.vss-admin-web.org-admin-groups-data-provider'],'dataProviderContext':{'properties':{'sourcePage':{'url':'https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/_settings/groups','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'groups','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+            $url= "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($this.OrganizationContext.OrganizationName);
+			$postbody="{'contributionIds':['ms.vss-admin-web.org-admin-groups-data-provider'],'dataProviderContext':{'properties':{'sourcePage':{'url':'https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_settings/groups','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'groups','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
 			$groupsOrgObj = [WebRequestHelper]::InvokePostWebRequest($url,$postbody);
 			$groupsOrgObj = $groupsOrgObj.dataProviders.'ms.vss-admin-web.org-admin-groups-data-provider'.identities | where { $allowedGrpForOrgAtt.GroupNames -contains $_.displayName }
 
@@ -910,10 +947,10 @@ class ControlStateExtension
 
 			if($featureName -ne "Organization")
 			{
-			   $allowedGrpForAtt = $this.ControlSettings.AllowAttestationByGroups | where { $_.ResourceType -eq $featureName } | select-object -property GroupNames 	    	
-			   $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.SubscriptionContext.SubscriptionName);
+			   $allowedGrpForAtt = $this.ControlSettings.GroupsWithAttestPermission | where { $_.ResourceType -eq $featureName } | select-object -property GroupNames 	    	
+			   $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
                $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
-               $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($resourceName)/_settings/permissions";
+               $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($resourceName)/_settings/permissions";
                $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project =$resourceName;
        
 			   $groupsObj = [WebRequestHelper]::InvokePostWebRequest($url,$inputbody); 
@@ -948,9 +985,9 @@ class ControlStateExtension
 		$inputbody =  '{"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
 	   
 		$inputbody.dataProviderContext.properties.subjectDescriptor = $descriptor;
-		$inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/_settings/groups?subjectDescriptor=$($descriptor)";
+		$inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_settings/groups?subjectDescriptor=$($descriptor)";
 	   
-		$apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview" -f $($this.SubscriptionContext.SubscriptionName);
+		$apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview" -f $($this.OrganizationContext.OrganizationName);
 
 		$groupMembersObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
 		$users = $groupMembersObj.dataProviders."ms.vss-admin-web.org-admin-members-data-provider".identities | where {$_.subjectKind -eq "user"}
@@ -972,7 +1009,7 @@ class ControlStateExtension
 			return $false
 		}#>
 
-		$isUserPA=[AdministratorHelper]::GetIsCurrentUserPA($descriptor,$this.SubscriptionContext.SubscriptionName,$resourceName);
+		$isUserPA=[AdministratorHelper]::GetIsCurrentUserPA($descriptor,$this.OrganizationContext.OrganizationName,$resourceName);
 		if($isUserPA -eq $true){
 			$this.HasControlStateWritePermissions = 1
 			return $true;
@@ -989,7 +1026,7 @@ class ControlStateExtension
 	}
 
 	[bool] CheckGroupMemberPCA($descriptor){
-		$isUserPCA=[AdministratorHelper]::GetIsCurrentUserPCA($descriptor,$this.SubscriptionContext.SubscriptionName);
+		$isUserPCA=[AdministratorHelper]::GetIsCurrentUserPCA($descriptor,$this.OrganizationContext.OrganizationName);
 		if($isUserPCA -eq $true){
 			$this.HasControlStateWritePermissions = 1
 			return $true;

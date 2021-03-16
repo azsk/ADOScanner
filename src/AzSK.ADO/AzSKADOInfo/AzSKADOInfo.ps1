@@ -33,7 +33,7 @@ function Get-AzSKADOInfo
 	#>
 	Param(
 		[Parameter(Mandatory = $false)]
-		[ValidateSet("OrganizationInfo", "ControlInfo", "HostInfo")] 
+		[ValidateSet("OrganizationInfo", "ControlInfo", "HostInfo", "UserInfo")] 
 		[Alias("it")]
 		$InfoType,
 
@@ -84,7 +84,13 @@ function Get-AzSKADOInfo
 		[switch]
 		[Parameter(Mandatory = $false, HelpMessage = "Switch to specify whether to open output folder.")]
 		[Alias("dnof")]
-		$DoNotOpenOutputFolder
+		$DoNotOpenOutputFolder,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage="User email/principal name for which permissions information is requested.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("email", "UserEmail")]
+		$PrincipalName
     )
 	Begin
 	{
@@ -96,7 +102,6 @@ function Get-AzSKADOInfo
 	{
 		try 
 		{
-			$SubscriptionId = $OrganizationName
 			$unsupported = $false
 			if([string]::IsNullOrWhiteSpace($ResourceTypeName))
 			{
@@ -111,6 +116,12 @@ function Get-AzSKADOInfo
 
 			if(-not ([string]::IsNullOrEmpty($InfoType) -or $unsupported))
 			{
+				#Set empty, so org-policy get refreshed in every gadi run in same PS session.
+				[ConfigurationHelper]::PolicyCacheContent = @()
+				[AzSKSettings]::Instance = $null
+				[AzSKConfig]::Instance = $null 
+				[ConfigurationHelper]::ServerConfigMetadata = $null
+			
 				switch ($InfoType.ToString()) 
 				{
 					OrganizationInfo
@@ -128,7 +139,7 @@ function Get-AzSKADOInfo
 							$Full = $false
 						}
 
-						$controlsInfo = [ControlsInfo]::new($SubscriptionId, $PSCmdlet.MyInvocation, $ResourceTypeName, $ControlIds, $UseBaselineControls, $UsePreviewBaselineControls, $FilterTags, $Full, $ControlSeverity, $ControlIdContains);
+						$controlsInfo = [ControlsInfo]::new($OrganizationName, $PSCmdlet.MyInvocation, $ResourceTypeName, $ControlIds, $UseBaselineControls, $UsePreviewBaselineControls, $FilterTags, $Full, $ControlSeverity, $ControlIdContains);
 						if ($controlsInfo) 
 						{
 							return $controlsInfo.InvokeFunction($controlsInfo.GetControlDetails);
@@ -136,7 +147,7 @@ function Get-AzSKADOInfo
 					}
 					HostInfo 
 					{
-						$hInfo = [HostInfo]::new($SubscriptionId, $PSCmdlet.MyInvocation);
+						$hInfo = [HostInfo]::new($OrganizationName, $PSCmdlet.MyInvocation);
 						if ($hInfo) 
 						{
 							return $hInfo.InvokeFunction($hInfo.GetHostInfo);
@@ -145,6 +156,22 @@ function Get-AzSKADOInfo
 					AttestationInfo
 					{
 						Write-Host -ForegroundColor Yellow "AttestationInfo support is yet to be implemented."
+					}
+					UserInfo
+					{
+						if($ProjectNames -eq "*" -or $ProjectNames -match "\,") {
+							Write-Host "This command currently supports user permission information for a single project. Please provide a single project name." -ForegroundColor Red
+						}
+						elseif ([string]::IsNullOrWhiteSpace($PrincipalName)) {
+							$currentUser = [ContextHelper]::GetCurrentSessionUser();
+							# Write-Host "InfoType 'UserInfo' requires principal name parameter to scan. If not provided, it'll take the context of current logged in user." -ForegroundColor Yellow
+							$userInfo = [UserInfo]::new($OrganizationName, $currentUser, $ProjectNames, $PSCmdlet.MyInvocation);
+							return $userInfo.InvokeFunction($userInfo.GetPermissionDetails);
+						}
+						else {
+							$userInfo = [UserInfo]::new($OrganizationName, $PrincipalName, $ProjectNames, $PSCmdlet.MyInvocation);
+							return $userInfo.InvokeFunction($userInfo.GetPermissionDetails);
+						}
 					}
 					Default
 					{
@@ -160,7 +187,7 @@ function Get-AzSKADOInfo
 		catch 
 		{
 			[EventBase]::PublishGenericException($_);
-		}  
+		}
 	}
 
 	End

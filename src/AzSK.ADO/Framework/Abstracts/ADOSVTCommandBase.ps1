@@ -10,8 +10,8 @@ Set-StrictMode -Version Latest
 class ADOSVTCommandBase: SVTCommandBase {
     
     #Region Constructor
-    ADOSVTCommandBase([string] $subscriptionId, [InvocationInfo] $invocationContext):
-    Base($subscriptionId, $invocationContext) {
+    ADOSVTCommandBase([string] $organizationName, [InvocationInfo] $invocationContext):
+    Base($organizationName, $invocationContext) {
 
         [Helpers]::AbstractClass($this, [ADOSVTCommandBase]);
         
@@ -79,8 +79,8 @@ class ADOSVTCommandBase: SVTCommandBase {
           #ADOTODO: Do we still need this? 
           #ADOTODO: The InvocationContext will change for each cmdlet run in a session. 
           #So what benefit is there from caching the first one with AzSKSettings? (Need to investigate)
-          [AzSKSettings]::InitContexts($this.SubscriptionContext, $this.InvocationContext);
-          $this.ControlStateExt = [ControlStateExtension]::new($this.SubscriptionContext, $this.InvocationContext);
+          [AzSKSettings]::InitContexts($this.OrganizationContext, $this.InvocationContext);
+          $this.ControlStateExt = [ControlStateExtension]::new($this.OrganizationContext, $this.InvocationContext);
           $this.ControlStateExt.UniqueRunId = $this.AttestationUniqueRunId
           $this.ControlStateExt.Initialize($false);
           $this.UserHasStateAccess = $this.ControlStateExt.HasControlStateReadAccessPermissions();
@@ -90,7 +90,7 @@ class ADOSVTCommandBase: SVTCommandBase {
     [void] PostCommandCompletedAction([SVTEventContext[]] $arguments) {
         if ($this.AttestationOptions -ne $null -and $this.AttestationOptions.AttestControls -ne [AttestControls]::None) {
             try {
-                [SVTControlAttestation] $svtControlAttestation = [SVTControlAttestation]::new($arguments, $this.AttestationOptions, $this.SubscriptionContext, $this.InvocationContext);
+                [SVTControlAttestation] $svtControlAttestation = [SVTControlAttestation]::new($arguments, $this.AttestationOptions, $this.OrganizationContext, $this.InvocationContext);
                 #The current context user would be able to read the storage blob only if he has minimum of contributor access.
                 if ($svtControlAttestation.controlStateExtension.HasControlStateWriteAccessPermissions()) {
                     if (-not [string]::IsNullOrWhiteSpace($this.AttestationOptions.JustificationText) -or $this.AttestationOptions.IsBulkClearModeOn) {

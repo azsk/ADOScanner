@@ -50,7 +50,7 @@
     # Modules that must be imported into the global environment prior to importing this module
     RequiredModules        = @(
         @{ModuleName = 'Az.Accounts'; RequiredVersion = '1.8.0'}
-		@{ModuleName = 'Az.Storage'; RequiredVersion = '2.0.0'}
+        @{ModuleName = 'Az.Storage'; RequiredVersion = '2.0.0'}
 		@{ModuleName = 'Az.Functions'; RequiredVersion = '1.0.0'}
 		@{ModuleName = 'Az.KeyVault'; RequiredVersion = '2.0.0'}
         @{ModuleName = 'Az.OperationalInsights'; RequiredVersion = '2.0.0'}
@@ -87,7 +87,8 @@
         'Install-AzSKADOContinuousAssurance',
         'Update-AzSKADOContinuousAssurance',
         'Get-AzSKADOContinuousAssurance',
-        'Get-AzSKADOServiceMapping'
+        'Get-AzSKADOServiceMapping',
+        'Set-AzSKADOUsageTelemetryLevel'
     )
 
     # Cmdlets to export from this module

@@ -5,24 +5,48 @@ class Build: ADOSVTBase
     hidden [PSObject] $BuildObj;
     hidden static [string] $SecurityNamespaceId = $null;
     hidden static [PSObject] $BuildVarNames = @{};
+    hidden [PSObject] $buildActivityDetail = @{isBuildActive = $true; buildLastRunDate = $null; buildCreationDate = $null; message = $null; isComputed = $false};
     
-    Build([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId,$svtResource) 
+    Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
         # Get security namespace identifier of current build.
         if ([string]::IsNullOrEmpty([Build]::SecurityNamespaceId) ) {
-            $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=5.0" -f $($this.SubscriptionContext.SubscriptionName)
+            $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($this.OrganizationContext.OrganizationName)
             $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             [Build]::SecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "Build") -and ($_.actions.name -contains "ViewBuilds")}).namespaceId
         }
         $buildId = $this.ResourceContext.ResourceDetails.id
         $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
         # Get build object
-        $apiURL = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$projectId/_apis/build/Definitions/$buildId";
+        $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$projectId/_apis/build/Definitions/$($buildId)?api-version=6.0";
         $this.BuildObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
         if(($this.BuildObj | Measure-Object).Count -eq 0)
         {
-            throw [SuppressedException] "Unable to find build pipeline in [Organization: $($this.SubscriptionContext.SubscriptionName)] [Project: $($this.ResourceContext.ResourceGroupName)]."
+            throw [SuppressedException] "Unable to find build pipeline in [Organization: $($this.OrganizationContext.OrganizationName)] [Project: $($this.ResourceContext.ResourceGroupName)]."
+        }
+
+        # if build activity check function is not computed, then first compute the function to get the correct status of build.
+        if($this.buildActivityDetail.isComputed -eq $false)
+        {
+            $this.CheckActiveBuilds()
+        }
+
+        # overiding the '$this.isResourceActive' global variable based on the current status of build.
+        if ($this.buildActivityDetail.isBuildActive)
+        {
+            $this.isResourceActive = $true
+        }
+        else
+        {
+            $this.isResourceActive = $false
+        }
+
+        # calculating the inactivity period in days for the build. If there is no build history, then setting it with negative value.
+        # This will ensure inactive period is always computed irrespective of whether inactive control is scanned or not.
+        if ($null -ne $this.buildActivityDetail.buildLastRunDate)
+        {
+            $this.InactiveFromDays = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
         }
     }
 
@@ -72,6 +96,7 @@ class Build: ADOSVTBase
                             {
                                 $controlResult.AddMessage("No. of credentials found:" + ($credList | Measure-Object).Count )
                                 $controlResult.AddMessage([VerificationResult]::Failed,"Found credentials in variables")
+                                $controlResult.AdditionalInfo += "No. of credentials found: " + ($credList | Measure-Object).Count;
                             }
                             else {
                                 $controlResult.AddMessage([VerificationResult]::Passed,"No credentials found in variables")
@@ -175,13 +200,17 @@ class Build: ADOSVTBase
                     {
                         $varList = $varList | select -Unique | Sort-object
                         $stateData.VariableList += $varList
+                        $controlResult.AddMessage("`nTotal number of variable(s) containing secret: ", ($varList | Measure-Object).Count);
                         $controlResult.AddMessage("`nList of variable(s) containing secret: ", $varList);
+                        $controlResult.AdditionalInfo += "Total number of variable(s) containing secret: " + ($varList | Measure-Object).Count;
                     }
                     if(($varGrpList | Measure-Object).Count -gt 0 )
                     {
                         $varGrpList = $varGrpList | select -Unique | Sort-object
                         $stateData.VariableGroupList += $varGrpList
+                        $controlResult.AddMessage("`nTotal number of variable(s) containing secret in variable group(s): ", ($varGrpList | Measure-Object).Count);
                         $controlResult.AddMessage("`nList of variable(s) containing secret in variable group(s): ", $varGrpList);
+                        $controlResult.AdditionalInfo += "Total number of variable(s) containing secret in variable group(s): " + ($varGrpList | Measure-Object).Count;
                     }
                     $controlResult.SetStateData("List of variable and variable group containing secret: ", $stateData );
                 }
@@ -202,64 +231,50 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckForInactiveBuilds([ControlResult] $controlResult)
     {
-        if($this.BuildObj)
+        try
         {
-            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName),$($this.BuildObj.project.id);
-
-        $orgURL='https://dev.azure.com/{0}/{1}/_build?view=folders' -f $($this.SubscriptionContext.SubscriptionName),$($this.BuildObj.project.name)
-        $inputbody="{'contributionIds':['ms.vss-build-web.pipelines-data-provider'],'dataProviderContext':{'properties':{'definitionIds':'$($this.BuildObj.id)','sourcePage':{'url':'$orgURL','routeId':'ms.vss-build-web.pipelines-hub-route','routeValues':{'project':'$($this.BuildObj.project.name)','viewname':'pipelines','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-
-        $sw = [System.Diagnostics.Stopwatch]::StartNew();
-        $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
-        $sw.Stop()
-
-        #Below code added to send perf telemtry
-        if ($this.IsAIEnabled)
-        {
-            $properties =  @{ 
-                TimeTakenInMs = $sw.ElapsedMilliseconds;
-                ApiUrl = $apiURL; 
-                Resourcename = $this.ResourceContext.ResourceName;
-                ResourceType = $this.ResourceContext.ResourceType;
-                PartialScanIdentifier = $this.PartialScanIdentifier;
-                CalledBy = "CheckForInactiveBuilds";
-            }
-            [AIOrgTelemetryHelper]::PublishEvent( "Api Call Trace",$properties, @{})
-        }
-
-        if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider' -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider',"pipelines") -and  $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines)
-        {
-
-            $builds = $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines
-
-            if(($builds | Measure-Object).Count -gt 0 )
+            if ($this.buildActivityDetail.message -eq 'Could not fetch build details.')
             {
-                
-                    if ($builds[0].latestRun -ne $null -and [datetime]::Parse( $builds[0].latestRun.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays))) {
-                        $controlResult.AddMessage([VerificationResult]::Passed,
-                            "Found recent builds triggered within $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days");
-                    }               
-                
-                
-                    else {
-                        $controlResult.AddMessage([VerificationResult]::Failed,
-                            "No recent build history found in last $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days");
-                    }
-                
+                $controlResult.AddMessage([VerificationResult]::Error, $this.buildActivityDetail.message);
+            }
+            elseif($this.buildActivityDetail.isBuildActive)
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, $this.buildActivityDetail.message);
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Failed,
-                "No build history found.");
+                if ($null -ne $this.buildActivityDetail.buildCreationDate)
+                {
+                    $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
+                    if ((((Get-Date) - $this.buildActivityDetail.buildCreationDate).Days) -lt $inactiveLimit)
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Build was created within last $($inactiveLimit) days but never queued.");
+                    }
+                    else 
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed, "No build history found in last $($inactiveLimit) days.");
+                    }
+                    $controlResult.AddMessage("The build pipeline was created on: $($this.buildActivityDetail.buildCreationDate)");
+                    $controlResult.AdditionalInfo += "The build pipeline was created on: " + $this.buildActivityDetail.buildCreationDate;
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, $this.buildActivityDetail.message);
+                }
             }
-            $builds = $null;
-            $responseObj = $null;
+
+            if ($null -ne $this.buildActivityDetail.buildLastRunDate)
+            {
+                $controlResult.AddMessage("Last run date of build pipeline: $($this.buildActivityDetail.buildLastRunDate)");
+                $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $this.buildActivityDetail.buildLastRunDate;
+                $buildInactivePeriod = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
+                $controlResult.AddMessage("The build was inactive from last $($buildInactivePeriod) days.");
+            }
         }
-        else {
-            $controlResult.AddMessage([VerificationResult]::Failed,
-                                                "No build history found. Build is inactive.");
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch build details.");
         }
-    }
         return $controlResult
     }
 
@@ -270,7 +285,7 @@ class Build: ADOSVTBase
             if([Build]::SecurityNamespaceId -and $this.BuildObj.project.id)
             {
                 # Here 'permissionSet' = security namespace identifier, 'token' = project id and 'tokenDisplayVal' = build name
-                $apiURL = "https://dev.azure.com/{0}/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&tokenDisplayVal={5}&style=min" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($this.BuildObj.id), $($this.BuildObj.name) ;
+                $apiURL = "https://dev.azure.com/{0}/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&tokenDisplayVal={5}&style=min" -f $($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($this.BuildObj.id), $($this.BuildObj.name) ;
 
                 $sw = [System.Diagnostics.Stopwatch]::StartNew();
                 $header = [WebRequestHelper]::GetAuthHeaderFromUri($apiURL);
@@ -321,7 +336,7 @@ class Build: ADOSVTBase
             # Step 1: Fetch list of all groups/users with access to this build
             # Here 'permissionSet' = security namespace identifier, 'token' = project id and 'tokenDisplayVal' = build name
             $buildDefinitionPath = $this.BuildObj.Path.Trim("\").Replace(" ","+").Replace("\","%2F")
-            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/ReadExplicitIdentitiesJson?__v=5&permissionSetId={2}&permissionSetToken={3}%2F{4}%2F{5}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
+            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/ReadExplicitIdentitiesJson?__v=5&permissionSetId={2}&permissionSetToken={3}%2F{4}%2F{5}" -f $($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
 
             $sw = [System.Diagnostics.Stopwatch]::StartNew();
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
@@ -365,7 +380,7 @@ class Build: ADOSVTBase
                         $identity = $_ 
                         if($exemptedUserIdentities -notcontains $identity.TeamFoundationId)
                         {
-                            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $($identity.TeamFoundationId) ,$([Build]::SecurityNamespaceId),$($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
+                            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $($identity.TeamFoundationId) ,$([Build]::SecurityNamespaceId),$($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
                             $identityPermissions = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                             $configuredPermissions = $identityPermissions.Permissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
                             return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.IdentityType; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
@@ -374,7 +389,7 @@ class Build: ADOSVTBase
 
                     $accessList += $responseObj.identities | Where-Object { $_.IdentityType -eq "group" } | ForEach-Object {
                         $identity = $_ 
-                        $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.SubscriptionContext.SubscriptionName), $($this.BuildObj.project.id), $($identity.TeamFoundationId) ,$([Build]::SecurityNamespaceId),$($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
+                        $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $($identity.TeamFoundationId) ,$([Build]::SecurityNamespaceId),$($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
                         $identityPermissions = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                         $configuredPermissions = $identityPermissions.Permissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
                         return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.IdentityType; IsAadGroup = $identity.IsAadGroup ;Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
@@ -383,13 +398,19 @@ class Build: ADOSVTBase
                 if(($accessList | Measure-Object).Count -ne 0)
                 {
                     $accessList= $accessList | Select-Object -Property @{Name="IdentityName"; Expression = {$_.IdentityName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Permissions"; Expression = {$_.Permissions}}
+                    $controlResult.AddMessage("Total number of identities that have access to build pipeline: ", ($accessList | Measure-Object).Count);
                     $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to [$($this.ResourceContext.ResourceName)] pipeline.", $accessList);
-                    $controlResult.SetStateData("Build pipeline access list: ", ($responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}})); 
+                    $controlResult.SetStateData("Build pipeline access list: ", ($responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}}));
+                    $controlResult.AdditionalInfo += "Total number of identities that have access to build pipeline: " + ($accessList | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of user identities that have access to build pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'user'}) | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of group identities that have access to build pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'group'}) | Measure-Object).Count;
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"No identities have been explicitly provided with RBAC access to [$($this.ResourceContext.ResourceName)] other than build pipeline owner and default groups");
+                    $controlResult.AddMessage("Total number of exempted user identities:",($exemptedUserIdentities | Measure-Object).Count);
                     $controlResult.AddMessage("List of exempted user identities:",$exemptedUserIdentities)
+                    $controlResult.AdditionalInfo += "Total number of exempted user identities: " + ($exemptedUserIdentities | Measure-Object).Count;
                 } 
             }
             else{
@@ -397,8 +418,12 @@ class Build: ADOSVTBase
                 if(($responseObj.identities|Measure-Object).Count -gt 0)
                 {
                     $accessList= $responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}}
+                    $controlResult.AddMessage("Total number of identities that have access to build pipeline: ", ($accessList | Measure-Object).Count);
                     $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to [$($this.ResourceContext.ResourceName)] pipeline.", $accessList);
                     $controlResult.SetStateData("Build pipeline access list: ", $accessList);
+                    $controlResult.AdditionalInfo += "Total number of identities that have access to build pipeline: " + ($accessList | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of user identities that have access to build pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'user'}) | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Total number of group identities that have access to build pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'group'}) | Measure-Object).Count;
                 }
             }
             
@@ -437,7 +462,9 @@ class Build: ADOSVTBase
             }
            } 
            if(($setablevar | Measure-Object).Count -gt 0){
+                $controlResult.AddMessage("Total number of variables that are settable at queue time: ", ($setablevar | Measure-Object).Count);
                 $controlResult.AddMessage([VerificationResult]::Verify,"The below variables are settable at queue time: ",$setablevar);
+                $controlResult.AdditionalInfo += "Total number of variables that are settable at queue time: " + ($setablevar | Measure-Object).Count;
                 $controlResult.SetStateData("Variables settable at queue time: ", $setablevar);
                 if ($nonsetablevar) {
                     $controlResult.AddMessage("The below variables are not settable at queue time: ",$nonsetablevar);      
@@ -486,7 +513,9 @@ class Build: ADOSVTBase
                     } 
                     if ($count -gt 0) 
                     {
+                        $controlResult.AddMessage("Total number of variables that are settable at queue time and contain URL value: ", ($settableURLVars | Measure-Object).Count);
                         $controlResult.AddMessage([VerificationResult]::Failed, "Found variables that are settable at queue time and contain URL value: ", $settableURLVars);
+                        $controlResult.AdditionalInfo += "Total number of variables that are settable at queue time and contain URL value: " + ($settableURLVars | Measure-Object).Count;
                         $controlResult.SetStateData("List of variables settable at queue time and containing URL value: ", $settableURLVars);
                     }
                     else {
@@ -517,11 +546,13 @@ class Build: ADOSVTBase
             $sourceobj = $this.BuildObj[0].repository | Select-Object -Property @{Name="Name"; Expression = {$_.Name}},@{Name="Type"; Expression = {$_.type}}
            if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
            {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository.",  $sourceobj); 
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository.",  $sourceobj);
+                $controlResult.AdditionalInfo += "Pipeline code is built from trusted repository: " + [JsonHelper]::ConvertToJsonCustomCompressed($sourceobj); 
                 $sourceobj = $null;
            }
            else {
-                $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from external repository.", $sourceobj);   
+                $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from external repository.", $sourceobj); 
+                $controlResult.AdditionalInfo += "Pipeline code is built from external repository: " + [JsonHelper]::ConvertToJsonCustomCompressed($sourceobj);  
            }
         }
 
@@ -541,7 +572,7 @@ class Build: ADOSVTBase
             $editableTaskGroups = @();
             if(($taskGroups | Measure-Object).Count -gt 0)
             {   
-                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName)
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName)
                 $projectId = $this.BuildObj.project.id
                 $projectName = $this.BuildObj.project.name
                 
@@ -549,7 +580,7 @@ class Build: ADOSVTBase
                 {
                     $taskGroups | ForEach-Object {
                         $taskGrpId = $_.task.id
-                        $taskGrpURL="https://dev.azure.com/{0}/{1}/_taskgroup/{2}" -f $($this.SubscriptionContext.SubscriptionName), $($projectName), $($taskGrpId)
+                        $taskGrpURL="https://dev.azure.com/{0}/{1}/_taskgroup/{2}" -f $($this.OrganizationContext.OrganizationName), $($projectName), $($taskGrpId)
                         $permissionSetToken = "$projectId/$taskGrpId"
                         
                         #permissionSetId = 'f6a4de49-dbe2-4704-86dc-f8ec1a294436' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
@@ -627,6 +658,8 @@ class Build: ADOSVTBase
                     }
                     if(($editableTaskGroups | Measure-Object).Count -gt 0)
                     {
+                        $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in build definition: ", ($editableTaskGroups | Measure-Object).Count);
+                        $controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in build definition: " + ($editableTaskGroups | Measure-Object).Count;
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in build definition: ", $editableTaskGroups);
                         $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups); 
                     }
@@ -671,7 +704,7 @@ class Build: ADOSVTBase
             try
             {   
                 $varGrps | ForEach-Object{
-                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName), $($projectId), $($_.Id);
+                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($projectId), $($_.Id);
                     $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
                     if(($responseObj | Measure-Object).Count -gt 0)
                     {
@@ -684,6 +717,8 @@ class Build: ADOSVTBase
 
                 if(($editableVarGrps | Measure-Object).Count -gt 0)
                 {
+                    $controlResult.AddMessage("Total number of variable groups on which contributors have edit permissions in build definition: ", ($editableVarGrps | Measure-Object).Count);
+                    $controlResult.AdditionalInfo += "Total number of variable groups on which contributors have edit permissions in build definition: " + ($editableVarGrps | Measure-Object).Count;
                     $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below variable groups used in build definition: ", $editableVarGrps);
                     $controlResult.SetStateData("List of variable groups used in build definition that contributors can edit: ", $editableVarGrps); 
                 }
@@ -729,7 +764,7 @@ class Build: ADOSVTBase
     hidden [ControlResult] CheckPipelineEditPermission([ControlResult] $controlResult)
     {
 
-        $orgName = $($this.SubscriptionContext.SubscriptionName)
+        $orgName = $($this.OrganizationContext.OrganizationName)
         $projectId = $this.BuildObj.project.id
         $projectName = $this.BuildObj.project.name
         $buildId = $this.BuildObj.id
@@ -832,5 +867,214 @@ class Build: ADOSVTBase
         }
 
         return $controlResult;
+    }
+    
+    hidden [ControlResult] CheckForkedBuildTrigger([ControlResult] $controlResult)
+    {
+
+        if([Helpers]::CheckMember($this.BuildObj[0],"triggers"))
+        {
+            $pullRequestTrigger = $this.BuildObj[0].triggers | Where-Object {$_.triggerType -eq "pullRequest"}
+
+            if($pullRequestTrigger) 
+            {
+                if([Helpers]::CheckMember($pullRequestTrigger,"forks"))
+                {
+
+                    if(($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true))
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Secrets are available to builds of forked repository.");
+                    }
+                    else 
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Secrets are not available to builds of forked repository.");  
+                    }
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Secrets are not available to builds of forked repository."); 
+                }               
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pull request validation trigger is not enabled for build pipeline.");                    
+            }
+        }
+        else 
+        {
+            $controlResult.AddMessage([VerificationResult]::Passed,"No trigger is enabled for build pipeline.");
+        }
+        
+        return  $controlResult
+    }
+    
+    hidden [ControlResult] CheckForkedRepoOnSHAgent([ControlResult] $controlResult)
+    {
+        try {
+            #If repo made by fork then only 'isFork' property comes.
+            if ([Helpers]::CheckMember($this.BuildObj.repository, "properties.isFork") -and $this.BuildObj.repository.properties.isFork -eq $true) {
+                #If agent pool is hosted then only 'isHosted' property comes, 'isHosted' property does not comes if pool is non-hosted
+                if ([Helpers]::CheckMember($this.BuildObj, "queue.pool") -and !([Helpers]::CheckMember($this.BuildObj.queue.pool,"isHosted") -and $this.BuildObj.queue.pool.isHosted -eq $true ) ) {
+                    #https://dev.azure.com/{0}/_apis/distributedtask/pools?poolIds={1}&api-version=6.0
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Pipeline builds code from forked repository [$($this.BuildObj.repository.name)] on self-hosted agent [$($this.BuildObj.queue.pool.name)].");
+                    $controlResult.AdditionalInfo += "Pipeline builds code from forked repository [$($this.BuildObj.repository.name)] on self-hosted agent [$($this.BuildObj.queue.pool.name)].";
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline builds code from forked repository [$($this.BuildObj.repository.name)] on hosted agent [$($this.BuildObj.queue.pool.name)].");
+                    $controlResult.AdditionalInfo += "Pipeline builds code from forked repository [$($this.BuildObj.repository.name)] on hosted agent [$($this.BuildObj.queue.pool.name)].";
+                }
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline does not build code from forked repository.");
+            }    
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the pipeline details.");
+        }
+                
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckCIScheduledBuildTrigger([ControlResult] $controlResult)
+    {
+        if(($this.BuildObj | Measure-Object).Count -gt 0)
+        {
+            $sourceobj = $this.BuildObj[0].repository | Select-Object -Property @{Name="Name"; Expression = {$_.Name}},@{Name="Type"; Expression = {$_.type}}
+            if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository.",  $sourceobj);
+                $controlResult.AdditionalInfo += "Pipeline code is built from trusted repository: " + [JsonHelper]::ConvertToJsonCustomCompressed($sourceobj);
+            }
+            else {
+                $controlResult.AddMessage("Pipeline code is built from untrusted external repository.",  $sourceobj);
+                $controlResult.AdditionalInfo += "Pipeline code is built from untrusted external repository: " + [JsonHelper]::ConvertToJsonCustomCompressed($sourceobj);
+
+                if ([Helpers]::CheckMember($this.BuildObj[0], "triggers"))
+                {
+                    $CITrigger = $this.BuildObj[0].triggers | Where-Object { $_.triggerType -eq "continuousIntegration"}
+                    $ScheduledTrigger = $this.BuildObj[0].triggers | Where-Object { $_.triggerType -eq "schedule" }
+
+                    if ($CITrigger -or $ScheduledTrigger) 
+                    {
+                        $flag = $false;
+
+                        if ($CITrigger) 
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Continuous integration is enabled for build pipeline."); 
+                            $flag = $true;
+                        }
+                        if ($ScheduledTrigger) 
+                        {
+                            if($flag)
+                            {
+                                $controlResult.AddMessage("Scheduled build is enabled for build pipeline."); 
+                            }
+                            else
+                            {
+                                $controlResult.AddMessage([VerificationResult]::Failed,"Scheduled build is enabled for build pipeline.");
+                            }
+
+                        }
+
+                    }
+                    else 
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Neither continuous integration nor scheduled build are enabled for build pipeline.");                    
+                    }
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No trigger is enabled for build pipeline.");
+                }   
+            }
+        }
+ 
+        return $controlResult;
+    }
+
+    hidden CheckActiveBuilds()
+    {
+        try
+        {
+            if($this.BuildObj)
+            {
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.BuildObj.project.id);
+                $orgURL='https://dev.azure.com/{0}/{1}/_build?view=folders' -f $($this.OrganizationContext.OrganizationName),$($this.BuildObj.project.name)
+                $inputbody="{'contributionIds':['ms.vss-build-web.pipelines-data-provider'],'dataProviderContext':{'properties':{'definitionIds':'$($this.BuildObj.id)','sourcePage':{'url':'$orgURL','routeId':'ms.vss-build-web.pipelines-hub-route','routeValues':{'project':'$($this.BuildObj.project.name)','viewname':'pipelines','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+
+                $sw = [System.Diagnostics.Stopwatch]::StartNew();
+                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+                $sw.Stop()
+
+                #Below code added to send perf telemtry
+                if ($this.IsAIEnabled)
+                {
+                    $properties =  @{ 
+                        TimeTakenInMs = $sw.ElapsedMilliseconds;
+                        ApiUrl = $apiURL; 
+                        Resourcename = $this.ResourceContext.ResourceName;
+                        ResourceType = $this.ResourceContext.ResourceType;
+                        PartialScanIdentifier = $this.PartialScanIdentifier;
+                        CalledBy = "CheckForInactiveBuilds";
+                    }
+                    [AIOrgTelemetryHelper]::PublishEvent( "Api Call Trace",$properties, @{})
+                }
+
+                if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider' -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider',"pipelines") -and  $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines)
+                {
+
+                    $builds = $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines
+
+                    if(($builds | Measure-Object).Count -gt 0 )
+                    {
+                        $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
+                        [datetime]$createdDate = $this.BuildObj.createdDate
+                        $this.buildActivityDetail.buildCreationDate = $createdDate;
+                        if([Helpers]::CheckMember($builds[0],"latestRun") -and $null -ne $builds[0].latestRun)
+                        {
+                            if ([datetime]::Parse( $builds[0].latestRun.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays))) 
+                            {
+                                $this.buildActivityDetail.isBuildActive = $true;
+                                $this.buildActivityDetail.message = "Found recent builds triggered within $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days";
+                            }               
+                            else 
+                            {
+                                $this.buildActivityDetail.isBuildActive = $false;
+                                $this.buildActivityDetail.message = "No recent build history found in last $inactiveLimit days.";
+                            }
+
+                            if([Helpers]::CheckMember($builds[0].latestRun,"finishTime"))
+                            {
+                                $this.buildActivityDetail.buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
+                            }
+                        }
+                        else 
+                        { 
+                            #no build history ever. 
+                            $this.buildActivityDetail.isBuildActive = $false;
+                            $this.buildActivityDetail.message = "No build history found.";
+                        }
+                    }
+                    else
+                    {
+                        $this.buildActivityDetail.isBuildActive = $false;
+                        $this.buildActivityDetail.message = "No build history found.";
+                    }
+                    $builds = $null;
+                    $responseObj = $null;
+                }
+                else
+                {
+                    $this.buildActivityDetail.isBuildActive = $false;
+                    $this.buildActivityDetail.message = "No build history found. Build is inactive.";
+                }
+            }
+        }
+        catch
+        {
+            $this.buildActivityDetail.message = "Could not fetch build details.";
+        }
+        
+        $this.buildActivityDetail.isComputed = $true
     }
 }

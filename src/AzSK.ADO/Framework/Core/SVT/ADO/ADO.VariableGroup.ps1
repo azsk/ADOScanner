@@ -6,17 +6,17 @@ class VariableGroup: ADOSVTBase
     hidden [PSObject] $ProjectId;
     hidden [PSObject] $VarGrpId;
     
-    VariableGroup([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId,$svtResource) 
+    VariableGroup([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0];
         $this.VarGrpId = $this.ResourceContext.ResourceDetails.id
-        $apiURL = "https://dev.azure.com/$($this.SubscriptionContext.SubscriptionName)/$($this.ProjectId)/_apis/distributedtask/variablegroups/$($this.VarGrpId)"
+        $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ProjectId)/_apis/distributedtask/variablegroups/$($this.VarGrpId)?api-version=6.1-preview.2"
         $this.VarGrp = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
     }
     hidden [ControlResult] CheckPipelineAccess([ControlResult] $controlResult)
     {
-        $url = 'https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=variablegroup&id={2}&api-version=5.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName),$($this.ProjectId) ,$($this.VarGrpId);
+        $url = 'https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=variablegroup&id={2}&api-version=6.0-preview.1' -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId) ,$($this.VarGrpId);
         try 
         {
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
@@ -55,7 +55,7 @@ class VariableGroup: ADOSVTBase
     }
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult)
     {
-        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName),$($this.ProjectId) ,$($this.VarGrpId); 
+        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId) ,$($this.VarGrpId); 
         try 
         {
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
@@ -64,8 +64,10 @@ class VariableGroup: ADOSVTBase
             {
                 $roles = @();
                 $roles += ($inheritedRoles  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                $controlResult.AddMessage("Total number of inherited role assignments on variable group: ", ($roles | Measure-Object).Count);
                 $controlResult.AddMessage([VerificationResult]::Failed,"Review the list of inherited role assignments on variable group: ", $roles);
                 $controlResult.SetStateData("List of inherited role assignments on variable group: ", $roles);
+                $controlResult.AdditionalInfo += "Total number of inherited role assignments on variable group: " + ($roles | Measure-Object).Count;
             }
             else 
             {
@@ -81,7 +83,7 @@ class VariableGroup: ADOSVTBase
     }
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
     {
-        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.SubscriptionContext.SubscriptionName), $($this.ProjectId), $($this.VarGrpId); 
+        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId); 
         try 
         {
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
@@ -89,8 +91,10 @@ class VariableGroup: ADOSVTBase
             {
                 $roles = @();
                 $roles += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}}, @{Name="AccessType"; Expression = {$_.access}});
+                $controlResult.AddMessage("Total number of role assignments on variable group: ", ($roles | Measure-Object).Count);
                 $controlResult.AddMessage([VerificationResult]::Verify,"Review the list of role assignments on variable group: ", $roles);
                 $controlResult.SetStateData("List of role assignments on variable group: ", $roles);
+                $controlResult.AdditionalInfo += "Total number of role assignments on variable group: " + ($roles | Measure-Object).Count;
             }
             else 
             {
@@ -139,6 +143,7 @@ class VariableGroup: ADOSVTBase
                                 {
                                     $controlResult.AddMessage("No. of credentials found:" + ($credList | Measure-Object).Count )
                                     $controlResult.AddMessage([VerificationResult]::Failed,"Found credentials in variables.")
+                                    $controlResult.AdditionalInfo += "No. of credentials found in variables: " + ($credList | Measure-Object).Count;
                                 }
                                 else {
                                     $controlResult.AddMessage([VerificationResult]::Passed,"No credentials found in variables.")
@@ -205,6 +210,7 @@ class VariableGroup: ADOSVTBase
                             $varList = $varList | select -Unique
                             $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in variable group. Variables name: $varList" );
                             $controlResult.SetStateData("List of variable name containing secret: ", $varList);
+                            $controlResult.AdditionalInfo += "Total number of variable(s) containing secret: " + ($varList | Measure-Object).Count;
                         }
                         else 
                         {

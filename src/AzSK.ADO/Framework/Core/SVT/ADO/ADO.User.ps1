@@ -1,12 +1,12 @@
 Set-StrictMode -Version Latest 
 class User: ADOSVTBase {    
 
-    User([string] $subscriptionId, [SVTResource] $svtResource): Base($subscriptionId, $svtResource) {
+    User([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
     }
 
     hidden [ControlResult] CheckPATAccessLevel([ControlResult] $controlResult) {
-        $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
         $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
         $controlResult.AddMessage("Currently this control evaluates PATs for all the organizations the user has access to.")
         try {
@@ -15,12 +15,14 @@ class User: ADOSVTBase {
                 $AccessPATListCount = ($AccessPATList | Measure-Object).Count
                 if ($AccessPATListCount -gt 0) {
                     $controlResult.AddMessage("Total number of active user PATs: $($AccessPATListCount)");
+                    $controlResult.AdditionalInfo += "Total number of active user PATs: " + $AccessPATListCount;
                     $statusSet = $false # Use this variable to check whether scanStaus is already set
 
                     $fullAccessPATList = $AccessPATList | Where-Object { $_.scope -eq "app_token" }
                     $fullAccessPATListCount = ($fullAccessPATList | Measure-Object).Count 
                     if ($fullAccessPATListCount -gt 0) {
                         $controlResult.AddMessage("`nTotal number of PATs configured with full access: $($fullAccessPATListCount)");
+                        $controlResult.AdditionalInfo += "Total number of PATs configured with full access: " + $fullAccessPATListCount;
                         $fullAccessPATNames = $fullAccessPATList | Select-Object displayName, scope 
                         $controlResult.AddMessage([VerificationResult]::Failed,
                             "The following PATs have been configured with full access: ", $fullAccessPATNames);
@@ -31,6 +33,7 @@ class User: ADOSVTBase {
                     $remainingPATListCount = ($remainingPATList | Measure-Object).Count
                     if ($remainingPATListCount -gt 0){
                         $controlResult.AddMessage("`nTotal number of PATs configured with custom defined access: $remainingPATListCount");
+                        $controlResult.AdditionalInfo += "Total number of PATs configured with custom defined access: " + $remainingPATListCount;
                         $remainingAccessPATNames = $remainingPATList | Select-Object displayName, scope 
                         if ($statusSet) {
                             $controlResult.AddMessage("The following PATs have been configured with custom defined access: ", $remainingAccessPATNames)
@@ -61,7 +64,7 @@ class User: ADOSVTBase {
 
     hidden [ControlResult] CheckAltCred([ControlResult] $controlResult) {
 
-        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/dataProviders/query?api-version=5.1-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/dataProviders/query?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName);
         $inputbody = '{"contributionIds": ["ms.vss-admin-web.alternate-credentials-data-provider","ms.vss-admin-web.action-url-data-provider"]}' | ConvertFrom-Json
         $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
 
@@ -86,7 +89,7 @@ class User: ADOSVTBase {
         $controlResult.AddMessage("Currently this control evaluates PATs for all the organizations the user has access to.")  
         try {
 
-            $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+            $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
             if ($responseObj.Count -gt 0) { 
@@ -97,7 +100,10 @@ class User: ADOSVTBase {
                 
                     if (($res | Measure-Object).Count -gt 0) {
                         $PATList = ($res | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "ValidFrom"; Expression = { $_.validfrom } }, @{Name = "ValidTo"; Expression = { $_.validto } }, @{Name = "ValidationPeriod"; Expression = { (New-Timespan -Start $_.ValidFrom -End $_.ValidTo).Days } });    
-                        $controlResult.AddMessage([VerificationResult]::Failed, "The following PATs have validity period of more than 180 days: ", $PATList)  
+                        $controlResult.AddMessage([VerificationResult]::Failed, "The following PATs have validity period of more than 180 days: ", $PATList)
+                        $PATListCount = ($PATList | Measure-Object).Count  
+                        $controlResult.AdditionalInfo += "Total number of PATs that have validity period of more than 180 days: " + $PATListCount;
+                        $controlResult.AdditionalInfo += "List of PATs that have validity period of more than 180 days: " + [JsonHelper]::ConvertToJsonCustomCompressed($PATList);
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed,
@@ -125,7 +131,7 @@ class User: ADOSVTBase {
         $controlResult.AddMessage("Currently this control evaluates PATs for all the organizations the user has access to.")
         try {
 
-            $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+            $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
             if ($responseObj.Count -gt 0) { 
@@ -140,15 +146,18 @@ class User: ADOSVTBase {
                     if (($PATExpri7Days | Measure-Object).Count -gt 0) {
                         $PAT7List = ($PATExpri7Days | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "ValidFrom"; Expression = { $_.validfrom } }, @{Name = "ValidTo"; Expression = { $_.validto } }, @{Name = "Remaining"; Expression = { (New-Timespan -Start $date -End $_.validto).Days } });    
                         $controlResult.AddMessage("The following PATs expire within 7 days: ", $PAT7List )
+                        $controlResult.AdditionalInfo += "Total number of PATs that will expire within 7 days: " + ($PAT7List | Measure-Object).Count;
                     }
                     if (($PATExpri30Days | Measure-Object).Count -gt 0) {
                         $PAT30List = ($PATExpri30Days | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "ValidFrom"; Expression = { $_.validfrom } }, @{Name = "ValidTo"; Expression = { $_.validto } }, @{Name = "Remaining"; Expression = { (New-Timespan -Start $date -End $_.validto).Days } });    
                         $controlResult.AddMessage("The following PATs expire after 7 days but within 30 days: ", $PAT30List )
+                        $controlResult.AdditionalInfo += "Total number of PATs that will expire after 7 days but within 30 days: " + ($PAT30List | Measure-Object).Count;
                     }
               
                     if (($PATOther | Measure-Object).Count -gt 0) {
                         $PATOList = ($PATOther | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "ValidFrom"; Expression = { $_.validfrom } }, @{Name = "ValidTo"; Expression = { $_.validto } }, @{Name = "Remaining"; Expression = { (New-Timespan -Start $date -End $_.validto).Days } });    
                         $controlResult.AddMessage("The following PATs expire after 30 days: ", $PATOList )
+                        $controlResult.AdditionalInfo += "Total number of PATs that will expire after 30 days: " + ($PATOList | Measure-Object).Count;
                     }
                     if (($PATExpri7Days | Measure-Object).Count -gt 0) {
                         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -179,7 +188,7 @@ class User: ADOSVTBase {
     }
 
     hidden [ControlResult] CheckPATOrgAccess([ControlResult] $controlResult) {
-        $apiURL = "https://{0}.vssps.visualstudio.com/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.SubscriptionContext.SubscriptionName);
+        $apiURL = "https://{0}.vssps.visualstudio.com/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
         $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
         $controlResult.AddMessage("Currently this control evaluates PATs for all the organizations the user has access to.")
         try {
@@ -200,8 +209,10 @@ class User: ADOSVTBase {
                     }
                     if($allOrgPATCount -gt 0)
                     {   
-                        $controlResult.AddMessage("Number of active PATs accessible to all organizations: $($allOrgPATCount)");
+                        $controlResult.AddMessage("Total number of active PATs accessible to all organizations: $($allOrgPATCount)");
                         $controlResult.AddMessage([VerificationResult]::Failed, "The below active PATs are accessible to all organizations: ", $allOrgPAT);
+                        $controlResult.AdditionalInfo += "Total number of active PATs accessible to all organizations: " + $allOrgPATCount;
+                        $controlResult.AdditionalInfo += "List of active PATs accessible to all organizations: " + [JsonHelper]::ConvertToJsonCustomCompressed($allOrgPAT);
                     }
                     else
                     {
@@ -222,6 +233,87 @@ class User: ADOSVTBase {
         catch 
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of PATs");
+        }
+        
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckPATCriticalPermissions([ControlResult] $controlResult) {
+        $controlResult.AddMessage("Currently this control evaluates PATs for all the organizations the user has access to.")
+        try
+        {
+            $apiURL = "https://vssps.dev.azure.com/{0}/_apis/Token/SessionTokens?displayFilterOption=1&createdByOption=3&sortByOption=3&isSortAscending=false&startRowNumber=1&pageSize=100&api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
+            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            if(($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "CriticalPATPermissions"))
+            {
+                $patterns = $this.ControlSettings.CriticalPATPermissions
+                if ($responseObj.Count -gt 0)
+                {
+                    $AccessPATList = $responseObj | Where-Object { $_.validto -gt $(Get-Date -Format "yyyy-MM-dd") }
+                    $AccessPATListCount = ($AccessPATList | Measure-Object).Count
+                    if ($AccessPATListCount -gt 0)
+                    {
+                        $fullAccessPATList = $AccessPATList | Where-Object { $_.scope -eq "app_token" }
+                        $customAccessPATList = $AccessPATList | Where-Object { $_.scope -ne "app_token" }
+                        $fullAccessPATListCount = ($fullAccessPATList | Measure-Object).Count
+                        $PATWithCriticalAccess = @();
+                        if(($patterns | Measure-Object).Count -gt 0)
+                        {
+                            $controlResult.AddMessage("`nNote: The following permission scopes are considered as 'critical': `n`t[$($patterns -join ', ')]");
+                            foreach ($pat in $customAccessPATList) 
+                            {
+                                foreach ($item in $patterns)
+                                {
+                                    if($pat.scope.contains($item))
+                                    {
+                                        $PATWithCriticalAccess += $pat
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        $PATWithCriticalAccessCount = ($PATWithCriticalAccess | Measure-Object).Count
+                        if (($PATWithCriticalAccessCount -gt 0) -or ($fullAccessPATListCount -gt 0))
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Failed, "`nUser has PATs that are configured with critical permissions.");
+                            if ($PATWithCriticalAccessCount -gt 0)
+                            {
+                                $controlResult.AddMessage("`nTotal number of PATs configured with critical permissions: $($PATWithCriticalAccessCount)");                        
+                                $controlResult.AdditionalInfo += "Total number of PATs configured with critical permissions: " + $PATWithCriticalAccessCount;
+                                $criticalPAT = $PATWithCriticalAccess | Select-Object displayName, scope 
+                                $controlResult.AddMessage("List of PATs configured with critical permissions: ", $criticalPAT);
+                            }
+                            if ($fullAccessPATListCount -gt 0)
+                            {
+                                $controlResult.AddMessage([VerificationResult]::Failed, "`nTotal number of PATs configured with full access: $($fullAccessPATListCount)");                        
+                                $controlResult.AdditionalInfo += "Total number of PATs configured with full access: " + $fullAccessPATListCount;
+                                $fullAccessPAT = $fullAccessPATList | Select-Object displayName, scope 
+                                $controlResult.AddMessage("List of PATs configured with full access: ", $fullAccessPAT);
+                            }
+                        }
+                        else
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Passed, "No PATs are configured with critical permissions.");
+                            $controlResult.AdditionalInfo += "No PATs are configured with critical permissionss.";
+                        }
+                    }
+                    else
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No active PATs found.");
+                    }
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No PATs found.");
+                }
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Manual, "Critical permission scopes for PAT are not defined in your organization.");
+            }      
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of PATs.");
         }
         
         return $controlResult;

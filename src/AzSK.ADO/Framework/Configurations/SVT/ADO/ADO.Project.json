@@ -208,6 +208,143 @@
         "Best Practice"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Restrict_Feed_Permissions",
+      "Description": "Do not allow a broad pool of users to upload packages to feed.",
+      "Id": "Project230",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckFeedAccess",
+      "Rationale": "If a broad pool of users (e.g., Contributors) have permissions to upload package to feed, then integrity of your pipeline can be compromised by a malicious user who uploads a package.",
+      "Recommendation": "Go to Project --> Artifacts --> Select Feed --> Feed Settings --> Permissions --> Groups --> Review users/groups which have administrator and contributor roles.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "AuthZ",
+        "RBAC"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Environment",
+      "Description": "Do not make environment accessible to all pipelines.",
+      "Id": "Project240",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckEnviornmentAccess",
+      "Rationale": "To support security of the pipeline operations, environments must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
+      "Recommendation": "To remediate this, go to Project -> Pipelines -> Environments -> select your environment from the list -> click Security -> Under 'Pipeline Permissions', remove pipelines that environment no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secure_Files",
+      "Description": "Do not make secure files accessible to all pipelines.",
+      "Id": "Project250",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckSecureFilesPermission",
+      "Rationale": "To support security of the pipeline operations, secure files must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
+      "Recommendation": "To remediate this, go to Project -> Pipelines -> Library -> Secure Files -> select your secure file from the list -> click Security -> Under 'Pipeline Permissions', remove pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Tags": [
+        "SDL",
+        "AuthZ",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_SI_Review_Author_Email_Validation_Policy",
+      "Description": "Enable commit author email validation to restrict commits to repositories from untrusted users.",
+      "Id": "Project260",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckAuthorEmailValidationPolicy",
+      "Rationale": "Allowing commits from untrusted users can be dangerous as any malicious actor can push changes that can expose secrets/vulnerabilities outside the organization.",
+      "Recommendation": "Go to Project Settings --> Repositories --> Policies --> Enable 'Commit author email validation' and specify exact emails or wildcards for identities who can commit code.",
+      "Tags": [
+        "SDL",
+        "SI",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_DP_Enable_Credentials_And_Secrets_Policy",
+      "Description": "Enable credential scanner to block pushes that contain credentials and other secrets.",
+      "Id": "Project270",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckCredentialsAndSecretsPolicy",
+      "Rationale": "Exposed credentials in engineering systems continue to provide easily exploitable opportunities for attackers. To defend against this threat, Microsoft security experts developed the CredScan tool to automatically find exposed secrets. CredScan indexes and scans for credentials & other sensitive content in source code, as well as other data sources.",
+      "Recommendation": "Go to Project Settings --> Repositories --> Policies --> Enable 'Check for credentials and other secrets'.",
+      "Tags": [
+        "SDL",
+        "DP",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": false
+    },
+    {
+      "ControlID": "ADO_Project_DP_Inactive_Repos",
+      "Description": "Inactive repositories must be removed if no more required.",
+      "Id": "Project280",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckInactiveRepo",
+      "Rationale": "Each additional repository being accessed by pipelines increases the attack surface. To minimize this risk ensure that only active and legitimate repositories are present in project.",
+      "Recommendation": "To remove inactive repository, follow the steps given here: 1. Navigate to the project settings -> 2. Repositories -> 3. Select the repository and delete.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Repo_Grant_Min_RBAC_Access",
+      "Description": "All teams/groups must be granted minimum required permissions on repositories.",
+      "Id": "Project290",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckRepoRBACAccess",
+      "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users are granted just enough permissions to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
+      "Recommendation": "Go to Project Settings --> Repositories --> Permissions --> Validate whether each user/group is granted minimum required access to repositories.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "RBAC"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Disable_Inherited_Permissions",
+      "Description": "Do not allow inherited permission on repositories.",
+      "Id": "Project300",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckInheritedPermissions",
+      "Rationale": "Disabling inherited permissions lets you finely control access to various operations at the repository level for different stakeholders. This ensures that you follow the principle of least privilege and provide access only to the persons that require it.",
+      "Recommendation": "Go to Project Settings --> Repositories --> Select a repository --> Permissions --> Disable 'Inheritance'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
     }
   ]
 }

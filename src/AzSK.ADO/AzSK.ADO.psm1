@@ -117,7 +117,12 @@ function Set-AzSKADOPolicySettings {
         [Parameter(Mandatory = $false, HelpMessage = "Provide scanner tool name")]
         [string]
         [Alias("stn")]
-        $SecretsScanToolName
+        $SecretsScanToolName,
+
+        [Parameter(Mandatory = $false, HelpMessage = "Branch that hosts ADO organization-specific policy")]
+        [string]
+        [Alias("bid")]
+        $BranchId
     )
     Begin {
         [CommandHelper]::BeginCommand($PSCmdlet.MyInvocation);
@@ -151,6 +156,11 @@ function Set-AzSKADOPolicySettings {
             {
                 $azskSettings.EnableOrgControlAttestation = $false
             }
+            
+            if (-not [string]::IsNullOrWhiteSpace($BranchId)) 
+            {
+                $azskSettings.BranchId = $BranchId;
+            }
 
             if($SecretsScanToolFolder -and $SecretsScanToolName)
             {
@@ -161,6 +171,46 @@ function Set-AzSKADOPolicySettings {
             [ConfigurationManager]::UpdateAzSKSettings($azskSettings);
             [ConfigOverride]::ClearConfigInstance();            
             [EventBase]::PublishGenericCustomMessage("Successfully configured settings.", [MessageType]::Warning);
+        }
+        catch {
+            [EventBase]::PublishGenericException($_);
+        }
+    }
+    End {
+        [ListenerHelper]::UnregisterListeners();
+    }
+}
+
+function Set-AzSKADOUsageTelemetryLevel {
+    <#
+	.SYNOPSIS
+	This command would help to set telemetry level.
+	.DESCRIPTION
+	This command would help to set telemetry level.
+
+	.PARAMETER Level
+		Provide the telemetry level
+
+	#>
+    Param(
+        [Parameter(Mandatory = $true, HelpMessage = "Provide the telemetry level")]
+        [ValidateSet("None", "Anonymous")]
+        [string]
+		[Alias("lvl")]
+        $Level
+    )
+    Begin {
+        [CommandHelper]::BeginCommand($PSCmdlet.MyInvocation);
+        [ListenerHelper]::RegisterListeners();
+    }
+    Process {
+        try {
+            $azskSettings = [ConfigurationManager]::GetLocalAzSKSettings();
+            $azskSettings.UsageTelemetryLevel = $Level
+            [ConfigurationManager]::UpdateAzSKSettings($azskSettings);
+            [EventBase]::PublishGenericCustomMessage("Successfully set usage telemetry level");
+            # clearing session state so that telemetry setting will be immediately effective 
+            [ConfigOverride]::ClearConfigInstance()           
         }
         catch {
             [EventBase]::PublishGenericException($_);

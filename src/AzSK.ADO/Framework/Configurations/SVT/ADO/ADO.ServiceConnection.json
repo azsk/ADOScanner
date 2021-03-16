@@ -41,14 +41,14 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_ServiceConnection_AuthZ_Justify_Connection_Admin",
+      "ControlID": "ADO_ServiceConnection_AuthZ_Grant_Min_RBAC_Access",
       "Description": "Justify all users/groups that have access to the service connection.",
       "Id": "ServiceConnection130",
       "ControlSeverity": "High",
-      "Automated": "No",
-      "MethodName": "CheckServiceConnectionAdmins",
-      "Rationale": "Accounts with admin access can install/manage extensions for Organization. Members with this access without a legitimate business reason increase the risk for Organization. By carefully reviewing and removing accounts that shouldn't be there in the first place, you can avoid attacks if those accounts are compromised.",
-      "Recommendation": "Go to Project Settings --> Pipelines --> Service Connections --> Select Service Connection --> Select three dots on top right --> Select Security --> Under user permissions verify connection admin and users",
+      "Automated": "Yes",
+      "MethodName": "CheckRBACAccess",
+      "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users/groups are granted just enough permissions on service connection to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
+      "Recommendation": "Go to Project Settings --> Pipelines --> Service Connections --> Select Service Connection --> Select three dots on top right --> Select Security --> Under user permissions verify role assignments",
       "Tags": [
         "SDL",
         "TCP",
@@ -151,7 +151,7 @@
       "Automated": "Yes",
       "MethodName": "CheckServiceConnectionBuildAccess",
       "Rationale": "To support security of the pipeline operations, connections must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
-      "Recommendation": "To remediate this, navigate to the service connections settings page for your project -> select your service connection from the list -> click Edit -> uncheck 'Grant access permission to all pipelines'.",
+      "Recommendation": "To remediate this, navigate to the service connections settings page for your project -> select your service connection from the list -> click on three dots -> click Security -> under 'Pipeline Permissions', click 'Restrict Permission' to avoid granting access to all pipelines and add only those pipelines that need explicit access on service connection.",
       "Tags": [
         "SDL",
         "TCP",

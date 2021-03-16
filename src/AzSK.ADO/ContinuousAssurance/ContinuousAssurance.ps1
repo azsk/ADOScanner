@@ -42,12 +42,14 @@ function Install-AzSKADOContinuousAssurance
 	Param(
 		[Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage="Subscription id in which CA setup needs to be done.")]
 		[Parameter(Mandatory = $true, ParameterSetName = "CentralCA")]
+		[Parameter(Mandatory = $true, ParameterSetName = "OAuthBasedCA")]
 		[string]
 		[Alias("sid")]
 		$SubscriptionId ,
 
 		[Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage = "Organization name for which scan will be performed.")]
 		[Parameter(Mandatory = $true, ParameterSetName = "CentralCA")]
+		[Parameter(Mandatory = $true, ParameterSetName = "OAuthBasedCA")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("oz")]
 		[string]
@@ -55,6 +57,7 @@ function Install-AzSKADOContinuousAssurance
 
 		[Parameter(Mandatory = $true, ParameterSetName = "Default", HelpMessage = "Project to be scanned within the organization.")]
 		[Parameter(Mandatory = $true, ParameterSetName = "CentralCA")]
+		[Parameter(Mandatory = $true, ParameterSetName = "OAuthBasedCA")]
 		[Alias("pns", "ProjectNames","pn")]
 		[string]
 		$ProjectName,
@@ -79,6 +82,7 @@ function Install-AzSKADOContinuousAssurance
 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Resource group name where CA setup needs to be done")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
+		[Parameter(Mandatory = $false, ParameterSetName = "OAuthBasedCA")]
 		[string]
 		[ValidateNotNullOrEmpty()]
 		[Alias("rgn")]
@@ -86,6 +90,7 @@ function Install-AzSKADOContinuousAssurance
 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Location in which all resources need to be setup.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
+		[Parameter(Mandatory = $false, ParameterSetName = "OAuthBasedCA")]
 		[string]
 		[ValidateNotNullOrEmpty()]
 		[Alias("loc")]
@@ -93,6 +98,7 @@ function Install-AzSKADOContinuousAssurance
 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Workspace ID of Log Analytics workspace which is used to monitor security scan results.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
+		[Parameter(Mandatory = $false, ParameterSetName = "OAuthBasedCA")]
 		[string]
 		[ValidateNotNullOrEmpty()]
 		[Alias("lwid","wid")]
@@ -100,6 +106,7 @@ function Install-AzSKADOContinuousAssurance
 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Shared key of Log Analytics workspace which is used to monitor security scan results.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
+		[Parameter(Mandatory = $false, ParameterSetName = "OAuthBasedCA")]
 		[string]
 		[ValidateNotNullOrEmpty()]
 		[Alias("lwkey","wkey")]
@@ -108,20 +115,40 @@ function Install-AzSKADOContinuousAssurance
 		[switch]
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Switch to create and map new Log Analytics workspace with CA setup.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
+		[Parameter(Mandatory = $false, ParameterSetName = "OAuthBasedCA")]
 		[Alias("cws")]
 		$CreateLAWorkspace,
 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Use extended command to narrow down the target scan.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
+		[Parameter(Mandatory = $false, ParameterSetName = "OAuthBasedCA")]
 		[Alias("ex")]
 		[string]
 		$ExtendedCommand,
 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Overrides the default scan interval (24hrs) with the custom provided value.")]
 		[Parameter(Mandatory = $false, ParameterSetName = "CentralCA")]
+		[Parameter(Mandatory = $false, ParameterSetName = "OAuthBasedCA")]
 		[Alias("si")]
 		[int]
-		$ScanIntervalInHours
+		$ScanIntervalInHours,
+        
+		[Parameter(Mandatory = $true, ParameterSetName = "OAuthBasedCA")]
+		[Alias("oai")]
+		[string]
+		$OAuthAppId,
+
+		[Parameter(Mandatory = $true, ParameterSetName = "OAuthBasedCA")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("csec")]
+		[string]
+		$ClientSecret,
+
+		[Parameter(Mandatory = $true, ParameterSetName = "OAuthBasedCA")]
+		[Alias("ausc")]
+		[string]
+		$AuthorizedScopes
+
     )
 	Begin
 	{
@@ -132,7 +159,7 @@ function Install-AzSKADOContinuousAssurance
 	{
 		try 
         {
-            if ([string]::IsNullOrWhiteSpace($PATToken) -and [string]::IsNullOrWhiteSpace($PATTokenURL))
+            if ([string]::IsNullOrWhiteSpace($PATToken) -and [string]::IsNullOrWhiteSpace($PATTokenURL) -and $PSCmdlet.ParameterSetName -ne 'OAuthBasedCA' )
             {
                 $PATToken = Read-Host "Provide PAT for [$OrganizationName] org:" -AsSecureString
             }
@@ -142,13 +169,18 @@ function Install-AzSKADOContinuousAssurance
             $caAccount = [CAAutomation]::new($SubscriptionId, $Location,`
                                             $OrganizationName, $PATToken, $PATTokenURL, $ResourceGroupName, $LAWSId,`
                                             $LAWSSharedKey, $ProjectName, $IdentityResourceId,`
-                                            $ExtendedCommand,  $ScanIntervalInHours, $PSCmdlet.MyInvocation, $CreateLAWorkspace);
+                                            $ExtendedCommand,  $ScanIntervalInHours, $PSCmdlet.MyInvocation, $CreateLAWorkspace,`
+                                            $OAuthAppId, $ClientSecret, $AuthorizedScopes);
 
             if ($PSCmdlet.ParameterSetName -eq 'Default') {
                 $caAccount.InvokeFunction($caAccount.InstallAzSKADOContinuousAssurance)
             }
-            else {
+            elseif ($PSCmdlet.ParameterSetName -eq 'CentralCA')
+            {
                 $caAccount.InvokeFunction($caAccount.InstallAzSKADOCentralContinuousAssurance)
+            }
+            else {
+                $caAccount.InvokeFunction($caAccount.InstallAzSKADOOAuthBasedContinuousAssurance)
             }
         }
         catch 

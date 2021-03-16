@@ -514,6 +514,40 @@
           "AuthZ"
       ],
       "Enabled": true
-    }
+    },
+    {
+      "ControlID": "ADO_Organization_SI_Review_Requested_Extensions",
+      "Description": "Carefully review requested extensions for your organization.",
+      "Id": "Organization410",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "ValidateRequestedExtensions",
+      "Rationale": "Approving and running extensions from untrusted source can lead to all type of attacks and loss of sensitive enterprise data.",
+      "Recommendation": "Go to Organization Settings --> Extensions --> Review all the pending requested extensions in organization.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthN_Disable_SSH_Access",
+      "Description": "Connecting to Git repos via SSH should be disabled.",
+      "Id": "Organization420",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckSSHAuthN",
+      "Rationale": "Malicious SSH connections to ADO repos can be used to extract sensitive code/content leading to compromise of corporate data.",
+      "Recommendation": "Go to Organization Settings --> Security --> Policies --> Application connection policies --> Disable 'SSH Authentication'.",
+      "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthN"
+      ],
+      "Enabled": true
+  }
   ]
 }

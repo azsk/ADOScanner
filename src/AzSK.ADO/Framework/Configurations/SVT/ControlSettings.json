@@ -19,7 +19,9 @@
           "ADO_Organization_DP_Dont_Allow_Public_Projects",
           "ADO_Organization_Enable_Audit_Stream",
           "ADO_Organization_BCDR_Min_Admin_Count",
-          "ADO_Organization_AuthN_Use_ALT_Accounts_For_Admin"
+          "ADO_Organization_AuthN_Use_ALT_Accounts_For_Admin",
+          "ADO_Organization_AuthZ_Disable_OAuth_App_Access",
+          "ADO_Organization_AuthN_Disable_SSH_Access"
         ]
       },
       {
@@ -31,7 +33,10 @@
           "ADO_Project_AuthZ_Limit_Non_Release_Pipeline_Access",
           "ADO_Project_AuthZ_Limit_Release_Pipeline_Access",
           "ADO_Project_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
-          "ADO_Project_AuthN_Use_ALT_Accounts_For_Admin"
+          "ADO_Project_AuthN_Use_ALT_Accounts_For_Admin",
+          "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secure_Files",
+          "ADO_Project_AuthZ_Restrict_Feed_Permissions",
+          "ADO_Project_AuthZ_Disable_Inherited_Permissions"
         ]
       },
       {
@@ -43,7 +48,8 @@
           "ADO_ServiceConnection_AuthZ_Dont_Allow_Global_Groups",
           "ADO_ServiceConnection_DP_Review_Inactive_Connection",
           "ADO_ServiceConnection_SI_Dont_Share_Across_Projects",
-          "ADO_ServiceConnection_AuthZ_Dont_Grant_Subscription_Access"
+          "ADO_ServiceConnection_AuthZ_Dont_Grant_Subscription_Access",
+          "ADO_ServiceConnection_AuthZ_Dont_Grant_BuildServAcc_Permission"
         ]
       },
       {
@@ -52,10 +58,13 @@
           "ADO_Build_AuthZ_Disable_Inherited_Permissions",
           "ADO_Build_DP_No_PlainText_Secrets_In_Definition",
           "ADO_Build_SI_Review_URL_Variables_Settable_At_Queue_Time",
-          "ADO_Build_SI_Disable_Task_Group_Edit_Permission",
-          "ADO_Build_SI_Disable_Variable_Group_Edit_Permission",
+          "ADO_Build_SI_Limit_Task_Group_Edit_Permission",
+          "ADO_Build_SI_Limit_Variable_Group_Edit_Permission",
           "ADO_Build_AuthZ_Limit_Pipeline_Access",
-          "ADO_Build_SI_Disable_Pipeline_Edit_Permission"
+          "ADO_Build_SI_Limit_Pipeline_Edit_Permission",
+          "ADO_Build_SI_Review_External_Sources",
+          "ADO_Build_DP_Dont_Make_Secrets_Available_To_Forked_Builds",
+          "ADO_Build_DP_Review_Inactive_Build"
         ]
       },
       {
@@ -65,19 +74,21 @@
           "ADO_Release_SI_Review_External_Sources",
           "ADO_Release_DP_No_PlainText_Secrets_In_Definition",
           "ADO_Release_SI_Review_URL_Variables_Settable_At_Release_Time",
-          "ADO_Release_SI_Disable_Task_Group_Edit_Permission",
-          "ADO_Release_SI_Disable_Variable_Group_Edit_Permission",
-          "ADO_Release_SI_Disable_Pipeline_Edit_Permission"
+          "ADO_Release_SI_Limit_Task_Group_Edit_Permission",
+          "ADO_Release_SI_Limit_Variable_Group_Edit_Permission",
+          "ADO_Release_SI_Limit_Pipeline_Edit_Permission",
+          "ADO_Release_DP_Review_Inactive_Release"
         ]
       },
       {
         "ResourceType": "AgentPool",
         "ControlIds": [
           "ADO_AgentPool_AuthZ_Disable_Inherited_Permissions",
-          "ADO_AgentPool_AuthZ_Project_Dont_Grant_All_Pipeline_Access",
+          "ADO_AgentPool_AuthZ_Dont_Grant_All_Pipelines_Access",
           "ADO_AgentPool_AuthZ_Dont_Enable_Auto_Provisioning",
           "ADO_AgentPool_DP_Review_Inactive_Pool",
-          "ADO_AgentPool_DP_Enable_Auto_Update"
+          "ADO_AgentPool_DP_Enable_Auto_Update",
+          "ADO_AgentPool_DP_No_Secrets_In_Capabilities"
         ]
       },
       {
@@ -121,7 +132,7 @@
       ]
     }
   ],
-  "AllowAttestationResourceType": [
+  "AttestableResourceTypes": [
     "Organization",
     "Project",
     "Build",
@@ -140,7 +151,7 @@
     }
   },
   "DefaultAttestationPeriodForExemptControl" : 180,
-  "AllowAttestationByGroups": [
+  "GroupsWithAttestPermission": [
     {
       "ResourceType": "Organization",
       "GroupNames": [
@@ -157,6 +168,8 @@
   ],
   "AttestationRepo": "",
   "AttestationBranch": "",
+  "EnableMultiProjectAttestation": false,
+  "ProjectToStoreAttestation": "",
   "IsAllowLongRunningScan": true,
   "LongRunningScanCheckPoint": 1000,
   "DefaultValidAttestationStates": [
@@ -244,23 +257,23 @@
   "Organization": {
     "InactiveUserActivityLogsPeriodInDays": 90,
     "TopInactiveUserCount": 100,
-    "TrustedExtensionPublishers": [
+    "KnownExtensionPublishers": [
       "Microsoft",
       "Microsoft DevLabs"
     ],
-    "TrustedExtensionPublisherIds":[
-      " "],
+    "KnownExtensionPublisherIds":[""],
     "NonProductionExtensionIndicators":["DevTest", "Demo", "Preview", "Deprecated"],
     "ExtensionsLastUpdatedInYears": 2,
     "ExtensionCriticalScopes":["vso.agentpools_manage","vso.build_execute","vso.code_write","vso.code_manage","vso.code_full",
-                      "vso.code_status","vso.memberentitlementmanagement_write","vso.extension_manage",
+                      "vso.code_status","vso.extension_manage",
                       "vso.extension.data_write","vso.graph_manage","vso.identity_manage","vso.loadtest_write",
-                      "vso.machinegroup_manage","vso.gallery_manage","vso.notification_write","vso.notification_manage",
+                      "vso.machinegroup_manage","vso.memberentitlementmanagement_write","vso.gallery_manage","vso.notification_write","vso.notification_manage",
                       "vso.packaging_write","vso.packaging_manage","vso.project_write","vso.project_manage","vso.release_execute",
                       "vso.release_manage","vso.security_manage","vso.serviceendpoint_manage","vso.settings_write",
                       "vso.symbols_write","vso.symbols_manage","vso.taskgroups_write","vso.taskgroups_manage",
                       "vso.dashboards_manage","vso.test_write","vso.tokenadministration","vso.profile_write",
                       "vso.variablegroups_write","vso.variablegroups_manage","vso.wiki_write","vso.work_write","vso.work_full"],
+    "ExemptedExtensionNames":["Azure DevTest Labs Tasks"],
     "MaxPCAMembersPermissible": 5,
     "MinPCAMembersPermissible": 2,
     "GroupsToCheckForSCAltMembers": [
@@ -272,6 +285,20 @@
     "MinPAMembersPermissible": 2,
     "GroupsToCheckForSCAltMembers": [
       "Project Administrators"
+    ],
+    "GroupsToCheckForFeedPermission": [
+      "Contributors"
+    ]
+  },
+  "Repo": {
+    "RepoHistoryPeriodInDays": 180,
+    "AuthorEmailValidationPolicyID": "77ed4bd3-b063-4689-934a-175e4d0a78d7",
+    "CredScanPolicyID": "e67ae10f-cf9a-40bc-8e66-6b3a8216956e",
+    "CommitAuthorEmailPattern": [
+      "*@microsoft.com",
+      "*@exchange.microsoft.com",
+      "*@ntdev.microsoft.com",
+      "*@microsoftfederal.com"
     ]
   },
   "ServiceConnection": {
@@ -339,9 +366,14 @@
     "DomainName": "microsoft.com",
     "BugDescriptionField" : "",
     "ShowBugsInS360" : false,
-    "HowFound": "Manual",
+    "HowFound": "ADO Scanner",
     "ComplianceArea": "Security",
-    "ServiceTreeIdType": "Service"
+    "ServiceTreeIdType": "Service",
+    "UseAzureStorageAccount": false,
+    "LogBugsForInactiveResources": true,
+    "CustomControlList": [],
+    "LogBugsForUnmappedResource": true,
+    "Description":"Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a>  </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>"
   },
   "GenerateSecurityEvaluationJsonFile" : false,
   "ResourceProviders": [
@@ -349,5 +381,10 @@
     "Microsoft.Keyvault", 
     "Microsoft.Resources", 
     "Microsoft.OperationalInsights"
+  ],
+  "CriticalPATPermissions": [
+    "vso.build_execute", 
+    "vso.release_execute",
+    "vso.release_manage"
   ]
 }

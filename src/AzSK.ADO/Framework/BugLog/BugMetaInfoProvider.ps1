@@ -4,14 +4,16 @@ class BugMetaInfoProvider {
     hidden [PSObject] $ControlSettingsBugLog
     hidden [string] $ServiceId
     hidden static [PSObject] $ServiceTreeInfo
+    hidden [PSObject] $InvocationContext
 
     BugMetaInfoProvider() {
     }
 
-    hidden [string] GetAssignee([SVTEventContext[]] $ControlResult, $controlSettingsBugLog, $isBugLogCustomFlow, $serviceIdPassedInCMD) {
+    hidden [string] GetAssignee([SVTEventContext[]] $ControlResult, $controlSettingsBugLog, $isBugLogCustomFlow, $serviceIdPassedInCMD, $invocationContext) {
         $this.ControlSettingsBugLog = $controlSettingsBugLog;
         #flag to check if pluggable bug logging interface (service tree)
         if ($isBugLogCustomFlow) {
+            $this.InvocationContext = $invocationContext;	
             return $this.BugLogCustomFlow($ControlResult, $serviceIdPassedInCMD)
         }
         else {
@@ -59,7 +61,10 @@ class BugMetaInfoProvider {
             if([BugMetaInfoProvider]::ServiceTreeInfo)
             {
                 $this.ServiceId = [BugMetaInfoProvider]::ServiceTreeInfo.serviceId;
-                [BugLogPathManager]::AreaPath = [BugMetaInfoProvider]::ServiceTreeInfo.areaPath.Replace("\", "\\");
+                #Check if area path is not supplied in command parameter then only set from service tree.
+                if (!$this.InvocationContext.BoundParameters["AreaPath"]) {
+                    [BugLogPathManager]::AreaPath = [BugMetaInfoProvider]::ServiceTreeInfo.areaPath.Replace("\", "\\");
+                }
                 $domainNameForAssignee = ""
                 if([Helpers]::CheckMember($this.ControlSettingsBugLog, "DomainName"))
                 {
@@ -77,7 +82,7 @@ class BugMetaInfoProvider {
     hidden [string] GetAssigneeFallback([SVTEventContext[]] $ControlResult) {
         $ResourceType = $ControlResult.ResourceContext.ResourceTypeName
         $ResourceName = $ControlResult.ResourceContext.ResourceName
-        $organizationName = $ControlResult.SubscriptionContext.SubscriptionName;
+        $organizationName = $ControlResult.OrganizationContext.OrganizationName;
         switch -regex ($ResourceType) {
             #assign to the creator of service connection
             'ServiceConnection' {
@@ -85,7 +90,7 @@ class BugMetaInfoProvider {
             }
             #assign to the creator of agent pool
             'AgentPool' {
-                $apiurl = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=5.1" -f $organizationName, $ResourceName
+                $apiurl = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $organizationName, $ResourceName
                 try {
                     $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                     return $response.createdBy.uniqueName
@@ -103,7 +108,7 @@ class BugMetaInfoProvider {
                 $definitionId = $ControlResult.ResourceContext.ResourceDetails.id;
     
                 try {
-                    $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/builds?definitions={2}&api-version=5.1" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                    $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/builds?definitions={2}&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
 			    	
                     $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                     #check for recent trigger
@@ -112,7 +117,7 @@ class BugMetaInfoProvider {
                     }
                     #if no triggers found assign to the creator
                     else {
-                        $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=5.1" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                        $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
                         $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                         return $response.authoredBy.uniqueName
                     }
@@ -126,7 +131,7 @@ class BugMetaInfoProvider {
             'Release' {
                 $definitionId = ($ControlResult.ResourceContext.ResourceId -split "release/")[-1];
                 try {
-                    $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/releases?definitionId={2}&api-version=5.1" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                    $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/releases?definitionId={2}&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
                     $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                     #check for recent trigger
                     if ([Helpers]::CheckMember($response, "modifiedBy")) {
@@ -134,7 +139,7 @@ class BugMetaInfoProvider {
                     }
                     #if no triggers found assign to the creator
                     else {
-                        $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions/{2}?&api-version=5.1" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                        $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions/{2}?&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
                         $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                         return $response.createdBy.uniqueName
                     }

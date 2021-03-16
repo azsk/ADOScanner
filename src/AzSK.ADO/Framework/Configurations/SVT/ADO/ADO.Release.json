@@ -176,7 +176,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Release_SI_Disable_Task_Group_Edit_Permission",
+      "ControlID": "ADO_Release_SI_Limit_Task_Group_Edit_Permission",
       "Description": "Do not use task groups that are editable by a broad pool of users.",
       "Id": "Release210",
       "ControlSeverity": "High",
@@ -193,7 +193,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Release_SI_Disable_Variable_Group_Edit_Permission",
+      "ControlID": "ADO_Release_SI_Limit_Variable_Group_Edit_Permission",
       "Description": "Do not use variable groups that are editable by a broad pool of users.",
       "Id": "Release220",
       "ControlSeverity": "High",
@@ -210,14 +210,14 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Release_SI_Disable_Pipeline_Edit_Permission",
+      "ControlID": "ADO_Release_SI_Limit_Pipeline_Edit_Permission",
       "Description": "Do not allow release pipeline to be edited by a broad pool of users.",
       "Id": "Release230",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckPipelineEditPermission",
-      "Rationale": "TBD",
-      "Recommendation": "TBD",
+      "Rationale": "If a broad pool of users (e.g., Contributors) have edit permissions on a pipeline, then integrity of your pipeline can be compromised by a malicious user who edits it.",
+      "Recommendation": "1. Navigate to the release pipeline. 2. Click on Security. 3. Ensure 'Edit release pipeline' permission of Contributors is set to 'Deny'. 4. Repeat this for any other groups that should not have edit access.",
       "Tags": [
         "SDL",
         "TCP",

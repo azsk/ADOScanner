@@ -32,7 +32,7 @@ class WriteFolderPath: FileOutputBase
             $currentInstance = [WriteFolderPath]::GetInstance();
             try 
             {
-				$currentInstance.CommandStartedAction($Event.SourceArgs.SubscriptionContext);
+				$currentInstance.CommandStartedAction($Event.SourceArgs.OrganizationContext);
             }
             catch 
             {
@@ -44,7 +44,7 @@ class WriteFolderPath: FileOutputBase
             $currentInstance = [WriteFolderPath]::GetInstance();
             try 
             {
-				$currentInstance.CommandStartedAction($Event.SourceArgs.SubscriptionContext);
+				$currentInstance.CommandStartedAction($Event.SourceArgs.OrganizationContext);
             }
             catch 
             {
@@ -53,7 +53,7 @@ class WriteFolderPath: FileOutputBase
         });
     }
 
-	[void] CommandStartedAction([SubscriptionContext] $context)
+	[void] CommandStartedAction([OrganizationContext] $context)
 	{
 		$this.SetFolderPath($context);
 		Copy-Item (Join-Path $PSScriptRoot "README.txt") $this.FolderPath

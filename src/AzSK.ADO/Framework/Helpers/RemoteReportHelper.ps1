@@ -3,10 +3,10 @@ Set-StrictMode -Version Latest
 class RemoteReportHelper
 {
 	hidden static [string[]] $IgnoreScanParamList = "DoNotOpenOutputFolder";
-	hidden static [string[]] $AllowedServiceScanParamList = "SubscriptionId", "ResourceGroupNames";
-	hidden static [string[]] $AllowedSubscriptionScanParamList = "SubscriptionId";
+	hidden static [string[]] $AllowedServiceScanParamList = "organizationName", "ResourceGroupNames";
+	hidden static [string[]] $AllowedOrganizationScanParamList = "organizationName";
 	hidden static [int] $MaxServiceParamCount = [RemoteReportHelper]::IgnoreScanParamList.Count + [RemoteReportHelper]::AllowedServiceScanParamList.Count;
-	hidden static [int] $MaxSubscriptionParamCount = [RemoteReportHelper]::IgnoreScanParamList.Count + [RemoteReportHelper]::AllowedSubscriptionScanParamList.Count;
+	hidden static [int] $MaxOrganizationParamCount = [RemoteReportHelper]::IgnoreScanParamList.Count + [RemoteReportHelper]::AllowedOrganizationScanParamList.Count;
 	hidden static [System.Security.Cryptography.SHA256Managed] $sha256AlgForMasking = [System.Security.Cryptography.SHA256Managed]::new();
 	hidden static [AIOrgTelemetryStatus] $AIOrgTelemetryState = [AIOrgTelemetryStatus]::Undefined;
 	hidden static [string] $TelemetryKey = "";
@@ -17,8 +17,8 @@ class RemoteReportHelper
 			return [FeatureGroup]::Unknown
 		}
 		$feature = $SVTEventContexts[0].FeatureName.ToLower()
-		if($feature.Contains("subscription")){
-			return [FeatureGroup]::Subscription
+		if($feature.Contains("organization")){
+			return [FeatureGroup]::Organization
 		} else{
 			return [FeatureGroup]::Service
 		}
@@ -50,7 +50,7 @@ class RemoteReportHelper
 
 		if ($validParamCounter -eq 1)
 		{
-			return [ServiceScanKind]::Subscription;
+			return [ServiceScanKind]::Organization;
 		}
 		elseif ($validParamCounter -eq 2)
 		{
@@ -62,17 +62,17 @@ class RemoteReportHelper
 		}
 	}
 
-	static [SubscriptionScanKind] GetSubscriptionScanKind([string] $command, [hashtable] $parameters)
+	static [OrganizationScanKind] GetOrganizationScanKind([string] $command, [hashtable] $parameters)
 	{
 		$parameterNames = [array] $parameters.Keys
-		if($parameterNames.Count -gt [RemoteReportHelper]::MaxSubscriptionParamCount)
+		if($parameterNames.Count -gt [RemoteReportHelper]::MaxOrganizationParamCount)
 		{
-			return [SubscriptionScanKind]::Partial;
+			return [OrganizationScanKind]::Partial;
 		}
 		$validParamCounter = 0;
 		foreach($parameterName in $parameterNames)
 		{
-			if ([RemoteReportHelper]::AllowedSubscriptionScanParamList.Contains($parameterName))
+			if ([RemoteReportHelper]::AllowedOrganizationScanParamList.Contains($parameterName))
 			{
 				$validParamCounter += 1
 			}
@@ -82,23 +82,23 @@ class RemoteReportHelper
 			}
 			else
 			{
-				return [SubscriptionScanKind]::Partial;
+				return [OrganizationScanKind]::Partial;
 			}
 		}
 
 		if ($validParamCounter -eq 1)
 		{
-			return [SubscriptionScanKind]::Complete;
+			return [OrganizationScanKind]::Complete;
 		}
 		else
 		{
-			return [SubscriptionScanKind]::Partial;
+			return [OrganizationScanKind]::Partial;
 		}
 	}
 
-	static [SubscriptionControlResult] BuildSubscriptionControlResult([ControlResult] $controlResult, [ControlItem] $control)
+	static [OrganizationControlResult] BuildOrganizationControlResult([ControlResult] $controlResult, [ControlItem] $control)
 	{
-		$result = [SubscriptionControlResult]::new()
+		$result = [OrganizationControlResult]::new()
 		$result.ControlId = $control.ControlId
 		$result.ControlIntId = $control.Id
 		$result.ControlSeverity = $control.ControlSeverity

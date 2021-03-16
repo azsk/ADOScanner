@@ -36,14 +36,7 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Models\SVT\AttestationOptions.ps1
 . $FrameworkPath\Models\SVT\PSCloudService.ps1
 . $FrameworkPath\Models\SVT\PartialScanResourceMap.ps1
-. $FrameworkPath\Models\RemoteReports\LSRScanResultModel.ps1
 . $FrameworkPath\Models\RemoteReports\ComplianceStateModel.ps1
-<#
-. $FrameworkPath\Models\SubscriptionCore\AzureSecurityCenter.ps1
-. $FrameworkPath\Models\SubscriptionCore\ManagementCertificate.ps1
-. $FrameworkPath\Models\SubscriptionSecurity\SubscriptionRBAC.ps1
-. $FrameworkPath\Models\ContinuousAssurance\AutomationAccount.ps1
-#>
 . $FrameworkPath\Models\ControlState.ps1
 . $FrameworkPath\Models\FixControl\FixControlModel.ps1
 . $FrameworkPath\Models\RemoteReports\RecommendationReportModel.ps1
@@ -77,6 +70,7 @@ $FrameworkPath = $PSScriptRoot
 #BugLog
 . $PSScriptRoot\BugLog\BugLogPathManager.ps1
 . $PSScriptRoot\BugLog\BugMetaInfoProvider.ps1
+. $PSScriptRoot\BugLog\BugLogHelper.ps1
 . $PSScriptRoot\BugLog\AutoBugLog.ps1
 . $PSScriptRoot\BugLog\PublishToJSON.ps1
 . $PSScriptRoot\BugLog\AutoCloseBugManager.ps1
@@ -132,6 +126,7 @@ $FrameworkPath = $PSScriptRoot
 
 . $PSScriptRoot\Core\AzSKADOInfo\HostInfo.ps1
 . $PSScriptRoot\Core\AzSKADOInfo\ControlsInfo.ps1
+. $PSScriptRoot\Core\AzSKADOInfo\UserInfo.ps1
 . $PSScriptRoot\Core\STMapping\AzSKADOServiceMapping.ps1
 
 . $PSScriptRoot\Core\SVT\SVTResourceResolver.ps1

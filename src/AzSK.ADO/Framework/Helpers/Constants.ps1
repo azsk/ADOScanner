@@ -31,16 +31,16 @@ class Constants
 "        c) If the control status says 'Skipped', it means that you have chosen to skip certain controls using the '-SkipControlsFromFile' parameter.`r`n" 
 
 
-	static [string] $DefaultInfoCmdMsg = "This command provides overall information about different components of the AzSK.ADO which includes subscription information, security controls information, attestation information, host information. 'Get-AzSKADOInfo' command can be used with 'InfoType' parameter to fetch information.`r`n" + 
+	static [string] $DefaultInfoCmdMsg = "This command provides overall information about different components of the AzSK.ADO which includes organization information, security controls information, attestation information, host information. 'Get-AzSKADOInfo' command can be used with 'InfoType' parameter to fetch information.`r`n" + 
 					"`r`nFollowing InfoType parameter values are currently supported by Get-AzSKADOInfo cmdlet.`r`n" +
-					"`tSubscriptionInfo : To get version details about different component of AzSK.ADO configured in Subscription.`r`n" +
+					"`tOrganizationInfo : To get version details about different component of AzSK.ADO configured in organization.`r`n" +
 					"`tControlInfo      : To get baseline, severity, description, rationale etc information about security controls.`r`n" +
 					"`tAttestationInfo  : To get statistics, attestation justification, expiry etc information about controls attestation.`r`n" +
 					"`tHostInfo         : To get information about machine details.`r`n" +
 					"`r`n`r`nExamples:`r`n" +
-					"`tGet-AzSKADOInfo -InfoType SubscriptionInfo -SubscriptionId <YourSubscriptionId> `r`n" +
+					"`tGet-AzSKADOInfo -InfoType OrganizationInfo -OrganizationName <YourOrganizationName> `r`n" +
 					"`tGet-AzSKADOInfo -InfoType ControlInfo -ResourceTypeName All -UseBaselineControls `r`n" +
-					"`tGet-AzSKADOInfo -InfoType AttestationInfo -SubscriptionId <YourSubscriptionId> -ResourceTypeName All -UseBaselineControls `r`n" +
+					"`tGet-AzSKADOInfo -InfoType AttestationInfo -OrganizationName <YourOrganizationName> -ResourceTypeName All -UseBaselineControls `r`n" +
 					"`tGet-AzSKADOInfo -InfoType HostInfo `r`n";
 
 	static [string] $DefaultControlInfoCmdMsg = "Run 'Get-AzSKADOInfo' command with below combination of parameter to get information about Azure services security control(s).`r`n`r`n" + 
@@ -103,16 +103,16 @@ class Constants
 	static [int] $AutoBugLogTagLen = 12;
 
 	#Ext Storage
-	static [string] $StorageUri = "https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions/azsdktm/ADOSecurityScanner/Data/Scopes/Default/Current/Collections/{1}/Documents/{2}?api-version=5.1-preview.1" 
+	static [string] $StorageUri = "https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions/azsdktm/ADOSecurityScanner/Data/Scopes/Default/Current/Collections/{1}/Documents/{2}?api-version=6.0-preview.1" 
 
-	static [string] $AttRepoStorageUri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/pushes?api-version=5.0" 
-	static [string] $GetAttRepoStorageUri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/Items?path=%2F{3}&recursionLevel=0&includeContentMetadata=true&versionDescriptor.version={4}&versionDescriptor.versionOptions=0&versionDescriptor.versionType=0&includeContent=true&resolveLfs=true?api-version=4.1-preview.1" 
+	static [string] $AttRepoStorageUri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/pushes?api-version=6.0" 
+	static [string] $GetAttRepoStorageUri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/Items?path=%2F{3}&recursionLevel=0&includeContentMetadata=true&versionDescriptor.version={4}&versionDescriptor.versionOptions=0&versionDescriptor.versionType=0&includeContent=true&resolveLfs=true&api-version=6.0" 
 	static [string] $AutoUpdateMessage = "Auto-update for AzSK.ADO is currently not enabled for your machine."
 	static [string] $AttestationRepo = "ADOScannerAttestation";
 	static [string] $AttestationDefaultBranch = "master"; 
 	static [string] $OrgPolicyRepo = "ADOScannerPolicy";
 	static [string] $OrgPolicyDefaultBranch = "master"; 
-	static [string] $OrgPolicyRepoCSEO = "SR-RM-EEE-ADOScannerPolicy";
+	static [string] $OrgPolicyRepoCSEO = "RM-ESP-EEE-ADOScannerPolicy";
 	static [string] $CSEOOrg = "MicrosoftIT";
 	static [string] $OrgAttPrjExtFile = "Org_Config";
 	static [string] $ModuleAutoUpdateAvailableMsg = "A new version of AzSK.ADO is available. Starting the auto-update workflow...`nTo prepare for auto-update, please:`n`t a) Save your work from all active PS sessions including the current one and`n`t b) Close all PS sessions other than the current one. "; 
