@@ -88,7 +88,8 @@
         'Update-AzSKADOContinuousAssurance',
         'Get-AzSKADOContinuousAssurance',
         'Get-AzSKADOServiceMapping',
-        'Set-AzSKADOUsageTelemetryLevel'
+        'Set-AzSKADOUsageTelemetryLevel',
+        'Set-AzSKADOUserPreference'
     )
 
     # Cmdlets to export from this module
