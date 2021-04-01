@@ -791,7 +791,7 @@ class AutoBugLog {
             }
             #handle the case wherein due to global search area/ iteration paths from different projects passed the checkvalidpath function
             else {
-                $this.DisplayErrorMessage($_.ErrorDetails.Message, "UpdateBug");
+                $this.DisplayErrorMessage($_.ErrorDetails.Message, "AddBug");
             }
         }
     }
