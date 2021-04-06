@@ -60,7 +60,7 @@ class AutoBugLog {
         }
 
         #Get if UpdateBug is enabled for this resource and get controls in policy.
-        if([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UpdateBug.ResourceType") -and [Helpers]::CheckMember($this.ControlSettings.BugLogging, "UpdateBugFields") ) {
+        if([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UpdateBug.ResourceType") -and [Helpers]::CheckMember($this.ControlSettings.BugLogging.UpdateBug, "ControlIds") -and [Helpers]::CheckMember($this.ControlSettings.BugLogging.UpdateBug, "UpdateBugFields") ) {
             $this.UpdateBugEnabled = $true;
         }
         else {
@@ -152,11 +152,7 @@ class AutoBugLog {
                                 $printLogBugMsg = $false;
 
                                 #filling the bug template
-                                $Title = "[ADOScanner] Control failure - {0} for resource {1} {2}"
-                                $Title = $Title -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName
-                                if ($control.ResourceContext.ResourceTypeName -ne "Organization" -and $control.ResourceContext.ResourceTypeName -ne "Project") {
-                                    $Title += " in project " + $control.ResourceContext.ResourceGroupName;
-                                }
+                                $Title = $this.GetTitle($control);
 
                                 $Description = $this.GetDescription($control, $resourceOwner);
                                 $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
@@ -461,31 +457,27 @@ class AutoBugLog {
         $updateBug = $false;
         if ($this.UpdateBugEnabled) {
             $controlIdToUpdateBug = @();
-            $controlIdToUpdateBug += $this.ControlSettings.BugLogging.UpdateBug | where { ($_.ResourceType -eq "*") -or ($_.ResourceType -eq $Control.FeatureName)} | Select-Object -Property ControlIds;
-            $updateBug = ( ($controlIdToUpdateBug.ControlIds -eq "*") -or ($controlIdToUpdateBug.ControlIds -eq $control.ControlItem.ControlID ));
+            $controlIdToUpdateBug += $this.ControlSettings.BugLogging.UpdateBug | where { ($_.ResourceType -eq "*") -or ($_.ResourceType -eq $Control.FeatureName)} | Select-Object -Property ControlIds, UpdateBugFields;
+            $updateBug = ( ($controlIdToUpdateBug.ControlIds -eq "*" -or ($controlIdToUpdateBug.ControlIds -eq $control.ControlItem.ControlID) ) -and $controlIdToUpdateBug.UpdateBugFields );
 
             if ($updateBug) 
             {
                 $fieldsToUpdate = @();
-                $fieldsToUpdate += $this.ControlSettings.BugLogging.UpdateBugFields;
+                $fieldsToUpdate += $controlIdToUpdateBug.UpdateBugFields;
                 if ("Assignee" -in $fieldsToUpdate -and (!$TemplateForUpdateBug -or $TemplateForUpdateBug.path -ne "/fields/System.AssignedTo") ) {
                     $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/System.AssignedTo'; value = $AssignedTo };
                 }
                 if ("Title" -in $fieldsToUpdate) {
-                    $Title = "[ADOScanner] Control failure - {0} for resource {1} {2}"
-                    $Title = $Title -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName
-                    if ($control.ResourceContext.ResourceTypeName -ne "Organization" -and $control.ResourceContext.ResourceTypeName -ne "Project") {
-                        $Title += " in project " + $control.ResourceContext.ResourceGroupName;
-                    }
-                    $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/System.Title'; value = $Title };
+                    $title = $this.GetTitle($control);
+                    $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/System.Title'; value = $title };
                 }
                 if ("Description" -in $fieldsToUpdate -or "ReproSteps" -in $fieldsToUpdate) {
                     $description = $this.GetDescription($control, $resourceOwner)
                     $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/Microsoft.VSTS.TCM.ReproSteps'; value = $description };
                 }
                 if ("Severity" -in $fieldsToUpdate) {
-                    $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
-                    $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/Microsoft.VSTS.Common.Severity'; value = $Severity };
+                    $severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
+                    $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/Microsoft.VSTS.Common.Severity'; value = $severity };
                 }
                 if ("AreaPath" -in $fieldsToUpdate) {
                     if (!$TemplateForUpdateBug -or $TemplateForUpdateBug.path -ne "/fields/System.AreaPath") {
@@ -619,6 +611,16 @@ class AutoBugLog {
         $Description = $Description.Replace("`"", "'")
 
         return $Description;
+    }
+
+    hidden [string] GetTitle($control) {
+        $Title = "[ADOScanner] Control failure - {0} for resource {1} {2}"
+        $Title = $Title -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName
+        if ($control.ResourceContext.ResourceTypeName -ne "Organization" -and $control.ResourceContext.ResourceTypeName -ne "Project") {
+            $Title += " in project " + $control.ResourceContext.ResourceGroupName;
+        }
+
+        return $Title;
     }
 
     #status has value if it is called from resolved to activate bug, else the value is empty, if status not needed to change
