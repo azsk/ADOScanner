@@ -221,6 +221,77 @@ function Set-AzSKADOUsageTelemetryLevel {
     }
 }
 
+function Set-AzSKADOUserPreference {
+    <#
+	.SYNOPSIS
+	This command would help to set user preferences for ADO Scanner.
+	.DESCRIPTION
+	This command would help to set user preferences for ADO Scanner.
+	.PARAMETER OutputFolderPath
+    Provide the custom folder path for output files generated from ADO Scanner.
+	.PARAMETER ResetOutputFolderPath
+    Reset the output folder path to default value.
+	.LINK
+	https://aka.ms/adoscanner
+	#>
+    
+    Param
+    (
+        [Parameter(Mandatory = $false, HelpMessage = "Provide the custom folder path for output files generated from ADO Scanner")]
+        [string]
+		[Alias("ofp")]
+        $OutputFolderPath,
+
+        [Parameter(Mandatory = $false, HelpMessage = "Reset the output folder path to default value")]
+        [switch]
+		[Alias("rofp")]
+        $ResetOutputFolderPath
+
+    )
+    Begin {
+        [CommandHelper]::BeginCommand($PSCmdlet.MyInvocation);
+        [ListenerHelper]::RegisterListeners();
+    }
+    Process {
+        try {
+            $azskSettings = [ConfigurationManager]::GetLocalAzSKSettings();
+            $flag = $false
+            if ($ResetOutputFolderPath) {
+                
+                $azskSettings.OutputFolderPath = "";
+                [EventBase]::PublishGenericCustomMessage("Output folder path has been reset successfully");
+                $flag = $true
+            }
+            elseif (-not [string]::IsNullOrWhiteSpace($OutputFolderPath)) {
+                if (Test-Path -Path $OutputFolderPath) {                    
+                    $azskSettings.OutputFolderPath = $OutputFolderPath;
+                    [EventBase]::PublishGenericCustomMessage("Output folder path has been changed successfully");
+                    $flag = $true
+                }
+                else {
+                    [EventBase]::PublishGenericCustomMessage("The specified path does not exist", [MessageType]::Error);
+                }
+            }
+            
+            if($flag)
+            {
+                [ConfigurationManager]::UpdateAzSKSettings($azskSettings);
+                [EventBase]::PublishGenericCustomMessage("Successfully set user preference");
+            }
+            else {
+                [EventBase]::PublishGenericCustomMessage("User preference not updated",[MessageType]::Error);
+            }
+        }
+        catch {
+            [EventBase]::PublishGenericException($_);
+        }
+    }
+    End {
+        [ListenerHelper]::UnregisterListeners();
+    }
+}
+
+
 #$FrameworkPath = $PSScriptRoot
 
 . $FrameworkPath\Helpers\AliasHelper.ps1
