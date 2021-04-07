@@ -903,7 +903,7 @@ class Project: ADOSVTBase
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the permission details for repositories in the project: $($_).");
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the permission details for repositories in the project.");
             }
         }
         catch
