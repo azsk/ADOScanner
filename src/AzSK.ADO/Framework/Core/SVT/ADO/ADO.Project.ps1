@@ -908,7 +908,7 @@ class Project: ADOSVTBase
         }
         catch
         {
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch list of repositories in the project: $($_).");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch list of repositories in the project. $($_).");
         }
         return $controlResult
     }
