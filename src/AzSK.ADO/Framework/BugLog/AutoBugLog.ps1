@@ -546,6 +546,7 @@ class AutoBugLog {
         return $true;
     }
 
+    #Common method to display message from catch block
     hidden [void] DisplayErrorMessage([string] $errorMessage, [string] $errorInFeature)
     {
         $areaPath = [BugLogPathManager]::AreaPath;
