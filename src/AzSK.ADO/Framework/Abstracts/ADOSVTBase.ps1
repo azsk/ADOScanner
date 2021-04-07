@@ -15,17 +15,17 @@ class ADOSVTBase: SVTBase {
 		$this.CreateInstance();
 	}
 	ADOSVTBase([string] $organizationName, [SVTResource] $svtResource):
-	Base($organizationName) {		
+	Base($organizationName) {
 		$this.CreateInstance($svtResource);
 	}
-	#Create instance for organization scan 
+	#Create instance for organization scan
 	hidden [void] CreateInstance() {
 		[Helpers]::AbstractClass($this, [SVTBase]);
 		Write-Host -ForegroundColor Yellow "No mapping!? Do we use this .ctor?"
 		#$this.LoadSvtConfig([SVTMapping]::OrganizationMapping.JsonFileName);
-		$this.ResourceId = $this.OrganizationContext.Scope;	
+		$this.ResourceId = $this.OrganizationContext.Scope;
 	}
-   
+
 	#Add PreviewBaselineControls
 	hidden [bool] CheckBaselineControl($controlId) {
 		if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "BaselineControls.ResourceTypeControlIdMappingList")) {
@@ -89,23 +89,23 @@ class ADOSVTBase: SVTBase {
 						$this.ResourceState += $resourceStates
 
 					}
-				}		
+				}
 			}
 		}
 
 		return $this.ResourceState;
 	}
-	
+
 	hidden [void] PostProcessData([SVTEventContext] $eventContext) {
 		$tempHasRequiredAccess = $true;
 		$controlState = @();
 		$controlStateValue = @();
 		try {
 			$resourceStates = $this.GetResourceState($false)
-			if (!$this.AzSKSettings) 
+			if (!$this.AzSKSettings)
 			{
-				$this.AzSKSettings = [ConfigurationManager]::GetAzSKSettings();	
-			}		
+				$this.AzSKSettings = [ConfigurationManager]::GetAzSKSettings();
+			}
 			$enableOrgControlAttestation = $this.AzSKSettings.EnableOrgControlAttestation
 
 			if (($resourceStates | Measure-Object).Count -ne 0) {
@@ -123,7 +123,7 @@ class ADOSVTBase: SVTBase {
 					}
 				}
 			}
-			# If Project name is not configured in ext storage & policy project parameter is not used or attestation repo is not present in policy project, 
+			# If Project name is not configured in ext storage & policy project parameter is not used or attestation repo is not present in policy project,
 			# then 'IsOrgAttestationProjectFound' will be false so that HasRequiredAccess for org controls can be set as false
 			elseif (($eventContext.FeatureName -eq "Organization" -and [ControlStateExtension]::IsOrgAttestationProjectFound -eq $false) -and ($enableOrgControlAttestation -eq $true)){
 				$tempHasRequiredAccess = $false;
@@ -166,25 +166,44 @@ class ADOSVTBase: SVTBase {
 					# Process the state if its available
 					$childResourceState = $controlState | Where-Object { $_.ChildResourceName -eq $currentItem.ChildResourceName } | Select-Object -First 1;
 					if ($childResourceState) {
+						$validateAttestation = $true
+						if ([Helpers]::CheckMember($this.ControlSettings, "EnforceApprovedException") -and $this.ControlSettings.EnforceApprovedException -eq $true -and (-not [Helpers]::CheckMember($childResourceState.state, "ApprovedExceptionID") -or [string]::IsNullOrWhiteSpace($childResourceState.state.ApprovedExceptionID))) {
+							$attestationExpiryDays = ""
+							if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings") -and $this.ControlSettings.ApprovedExceptionSettings.InvalidatePreviousAttestations -eq $true) {
+								$approvedExceptionsControlList = $this.ControlSettings.ApprovedExceptionSettings.ControlsList
+								if ($approvedExceptionsControlList -contains $controlState.ControlId) {
+									$validateAttestation = $false
+									#write-host "Previous attestation for this control will not be respected as it doesn't have an associated approved exception id." -ForegroundColor Yellow
+								}
+							}
+							<#
+							elseif ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings") -and $this.ControlSettings.ApprovedExceptionSettings.ExpirePreviousAttestations -eq $true) {
+								$attestationExpiryDays = $this.ControlSettings.ApprovedExceptionSettings.PreviousAttestationExpiryInDays
+								if ($childResourceState.State.AttestedDate.AddDays($attestationExpiryDays) -lt [DateTime]::UtcNow) {
+									$validateAttestation = $false
+									write-host "The attesation for this control is expired." -ForegroundColor Yellow
+								}
+							} #>
+						}
 						# Skip passed ones from State Management
-						if ($currentItem.ActualVerificationResult -ne [VerificationResult]::Passed) {
+						if ($currentItem.ActualVerificationResult -ne [VerificationResult]::Passed -and $validateAttestation -eq $true) {
 							#compare the states
 							if (($childResourceState.ActualVerificationResult -eq $currentItem.ActualVerificationResult) -and $childResourceState.State) {
-				
+
 								$currentItem.StateManagement.AttestedStateData = $childResourceState.State;
 
 								# Compare dataobject property of State
 								if ($null -ne $childResourceState.State.DataObject) {
 									if ($currentItem.StateManagement.CurrentStateData -and $null -ne $currentItem.StateManagement.CurrentStateData.DataObject) {
 										$currentStateDataObject = [JsonHelper]::ConvertToJsonCustom($currentItem.StateManagement.CurrentStateData.DataObject) | ConvertFrom-Json
-										
+
 										try {
 											# Objects match, change result based on attestation status
 											if ($eventContext.ControlItem.AttestComparisionType -and $eventContext.ControlItem.AttestComparisionType -eq [ComparisionType]::NumLesserOrEqual) {
 												if ([Helpers]::CompareObject($childResourceState.State.DataObject, $currentStateDataObject, $true, $eventContext.ControlItem.AttestComparisionType)) {
 													$this.ModifyControlResult($currentItem, $childResourceState);
 												}
-												
+
 											}
 											else {
 												if ([Helpers]::CompareObject($childResourceState.State.DataObject, $currentStateDataObject, $true)) {
@@ -265,7 +284,7 @@ class ADOSVTBase: SVTBase {
 				$controlSeverityExpiryPeriod = 0
 				$defaultAttestationExpiryInDays = [Constants]::DefaultControlExpiryInDays;
 				$expiryInDays = -1;
-	
+
 				if (($eventcontext.ControlResults | Measure-Object).Count -gt 0) {
 					$isControlInGrace = $eventcontext.ControlResults.IsControlInGrace;
 				}
@@ -276,7 +295,7 @@ class ADOSVTBase: SVTBase {
 						-and [Helpers]::CheckMember($this.ControlSettings.AttestationExpiryPeriodInDays, "Default") `
 						-and $this.ControlSettings.AttestationExpiryPeriodInDays.Default -gt 0) {
 					$defaultAttestationExpiryInDays = $this.ControlSettings.AttestationExpiryPeriodInDays.Default
-				}			
+				}
 				#Expiry in the case of WillFixLater or StateConfirmed/Recurring Attestation state will be based on Control Severity.
 				if ($controlState.AttestationStatus -eq [AttestationStatus]::NotAnIssue -or $controlState.AttestationStatus -eq [AttestationStatus]::NotApplicable) {
 					$expiryInDays = $defaultAttestationExpiryInDays;
@@ -292,7 +311,7 @@ class ADOSVTBase: SVTBase {
 						}
 						elseif ([Helpers]::CheckMember($this.ControlSettings, "AttestationExpiryPeriodInDays")) {
 							$controlsev = $this.ControlSettings.ControlSeverity.PSobject.Properties | Where-Object Value -eq $controlSeverity | Select-Object -First 1
-							$controlSeverity = $controlsev.name									
+							$controlSeverity = $controlsev.name
 							#Check if control severity has expiry period
 							if ([Helpers]::CheckMember($this.ControlSettings.AttestationExpiryPeriodInDays.ControlSeverity, $controlSeverity) ) {
 								$expiryInDays = $this.ControlSettings.AttestationExpiryPeriodInDays.ControlSeverity.$controlSeverity
@@ -307,9 +326,9 @@ class ADOSVTBase: SVTBase {
 							$expiryInDays = -1
 						}
 					}
-				}				
+				}
 			}
-			else {				
+			else {
 				#Calculating the expiry in days for exempt controls
 				if ([String]::IsNullOrEmpty($controlState.State.ExpiryDate))
 				{
@@ -323,11 +342,11 @@ class ADOSVTBase: SVTBase {
 				# #Adding 1 explicitly to the days since the differnce below excludes the expiryDate and that also needs to be taken into account.
 				# $expiryInDays = ($expiryDate - $controlState.State.AttestedDate).Days + 1
 				# #Calculating the expiry in days for exempt controls
-				
+
 				# $expiryDate = [DateTime]$controlState.State.ExpiryDate
 				# #Adding 1 explicitly to the days since the differnce below excludes the expiryDate and that also needs to be taken into account.
 				$expiryInDays = ($expiryDate - $controlState.State.AttestedDate).Days + 1
-			}								
+			}
 		}
 		catch {
 			#if any exception occurs while getting/validating expiry period, return -1.
@@ -376,7 +395,7 @@ class ADOSVTBase: SVTBase {
 
 		return $automatedControlsResult;
 	}
- #isRescan parameter is added to check if method is called from rescan. 
+ #isRescan parameter is added to check if method is called from rescan.
 	hidden [SVTEventContext] FetchControlState([ControlItem] $controlItem, $isRescan = $false) {
 		[SVTEventContext] $singleControlResult = $this.CreateSVTEventContextObject();
 		$singleControlResult.ControlItem = $controlItem;
@@ -413,8 +432,8 @@ class ADOSVTBase: SVTBase {
 			}
 			else {
 				$controlResult = $this.CreateControlResult($controlItem.FixControl);
-				$singleControlResult.ControlResults += $controlResult;          
-				$singleControlResult.ControlResults | 
+				$singleControlResult.ControlResults += $controlResult;
+				$singleControlResult.ControlResults |
 				ForEach-Object {
 					try {
 						$currentItem = $_;
@@ -457,12 +476,12 @@ class ADOSVTBase: SVTBase {
 		$this.PostEvaluationCompleted($resourceSecurityResult);
 	}
 
-	hidden [void] PostEvaluationCompleted([SVTEventContext[]] $ControlResults) {		
+	hidden [void] PostEvaluationCompleted([SVTEventContext[]] $ControlResults) {
 		$this.UpdateControlStates($ControlResults);
-		
+
 		$BugLogParameterValue =$this.InvocationContext.BoundParameters["AutoBugLog"]
 		#perform bug logging after control scans for the current resource
-		if ($BugLogParameterValue) 
+		if ($BugLogParameterValue)
 		{
 			# using checkmember without null check, if field is present in control settings but no value has been set then allow bug logging for inactive resources.
 			if([Helpers]::CheckMember($this.ControlSettings.BugLogging, "LogBugsForInactiveResources", $false))
@@ -497,10 +516,10 @@ class ADOSVTBase: SVTBase {
 					$this.PublishCustomMessage("The current resource is inactive. Bug logging is disabled for inactive resources.", [MessageType]::Warning);
 				}
 			}
-			
+
 		}
 	}
-	
+
 	#function to call AutoBugLog class for performing bug logging
 	hidden [void] BugLoggingPostEvaluation([SVTEventContext []] $ControlResults,[string] $BugLogParameterValue)
 	{
@@ -513,5 +532,5 @@ class ADOSVTBase: SVTBase {
 		$AutoBugLog.LogBugInADO($ControlResults)
 	}
 
-	
+
 }

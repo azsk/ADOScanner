@@ -170,12 +170,21 @@
   "AttestationBranch": "",
   "EnableMultiProjectAttestation": false,
   "ProjectToStoreAttestation": "",
+  "EnforceApprovedException": false,
+  "ApprovedExceptionSettings": {
+    "ControlsList": [],
+    "InvalidatePreviousAttestations": false,
+    "ApprovedExceptionPromptMessage": "",
+    "NonApprovedExceptionPromptMessage": "",
+    "DefaultPromptMessage": "Refer the docs https://github.com/azsk/ADOScanner-docs to fetch the exception id."
+  },
   "IsAllowLongRunningScan": true,
   "LongRunningScanCheckPoint": 1000,
   "DefaultValidAttestationStates": [
     "NotAnIssue",
     "WillFixLater",
-    "WillNotFix"
+    "WillNotFix",
+    "ApprovedException"
   ],
   "NewControlGracePeriodInDays": {
     "Default": 60,
@@ -377,13 +386,13 @@
   },
   "GenerateSecurityEvaluationJsonFile" : false,
   "ResourceProviders": [
-    "Microsoft.Storage", 
-    "Microsoft.Keyvault", 
-    "Microsoft.Resources", 
+    "Microsoft.Storage",
+    "Microsoft.Keyvault",
+    "Microsoft.Resources",
     "Microsoft.OperationalInsights"
   ],
   "CriticalPATPermissions": [
-    "vso.build_execute", 
+    "vso.build_execute",
     "vso.release_execute",
     "vso.release_manage"
   ]
