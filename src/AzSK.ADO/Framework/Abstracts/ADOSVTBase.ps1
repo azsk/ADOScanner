@@ -167,23 +167,18 @@ class ADOSVTBase: SVTBase {
 					$childResourceState = $controlState | Where-Object { $_.ChildResourceName -eq $currentItem.ChildResourceName } | Select-Object -First 1;
 					if ($childResourceState) {
 						$validateAttestation = $true
+						# if EnforceApprovedException is true and controls is not attested with exception id, based on configuration, invalidate the previous attestation
 						if ([Helpers]::CheckMember($this.ControlSettings, "EnforceApprovedException") -and $this.ControlSettings.EnforceApprovedException -eq $true -and (-not [Helpers]::CheckMember($childResourceState.state, "ApprovedExceptionID") -or [string]::IsNullOrWhiteSpace($childResourceState.state.ApprovedExceptionID))) {
 							$attestationExpiryDays = ""
+							# check if InvalidatePreviousAttestations is set to true to invalidate previous attestation
 							if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings") -and $this.ControlSettings.ApprovedExceptionSettings.InvalidatePreviousAttestations -eq $true) {
 								$approvedExceptionsControlList = $this.ControlSettings.ApprovedExceptionSettings.ControlsList
+								# verify if the control attested is in the list of approved exception enabled controls
 								if ($approvedExceptionsControlList -contains $controlState.ControlId) {
 									$validateAttestation = $false
-									#write-host "Previous attestation for this control will not be respected as it doesn't have an associated approved exception id." -ForegroundColor Yellow
+									write-host "Previous attestation for this control will not be respected as it doesn't have an associated approved exception id." -ForegroundColor Yellow
 								}
 							}
-							<#
-							elseif ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings") -and $this.ControlSettings.ApprovedExceptionSettings.ExpirePreviousAttestations -eq $true) {
-								$attestationExpiryDays = $this.ControlSettings.ApprovedExceptionSettings.PreviousAttestationExpiryInDays
-								if ($childResourceState.State.AttestedDate.AddDays($attestationExpiryDays) -lt [DateTime]::UtcNow) {
-									$validateAttestation = $false
-									write-host "The attesation for this control is expired." -ForegroundColor Yellow
-								}
-							} #>
 						}
 						# Skip passed ones from State Management
 						if ($currentItem.ActualVerificationResult -ne [VerificationResult]::Passed -and $validateAttestation -eq $true) {
