@@ -862,72 +862,53 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult) {
         $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-        try {
-            $repoDefnsObj = $this.FetchRepositoriesList()
-            $failedRepos = @()
-            $passedRepos = @()
-            foreach ($repo in $repoDefnsObj) {
-                $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1"
-                $body = "{
-                    'contributionIds': [
-                        'ms.vss-admin-web.security-view-data-provider'
-                    ],
-                    'dataProviderContext': {
-                        'properties': {
-                            'permissionSetId': '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87',
-                            'permissionSetToken': '',
-                            'sourcePage': {
-                                'url': '',
-                                'routeId': 'ms.vss-admin-web.project-admin-hub-route',
-                                'routeValues': {
-                                    'project': '',
-                                    'adminPivot': 'repositories',
-                                    'controller': 'ContributedPage',
-                                    'action': 'Execute',
-                                    'serviceHost': ''
-                                }
-                            }
-                        }
+        #permissionSetId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
+        $repoNamespaceId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87'
+        try
+        {
+            $repoPermissionUrl = 'https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?api-version=6.0' -f $this.OrganizationContext.OrganizationName, $repoNamespaceId;
+            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($repoPermissionUrl)
+            if (-not [string]::IsNullOrEmpty($responseObj) -and ($responseObj | Measure-Object).Count -gt 0)
+            {
+                $repoDefnsObj = $this.FetchRepositoriesList()
+                $failedRepos = @()
+                $passedRepos = @()
+                foreach ($repo in $repoDefnsObj)
+                {
+                    $repoToken = "repoV2" + "/" + $projectId + "/" + $repo.id
+                    $repoObj = $responseObj | where-object {$_.token -eq $repoToken}
+                    if ($null -ne $repoObj -and ($repoObj | Measure-Object).Count -gt 0 -and $repoObj.inheritPermissions)
+                    {
+                        $failedRepos += $repo.name
                     }
-                }" | ConvertFrom-Json
-                $body.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($repo.id)"
-                $body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$projectId/_settings/repositories?repo=/$($repo.id)&_a=permissionsMid";
-                $body.dataProviderContext.properties.sourcePage.routeValues.project = "$projectId";
-                $response = ""
-                try {
-                    $response = [WebRequestHelper]::InvokePostWebRequest($url, $body);
-                    if ([Helpers]::CheckMember($response, "dataProviders") -and $response.dataProviders.'ms.vss-admin-web.security-view-data-provider' -and [Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.security-view-data-provider', "permissionsContextJson")) {
-                        $permissionsContextJson = $response.dataProviders.'ms.vss-admin-web.security-view-data-provider'.permissionsContextJson
-                        $permissionsContextJson = $permissionsContextJson | ConvertFrom-Json
-                        if ($permissionsContextJson.inheritPermissions) {
-                            $failedRepos += $repo.name
-                        }
-                        else {
-                            $passedRepos += $repo.name
-                        }
-                    }
-                    else {
-                        $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch details for repository $($repo.name). Please verify from portal whether inherited permissions is disabled.");
+                    else
+                    {
+                        $passedRepos += $repo.name
                     }
                 }
-                catch {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch details for repository $($repo.name). Please verify from portal whether inherited permissions is disabled. $($_).");
+
+                $failedcount = $failedRepos.Count
+                $passedcount = $passedRepos.Count
+                $passedRepos = $passedRepos | sort-object
+                if($failedcount -gt 0)
+                {
+                    $failedRepos = $failedRepos | sort-object
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Inherited permissions are enabled on the below $($failedcount) repositories:", $failedRepos);
+                    $controlResult.AddMessage("Inherited permissions are disabled on the below $($passedcount) repositories:", $passedRepos);
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Inherited permissions are disabled on all repositories.");
                 }
             }
-            $failedcount = $failedRepos.Count
-            $passedcount = $passedRepos.Count
-            $passedRepos = $passedRepos | sort-object
-            if($failedcount -gt 0){
-                $failedRepos = $failedRepos | sort-object
-                $controlResult.AddMessage([VerificationResult]::Failed, "Inherited permissions are enabled on the below $($failedcount) repositories:", $failedRepos);
-                $controlResult.AddMessage("Inherited permissions are disabled on the below $($passedcount) repositories:", $passedRepos);
-            }
-            else {
-                $controlResult.AddMessage("Inherited permissions are disabled on all repositories.");
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the permission details for repositories in the project: $($_).");
             }
         }
-        catch {
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch list of repositories in the project. $($_).");
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch list of repositories in the project: $($_).");
         }
         return $controlResult
     }
