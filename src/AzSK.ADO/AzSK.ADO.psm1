@@ -224,20 +224,20 @@ function Set-AzSKADOUsageTelemetryLevel {
 function Set-AzSKADOUserPreference {
     <#
 	.SYNOPSIS
-	This command would help to set user preferences for ADO.
+	This command would help to set user preferences for ADO Scanner.
 	.DESCRIPTION
-	This command would help to set user preferences for ADO.
+	This command would help to set user preferences for ADO Scanner.
 	.PARAMETER OutputFolderPath
-    Provide the custom folder path for output files generated from ADO
+    Provide the custom folder path for output files generated from ADO Scanner.
 	.PARAMETER ResetOutputFolderPath
-    Reset the output folder path to default value
+    Reset the output folder path to default value.
 	.LINK
 	https://aka.ms/adoscanner
 	#>
     
     Param
     (
-        [Parameter(Mandatory = $false, HelpMessage = "Provide the custom folder path for output files generated from ADO")]
+        [Parameter(Mandatory = $false, HelpMessage = "Provide the custom folder path for output files generated from ADO Scanner")]
         [string]
 		[Alias("ofp")]
         $OutputFolderPath,
@@ -247,17 +247,6 @@ function Set-AzSKADOUserPreference {
 		[Alias("rofp")]
         $ResetOutputFolderPath
 
-        <#
-        [switch]
-        [Parameter(Mandatory = $true, ParameterSetName = "EnableComplianceStorage", HelpMessage = "Switch to enable storage of compliance report data at subscription.")]
-        [Alias("scus")]
-		$StoreComplianceSummaryInUserSubscriptions,
-
-        [switch]
-        [Parameter(Mandatory = $false, ParameterSetName = "DisableComplianceStorage", HelpMessage = "Switch to disable storage of compliance report data at subscription.")]
-        [Alias("dcsus")]
-		$DisableComplianceSummaryStorageInUserSubscriptions
-        #>
     )
     Begin {
         [CommandHelper]::BeginCommand($PSCmdlet.MyInvocation);
@@ -283,23 +272,14 @@ function Set-AzSKADOUserPreference {
                     [EventBase]::PublishGenericCustomMessage("The specified path does not exist", [MessageType]::Error);
                 }
             }
-            <#
-            if($StoreComplianceSummaryInUserSubscriptions)
-            {
-                $azskSettings.StoreComplianceSummaryInUserSubscriptions = $true;
-            }
-            if($DisableComplianceSummaryStorageInUserSubscriptions)
-            {
-                $azskSettings.StoreComplianceSummaryInUserSubscriptions = $false;
-            }
-            #>
+            
             if($flag)
             {
                 [ConfigurationManager]::UpdateAzSKSettings($azskSettings);
                 [EventBase]::PublishGenericCustomMessage("Successfully set user preference");
             }
             else {
-                [EventBase]::PublishGenericCustomMessage("No changes done for user preference",[MessageType]::Error);
+                [EventBase]::PublishGenericCustomMessage("User preference not updated",[MessageType]::Error);
             }
         }
         catch {
