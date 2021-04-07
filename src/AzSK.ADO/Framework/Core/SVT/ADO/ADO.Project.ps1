@@ -9,6 +9,12 @@ class Project: ADOSVTBase
     {
         $this.Repos = $null
         $this.GetPipelineSettingsObj()
+
+        # getting resource link to send to LAWS.
+        if ($null -ne $svtResource.ResourceDetails.ResourceLink)
+        {
+            $this.ResourceLink = $svtResource.ResourceDetails.ResourceLink
+        }
     }
 
     GetPipelineSettingsObj()

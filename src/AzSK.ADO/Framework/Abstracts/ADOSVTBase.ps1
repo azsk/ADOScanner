@@ -4,6 +4,7 @@ class ADOSVTBase: SVTBase {
 	hidden [AzSKSettings] $AzSKSettings;
 	# below variable will be used by SVT's and overriden for each individual resource.
 	hidden [bool] $isResourceActive = $true;
+	hidden [string] $ResourceLink;
 	# below variable will contains the inactivity period for resources in days.
 	hidden [int] $InactiveFromDays = -1;
 	ADOSVTBase() {
@@ -146,6 +147,7 @@ class ADOSVTBase: SVTBase {
 				# override the default value with current status
 				$currentItem.IsResourceActive = $this.IsResourceActive;
 				$currentItem.InactiveFromDays = $this.InactiveFromDays;
+				$currentItem.ResourceLink = $this.ResourceLink;
 				#Logic to append the control result with the permissions metadata
 				[SessionContext] $sc = $currentItem.CurrentSessionContext;
 				$sc.Permissions.HasAttestationWritePermissions = $this.ControlStateExt.HasControlStateWriteAccessPermissions();
