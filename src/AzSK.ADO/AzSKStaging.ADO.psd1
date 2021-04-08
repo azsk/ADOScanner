@@ -83,7 +83,6 @@
         'Set-AzSKADOWebhookSettings',
         'Set-AzSKADOPrivacyNoticeResponse',
         'Install-AzSKADOMonitoringSolution',
-        'Set-AzSKADOPolicySettings',
         'Install-AzSKADOContinuousAssurance',
         'Update-AzSKADOContinuousAssurance',
         'Get-AzSKADOContinuousAssurance',

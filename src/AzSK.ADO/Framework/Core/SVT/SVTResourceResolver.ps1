@@ -200,7 +200,7 @@ class SVTResourceResolver: AzSKRoot {
             }
         }
         if (-not $this.skipOrgUserControls) {
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::User, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User)) {
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::User, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User)) {
 
                 $link = "https://dev.azure.com/$($this.organizationName)/_settings/users"
                 $this.AddSVTResource($this.organizationName, $null,"ADO.User", "organization/$($organizationId)/user", $null, $link);
@@ -288,7 +288,7 @@ class SVTResourceResolver: AzSKRoot {
                         $this.FetchServiceAssociatedResources($this.serviceId, $projectName);
                     }
 
-                    if ($this.BuildNames.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))) {
+                    if ($this.BuildNames.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))) {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting build configurations...");
                         }
@@ -354,7 +354,7 @@ class SVTResourceResolver: AzSKRoot {
                     {
                         return;
                     }
-                    if ($this.ReleaseNames.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User)))
+                    if ($this.ReleaseNames.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User)))
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting release configurations...");
@@ -417,7 +417,7 @@ class SVTResourceResolver: AzSKRoot {
                     }
 
                     #Note: $topNQueryString is currently not supported in the SvcConn and AgentPool APIs.
-                    if ($this.ServiceConnections.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User)))
+                    if ($this.ServiceConnections.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User)))
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting service endpoint configurations...");
@@ -467,7 +467,7 @@ class SVTResourceResolver: AzSKRoot {
                     {
                         return;
                     }                    
-                    if ($this.AgentPools.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))) 
+                    if ($this.AgentPools.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))) 
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting agent pools configurations...");
@@ -523,7 +523,7 @@ class SVTResourceResolver: AzSKRoot {
                     {
                         return;
                     }
-                    if ($this.VariableGroups.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All)))
+                    if ($this.VariableGroups.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User)))
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting variable group configurations...");
@@ -641,7 +641,7 @@ class SVTResourceResolver: AzSKRoot {
         if ($null -ne $rsrcList)
         {
             $this.isServiceIdBasedScan = $true;
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
             {
                 if ($rsrcList.Builds -and $rsrcList.Builds.Count -gt 0)
                 {
@@ -650,7 +650,7 @@ class SVTResourceResolver: AzSKRoot {
                     $bFoundSvcMappedObjects = $true
                 } 
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
             {
                 if ($rsrcList.Releases -and $rsrcList.Releases.Count -gt 0)
                 {
@@ -659,7 +659,7 @@ class SVTResourceResolver: AzSKRoot {
                     $bFoundSvcMappedObjects = $true
                 }
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
             {
                 if ($rsrcList.ServiceConnections -and $rsrcList.ServiceConnections.Count -gt 0)
                 {
@@ -668,7 +668,7 @@ class SVTResourceResolver: AzSKRoot {
                     $bFoundSvcMappedObjects = $true
                 }
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
             {
                 if ($rsrcList.AgentPools -and $rsrcList.AgentPools.Count -gt 0)
                 {
