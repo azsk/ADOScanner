@@ -14,7 +14,7 @@ class SVTControlAttestation
 	hidden [InvocationInfo] $InvocationContext;
 	hidden [Object] $repoProject = @{};
 	hidden [AzSKSettings] $AzSKSettings;
-	hidden [bool] $enforceApprovedExceptionEnabled = $false
+	hidden [bool] $isApprovedExceptionEnforced = $false
 
 	SVTControlAttestation([SVTEventContext[]] $ctrlResults, [AttestationOptions] $attestationOptions, [OrganizationContext] $organizationContext, [InvocationInfo] $invocationContext)
 	{
@@ -34,7 +34,9 @@ class SVTControlAttestation
 			$this.AzSKSettings = [ConfigurationManager]::GetAzSKSettings();
 		}
 		if ([Helpers]::CheckMember($this.ControlSettings, "EnforceApprovedException") -and ($this.ControlSettings.EnforceApprovedException -eq $true)) {
-			$this.enforceApprovedExceptionEnabled = $true
+            if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings") -and (($this.ControlSettings.ApprovedExceptionSettings.ControlsList | Measure-Object).Count -gt 0)) {
+			    $this.isApprovedExceptionEnforced = $true
+            }
 		}
 	}
 
@@ -163,7 +165,7 @@ class SVTControlAttestation
 				}
 
 				$approvedExceptionControlsList = @()
-				if ($this.enforceApprovedExceptionEnabled) {
+				if ($this.isApprovedExceptionEnforced) {
 					if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings")) {
 						$approvedExceptionControlsList = $this.ControlSettings.ApprovedExceptionSettings.ControlsList
 					}
@@ -173,27 +175,27 @@ class SVTControlAttestation
 				If any enforce approved exception is enabled and control is part of approved exception enabled controls, end user needs to provide exception id and expiry date (default expiry date will be allocated incase user dont enter any expiry date)
 				#>
 				$exceptionApprovalExpiryDate = ""
-				if (($controlState.AttestationStatus -eq [AttestationStatus]::ApprovedException) -or ( $this.enforceApprovedExceptionEnabled -and $approvedExceptionControlsList -contains $controlState.ControlId)) {
+				if (($controlState.AttestationStatus -eq [AttestationStatus]::ApprovedException) -or ( $this.isApprovedExceptionEnforced -and $approvedExceptionControlsList -contains $controlState.ControlId)) {
 					$exceptionId = ""
 					$approvedExceptionExpiryDate = ""
 					# If enforce approved exception is enabled, prompt the user with respective message configured in org policy to fetch the exception id
-					if ($this.enforceApprovedExceptionEnabled) {
-						$promptMessage = ""
+					if ($this.isApprovedExceptionEnforced) {
+						$approvedExceptionPromptMessage = ""
 						if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings")) {
 							if ($controlState.AttestationStatus -eq [AttestationStatus]::ApprovedException) {
 								if (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage)) {
-									$promptMessage = $this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage
+									$approvedExceptionPromptMessage = $this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage
 								}
 							}
 							else {
 								if (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.NonApprovedExceptionPromptMessage)) {
-									$promptMessage = $this.ControlSettings.ApprovedExceptionSettings.NonApprovedExceptionPromptMessage
+									$approvedExceptionPromptMessage = $this.ControlSettings.ApprovedExceptionSettings.NonApprovedExceptionPromptMessage
 								}
 							}
-							if([string]::IsNullOrWhiteSpace($promptMessage)) {
+							if([string]::IsNullOrWhiteSpace($approvedExceptionPromptMessage)) {
 								$promptMessage =  $this.ControlSettings.ApprovedExceptionSettings.DefaultPromptMessage
 							}
-							Write-Host $promptMessage -ForegroundColor Yellow
+							Write-Host $approvedExceptionPromptMessage -ForegroundColor Cyan
 						}
 					}
 					while ([string]::IsNullOrWhiteSpace($exceptionId)) {
@@ -242,7 +244,7 @@ class SVTControlAttestation
 				if($controlState.AttestationStatus -ne [AttestationStatus]::None)
 				{
 					# Justification is not needed when approved exception is enforced
-					if ($controlState.AttestationStatus -ne "ApprovedException" -and -not ($this.enforceApprovedExceptionEnabled -and  $approvedExceptionControlsList -contains $controlState.ControlId)) {
+					if ($controlState.AttestationStatus -ne "ApprovedException" -and -not ($this.isApprovedExceptionEnforced -and  $approvedExceptionControlsList -contains $controlState.ControlId)) {
 						$Justification = ""
 						while([string]::IsNullOrWhiteSpace($Justification))
 						{
@@ -279,7 +281,7 @@ class SVTControlAttestation
 
 				#In case of control exemption, calculating the exception approval(attestation) expiry date beforehand,
 				#based on the days entered by the user (default 6 months)
-				if ($controlState.AttestationStatus -eq [AttestationStatus]::ApprovedException -or ( $this.enforceApprovedExceptionEnabled -and $approvedExceptionControlsList -contains $controlState.ControlId))
+				if ($controlState.AttestationStatus -eq [AttestationStatus]::ApprovedException -or ( $this.isApprovedExceptionEnforced -and $approvedExceptionControlsList -contains $controlState.ControlId))
 				{
 					$controlState.State.ApprovedExceptionID = $this.attestOptions.ApprovedExceptionID
 					$controlState.State.ExpiryDate = $exceptionApprovalExpiryDate.ToString("MM/dd/yyyy");
@@ -433,8 +435,9 @@ class SVTControlAttestation
 			if($null -ne $this.attestOptions -and  (-not [string]::IsNullOrWhiteSpace($this.attestOptions.JustificationText) -or $this.attestOptions.IsBulkClearModeOn))
 			{
 				# if EnforceApprovedException is set to true in  control settings, the controls cannot be attested using bulk attestation mode
-				if ($this.enforceApprovedExceptionEnabled) {
-					write-host "The controls cannot be attested using bulk attest mode as approved exception is enforced in your org policy" -ForegroundColor Red
+				if ($this.isApprovedExceptionEnforced) {
+					write-host "Bulk attestation of controls is disabled for your project." -ForegroundColor Red
+                    write-host "Please attest controls on per-resource basis." -ForegroundColor Yellow
 					break;
 				}
 				$this.bulkAttestMode = $true;
@@ -805,7 +808,7 @@ class SVTControlAttestation
 		    }
 		}
 		$ValidAttestationStatesHashTable = [Constants]::AttestationStatusHashMap.GetEnumerator() | Where-Object { $_.Name -in $ValidAttestationStates } | Sort-Object value
-
+        # Add approved exception to list of valid attestation states if it is not present already.
 		if ($this.attestOptions.IsExemptModeOn -and $ValidAttestationStatesHashTable.Name -notcontains [AttestationStatus]::ApprovedException)
 		{
 			$ValidAttestationStatesHashTable += [Constants]::AttestationStatusHashMap.GetEnumerator() | Where-Object { $_.Name -eq [AttestationStatus]::ApprovedException }

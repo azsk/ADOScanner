@@ -166,7 +166,7 @@ class ADOSVTBase: SVTBase {
 					# Process the state if its available
 					$childResourceState = $controlState | Where-Object { $_.ChildResourceName -eq $currentItem.ChildResourceName } | Select-Object -First 1;
 					if ($childResourceState) {
-						$validateAttestation = $true
+						$validatePreviousAttestation = $true
 						# if EnforceApprovedException is true and controls is not attested with exception id, based on configuration, invalidate the previous attestation
 						if ([Helpers]::CheckMember($this.ControlSettings, "EnforceApprovedException") -and $this.ControlSettings.EnforceApprovedException -eq $true -and (-not [Helpers]::CheckMember($childResourceState.state, "ApprovedExceptionID") -or [string]::IsNullOrWhiteSpace($childResourceState.state.ApprovedExceptionID))) {
 							$attestationExpiryDays = ""
@@ -175,13 +175,14 @@ class ADOSVTBase: SVTBase {
 								$approvedExceptionsControlList = $this.ControlSettings.ApprovedExceptionSettings.ControlsList
 								# verify if the control attested is in the list of approved exception enabled controls
 								if ($approvedExceptionsControlList -contains $controlState.ControlId) {
-									$validateAttestation = $false
-									write-host "Previous attestation for this control will not be respected as it doesn't have an associated approved exception id." -ForegroundColor Yellow
+									$validatePreviousAttestation = $false
+									Write-Host "Previous attestation for this control will not be respected as it doesn't have an associated approved exception id." -ForegroundColor Yellow
 								}
 							}
 						}
 						# Skip passed ones from State Management
-						if ($currentItem.ActualVerificationResult -ne [VerificationResult]::Passed -and $validateAttestation -eq $true) {
+                        # Skip the validation if invalidatePreviousAttestations is enabled to true in control settings
+						if ($currentItem.ActualVerificationResult -ne [VerificationResult]::Passed -and $validatePreviousAttestation -eq $true) {
 							#compare the states
 							if (($childResourceState.ActualVerificationResult -eq $currentItem.ActualVerificationResult) -and $childResourceState.State) {
 
