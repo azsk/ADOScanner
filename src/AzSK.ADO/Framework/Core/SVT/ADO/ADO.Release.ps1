@@ -4,6 +4,10 @@ class Release: ADOSVTBase
 
     hidden [PSObject] $ReleaseObj;
     hidden [string] $ProjectId;
+    hidden static [PSObject] $ReleaseNamespacesObj= $null;
+    hidden static [PSObject] $ReleaseNamespacesPermissionObj= $null;
+    hidden static [PSObject] $TaskGroupNamespacesObj= $null;
+    hidden static [PSObject] $TaskGroupNamespacePermissionObj= $null;
     hidden static [string] $securityNamespaceId = $null;
     hidden static [PSObject] $ReleaseVarNames = @{};
     hidden [PSObject] $releaseActivityDetail = @{isReleaseActive = $true; latestReleaseTriggerDate = $null; releaseCreationDate = $null; message = $null; isComputed = $false};
@@ -21,8 +25,17 @@ class Release: ADOSVTBase
             $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($this.OrganizationContext.OrganizationName)
             $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             [Release]::SecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ReleaseManagement") -and ($_.actions.name -contains "ViewReleaseDefinition")}).namespaceId
-    
-            $securityNamespacesObj = $null;
+            Remove-Variable securityNamespacesObj;
+        }
+
+        if ((-not [string]::IsNullOrEmpty([Release]::SecurityNamespaceId)) -and ($null -eq [Release]::ReleaseNamespacesObj)) {
+            $apiURL = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?includeExtendedInfo=True&recurse=True&api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$([Release]::SecurityNamespaceId)
+            [Release]::ReleaseNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+        }
+        if ((-not [string]::IsNullOrEmpty([Release]::SecurityNamespaceId)) -and ($null -eq [Release]::ReleaseNamespacesPermissionObj)) {
+            #Get permission and its bit for security namespaces
+            $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$([Release]::SecurityNamespaceId)
+            [Release]::ReleaseNamespacesPermissionObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlNamespace);
         }
 
         # if release activity check function is not computed, then first compute the function to get the correct status of release.
@@ -46,6 +59,17 @@ class Release: ADOSVTBase
         if ($null -ne $this.releaseActivityDetail.latestReleaseTriggerDate)
         {
             $this.InactiveFromDays = ((Get-Date) - $this.releaseActivityDetail.latestReleaseTriggerDate).Days
+        }
+
+        if (-not [string]::IsNullOrEmpty([Constants]::TaskGroupSecurityNamespace -and ($null -eq [Release]::TaskGroupNamespacesObj)) ) {
+            #Get acl for taskgroups. Its response contains descriptor of each ado group/user which have permission on the taskgroup
+            $apiUrl = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$([Constants]::TaskGroupSecurityNamespace)
+            [Release]::TaskGroupNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrl);
+        }
+        if (-not [string]::IsNullOrEmpty([Constants]::TaskGroupSecurityNamespace -and ($null -eq [Release]::TaskGroupNamespacePermissionObj)) ) {
+            #Get permission and its bit for security namespaces
+            $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$([Constants]::TaskGroupSecurityNamespace)
+            [Release]::TaskGroupNamespacePermissionObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlNamespace);
         }
     }
 
@@ -335,21 +359,30 @@ class Release: ADOSVTBase
 
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult)
     {
-        # Here 'permissionSet' = security namespace identifier, 'token' = project id
-        $apiURL = "https://dev.azure.com/{0}/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&style=min" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $([Release]::SecurityNamespaceId), $($this.ProjectId), $($this.ReleaseObj.id);
-        $header = [WebRequestHelper]::GetAuthHeaderFromUri($apiURL);
-        $responseObj = Invoke-RestMethod -Method Get -Uri $apiURL -Headers $header -UseBasicParsing
-        $responseObj = ($responseObj.SelectNodes("//script") | Where-Object { $_.class -eq "permissions-context" }).InnerXML | ConvertFrom-Json; 
-        if($responseObj.inheritPermissions -eq $true)
+        if($null -ne [Release]::ReleaseNamespacesObj -and [Helpers]::CheckMember([Release]::ReleaseNamespacesObj,"token"))
         {
-            $controlResult.AddMessage([VerificationResult]::Failed,"Inherited permissions are enabled on release pipeline.");
+            $releaseId = $this.ReleaseObj.id
+            $resource = $this.projectid+ "/" + $releaseId
+            $obj = [Release]::ReleaseNamespacesObj | where-object {$_.token -eq $resource}  
+    
+            if(($obj | Measure-Object).Count -eq 0)
+            {
+                $obj = [Release]::ReleaseNamespacesObj | where-object {$_.token -eq $this.projectid}  
+            }
+
+            if((($obj | Measure-Object).Count -gt 0) -and $obj.inheritPermissions -eq $false)
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed,"Inherited permissions are disabled on release pipeline.");
+            }
+            else 
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed,"Inherited permissions are enabled on release pipeline.");
+            }
         }
-        else 
+        else
         {
-            $controlResult.AddMessage([VerificationResult]::Passed,"Inherited permissions are disabled on release pipeline.");
+            $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch release pipeline details. $($_). Please verify from portal that permission inheritance is turned OFF.");
         }
-        $header = $null;
-        $responseObj = $null;
         return $controlResult
     }
 
@@ -683,6 +716,7 @@ class Release: ADOSVTBase
     hidden [ControlResult] CheckTaskGroupEditPermission([ControlResult] $controlResult)
     {
         $taskGroups = @();
+        $projectName = $this.ResourceContext.ResourceGroupName
 
         #fetch all envs of pipeline.
         $releaseEnv = $this.ReleaseObj[0].environments
@@ -704,89 +738,32 @@ class Release: ADOSVTBase
         
         if(($taskGroups | Measure-Object).Count -gt 0)
         {   
-            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName)
-            $projectName = $this.ResourceContext.ResourceGroupName
-            
             try
             {
                 $taskGroups | ForEach-Object {
                     $taskGrpId = $_.taskId
-                    $taskGrpURL="https://dev.azure.com/{0}/{1}/_taskgroup/{2}" -f $($this.OrganizationContext.OrganizationName), $($projectName), $($taskGrpId)
-                    $permissionSetToken = "$($this.projectId)/$taskGrpId"
-                    
-                    #permissionSetId = 'f6a4de49-dbe2-4704-86dc-f8ec1a294436' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
-                    $inputbody = "{
-                        'contributionIds': [
-                            'ms.vss-admin-web.security-view-members-data-provider'
-                        ],
-                        'dataProviderContext': {
-                            'properties': {
-                                'permissionSetId': 'f6a4de49-dbe2-4704-86dc-f8ec1a294436',
-                                'permissionSetToken': '$permissionSetToken',
-                                'sourcePage': {
-                                    'url': '$taskGrpURL',
-                                    'routeId':'ms.vss-distributed-task.hub-task-group-edit-route',
-                                    'routeValues': {
-                                        'project': '$projectName',
-                                        'taskGroupId': '$taskGrpId',
-                                        'controller':'Apps',
-                                        'action':'ContributedHub',
-                                        'viewname':'task-groups-edit'
-                                    }
-                                }
-                            }
-                        }
-                    }" | ConvertFrom-Json
+                    $permissionsInBit = 0
 
-                    # This web request is made to fetch all identities having access to task group - it will contain descriptor for each of them. 
-                    # We need contributor's descriptor to fetch its permissions on task group.
-                    $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+                    #Get acl for your taskgroup
+                    $resource = $this.projectid  + "/" + $taskGrpId
+                    $obj = [Release]::TaskGroupNamespacesObj | where-object {$_.token -eq $resource}  
+                    $properties = $obj.acesDictionary | Get-Member -MemberType Properties
 
-                    #Filtering out Contributors group.
-                    if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
-                    {
-
-                        $contributorObj = $responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object {$_.subjectKind -eq 'group' -and $_.principalName -eq "[$projectName]\Contributors"}
-                        # $contributorObj would be null if none of its permissions are set i.e. all perms are 'Not Set'.
-                        if($contributorObj)
+                    #Use descriptors from acl to make identities call, using each descriptor see permissions mapped to Contributors
+                    $properties | ForEach-Object{
+                        $apiUrlIdentity = "https://vssps.dev.azure.com/{0}/_apis/identities?descriptors={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($obj.acesDictionary.$($_.Name).descriptor)
+                        $responseObjot = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
+                        if ($responseObjot.providerDisplayName -eq "[$($projectName)]\Contributors")
                         {
-                            $contributorInputbody = "{
-                                'contributionIds': [
-                                    'ms.vss-admin-web.security-view-permissions-data-provider'
-                                ],
-                                'dataProviderContext': {
-                                    'properties': {
-                                        'subjectDescriptor': '$($contributorObj.descriptor)',
-                                        'permissionSetId': 'f6a4de49-dbe2-4704-86dc-f8ec1a294436',
-                                        'permissionSetToken': '$permissionSetToken',
-                                        'accountName': '$(($contributorObj.principalName).Replace('\','\\'))',
-                                        'sourcePage': {
-                                            'url': '$taskGrpURL',
-                                            'routeId':'ms.vss-distributed-task.hub-task-group-edit-route',
-                                            'routeValues': {
-                                                'project': '$projectName',
-                                                'taskGroupId': '$taskGrpId',
-                                                'controller':'Apps',
-                                                'action':'ContributedHub',
-                                                'viewname':'task-groups-edit'
-                                            }
-                                        }
-                                    }
-                                }
-                            }" | ConvertFrom-Json
-                        
-                            #Web request to fetch RBAC permissions of Contributors group on task group.
-                            $contributorResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$contributorInputbody);
-                            $contributorRBACObj = $contributorResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
-                            $editPerms = $contributorRBACObj | Where-Object {$_.displayName -eq 'Edit task group'}
-                            #effectivePermissionValue equals to 1 implies edit task group perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
-                            if([Helpers]::CheckMember($editPerms,"effectivePermissionValue") -and (($editPerms.effectivePermissionValue -eq 1) -or ($editPerms.effectivePermissionValue -eq 3)))
-                            {
-                                $editableTaskGroups += $_.name
-                            }
+                            $permissionsInBit = $obj.acesDictionary.$($_.Name).allow
                         }
                     }
+                    $obj = [Helpers]::ResolvePermissions($permissionsInBit, [Release]::TaskGroupNamespacePermissionObj.actions, 'Edit task group')
+                    if (($obj | Measure-Object).Count -gt 0){
+                        $editableTaskGroups += $_.name
+                    }
                 }
+
                 if(($editableTaskGroups | Measure-Object).Count -gt 0)
                 {
                     $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", ($editableTaskGroups | Measure-Object).Count);
@@ -885,104 +862,54 @@ class Release: ADOSVTBase
     hidden [ControlResult] CheckPipelineEditPermission([ControlResult] $controlResult)
     {
 
-        $orgName = $($this.OrganizationContext.OrganizationName)
+        #$orgName = $($this.OrganizationContext.OrganizationName)
         $projectName = $this.ResourceContext.ResourceGroupName
         $releaseId = $this.ReleaseObj.id
-        $permissionSetToken = "$($this.projectId)/$releaseId"
-        $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release?_a=releases&view=mine&definitionId=$releaseId"
-        
-        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $($this.projectId)
-        $inputbody = "{
-            'contributionIds': [
-                'ms.vss-admin-web.security-view-members-data-provider'
-            ],
-            'dataProviderContext': {
-                'properties': {
-                    'permissionSetId': '$([Release]::SecurityNamespaceId)',
-                    'permissionSetToken': '$permissionSetToken',
-                    'sourcePage': {
-                        'url': '$releaseURL',
-                        'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
-                        'routeValues': {
-                            'project': '$projectName',
-                            'viewname': 'details',
-                            'controller': 'ContributedPage',
-                            'action': 'Execute'
+        $resource = $this.projectid+ "/" + $releaseId
+        $obj = [Release]::ReleaseNamespacesObj | where-object {$_.token -eq $resource}  
+
+        if(($obj | Measure-Object).Count -eq 0)
+        {
+            $obj = [Release]::ReleaseNamespacesObj | where-object {$_.token -eq $this.projectid}  
+        }
+
+        if(($obj | Measure-Object).Count -gt 0)
+        {
+            $properties = $obj.acesDictionary | Get-Member -MemberType Properties
+            $permissionsInBit =0
+            $editPerms= @()
+
+            try
+            {
+                #Use descriptors from acl to make identities call, using each descriptor see permissions mapped to Contributors
+                $properties | ForEach-Object{
+                    if ($permissionsInBit -eq 0) {
+                        $apiUrlIdentity = "https://vssps.dev.azure.com/{0}/_apis/identities?descriptors={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($obj.acesDictionary.$($_.Name).descriptor)
+                        $responseObjot = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
+                        if ($responseObjot.providerDisplayName -eq "[$($projectName)]\Contributors")
+                        {
+                            $permissionsInBit = $obj.acesDictionary.$($_.Name).extendedInfo.effectiveAllow
                         }
                     }
                 }
-            }
-        }" | ConvertFrom-Json
+                    
+                $editPerms = [Helpers]::ResolvePermissions($permissionsInBit, [Release]::ReleaseNamespacesPermissionObj.actions, 'Edit release pipeline')
 
-        try
-        {
-            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
-            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
-            {
-    
-                $contributorObj = $responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object {$_.subjectKind -eq 'group' -and $_.principalName -eq "[$projectName]\Contributors"}
-                # $contributorObj would be null if none of its permissions are set i.e. all perms are 'Not Set'.
-
-                if($contributorObj)
+                if(($editPerms | Measure-Object).Count -gt 0)
                 {
-                    $contributorInputbody = "{
-                        'contributionIds': [
-                            'ms.vss-admin-web.security-view-permissions-data-provider'
-                        ],
-                        'dataProviderContext': {
-                            'properties': {
-                                'subjectDescriptor': '$($contributorObj.descriptor)',
-                                'permissionSetId': '$([Release]::SecurityNamespaceId)',
-                                'permissionSetToken': '$permissionSetToken',
-                                'accountName': '$(($contributorObj.principalName).Replace('\','\\'))',
-                                'sourcePage': {
-                                    'url': '$releaseURL',
-                                    'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
-                                    'routeValues': {
-                                        'project': '$projectName',
-                                        'viewname': 'details',
-                                        'controller': 'ContributedPage',
-                                        'action': 'Execute'
-                                    }
-                                }
-                            }
-                        }
-                    }" | ConvertFrom-Json
-                
-                    #Web request to fetch RBAC permissions of Contributors group on task group.
-                    $contributorResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$contributorInputbody);
-                    $contributorRBACObj = $contributorResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
-                    $editPerms = $contributorRBACObj | Where-Object {$_.displayName -eq 'Edit release pipeline'}
-                   
-                    if([Helpers]::CheckMember($editPerms,"effectivePermissionValue"))
-                    {
-                        #effectivePermissionValue equals to 1 implies edit release pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
-                        if(($editPerms.effectivePermissionValue -eq 1) -or ($editPerms.effectivePermissionValue -eq 3))
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the release pipeline.");
-                        }
-                        else 
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the release pipeline.");    
-                        }   
-                    }
-                    else 
-                    {
-                        $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the release pipeline.");
-                    }
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the release pipeline.");
                 }
                 else 
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have access to the release pipeline.");
-                }
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the release pipeline.");    
+                }   
             }
-            else 
+            catch
             {
                 $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
             }
         }
-        catch
-        {
+        else {
             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
         }
 
@@ -995,77 +922,38 @@ class Release: ADOSVTBase
         {
             if($this.ReleaseObj)
             {
-                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$this.ProjectId;
-                $inputbody =  "{
-                    'contributionIds': [
-                        'ms.vss-releaseManagement-web.releases-list-data-provider'
-                    ],
-                    'dataProviderContext': {
-                        'properties': {
-                            'definitionIds': '$($this.ReleaseObj.id)',
-                            'definitionId': '$($this.ReleaseObj.id)',
-                            'fetchAllReleases': true,
-                            'sourcePage': {
-                                'url': 'https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceGroupName)/_release?_a=releases&view=mine&definitionId=$($this.ReleaseObj.id)',
-                                'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
-                                'routeValues': {
-                                    'project': '$($this.ResourceContext.ResourceGroupName)',
-                                    'viewname': 'hub-explorer-3-view',
-                                    'controller': 'ContributedPage',
-                                    'action': 'Execute'
-                                }
-                            }
-                        }
-                    }
-                }"  | ConvertFrom-Json 
 
-            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
-
-            if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider')
-            {
-
-                $releases = $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider'.releases
-
-                if(($releases | Measure-Object).Count -gt 0 )
+                if([Helpers]::CheckMember($this.ReleaseObj ,"lastrelease"))
                 {
+                    $release = $this.ReleaseObj.lastrelease
                     $recentReleases = @()
-                    $releases | ForEach-Object { 
-                        if([datetime]::Parse( $_.createdOn) -gt (Get-Date).AddDays(-$($this.ControlSettings.Release.ReleaseHistoryPeriodInDays)))
-                        {
-                            $recentReleases+=$_
-                        }
+
+                    if([datetime]::Parse( $release.createdOn) -gt (Get-Date).AddDays(-$($this.ControlSettings.Release.ReleaseHistoryPeriodInDays)))
+                    {
+                        $recentReleases = $release
                     }
                     
                     if(($recentReleases | Measure-Object).Count -gt 0 )
                     {
                         $this.releaseActivityDetail.isReleaseActive = $true;
                         $this.releaseActivityDetail.message = "Found recent releases triggered within $($this.ControlSettings.Release.ReleaseHistoryPeriodInDays) days";
+                        $latestReleaseTriggerDate = [datetime]::Parse($recentReleases.createdOn);
+                        $this.releaseActivityDetail.latestReleaseTriggerDate = $latestReleaseTriggerDate;
+
                     }
                     else
                     {
                         $this.releaseActivityDetail.isReleaseActive = $false;
                         $this.releaseActivityDetail.message = "No recent release history found in last $($this.ControlSettings.Release.ReleaseHistoryPeriodInDays) days";
                     }
-                    $latestReleaseTriggerDate = [datetime]::Parse($releases[0].createdOn);
-                    $this.releaseActivityDetail.latestReleaseTriggerDate = $latestReleaseTriggerDate;
                 }
                 else
                 {
-                    # no release history ever.
                     $this.releaseActivityDetail.isReleaseActive = $false;
-                    [datetime] $createdDate = $this.ReleaseObj.createdOn
-                    $this.releaseActivityDetail.releaseCreationDate = $createdDate
-                    $this.releaseActivityDetail.message = "No release history found.";
+                    $this.releaseActivityDetail.message = "No release history found. Release is inactive.";
                 }
-            
-            }
-            else
-            {
-                $this.releaseActivityDetail.isReleaseActive = $false;
-                $this.releaseActivityDetail.message = "No release history found. Release is inactive.";
-            }
 
-            $responseObj = $null;
+                $responseObj = $null;
             }
         }
         catch

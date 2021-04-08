@@ -95,7 +95,9 @@ class Constants
 			[AttestationStatus]::NotApplicable	="5";
 			[AttestationStatus]::StateConfirmed ="6";
 			
-	}
+    }
+	static [string] $TaskGroupSecurityNamespace = "f6a4de49-dbe2-4704-86dc-f8ec1a294436";
+    
 	#This is the number of hex-chars used for attestation hash index entries (and file names).
 	static [int] $AttestationHashLen = 12;
 

@@ -4,7 +4,6 @@ class ServiceConnection: ADOSVTBase
     hidden [PSObject] $ServiceEndpointsObj = $null;
     hidden static [string] $SecurityNamespaceId = $null;
     hidden [PSObject] $ProjectId;
-    hidden [PSObject] $ServiceConnEndPointDetail = $null;
     hidden [PSObject] $pipelinePermission = $null;
     hidden [PSObject] $serviceEndPointIdentity = $null;
     hidden [PSObject] $SvcConnActivityDetail = @{isSvcConnActive = $true; svcConnLastRunDate = $null; message = $null; isComputed = $false};
@@ -31,22 +30,6 @@ class ServiceConnection: ADOSVTBase
             throw [SuppressedException] "Unable to find active service connection(s) under [$($this.ResourceContext.ResourceGroupName)] project."
         }
 
-        try {
-            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName)
-            $sourcePageUrl = "https://dev.azure.com/{0}/{1}/_settings/adminservices" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.ResourceGroupName;
-            $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($this.ServiceEndpointsObj.id)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ResourceContext.ResourceGroupName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-    
-            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody); 
-            if([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider")
-            {
-                $this.ServiceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
-            }
-        }
-        catch {
-            
-        }
-
-        
         # if service connection activity check function is not computed, then first compute the function to get the correct status of service connection.
         if($this.SvcConnActivityDetail.isComputed -eq $false)
         {
@@ -102,10 +85,10 @@ class ServiceConnection: ADOSVTBase
         if ($this.ServiceEndpointsObj.type -eq "azurerm") 
         {
             try {
-                if($this.ServiceConnEndPointDetail -and [Helpers]::CheckMember($this.ServiceConnEndPointDetail, "serviceEndpoint") ) 
+                if([Helpers]::CheckMember($this.ServiceEndpointsObj, "data") ) 
                 {
                     $message = "Service connection has access at [{0}] {1} scope in the subscription [{2}] .";
-                    $serviceEndPoint = $this.ServiceConnEndPointDetail.serviceEndpoint
+                    $serviceEndPoint = $this.ServiceEndpointsObj
                     # 'scopeLevel' and 'creationMode' properties are required to determine whether a svc conn is automatic or manual.
                     # irrespective of creationMode - pass the control for conn authorized at MLWorkspace and PublishProfile (app service) scope as such conn are granted access at resource level.
                     if(([Helpers]::CheckMember($serviceEndPoint, "data.scopeLevel") -and ([Helpers]::CheckMember($serviceEndPoint.data, "creationMode")) ))
@@ -113,7 +96,7 @@ class ServiceConnection: ADOSVTBase
                         #If Service connection creation mode is 'automatic' and scopeLevel is subscription and no resource group is defined in its access definition -> conn has subscription level access -> fail the control, 
                         #else pass the control if scopeLevel is 'Subscription' and 'scope' is RG  (note scope property is visible, only if conn is authorized to an RG)
                         #Fail the control if it has access to management group (last condition)
-                        if(($serviceEndPoint.data.scopeLevel -eq "Subscription" -and $serviceEndPoint.data.creationMode -eq "Automatic" -and !([Helpers]::CheckMember($serviceEndPoint.authorization.parameters,"scope") )) -or ($serviceEndPoint.data.scopeLevel -eq "ManagementGroup"))
+                        if(($serviceEndPoint.data.scopeLevel -eq "Subscription" -and $serviceEndPoint.data.creationMode -eq "Automatic" -and !([Helpers]::CheckMember($serviceEndPoint.authorization,"parameters.scope") )) -or ($serviceEndPoint.data.scopeLevel -eq "ManagementGroup"))
                         {
                             $controlFailedMsg = '';
                             if ($serviceEndPoint.data.scopeLevel -eq "Subscription") {
@@ -481,10 +464,10 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckCrossProjectSharing([ControlResult] $controlResult)
 	{  
-        if($this.ServiceConnEndPointDetail -and [Helpers]::CheckMember($this.ServiceConnEndPointDetail, "serviceEndpoint") ) 
+        if($this.serviceendpointsobj -and [Helpers]::CheckMember($this.serviceendpointsobj, "serviceEndpointProjectReferences") ) 
         {
             #Get the project list which are accessible to the service connection. 
-            $svcProjectReferences = $this.ServiceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences
+            $svcProjectReferences = $this.serviceendpointsobj.serviceEndpointProjectReferences
             if (($svcProjectReferences | Measure-Object).Count -gt 1) 
             {
                 $stateData = @();
@@ -592,14 +575,16 @@ class ServiceConnection: ADOSVTBase
     {
         try
         {
-
-            if ($this.ServiceConnEndPointDetail -and [Helpers]::CheckMember($this.ServiceConnEndPointDetail, "serviceEndpointExecutionHistory") ) 
+            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/{2}/executionhistory?top=1&api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceGroupName), $($this.serviceendpointsobj.id);
+            $serviceEndpointExecutionHistory = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            
+            if (($serviceEndpointExecutionHistory | Measure-Object).Count -gt 0 -and ([Helpers]::CheckMember($serviceEndpointExecutionHistory[0],"data"))) 
             {
                 #if this job is still running then finishTime is not available. pass the control
-                if ([Helpers]::CheckMember($this.ServiceConnEndPointDetail.serviceEndpointExecutionHistory[0].data, "finishTime")) 
+                if ([Helpers]::CheckMember($serviceEndpointExecutionHistory[0].data, "finishTime")) 
                 {
                     #Get the last known usage (job) timestamp of the service connection
-                    $svcLastRunDate = $this.ServiceConnEndPointDetail.serviceEndpointExecutionHistory[0].data.finishTime;
+                    $svcLastRunDate = $serviceEndpointExecutionHistory[0].data.finishTime;
                     
                     #format date
                     $formatLastRunTimeSpan = New-TimeSpan -Start (Get-Date $svcLastRunDate)

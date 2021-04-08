@@ -3,22 +3,40 @@ class Build: ADOSVTBase
 {    
 
     hidden [PSObject] $BuildObj;
+    hidden static [PSObject] $BuildNamespacesObj = $null;
+    hidden static [PSObject] $BuildNamespacesPermissionObj = $null;
+    hidden static [PSObject] $TaskGroupNamespacesObj = $null;
+    hidden static [PSObject] $TaskGroupNamespacePermissionObj = $null;
     hidden static [string] $SecurityNamespaceId = $null;
     hidden static [PSObject] $BuildVarNames = @{};
     hidden [PSObject] $buildActivityDetail = @{isBuildActive = $true; buildLastRunDate = $null; buildCreationDate = $null; message = $null; isComputed = $false};
     
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
+        [system.gc]::Collect();
+
         # Get security namespace identifier of current build.
         if ([string]::IsNullOrEmpty([Build]::SecurityNamespaceId) ) {
             $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($this.OrganizationContext.OrganizationName)
             $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             [Build]::SecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "Build") -and ($_.actions.name -contains "ViewBuilds")}).namespaceId
+            Remove-Variable securityNamespacesObj;
         }
+
+        if ((-not [string]::IsNullOrEmpty([Build]::SecurityNamespaceId)) -and ($null -eq [Build]::BuildNamespacesObj)) {
+            $apiURL = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?includeExtendedInfo=True&recurse=True&api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$([Build]::SecurityNamespaceId)
+            [Build]::BuildNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+        }
+        if ((-not [string]::IsNullOrEmpty([Build]::SecurityNamespaceId)) -and ($null -eq [Build]::BuildNamespacesPermissionObj)) {
+            #Get permission and its bit for security namespaces
+            $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$([Build]::SecurityNamespaceId)
+            [Build]::BuildNamespacesPermissionObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlNamespace);
+        }
+
         $buildId = $this.ResourceContext.ResourceDetails.id
         $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
         # Get build object
-        $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$projectId/_apis/build/Definitions/$($buildId)?api-version=6.0";
+        $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$projectId/_apis/build/Definitions/$($buildId)?includeAllProperties=True&includeLatestBuilds=True&api-version=6.0";
         $this.BuildObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
         if(($this.BuildObj | Measure-Object).Count -eq 0)
@@ -47,6 +65,18 @@ class Build: ADOSVTBase
         if ($null -ne $this.buildActivityDetail.buildLastRunDate)
         {
             $this.InactiveFromDays = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
+        }
+
+        if (-not [string]::IsNullOrEmpty([Constants]::TaskGroupSecurityNamespace) -and ($null -eq [Build]::TaskGroupNamespacesObj) ) {
+            #Get acl for taskgroups. Its response contains descriptor of each ado group/user which have permission on the taskgroup
+            $apiUrl = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?includeExtendedInfo=True&api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$([Constants]::TaskGroupSecurityNamespace)
+            [Build]::TaskGroupNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrl);
+        }
+
+        if (-not [string]::IsNullOrEmpty([Build]::SecurityNamespaceId) -and ($null -eq [Build]::TaskGroupNamespacePermissionObj)) {
+            #Get permission and its bit for security namespaces
+            $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$([Constants]::TaskGroupSecurityNamespace)
+            [Build]::TaskGroupNamespacePermissionObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlNamespace);
         }
     }
 
@@ -280,51 +310,28 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult)
     {
-        try
+        if($null -ne [Build]::BuildNamespacesObj -and [Helpers]::CheckMember([Build]::BuildNamespacesObj,"token"))
         {
-            if([Build]::SecurityNamespaceId -and $this.BuildObj.project.id)
+            $resource = $this.BuildObj.project.id+ "/" + $this.BuildObj.Id
+            $obj = [Build]::BuildNamespacesObj | where-object {$_.token -eq $resource}  
+            if(($obj | Measure-Object).Count -eq 0)
             {
-                # Here 'permissionSet' = security namespace identifier, 'token' = project id and 'tokenDisplayVal' = build name
-                $apiURL = "https://dev.azure.com/{0}/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&tokenDisplayVal={5}&style=min" -f $($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($this.BuildObj.id), $($this.BuildObj.name) ;
+                $obj = [Build]::BuildNamespacesObj | where-object {$_.token -eq $this.BuildObj.project.id}  
+            }
 
-                $sw = [System.Diagnostics.Stopwatch]::StartNew();
-                $header = [WebRequestHelper]::GetAuthHeaderFromUri($apiURL);
-                $responseObj = Invoke-RestMethod -Method Get -Uri $apiURL -Headers $header -UseBasicParsing
-                $sw.Stop()
-
-                #Below code added to send perf telemtry
-                if ($this.IsAIEnabled)
-                {
-                    $properties =  @{ 
-                        TimeTakenInMs = $sw.ElapsedMilliseconds;
-                        ApiUrl = $apiURL; 
-                        Resourcename = $this.ResourceContext.ResourceName;
-                        ResourceType = $this.ResourceContext.ResourceType;
-                        PartialScanIdentifier = $this.PartialScanIdentifier;
-                        CalledBy = "CheckInheritedPermissions";
-                    }
-                    [AIOrgTelemetryHelper]::PublishEvent( "Api Call Trace",$properties, @{})
-                }
-                
-                $responseObj = ($responseObj.SelectNodes("//script") | Where-Object { $_.class -eq "permissions-context" }).InnerXML | ConvertFrom-Json; 
-                if($responseObj -and [Helpers]::CheckMember($responseObj,"inheritPermissions") -and $responseObj.inheritPermissions -eq $true)
-                {
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Inherited permissions are enabled on build pipeline.");
-                }
-                else 
-                {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Inherited permissions are disabled on build pipeline.");    
-                }
-                $header = $null;
-                $responseObj = $null;
-                
+            if((($obj | Measure-Object).Count -gt 0) -and $obj.inheritPermissions -eq $false)
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed,"Inherited permissions are disabled on build pipeline.");    
+            }
+            else 
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed,"Inherited permissions are enabled on build pipeline.");
             }
         }
-        catch
+        else
         {
             $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch build pipeline details. $($_). Please verify from portal that permission inheritance is turned OFF.");
         }
-
         return $controlResult
     }
 
@@ -570,90 +577,33 @@ class Build: ADOSVTBase
                 $taskGroups += $this.BuildObj[0].process.phases[0].steps | Where-Object {$_.task.definitiontype -eq 'metaTask'}
             }
             $editableTaskGroups = @();
-            if(($taskGroups | Measure-Object).Count -gt 0)
+            if(($taskGroups | Measure-Object).Count -gt 0  -and ([Build]::TaskGroupNamespacesObj | Measure-Object).Count -gt 0 -and ([Build]::TaskGroupNamespacePermissionObj | Measure-Object).Count -gt 0 )
             {   
-                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName)
-                $projectId = $this.BuildObj.project.id
-                $projectName = $this.BuildObj.project.name
-                
                 try
                 {
                     $taskGroups | ForEach-Object {
                         $taskGrpId = $_.task.id
-                        $taskGrpURL="https://dev.azure.com/{0}/{1}/_taskgroup/{2}" -f $($this.OrganizationContext.OrganizationName), $($projectName), $($taskGrpId)
-                        $permissionSetToken = "$projectId/$taskGrpId"
-                        
-                        #permissionSetId = 'f6a4de49-dbe2-4704-86dc-f8ec1a294436' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
-                        $inputbody = "{
-                            'contributionIds': [
-                                'ms.vss-admin-web.security-view-members-data-provider'
-                            ],
-                            'dataProviderContext': {
-                                'properties': {
-                                    'permissionSetId': 'f6a4de49-dbe2-4704-86dc-f8ec1a294436',
-                                    'permissionSetToken': '$permissionSetToken',
-                                    'sourcePage': {
-                                        'url': '$taskGrpURL',
-                                        'routeId':'ms.vss-distributed-task.hub-task-group-edit-route',
-                                        'routeValues': {
-                                            'project': '$projectName',
-                                            'taskGroupId': '$taskGrpId',
-                                            'controller':'Apps',
-                                            'action':'ContributedHub',
-                                            'viewname':'task-groups-edit'
-                                        }
-                                    }
-                                }
-                            }
-                        }" | ConvertFrom-Json
+                        $permissionsInBit = 0
 
-                        # This web request is made to fetch all identities having access to task group - it will contain descriptor for each of them. 
-                        # We need contributor's descriptor to fetch its permissions on task group.
-                        $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+                        #Get acl for your taskgroup
+                        $resource = $this.BuildObj.project.id+ "/" + $taskGrpId
+                        $obj = [Build]::TaskGroupNamespacesObj | where-object {$_.token -eq $resource}  
+                        $properties = $obj.acesDictionary | Get-Member -MemberType Properties
 
-                        #Filtering out Contributors group.
-                        if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
-                        {
-
-                            $contributorObj = $responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object {$_.subjectKind -eq 'group' -and $_.principalName -eq "[$projectName]\Contributors"}
-                            # $contributorObj would be null if none of its permissions are set i.e. all perms are 'Not Set'.
-                            if($contributorObj)
+                        #Use descriptors from acl to make identities call, using each descriptor see permissions mapped to Contributors
+                        $properties | ForEach-Object{
+                            $apiUrlIdentity = "https://vssps.dev.azure.com/{0}/_apis/identities?descriptors={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($obj.acesDictionary.$($_.Name).descriptor)
+                            $responseObjot = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
+                            if ($responseObjot.providerDisplayName -eq "[$($this.BuildObj.project.name)]\Contributors")
                             {
-                                $contributorInputbody = "{
-                                    'contributionIds': [
-                                        'ms.vss-admin-web.security-view-permissions-data-provider'
-                                    ],
-                                    'dataProviderContext': {
-                                        'properties': {
-                                            'subjectDescriptor': '$($contributorObj.descriptor)',
-                                            'permissionSetId': 'f6a4de49-dbe2-4704-86dc-f8ec1a294436',
-                                            'permissionSetToken': '$permissionSetToken',
-                                            'accountName': '$(($contributorObj.principalName).Replace('\','\\'))',
-                                            'sourcePage': {
-                                                'url': '$taskGrpURL',
-                                                'routeId':'ms.vss-distributed-task.hub-task-group-edit-route',
-                                                'routeValues': {
-                                                    'project': '$projectName',
-                                                    'taskGroupId': '$taskGrpId',
-                                                    'controller':'Apps',
-                                                    'action':'ContributedHub',
-                                                    'viewname':'task-groups-edit'
-                                                }
-                                            }
-                                        }
-                                    }
-                                }" | ConvertFrom-Json
-                            
-                                #Web request to fetch RBAC permissions of Contributors group on task group.
-                                $contributorResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$contributorInputbody);
-                                $contributorRBACObj = $contributorResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
-                                $editPerms = $contributorRBACObj | Where-Object {$_.displayName -eq 'Edit task group'}
-                                #effectivePermissionValue equals to 1 implies edit task group perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
-                                if([Helpers]::CheckMember($editPerms,"effectivePermissionValue") -and (($editPerms.effectivePermissionValue -eq 1) -or ($editPerms.effectivePermissionValue -eq 3)))
-                                {
-                                    $editableTaskGroups += $_.displayName
-                                }
+                                $permissionsInBit = $obj.acesDictionary.$($_.Name).allow
                             }
+                        }
+
+                        $obj = [Helpers]::ResolvePermissions($permissionsInBit, [Build]::TaskGroupNamespacePermissionObj.actions, 'Edit task group')
+                        
+                        if (($obj | Measure-Object).Count -gt 0){
+                            $editableTaskGroups += $_.DisplayName
                         }
                     }
                     if(($editableTaskGroups | Measure-Object).Count -gt 0)
@@ -692,6 +642,7 @@ class Build: ADOSVTBase
         }
         return $controlResult;
     }
+    
     
     hidden [ControlResult] CheckVariableGroupEditPermission([ControlResult] $controlResult)
     {
@@ -763,106 +714,53 @@ class Build: ADOSVTBase
     }
     hidden [ControlResult] CheckPipelineEditPermission([ControlResult] $controlResult)
     {
+        #Get acl for your taskgroup
+        $resource = $this.BuildObj.project.id+ "/" + $this.BuildObj.Id
+        $obj = [Build]::BuildNamespacesObj | where-object {$_.token -eq $resource}  
 
-        $orgName = $($this.OrganizationContext.OrganizationName)
-        $projectId = $this.BuildObj.project.id
-        $projectName = $this.BuildObj.project.name
-        $buildId = $this.BuildObj.id
-        $permissionSetToken = "$projectId/$buildId"
-        $buildURL = "https://dev.azure.com/$orgName/$projectName/_build?definitionId=$buildId"
+        if(($obj | Measure-Object).Count -eq 0)
+        {
+            $obj = [Build]::BuildNamespacesObj | where-object {$_.token -eq $this.BuildObj.project.id}  
+        }
+
+        if(($obj | Measure-Object).Count -gt 0)
+        {
+            $properties = $obj.acesDictionary | Get-Member -MemberType Properties
+            $permissionsInBit =0
+            $editPerms= @();
         
-        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
-        $inputbody = "{
-            'contributionIds': [
-                'ms.vss-admin-web.security-view-members-data-provider'
-            ],
-            'dataProviderContext': {
-                'properties': {
-                    'permissionSetId': '$([Build]::SecurityNamespaceId)',
-                    'permissionSetToken': '$permissionSetToken',
-                    'sourcePage': {
-                        'url': '$buildURL',
-                        'routeId': 'ms.vss-build-web.pipeline-details-route',
-                        'routeValues': {
-                            'project': '$projectName',
-                            'viewname': 'details',
-                            'controller': 'ContributedPage',
-                            'action': 'Execute'
+            try
+            {
+                #Use descriptors from acl to make identities call, using each descriptor see permissions mapped to Contributors
+                $properties | ForEach-Object{
+                    if ($permissionsInBit -eq 0) {
+                        $apiUrlIdentity = "https://vssps.dev.azure.com/{0}/_apis/identities?descriptors={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($obj.acesDictionary.$($_.Name).descriptor)
+                        $responseObjot = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
+                        if ($responseObjot.providerDisplayName -eq "[$($this.BuildObj.project.name)]\Contributors")
+                        {
+                            $permissionsInBit = $obj.acesDictionary.$($_.Name).extendedInfo.effectiveAllow
                         }
                     }
                 }
-            }
-        }" | ConvertFrom-Json
 
-        try
-        {
-            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
-            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
-            {
-    
-                $contributorObj = $responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object {$_.subjectKind -eq 'group' -and $_.principalName -eq "[$projectName]\Contributors"}
-                # $contributorObj would be null if none of its permissions are set i.e. all perms are 'Not Set'.
-
-                if($contributorObj)
+                $editPerms = [Helpers]::ResolvePermissions($permissionsInBit, [Build]::BuildNamespacesPermissionObj.actions, 'Edit build pipeline')
+                    
+                if(($editPerms | Measure-Object).Count -gt 0)
                 {
-                    $contributorInputbody = "{
-                        'contributionIds': [
-                            'ms.vss-admin-web.security-view-permissions-data-provider'
-                        ],
-                        'dataProviderContext': {
-                            'properties': {
-                                'subjectDescriptor': '$($contributorObj.descriptor)',
-                                'permissionSetId': '$([Build]::SecurityNamespaceId)',
-                                'permissionSetToken': '$permissionSetToken',
-                                'accountName': '$(($contributorObj.principalName).Replace('\','\\'))',
-                                'sourcePage': {
-                                    'url': '$buildURL',
-                                    'routeId': 'ms.vss-build-web.pipeline-details-route',
-                                    'routeValues': {
-                                        'project': '$projectName',
-                                        'viewname': 'details',
-                                        'controller': 'ContributedPage',
-                                        'action': 'Execute'
-                                    }
-                                }
-                            }
-                        }
-                    }" | ConvertFrom-Json
-                
-                    #Web request to fetch RBAC permissions of Contributors group on task group.
-                    $contributorResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$contributorInputbody);
-                    $contributorRBACObj = $contributorResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
-                    $editPerms = $contributorRBACObj | Where-Object {$_.displayName -eq 'Edit build pipeline'}
-                   
-                    if([Helpers]::CheckMember($editPerms,"effectivePermissionValue"))
-                    {
-                        #effectivePermissionValue equals to 1 implies edit build pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
-                        if(($editPerms.effectivePermissionValue -eq 1) -or ($editPerms.effectivePermissionValue -eq 3))
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the build pipeline.");
-                        }
-                        else 
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the build pipeline.");    
-                        }   
-                    }
-                    else 
-                    {
-                        $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the build pipeline.");
-                    }
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the build pipeline.");
                 }
                 else 
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have access to the build pipeline.");
-                }
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the build pipeline.");    
+                }   
+                
             }
-            else 
+            catch
             {
                 $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
             }
         }
-        catch
-        {
+        else {
             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
         }
 
@@ -998,76 +896,35 @@ class Build: ADOSVTBase
         {
             if($this.BuildObj)
             {
-                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.BuildObj.project.id);
-                $orgURL='https://dev.azure.com/{0}/{1}/_build?view=folders' -f $($this.OrganizationContext.OrganizationName),$($this.BuildObj.project.name)
-                $inputbody="{'contributionIds':['ms.vss-build-web.pipelines-data-provider'],'dataProviderContext':{'properties':{'definitionIds':'$($this.BuildObj.id)','sourcePage':{'url':'$orgURL','routeId':'ms.vss-build-web.pipelines-hub-route','routeValues':{'project':'$($this.BuildObj.project.name)','viewname':'pipelines','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-
-                $sw = [System.Diagnostics.Stopwatch]::StartNew();
-                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
-                $sw.Stop()
-
-                #Below code added to send perf telemtry
-                if ($this.IsAIEnabled)
+                $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
+                [datetime]$createdDate = $this.BuildObj.createdDate
+                $this.buildActivityDetail.buildCreationDate = $createdDate;
+                if([Helpers]::CheckMember($this.BuildObj[0],"latestBuild") -and $null -ne $this.BuildObj[0].latestBuild)
                 {
-                    $properties =  @{ 
-                        TimeTakenInMs = $sw.ElapsedMilliseconds;
-                        ApiUrl = $apiURL; 
-                        Resourcename = $this.ResourceContext.ResourceName;
-                        ResourceType = $this.ResourceContext.ResourceType;
-                        PartialScanIdentifier = $this.PartialScanIdentifier;
-                        CalledBy = "CheckForInactiveBuilds";
-                    }
-                    [AIOrgTelemetryHelper]::PublishEvent( "Api Call Trace",$properties, @{})
-                }
-
-                if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider' -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider',"pipelines") -and  $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines)
-                {
-
-                    $builds = $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines
-
-                    if(($builds | Measure-Object).Count -gt 0 )
+                    if ([datetime]::Parse( $this.BuildObj[0].latestBuild.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays))) 
                     {
-                        $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
-                        [datetime]$createdDate = $this.BuildObj.createdDate
-                        $this.buildActivityDetail.buildCreationDate = $createdDate;
-                        if([Helpers]::CheckMember($builds[0],"latestRun") -and $null -ne $builds[0].latestRun)
-                        {
-                            if ([datetime]::Parse( $builds[0].latestRun.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays))) 
-                            {
-                                $this.buildActivityDetail.isBuildActive = $true;
-                                $this.buildActivityDetail.message = "Found recent builds triggered within $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days";
-                            }               
-                            else 
-                            {
-                                $this.buildActivityDetail.isBuildActive = $false;
-                                $this.buildActivityDetail.message = "No recent build history found in last $inactiveLimit days.";
-                            }
-
-                            if([Helpers]::CheckMember($builds[0].latestRun,"finishTime"))
-                            {
-                                $this.buildActivityDetail.buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
-                            }
-                        }
-                        else 
-                        { 
-                            #no build history ever. 
-                            $this.buildActivityDetail.isBuildActive = $false;
-                            $this.buildActivityDetail.message = "No build history found.";
-                        }
-                    }
-                    else
+                        $this.buildActivityDetail.isBuildActive = $true;
+                        $this.buildActivityDetail.message = "Found recent builds triggered within $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days";
+                    }               
+                    else 
                     {
                         $this.buildActivityDetail.isBuildActive = $false;
-                        $this.buildActivityDetail.message = "No build history found.";
+                        $this.buildActivityDetail.message = "No recent build history found in last $inactiveLimit days.";
                     }
-                    $builds = $null;
-                    $responseObj = $null;
+
+                    if([Helpers]::CheckMember($this.BuildObj[0].latestBuild,"finishTime"))
+                    {
+                        $this.buildActivityDetail.buildLastRunDate = [datetime]::Parse($this.BuildObj[0].latestBuild.finishTime);
+                    }
                 }
-                else
-                {
+                else 
+                { 
+                    #no build history ever. 
                     $this.buildActivityDetail.isBuildActive = $false;
-                    $this.buildActivityDetail.message = "No build history found. Build is inactive.";
+                    $this.buildActivityDetail.message = "No build history found.";
                 }
+                   
+                $responseObj = $null;
             }
         }
         catch
