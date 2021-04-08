@@ -383,12 +383,12 @@ class AutoBugLog {
             $state = $bugItem.fields."System.State"
             $id = "";
             #Check ShowBugsInS360 and Security.ServiceHierarchyId property exist in object.
+            #serviceid return in the bug api response to match with current scanned resource service id.
+            $serviceIdInLoggedBug = ""; 
             if ($this.ShowBugsInS360 -and ($bugItem.fields.PSobject.Properties.name -match "Security.ServiceHierarchyId")) 
             {
                 $serviceIdInLoggedBug = $bugItem.fields."Security.ServiceHierarchyId"
             }
-            #serviceid return in the bug api response to match with current scanned resource service id.
-            $serviceIdInLoggedBug = ""; 
             if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") {
                 $id = $bugItem.id
             }
@@ -424,6 +424,7 @@ class AutoBugLog {
         {
             $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/System.AssignedTo'; value = $AssignedTo };
             $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/System.State'; value = 'Active' };
+            $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/Microsoft.VSTS.Common.ResolvedReason'; value = '' };
             $UpdateBugOperationType = "ReactivateBug";
         }
 
@@ -442,7 +443,7 @@ class AutoBugLog {
         if ($updateServiceTreeDetails) 
         {
             #If TemplateForUpdateBug is empty or TemplateForUpdateBug path does not has assignedto then only add
-            if (!$TemplateForUpdateBug -or $TemplateForUpdateBug.path -ne "/fields/System.AssignedTo") {
+            if (!$TemplateForUpdateBug -or ("/fields/System.AssignedTo" -notin $TemplateForUpdateBug.path)) {
                 $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/System.AssignedTo'; value = $AssignedTo };
             }
             #Security Severity
@@ -472,7 +473,7 @@ class AutoBugLog {
                 $fieldsToUpdate = @();
                 #Get UpdateBugFields for the control
                 $fieldsToUpdate += $updateBug.UpdateBugFields
-                if ("Assignee" -in $fieldsToUpdate -and (!$TemplateForUpdateBug -or $TemplateForUpdateBug.path -ne "/fields/System.AssignedTo") ) {
+                if ("Assignee" -in $fieldsToUpdate -and (!$TemplateForUpdateBug -or ("/fields/System.AssignedTo" -notin $TemplateForUpdateBug.path)) ) {
                     $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/System.AssignedTo'; value = $AssignedTo };
                 }
                 if ("Title" -in $fieldsToUpdate) {
@@ -495,16 +496,16 @@ class AutoBugLog {
                 }
     
                 #Seervice tree details 
-                if ("SecuritySeverity" -in $fieldsToUpdate -and (!$TemplateForUpdateBug -or $TemplateForUpdateBug.path -ne "/fields/Security.Severity")) {
+                if ("SecuritySeverity" -in $fieldsToUpdate -and (!$TemplateForUpdateBug -or ("/fields/Security.Severity" -notin $TemplateForUpdateBug.path)) ) {
                     $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/Security.Severity'; value = $bugSecuritySeverity };
                 }
-                if ("HowFound" -in $fieldsToUpdate -and (!$TemplateForUpdateBug -or $TemplateForUpdateBug.path -ne "/fields/Security.HowFound")) {
+                if ("HowFound" -in $fieldsToUpdate -and (!$TemplateForUpdateBug -or ("/fields/Security.HowFound" -notin $TemplateForUpdateBug.path)) ) {
                     $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/Security.HowFound'; value = $this.controlsettings.BugLogging.HowFound };
                 }
-                if ("ComplianceArea" -in $fieldsToUpdate -and (!$TemplateForUpdateBug -or $TemplateForUpdateBug.path -ne "/fields/Security.ComplianceArea")) {
+                if ("ComplianceArea" -in $fieldsToUpdate -and (!$TemplateForUpdateBug -or ("/fields/Security.ComplianceArea" -notin $TemplateForUpdateBug.path)) ) {
                     $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/Security.ComplianceArea'; value = $this.controlsettings.BugLogging.ComplianceArea };
                 }
-                if ("ServiceHierarchyIdType" -in $fieldsToUpdate -and (!$TemplateForUpdateBug -or $TemplateForUpdateBug.path -ne "/fields/Security.ServiceHierarchyIdType")) {
+                if ("ServiceHierarchyIdType" -in $fieldsToUpdate -and (!$TemplateForUpdateBug -or ("/fields/Security.ServiceHierarchyIdType" -notin $TemplateForUpdateBug.path)) ) {
                     $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/Security.ServiceHierarchyIdType'; value = $this.controlsettings.BugLogging.ServiceTreeIdType };
                 }
                 
