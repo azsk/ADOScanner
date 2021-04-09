@@ -90,7 +90,8 @@ class BugLogHelper {
            $tableName = $this.GetTableName();
 
            #Get table filterd by name.
-           $storageTables = Get-AzStorageTable -Context $this.StorageAccountCtx | Select Name;
+           $storageTables = @();
+           $storageTables += Get-AzStorageTable -Context $this.StorageAccountCtx | Select Name;
 
            #create table if table not found.
            if ( !$storageTables -or ($storageTables.count -eq 0) -or !($storageTables.Name -eq $tableName) ) {
@@ -118,8 +119,8 @@ class BugLogHelper {
         }
         catch
         {
-            Write-Host $_
-            Write-Host "Could not fetch the entry for partition key [$hash] in the table storage.";
+            #Write-Host $_
+            Write-Host "Could not fetch the entry for partition key [$hash] in the table storage or table is not found.";
             return $null
         }
     }
