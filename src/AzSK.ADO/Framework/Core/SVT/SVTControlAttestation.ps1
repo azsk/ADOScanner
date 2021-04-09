@@ -434,13 +434,11 @@ class SVTControlAttestation
 				$this.bulkAttestMode = $true;
 				Write-Host "$([Constants]::SingleDashLine)" -ForegroundColor Yellow
 		        if ($this.isApprovedExceptionEnforced) {
-			        $exceptionId = ""
-			        $approvedExceptionExpiryDate = ""
                     $bulkAttestedControl = $this.ControlResults.ControlItem.ControlID[0] ;
-                    #Blocking bulk attestation for Approved Exception Enabled Controls as approved exception id will not be provided for bulk resources.
+                    #Blocking bulk attestation for Approved Exception Enabled Controls as approved exception id will not be provided for bulk resources
                     if($this.approvedExceptionControlsList -contains $bulkAttestedControl) {
-                        write-host "Bulk attestation of controls is disabled for your project." -ForegroundColor Red
-                        write-host "Please attest controls on per-resource basis." -ForegroundColor Yellow
+                        write-host "Bulk attestation of this control is disabled for your project." -ForegroundColor Red
+                        write-host "Please attest controls on per-resource basis. Please do not provide justification text." -ForegroundColor Yellow
 					    break;
                         # Note : The below code is to allow bulk attestation for Approved Exception Enabled Controls. Commenting the code for now as approved exception ids cannot be obtained for bulk no. of resources
                         <#
