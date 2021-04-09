@@ -2,7 +2,7 @@ Set-StrictMode -Version Latest
 class WebRequestHelper {
    
 	hidden static [string] $AzureManagementUri = "https://management.azure.com/";
-	hidden static [string] $GraphApiUri = "https://graph.windows.net/";
+	hidden static [string] $GraphApiUri = "https://graph.microsoft.com";
 	hidden static [string] $ClassicManagementUri = "https://management.core.windows.net/";
 
     static [System.Object[]] InvokeGetWebRequest([string] $uri, [Hashtable] $headers) 
@@ -55,7 +55,7 @@ class WebRequestHelper {
 		{
 		return [ContextHelper]::GetCurrentContext().Environment.GraphUrl
 		}
-		return "https://graph.windows.net/"
+		return "https://graph.microsoft.com"
 	}
 
 	hidden static [string] GetResourceManagerUrl()
