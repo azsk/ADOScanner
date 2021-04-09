@@ -120,7 +120,7 @@ class BugLogHelper {
         catch
         {
             #Write-Host $_
-            Write-Host "Could not fetch the entry for partition key [$hash] in the table storage or table is not found.";
+            Write-Host "Could not fetch the entry for partition key [$hash] in the table storage or the table was not found.";
             return $null
         }
     }
