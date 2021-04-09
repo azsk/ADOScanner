@@ -15,7 +15,7 @@ class SVTControlAttestation
 	hidden [Object] $repoProject = @{};
 	hidden [AzSKSettings] $AzSKSettings;
 	hidden [bool] $isApprovedExceptionEnforced = $false
-    hidden [bool] $approvedExceptionControlsList = @();
+    hidden [PSObject] $approvedExceptionControlsList = @();
 
 	SVTControlAttestation([SVTEventContext[]] $ctrlResults, [AttestationOptions] $attestationOptions, [OrganizationContext] $organizationContext, [InvocationInfo] $invocationContext)
 	{
@@ -434,7 +434,7 @@ class SVTControlAttestation
 				$this.bulkAttestMode = $true;
 				Write-Host "$([Constants]::SingleDashLine)" -ForegroundColor Yellow
 		        if ($this.isApprovedExceptionEnforced) {
-                    $bulkAttestedControl = $this.ControlResults.ControlItem.ControlID[0] ;
+                    $bulkAttestedControl = $this.ControlResults.ControlItem[0].ControlID ;
                     #Blocking bulk attestation for Approved Exception Enabled Controls as approved exception id will not be provided for bulk resources
                     if($this.approvedExceptionControlsList -contains $bulkAttestedControl) {
                         Write-Host "Bulk attestation of this control is disabled for your project." -ForegroundColor Red
