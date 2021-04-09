@@ -437,7 +437,13 @@ class SVTControlAttestation
 			        $exceptionId = ""
 			        $approvedExceptionExpiryDate = ""
                     $bulkAttestedControl = $this.ControlResults.ControlItem.ControlID[0] ;
+                    #Blocking bulk attestation for Approved Exception Enabled Controls as approved exception id will not be provided for bulk resources.
                     if($this.approvedExceptionControlsList -contains $bulkAttestedControl) {
+                        write-host "Bulk attestation of controls is disabled for your project." -ForegroundColor Red
+                        write-host "Please attest controls on per-resource basis." -ForegroundColor Yellow
+					    break;
+                        # Note : The below code is to allow bulk attestation for Approved Exception Enabled Controls. Commenting the code for now as approved exception ids cannot be obtained for bulk no. of resources
+                        <#
                         if ([string]::IsNullOrWhiteSpace($this.attestOptions.ApprovedExceptionID) -or [string]::IsNullOrWhiteSpace($this.attestOptions.ApprovedExceptionExpiryDate)) {
                             Write-Host "This control can only be attestable using approved exception as configured in your org policy." -ForegroundColor Cyan
 					        # If enforce approved exception is enabled, prompt the user with respective message configured in org policy to fetch the exception id
@@ -469,7 +475,8 @@ class SVTControlAttestation
 					        }
 					        $approvedExceptionExpiryDate = Read-Host "Please enter the approved exception expiry date in the mm/dd/yy date format"
                             $this.attestOptions.ApprovedExceptionExpiryDate = $approvedExceptionExpiryDate
-                        }  
+                        }
+                        #>  
                     }       
 		        }
 			}
