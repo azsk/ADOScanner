@@ -251,7 +251,8 @@
     ]
   },
   "AgentPool": {
-    "AgentPoolHistoryPeriodInDays": 180
+    "AgentPoolHistoryPeriodInDays": 180 ,
+    "RestrictedBroaderGroupsForAgentPool": []
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
   "Organization": {
@@ -321,8 +322,10 @@
       "CSEOPipelineContributors",
       "Endpoint Creators",
       "Contributors",
-      "Readers"
-    ]
+      "Readers",
+      "Endpoint Administrators"
+    ],
+    "RestrictedBroaderGroupsForSerConn" : []
   },
   "Patterns": [
     {
@@ -377,13 +380,13 @@
   },
   "GenerateSecurityEvaluationJsonFile" : false,
   "ResourceProviders": [
-    "Microsoft.Storage", 
-    "Microsoft.Keyvault", 
-    "Microsoft.Resources", 
+    "Microsoft.Storage",
+    "Microsoft.Keyvault",
+    "Microsoft.Resources",
     "Microsoft.OperationalInsights"
   ],
   "CriticalPATPermissions": [
-    "vso.build_execute", 
+    "vso.build_execute",
     "vso.release_execute",
     "vso.release_manage"
   ]

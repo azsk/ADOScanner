@@ -156,6 +156,23 @@
         "DP"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Agentpool_Review_Broader_Group_Access",
+      "Description": "Ensure that broader groups has limited access(Reader) to the agentpool.",
+      "Id": "AgentPool200",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupAccess",
+      "Rationale": "Granting minimum access to broader groups ensures that users are granted just enough permissions on agentpool to perform their tasks. This minimizes exposure of the resources in case of user/agentpool account compromise.",
+      "Recommendation": "Go to Project Settings --> Pipelines --> agentpool --> Select agentpool --> Select Security --> Under user permissions change the assignment to 'Reader' for broader groups",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
     }
 
   ]
