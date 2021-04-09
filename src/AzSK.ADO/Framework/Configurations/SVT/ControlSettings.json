@@ -322,8 +322,7 @@
       "CSEOPipelineContributors",
       "Endpoint Creators",
       "Contributors",
-      "Readers",
-      "Endpoint Administrators"
+      "Readers"
     ],
     "RestrictedBroaderGroupsForSerConn" : []
   },
