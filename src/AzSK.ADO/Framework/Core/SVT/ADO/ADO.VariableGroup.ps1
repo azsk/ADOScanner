@@ -12,6 +12,7 @@ class VariableGroup: ADOSVTBase
         $this.VarGrpId = $this.ResourceContext.ResourceDetails.id
         $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ProjectId)/_apis/distributedtask/variablegroups/$($this.VarGrpId)?api-version=6.1-preview.2"
         $this.VarGrp = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+
     }
     hidden [ControlResult] CheckPipelineAccess([ControlResult] $controlResult)
     {
