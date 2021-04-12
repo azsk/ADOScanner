@@ -423,7 +423,7 @@ class ServiceConnection: ADOSVTBase
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
-                    $controlResult.AddMessage("ApiKey based authentication should be used for Nuget service connection.")
+                    $controlResult.AddMessage("ApiKey based authentication should be used for NuGet service connection.")
                 }
             }
             elseif($this.ServiceEndpointsObj.type -eq "externaltfs")
