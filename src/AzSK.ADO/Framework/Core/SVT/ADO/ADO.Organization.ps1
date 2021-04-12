@@ -13,12 +13,6 @@ class Organization: ADOSVTBase
     { 
         $this.GetOrgPolicyObject()
         $this.GetPipelineSettingsObj()
-
-        # getting resource link to send to LAWS.
-        if ($null -ne $svtResource.ResourceDetails.ResourceLink)
-        {
-            $this.ResourceLink = $svtResource.ResourceDetails.ResourceLink
-        }
     }
 
     GetOrgPolicyObject()

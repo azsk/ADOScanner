@@ -41,12 +41,6 @@ class Release: ADOSVTBase
             $this.isResourceActive = $false
         }
 
-        # getting resource link to send to LAWS.
-        if ($null -ne $svtResource.ResourceDetails.ResourceLink)
-        {
-            $this.ResourceLink = $svtResource.ResourceDetails.ResourceLink
-        }
-
         # calculating the inactivity period in days for the release. If there is no release history, then setting it with negative value.
         # This will ensure inactive period is always computed irrespective of whether inactive control is scanned or not.
         if ($null -ne $this.releaseActivityDetail.latestReleaseTriggerDate)
