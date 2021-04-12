@@ -351,8 +351,11 @@ class Build: ADOSVTBase
         $exemptedUserIdentities += $this.ControlSettings.Build.ExemptedUserIdentities 
 
         $resource = $this.BuildObj.project.id+ "/" + $this.BuildObj.Id
+
+        # Filter namespaceobj for current build
         $obj = [Build]::BuildNamespacesObj | where-object {$_.token -eq $resource}  
 
+        # If current build object is not found, get project level obj. (Seperate build obj is not available if project level permissions are being used on pipeline)
         if(($obj | Measure-Object).Count -eq 0)
         {
             $obj = [Build]::BuildNamespacesObj | where-object {$_.token -eq $this.BuildObj.project.id}  
@@ -361,7 +364,6 @@ class Build: ADOSVTBase
         if(($obj | Measure-Object).Count -gt 0)
         {
             $properties = $obj.acesDictionary | Get-Member -MemberType Properties
-            #$permissionsInBit =0
             $editPerms= @();
             $accessList =@();
 
@@ -373,17 +375,17 @@ class Build: ADOSVTBase
                     $InheritedAllowedPermissionsInBit = 0 #Inherited 
 
                     $apiUrlIdentity = "https://vssps.dev.azure.com/{0}/_apis/identities?descriptors={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($obj.acesDictionary.$($_.Name).descriptor)
-                    $responseObjot = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
+                    $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
 
-                    if([Helpers]::CheckMember($responseObjot,"customDisplayName")) 
+                    if([Helpers]::CheckMember($responseObj,"customDisplayName")) 
                     {
-                        $displayName = $responseObjot.customDisplayName  #For User isentity type
+                        $displayName = $responseObj.customDisplayName  #For User isentity type
                     }
                     else{
-                        $displayName = $responseObjot.providerDisplayName
+                        $displayName = $responseObj.providerDisplayName
                     }
 
-                    if($responseObjot.providerDisplayName -notmatch  $exemptedUserIdentities)
+                    if($responseObj.providerDisplayName -notmatch  $exemptedUserIdentities)
                     {
                         $AllowedPermissionsInBit = $obj.acesDictionary.$($_.Name).extendedInfo.allow
                         if([Helpers]::CheckMember($obj.acesDictionary.$($_.Name).extendedInfo,"inheritedAllow")) 
@@ -394,7 +396,7 @@ class Build: ADOSVTBase
                         $permissions = [Helpers]::ResolveAllPermissions($AllowedPermissionsInBit ,$InheritedAllowedPermissionsInBit, [Build]::BuildNamespacesPermissionObj.actions)
                         if(($permissions | Measure-Object).Count -ne 0)
                         {
-                            $accessList += New-Object -TypeName psobject -Property @{IdentityName= $displayName ; IdentityType= $responseObjot.properties.SchemaClassName.'$value'; Permissions = $permissions}
+                            $accessList += New-Object -TypeName psobject -Property @{IdentityName= $displayName ; IdentityType= $responseObj.properties.SchemaClassName.'$value'; Permissions = $permissions}
                         }
                     }
                 }
