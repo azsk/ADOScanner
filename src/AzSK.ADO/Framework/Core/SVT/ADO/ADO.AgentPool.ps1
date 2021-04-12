@@ -385,11 +385,11 @@ class AgentPool: ADOSVTBase
 
                     # fail the control if restricted group found on agentpool
                     if ($restrictedGroups) {
-                        $controlResult.AddMessage("Total number of broader groups that have user/administrator access to agent pool: ", ($restrictedGroups | Measure-Object).Count)
-                        $controlResult.AddMessage([VerificationResult]::Failed, "Do not grant broader groups user/administrator access to agent pools. Granting elevated permissions to these groups can risk exposure of agent pools to unwarranted individuals.");
+                        $restrictedGroupsCount = ($restrictedGroups | Measure-Object).Count
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Total number of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)");
                         $controlResult.AddMessage("Broader groups that have user/administrator access to agent pool.", $restrictedGroups)
                         $controlResult.SetStateData("Broader groups that have user/administrator access to agent pool", $restrictedGroups)
-                        $controlResult.AdditionalInfo += "Total number of broader groups that have user/administrator access to agent pool: " + ($restrictedGroups | Measure-Object).Count;
+                            $controlResult.AdditionalInfo += "Total number of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)";
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to agent pool.");
