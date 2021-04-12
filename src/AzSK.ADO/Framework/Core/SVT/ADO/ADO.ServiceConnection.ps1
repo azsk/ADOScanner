@@ -655,31 +655,33 @@ class ServiceConnection: ADOSVTBase
             $restrictedGroups = @();
 
             if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.RestrictedBroaderGroupsForSerConn") ) {
-                $restrictedGlobalGroupsForSerConn = $this.ControlSettings.ServiceConnection.RestrictedBroaderGroupsForSerConn;
+                $restrictedBroaderGroupsForSerConn = $this.ControlSettings.ServiceConnection.RestrictedBroaderGroupsForSerConn;
+                $controlResult.AddMessage("`nNote: The following groups are considered 'broad' which should not have user/administrator privileges: `n`t[$($restrictedBroaderGroupsForSerConn -join ', ')]");
                 if ((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity, "identity")) {
                     # match all the identities added on service connection with defined restricted list
                     $roleAssignments = @();
                     $roleAssignments +=   ($this.serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
-                    $restrictedGroups = $roleAssignments | Where-Object { $restrictedGlobalGroupsForSerConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") }
+                    #Checking where broader groups have user/admin permission for service connection
+                    $restrictedGroups = $roleAssignments | Where-Object { $restrictedBroaderGroupsForSerConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") }
 
                     # fail the control if restricted group found on service connection
                     if ($restrictedGroups) {
-                        $controlResult.AddMessage("Total number of global groups that have Administration/User access to service connection: ", ($restrictedGroups | Measure-Object).Count)
-                        $controlResult.AddMessage([VerificationResult]::Failed, "Do not grant global groups Administration/User access to service connections. Granting elevated permissions to these groups can risk exposure of service connections to unwarranted individuals.");
-                        $controlResult.AddMessage("Global groups that have Administration/User access to service connection.", $restrictedGroups)
-                        $controlResult.SetStateData("Global groups that have Administration/User access to service connection", $restrictedGroups)
-                        $controlResult.AdditionalInfo += "Total number of global groups that have Administration/User access to service connection: " + ($restrictedGroups | Measure-Object).Count;
+                        $controlResult.AddMessage("Total number of broader groups that have user/administrator access to service connection: ", ($restrictedGroups | Measure-Object).Count)
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Do not grant broader groups user/administrator access to service connections. Granting elevated permissions to these groups can risk exposure of service connections to unwarranted individuals.");
+                        $controlResult.AddMessage("Broader groups that have user/administrator access to service connection.", $restrictedGroups)
+                        $controlResult.SetStateData("Broader groups that have user/administrator access to service connection", $restrictedGroups)
+                        $controlResult.AdditionalInfo += "Total number of broader groups that have user/administrator access to service connection: " + ($restrictedGroups | Measure-Object).Count;
                     }
                     else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No global groups have Administration/User access to service connection.");
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection.");
                     }
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No global groups have Administration/User access to service connection.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection.");
                 }
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Manual, "List of restricted global groups for service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
+                $controlResult.AddMessage([VerificationResult]::Manual, "List of restricted broader groups for service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
             }
         }
         catch {

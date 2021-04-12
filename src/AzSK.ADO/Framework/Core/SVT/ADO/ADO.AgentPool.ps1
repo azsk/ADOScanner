@@ -373,32 +373,34 @@ class AgentPool: ADOSVTBase
         try {
             $restrictedGroups = @();
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentpool") ) {
-                $restrictedGlobalGroupsForAgentpool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentpool;
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool") ) {
+                $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
+                $controlResult.AddMessage("`nNote: The following groups are considered 'broad' which should not have user/administrator privileges: `n`t[$($restrictedBroaderGroupsForAgentPool -join ', ')]");
                 if ((($this.AgentObj | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.AgentObj, "identity")) {
                     # match all the identities added on agentpool with defined restricted list
                     $roleAssignments = @();
                     $roleAssignments +=   ($this.AgentObj | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
-                    $restrictedGroups = $roleAssignments | Where-Object { $restrictedGlobalGroupsForAgentpool -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") }
+                    # Checking whether the broader groups have User/Admin permissions
+                    $restrictedGroups = $roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") }
 
                     # fail the control if restricted group found on agentpool
                     if ($restrictedGroups) {
-                        $controlResult.AddMessage("Total number of global groups that have Administrator/User access to agent pool: ", ($restrictedGroups | Measure-Object).Count)
-                        $controlResult.AddMessage([VerificationResult]::Failed, "Do not grant global groups Administration/User access to agent pools. Granting elevated permissions to these groups can risk exposure of agent pools to unwarranted individuals.");
-                        $controlResult.AddMessage("Global groups that have Administration/User access to agent pool.", $restrictedGroups)
-                        $controlResult.SetStateData("Global groups that have Administration/User access to agent pool", $restrictedGroups)
-                        $controlResult.AdditionalInfo += "Total number of global groups that have Administration/User access to agent pool: " + ($restrictedGroups | Measure-Object).Count;
+                        $controlResult.AddMessage("Total number of broader groups that have user/administrator access to agent pool: ", ($restrictedGroups | Measure-Object).Count)
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Do not grant broader groups user/administrator access to agent pools. Granting elevated permissions to these groups can risk exposure of agent pools to unwarranted individuals.");
+                        $controlResult.AddMessage("Broader groups that have user/administrator access to agent pool.", $restrictedGroups)
+                        $controlResult.SetStateData("Broader groups that have user/administrator access to agent pool", $restrictedGroups)
+                        $controlResult.AdditionalInfo += "Total number of broader groups that have user/administrator access to agent pool: " + ($restrictedGroups | Measure-Object).Count;
                     }
                     else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No global groups have Administration/User access to agent pool.");
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to agent pool.");
                     }
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No global groups have Administration/User access to agent pool.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have Administration/User access to agent pool.");
                 }
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Manual, "List of restricted global groups for agent pool is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
+                $controlResult.AddMessage([VerificationResult]::Manual, "List of restricted broader groups for agent pool is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
             }
         }
         catch {
