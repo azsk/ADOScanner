@@ -199,8 +199,6 @@ class MetaInfoProvider {
 		{
 		   if (!$this.buildSTDetails.ContainsKey("$projectName")) {
                 $this.buildSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\BuildSTData.json"));
-                
-                #$this.checkBuildSTFileOnServer = $false;
             }	
 		}
 
