@@ -60,6 +60,9 @@ class BugMetaInfoProvider {
             }
             if([BugMetaInfoProvider]::ServiceTreeInfo)
             {
+                #Filter based on area path match project name and take first items (if duplicate service tree entry found).
+                #Split areapath to match with projectname
+                [BugMetaInfoProvider]::ServiceTreeInfo = ([BugMetaInfoProvider]::ServiceTreeInfo | Where {($_.areaPath).Split('\')[0] -eq $projectName})[0]
                 $this.ServiceId = [BugMetaInfoProvider]::ServiceTreeInfo.serviceId;
                 #Check if area path is not supplied in command parameter then only set from service tree.
                 if (!$this.InvocationContext.BoundParameters["AreaPath"]) {

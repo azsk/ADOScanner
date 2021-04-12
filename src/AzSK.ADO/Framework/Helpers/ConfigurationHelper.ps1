@@ -21,7 +21,8 @@ class ConfigurationHelper {
 	hidden static [PSObject] LoadOfflineConfigFile([string] $fileName, [bool] $parseJson, $path) {
 		#Load file from AzSK App folder"
 		$rootConfigPath = $path ;	
-        
+        #Split file name and take last, if it is supplied like foldername\filename 	
+        $fileName = $fileName.Split('\')[-1]
 		$extension = [System.IO.Path]::GetExtension($fileName);
 
 		$filePath = $null
