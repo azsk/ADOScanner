@@ -30,7 +30,6 @@ class AgentPool: ADOSVTBase
         {
             $this.isResourceActive = $false
         }
-        
         # calculating the inactivity period in days for the agent pool. If there is no use history, then setting it with negative value.
         # This will ensure inactive period is always computed irrespective of whether inactive control is scanned or not.
         if ($null -ne $this.agentPoolActivityDetail.agentPoolLastRunDate)
