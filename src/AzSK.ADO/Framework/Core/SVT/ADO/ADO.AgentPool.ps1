@@ -370,7 +370,6 @@ class AgentPool: ADOSVTBase
     }
 
     hidden [ControlResult] CheckBroaderGroupAccess ([ControlResult] $controlResult) {
-        $failMsg = $null
         try {
             $restrictedGroups = @();
 
@@ -403,12 +402,9 @@ class AgentPool: ADOSVTBase
             }
         }
         catch {
-            $failMsg = $_
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the agent pool permissions.");
         }
 
-        if (![string]::IsNullOrEmpty($failMsg)) {
-            $controlResult.AddMessage([VerificationResult]::Manual, "Unable to fetch agentpools details. $($failMsg)Please verify from portal that you are not granting global security groups access to agentpools");
-        }
         return $controlResult;
     }
 }
