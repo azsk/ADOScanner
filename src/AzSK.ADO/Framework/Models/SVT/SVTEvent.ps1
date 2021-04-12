@@ -68,7 +68,7 @@ class ControlResult
 
 	[void] LogException([System.Management.Automation.ErrorRecord] $exception)
 	{
-		$this.Exception = $exception[0].ToString() + $exception[0].InvocationInfo.PositionMessage
+		$this.Exception = "Reason: " +$exception[0].ToString() +"`n StackTrace: "+ $exception[0].InvocationInfo.PositionMessage
 	}
 
     [void] AddMessage([MessageData] $messageData)
