@@ -887,14 +887,15 @@ class Project: ADOSVTBase
                     }
                 }
 
-                $failedcount = $failedRepos.Count
-                $passedcount = $passedRepos.Count
+                $failedReposCount = $failedRepos.Count
+                $passedReposCount = $passedRepos.Count
                 $passedRepos = $passedRepos | sort-object
-                if($failedcount -gt 0)
+                if($failedReposCount -gt 0)
                 {
                     $failedRepos = $failedRepos | sort-object
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Inherited permissions are enabled on the below $($failedcount) repositories:", $failedRepos);
-                    $controlResult.AddMessage("Inherited permissions are disabled on the below $($passedcount) repositories:", $passedRepos);
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Inherited permissions are enabled on the repositories.");
+                    $controlResult.AddMessage("Total number of repositories on which inherited permissions are enabled: $($failedReposCount)", $failedRepos);
+                    $controlResult.AddMessage("Total number of repositories on which inherited permissions are disabled: $($passedReposCount)", $passedRepos);
                 }
                 else
                 {
