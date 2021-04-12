@@ -868,14 +868,14 @@ class Project: ADOSVTBase
         {
             $repoPermissionUrl = 'https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?api-version=6.0' -f $this.OrganizationContext.OrganizationName, $repoNamespaceId;
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($repoPermissionUrl)
-            if (-not [string]::IsNullOrEmpty($responseObj) -and ($responseObj | Measure-Object).Count -gt 0)
+            if ($null -ne $responseObj -and ($responseObj | Measure-Object).Count -gt 0)
             {
                 $repoDefnsObj = $this.FetchRepositoriesList()
                 $failedRepos = @()
                 $passedRepos = @()
                 foreach ($repo in $repoDefnsObj)
                 {
-                    $repoToken = "repoV2" + "/" + $projectId + "/" + $repo.id
+                    $repoToken = "repoV2/$projectId/$($repo.id)"
                     $repoObj = $responseObj | where-object {$_.token -eq $repoToken}
                     if ($null -ne $repoObj -and ($repoObj | Measure-Object).Count -gt 0 -and $repoObj.inheritPermissions)
                     {
@@ -894,8 +894,8 @@ class Project: ADOSVTBase
                 {
                     $failedRepos = $failedRepos | sort-object
                     $controlResult.AddMessage([VerificationResult]::Failed, "Inherited permissions are enabled on the repositories.");
-                    $controlResult.AddMessage("Total number of repositories on which inherited permissions are enabled: $($failedReposCount)", $failedRepos);
-                    $controlResult.AddMessage("Total number of repositories on which inherited permissions are disabled: $($passedReposCount)", $passedRepos);
+                    $controlResult.AddMessage("Total number of repositories on which inherited permissions are enabled: $failedReposCount", $failedRepos);
+                    $controlResult.AddMessage("Total number of repositories on which inherited permissions are disabled: $passedReposCount", $passedRepos);
                 }
                 else
                 {
