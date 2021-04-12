@@ -3,65 +3,79 @@ Class LogAnalyticsHelper{
 	static [string] $DefaultLAType = "AzSK"
 	hidden static [int] $IsLAWSSettingValid = 0  #-1:Fail (Log Analytics workspace Empty, Log Analytics workspace Return Error) | 1:CA | 0:Local
 	hidden static [int] $IsAltLAWSSettingValid = 0
+	hidden static [int] $RetryCount = 3;
 	# Create the function to create and post the request
-	static PostLAWSData([string] $workspaceId, [string] $sharedKey, $body, $logType, $laType)
+	static [bool] PostLAWSData([string] $workspaceId, [string] $sharedKey, $body, $logType, $laType)
 	{
-		try
+		$isDataPostedSuccessfully = $false;
+		$loopValue = [LogAnalyticsHelper]::RetryCount;
+		while($loopValue -gt 0)
 		{
-			if(($laType | Measure-Object).Count -gt 0 -and [LogAnalyticsHelper]::$("is"+$laType+"SettingValid") -ne -1)
-			{
-				if([string]::IsNullOrWhiteSpace($logType))
-				{
+		    try
+		    {
+			    if(($laType | Measure-Object).Count -gt 0 -and [LogAnalyticsHelper]::$("is"+$laType+"SettingValid") -ne -1)
+			    {
+			    	if([string]::IsNullOrWhiteSpace($logType))
+			    	{
 					$logType = [LogAnalyticsHelper]::DefaultLAType
-				}
-				[string] $method = "POST"
-				[string] $contentType = "application/json"
-				[string] $resource = "/api/logs"
-				$rfc1123date = [System.DateTime]::UtcNow.ToString("r")
-				[int] $contentLength = $body.Length
-				[string] $signature = [LogAnalyticsHelper]::GetLAWSSignature($workspaceId , $sharedKey , $rfc1123date ,$contentLength ,$method ,$contentType ,$resource)
-				$LADataCollectorAPI = [WebRequestHelper]::GetLADataCollectorAPI()	
-				[string] $uri = "https://" + $workspaceId + $LADataCollectorAPI + $resource + "?api-version=2016-04-01"
-				[DateTime] $TimeStampField = [System.DateTime]::UtcNow
-				$headers = @{
-					"Authorization" = $signature;
-					"Log-Type" = $logType;
-					"x-ms-date" = $rfc1123date;
-					"time-generated-field" = $TimeStampField;
-				}
-				$response = Invoke-WebRequest -Uri $uri -Method $method -ContentType $contentType -Headers $headers -Body $body -UseBasicParsing
-			}
-		}
-		catch
-		{
-			$warningMsg=""
-			if($laType -eq 'LAWS')
-			{
-				switch([LogAnalyticsHelper]::$("is"+$laType+"SettingValid"))
-				{
-					0 { $warningMsg += "The Log Analytics workspace ID or key is invalid in the local settings file. Use Set-AzSKADOMonitoringSettings to update either/both with corrected values.";}
-					1 { $warningMsg += "The Log Analytics workspace ID or key is invalid in the ContinuousAssurance configuration. Use Update-AzSKADOContinuousAssurance to update either/both with corrected values."; }
-				}
-				
-				[EventBase]::PublishGenericCustomMessage(" `r`nWARNING: $($warningMsg)", [MessageType]::Warning);
-				
-				#Flag to disable Log Analytics scan 
-				[LogAnalyticsHelper]::$("is"+$laType+"SettingValid") = -1
-			}
-			elseif($laType -eq 'AltLAWS')
-			{
-				switch([LogAnalyticsHelper]::$("is"+$laType+"SettingValid"))
-				{
-					0 { $warningMsg += "The alternate Log Analytics workspace ID or key is invalid in the local settings file. Use Set-AzSKADOMonitoringSettings to update either/both with corrected values.";}
-					1 { $warningMsg += "The alternate Log Analytics workspace ID or key is invalid in the ContinuousAssurance configuration. Use Update-AzSKADOContinuousAssurance to update either/both with corrected values."; }
-				}
-				
-				[EventBase]::PublishGenericCustomMessage(" `r`nWARNING: $($warningMsg)", [MessageType]::Warning);
-				
-				#Flag to disable Log Analytics scan 
-				[LogAnalyticsHelper]::$("is"+$laType+"SettingValid") = -1
-			}
-		}
+			    	}
+			    	[string] $method = "POST"
+			    	[string] $contentType = "application/json"
+			    	[string] $resource = "/api/logs"
+			    	$rfc1123date = [System.DateTime]::UtcNow.ToString("r")
+			    	[int] $contentLength = $body.Length
+			    	[string] $signature = [LogAnalyticsHelper]::GetLAWSSignature($workspaceId , $sharedKey , $rfc1123date ,$contentLength ,$method ,$contentType ,$resource)
+			    	$LADataCollectorAPI = [WebRequestHelper]::GetLADataCollectorAPI()	
+			    	[string] $uri = "https://" + $workspaceId + $LADataCollectorAPI + $resource + "?api-version=2016-04-01"
+			    	[DateTime] $TimeStampField = [System.DateTime]::UtcNow
+			    	$headers = @{
+			    		"Authorization" = $signature;
+			    		"Log-Type" = $logType;
+			    		"x-ms-date" = $rfc1123date;
+			    		"time-generated-field" = $TimeStampField;
+			    	}
+			    	$loopValue = $loopValue - 1;
+			    	$response = Invoke-WebRequest -Uri $uri -Method $method -ContentType $contentType -Headers $headers -Body $body -UseBasicParsing
+			    	$loopValue = 0;
+			    	$isDataPostedSuccessfully = $true;
+			    }
+		    }
+		    catch
+		    {
+			    $warningMsg=""
+			    if($laType -eq 'LAWS')
+			    {
+			    	switch([LogAnalyticsHelper]::$("is"+$laType+"SettingValid"))
+			    	{
+			    		0 { $warningMsg += "The Log Analytics workspace ID or key is invalid in the local settings file. Use Set-AzSKADOMonitoringSettings to update either/both with corrected values.";}
+			    		1 { $warningMsg += "The Log Analytics workspace ID or key is invalid in the ContinuousAssurance configuration. Use Update-AzSKADOContinuousAssurance to update either/both with corrected values."; }
+			    	}
+			    	
+			    	if ($loopValue -eq 0) {
+			    		[EventBase]::PublishGenericCustomMessage(" `r`nWARNING: $($warningMsg)", [MessageType]::Warning);
+						$isDataPostedSuccessfully = $false
+			    		#Flag to disable Log Analytics scan 
+			    		#[LogAnalyticsHelper]::$("is"+$laType+"SettingValid") = -1
+			    	}
+			    }
+			    elseif($laType -eq 'AltLAWS')
+			    {
+			    	switch([LogAnalyticsHelper]::$("is"+$laType+"SettingValid"))
+			    	{
+			    		0 { $warningMsg += "The alternate Log Analytics workspace ID or key is invalid in the local settings file. Use Set-AzSKADOMonitoringSettings to update either/both with corrected values.";}
+			    		1 { $warningMsg += "The alternate Log Analytics workspace ID or key is invalid in the ContinuousAssurance configuration. Use Update-AzSKADOContinuousAssurance to update either/both with corrected values."; }
+			    	}
+			    	if ($loopValue -eq 0) {
+			    		[EventBase]::PublishGenericCustomMessage(" `r`nWARNING: $($warningMsg)", [MessageType]::Warning);
+						$isDataPostedSuccessfully = $false;
+			    	    #Flag to disable Log Analytics scan 
+			    	    #[LogAnalyticsHelper]::$("is"+$laType+"SettingValid") = -1
+			    	}
+			    }
+		    }
+	    }
+
+		return $isDataPostedSuccessfully;
 	}
 
 	static [string] GetLAWSSignature ($workspaceId, $sharedKey, $Date, $ContentLength, $Method, $ContentType, $Resource)
@@ -169,12 +183,22 @@ Class LogAnalyticsHelper{
 					#publish to primary workspace
 					if(-not [string]::IsNullOrWhiteSpace($settings.LAWSId) -and [LogAnalyticsHelper]::IsLAWSSettingValid -ne -1)
 					{
-						[LogAnalyticsHelper]::PostLAWSData($settings.LAWSId, $settings.LAWSSharedKey, $lawsBodyByteArray, $laEventType, 'LAWS')
+		                $isDataPostedSuccessfully = [LogAnalyticsHelper]::PostLAWSData($settings.LAWSId, $settings.LAWSSharedKey, $lawsBodyByteArray, $laEventType, 'LAWS') 
+						#If failed to post data in LA then disable posting again.
+						if (!$isDataPostedSuccessfully) {
+							#Flag to disable Log Analytics 
+							[LogAnalyticsHelper]::IsLAWSSettingValid = -1;
+						}
 					}
 					#publish to secondary workspace
 					if(-not [string]::IsNullOrWhiteSpace($settings.AltLAWSId) -and [LogAnalyticsHelper]::IsAltLAWSSettingValid -ne -1)
 					{
-						[LogAnalyticsHelper]::PostLAWSData($settings.AltLAWSId, $settings.AltLAWSSharedKey, $lawsBodyByteArray, $laEventType, 'AltLAWS')
+						$isDataPostedSuccessfully = [LogAnalyticsHelper]::PostLAWSData($settings.AltLAWSId, $settings.AltLAWSSharedKey, $lawsBodyByteArray, $laEventType, 'AltLAWS')
+						#If failed to post data in alt LA then disable posting again.
+						if (!$isDataPostedSuccessfully) {
+							#Flag to disable Log Analytics 
+							[LogAnalyticsHelper]::IsAltLAWSSettingValid = -1;
+						}
 					}				
 				}            
 			}
