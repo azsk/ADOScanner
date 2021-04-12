@@ -202,7 +202,7 @@ class SVTControlAttestation
 							$this.attestOptions.ApprovedExceptionID = $exceptionId
 						}
 					}
-					$approvedExceptionExpiryDate = Read-Host "Please enter the approved exception expiry date in the mm/dd/yy date format"
+					$approvedExceptionExpiryDate = Read-Host "Please enter the approved exception expiry date (mm/dd/yy)"
 					$expiryPeriod = $this.ControlSettings.DefaultAttestationPeriodForExemptControl
 					if([string]::IsNullOrWhiteSpace($approvedExceptionExpiryDate))
 					{
@@ -440,7 +440,7 @@ class SVTControlAttestation
 						#if bulk attestation is for single resource, continue with the attestation
 						$exceptionId = ""
                         if ([string]::IsNullOrWhiteSpace($this.attestOptions.ApprovedExceptionID) -or [string]::IsNullOrWhiteSpace($this.attestOptions.ApprovedExceptionExpiryDate)) {
-                            Write-Host "This control can only be attestable using approved exception as configured in your org policy." -ForegroundColor Cyan
+                            Write-Host "This control can only be attested using approved exception as mandated by your org." -ForegroundColor Cyan
 					        # If enforce approved exception is enabled, prompt the user with respective message configured in org policy to fetch the exception id
 					        $approvedExceptionPromptMessage = ""
 					        if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings")) {
