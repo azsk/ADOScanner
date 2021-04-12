@@ -586,18 +586,11 @@ class SVTBase: AzSKRoot
         {
 			$this.GetApplicableControls() | Where-Object { $_.Automated -ne "No" -and (-not [string]::IsNullOrEmpty($_.MethodName)) } |
             ForEach-Object {
-				if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "DisableWarningMessage")) {
-					if ($_.Enabled -eq $false -and $this.ControlSettings.DisableWarningMessage -eq $true) {
+				$evaluateControl = $true; 
+				# if control is disabled and warning message is also disabled in org policy than do not evaluate the control.
+				if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "DisableWarningMessage") -and $this.ControlSettings.DisableWarningMessage -eq $true -and $_.Enabled -eq $false) {
 						$evaluateControl = $false;
-					}
-					else {
-						$evaluateControl = $true;
-					}
 				}
-				else {
-					$evaluateControl = $true;
-				}
-
 				if ($evaluateControl)
 				{
 					$eventContext = $this.RunControl($_);
