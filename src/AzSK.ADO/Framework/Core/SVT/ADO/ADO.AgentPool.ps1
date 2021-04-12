@@ -375,31 +375,31 @@ class AgentPool: ADOSVTBase
             $restrictedGroups = @();
 
             if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentpool") ) {
-                $restrictedGlobalGroupsForSerConn = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentpool;
+                $restrictedGlobalGroupsForAgentpool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentpool;
                 if ((($this.AgentObj | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.AgentObj, "identity")) {
                     # match all the identities added on agentpool with defined restricted list
                     $roleAssignments = @();
                     $roleAssignments +=   ($this.AgentObj | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
-                    $restrictedGroups = $roleAssignments | Where-Object { $restrictedGlobalGroupsForSerConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") }
+                    $restrictedGroups = $roleAssignments | Where-Object { $restrictedGlobalGroupsForAgentpool -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") }
 
                     # fail the control if restricted group found on agentpool
                     if ($restrictedGroups) {
-                        $controlResult.AddMessage("Total number of global groups that have Administration/User access to agentpool: ", ($restrictedGroups | Measure-Object).Count)
-                        $controlResult.AddMessage([VerificationResult]::Failed, "Do not grant global groups Administration/User access to agentpools. Granting elevated permissions to these groups can risk exposure of agentpools to unwarranted individuals.");
-                        $controlResult.AddMessage("Global groups that have Administration/User access to agentpool.", $restrictedGroups)
-                        $controlResult.SetStateData("Global groups that have Administration/User access to agentpool", $restrictedGroups)
-                        $controlResult.AdditionalInfo += "Total number of global groups that have Administration/User access to agentpool: " + ($restrictedGroups | Measure-Object).Count;
+                        $controlResult.AddMessage("Total number of global groups that have Administrator/User access to agent pool: ", ($restrictedGroups | Measure-Object).Count)
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Do not grant global groups Administration/User access to agent pools. Granting elevated permissions to these groups can risk exposure of agent pools to unwarranted individuals.");
+                        $controlResult.AddMessage("Global groups that have Administration/User access to agent pool.", $restrictedGroups)
+                        $controlResult.SetStateData("Global groups that have Administration/User access to agent pool", $restrictedGroups)
+                        $controlResult.AdditionalInfo += "Total number of global groups that have Administration/User access to agent pool: " + ($restrictedGroups | Measure-Object).Count;
                     }
                     else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No global groups have Administration/User access to agentpool.");
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No global groups have Administration/User access to agent pool.");
                     }
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No global groups have Administration/User access to agentpool.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No global groups have Administration/User access to agent pool.");
                 }
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Manual, "List of restricted global groups for agentpool is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
+                $controlResult.AddMessage([VerificationResult]::Manual, "List of restricted global groups for agent pool is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
             }
         }
         catch {
