@@ -48,7 +48,7 @@
           "ADO_ServiceConnection_AuthZ_Dont_Allow_Global_Groups",
           "ADO_ServiceConnection_DP_Review_Inactive_Connection",
           "ADO_ServiceConnection_SI_Dont_Share_Across_Projects",
-          "ADO_ServiceConnection_AuthZ_Dont_Grant_Subscription_Access",
+          "ADO_ServiceConnection_AuthZ_Grant_Least_Privilege_Access",
           "ADO_ServiceConnection_AuthZ_Dont_Grant_BuildServAcc_Permission"
         ]
       },
