@@ -849,10 +849,11 @@ class Release: ADOSVTBase
                         if((-not [string]::IsNullOrEmpty($contributorsObj)) -and ($contributorsObj.role.name -ne 'Reader')){
                             
                             #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
-                            $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($_);
+                            $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($_);
                             $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
-                            
-                            $editableVarGrps += $varGrpObj[0].name
+                            if ((-not ([Helpers]::CheckMember($varGrpObj[0],"count"))) -and ($varGrpObj.Count -gt 0) -and ([Helpers]::CheckMember($varGrpObj[0],"name"))) {
+                                $editableVarGrps += $varGrpObj[0].name
+                            }
                         } 
                     }
                 }

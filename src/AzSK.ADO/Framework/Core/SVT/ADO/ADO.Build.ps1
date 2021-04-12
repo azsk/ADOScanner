@@ -159,30 +159,33 @@ class Build: ADOSVTBase
                         } 
                     }
                 }
-                if(([Helpers]::CheckMember($this.BuildObj[0],"variableGroups")) -and ([Helpers]::CheckMember($this.BuildObj[0],"variableGroups.variables"))) 
+                if(([Helpers]::CheckMember($this.BuildObj[0],"variableGroups"))) 
                 {
                     $this.BuildObj[0].variableGroups| ForEach-Object {
-                       $varGrp = $_
-                        Get-Member -InputObject $_.variables -MemberType Properties | ForEach-Object {
+                        $varGrp = $_
+                        if (([Helpers]::CheckMember($varGrp,"variables")))
+                        {
+                            Get-Member -InputObject $_.variables -MemberType Properties | ForEach-Object {
 
-                            if([Helpers]::CheckMember($varGrp.variables.$($_.Name) ,"value") -and  (-not [Helpers]::CheckMember($varGrp.variables.$($_.Name) ,"isSecret")))
-                            {
-                                $varName = $_.Name
-                                $varValue = $varGrp.variables.$($_.Name).value 
-                                if ($exclusions -notcontains $varName)
+                                if([Helpers]::CheckMember($varGrp.variables.$($_.Name) ,"value") -and  (-not [Helpers]::CheckMember($varGrp.variables.$($_.Name) ,"isSecret")))
                                 {
-                                    for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) {
-                                        #Note: We are using '-cmatch' here. 
-                                        #When we compile the regex, we don't specify ignoreCase flag.
-                                        #If regex is in text form, the match will be case-sensitive.
-                                        if ($varValue -cmatch $patterns.RegexList[$i]) { 
-                                            $noOfCredFound +=1
-                                            $varGrpList += "[$($varGrp.Name)]:$varName";   
-                                            break  
+                                    $varName = $_.Name
+                                    $varValue = $varGrp.variables.$($_.Name).value 
+                                    if ($exclusions -notcontains $varName)
+                                    {
+                                        for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) {
+                                            #Note: We are using '-cmatch' here. 
+                                            #When we compile the regex, we don't specify ignoreCase flag.
+                                            #If regex is in text form, the match will be case-sensitive.
+                                            if ($varValue -cmatch $patterns.RegexList[$i]) { 
+                                                $noOfCredFound +=1
+                                                $varGrpList += "[$($varGrp.Name)]:$varName";   
+                                                break  
+                                                }
                                             }
-                                        }
-                                }
-                            } 
+                                    }
+                                } 
+                            }
                         }
                     }
                 }
@@ -710,7 +713,9 @@ class Build: ADOSVTBase
                     {
                         $contributorsObj = $responseObj | Where-Object {$_.identity.uniqueName -eq "[$projectName]\Contributors"}
                         if((-not [string]::IsNullOrEmpty($contributorsObj)) -and ($contributorsObj.role.name -ne 'Reader')){
-                            $editableVarGrps += $_.name
+                            if ([Helpers]::CheckMember($_,"name")) {
+                                $editableVarGrps += $_.name
+                            }
                         } 
                     }
                 }
