@@ -25,13 +25,17 @@ class Release: ADOSVTBase
             $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($this.OrganizationContext.OrganizationName)
             $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             [Release]::SecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ReleaseManagement") -and ($_.actions.name -contains "ViewReleaseDefinition")}).namespaceId
+            $TaskGroupSecurityNamespace = ($securityNamespacesObj | Where-Object { ($_.Name -eq "MetaTask")}).namespaceId
             Remove-Variable securityNamespacesObj;
         }
 
+        #Get ACL for all releases
         if ((-not [string]::IsNullOrEmpty([Release]::SecurityNamespaceId)) -and ($null -eq [Release]::ReleaseNamespacesObj)) {
             $apiURL = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?includeExtendedInfo=True&recurse=True&api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$([Release]::SecurityNamespaceId)
             [Release]::ReleaseNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
         }
+
+        #Get release permission and their bit using security namespace
         if ((-not [string]::IsNullOrEmpty([Release]::SecurityNamespaceId)) -and ($null -eq [Release]::ReleaseNamespacesPermissionObj)) {
             #Get permission and its bit for security namespaces
             $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$([Release]::SecurityNamespaceId)
@@ -61,14 +65,14 @@ class Release: ADOSVTBase
             $this.InactiveFromDays = ((Get-Date) - $this.releaseActivityDetail.latestReleaseTriggerDate).Days
         }
 
-        if (-not [string]::IsNullOrEmpty([Constants]::TaskGroupSecurityNamespace -and ($null -eq [Release]::TaskGroupNamespacesObj)) ) {
+        if (-not [string]::IsNullOrEmpty($TaskGroupSecurityNamespace -and ($null -eq [Release]::TaskGroupNamespacesObj)) ) {
             #Get acl for taskgroups. Its response contains descriptor of each ado group/user which have permission on the taskgroup
-            $apiUrl = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$([Constants]::TaskGroupSecurityNamespace)
+            $apiUrl = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?includeExtendedInfo=True&recurse=True&api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$TaskGroupSecurityNamespace
             [Release]::TaskGroupNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrl);
         }
-        if (-not [string]::IsNullOrEmpty([Constants]::TaskGroupSecurityNamespace -and ($null -eq [Release]::TaskGroupNamespacePermissionObj)) ) {
+        if (-not [string]::IsNullOrEmpty($TaskGroupSecurityNamespace -and ($null -eq [Release]::TaskGroupNamespacePermissionObj)) ) {
             #Get permission and its bit for security namespaces
-            $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$([Constants]::TaskGroupSecurityNamespace)
+            $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$TaskGroupSecurityNamespace
             [Release]::TaskGroupNamespacePermissionObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlNamespace);
         }
     }
@@ -361,10 +365,12 @@ class Release: ADOSVTBase
     {
         if($null -ne [Release]::ReleaseNamespacesObj -and [Helpers]::CheckMember([Release]::ReleaseNamespacesObj,"token"))
         {
-            $releaseId = $this.ReleaseObj.id
-            $resource = $this.projectid+ "/" + $releaseId
+            $resource = $this.projectid+ "/" + $this.ReleaseObj.id
+
+            # Filter namespaceobj for current release
             $obj = [Release]::ReleaseNamespacesObj | where-object {$_.token -eq $resource}  
     
+            # If current release object is not found, get project level obj. (Seperate release obj is not available if project level permissions are being used on pipeline)
             if(($obj | Measure-Object).Count -eq 0)
             {
                 $obj = [Release]::ReleaseNamespacesObj | where-object {$_.token -eq $this.projectid}  
@@ -473,117 +479,94 @@ class Release: ADOSVTBase
         return $controlResult
     }
 
-    hidden [ControlResult] CheckRBACAccess ([ControlResult] $controlResult)
+    hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
     {
-        $failMsg = $null
-        try
+        $exemptedUserIdentities = $this.ReleaseObj.createdBy.id
+        $exemptedUserIdentities += $this.ControlSettings.Release.ExemptedUserIdentities 
+
+        $resource = $this.projectid+ "/" + $this.ReleaseObj.id
+
+        $obj = [Release]::ReleaseNamespacesObj | where-object {$_.token -eq $resource}  
+
+        if(($obj | Measure-Object).Count -eq 0)
         {
-            # This functions is to check users permissions on release definition. Groups' permissions check is not added here.
-            $releaseDefinitionPath = $this.ReleaseObj.Path.Trim("\").Replace(" ","+").Replace("\","%2F")
-            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/ReadExplicitIdentitiesJson?__v=5&permissionSetId={2}&permissionSetToken={3}%2F{4}%2F{5}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath) ,$($this.ReleaseObj.id);
+            $obj = [Release]::ReleaseNamespacesObj | where-object {$_.token -eq $this.projectid}  
+        }
 
-            $sw = [System.Diagnostics.Stopwatch]::StartNew();
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-            $sw.Stop()
+        if(($obj | Measure-Object).Count -gt 0)
+        {
+            $properties = $obj.acesDictionary | Get-Member -MemberType Properties
+            #$permissionsInBit =0
+            $editPerms= @();
+            $accessList =@();
 
-            $accessList = @()
-            $exemptedUserIdentities = @()
-
-            #Below code added to send perf telemtry
-            if ($this.IsAIEnabled)
+            try
             {
-                $properties =  @{ 
-                    TimeTakenInMs = $sw.ElapsedMilliseconds;
-                    ApiUrl = $apiURL; 
-                    Resourcename = $this.ResourceContext.ResourceName;
-                    ResourceType = $this.ResourceContext.ResourceType;
-                    PartialScanIdentifier = $this.PartialScanIdentifier;
-                    CalledBy = "CheckRBACAccess";
-                }
-                [AIOrgTelemetryHelper]::PublishEvent( "Api Call Trace",$properties, @{})
-            }
+                #Use descriptors from acl to make identities call, using each descriptor see permissions mapped to Contributors
+                $properties | ForEach-Object{
+                    $AllowedPermissionsInBit = 0 #Explicitly allowed permissions
+                    $InheritedAllowedPermissionsInBit = 0 #Inherited 
 
-            # Fetch detailed permissions of each of group/user from above api call
-            # To be evaluated only when -DetailedScan flag is used in GADS command along with control ids  or when controls are to be attested
-            if([AzSKRoot]::IsDetailedScanRequired -eq $true)
-            {
-                # exclude release owner
-                $exemptedUserIdentities += $this.ReleaseObj.createdBy.id
-                if([Helpers]::CheckMember($responseObj,"identities") -and ($responseObj.identities|Measure-Object).Count -gt 0)
-                {
-                    $exemptedUserIdentities += $responseObj.identities | Where-Object { $_.IdentityType -eq "user" }| ForEach-Object {
-                        $identity = $_
-                        $exemptedIdentity = $this.ControlSettings.Release.ExemptedUserIdentities | Where-Object { $_.Domain -eq $identity.Domain -and $_.DisplayName -eq $identity.DisplayName }
-                        if(($exemptedIdentity | Measure-Object).Count -gt 0)
+                    $apiUrlIdentity = "https://vssps.dev.azure.com/{0}/_apis/identities?descriptors={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($obj.acesDictionary.$($_.Name).descriptor)
+                    $responseObjot = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
+
+                    if([Helpers]::CheckMember($responseObjot,"customDisplayName")) 
+                    {
+                        $displayName = $responseObjot.customDisplayName  #For User isentity type
+                    }
+                    else{
+                        $displayName = $responseObjot.providerDisplayName
+                    }
+
+                    if($responseObjot.providerDisplayName -notmatch  $exemptedUserIdentities)
+                    {
+                        $AllowedPermissionsInBit = $obj.acesDictionary.$($_.Name).allow
+                        if([Helpers]::CheckMember($obj.acesDictionary.$($_.Name).extendedInfo,"inheritedAllow")) 
                         {
-                            return $identity.TeamFoundationId
+                            $InheritedAllowedPermissionsInBit = $obj.acesDictionary.$($_.Name).extendedInfo.inheritedAllow
+                        }
+
+                        $permissions = [Helpers]::ResolveAllPermissions($AllowedPermissionsInBit ,$InheritedAllowedPermissionsInBit, [Release]::ReleaseNamespacesPermissionObj.actions)
+                        if(($permissions | Measure-Object).Count -ne 0)
+                        {
+                            $accessList += New-Object -TypeName psobject -Property @{IdentityName= $displayName ; IdentityType= $responseObjot.properties.SchemaClassName.'$value'; Permissions = $permissions}
                         }
                     }
-
-                    $accessList += $responseObj.identities | Where-Object { $_.IdentityType -eq "user" } | ForEach-Object {
-                        $identity = $_ 
-                        if($exemptedUserIdentities -notcontains $identity.TeamFoundationId)
-                        {
-                            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($identity.TeamFoundationId) ,$([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath), $($this.ReleaseObj.id);
-                            $identityPermissions = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-                            $configuredPermissions = $identityPermissions.Permissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
-                            return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.IdentityType; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
-                        }
-                    }
-
-                    $accessList += $responseObj.identities | Where-Object { $_.IdentityType -eq "group" } | ForEach-Object {
-                        $identity = $_ 
-                        $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($identity.TeamFoundationId) ,$([Release]::SecurityNamespaceId), $($this.ProjectId), $($releaseDefinitionPath), $($this.ReleaseObj.id);
-                        $identityPermissions = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-                        $configuredPermissions = $identityPermissions.Permissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
-                        return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.IdentityType; IsAadGroup = $identity.IsAadGroup ;Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
-                    }
                 }
-                
+
                 if(($accessList | Measure-Object).Count -ne 0)
                 {
-                    $accessList= $accessList | Select-Object -Property @{Name="IdentityName"; Expression = {$_.IdentityName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Permissions"; Expression = {$_.Permissions}}
-                    $controlResult.AddMessage("Total number of identities that have access to release pipeline: ", ($accessList | Measure-Object).Count);
-                    $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to [$($this.ResourceContext.ResourceName)] pipeline", $accessList);
-                    $controlResult.SetStateData("Release pipeline access list: ", ($responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}}));
-                    $controlResult.AdditionalInfo += "Total number of identities that have access to release pipeline: " + ($accessList | Measure-Object).Count;
-                    $controlResult.AdditionalInfo += "Total number of user identities that have access to release pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'user'}) | Measure-Object).Count;
-                    $controlResult.AdditionalInfo += "Total number of group identities that have access to release pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'group'}) | Measure-Object).Count;
-                }
-                else
-                {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"No identities have been explicitly provided with RBAC access to [$($this.ResourceContext.ResourceName)] pipeline other than release pipeline owner and default groups");
-                    $controlResult.AddMessage("Total number of exempted user identities:",($exemptedUserIdentities | Measure-Object).Count);
-                    $controlResult.AddMessage("List of exempted user identities:",$exemptedUserIdentities)
-                    $controlResult.AdditionalInfo += "Total number of exempted user identities: " + ($exemptedUserIdentities | Measure-Object).Count;
-                }
-            }
-            else{
-                # Non detailed scan results
-                if(($responseObj.identities|Measure-Object).Count -gt 0)
-                {
-                    $accessList= $responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}}
+                    $accessList = $accessList | sort-object -Property IdentityName, IdentityType
                     $controlResult.AddMessage("Total number of identities that have access to release pipeline: ", ($accessList | Measure-Object).Count);
                     $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to [$($this.ResourceContext.ResourceName)] pipeline.", $accessList);
                     $controlResult.SetStateData("Release pipeline access list: ", $accessList);
                     $controlResult.AdditionalInfo += "Total number of identities that have access to release pipeline: " + ($accessList | Measure-Object).Count;
                     $controlResult.AdditionalInfo += "Total number of user identities that have access to release pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'user'}) | Measure-Object).Count;
                     $controlResult.AdditionalInfo += "Total number of group identities that have access to release pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'group'}) | Measure-Object).Count;
+  
                 }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No identities have been explicitly provided with RBAC access to [$($this.ResourceContext.ResourceName)] other than release pipeline owner and default groups");
+                    $controlResult.AddMessage("Total number of exempted user identities:",($exemptedUserIdentities | Measure-Object).Count);
+                    $controlResult.AddMessage("List of exempted user identities:",$exemptedUserIdentities)
+                    $controlResult.AdditionalInfo += "Total number of exempted user identities: " + ($exemptedUserIdentities | Measure-Object).Count;
+                }   
+                
             }
+            catch
+            {
+                $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch RBAC details of the pipeline. $($_) Please verify from portal all teams/groups are granted minimum required permissions on build definition.");
+            }
+        }
+        else {
+            $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch RBAC details of the pipeline.");
+        }
 
-            $accessList = $null;
-            $exemptedUserIdentities =$null;
-            $responseObj = $null;
-        }
-        catch
-        {
-            $failMsg = $_
-        }
-        if(![string]::IsNullOrEmpty($failMsg))
-        {
-            $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch release pipeline details. $($failMsg)Please verify from portal all teams/groups are granted minimum required permissions on release definition.");
-        }       
+#to here
+
+
+
         return $controlResult
     }
 
@@ -752,12 +735,14 @@ class Release: ADOSVTBase
                     #Use descriptors from acl to make identities call, using each descriptor see permissions mapped to Contributors
                     $properties | ForEach-Object{
                         $apiUrlIdentity = "https://vssps.dev.azure.com/{0}/_apis/identities?descriptors={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($obj.acesDictionary.$($_.Name).descriptor)
-                        $responseObjot = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
-                        if ($responseObjot.providerDisplayName -eq "[$($projectName)]\Contributors")
+                        $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
+                        if ($responseObj.providerDisplayName -eq "[$($projectName)]\Contributors")
                         {
-                            $permissionsInBit = $obj.acesDictionary.$($_.Name).allow
+                            $permissionsInBit = $obj.acesDictionary.$($_.Name).extendedInfo.effectiveAllow
                         }
                     }
+
+                    # ResolvePermissions method returns object if 'Edit task group' is allowed
                     $obj = [Helpers]::ResolvePermissions($permissionsInBit, [Release]::TaskGroupNamespacePermissionObj.actions, 'Edit task group')
                     if (($obj | Measure-Object).Count -gt 0){
                         $editableTaskGroups += $_.name
@@ -861,13 +846,13 @@ class Release: ADOSVTBase
     }
     hidden [ControlResult] CheckPipelineEditPermission([ControlResult] $controlResult)
     {
-
-        #$orgName = $($this.OrganizationContext.OrganizationName)
         $projectName = $this.ResourceContext.ResourceGroupName
-        $releaseId = $this.ReleaseObj.id
-        $resource = $this.projectid+ "/" + $releaseId
+        $resource = $this.projectid+ "/" + $this.ReleaseObj.id
+
+        # Filter namespaceobj for current release
         $obj = [Release]::ReleaseNamespacesObj | where-object {$_.token -eq $resource}  
 
+        # If current release object is not found, get project level obj. (Seperate release obj is not available if project level permissions are being used on pipeline)
         if(($obj | Measure-Object).Count -eq 0)
         {
             $obj = [Release]::ReleaseNamespacesObj | where-object {$_.token -eq $this.projectid}  
@@ -885,14 +870,15 @@ class Release: ADOSVTBase
                 $properties | ForEach-Object{
                     if ($permissionsInBit -eq 0) {
                         $apiUrlIdentity = "https://vssps.dev.azure.com/{0}/_apis/identities?descriptors={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($obj.acesDictionary.$($_.Name).descriptor)
-                        $responseObjot = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
-                        if ($responseObjot.providerDisplayName -eq "[$($projectName)]\Contributors")
+                        $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
+                        if ($responseObj.providerDisplayName -eq "[$($projectName)]\Contributors")
                         {
                             $permissionsInBit = $obj.acesDictionary.$($_.Name).extendedInfo.effectiveAllow
                         }
                     }
                 }
-                    
+                
+                # ResolvePermissions method returns object if 'Edit release pipeline' is allowed
                 $editPerms = [Helpers]::ResolvePermissions($permissionsInBit, [Release]::ReleaseNamespacesPermissionObj.actions, 'Edit release pipeline')
 
                 if(($editPerms | Measure-Object).Count -gt 0)
@@ -922,11 +908,11 @@ class Release: ADOSVTBase
         {
             if($this.ReleaseObj)
             {
-
                 if([Helpers]::CheckMember($this.ReleaseObj ,"lastrelease"))
                 {
-                    $release = $this.ReleaseObj.lastrelease
                     $recentReleases = @()
+                    $release = $this.ReleaseObj.lastrelease
+                    $this.releaseActivityDetail.releaseCreationDate = [datetime]::Parse($this.ReleaseObj.createdOn);
 
                     if([datetime]::Parse( $release.createdOn) -gt (Get-Date).AddDays(-$($this.ControlSettings.Release.ReleaseHistoryPeriodInDays)))
                     {

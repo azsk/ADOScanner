@@ -876,6 +876,7 @@ class Helpers {
         return $sharedKey    	
     }
 
+    # Get object of a particular permission (which are allowed) for a group. 
     static [object] ResolvePermissions($permissionsInBit, $actions, $permissionName)
 	{
         $obj = @();
@@ -897,6 +898,51 @@ class Helpers {
                 }
             }
         }
+        return $obj      	
+    }
+
+    # Resolve allowed permissions of a particular group. 
+    static [object] ResolveAllPermissions($AllowedPermissionsInBit, $InheritedAllowedPermissionsInBit, $actions)
+	{
+        $obj = @();
+        #$editPerms = @();
+        #check allowed permissions
+        if($AllowedPermissionsInBit -gt 0 )
+        {                           
+            $permissionsInBinary = [convert]::ToString($AllowedPermissionsInBit,2) # to binary
+            # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+
+            for ($a = 0 ; $a -lt $permissionsInBinary.Length; $a++) 
+            {
+                if( $permissionsInBinary.Substring($permissionsInBinary.Length-$a-1,1) -ge 1) # each binary digit
+                {
+                    # find bit in action list
+                    $raise = [Math]::Pow(2, $a)
+                    $bit = $actions | Where-Object {$_.bit -eq $raise }
+                    $obj += New-Object -TypeName psobject -Property @{Name= $bit.displayName ; Permission="Allow"}
+                }
+            }
+        }
+
+        if($InheritedAllowedPermissionsInBit -gt 0 )
+        {                           
+            $permissionsInBinary = [convert]::ToString($InheritedAllowedPermissionsInBit,2) # to binary
+            # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+
+            for ($a = 0 ; $a -lt $permissionsInBinary.Length; $a++) 
+            {
+                if( $permissionsInBinary.Substring($permissionsInBinary.Length-$a-1,1) -ge 1) # each binary digit
+                {
+                    # find bit in action list
+                    $raise = [Math]::Pow(2, $a)
+                    $bit = $actions | Where-Object {$_.bit -eq $raise }
+                    $obj += New-Object -TypeName psobject -Property @{Name= $bit.displayName ; Permission="Allow (inherited)"}
+                }
+            }
+        }
+
+        $obj = $obj | Sort-Object -Property Name
+
         return $obj      	
     }
 }

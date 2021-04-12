@@ -16,19 +16,22 @@ class Build: ADOSVTBase
         [system.gc]::Collect();
 
         # Get security namespace identifier of current build.
-        if ([string]::IsNullOrEmpty([Build]::SecurityNamespaceId) ) {
+        if ([string]::IsNullOrEmpty([Build]::SecurityNamespaceId)) {
             $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($this.OrganizationContext.OrganizationName)
             $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             [Build]::SecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "Build") -and ($_.actions.name -contains "ViewBuilds")}).namespaceId
+            $TaskGroupSecurityNamespace = ($securityNamespacesObj | Where-Object { ($_.Name -eq "MetaTask")}).namespaceId
             Remove-Variable securityNamespacesObj;
         }
 
+        #Get ACL for all builds
         if ((-not [string]::IsNullOrEmpty([Build]::SecurityNamespaceId)) -and ($null -eq [Build]::BuildNamespacesObj)) {
             $apiURL = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?includeExtendedInfo=True&recurse=True&api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$([Build]::SecurityNamespaceId)
             [Build]::BuildNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
         }
+        
+        #Get build permission and their bit using security namespace
         if ((-not [string]::IsNullOrEmpty([Build]::SecurityNamespaceId)) -and ($null -eq [Build]::BuildNamespacesPermissionObj)) {
-            #Get permission and its bit for security namespaces
             $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$([Build]::SecurityNamespaceId)
             [Build]::BuildNamespacesPermissionObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlNamespace);
         }
@@ -67,15 +70,15 @@ class Build: ADOSVTBase
             $this.InactiveFromDays = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
         }
 
-        if (-not [string]::IsNullOrEmpty([Constants]::TaskGroupSecurityNamespace) -and ($null -eq [Build]::TaskGroupNamespacesObj) ) {
+        if (-not [string]::IsNullOrEmpty($TaskGroupSecurityNamespace) -and ($null -eq [Build]::TaskGroupNamespacesObj) ) {
             #Get acl for taskgroups. Its response contains descriptor of each ado group/user which have permission on the taskgroup
-            $apiUrl = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?includeExtendedInfo=True&api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$([Constants]::TaskGroupSecurityNamespace)
+            $apiUrl = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?includeExtendedInfo=True&recurse=True&api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$TaskGroupSecurityNamespace
             [Build]::TaskGroupNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrl);
         }
 
-        if (-not [string]::IsNullOrEmpty([Build]::SecurityNamespaceId) -and ($null -eq [Build]::TaskGroupNamespacePermissionObj)) {
+        if (-not [string]::IsNullOrEmpty($TaskGroupSecurityNamespace) -and ($null -eq [Build]::TaskGroupNamespacePermissionObj)) {
             #Get permission and its bit for security namespaces
-            $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$([Constants]::TaskGroupSecurityNamespace)
+            $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$TaskGroupSecurityNamespace
             [Build]::TaskGroupNamespacePermissionObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlNamespace);
         }
     }
@@ -189,30 +192,33 @@ class Build: ADOSVTBase
                         } 
                     }
                 }
-                if(([Helpers]::CheckMember($this.BuildObj[0],"variableGroups")) -and ([Helpers]::CheckMember($this.BuildObj[0],"variableGroups.variables"))) 
+                if([Helpers]::CheckMember($this.BuildObj[0],"variableGroups")) 
                 {
                     $this.BuildObj[0].variableGroups| ForEach-Object {
                        $varGrp = $_
-                        Get-Member -InputObject $_.variables -MemberType Properties | ForEach-Object {
+                        if([Helpers]::CheckMember($_,"variables")) 
+                        {
+                            Get-Member -InputObject $_.variables -MemberType Properties | ForEach-Object {
 
-                            if([Helpers]::CheckMember($varGrp.variables.$($_.Name) ,"value") -and  (-not [Helpers]::CheckMember($varGrp.variables.$($_.Name) ,"isSecret")))
-                            {
-                                $varName = $_.Name
-                                $varValue = $varGrp.variables.$($_.Name).value 
-                                if ($exclusions -notcontains $varName)
+                                if([Helpers]::CheckMember($varGrp.variables.$($_.Name) ,"value") -and  (-not [Helpers]::CheckMember($varGrp.variables.$($_.Name) ,"isSecret")))
                                 {
-                                    for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) {
-                                        #Note: We are using '-cmatch' here. 
-                                        #When we compile the regex, we don't specify ignoreCase flag.
-                                        #If regex is in text form, the match will be case-sensitive.
-                                        if ($varValue -cmatch $patterns.RegexList[$i]) { 
-                                            $noOfCredFound +=1
-                                            $varGrpList += "[$($varGrp.Name)]:$varName";   
-                                            break  
+                                    $varName = $_.Name
+                                    $varValue = $varGrp.variables.$($_.Name).value 
+                                    if ($exclusions -notcontains $varName)
+                                    {
+                                        for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) {
+                                            #Note: We are using '-cmatch' here. 
+                                            #When we compile the regex, we don't specify ignoreCase flag.
+                                            #If regex is in text form, the match will be case-sensitive.
+                                            if ($varValue -cmatch $patterns.RegexList[$i]) { 
+                                                $noOfCredFound +=1
+                                                $varGrpList += "[$($varGrp.Name)]:$varName";   
+                                                break  
+                                                }
                                             }
-                                        }
-                                }
-                            } 
+                                    }
+                                } 
+                            }
                         }
                     }
                 }
@@ -313,7 +319,11 @@ class Build: ADOSVTBase
         if($null -ne [Build]::BuildNamespacesObj -and [Helpers]::CheckMember([Build]::BuildNamespacesObj,"token"))
         {
             $resource = $this.BuildObj.project.id+ "/" + $this.BuildObj.Id
+
+            # Filter namespaceobj for current build
             $obj = [Build]::BuildNamespacesObj | where-object {$_.token -eq $resource}  
+
+            # If current build object is not found, get project level obj. (Seperate build obj is not available if project level permissions are being used on pipeline)
             if(($obj | Measure-Object).Count -eq 0)
             {
                 $obj = [Build]::BuildNamespacesObj | where-object {$_.token -eq $this.BuildObj.project.id}  
@@ -337,80 +347,68 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
     {
-        $failMsg = $null
-        try
+        $exemptedUserIdentities = $this.BuildObj.authoredBy.id
+        $exemptedUserIdentities += $this.ControlSettings.Build.ExemptedUserIdentities 
+
+        $resource = $this.BuildObj.project.id+ "/" + $this.BuildObj.Id
+        $obj = [Build]::BuildNamespacesObj | where-object {$_.token -eq $resource}  
+
+        if(($obj | Measure-Object).Count -eq 0)
         {
-            # Step 1: Fetch list of all groups/users with access to this build
-            # Here 'permissionSet' = security namespace identifier, 'token' = project id and 'tokenDisplayVal' = build name
-            $buildDefinitionPath = $this.BuildObj.Path.Trim("\").Replace(" ","+").Replace("\","%2F")
-            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/ReadExplicitIdentitiesJson?__v=5&permissionSetId={2}&permissionSetToken={3}%2F{4}%2F{5}" -f $($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
+            $obj = [Build]::BuildNamespacesObj | where-object {$_.token -eq $this.BuildObj.project.id}  
+        }
 
-            $sw = [System.Diagnostics.Stopwatch]::StartNew();
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-            $sw.Stop()
+        if(($obj | Measure-Object).Count -gt 0)
+        {
+            $properties = $obj.acesDictionary | Get-Member -MemberType Properties
+            #$permissionsInBit =0
+            $editPerms= @();
+            $accessList =@();
 
-            $accessList = @()
-            $exemptedUserIdentities = @()
-
-            #Below code added to send perf telemtry
-            if ($this.IsAIEnabled)
+            try
             {
-                $properties =  @{ 
-                    TimeTakenInMs = $sw.ElapsedMilliseconds;
-                    ApiUrl = $apiURL; 
-                    Resourcename = $this.ResourceContext.ResourceName;
-                    ResourceType = $this.ResourceContext.ResourceType;
-                    PartialScanIdentifier = $this.PartialScanIdentifier;
-                    CalledBy = "CheckRBACAccess";
-                }
-                [AIOrgTelemetryHelper]::PublishEvent( "Api Call Trace",$properties, @{})
-            }
+                #Use descriptors from acl to make identities call, using each descriptor see permissions mapped to Contributors
+                $properties | ForEach-Object{
+                    $AllowedPermissionsInBit = 0 #Explicitly allowed permissions
+                    $InheritedAllowedPermissionsInBit = 0 #Inherited 
 
-            # Step2: Fetch detailed permissions of each of group/user from above api call
-            # To be evaluated only when -DetailedScan flag is used in GADS command along with control ids  or when controls are to be attested
-            if([AzSKRoot]::IsDetailedScanRequired -eq $true)
-            {
-                # build owner
-                $exemptedUserIdentities += $this.BuildObj.authoredBy.id
-                if(($responseObj.identities|Measure-Object).Count -gt 0)
-                {
-                    $exemptedUserIdentities += $responseObj.identities | Where-Object { $_.IdentityType -eq "user" }| ForEach-Object {
-                        $identity = $_
-                        $exemptedIdentity = $this.ControlSettings.Build.ExemptedUserIdentities | Where-Object { $_.Domain -eq $identity.Domain -and $_.DisplayName -eq $identity.DisplayName }
-                        if(($exemptedIdentity | Measure-Object).Count -gt 0)
+                    $apiUrlIdentity = "https://vssps.dev.azure.com/{0}/_apis/identities?descriptors={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($obj.acesDictionary.$($_.Name).descriptor)
+                    $responseObjot = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
+
+                    if([Helpers]::CheckMember($responseObjot,"customDisplayName")) 
+                    {
+                        $displayName = $responseObjot.customDisplayName  #For User isentity type
+                    }
+                    else{
+                        $displayName = $responseObjot.providerDisplayName
+                    }
+
+                    if($responseObjot.providerDisplayName -notmatch  $exemptedUserIdentities)
+                    {
+                        $AllowedPermissionsInBit = $obj.acesDictionary.$($_.Name).extendedInfo.allow
+                        if([Helpers]::CheckMember($obj.acesDictionary.$($_.Name).extendedInfo,"inheritedAllow")) 
                         {
-                            return $identity.TeamFoundationId
+                            $InheritedAllowedPermissionsInBit = $obj.acesDictionary.$($_.Name).extendedInfo.inheritedAllow
+                        }
+
+                        $permissions = [Helpers]::ResolveAllPermissions($AllowedPermissionsInBit ,$InheritedAllowedPermissionsInBit, [Build]::BuildNamespacesPermissionObj.actions)
+                        if(($permissions | Measure-Object).Count -ne 0)
+                        {
+                            $accessList += New-Object -TypeName psobject -Property @{IdentityName= $displayName ; IdentityType= $responseObjot.properties.SchemaClassName.'$value'; Permissions = $permissions}
                         }
                     }
-
-                    $accessList += $responseObj.identities | Where-Object { $_.IdentityType -eq "user" } | ForEach-Object {
-                        $identity = $_ 
-                        if($exemptedUserIdentities -notcontains $identity.TeamFoundationId)
-                        {
-                            $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $($identity.TeamFoundationId) ,$([Build]::SecurityNamespaceId),$($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
-                            $identityPermissions = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-                            $configuredPermissions = $identityPermissions.Permissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
-                            return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.IdentityType; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
-                        }
-                    }
-
-                    $accessList += $responseObj.identities | Where-Object { $_.IdentityType -eq "group" } | ForEach-Object {
-                        $identity = $_ 
-                        $apiURL = "https://dev.azure.com/{0}/{1}/_api/_security/DisplayPermissions?__v=5&tfid={2}&permissionSetId={3}&permissionSetToken={4}%2F{5}%2F{6}" -f $($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $($identity.TeamFoundationId) ,$([Build]::SecurityNamespaceId),$($this.BuildObj.project.id), $($buildDefinitionPath), $($this.BuildObj.id);
-                        $identityPermissions = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-                        $configuredPermissions = $identityPermissions.Permissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
-                        return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.IdentityType; IsAadGroup = $identity.IsAadGroup ;Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
-                    }
                 }
+
                 if(($accessList | Measure-Object).Count -ne 0)
                 {
-                    $accessList= $accessList | Select-Object -Property @{Name="IdentityName"; Expression = {$_.IdentityName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Permissions"; Expression = {$_.Permissions}}
+                    $accessList = $accessList | sort-object -Property IdentityName, IdentityType
                     $controlResult.AddMessage("Total number of identities that have access to build pipeline: ", ($accessList | Measure-Object).Count);
                     $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to [$($this.ResourceContext.ResourceName)] pipeline.", $accessList);
-                    $controlResult.SetStateData("Build pipeline access list: ", ($responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}}));
+                    $controlResult.SetStateData("Build pipeline access list: ", $accessList);
                     $controlResult.AdditionalInfo += "Total number of identities that have access to build pipeline: " + ($accessList | Measure-Object).Count;
                     $controlResult.AdditionalInfo += "Total number of user identities that have access to build pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'user'}) | Measure-Object).Count;
                     $controlResult.AdditionalInfo += "Total number of group identities that have access to build pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'group'}) | Measure-Object).Count;
+  
                 }
                 else
                 {
@@ -418,34 +416,21 @@ class Build: ADOSVTBase
                     $controlResult.AddMessage("Total number of exempted user identities:",($exemptedUserIdentities | Measure-Object).Count);
                     $controlResult.AddMessage("List of exempted user identities:",$exemptedUserIdentities)
                     $controlResult.AdditionalInfo += "Total number of exempted user identities: " + ($exemptedUserIdentities | Measure-Object).Count;
-                } 
+                }   
+                
             }
-            else{
-                # Non detailed scan results
-                if(($responseObj.identities|Measure-Object).Count -gt 0)
-                {
-                    $accessList= $responseObj.identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Scope"; Expression = {$_.Scope}}
-                    $controlResult.AddMessage("Total number of identities that have access to build pipeline: ", ($accessList | Measure-Object).Count);
-                    $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to [$($this.ResourceContext.ResourceName)] pipeline.", $accessList);
-                    $controlResult.SetStateData("Build pipeline access list: ", $accessList);
-                    $controlResult.AdditionalInfo += "Total number of identities that have access to build pipeline: " + ($accessList | Measure-Object).Count;
-                    $controlResult.AdditionalInfo += "Total number of user identities that have access to build pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'user'}) | Measure-Object).Count;
-                    $controlResult.AdditionalInfo += "Total number of group identities that have access to build pipeline: " + (($accessList | Where-Object {$_.IdentityType -eq 'group'}) | Measure-Object).Count;
-                }
+            catch
+            {
+                $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch RBAC details of the pipeline. $($_) Please verify from portal all teams/groups are granted minimum required permissions on build definition.");
             }
-            
-           # $accessList = $null;
-            $responseObj = $null;
         }
-        catch
-        {
-            $failMsg = $_
+        else {
+            $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch RBAC details of the pipeline.");
         }
 
-        if(![string]::IsNullOrEmpty($failMsg))
-        {
-            $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch build pipeline details. $($failMsg)Please verify from portal all teams/groups are granted minimum required permissions on build definition.");
-        }
+#to here
+
+
 
         return $controlResult
     }
@@ -585,7 +570,7 @@ class Build: ADOSVTBase
                         $taskGrpId = $_.task.id
                         $permissionsInBit = 0
 
-                        #Get acl for your taskgroup
+                        #Get ACL for this taskgroup
                         $resource = $this.BuildObj.project.id+ "/" + $taskGrpId
                         $obj = [Build]::TaskGroupNamespacesObj | where-object {$_.token -eq $resource}  
                         $properties = $obj.acesDictionary | Get-Member -MemberType Properties
@@ -593,15 +578,15 @@ class Build: ADOSVTBase
                         #Use descriptors from acl to make identities call, using each descriptor see permissions mapped to Contributors
                         $properties | ForEach-Object{
                             $apiUrlIdentity = "https://vssps.dev.azure.com/{0}/_apis/identities?descriptors={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($obj.acesDictionary.$($_.Name).descriptor)
-                            $responseObjot = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
-                            if ($responseObjot.providerDisplayName -eq "[$($this.BuildObj.project.name)]\Contributors")
+                            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
+                            if ($responseObj.providerDisplayName -eq "[$($this.BuildObj.project.name)]\Contributors")
                             {
-                                $permissionsInBit = $obj.acesDictionary.$($_.Name).allow
+                                $permissionsInBit = $obj.acesDictionary.$($_.Name).extendedInfo.effectiveAllow
                             }
                         }
-
-                        $obj = [Helpers]::ResolvePermissions($permissionsInBit, [Build]::TaskGroupNamespacePermissionObj.actions, 'Edit task group')
                         
+                        # ResolvePermissions method returns object if 'Edit task group' is allowed
+                        $obj = [Helpers]::ResolvePermissions($permissionsInBit, [Build]::TaskGroupNamespacePermissionObj.actions, 'Edit task group')
                         if (($obj | Measure-Object).Count -gt 0){
                             $editableTaskGroups += $_.DisplayName
                         }
@@ -714,10 +699,12 @@ class Build: ADOSVTBase
     }
     hidden [ControlResult] CheckPipelineEditPermission([ControlResult] $controlResult)
     {
-        #Get acl for your taskgroup
         $resource = $this.BuildObj.project.id+ "/" + $this.BuildObj.Id
+        
+        # Filter namespaceobj for current build
         $obj = [Build]::BuildNamespacesObj | where-object {$_.token -eq $resource}  
 
+        # If current build object is not found, get project level obj. (Seperate build obj is not available if project level permissions are being used on pipeline)
         if(($obj | Measure-Object).Count -eq 0)
         {
             $obj = [Build]::BuildNamespacesObj | where-object {$_.token -eq $this.BuildObj.project.id}  
@@ -735,14 +722,15 @@ class Build: ADOSVTBase
                 $properties | ForEach-Object{
                     if ($permissionsInBit -eq 0) {
                         $apiUrlIdentity = "https://vssps.dev.azure.com/{0}/_apis/identities?descriptors={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($obj.acesDictionary.$($_.Name).descriptor)
-                        $responseObjot = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
-                        if ($responseObjot.providerDisplayName -eq "[$($this.BuildObj.project.name)]\Contributors")
+                        $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlIdentity);
+                        if ($responseObj.providerDisplayName -eq "[$($this.BuildObj.project.name)]\Contributors")
                         {
                             $permissionsInBit = $obj.acesDictionary.$($_.Name).extendedInfo.effectiveAllow
                         }
                     }
                 }
 
+                # ResolvePermissions method returns object if 'Edit build pipeline' is allowed
                 $editPerms = [Helpers]::ResolvePermissions($permissionsInBit, [Build]::BuildNamespacesPermissionObj.actions, 'Edit build pipeline')
                     
                 if(($editPerms | Measure-Object).Count -gt 0)
@@ -899,6 +887,7 @@ class Build: ADOSVTBase
                 $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
                 [datetime]$createdDate = $this.BuildObj.createdDate
                 $this.buildActivityDetail.buildCreationDate = $createdDate;
+                
                 if([Helpers]::CheckMember($this.BuildObj[0],"latestBuild") -and $null -ne $this.BuildObj[0].latestBuild)
                 {
                     if ([datetime]::Parse( $this.BuildObj[0].latestBuild.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays))) 
