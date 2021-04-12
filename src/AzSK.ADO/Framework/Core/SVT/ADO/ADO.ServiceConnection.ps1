@@ -666,11 +666,11 @@ class ServiceConnection: ADOSVTBase
 
                     # fail the control if restricted group found on service connection
                     if ($restrictedGroups) {
-                        $controlResult.AddMessage("Total number of broader groups that have user/administrator access to service connection: ", ($restrictedGroups | Measure-Object).Count)
-                        $controlResult.AddMessage([VerificationResult]::Failed, "Do not grant broader groups user/administrator access to service connections. Granting elevated permissions to these groups can risk exposure of service connections to unwarranted individuals.");
+                        $restrictedGroupsCount = ($restrictedGroups | Measure-Object).Count
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Total number of broader groups that have user/administrator access to service connection: $($restrictedGroupsCount)")
                         $controlResult.AddMessage("Broader groups that have user/administrator access to service connection.", $restrictedGroups)
                         $controlResult.SetStateData("Broader groups that have user/administrator access to service connection", $restrictedGroups)
-                        $controlResult.AdditionalInfo += "Total number of broader groups that have user/administrator access to service connection: " + ($restrictedGroups | Measure-Object).Count;
+                        $controlResult.AdditionalInfo += "Total number of broader groups that have user/administrator access to service connection:  $($restrictedGroupsCount)";
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection.");
