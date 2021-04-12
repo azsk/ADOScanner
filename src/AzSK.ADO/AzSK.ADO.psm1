@@ -122,7 +122,17 @@ function Set-AzSKADOPolicySettings {
         [Parameter(Mandatory = $false, HelpMessage = "Branch that hosts ADO organization-specific policy")]
         [string]
         [Alias("bid")]
-        $BranchId
+        $BranchId,
+
+        [Parameter(Mandatory = $false, HelpMessage = "Attestation repository that stores attestation details.")]
+        [string]
+        [Alias("atr")]
+        $AttestationRepo,
+
+        [Parameter(Mandatory = $false, HelpMessage = "Attestation branch that stores attestation details.")]
+        [string]
+        [Alias("atb")]
+        $AttestationBranch
     )
     Begin {
         [CommandHelper]::BeginCommand($PSCmdlet.MyInvocation);
@@ -166,6 +176,16 @@ function Set-AzSKADOPolicySettings {
             {
                 $azskSettings.SecretsScanToolFolder = $SecretsScanToolFolder
                 $azskSettings.SecretsScanToolName = $SecretsScanToolName
+            }
+
+            #Set attestation repository for dev/test
+            if (-not [string]::IsNullOrWhiteSpace($AttestationRepo)) {
+                $azskSettings.AttestationRepo = $AttestationRepo;
+            }
+
+            #Set attestation branch for dev/test
+            if (-not [string]::IsNullOrWhiteSpace($AttestationBranch)) {
+                $azskSettings.AttestationBranch = $AttestationBranch;
             }
             
             [ConfigurationManager]::UpdateAzSKSettings($azskSettings);

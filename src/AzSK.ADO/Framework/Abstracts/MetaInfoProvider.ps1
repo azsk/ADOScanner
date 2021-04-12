@@ -195,14 +195,14 @@ class MetaInfoProvider {
     #2.Do not fetch ST files again from policy, if already fetched and file is not present in policy server.
     [void] FetchMappingFiles($ResourceTypeName, $projectName)
 	{
-		if ($ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
+		if ($ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
 		{
 		   if (!$this.buildSTDetails.ContainsKey("$projectName")) {
                 $this.buildSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\BuildSTData.json"));
             }	
 		}
 
-		if ($ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
+		if ($ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
 		{
 			if (!$this.releaseSTDetails.ContainsKey("$projectName")) {
                 $this.releaseSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\ReleaseSTData.json"));
@@ -210,14 +210,14 @@ class MetaInfoProvider {
 			}
 		}
 
-		if ($ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
+		if ($ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
 		{
 			if (!$this.svcConnSTDetails.ContainsKey("$projectName")) {
                 $this.svcConnSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\ServiceConnectionSTData.json"));
                 
 			}
 		}
-		if ($ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_User))
+		if ($ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
 		{
 			if (!$this.agtPoolSTDetails.ContainsKey("$projectName")) {
                 $this.agtPoolSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\AgentPoolSTData.json"));
