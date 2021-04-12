@@ -64,6 +64,12 @@ class ControlResult
 	[bool] $IsResourceActive = $true;
 	# If there is no usage history for resource or if it is Org/Project/User control then default value is set to -1.
 	[int] $InactiveFromDays = -1;
+	[String[]] $Exception = ""
+
+	[void] LogException([System.Management.Automation.ErrorRecord] $exception)
+	{
+		$this.Exception = $exception[0].ToString() + $exception[0].InvocationInfo.PositionMessage
+	}
 
     [void] AddMessage([MessageData] $messageData)
     {

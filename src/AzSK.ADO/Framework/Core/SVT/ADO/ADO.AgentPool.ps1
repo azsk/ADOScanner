@@ -101,6 +101,7 @@ class AgentPool: ADOSVTBase
         }
         catch{
             $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch agent pool details.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -135,6 +136,7 @@ class AgentPool: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch agent pool details.");
+            $controlResult.LogException($_)
         }
         
         return $controlResult
@@ -158,6 +160,7 @@ class AgentPool: ADOSVTBase
         catch{
             $controlResult.AddMessage($_); 
             $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch agent pool details.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -207,6 +210,7 @@ class AgentPool: ADOSVTBase
         catch 
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch agent pool details.");
+            $controlResult.LogException($_)
         }
         #clearing memory space.
         $this.agentPool = $null;
@@ -296,6 +300,7 @@ class AgentPool: ADOSVTBase
         catch 
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch details of user-defined capabilities of agents.");
+            $controlResult.LogException($_)
         }
         #clearing memory space.
         $this.agentPool = $null;

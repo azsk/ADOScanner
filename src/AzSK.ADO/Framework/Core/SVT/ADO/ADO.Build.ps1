@@ -106,6 +106,7 @@ class Build: ADOSVTBase
                     catch {
                         #Publish Exception
                         $this.PublishException($_);
+                        $controlResult.LogException($_)
                     }
                     finally
                     {
@@ -224,6 +225,7 @@ class Build: ADOSVTBase
         catch {
             $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch the build definition.");
             $controlResult.AddMessage($_);
+            $controlResult.LogException($_)
         }    
       } 
      return $controlResult;
@@ -274,6 +276,7 @@ class Build: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch build details.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -323,6 +326,7 @@ class Build: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch build pipeline details. $($_). Please verify from portal that permission inheritance is turned OFF.");
+            $controlResult.LogException($_)
         }
 
         return $controlResult
@@ -433,6 +437,7 @@ class Build: ADOSVTBase
         catch
         {
             $failMsg = $_
+            $controlResult.LogException($_)
         }
 
         if(![string]::IsNullOrEmpty($failMsg))
@@ -482,6 +487,7 @@ class Build: ADOSVTBase
        }  
        catch {
            $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch build pipeline variables.");   
+           $controlResult.LogException($_)
        }
      return $controlResult;
     }
@@ -535,6 +541,7 @@ class Build: ADOSVTBase
         catch 
         {
             $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch variables of the build pipeline.");   
+            $controlResult.LogException($_) 
         }
         return $controlResult;
     }
@@ -671,6 +678,7 @@ class Build: ADOSVTBase
                 catch
                 {
                     $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the RBAC details of task groups used in the pipeline.");
+                    $controlResult.LogException($_)
                 }
 
             }
@@ -730,6 +738,7 @@ class Build: ADOSVTBase
             catch
             {
                 $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the RBAC details of variable groups used in the pipeline.");
+                $controlResult.LogException($_)
             }
              
         }
@@ -864,6 +873,7 @@ class Build: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
+            $controlResult.LogException($_)
         }
 
         return $controlResult;
@@ -930,6 +940,7 @@ class Build: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the pipeline details.");
+            $controlResult.LogException($_)
         }
                 
         return $controlResult;

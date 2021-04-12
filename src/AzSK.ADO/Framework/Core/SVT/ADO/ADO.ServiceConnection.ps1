@@ -162,6 +162,7 @@ class ServiceConnection: ADOSVTBase
             }
             catch {
                 $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the service connection details.");
+                $controlResult.LogException($_)
             }
         }
         else {
@@ -236,6 +237,7 @@ class ServiceConnection: ADOSVTBase
         }
         catch {
             $failMsg = $_
+            $controlResult.LogException($_)
         }
 
         if(![string]::IsNullOrEmpty($failMsg))
@@ -288,6 +290,7 @@ class ServiceConnection: ADOSVTBase
         }
         catch {
             $failMsg = $_
+            $controlResult.LogException($_)
         }
 
         if(![string]::IsNullOrEmpty($failMsg))
@@ -332,6 +335,7 @@ class ServiceConnection: ADOSVTBase
         }
         catch {
             $failMsg = $_
+            $controlResult.LogException($_)
         }
 
         if(![string]::IsNullOrEmpty($failMsg))
@@ -365,6 +369,7 @@ class ServiceConnection: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connection details. $($_) Please verify from portal that you are not granting all pipeline access to service connections");
+            $controlResult.LogException($_)
         }
          
         return $controlResult;
@@ -474,6 +479,7 @@ class ServiceConnection: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the service connection details.");
+            $controlResult.LogException($_)
         }
         
         return $controlResult;
@@ -552,6 +558,7 @@ class ServiceConnection: ADOSVTBase
         catch 
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch pipeline permission details for the service connection.");
+            $controlResult.LogException($_)
         }
         
         return $controlResult;
@@ -583,6 +590,7 @@ class ServiceConnection: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch role assignments.")
+            $controlResult.LogException($_)
         }
         
         return $controlResult

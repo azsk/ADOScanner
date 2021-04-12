@@ -138,6 +138,10 @@ Class LogAnalyticsHelper{
 			{
                 $out.AdditionalInfo = $ControlResult.AdditionalInfo;
             }
+			if ($ControlResult.Exception)
+			{
+                $out.Exception += $ControlResult.Exception;
+            }
 			$output += $out
 		}
 		return $output	
@@ -425,6 +429,7 @@ Class LAWSModel {
 	[String[]] $AdditionalInfo
 	[bool] $IsResourceActive
 	[int] $InactiveFromDays
+	[String[]] $Exception
 }
 
 Class LAWSResourceInvModel{
