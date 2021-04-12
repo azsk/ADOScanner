@@ -188,7 +188,7 @@ class SVTControlAttestation
 								}
 							}
 							if([string]::IsNullOrWhiteSpace($approvedExceptionPromptMessage)) {
-								$promptMessage =  $this.ControlSettings.ApprovedExceptionSettings.DefaultPromptMessage
+								$approvedExceptionPromptMessage = $this.ControlSettings.ApprovedExceptionSettings.DefaultPromptMessage
 							}
 							Write-Host $approvedExceptionPromptMessage -ForegroundColor Cyan
 						}
@@ -435,13 +435,10 @@ class SVTControlAttestation
 				Write-Host "$([Constants]::SingleDashLine)" -ForegroundColor Yellow
 		        if ($this.isApprovedExceptionEnforced) {
                     $bulkAttestedControl = $this.ControlResults.ControlItem[0].ControlID ;
-                    #Blocking bulk attestation for Approved Exception Enabled Controls as approved exception id will not be provided for bulk resources
+                    #Blocking bulk attestation for multiple resources as approved exception id will not be provided for bulk resources
                     if($this.approvedExceptionControlsList -contains $bulkAttestedControl) {
-                        Write-Host "Bulk attestation of this control is disabled for your project." -ForegroundColor Red
-                        Write-Host "Please attest controls on per-resource basis. Please do not provide justification text in the scan command." -ForegroundColor Yellow
-					    break;
-                        # Note : The below code is to allow bulk attestation for Approved Exception Enabled Controls. Commenting the code for now as approved exception ids cannot be obtained for bulk no. of resources
-                        <#
+						#if bulk attestation is for single resource, continue with the attestation
+						$exceptionId = ""
                         if ([string]::IsNullOrWhiteSpace($this.attestOptions.ApprovedExceptionID) -or [string]::IsNullOrWhiteSpace($this.attestOptions.ApprovedExceptionExpiryDate)) {
                             Write-Host "This control can only be attestable using approved exception as configured in your org policy." -ForegroundColor Cyan
 					        # If enforce approved exception is enabled, prompt the user with respective message configured in org policy to fetch the exception id
@@ -458,10 +455,11 @@ class SVTControlAttestation
 							        }
 						        }
 						        if([string]::IsNullOrWhiteSpace($approvedExceptionPromptMessage)) {
-							        $promptMessage =  $this.ControlSettings.ApprovedExceptionSettings.DefaultPromptMessage
+							        $approvedExceptionPromptMessage =  $this.ControlSettings.ApprovedExceptionSettings.DefaultPromptMessage
 						        }
 						        Write-Host $approvedExceptionPromptMessage -ForegroundColor Cyan
 					        }
+							# Try fetching the exception id from the user until he provides the value
 					        while ([string]::IsNullOrWhiteSpace($exceptionId)) {
 						        $exceptionId = Read-Host "Please enter the approved exception id"
 						        if ([string]::IsNullOrWhiteSpace($exceptionId)) {
@@ -474,8 +472,7 @@ class SVTControlAttestation
 					        $approvedExceptionExpiryDate = Read-Host "Please enter the approved exception expiry date in the mm/dd/yy date format"
                             $this.attestOptions.ApprovedExceptionExpiryDate = $approvedExceptionExpiryDate
                         }
-                        #>  
-                    }       
+                    }
 		        }
 			}
 			else

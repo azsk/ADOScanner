@@ -176,7 +176,7 @@ class ADOSVTBase: SVTBase {
 								# verify if the control attested is in the list of approved exception enabled controls
 								if ($approvedExceptionsControlList -contains $controlState.ControlId) {
 									$validatePreviousAttestation = $false
-									Write-Host "Previous attestation for this control will not be respected as it doesn't have an associated approved exception id." -ForegroundColor Yellow
+									Write-Host "As configured in your org policy, previous attestation for this control will not be respected as it doesn't have an associated approved exception id." -ForegroundColor Yellow
 								}
 							}
 						}
