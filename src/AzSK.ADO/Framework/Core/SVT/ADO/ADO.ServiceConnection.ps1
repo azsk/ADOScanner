@@ -370,7 +370,7 @@ class ServiceConnection: ADOSVTBase
         return $controlResult;
     }
 
-    hidden [ControlResult] CheckServiceConnectionForPATOrOAuth([ControlResult] $controlResult)
+    hidden [ControlResult] CheckSecureAuthN([ControlResult] $controlResult)
     {
         if([Helpers]::CheckMember($this.ServiceEndpointsObj, "authorization.scheme"))
         {
@@ -395,6 +395,7 @@ class ServiceConnection: ADOSVTBase
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                    $controlResult.AddMessage("Certificate based authentication should be used for Azure Classic service connection.")
                 }
             }
             elseif($this.ServiceEndpointsObj.type -eq "azurerm")
@@ -410,6 +411,7 @@ class ServiceConnection: ADOSVTBase
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                    $controlResult.AddMessage("Token based authentication should be used for NPM service connection.")
                 }
             }
             elseif($this.ServiceEndpointsObj.type -eq "externalnugetfeed")
@@ -421,6 +423,7 @@ class ServiceConnection: ADOSVTBase
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                    $controlResult.AddMessage("ApiKey based authentication should be used for NuGet service connection.")
                 }
             }
             elseif($this.ServiceEndpointsObj.type -eq "externaltfs")
@@ -432,6 +435,19 @@ class ServiceConnection: ADOSVTBase
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                    $controlResult.AddMessage("Token based authentication should be used for Azure Repos/Team Foundation Server service connection.")
+                }
+            }
+            elseif($this.ServiceEndpointsObj.type -eq "MicrosoftSwagger")
+            {
+                if( $this.ServiceEndpointsObj.authorization.scheme -eq "Token")
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Service connection [$($this.ServiceEndpointsObj.name)] is authenticated via $($this.ServiceEndpointsObj.authorization.scheme).");
+                    $controlResult.AddMessage("Token based authentication should be used for Microsoft Swagger service connection.")
                 }
             }
             else
