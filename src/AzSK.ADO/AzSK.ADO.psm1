@@ -124,12 +124,12 @@ function Set-AzSKADOPolicySettings {
         [Alias("bid")]
         $BranchId,
 
-        [Parameter(Mandatory = $false, HelpMessage = "Attestation repository that store attestation details.")]
+        [Parameter(Mandatory = $false, HelpMessage = "Attestation repository that stores attestation details.")]
         [string]
         [Alias("atr")]
         $AttestationRepo,
 
-        [Parameter(Mandatory = $false, HelpMessage = "Attestation branch that store attestation details.")]
+        [Parameter(Mandatory = $false, HelpMessage = "Attestation branch that stores attestation details.")]
         [string]
         [Alias("atb")]
         $AttestationBranch
