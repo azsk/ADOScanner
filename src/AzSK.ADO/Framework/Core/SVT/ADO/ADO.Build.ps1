@@ -70,13 +70,13 @@ class Build: ADOSVTBase
             $this.InactiveFromDays = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
         }
 
-        if (-not [string]::IsNullOrEmpty($TaskGroupSecurityNamespace) -and ($null -eq [Build]::TaskGroupNamespacesObj) ) {
+        if (-not [string]::IsNullOrEmpty([Build]::SecurityNamespaceId) -and ($null -eq [Build]::TaskGroupNamespacesObj) ) {
             #Get acl for taskgroups. Its response contains descriptor of each ado group/user which have permission on the taskgroup
             $apiUrl = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?includeExtendedInfo=True&recurse=True&api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$TaskGroupSecurityNamespace
             [Build]::TaskGroupNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrl);
         }
 
-        if (-not [string]::IsNullOrEmpty($TaskGroupSecurityNamespace) -and ($null -eq [Build]::TaskGroupNamespacePermissionObj)) {
+        if (-not [string]::IsNullOrEmpty([Build]::SecurityNamespaceId) -and ($null -eq [Build]::TaskGroupNamespacePermissionObj)) {
             #Get permission and its bit for security namespaces
             $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$TaskGroupSecurityNamespace
             [Build]::TaskGroupNamespacePermissionObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlNamespace);

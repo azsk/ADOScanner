@@ -95,8 +95,7 @@ class Constants
 			[AttestationStatus]::NotApplicable	="5";
 			[AttestationStatus]::StateConfirmed ="6";
 			
-    }
-    
+    }  
 	#This is the number of hex-chars used for attestation hash index entries (and file names).
 	static [int] $AttestationHashLen = 12;
 
