@@ -1,14 +1,14 @@
-Set-StrictMode -Version Latest 
+Set-StrictMode -Version Latest
 class AgentPool: ADOSVTBase
-{    
+{
 
     hidden [PSObject] $AgentObj; # This is used for fetching agent pool details
     hidden [PSObject] $ProjectId;
     hidden [PSObject] $AgentPoolId;
     hidden [PSObject] $agentPool; # This is used to fetch agent details in pool
     hidden [PSObject] $agentPoolActivityDetail = @{isAgentPoolActive = $true; agentPoolLastRunDate = $null; agentPoolCreationDate = $null; message = $null; isComputed = $false};
-    
-    AgentPool([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
+
+    AgentPool([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         $this.AgentPoolId =  ($this.ResourceContext.ResourceId -split "agentpool/")[-1]
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
@@ -61,7 +61,7 @@ class AgentPool: ADOSVTBase
     {
         if(($this.AgentObj | Measure-Object).Count -gt 0)
         {
-        $inheritedRoles = $this.AgentObj | Where-Object {$_.access -eq "inherited"} 
+        $inheritedRoles = $this.AgentObj | Where-Object {$_.access -eq "inherited"}
             if( ($inheritedRoles | Measure-Object).Count -gt 0)
             {
                 $roles = @();
@@ -74,7 +74,7 @@ class AgentPool: ADOSVTBase
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed,"No inherited role assignments found.")
             }
-        
+
         }
         elseif(($this.AgentObj | Measure-Object).Count -eq 0)
         {
@@ -89,7 +89,7 @@ class AgentPool: ADOSVTBase
             #Only agent pools created from org setting has this settings..
             $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-              
+
             if ((($agentPoolsObj | Measure-Object).Count -gt 0) -and $agentPoolsObj.autoProvision -eq $true) {
                 $controlResult.AddMessage([VerificationResult]::Failed,"Auto-provisioning is enabled for the $($agentPoolsObj.name) agent pool.");
             }
@@ -112,18 +112,18 @@ class AgentPool: ADOSVTBase
             #autoUpdate setting is available only at org level settings.
             $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-              
+
             if([Helpers]::CheckMember($agentPoolsObj,"autoUpdate"))
             {
                 if($agentPoolsObj.autoUpdate -eq $true)
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Auto-update of agents is enabled for [$($agentPoolsObj.name)] agent pool.");
                 }
-                else 
+                else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed,"Auto-update of agents is disabled for [$($agentPoolsObj.name)] agent pool.");
                 }
-                
+
             }
             else
             {
@@ -136,7 +136,7 @@ class AgentPool: ADOSVTBase
         {
             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch agent pool details.");
         }
-        
+
         return $controlResult
     }
 
@@ -145,7 +145,7 @@ class AgentPool: ADOSVTBase
         try {
             $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=queue&id={2}&api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$this.ProjectId ,$this.AgentPoolId;
             $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-                                   
+
             if([Helpers]::CheckMember($agentPoolsObj,"authorized") -and $agentPoolsObj.authorized)
             {
                 $controlResult.AddMessage([VerificationResult]::Failed,"Access permission to all pipeline is enabled for the agent pool.");
@@ -156,7 +156,7 @@ class AgentPool: ADOSVTBase
             $agentPoolsObj =$null;
         }
         catch{
-            $controlResult.AddMessage($_); 
+            $controlResult.AddMessage($_);
             $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch agent pool details.");
         }
         return $controlResult
@@ -164,8 +164,8 @@ class AgentPool: ADOSVTBase
 
     hidden [ControlResult] CheckInActiveAgentPool([ControlResult] $controlResult)
     {
-        try 
-        {   
+        try
+        {
             if ($this.agentPoolActivityDetail.message -eq 'Could not fetch agent pool details.')
             {
                 $controlResult.AddMessage([VerificationResult]::Error, $this.agentPoolActivityDetail.message);
@@ -183,14 +183,14 @@ class AgentPool: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Agent pool was created within last $inactiveLimit days but never queued.");
                     }
-                    else 
+                    else
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Agent pool has not been queued from last $inactiveLimit days.");
                     }
                     $controlResult.AddMessage("The agent pool was created on: $($this.agentPoolActivityDetail.agentPoolCreationDate)");
                     $controlResult.AdditionalInfo += "The agent pool was created on: " + $this.agentPoolActivityDetail.agentPoolCreationDate;
                 }
-                else 
+                else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, $this.agentPoolActivityDetail.message);
                 }
@@ -204,7 +204,7 @@ class AgentPool: ADOSVTBase
                 $controlResult.AddMessage("The agent pool was inactive from last $($agentPoolInactivePeriod) days.");
             }
         }
-        catch 
+        catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch agent pool details.");
         }
@@ -215,56 +215,56 @@ class AgentPool: ADOSVTBase
 
     hidden [ControlResult] CheckCredInEnvironmentVariables([ControlResult] $controlResult)
     {
-        try 
-        {   
+        try
+        {
             if($null -eq  $this.agentPool)
             {
                 $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.OrganizationContext.OrganizationName), $this.ProjectId ,$this.AgentPoolId;
                 $this.agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-            }                 
-            
+            }
+
                 $patterns = $this.ControlSettings.Patterns | Where-Object {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList;
                 if(($patterns | Measure-Object).Count -gt 0)
-                { 
-                    $noOfCredFound = 0; 
+                {
+                    $noOfCredFound = 0;
                     $AgentsWithSecretsInEnv=@()
-                    if (([Helpers]::CheckMember($this.agentPool[0],"fps.dataproviders.data") ) -and ($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider") -and [Helpers]::CheckMember($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider","agents") )  
+                    if (([Helpers]::CheckMember($this.agentPool[0],"fps.dataproviders.data") ) -and ($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider") -and [Helpers]::CheckMember($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider","agents") )
                     {
                         $Agents = $this.agentpool.fps.dataproviders.data."ms.vss-build-web.agent-pool-data-provider".agents
-                        
+
                         $Agents | ForEach-Object {
                             $RefAgent = "" | Select-Object "AgentName","Capabilities"
-                            $RefAgent.AgentName = $_.name                            
+                            $RefAgent.AgentName = $_.name
                             $EnvVariablesContainingSecret=@()
                             if([Helpers]::CheckMember($_,"userCapabilities"))
                             {
                                 $EnvVariable=$_.userCapabilities
                                 $refHashTable=@{}
-                                $EnvVariable.PSObject.properties | ForEach-Object { $refHashTable[$_.Name] = $_.Value } 
+                                $EnvVariable.PSObject.properties | ForEach-Object { $refHashTable[$_.Name] = $_.Value }
                                 $refHashTable.Keys | Where-Object {
-                                    for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) 
+                                    for ($i = 0; $i -lt $patterns.RegexList.Count; $i++)
                                     {
                                         # Using -cmatch as same logic we had applied in build and release controls
                                         if($refHashTable.Item($_) -cmatch $patterns.RegexList[$i])
                                         {
                                             $noOfCredFound += 1
-                                            $EnvVariablesContainingSecret += $_                                            
+                                            $EnvVariablesContainingSecret += $_
                                             break
                                         }
                                     }
                                 }
                             }
-                            $RefAgent.Capabilities = $EnvVariablesContainingSecret  
-                            $AgentsWithSecretsInEnv += $RefAgent                          
+                            $RefAgent.Capabilities = $EnvVariablesContainingSecret
+                            $AgentsWithSecretsInEnv += $RefAgent
                         }
-                                                
-                        if($noOfCredFound -eq 0) 
+
+                        if($noOfCredFound -eq 0)
                         {
                             $controlResult.AddMessage([VerificationResult]::Passed, "No secrets found in user-defined capabilities of agents.");
                         }
                         else {
                             $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in user-defined capabilities of agents.");
-                            
+
                             $count = ($AgentsWithSecretsInEnv | Measure-Object).Count
                             if($count -gt 0 )
                             {
@@ -276,24 +276,24 @@ class AgentPool: ADOSVTBase
                                 $display=($AgentsWithSecretsInEnv | FT AgentName,Capabilities -AutoSize | Out-String -Width 512)
                                 $controlResult.AddMessage($display)
                                 #$controlResult.AdditionalInfo += "Total number of variable(s) containing secret: " + ($varList | Measure-Object).Count;
-                            }                    
+                            }
                             $controlResult.SetStateData("Agent wise list of user-defined capabilities containing secret: ", $AgentsWithSecretsInEnv );
                         }
-                    }            
-                    else 
-                    { 
+                    }
+                    else
+                    {
                         $controlResult.AddMessage([VerificationResult]::Passed, "There are no agents in the pool.");
-                    }                
+                    }
                     $patterns = $null;
-                }            
-                else 
+                }
+                else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting credentials in environment variables for agents are not defined in your organization.");    
-                }   
-            
-                     
+                    $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting credentials in environment variables for agents are not defined in your organization.");
+                }
+
+
         }
-        catch 
+        catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch details of user-defined capabilities of agents.");
         }
@@ -304,11 +304,11 @@ class AgentPool: ADOSVTBase
 
     hidden CheckActiveAgentPool()
     {
-        try 
+        try
         {
             $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.OrganizationContext.OrganizationName), $this.ProjectId ,$this.AgentPoolId;
             $this.agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-            if (([Helpers]::CheckMember($this.agentPool[0], "fps.dataProviders.data") ) -and ($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider")) 
+            if (([Helpers]::CheckMember($this.agentPool[0], "fps.dataProviders.data") ) -and ($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider"))
             {
                 # $inactiveLimit denotes the upper limit on number of days of inactivity before the agent pool is deemed inactive.
                 $inactiveLimit = $this.ControlSettings.AgentPool.AgentPoolHistoryPeriodInDays
@@ -317,55 +317,96 @@ class AgentPool: ADOSVTBase
                  #Arranging in descending order of run time.
                 $agentPoolJobs = $agentPoolJobs | Sort-Object queueTime -Descending
                 #If agent pool has been queued at least once
-                if (($agentPoolJobs | Measure-Object).Count -gt 0) 
+                if (($agentPoolJobs | Measure-Object).Count -gt 0)
                 {
                         #Get the last queue timestamp of the agent pool
-                        if ([Helpers]::CheckMember($agentPoolJobs[0], "finishTime")) 
+                        if ([Helpers]::CheckMember($agentPoolJobs[0], "finishTime"))
                         {
                             $agtPoolLastRunDate = $agentPoolJobs[0].finishTime;
-                            
+
                             if ((((Get-Date) - $agtPoolLastRunDate).Days) -gt $inactiveLimit)
                             {
                                 $this.agentPoolActivityDetail.isAgentPoolActive = $false;
                                 $this.agentPoolActivityDetail.message = "Agent pool has not been queued in the last $inactiveLimit days.";
                             }
-                            else 
+                            else
                             {
                                 $this.agentPoolActivityDetail.isAgentPoolActive = $true;
                                 $this.agentPoolActivityDetail.message = "Agent pool has been queued in the last $inactiveLimit days.";
                             }
                             $this.agentPoolActivityDetail.agentPoolLastRunDate = $agtPoolLastRunDate;
                         }
-                        else 
+                        else
                         {
                             $this.agentPoolActivityDetail.isAgentPoolActive = $true;
                             $this.agentPoolActivityDetail.message = "Agent pool was being queued during control evaluation.";
                         }
                 }
-                else 
+                else
                 {
                     #[else] Agent pool is created but nenver run, check creation date greated then 180
                     $this.agentPoolActivityDetail.isAgentPoolActive = $false;
-                    if (([Helpers]::CheckMember($this.agentPool, "fps.dataProviders.data") ) -and ($this.agentPool.fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider")) 
+                    if (([Helpers]::CheckMember($this.agentPool, "fps.dataProviders.data") ) -and ($this.agentPool.fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider"))
                     {
                         $agentPoolDetails = $this.agentPool.fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider"
                         $this.agentPoolActivityDetail.agentPoolCreationDate = $agentPoolDetails.selectedAgentPool.createdOn;
                     }
-                    else 
+                    else
                     {
                         $this.agentPoolActivityDetail.message = "Could not fetch agent pool details.";
-                    }                    
+                    }
                 }
             }
-            else 
+            else
             {
                 $this.agentPoolActivityDetail.message = "Could not fetch agent pool details.";
             }
         }
-        catch 
+        catch
         {
             $this.agentPoolActivityDetail.message = "Could not fetch agent pool details.";
         }
         $this.agentPoolActivityDetail.isComputed = $true
+    }
+
+    hidden [ControlResult] CheckBroaderGroupAccess ([ControlResult] $controlResult) {
+        try {
+            $restrictedGroups = @();
+
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool") ) {
+                $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
+                $controlResult.AddMessage("`nNote: The following groups are considered 'broad' which should not have user/administrator privileges: `n`t[$($restrictedBroaderGroupsForAgentPool -join ', ')]");
+                if ((($this.AgentObj | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.AgentObj, "identity")) {
+                    # match all the identities added on agentpool with defined restricted list
+                    $roleAssignments = @();
+                    $roleAssignments +=   ($this.AgentObj | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                    # Checking whether the broader groups have User/Admin permissions
+                    $restrictedGroups = $roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") }
+
+                    # fail the control if restricted group found on agentpool
+                    if ($restrictedGroups) {
+                        $controlResult.AddMessage("Total number of broader groups that have user/administrator access to agent pool: ", ($restrictedGroups | Measure-Object).Count)
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Do not grant broader groups user/administrator access to agent pools. Granting elevated permissions to these groups can risk exposure of agent pools to unwarranted individuals.");
+                        $controlResult.AddMessage("Broader groups that have user/administrator access to agent pool.", $restrictedGroups)
+                        $controlResult.SetStateData("Broader groups that have user/administrator access to agent pool", $restrictedGroups)
+                        $controlResult.AdditionalInfo += "Total number of broader groups that have user/administrator access to agent pool: " + ($restrictedGroups | Measure-Object).Count;
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to agent pool.");
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have Administration/User access to agent pool.");
+                }
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Manual, "List of restricted broader groups for agent pool is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the agent pool permissions.");
+        }
+
+        return $controlResult;
     }
 }

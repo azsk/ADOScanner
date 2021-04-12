@@ -260,7 +260,12 @@
     ]
   },
   "AgentPool": {
-    "AgentPoolHistoryPeriodInDays": 180
+    "AgentPoolHistoryPeriodInDays": 180 ,
+    "RestrictedBroaderGroupsForAgentPool": [
+        "Project Collection Valid Users",
+        "Contributors",
+        "Readers"
+    ]
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
   "Organization": {
@@ -329,6 +334,11 @@
       "Release Administrators",
       "CSEOPipelineContributors",
       "Endpoint Creators",
+      "Contributors",
+      "Readers"
+    ],
+    "RestrictedBroaderGroupsForSerConn" : [
+      "Project Collection Valid Users",
       "Contributors",
       "Readers"
     ]

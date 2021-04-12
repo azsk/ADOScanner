@@ -227,6 +227,23 @@
         "AuthZ"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_ServiceConnection_AuthZ_Review_Broader_Group_Access",
+      "Description": "Broader groups (contributors, project collection valid users etc.) should not have user/administrator privileges on service connection.",
+      "Id": "ServiceConnection240",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupAccess",
+      "Rationale": "Granting minimum access to broader groups ensures that users are granted just enough permissions on service connection to perform their tasks. This minimizes exposure of the resources in case of user account/service connection  compromise.",
+      "Recommendation": "Go to Project Settings --> Pipelines --> Service connections --> Select your service connection --> Select Security --> Ensure broader groups have read-only access.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
     }
   ]
 }
