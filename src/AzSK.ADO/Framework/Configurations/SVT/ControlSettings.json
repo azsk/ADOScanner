@@ -388,5 +388,5 @@
     "vso.release_execute",
     "vso.release_manage"
   ],
-  "DisableWarningMessage" : true
+  "DisableWarningMessage" : false
 }
