@@ -586,10 +586,25 @@ class SVTBase: AzSKRoot
         {
 			$this.GetApplicableControls() | Where-Object { $_.Automated -ne "No" -and (-not [string]::IsNullOrEmpty($_.MethodName)) } |
             ForEach-Object {
-				$eventContext = $this.RunControl($_);
-				if($null -ne $eventContext -and $eventcontext.ControlResults.Length -gt 0)
+				if (($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "DisableWarningMessage")) {
+					if ($_.Enabled -eq $false -and $this.ControlSettings.DisableWarningMessage -eq $true) {
+						$evaluateControl = $false;
+					}
+					else {
+						$evaluateControl = $true;
+					}
+				}
+				else {
+					$evaluateControl = $true;
+				}
+
+				if ($evaluateControl)
 				{
-					$automatedControlsResult += $eventContext;
+					$eventContext = $this.RunControl($_);
+					if($null -ne $eventContext -and $eventcontext.ControlResults.Length -gt 0)
+					{
+						$automatedControlsResult += $eventContext;
+					}
 				}
             };
         }
