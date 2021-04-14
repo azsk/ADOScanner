@@ -197,6 +197,7 @@ class ContextHelper {
         $contextObj.Organization.Name = [ContextHelper]::orgName
 
         if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret)) { # this if block will be executed for OAuth based scan
+            $contextObj.Account.Id = [ContextHelper]::GetOAuthUserIdentity($context.AccessToken, $contextObj.Organization.Name)
             $contextObj.AccessToken = $context.AccessToken
             $contextObj.TokenExpireTimeLocal = $context.ExpiresOn
         }
@@ -209,6 +210,24 @@ class ContextHelper {
             #$contextObj.AccessToken =  ConvertTo-SecureString -String $context.AccessToken -asplaintext -Force
         }
         [ContextHelper]::currentContext = $contextObj
+    }
+    
+    hidden static [string] GetOAuthUserIdentity($accessToken, $orgName)
+    {
+        $apiURL = "https://dev.azure.com/{0}/_apis/connectionData" -f $orgName
+        $headers =@{
+            Authorization = "Bearer $accesstoken";
+            "Content-Type"="application/json"
+        };
+        try{
+            $responseObj = Invoke-RestMethod -Method Get -Uri $apiURL -Headers $headers -UseBasicParsing
+            $descriptor = $responseObj.authenticatedUser.descriptor
+            $userId = ($descriptor -split '\\')[-1]
+            return $userId
+        }
+        catch{
+            return ""
+        }
     }
 
     hidden static ConvertToContextObject([System.Security.SecureString] $patToken)
