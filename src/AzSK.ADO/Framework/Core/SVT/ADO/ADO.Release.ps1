@@ -136,6 +136,7 @@ class Release: ADOSVTBase
                         catch {
                             #Publish Exception
                             $this.PublishException($_);
+                            $controlResult.LogException($_)
                         }
                         finally
                         {
@@ -219,6 +220,7 @@ class Release: ADOSVTBase
                                 }
                                 catch
                                 {
+                                    $controlResult.LogException($_)
                                     #eat exception if api failure occurs
                                 }
                             }
@@ -296,6 +298,7 @@ class Release: ADOSVTBase
             catch {
                 $controlResult.AddMessage([VerificationResult]::Manual, "Could not evaluate release definition.");
                 $controlResult.AddMessage($_);
+                $controlResult.LogException($_)
             }    
 
          }
@@ -348,6 +351,7 @@ class Release: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch release details.");
+            $controlResult.LogException($_)
         }
 
         # below code provide the details of build artifacts associated with release pipeline
@@ -598,6 +602,7 @@ class Release: ADOSVTBase
                     catch
                     {
                         $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch RBAC details of the pipeline. $($_) Please verify from portal all teams/groups are granted minimum required permissions on build definition.");
+                        $controlResult.LogException($_)
                     }
                 }
                 else {
@@ -715,6 +720,7 @@ class Release: ADOSVTBase
             catch
             {
                 $failMsg = $_
+                $controlResult.LogException($_)
             }
             if(![string]::IsNullOrEmpty($failMsg))
             {
@@ -793,7 +799,8 @@ class Release: ADOSVTBase
         }
        }  
        catch {
-           $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch release pipeline variables.");   
+           $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch release pipeline variables."); 
+           $controlResult.LogException($_)  
        }
      return $controlResult;
     }
@@ -846,7 +853,8 @@ class Release: ADOSVTBase
         }  
         catch 
         {
-            $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch variables of the release pipeline.");   
+            $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch variables of the release pipeline.");  
+            $controlResult.LogException($_) 
         }
         return $controlResult;
     }
@@ -924,6 +932,7 @@ class Release: ADOSVTBase
                 catch
                 {
                     $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the RBAC details of task groups used in the pipeline.");
+                    $controlResult.LogException($_)
                 }
     
             }
@@ -1052,6 +1061,7 @@ class Release: ADOSVTBase
                 catch
                 {
                     $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the RBAC details of task groups used in the pipeline.");
+                    $controlResult.LogException($_)
                 }
 
             }
@@ -1124,6 +1134,7 @@ class Release: ADOSVTBase
             catch
             {
                 $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the RBAC details of variable groups used in the pipeline.");
+                $controlResult.LogException($_)
             }
              
         }
@@ -1185,6 +1196,7 @@ class Release: ADOSVTBase
                 catch
                 {
                     $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
+                    $controlResult.LogException($_)
                 }
             }
             else {
@@ -1292,6 +1304,7 @@ class Release: ADOSVTBase
             catch
             {
                 $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
+                $controlResult.LogException($_)
             }
         }
 
