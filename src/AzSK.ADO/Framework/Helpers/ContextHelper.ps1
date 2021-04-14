@@ -176,7 +176,7 @@ class ContextHelper {
 
                 if (-not ($authResult -and (-not [string]::IsNullOrWhiteSpace($authResult.AccessToken))))
                 {
-                    throw ([SuppressedException]::new(("Unable to get graph access token."), [SuppressedExceptionType]::Generic))
+                    throw ([SuppressedException]::new(("Unable to fetch graph access token."), [SuppressedExceptionType]::Generic))
                 }
 
                 $accessToken = $authResult.AccessToken;
@@ -184,7 +184,7 @@ class ContextHelper {
         }
         catch
         {
-            write-Host "Unable to get graph access token."
+            write-Host "Unable to fetch graph access token."
             return $null
         }
 

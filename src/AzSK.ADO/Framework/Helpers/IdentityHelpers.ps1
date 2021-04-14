@@ -2,6 +2,7 @@
 
 class IdentityHelpers
 {
+	static hidden [string] $graphAccessToken = $null
 
 	hidden static [bool] IsServiceAccount($SignInName, $subjectKind, $graphToken)
 	{
@@ -30,8 +31,10 @@ class IdentityHelpers
 			$responseObj = [WebRequestHelper]::InvokeGetWebRequest($uri, $headers);
 			if ($null -ne $responseObj -and ($responseObj | Measure-Object).Count -gt 0)
 			{
-				#"extension attribute = -9" => Service Accounts
+				# extensionAttribute contains 15 different values which define unique properties for users.
 				$extensionAttributes = $responseObj.onPremisesExtensionAttributes
+				#"extensionAttribute2" contains the integer values which represents the different types of users.
+				#"extensionAttribute2: -9" => Service Accounts
 				if($extensionAttributes.extensionAttribute2 -eq "-9")
 				{
 					$isServiceAccount = $true
@@ -62,9 +65,9 @@ class IdentityHelpers
 		$hasAccess = $false;
 	    $graphUri = [WebRequestHelper]::GetGraphUrl()
 		$uri = $GraphUri + "/v1.0/users?`$top=1"
-		$token = [ContextHelper]::GetGraphAccessToken()
+		[IdentityHelpers]::graphAccessToken = [ContextHelper]::GetGraphAccessToken()
 		$header = @{
-			"Authorization"= ("Bearer " + $token); 
+			"Authorization"= ("Bearer " + [IdentityHelpers]::graphAccessToken); 
 			"Content-Type"="application/json"
 		};
 		try
@@ -77,5 +80,27 @@ class IdentityHelpers
 			$hasAccess = $false;
 		}
 		return $hasAccess;
+	}
+
+	#This method differentiate human accounts and service account from the list.
+	hidden static [PSObject] distinguishHumanAndServiceAccount([PSObject] $allMembers, $orgName)
+	{
+		$humanAccount = @(); 
+		$serviceAccount = @();
+		$defaultSvcAcc = "Account Service ($orgName)" # This is default service account automatically added by ADO.
+		$allMembers = $allMembers | Where-Object {$_.displayName -ne $defaultSvcAcc}
+		$allMembers | ForEach-Object{
+			$isServiceAccount = [IdentityHelpers]::IsServiceAccount($_.mailAddress, $_.subjectKind, $this.graphPermissions.graphAccessToken)
+			if ($isServiceAccount)
+			{
+				$serviceAccount += $_
+			}
+			else
+			{
+				$humanAccount += $_
+			}
+		}
+		$adminMembers = @{serviceAccount = $serviceAccount; humanAccount = $humanAccount;};
+		return $adminMembers
 	}
 }

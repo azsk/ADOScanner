@@ -16,7 +16,7 @@ class Organization: ADOSVTBase
         $this.GetPipelineSettingsObj()
         $this.graphPermissions.hasGraphAccess = [IdentityHelpers]::HasGraphAccess();
         if ($this.graphPermissions.hasGraphAccess) {
-            $this.graphPermissions.graphAccessToken = [ContextHelper]::GetGraphAccessToken()
+            $this.graphPermissions.graphAccessToken = [IdentityHelpers]::graphAccessToken
         }
     }
 
@@ -1662,10 +1662,10 @@ class Organization: ADOSVTBase
         $PCAMembers = @()
         $PCAMembers += [AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName)
         $TotalPCAMembers = ($PCAMembers| Measure-Object).Count
-        $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization")
+        $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
         if ($this.graphPermissions.hasGraphAccess)
         {
-            $SvcAndHumanAccounts = $this.differentiateHumanAndServiceAccount($PCAMembers)
+            $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
             $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
             if($HumanAcccountCount -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
                 $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
@@ -1680,23 +1680,34 @@ class Organization: ADOSVTBase
             
             if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
                 $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
-                $controlResult.AddMessage("`n Human Administrators: ", $humanAccounts)
+                $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
                 $controlResult.SetStateData("List of human Project Collection Administrators: ",$humanAccounts)
             }
 
             if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
                 $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
-                $controlResult.AddMessage("`n Service Account Administrators: ", $svcAccounts)
+                $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
                 $controlResult.SetStateData("List of service account Project Collection Administrators: ",$svcAccounts)
             }
         }
         else
         {
-            $controlResult.AddMessage([VerificationResult]::Manual,"Graph access is not available.");
+            $PCAMembers = $PCAMembers | Select-Object displayName,mailAddress
+            if($TotalPCAMembers -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
+                $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+            }
+            if($TotalPCAMembers -gt 0){
+                $controlResult.AddMessage("Verify the following Project Collection Administrators: ",$PCAMembers)
+                $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
+                $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
+            }
         }
         
         return $controlResult
-}
+    }
 
     hidden [ControlResult] CheckMaxPCACount([ControlResult] $controlResult)
     {
@@ -1705,10 +1716,10 @@ class Organization: ADOSVTBase
         $PCAMembers = @()
         $PCAMembers += [AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName)
         $TotalPCAMembers = ($PCAMembers| Measure-Object).Count
-        $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization")
+        $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
         if ($this.graphPermissions.hasGraphAccess)
         {   
-            $SvcAndHumanAccounts = $this.differentiateHumanAndServiceAccount($PCAMembers)
+            $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
             $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
             if($HumanAcccountCount -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
                 $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
@@ -1723,19 +1734,30 @@ class Organization: ADOSVTBase
         
             if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
                 $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
-                $controlResult.AddMessage("`n Human Administrators: ", $humanAccounts)
+                $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
                 $controlResult.SetStateData("List of human Project Collection Administrators: ",$humanAccounts)
             }
 
             if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
                 $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
-                $controlResult.AddMessage("`n Service Account Administrators: ", $svcAccounts)
+                $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
                 $controlResult.SetStateData("List of service account Project Collection Administrators: ",$svcAccounts)
             }
         }
         else
         {
-            $controlResult.AddMessage([VerificationResult]::Manual,"Graph access is not available.");
+            $PCAMembers = $PCAMembers | Select-Object displayName,mailAddress
+            if($TotalPCAMembers -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
+                $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+            }
+            if($TotalPCAMembers -gt 0){
+                $controlResult.AddMessage("Verify the following Project Collection Administrators: ",$PCAMembers)
+                $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
+                $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
+            }
         }
         return $controlResult
     }
@@ -1855,30 +1877,5 @@ class Organization: ADOSVTBase
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of requested extensions.");
         }
         return $controlResult
-    }
-
-    #This method differentiate human accounts and service account from the list.
-    hidden [PSObject] differentiateHumanAndServiceAccount([PSObject] $allMembers)
-    {
-        $humanAccount = @(); 
-        $serviceAccount = @();
-        $defaultSvcAcc = "Account Service ($($this.OrganizationContext.OrganizationName))" # This is default service account automatically added by ADO.
-        $allMembers = $allMembers | Where-Object {$_.displayName -ne $defaultSvcAcc}
-        if ($this.graphPermissions.hasGraphAccess)
-        {
-            $allMembers | ForEach-Object{
-                $isServiceAccount = [IdentityHelpers]::IsServiceAccount($_.mailAddress, $_.subjectKind, $this.graphPermissions.graphAccessToken)
-                if ($isServiceAccount)
-                {
-                    $serviceAccount += $_
-                }
-                else
-                {
-                    $humanAccount += $_
-                }
-            }
-        }
-        $adminMembers = @{serviceAccount = $serviceAccount; humanAccount = $humanAccount;};
-        return $adminMembers
     }
 }
