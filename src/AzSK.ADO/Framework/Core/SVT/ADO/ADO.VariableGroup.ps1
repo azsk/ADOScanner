@@ -49,7 +49,8 @@ class VariableGroup: ADOSVTBase
         }
         catch 
         {   
-            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch authorization details of variable group.");    
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch authorization details of variable group.");  
+            $controlResult.LogException($_)  
         }
         return $controlResult
     }
@@ -77,7 +78,8 @@ class VariableGroup: ADOSVTBase
         }
         catch 
         {   
-            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch permission details of variable group.");    
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch permission details of variable group.");
+            $controlResult.LogException($_)    
         }
         return $controlResult
     }
@@ -105,6 +107,7 @@ class VariableGroup: ADOSVTBase
         catch 
         {   
             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of variable group.");    
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -154,6 +157,7 @@ class VariableGroup: ADOSVTBase
                         {
                             #Publish Exception
                             $this.PublishException($_);
+                            $controlResult.LogException($_)
                         }
                         finally
                         {
@@ -231,6 +235,7 @@ class VariableGroup: ADOSVTBase
             catch {
                 $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch the variable group definition.");
                 $controlResult.AddMessage($_);
+                $controlResult.LogException($_)
             }    
         } 
         return $controlResult;

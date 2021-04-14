@@ -76,6 +76,7 @@ class Project: ADOSVTBase
         catch 
         {
             $controlResult.AddMessage([VerificationResult]::Error,"Project visibility details could not be fetched.");
+            $controlResult.LogException($_)
         }
         return $controlResult;
     }
@@ -573,6 +574,7 @@ class Project: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of groups in the project.");
+            $controlResult.LogException($_)
         }
        
         return $controlResult
@@ -628,6 +630,7 @@ class Project: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Passed,  "Could not fetch project feed settings.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -677,6 +680,7 @@ class Project: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of environments in the project.");
+            $controlResult.LogException($_)
         }
        return $controlResult
     }
@@ -725,6 +729,7 @@ class Project: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of secure files.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -781,6 +786,7 @@ class Project: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies $($_).");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -819,6 +825,7 @@ class Project: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies $($_).");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -858,6 +865,7 @@ class Project: ADOSVTBase
                     }
                     catch{
                         $controlResult.AddMessage("Could not fetch the history of repository [$($repo.name)].");
+                        $controlResult.LogException($_)
                     }
                 }
                 $inactivecount = $inactiveRepos.Count
@@ -872,6 +880,7 @@ class Project: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of repositories in the project.", $_);
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -935,6 +944,7 @@ class Project: ADOSVTBase
         }
         catch{
             $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch repositories permission details. $($_) Please verify from portal all teams/groups are granted minimum required permissions.");
+            $controlResult.LogException($_)
         }
 
         return $controlResult
@@ -990,6 +1000,7 @@ class Project: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch list of repositories in the project. $($_).");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }

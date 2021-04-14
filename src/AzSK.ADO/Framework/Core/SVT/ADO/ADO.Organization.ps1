@@ -133,6 +133,7 @@ class Organization: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of groups in the organization.");
+            $controlResult.LogException($_)
         }
        
         return $controlResult
@@ -286,6 +287,7 @@ class Organization: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of groups in the organization.");
+            $controlResult.LogException($_)
         }
        
         return $controlResult
@@ -310,6 +312,7 @@ class Organization: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch AAD configuration details.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -338,6 +341,7 @@ class Organization: ADOSVTBase
              catch {
                 $controlResult.AddMessage([VerificationResult]::Passed,
                 "Alternate authentication is no longer supported in Azure DevOps.");
+                $controlResult.LogException($_)
              }
         }
 
@@ -923,6 +927,7 @@ class Organization: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of installed extensions.");
+            $controlResult.LogException($_)
         }
 
         return $controlResult
@@ -971,6 +976,7 @@ class Organization: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of shared extensions.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -998,6 +1004,7 @@ class Organization: ADOSVTBase
                     {
                         # Eating the exception here as we could not fetch the further guest users
                         $continuationToken = $null
+                        $controlResult.LogException($_)
                     }
                 }
                 $guestList = @();
@@ -1019,6 +1026,7 @@ class Organization: ADOSVTBase
                         }
                         catch {
                             $userProjectEntitlements = "Could not fetch project entitlement details of the user."
+                            $controlResult.LogException($_)
                         }
                         return @{Id = $guestUser.Id; IdentityType = $guestUser.IdentityType; DisplayName = $guestUser.IdentityType; MailAddress = $guestUser.MailAddress; AccessLevel = $guestUser.AccessLevel; LastAccessedDate = $guestUser.LastAccessedDate; InactiveFromDays = $guestUser.InactiveFromDays; ProjectEntitlements = $userProjectEntitlements} 
                     }
@@ -1053,6 +1061,7 @@ class Organization: ADOSVTBase
         catch 
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of guest identities.");
+            $controlResult.LogException($_)
         } 
 
         return $controlResult
@@ -1094,6 +1103,7 @@ class Organization: ADOSVTBase
         catch 
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of extension managers.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -1160,6 +1170,7 @@ class Organization: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of users in the organization.");
+            $controlResult.LogException($_)
         }
         return $controlResult;
     }
@@ -1194,6 +1205,7 @@ class Organization: ADOSVTBase
         catch 
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of disconnected users.");
+            $controlResult.LogException($_)
         }
        
         return $controlResult;
@@ -1650,7 +1662,8 @@ class Organization: ADOSVTBase
         }
         catch 
         {
-            $controlResult.AddMessage([VerificationResult]::Error,"Couldn't fetch the list of installed extensions in the organization.");     
+            $controlResult.AddMessage([VerificationResult]::Error,"Couldn't fetch the list of installed extensions in the organization.");  
+            $controlResult.LogException($_)   
         }
 
         return $controlResult
@@ -1808,6 +1821,7 @@ class Organization: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of audit streams enabled on the organization.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -1875,6 +1889,7 @@ class Organization: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of requested extensions.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
