@@ -1421,11 +1421,11 @@ class Build: ADOSVTBase
                 }
             }
             
-            $this.buildActivityDetail.isComputed = $true
         }
         catch
         {
             $this.buildActivityDetail.message = "Could not fetch build details.";
         }
+        $this.buildActivityDetail.isComputed = $true
     }
 }
