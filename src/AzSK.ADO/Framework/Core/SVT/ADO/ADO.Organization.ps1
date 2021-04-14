@@ -551,7 +551,7 @@ class Organization: ADOSVTBase
                             
                             $helperTable = $infotable.keys | Select @{l='Column';e={$_}},@{l='Interpretation';e={$infotable.$_}} | Format-Table -AutoSize | Out-String -Width $ftWidth
                             $controlResult.AddMessage($helperTable)
-                            $controlResult.AddMessage("The following extension permissions are considered senstive:")
+                            $controlResult.AddMessage("The following extension permissions are considered sensitive:")
                             if(!$isCriticalScopesPropertyPresent)
                             {
                                 $controlResult.AddMessage("***'Extension critical scopes' setting is not present in the policy configuration.***")
