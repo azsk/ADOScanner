@@ -2,76 +2,50 @@
 
 class IdentityHelpers
 {
+	static hidden [string] $graphAccessToken = $null
 
-	hidden static [bool] IsServiceAccount($ObjectId, $SignInName, $ObjectType, $GraphAccessToken)
+	hidden static [bool] IsServiceAccount($SignInName, $subjectKind, $graphToken)
 	{
-		$return = $null    		
-		$header = "Bearer " + $GraphAccessToken
-		$RMContext = [ContextHelper]::GetCurrentContext()
-		$headers = @{"Authorization"=$header;"Content-Type"="application/json"}
-		$uri=""    
-		$output = $null
-		if($ObjectType -eq "User")
+		$isServiceAccount = $false
+		$headers = @{"Authorization"= ("Bearer " + $graphToken); "Content-Type"="application/json"}
+		$uri=""
+		$graphURI = [WebRequestHelper]::GetGraphUrl()
+		if($subjectKind -eq "User")
 		{
-			$ResourceAppIdURI = [WebRequestHelper]::GetGraphUrl()
-			if($null -ne $ObjectId -and [System.Guid]::Empty -ne $ObjectId)
+			if (-not [string]::IsNullOrWhiteSpace($SignInName))
 			{
-				$uri = [string]::Format("{0}{1}/users/{2}?api-version=1.6",$ResourceAppIdURI,$RMContext.Tenant.Id, $ObjectId)
-				#$uri = [string]::Format("https://graph.windows.net/{0}/users/{1}?api-version=1.6",$RMContext.Tenant.Id, $ObjectId)
+				$uri = [string]::Format('{0}/v1.0/users/{1}?$select=onPremisesImmutableId,onPremisesExtensionAttributes', $graphURI, $SignInName)
 			}
-			elseif ($null -ne $SignInName) {
-				$uri = [string]::Format("{0}{1}/users/{2}?api-version=1.6",$ResourceAppIdURI,$RMContext.Tenant.Id, $SignInName)
-				#$uri = [string]::Format("https://graph.windows.net/{0}/users/{1}?api-version=1.6",$RMContext.Tenant.Id, $SignInName)        
-			}
-			else {
+			else
+			{
 				return $false
 			}
 		}
-		elseif($ObjectType -eq "ServicePrincipal"){
-			return $false
-		}
 		else
 		{
-			#in the case of coadmins
 			return $false
 		}
-	
-		$err = $null
-		$result = ""
-		try { 
-				$result = Invoke-WebRequest -Method GET -Uri $uri -Headers $headers -UseBasicParsing
-				if($result.StatusCode -ge 200 -and $result.StatusCode -le 399){
-					if($null -ne $result.Content){
-						$json = (ConvertFrom-Json $result.Content)
-						if($null -ne $json){
-							$output = $json
-							if($null -ne ($json | Get-Member value) )
-							{
-								$output = $json.value
-							}
-						}
-					}
-					$isGuid = [IdentityHelpers]::IsADObjectGUID($output.immutableId)
-					return $isGuid          
-				}  
-			} 
-		catch{ 
-			$err = $_ 
-			if($null -ne $err)
+
+		try
+		{ 
+			$responseObj = [WebRequestHelper]::InvokeGetWebRequest($uri, $headers);
+			if ($null -ne $responseObj -and ($responseObj | Measure-Object).Count -gt 0)
 			{
-				if($null -ne $err.ErrorDetails.Message){
-					$json = (ConvertFrom-Json $err.ErrorDetails.Message)
-					if($null -ne $json){
-						$return = $json
-						if($json.'odata.error'.code -eq "Request_ResourceNotFound")
-						{
-							return $false;
-						}
-					}
+				# extensionAttribute contains 15 different values which define unique properties for users.
+				$extensionAttributes = $responseObj.onPremisesExtensionAttributes
+				#"extensionAttribute2" contains the integer values which represents the different types of users.
+				#"extensionAttribute2: -9" => Service Accounts
+				if($extensionAttributes.extensionAttribute2 -eq "-9")
+				{
+					$isServiceAccount = $true
 				}
 			}
+		} 
+		catch
+		{ 
+			return $false;
 		}
-		return $null 
+		return $isServiceAccount
 	}
 
 
@@ -84,5 +58,52 @@ class IdentityHelpers
 			return $false
 		}
 		return $true
+	}
+
+	hidden static [bool] HasGraphAccess()
+	{
+		$hasAccess = $false;
+	    $graphUri = [WebRequestHelper]::GetGraphUrl()
+		$uri = $GraphUri + "/v1.0/users?`$top=1"
+		[IdentityHelpers]::graphAccessToken = [ContextHelper]::GetGraphAccessToken()
+		if (-not [string]::IsNullOrWhiteSpace([IdentityHelpers]::graphAccessToken))
+		{
+			$header = @{
+				"Authorization"= ("Bearer " + [IdentityHelpers]::graphAccessToken); 
+				"Content-Type"="application/json"
+			};
+			try
+			{
+				$webResponse = [WebRequestHelper]::InvokeGetWebRequest($uri, $header);
+				$hasAccess = $true;
+			}
+			catch
+			{
+				$hasAccess = $false;
+			}
+		}
+		return $hasAccess;
+	}
+
+	#This method differentiate human accounts and service account from the list.
+	hidden static [PSObject] distinguishHumanAndServiceAccount([PSObject] $allMembers, $orgName)
+	{
+		$humanAccount = @(); 
+		$serviceAccount = @();
+		$defaultSvcAcc = "Account Service ($orgName)" # This is default service account automatically added by ADO.
+		$allMembers = $allMembers | Where-Object {$_.displayName -ne $defaultSvcAcc}
+		$allMembers | ForEach-Object{
+			$isServiceAccount = [IdentityHelpers]::IsServiceAccount($_.mailAddress, $_.subjectKind, $this.graphPermissions.graphAccessToken)
+			if ($isServiceAccount)
+			{
+				$serviceAccount += $_
+			}
+			else
+			{
+				$humanAccount += $_
+			}
+		}
+		$adminMembers = @{serviceAccount = $serviceAccount; humanAccount = $humanAccount;};
+		return $adminMembers
 	}
 }

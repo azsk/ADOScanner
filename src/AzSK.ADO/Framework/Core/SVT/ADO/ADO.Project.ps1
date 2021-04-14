@@ -4,11 +4,16 @@ class Project: ADOSVTBase
     [PSObject] $PipelineSettingsObj = $null
     hidden $PAMembers = @()
     hidden $Repos = $null
+    hidden [PSObject] $graphPermissions = @{hasGraphAccess = $false; graphAccessToken = $null}; # This is used to check user has graph permissions to compute the graph api operations.
 
     Project([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
         $this.Repos = $null
         $this.GetPipelineSettingsObj()
+        $this.graphPermissions.hasGraphAccess = [IdentityHelpers]::HasGraphAccess();
+        if ($this.graphPermissions.hasGraphAccess) {
+            $this.graphPermissions.graphAccessToken = [IdentityHelpers]::graphAccessToken
+        }
     }
 
     GetPipelineSettingsObj()
@@ -330,21 +335,58 @@ class Project: ADOSVTBase
         $TotalPAMembers = 0;
         if (($this.PAMembers | Measure-Object).Count -eq 0) {
             $this.PAMembers += [AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
-            $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
         }
         $TotalPAMembers = ($this.PAMembers | Measure-Object).Count
         $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
-        if($TotalPAMembers -lt $this.ControlSettings.Project.MinPAMembersPermissible){
-            $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
+        if ($TotalPAMembers -gt 0) {
+            if ($this.graphPermissions.hasGraphAccess)
+            {
+                $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
+                $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
+                if($HumanAcccountCount -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                }
+                if($TotalPAMembers -gt 0){
+                    $controlResult.AddMessage("Verify the following Project Administrators: ")
+                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                }        
+                
+                if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
+                    $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
+                    $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
+                    $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
+                }
+
+                if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
+                    $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
+                    $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
+                    $controlResult.SetStateData("List of service account Project Administrators: ",$svcAccounts)
+                }
+            }
+            else
+            {
+                $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
+                if($TotalPAMembers -lt $this.ControlSettings.Project.MinPAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
+                }
+                if($TotalPAMembers -gt 0){
+                    $controlResult.AddMessage("Verify the following Project Administrators: ",$this.PAMembers)
+                    $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
+                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                }
+            }
         }
-        else{
-            $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Failed,"No Project Administrators are configured in the project.");
         }
-        if($TotalPAMembers -gt 0){
-            $controlResult.AddMessage("Verify the following Project Administrators: ",$this.PAMembers)
-            $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
-            $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
-        }    
+        
         return $controlResult
     }
 
@@ -353,21 +395,59 @@ class Project: ADOSVTBase
         $TotalPAMembers = 0;
         if (($this.PAMembers | Measure-Object).Count -eq 0) {
             $this.PAMembers += [AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
-            $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
         }
         $TotalPAMembers = ($this.PAMembers | Measure-Object).Count
         $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
-        if($TotalPAMembers -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
-            $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
+        if ($TotalPAMembers -gt 0)
+        {
+            if ($this.graphPermissions.hasGraphAccess)
+            {
+                $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
+                $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
+                if($HumanAcccountCount -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible)");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible)");
+                }
+                if($TotalPAMembers -gt 0){
+                    $controlResult.AddMessage("Verify the following Project Administrators: ")
+                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                }        
+                
+                if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
+                    $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
+                    $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
+                    $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
+                }
+    
+                if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
+                    $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
+                    $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
+                    $controlResult.SetStateData("List of service account Project Administrators: ",$svcAccounts)
+                }
+            }
+            else
+            {
+                $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
+                if($TotalPAMembers -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
+                }
+                if($TotalPAMembers -gt 0){
+                    $controlResult.AddMessage("Verify the following Project Administrators: ",$this.PAMembers)
+                    $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
+                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                }
+            }
         }
-        else{
-            $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Failed,"No Project Administrators are configured in the project.");
         }
-        if($TotalPAMembers -gt 0){
-            $controlResult.AddMessage("Verify the following Project Administrators: ",$this.PAMembers)
-            $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
-            $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
-        }         
+        
         return $controlResult
     }
 
