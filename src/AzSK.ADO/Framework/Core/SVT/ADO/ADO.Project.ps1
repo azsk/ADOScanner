@@ -344,7 +344,7 @@ class Project: ADOSVTBase
             {
                 $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
                 $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
-                if($HumanAcccountCount -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
+                if($HumanAcccountCount -lt $this.ControlSettings.Project.MinPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
                 }
                 else{
