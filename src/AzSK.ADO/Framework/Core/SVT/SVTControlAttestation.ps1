@@ -469,7 +469,7 @@ class SVTControlAttestation
 							        $this.attestOptions.ApprovedExceptionID = $exceptionId
 						        }
 					        }
-					        $approvedExceptionExpiryDate = Read-Host "Please enter the approved exception expiry date in the mm/dd/yy date format"
+					        $approvedExceptionExpiryDate = Read-Host "Please enter the approved exception expiry date (mm/dd/yy)"
                             $this.attestOptions.ApprovedExceptionExpiryDate = $approvedExceptionExpiryDate
                         }
                     }
