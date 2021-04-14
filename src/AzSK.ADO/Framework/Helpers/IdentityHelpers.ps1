@@ -66,18 +66,21 @@ class IdentityHelpers
 	    $graphUri = [WebRequestHelper]::GetGraphUrl()
 		$uri = $GraphUri + "/v1.0/users?`$top=1"
 		[IdentityHelpers]::graphAccessToken = [ContextHelper]::GetGraphAccessToken()
-		$header = @{
-			"Authorization"= ("Bearer " + [IdentityHelpers]::graphAccessToken); 
-			"Content-Type"="application/json"
-		};
-		try
+		if (-not [string]::IsNullOrWhiteSpace([IdentityHelpers]::graphAccessToken))
 		{
-			$webResponse = [WebRequestHelper]::InvokeGetWebRequest($uri, $header);
-			$hasAccess = $true;
-		}
-		catch
-		{
-			$hasAccess = $false;
+			$header = @{
+				"Authorization"= ("Bearer " + [IdentityHelpers]::graphAccessToken); 
+				"Content-Type"="application/json"
+			};
+			try
+			{
+				$webResponse = [WebRequestHelper]::InvokeGetWebRequest($uri, $header);
+				$hasAccess = $true;
+			}
+			catch
+			{
+				$hasAccess = $false;
+			}
 		}
 		return $hasAccess;
 	}
