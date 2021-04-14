@@ -8,9 +8,15 @@ class ServiceConnection: ADOSVTBase
     hidden [PSObject] $pipelinePermission = $null;
     hidden [PSObject] $serviceEndPointIdentity = $null;
     hidden [PSObject] $SvcConnActivityDetail = @{isSvcConnActive = $true; svcConnLastRunDate = $null; message = $null; isComputed = $false};
+    hidden static $IsOAuthScan = $false;
 
     ServiceConnection([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
+        if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret))  # this if block will be executed for OAuth based scan
+        {
+            [ServiceConnection]::IsOAuthScan = $true
+        }
+
         # Get project id
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
         # Get security namespace identifier of service endpoints.
@@ -99,73 +105,146 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckServiceConnectionAccess([ControlResult] $controlResult)
 	{
-        if ($this.ServiceEndpointsObj.type -eq "azurerm")
+        if ([ServiceConnection]::IsOAuthScan -eq $true)
         {
-            try {
-                if($this.ServiceConnEndPointDetail -and [Helpers]::CheckMember($this.ServiceConnEndPointDetail, "serviceEndpoint") )
-                {
-                    $message = "Service connection has access at [{0}] {1} scope in the subscription [{2}] .";
-                    $serviceEndPoint = $this.ServiceConnEndPointDetail.serviceEndpoint
-                    # 'scopeLevel' and 'creationMode' properties are required to determine whether a svc conn is automatic or manual.
-                    # irrespective of creationMode - pass the control for conn authorized at MLWorkspace and PublishProfile (app service) scope as such conn are granted access at resource level.
-                    if(([Helpers]::CheckMember($serviceEndPoint, "data.scopeLevel") -and ([Helpers]::CheckMember($serviceEndPoint.data, "creationMode")) ))
+            if ($this.ServiceEndpointsObj.type -eq "azurerm") 
+            {
+                try {
+                    if([Helpers]::CheckMember($this.ServiceEndpointsObj, "data") ) 
                     {
-                        #If Service connection creation mode is 'automatic' and scopeLevel is subscription and no resource group is defined in its access definition -> conn has subscription level access -> fail the control,
-                        #else pass the control if scopeLevel is 'Subscription' and 'scope' is RG  (note scope property is visible, only if conn is authorized to an RG)
-                        #Fail the control if it has access to management group (last condition)
-                        if(($serviceEndPoint.data.scopeLevel -eq "Subscription" -and $serviceEndPoint.data.creationMode -eq "Automatic" -and !([Helpers]::CheckMember($serviceEndPoint.authorization.parameters,"scope") )) -or ($serviceEndPoint.data.scopeLevel -eq "ManagementGroup"))
+                        $message = "Service connection has access at [{0}] {1} scope in the subscription [{2}] .";
+                        $serviceEndPoint = $this.ServiceEndpointsObj
+                        # 'scopeLevel' and 'creationMode' properties are required to determine whether a svc conn is automatic or manual.
+                        # irrespective of creationMode - pass the control for conn authorized at MLWorkspace and PublishProfile (app service) scope as such conn are granted access at resource level.
+                        if(([Helpers]::CheckMember($serviceEndPoint, "data.scopeLevel") -and ([Helpers]::CheckMember($serviceEndPoint.data, "creationMode")) ))
                         {
-                            $controlFailedMsg = '';
-                            if ($serviceEndPoint.data.scopeLevel -eq "Subscription") {
-                                $controlFailedMsg = "Service connection has access at [$($serviceEndPoint.data.subscriptionName)] subscription scope."
+                            #If Service connection creation mode is 'automatic' and scopeLevel is subscription and no resource group is defined in its access definition -> conn has subscription level access -> fail the control, 
+                            #else pass the control if scopeLevel is 'Subscription' and 'scope' is RG  (note scope property is visible, only if conn is authorized to an RG)
+                            #Fail the control if it has access to management group (last condition)
+                            if(($serviceEndPoint.data.scopeLevel -eq "Subscription" -and $serviceEndPoint.data.creationMode -eq "Automatic" -and !([Helpers]::CheckMember($serviceEndPoint.authorization,"parameters.scope") )) -or ($serviceEndPoint.data.scopeLevel -eq "ManagementGroup"))
+                            {
+                                $controlFailedMsg = '';
+                                if ($serviceEndPoint.data.scopeLevel -eq "Subscription") {
+                                    $controlFailedMsg = "Service connection has access at [$($serviceEndPoint.data.subscriptionName)] subscription scope."
+                                }
+                                elseif ($serviceEndPoint.data.scopeLevel -eq "ManagementGroup") {
+                                    $controlFailedMsg = "Service connection has access at [$($serviceEndPoint.data.managementGroupName)] management group scope."
+                                }
+                                $controlResult.AddMessage([VerificationResult]::Failed, $controlFailedMsg);
+                                $controlResult.AdditionalInfo += $controlFailedMsg;
                             }
-                            elseif ($serviceEndPoint.data.scopeLevel -eq "ManagementGroup") {
-                                $controlFailedMsg = "Service connection has access at [$($serviceEndPoint.data.managementGroupName)] management group scope."
+                            else{ # else gets executed when svc is scoped at RG and not at sub or MG
+                                if ([Helpers]::CheckMember($serviceEndPoint.authorization.parameters, "scope")) {
+                                    $message =  $message -f $serviceEndPoint.authorization.parameters.scope.split('/')[-1], 'resource group', $serviceEndPoint.data.subscriptionName
+                                }
+                                else { 
+                                    $message = "Service connection is not configured at subscription scope."
+                                }
+                                $controlResult.AddMessage([VerificationResult]::Passed, $message);
+                                $controlResult.AdditionalInfo += $message;
                             }
-                            $controlResult.AddMessage([VerificationResult]::Failed, $controlFailedMsg);
-                            $controlResult.AdditionalInfo += $controlFailedMsg;
                         }
-                        else{ # else gets executed when svc is scoped at RG and not at sub or MG
-                            if ([Helpers]::CheckMember($serviceEndPoint.authorization.parameters, "scope")) {
-                                $message =  $message -f $serviceEndPoint.authorization.parameters.scope.split('/')[-1], 'resource group', $serviceEndPoint.data.subscriptionName
-                            }
-                            else {
-                                $message = "Service connection is not configured at subscription scope."
-                            }
+                        #elseif gets executed when scoped at AzureMLWorkspace 
+                        elseif(([Helpers]::CheckMember($serviceEndPoint, "data.scopeLevel") -and $serviceEndPoint.data.scopeLevel -eq "AzureMLWorkspace"))
+                        {
+                            $message =  $message -f $serviceEndPoint.data.mlWorkspaceName, 'ML workspace', $serviceEndPoint.data.subscriptionName
                             $controlResult.AddMessage([VerificationResult]::Passed, $message);
                             $controlResult.AdditionalInfo += $message;
                         }
+                        #elseif gets executed when scoped at PublishProfile 
+                        elseif(([Helpers]::CheckMember($serviceEndPoint, "authorization.scheme") -and $serviceEndPoint.authorization.scheme -eq "PublishProfile"))
+                        {
+                            $message =  $message -f $serviceEndPoint.data.resourceId.split('/')[-1], 'app service', $serviceEndPoint.data.subscriptionName
+                            $controlResult.AddMessage([VerificationResult]::Passed, $message);
+                            $controlResult.AdditionalInfo += $message;
+                        }
+                        else  # if creation mode is manual and type is other (eg. managed identity) then verify the control
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Verify, "Access scope of service connection can not be verified as it is not an 'automatic' service prinicipal.");
+                        }
                     }
-                    #elseif gets executed when scoped at AzureMLWorkspace
-                    elseif(([Helpers]::CheckMember($serviceEndPoint, "data.scopeLevel") -and $serviceEndPoint.data.scopeLevel -eq "AzureMLWorkspace"))
+                    else
                     {
-                        $message =  $message -f $serviceEndPoint.data.mlWorkspaceName, 'ML workspace', $serviceEndPoint.data.subscriptionName
-                        $controlResult.AddMessage([VerificationResult]::Passed, $message);
-                        $controlResult.AdditionalInfo += $message;
-                    }
-                    #elseif gets executed when scoped at PublishProfile
-                    elseif(([Helpers]::CheckMember($serviceEndPoint, "authorization.scheme") -and $serviceEndPoint.authorization.scheme -eq "PublishProfile"))
-                    {
-                        $message =  $message -f $serviceEndPoint.data.resourceId.split('/')[-1], 'app service', $serviceEndPoint.data.subscriptionName
-                        $controlResult.AddMessage([VerificationResult]::Passed, $message);
-                        $controlResult.AdditionalInfo += $message;
-                    }
-                    else  # if creation mode is manual and type is other (eg. managed identity) then verify the control
-                    {
-                        $controlResult.AddMessage([VerificationResult]::Verify, "Access scope of service connection can not be verified as it is not an 'automatic' service prinicipal.");
+                        $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the service connection details.");
                     }
                 }
-                else
-                {
+                catch {
                     $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the service connection details.");
                 }
             }
-            catch {
-                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the service connection details.");
+            else {
+                $controlResult.AddMessage([VerificationResult]::Manual,"Access scope of service connections of type other than 'Azure Resource Manager' can not be verified.");
             }
         }
         else {
-            $controlResult.AddMessage([VerificationResult]::Manual,"Access scope of service connections of type other than 'Azure Resource Manager' can not be verified.");
+            if ($this.ServiceEndpointsObj.type -eq "azurerm")
+            {
+                try {
+                    if($this.ServiceConnEndPointDetail -and [Helpers]::CheckMember($this.ServiceConnEndPointDetail, "serviceEndpoint") )
+                    {
+                        $message = "Service connection has access at [{0}] {1} scope in the subscription [{2}] .";
+                        $serviceEndPoint = $this.ServiceConnEndPointDetail.serviceEndpoint
+                        # 'scopeLevel' and 'creationMode' properties are required to determine whether a svc conn is automatic or manual.
+                        # irrespective of creationMode - pass the control for conn authorized at MLWorkspace and PublishProfile (app service) scope as such conn are granted access at resource level.
+                        if(([Helpers]::CheckMember($serviceEndPoint, "data.scopeLevel") -and ([Helpers]::CheckMember($serviceEndPoint.data, "creationMode")) ))
+                        {
+                            #If Service connection creation mode is 'automatic' and scopeLevel is subscription and no resource group is defined in its access definition -> conn has subscription level access -> fail the control,
+                            #else pass the control if scopeLevel is 'Subscription' and 'scope' is RG  (note scope property is visible, only if conn is authorized to an RG)
+                            #Fail the control if it has access to management group (last condition)
+                            if(($serviceEndPoint.data.scopeLevel -eq "Subscription" -and $serviceEndPoint.data.creationMode -eq "Automatic" -and !([Helpers]::CheckMember($serviceEndPoint.authorization.parameters,"scope") )) -or ($serviceEndPoint.data.scopeLevel -eq "ManagementGroup"))
+                            {
+                                $controlFailedMsg = '';
+                                if ($serviceEndPoint.data.scopeLevel -eq "Subscription") {
+                                    $controlFailedMsg = "Service connection has access at [$($serviceEndPoint.data.subscriptionName)] subscription scope."
+                                }
+                                elseif ($serviceEndPoint.data.scopeLevel -eq "ManagementGroup") {
+                                    $controlFailedMsg = "Service connection has access at [$($serviceEndPoint.data.managementGroupName)] management group scope."
+                                }
+                                $controlResult.AddMessage([VerificationResult]::Failed, $controlFailedMsg);
+                                $controlResult.AdditionalInfo += $controlFailedMsg;
+                            }
+                            else{ # else gets executed when svc is scoped at RG and not at sub or MG
+                                if ([Helpers]::CheckMember($serviceEndPoint.authorization.parameters, "scope")) {
+                                    $message =  $message -f $serviceEndPoint.authorization.parameters.scope.split('/')[-1], 'resource group', $serviceEndPoint.data.subscriptionName
+                                }
+                                else {
+                                    $message = "Service connection is not configured at subscription scope."
+                                }
+                                $controlResult.AddMessage([VerificationResult]::Passed, $message);
+                                $controlResult.AdditionalInfo += $message;
+                            }
+                        }
+                        #elseif gets executed when scoped at AzureMLWorkspace
+                        elseif(([Helpers]::CheckMember($serviceEndPoint, "data.scopeLevel") -and $serviceEndPoint.data.scopeLevel -eq "AzureMLWorkspace"))
+                        {
+                            $message =  $message -f $serviceEndPoint.data.mlWorkspaceName, 'ML workspace', $serviceEndPoint.data.subscriptionName
+                            $controlResult.AddMessage([VerificationResult]::Passed, $message);
+                            $controlResult.AdditionalInfo += $message;
+                        }
+                        #elseif gets executed when scoped at PublishProfile
+                        elseif(([Helpers]::CheckMember($serviceEndPoint, "authorization.scheme") -and $serviceEndPoint.authorization.scheme -eq "PublishProfile"))
+                        {
+                            $message =  $message -f $serviceEndPoint.data.resourceId.split('/')[-1], 'app service', $serviceEndPoint.data.subscriptionName
+                            $controlResult.AddMessage([VerificationResult]::Passed, $message);
+                            $controlResult.AdditionalInfo += $message;
+                        }
+                        else  # if creation mode is manual and type is other (eg. managed identity) then verify the control
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Verify, "Access scope of service connection can not be verified as it is not an 'automatic' service prinicipal.");
+                        }
+                    }
+                    else
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the service connection details.");
+                    }
+                }
+                catch {
+                    $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the service connection details.");
+                }
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Manual,"Access scope of service connections of type other than 'Azure Resource Manager' can not be verified.");
+            }
         }
 
         return $controlResult;
@@ -497,29 +576,59 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckCrossProjectSharing([ControlResult] $controlResult)
 	{
-        if($this.ServiceConnEndPointDetail -and [Helpers]::CheckMember($this.ServiceConnEndPointDetail, "serviceEndpoint") )
+        if ([ServiceConnection]::IsOAuthScan -eq $true)
         {
-            #Get the project list which are accessible to the service connection.
-            $svcProjectReferences = $this.ServiceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences
-            if (($svcProjectReferences | Measure-Object).Count -gt 1)
+            if($this.serviceendpointsobj -and [Helpers]::CheckMember($this.serviceendpointsobj, "serviceEndpointProjectReferences") ) 
             {
-                $stateData = @();
-                $stateData += $svcProjectReferences | Select-Object name, projectReference
-
-                $controlResult.AddMessage("Total number of projects that have access to the service connection: ", ($stateData | Measure-Object).Count);
-                $controlResult.AddMessage([VerificationResult]::Failed, "Review the list of projects that have access to the service connection: ", $stateData);
-                $controlResult.SetStateData("List of projects that have access to the service connection: ", $stateData);
-                $controlResult.AdditionalInfo += "Total number of projects that have access to the service connection: " + ($stateData | Measure-Object).Count;
-                $controlResult.AdditionalInfo += "List of projects that have access to the service connection: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
+                #Get the project list which are accessible to the service connection. 
+                $svcProjectReferences = $this.serviceendpointsobj.serviceEndpointProjectReferences
+                if (($svcProjectReferences | Measure-Object).Count -gt 1) 
+                {
+                    $stateData = @();
+                    $stateData += $svcProjectReferences | Select-Object name, projectReference
+    
+                    $controlResult.AddMessage("Total number of projects that have access to the service connection: ", ($stateData | Measure-Object).Count);
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Review the list of projects that have access to the service connection: ", $stateData);
+                    $controlResult.SetStateData("List of projects that have access to the service connection: ", $stateData); 
+                    $controlResult.AdditionalInfo += "Total number of projects that have access to the service connection: " + ($stateData | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "List of projects that have access to the service connection: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not shared with multiple projects.");
+                }
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not shared with multiple projects.");
-            }
+                $controlResult.AddMessage([VerificationResult]::Error, "Service connection details could not be fetched.");
+            }  
         }
         else
         {
-            $controlResult.AddMessage([VerificationResult]::Error, "Service connection details could not be fetched.");
+            if($this.ServiceConnEndPointDetail -and [Helpers]::CheckMember($this.ServiceConnEndPointDetail, "serviceEndpoint") )
+            {
+                #Get the project list which are accessible to the service connection.
+                $svcProjectReferences = $this.ServiceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences
+                if (($svcProjectReferences | Measure-Object).Count -gt 1)
+                {
+                    $stateData = @();
+                    $stateData += $svcProjectReferences | Select-Object name, projectReference
+
+                    $controlResult.AddMessage("Total number of projects that have access to the service connection: ", ($stateData | Measure-Object).Count);
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Review the list of projects that have access to the service connection: ", $stateData);
+                    $controlResult.SetStateData("List of projects that have access to the service connection: ", $stateData);
+                    $controlResult.AdditionalInfo += "Total number of projects that have access to the service connection: " + ($stateData | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "List of projects that have access to the service connection: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not shared with multiple projects.");
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "Service connection details could not be fetched.");
+            }
         }
         return $controlResult;
     }
@@ -608,49 +717,99 @@ class ServiceConnection: ADOSVTBase
     {
         try
         {
-
-            if ($this.ServiceConnEndPointDetail -and [Helpers]::CheckMember($this.ServiceConnEndPointDetail, "serviceEndpointExecutionHistory") )
+            if ([ServiceConnection]::IsOAuthScan -eq $true)
             {
-                #if this job is still running then finishTime is not available. pass the control
-                if ([Helpers]::CheckMember($this.ServiceConnEndPointDetail.serviceEndpointExecutionHistory[0].data, "finishTime"))
+                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/{2}/executionhistory?top=1&api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceGroupName), $($this.serviceendpointsobj.id);
+                $serviceEndpointExecutionHistory = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                
+                if (($serviceEndpointExecutionHistory | Measure-Object).Count -gt 0 -and ([Helpers]::CheckMember($serviceEndpointExecutionHistory[0],"data"))) 
                 {
-                    #Get the last known usage (job) timestamp of the service connection
-                    $svcLastRunDate = $this.ServiceConnEndPointDetail.serviceEndpointExecutionHistory[0].data.finishTime;
-
-                    #format date
-                    $formatLastRunTimeSpan = New-TimeSpan -Start (Get-Date $svcLastRunDate)
-
-                    # $inactiveLimit denotes the upper limit on number of days of inactivity before the svc conn is deemed inactive.
-                    if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.ServiceConnectionHistoryPeriodInDays") )
+                    #if this job is still running then finishTime is not available. pass the control
+                    if ([Helpers]::CheckMember($serviceEndpointExecutionHistory[0].data, "finishTime")) 
                     {
-                        $inactiveLimit = $this.ControlSettings.ServiceConnection.ServiceConnectionHistoryPeriodInDays
-                        if ($formatLastRunTimeSpan.Days -gt $inactiveLimit)
+                        #Get the last known usage (job) timestamp of the service connection
+                        $svcLastRunDate = $serviceEndpointExecutionHistory[0].data.finishTime;
+                        
+                        #format date
+                        $formatLastRunTimeSpan = New-TimeSpan -Start (Get-Date $svcLastRunDate)
+                        
+                        # $inactiveLimit denotes the upper limit on number of days of inactivity before the svc conn is deemed inactive.
+                        if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.ServiceConnectionHistoryPeriodInDays") ) 
                         {
+                            $inactiveLimit = $this.ControlSettings.ServiceConnection.ServiceConnectionHistoryPeriodInDays
+                            if ($formatLastRunTimeSpan.Days -gt $inactiveLimit)
+                            {
+                                $this.SvcConnActivityDetail.isSvcConnActive = $false;
+                                $this.SvcConnActivityDetail.message = "Service connection has not been used in the last $inactiveLimit days.";
+                            }
+                            else
+                            {
+                                $this.SvcConnActivityDetail.isSvcConnActive = $true;
+                                $this.SvcConnActivityDetail.message =  "Service connection has been used in the last $inactiveLimit days.";
+                            }
+                        }
+                        else {
                             $this.SvcConnActivityDetail.isSvcConnActive = $false;
-                            $this.SvcConnActivityDetail.message = "Service connection has not been used in the last $inactiveLimit days.";
+                            $this.SvcConnActivityDetail.message = "Could not fetch the inactive days limit for service connection.";
                         }
-                        else
-                        {
-                            $this.SvcConnActivityDetail.isSvcConnActive = $true;
-                            $this.SvcConnActivityDetail.message =  "Service connection has been used in the last $inactiveLimit days.";
-                        }
+                        $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
                     }
-                    else {
-                        $this.SvcConnActivityDetail.isSvcConnActive = $false;
-                        $this.SvcConnActivityDetail.message = "Could not fetch the inactive days limit for service connection.";
+                    else
+                    {
+                        $this.SvcConnActivityDetail.isSvcConnActive = $true;
+                        $this.SvcConnActivityDetail.message = "Service connection was under use during the control scan.";
                     }
-                    $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
                 }
-                else
+                else #service connection was created but never used. (Fail for now)
                 {
-                    $this.SvcConnActivityDetail.isSvcConnActive = $true;
-                    $this.SvcConnActivityDetail.message = "Service connection was under use during the control scan.";
+                    $this.SvcConnActivityDetail.isSvcConnActive = $false;
+                    $this.SvcConnActivityDetail.message = "Service connection has never been used.";
                 }
             }
-            else #service connection was created but never used. (Fail for now)
-            {
-                $this.SvcConnActivityDetail.isSvcConnActive = $false;
-                $this.SvcConnActivityDetail.message = "Service connection has never been used.";
+            else {
+                if ($this.ServiceConnEndPointDetail -and [Helpers]::CheckMember($this.ServiceConnEndPointDetail, "serviceEndpointExecutionHistory") )
+                {
+                    #if this job is still running then finishTime is not available. pass the control
+                    if ([Helpers]::CheckMember($this.ServiceConnEndPointDetail.serviceEndpointExecutionHistory[0].data, "finishTime"))
+                    {
+                        #Get the last known usage (job) timestamp of the service connection
+                        $svcLastRunDate = $this.ServiceConnEndPointDetail.serviceEndpointExecutionHistory[0].data.finishTime;
+
+                        #format date
+                        $formatLastRunTimeSpan = New-TimeSpan -Start (Get-Date $svcLastRunDate)
+
+                        # $inactiveLimit denotes the upper limit on number of days of inactivity before the svc conn is deemed inactive.
+                        if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.ServiceConnectionHistoryPeriodInDays") )
+                        {
+                            $inactiveLimit = $this.ControlSettings.ServiceConnection.ServiceConnectionHistoryPeriodInDays
+                            if ($formatLastRunTimeSpan.Days -gt $inactiveLimit)
+                            {
+                                $this.SvcConnActivityDetail.isSvcConnActive = $false;
+                                $this.SvcConnActivityDetail.message = "Service connection has not been used in the last $inactiveLimit days.";
+                            }
+                            else
+                            {
+                                $this.SvcConnActivityDetail.isSvcConnActive = $true;
+                                $this.SvcConnActivityDetail.message =  "Service connection has been used in the last $inactiveLimit days.";
+                            }
+                        }
+                        else {
+                            $this.SvcConnActivityDetail.isSvcConnActive = $false;
+                            $this.SvcConnActivityDetail.message = "Could not fetch the inactive days limit for service connection.";
+                        }
+                        $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
+                    }
+                    else
+                    {
+                        $this.SvcConnActivityDetail.isSvcConnActive = $true;
+                        $this.SvcConnActivityDetail.message = "Service connection was under use during the control scan.";
+                    }
+                }
+                else #service connection was created but never used. (Fail for now)
+                {
+                    $this.SvcConnActivityDetail.isSvcConnActive = $false;
+                    $this.SvcConnActivityDetail.message = "Service connection has never been used.";
+                }
             }
         }
         catch
