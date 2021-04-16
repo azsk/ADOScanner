@@ -214,13 +214,15 @@ class LogAnalyticsOutput: ListenerBase
 					#publish to primary workspace
 					if(-not [string]::IsNullOrWhiteSpace($settings.LAWSId) -and [LogAnalyticsHelper]::IsLAWSSettingValid -ne -1)
 					{
-						[LogAnalyticsHelper]::PostLAWSData($settings.LAWSId, $settings.LAWSSharedKey, $lawBodyByteArray, $settings.LAType, 'LAWS')
+						#Out-null is added as this function will return boolean based on whether data is posted to LA or not, but here we are not doing any operation on return value.
+						[LogAnalyticsHelper]::PostLAWSData($settings.LAWSId, $settings.LAWSSharedKey, $lawBodyByteArray, $settings.LAType, 'LAWS') | Out-Null
 					}
 
 					#publish to secondary workspace
 					if(-not [string]::IsNullOrWhiteSpace($settings.AltLAWSId) -and [LogAnalyticsHelper]::IsAltLAWSSettingValid -ne -1)
 					{
-						[LogAnalyticsHelper]::PostLAWSData($settings.AltLAWSId, $settings.AltLAWSSharedKey, $lawBodyByteArray, $settings.LAType, 'AltLAWS')
+						#Out-null is added as this function will return boolean based on whether data is posted to LA or not, but here we are not doing any operation on return value.
+						[LogAnalyticsHelper]::PostLAWSData($settings.AltLAWSId, $settings.AltLAWSSharedKey, $lawBodyByteArray, $settings.LAType, 'AltLAWS') | Out-Null
 					}
 				}
 

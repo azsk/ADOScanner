@@ -330,7 +330,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Project_AuthZ_Disable_Inherited_Permissions",
+      "ControlID": "ADO_Project_AuthZ_Disable_Repo_Inherited_Permissions",
       "Description": "Do not allow inherited permission on repositories.",
       "Id": "Project300",
       "ControlSeverity": "High",

@@ -36,7 +36,7 @@
           "ADO_Project_AuthN_Use_ALT_Accounts_For_Admin",
           "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secure_Files",
           "ADO_Project_AuthZ_Restrict_Feed_Permissions",
-          "ADO_Project_AuthZ_Disable_Inherited_Permissions"
+          "ADO_Project_AuthZ_Disable_Repo_Inherited_Permissions"
         ]
       },
       {
@@ -48,7 +48,7 @@
           "ADO_ServiceConnection_AuthZ_Dont_Allow_Global_Groups",
           "ADO_ServiceConnection_DP_Review_Inactive_Connection",
           "ADO_ServiceConnection_SI_Dont_Share_Across_Projects",
-          "ADO_ServiceConnection_AuthZ_Dont_Grant_Subscription_Access",
+          "ADO_ServiceConnection_AuthZ_Grant_Least_Privilege_Access",
           "ADO_ServiceConnection_AuthZ_Dont_Grant_BuildServAcc_Permission"
         ]
       },
@@ -170,12 +170,21 @@
   "AttestationBranch": "",
   "EnableMultiProjectAttestation": false,
   "ProjectToStoreAttestation": "",
+  "EnforceApprovedException": false,
+  "ApprovedExceptionSettings": {
+    "ControlsList": [],
+    "InvalidatePreviousAttestations": false,
+    "ApprovedExceptionPromptMessage": "",
+    "NonApprovedExceptionPromptMessage": "",
+    "DefaultPromptMessage": "Refer the docs https://github.com/azsk/ADOScanner-docs to fetch the exception id."
+  },
   "IsAllowLongRunningScan": true,
   "LongRunningScanCheckPoint": 1000,
   "DefaultValidAttestationStates": [
     "NotAnIssue",
     "WillFixLater",
-    "WillNotFix"
+    "WillNotFix",
+    "ApprovedException"
   ],
   "NewControlGracePeriodInDays": {
     "Default": 60,
@@ -251,7 +260,12 @@
     ]
   },
   "AgentPool": {
-    "AgentPoolHistoryPeriodInDays": 180
+    "AgentPoolHistoryPeriodInDays": 180 ,
+    "RestrictedBroaderGroupsForAgentPool": [
+        "Project Collection Valid Users",
+        "Contributors",
+        "Readers"
+    ]
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
   "Organization": {
@@ -322,6 +336,11 @@
       "Endpoint Creators",
       "Contributors",
       "Readers"
+    ],
+    "RestrictedBroaderGroupsForSerConn" : [
+      "Project Collection Valid Users",
+      "Contributors",
+      "Readers"
     ]
   },
   "Patterns": [
@@ -373,18 +392,20 @@
     "LogBugsForInactiveResources": true,
     "CustomControlList": [],
     "LogBugsForUnmappedResource": true,
-    "Description":"Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a>  </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>"
+    "Description":"Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a> </br></br> <b> Resource Owner: </b> {10} </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>",
+    "UpdateBug": []
   },
   "GenerateSecurityEvaluationJsonFile" : false,
   "ResourceProviders": [
-    "Microsoft.Storage", 
-    "Microsoft.Keyvault", 
-    "Microsoft.Resources", 
+    "Microsoft.Storage",
+    "Microsoft.Keyvault",
+    "Microsoft.Resources",
     "Microsoft.OperationalInsights"
   ],
   "CriticalPATPermissions": [
-    "vso.build_execute", 
+    "vso.build_execute",
     "vso.release_execute",
     "vso.release_manage"
-  ]
+  ],
+  "DisableWarningMessage" : false
 }

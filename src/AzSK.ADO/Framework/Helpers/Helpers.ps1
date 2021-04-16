@@ -5,26 +5,26 @@ using namespace Microsoft.Azure.Management.Storage.Models
 Set-StrictMode -Version Latest
 class Helpers {
     static [PSObject] $SHA256Alg = [System.Security.Cryptography.HashAlgorithm]::Create('sha256');
-    
+
     hidden static [PSObject] LoadOfflineConfigFile([string] $fileName, [bool] $parseJson) {
 		$rootConfigPath = [Constants]::AzSKAppFolderPath ;
 		return [Helpers]::LoadOfflineConfigFile($fileName, $true,$rootConfigPath);
 	}
     hidden static [PSObject] LoadOfflineConfigFile([string] $fileName, [bool] $parseJson, $path) {
 		#Load file from AzSK App folder
-		$rootConfigPath = $path ;	
-        
+		$rootConfigPath = $path ;
+
 		$extension = [System.IO.Path]::GetExtension($fileName);
 
 		$filePath = $null
 		if(Test-Path -Path $rootConfigPath)
 		{
-			$filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1 
+			$filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1
 		}
-        #If file not present in App folder load settings from Configurations in Module folder 
+        #If file not present in App folder load settings from Configurations in Module folder
         if (!$filePath) {
             $rootConfigPath = Join-Path (Get-Item $PSScriptRoot).Parent.FullName "Configurations";
-            $filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1 
+            $filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1
         }
 
         if ($filePath)
@@ -37,19 +37,19 @@ class Helpers {
 				}
 				else
 				{
-					$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath)) 
+					$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath))
 				}
 			}
 			else
 			{
-				$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath)) 
+				$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath))
 			}
         }
         else {
-            throw "Unable to find the specified file '$fileName'"          
+            throw "Unable to find the specified file '$fileName'"
         }
         if (-not $fileContent) {
-            throw "The specified file '$fileName' is empty"                                  
+            throw "The specified file '$fileName' is empty"
         }
 
         return $fileContent;
@@ -85,7 +85,7 @@ class Helpers {
 					{
 						$msg = ($dataObject | Out-String) + "`r`nStackTrace: " + $dataObject. ScriptStackTrace
 					}
-				}                
+				}
             }
             else {
                 if ($defaultPsOutput -or $dataObject.GetType() -eq [string]) {
@@ -150,10 +150,10 @@ class Helpers {
                 elseif ($referenceObject -is "string" -or $referenceObject -is "ValueType") {
                     # For primitive types, use default comparer
 						$result = $result -and (((Compare-Object $referenceObject $differenceObject) | Where-Object { $_.SideIndicator -eq "<=" } | Measure-Object).Count -eq 0)
-					
+
                 }
                 else {
-						$result = $result -and [Helpers]::CompareObjectProperties($referenceObject, $differenceObject, $strictComparison)  
+						$result = $result -and [Helpers]::CompareObjectProperties($referenceObject, $differenceObject, $strictComparison)
                 }
             }
             else {
@@ -185,7 +185,7 @@ class Helpers {
                     $compareProp = $differenceObject.$propName;
 
                     if ($null -ne $refProp) {
-                        if ($null -ne $compareProp) {			
+                        if ($null -ne $compareProp) {
 								$result = $result -and [Helpers]::CompareObject($refProp, $compareProp, $strictComparison);
                         }
                         else {
@@ -265,7 +265,7 @@ class Helpers {
 					{
 						$result = $result -and (((Compare-Object $referenceObject $differenceObject) | Where-Object { $_.SideIndicator -eq "<=" } | Measure-Object).Count -eq 0)
 					}
-                    
+
                 }
                 else {
 					if($AttestComparisionType -eq [ComparisionType]::NumLesserOrEqual)
@@ -276,7 +276,7 @@ class Helpers {
 					{
 						$result = $result -and [Helpers]::CompareObjectProperties($referenceObject, $differenceObject, $strictComparison)
 					}
-                    
+
                 }
             }
             else {
@@ -317,7 +317,7 @@ class Helpers {
 							{
 								$result = $result -and [Helpers]::CompareObject($refProp, $compareProp, $strictComparison);
 							}
-                            
+
                         }
                         else {
                             $result = $result -and $false;
@@ -531,7 +531,7 @@ class Helpers {
 
         return $result;
     }
-    
+
     static [string] FetchTagsString([PSObject]$TagsHashTable)
     {
         [string] $tagsString = "";
@@ -541,23 +541,23 @@ class Helpers {
                 $TagsHashTable.Keys | ForEach-Object {
                     $key = $_;
                     $value = $TagsHashTable[$key];
-                    $tagsString = $tagsString + "$($key):$($value);";                
+                    $tagsString = $tagsString + "$($key):$($value);";
                 }
-            }   
+            }
         }
         catch {
             #eat exception as if not able to fetch tags, it would return empty instead of breaking the flow
-        }        
+        }
         return $tagsString;
     }
 
-    static [string] ComputeHash([String] $data) 
+    static [string] ComputeHash([String] $data)
     {
         #Call the other function but request the full 32-byte == 64 hex chars (SHA56 hash) as string
         return [Helpers]::ComputeHashShort($data, 64)
     }
 
-    static [string] ComputeHashShort([String] $data, [int] $len) 
+    static [string] ComputeHashShort([String] $data, [int] $len)
     {
         $retHashSB = [System.Text.StringBuilder]::new();
         $hashBytes = [Helpers]::SHA256Alg.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($data));
@@ -568,7 +568,7 @@ class Helpers {
         #Overall, this ensures that the string conversion of a full SHA256 hash is *always* 64 chars long.
         for ($i=0;$i -lt $usedBytes; $i++)
         {
-            [void]$retHashSB.Append($hashBytes[$i].ToString("x2"))  
+            [void]$retHashSB.Append($hashBytes[$i].ToString("x2"))
         }
         return $retHashSB.ToString()
     }
@@ -584,7 +584,7 @@ class Helpers {
                 ([AttestationStatus]::NotAnIssue) {
                     $result = [VerificationResult]::Passed;
                     break;
-                }               
+                }
 				([AttestationStatus]::WillNotFix) {
                     $result = [VerificationResult]::Exception;
                     break;
@@ -602,7 +602,7 @@ class Helpers {
                     break;
                 }
                 ([AttestationStatus]::ApprovedException) {
-                    $result = $verificationResult;
+                    $result = [VerificationResult]::Passed;
                     break;
                 }
             }
@@ -639,7 +639,7 @@ class Helpers {
 		$memoryStream.Position = 0
 		$dataDeep = $binaryFormatter.Deserialize($memoryStream)
 		$memoryStream.Close()
-		return $dataDeep 
+		return $dataDeep
 	}
 
 
@@ -661,7 +661,7 @@ class Helpers {
 		}
 		return $invalidEmails
     }
-    
+
     static [Object] MergeObjects([Object] $source,[Object] $extend, [string] $idName)
 	{
         $idPropName = "Id";
@@ -688,16 +688,16 @@ class Helpers {
                      }
                      else {
                         $PropertyId = $extendArrElement | Get-Member -type NoteProperty, Property | Select-Object -First 1
-                     }                     
-					 $sourceElement = $source | Where-Object { $_.$($PropertyId.Name) -eq $extendArrElement.$($PropertyId.Name) }   
+                     }
+					 $sourceElement = $source | Where-Object { $_.$($PropertyId.Name) -eq $extendArrElement.$($PropertyId.Name) }
 					 if($sourceElement)
-					 {                    
+					 {
                         $sourceElement =  [Helpers]::MergeObjects($sourceElement, $extendArrElement, $idName)
 					 }
 					 else
 					 {
 						$source +=$extendArrElement
-					 }                 
+					 }
 				}
 			}
 			else
@@ -706,7 +706,7 @@ class Helpers {
                 if ($source.Count -gt 0)
                 {
                     $source = $source | Select-Object -Unique
-                } 
+                }
 			}
 		}
 		else{
@@ -741,7 +741,7 @@ class Helpers {
 		}
 	}
 
-	#BOM replace function 
+	#BOM replace function
 	static [void] RemoveUtf8BOM([System.IO.FileInfo] $file)
 	{
 		[Helpers]::SetUtf8Encoding($file);
@@ -792,9 +792,9 @@ class Helpers {
 		}
 		catch{
 			#this call happens from finally block. Try to clean the files, if it don't happen it would get cleaned in the next attempt
-		}	
-    }	
-   
+		}
+    }
+
     static [void] CreateFolderIfNotExist($FolderPath,$MakeFolderEmpty)
     {
         if(-not (Test-Path $FolderPath))
@@ -819,7 +819,7 @@ class Helpers {
         {
             return "Not Available"
         }
-        else 
+        else
         {
             $String= $String.Split("?")[0]
             return $String
@@ -830,11 +830,11 @@ class Helpers {
 	{
         [System.Uri] $validatedUri = $null;
         $IsSASTokenUpdateRequired = $false
-        
+
         if([System.Uri]::TryCreate($policyUrl, [System.UriKind]::Absolute, [ref] $validatedUri) -and $validatedUri.Query.Contains("&se="))
         {
             $pattern = '&se=(.*?)T'
-            [DateTime] $expiryDate = Get-Date 
+            [DateTime] $expiryDate = Get-Date
             if([DateTime]::TryParse([Helpers]::GetSubString($($validatedUri.Query),$pattern),[ref] $expiryDate))
             {
                if($expiryDate.AddDays(-[Constants]::SASTokenExpiryReminderInDays) -lt [DateTime]::UtcNow)
@@ -863,7 +863,7 @@ class Helpers {
     static [string] ReadInput($Prompt) {
         return (Read-Host -Prompt $Prompt).Trim()
     }
-    
+
     static [string] CreateSharedKey([string] $StringToSign,[string] $ResourceName,[string] $AccessKey)
 	{
         $KeyBytes = [System.Convert]::FromBase64String($AccessKey)
@@ -873,8 +873,77 @@ class Helpers {
         $KeyHash = $HMAC.ComputeHash($UnsignedBytes)
         $SignedString = [System.Convert]::ToBase64String($KeyHash)
         $sharedKey = $ResourceName+":"+$SignedString
-        return $sharedKey    	
+        return $sharedKey
+    }
+    
+    # Get object of a particular permission (which are allowed) for a group. 
+    static [object] ResolvePermissions($permissionsInBit, $actions, $permissionName)
+	{
+        $obj = @();
+        #$editPerms = @();
+        #check allowed permissions
+        if($permissionsInBit -gt 0 )
+        {                           
+            $permissionsInBinary = [convert]::ToString($permissionsInBit,2) # to binary
+            # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+
+            for ($a = 0 ; $a -lt $permissionsInBinary.Length; $a++) 
+            {
+                if( $permissionsInBinary.Substring($permissionsInBinary.Length-$a-1,1) -ge 1) # each binary digit
+                {
+                    # find bit in action list
+                    $raise = [Math]::Pow(2, $a)
+                    $bit = $actions | Where-Object {$_.bit -eq $raise }
+                    $obj += $bit | Where-Object {$_.displayName -eq $permissionName}
+                }
+            }
+        }
+        return $obj      	
     }
 
+    # Resolve allowed permissions of a particular group. 
+    static [object] ResolveAllPermissions($AllowedPermissionsInBit, $InheritedAllowedPermissionsInBit, $actions)
+	{
+        $obj = @();
+        #$editPerms = @();
+        #check allowed permissions
+        if($AllowedPermissionsInBit -gt 0 )
+        {                           
+            $permissionsInBinary = [convert]::ToString($AllowedPermissionsInBit,2) # to binary
+            # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+
+            for ($a = 0 ; $a -lt $permissionsInBinary.Length; $a++) 
+            {
+                if( $permissionsInBinary.Substring($permissionsInBinary.Length-$a-1,1) -ge 1) # each binary digit
+                {
+                    # find bit in action list
+                    $raise = [Math]::Pow(2, $a)
+                    $bit = $actions | Where-Object {$_.bit -eq $raise }
+                    $obj += New-Object -TypeName psobject -Property @{Name= $bit.displayName ; Permission="Allow"}
+                }
+            }
+        }
+
+        if($InheritedAllowedPermissionsInBit -gt 0 )
+        {                           
+            $permissionsInBinary = [convert]::ToString($InheritedAllowedPermissionsInBit,2) # to binary
+            # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
+
+            for ($a = 0 ; $a -lt $permissionsInBinary.Length; $a++) 
+            {
+                if( $permissionsInBinary.Substring($permissionsInBinary.Length-$a-1,1) -ge 1) # each binary digit
+                {
+                    # find bit in action list
+                    $raise = [Math]::Pow(2, $a)
+                    $bit = $actions | Where-Object {$_.bit -eq $raise }
+                    $obj += New-Object -TypeName psobject -Property @{Name= $bit.displayName ; Permission="Allow (inherited)"}
+                }
+            }
+        }
+
+        $obj = $obj | Sort-Object -Property Name
+
+        return $obj      	
+    }
 }
 

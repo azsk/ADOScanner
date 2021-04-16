@@ -4,11 +4,16 @@ class Project: ADOSVTBase
     [PSObject] $PipelineSettingsObj = $null
     hidden $PAMembers = @()
     hidden $Repos = $null
+    hidden [PSObject] $graphPermissions = @{hasGraphAccess = $false; graphAccessToken = $null}; # This is used to check user has graph permissions to compute the graph api operations.
 
     Project([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
         $this.Repos = $null
         $this.GetPipelineSettingsObj()
+        $this.graphPermissions.hasGraphAccess = [IdentityHelpers]::HasGraphAccess();
+        if ($this.graphPermissions.hasGraphAccess) {
+            $this.graphPermissions.graphAccessToken = [IdentityHelpers]::graphAccessToken
+        }
     }
 
     GetPipelineSettingsObj()
@@ -71,6 +76,7 @@ class Project: ADOSVTBase
         catch 
         {
             $controlResult.AddMessage([VerificationResult]::Error,"Project visibility details could not be fetched.");
+            $controlResult.LogException($_)
         }
         return $controlResult;
     }
@@ -330,21 +336,58 @@ class Project: ADOSVTBase
         $TotalPAMembers = 0;
         if (($this.PAMembers | Measure-Object).Count -eq 0) {
             $this.PAMembers += [AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
-            $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
         }
         $TotalPAMembers = ($this.PAMembers | Measure-Object).Count
         $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
-        if($TotalPAMembers -lt $this.ControlSettings.Project.MinPAMembersPermissible){
-            $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
+        if ($TotalPAMembers -gt 0) {
+            if ($this.graphPermissions.hasGraphAccess)
+            {
+                $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
+                $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
+                if($HumanAcccountCount -lt $this.ControlSettings.Project.MinPAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                }
+                if($TotalPAMembers -gt 0){
+                    $controlResult.AddMessage("Verify the following Project Administrators: ")
+                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                }        
+                
+                if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
+                    $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
+                    $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
+                    $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
+                }
+
+                if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
+                    $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
+                    $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
+                    $controlResult.SetStateData("List of service account Project Administrators: ",$svcAccounts)
+                }
+            }
+            else
+            {
+                $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
+                if($TotalPAMembers -lt $this.ControlSettings.Project.MinPAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
+                }
+                if($TotalPAMembers -gt 0){
+                    $controlResult.AddMessage("Verify the following Project Administrators: ",$this.PAMembers)
+                    $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
+                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                }
+            }
         }
-        else{
-            $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Failed,"No Project Administrators are configured in the project.");
         }
-        if($TotalPAMembers -gt 0){
-            $controlResult.AddMessage("Verify the following Project Administrators: ",$this.PAMembers)
-            $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
-            $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
-        }    
+        
         return $controlResult
     }
 
@@ -353,21 +396,59 @@ class Project: ADOSVTBase
         $TotalPAMembers = 0;
         if (($this.PAMembers | Measure-Object).Count -eq 0) {
             $this.PAMembers += [AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
-            $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
         }
         $TotalPAMembers = ($this.PAMembers | Measure-Object).Count
         $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
-        if($TotalPAMembers -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
-            $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
+        if ($TotalPAMembers -gt 0)
+        {
+            if ($this.graphPermissions.hasGraphAccess)
+            {
+                $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
+                $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
+                if($HumanAcccountCount -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible)");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible)");
+                }
+                if($TotalPAMembers -gt 0){
+                    $controlResult.AddMessage("Verify the following Project Administrators: ")
+                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                }        
+                
+                if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
+                    $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
+                    $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
+                    $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
+                }
+    
+                if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
+                    $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
+                    $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
+                    $controlResult.SetStateData("List of service account Project Administrators: ",$svcAccounts)
+                }
+            }
+            else
+            {
+                $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
+                if($TotalPAMembers -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
+                }
+                if($TotalPAMembers -gt 0){
+                    $controlResult.AddMessage("Verify the following Project Administrators: ",$this.PAMembers)
+                    $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
+                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                }
+            }
         }
-        else{
-            $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Failed,"No Project Administrators are configured in the project.");
         }
-        if($TotalPAMembers -gt 0){
-            $controlResult.AddMessage("Verify the following Project Administrators: ",$this.PAMembers)
-            $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
-            $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
-        }         
+        
         return $controlResult
     }
 
@@ -493,6 +574,7 @@ class Project: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of groups in the project.");
+            $controlResult.LogException($_)
         }
        
         return $controlResult
@@ -548,6 +630,7 @@ class Project: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Passed,  "Could not fetch project feed settings.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -597,6 +680,7 @@ class Project: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of environments in the project.");
+            $controlResult.LogException($_)
         }
        return $controlResult
     }
@@ -645,6 +729,7 @@ class Project: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of secure files.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -701,6 +786,7 @@ class Project: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies $($_).");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -739,6 +825,7 @@ class Project: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies $($_).");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -778,6 +865,7 @@ class Project: ADOSVTBase
                     }
                     catch{
                         $controlResult.AddMessage("Could not fetch the history of repository [$($repo.name)].");
+                        $controlResult.LogException($_)
                     }
                 }
                 $inactivecount = $inactiveRepos.Count
@@ -792,6 +880,7 @@ class Project: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of repositories in the project.", $_);
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -855,6 +944,7 @@ class Project: ADOSVTBase
         }
         catch{
             $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch repositories permission details. $($_) Please verify from portal all teams/groups are granted minimum required permissions.");
+            $controlResult.LogException($_)
         }
 
         return $controlResult
@@ -862,72 +952,55 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult) {
         $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-        try {
-            $repoDefnsObj = $this.FetchRepositoriesList()
-            $failedRepos = @()
-            $passedRepos = @()
-            foreach ($repo in $repoDefnsObj) {
-                $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1"
-                $body = "{
-                    'contributionIds': [
-                        'ms.vss-admin-web.security-view-data-provider'
-                    ],
-                    'dataProviderContext': {
-                        'properties': {
-                            'permissionSetId': '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87',
-                            'permissionSetToken': '',
-                            'sourcePage': {
-                                'url': '',
-                                'routeId': 'ms.vss-admin-web.project-admin-hub-route',
-                                'routeValues': {
-                                    'project': '',
-                                    'adminPivot': 'repositories',
-                                    'controller': 'ContributedPage',
-                                    'action': 'Execute',
-                                    'serviceHost': ''
-                                }
-                            }
-                        }
+        #permissionSetId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
+        $repoNamespaceId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87'
+        try
+        {
+            $repoPermissionUrl = 'https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?api-version=6.0' -f $this.OrganizationContext.OrganizationName, $repoNamespaceId;
+            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($repoPermissionUrl)
+            if ($null -ne $responseObj -and ($responseObj | Measure-Object).Count -gt 0)
+            {
+                $repoDefnsObj = $this.FetchRepositoriesList()
+                $failedRepos = @()
+                $passedRepos = @()
+                foreach ($repo in $repoDefnsObj)
+                {
+                    $repoToken = "repoV2/$projectId/$($repo.id)"
+                    $repoObj = $responseObj | where-object {$_.token -eq $repoToken}
+                    if ($null -ne $repoObj -and ($repoObj | Measure-Object).Count -gt 0 -and $repoObj.inheritPermissions)
+                    {
+                        $failedRepos += $repo.name
                     }
-                }" | ConvertFrom-Json
-                $body.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($repo.id)"
-                $body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$projectId/_settings/repositories?repo=/$($repo.id)&_a=permissionsMid";
-                $body.dataProviderContext.properties.sourcePage.routeValues.project = "$projectId";
-                $response = ""
-                try {
-                    $response = [WebRequestHelper]::InvokePostWebRequest($url, $body);
-                    if ([Helpers]::CheckMember($response, "dataProviders") -and $response.dataProviders.'ms.vss-admin-web.security-view-data-provider' -and [Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.security-view-data-provider', "permissionsContextJson")) {
-                        $permissionsContextJson = $response.dataProviders.'ms.vss-admin-web.security-view-data-provider'.permissionsContextJson
-                        $permissionsContextJson = $permissionsContextJson | ConvertFrom-Json
-                        if ($permissionsContextJson.inheritPermissions) {
-                            $failedRepos += $repo.name
-                        }
-                        else {
-                            $passedRepos += $repo.name
-                        }
-                    }
-                    else {
-                        $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch details for repository $($repo.name). Please verify from portal whether inherited permissions is disabled.");
+                    else
+                    {
+                        $passedRepos += $repo.name
                     }
                 }
-                catch {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch details for repository $($repo.name). Please verify from portal whether inherited permissions is disabled. $($_).");
+
+                $failedReposCount = $failedRepos.Count
+                $passedReposCount = $passedRepos.Count
+                $passedRepos = $passedRepos | sort-object
+                if($failedReposCount -gt 0)
+                {
+                    $failedRepos = $failedRepos | sort-object
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Inherited permissions are enabled on the repositories.");
+                    $controlResult.AddMessage("Total number of repositories on which inherited permissions are enabled: $failedReposCount", $failedRepos);
+                    $controlResult.AddMessage("Total number of repositories on which inherited permissions are disabled: $passedReposCount", $passedRepos);
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Inherited permissions are disabled on all repositories.");
                 }
             }
-            $failedcount = $failedRepos.Count
-            $passedcount = $passedRepos.Count
-            $passedRepos = $passedRepos | sort-object
-            if($failedcount -gt 0){
-                $failedRepos = $failedRepos | sort-object
-                $controlResult.AddMessage([VerificationResult]::Failed, "Inherited permissions are enabled on the below $($failedcount) repositories:", $failedRepos);
-                $controlResult.AddMessage("Inherited permissions are disabled on the below $($passedcount) repositories:", $passedRepos);
-            }
-            else {
-                $controlResult.AddMessage("Inherited permissions are disabled on all repositories.");
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the permission details for repositories in the project.");
             }
         }
-        catch {
+        catch
+        {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch list of repositories in the project. $($_).");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }

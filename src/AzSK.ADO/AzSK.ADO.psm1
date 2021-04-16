@@ -122,7 +122,17 @@ function Set-AzSKADOPolicySettings {
         [Parameter(Mandatory = $false, HelpMessage = "Branch that hosts ADO organization-specific policy")]
         [string]
         [Alias("bid")]
-        $BranchId
+        $BranchId,
+
+        [Parameter(Mandatory = $false, HelpMessage = "Attestation repository that stores attestation details.")]
+        [string]
+        [Alias("atr")]
+        $AttestationRepo,
+
+        [Parameter(Mandatory = $false, HelpMessage = "Attestation branch that stores attestation details.")]
+        [string]
+        [Alias("atb")]
+        $AttestationBranch
     )
     Begin {
         [CommandHelper]::BeginCommand($PSCmdlet.MyInvocation);
@@ -166,6 +176,16 @@ function Set-AzSKADOPolicySettings {
             {
                 $azskSettings.SecretsScanToolFolder = $SecretsScanToolFolder
                 $azskSettings.SecretsScanToolName = $SecretsScanToolName
+            }
+
+            #Set attestation repository for dev/test
+            if (-not [string]::IsNullOrWhiteSpace($AttestationRepo)) {
+                $azskSettings.AttestationRepo = $AttestationRepo;
+            }
+
+            #Set attestation branch for dev/test
+            if (-not [string]::IsNullOrWhiteSpace($AttestationBranch)) {
+                $azskSettings.AttestationBranch = $AttestationBranch;
             }
             
             [ConfigurationManager]::UpdateAzSKSettings($azskSettings);
@@ -220,6 +240,77 @@ function Set-AzSKADOUsageTelemetryLevel {
         [ListenerHelper]::UnregisterListeners();
     }
 }
+
+function Set-AzSKADOUserPreference {
+    <#
+	.SYNOPSIS
+	This command would help to set user preferences for ADO Scanner.
+	.DESCRIPTION
+	This command would help to set user preferences for ADO Scanner.
+	.PARAMETER OutputFolderPath
+    Provide the custom folder path for output files generated from ADO Scanner.
+	.PARAMETER ResetOutputFolderPath
+    Reset the output folder path to default value.
+	.LINK
+	https://aka.ms/adoscanner
+	#>
+    
+    Param
+    (
+        [Parameter(Mandatory = $false, HelpMessage = "Provide the custom folder path for output files generated from ADO Scanner")]
+        [string]
+		[Alias("ofp")]
+        $OutputFolderPath,
+
+        [Parameter(Mandatory = $false, HelpMessage = "Reset the output folder path to default value")]
+        [switch]
+		[Alias("rofp")]
+        $ResetOutputFolderPath
+
+    )
+    Begin {
+        [CommandHelper]::BeginCommand($PSCmdlet.MyInvocation);
+        [ListenerHelper]::RegisterListeners();
+    }
+    Process {
+        try {
+            $azskSettings = [ConfigurationManager]::GetLocalAzSKSettings();
+            $flag = $false
+            if ($ResetOutputFolderPath) {
+                
+                $azskSettings.OutputFolderPath = "";
+                [EventBase]::PublishGenericCustomMessage("Output folder path has been reset successfully");
+                $flag = $true
+            }
+            elseif (-not [string]::IsNullOrWhiteSpace($OutputFolderPath)) {
+                if (Test-Path -Path $OutputFolderPath) {                    
+                    $azskSettings.OutputFolderPath = $OutputFolderPath;
+                    [EventBase]::PublishGenericCustomMessage("Output folder path has been changed successfully");
+                    $flag = $true
+                }
+                else {
+                    [EventBase]::PublishGenericCustomMessage("The specified path does not exist", [MessageType]::Error);
+                }
+            }
+            
+            if($flag)
+            {
+                [ConfigurationManager]::UpdateAzSKSettings($azskSettings);
+                [EventBase]::PublishGenericCustomMessage("Successfully set user preference");
+            }
+            else {
+                [EventBase]::PublishGenericCustomMessage("User preference not updated",[MessageType]::Error);
+            }
+        }
+        catch {
+            [EventBase]::PublishGenericException($_);
+        }
+    }
+    End {
+        [ListenerHelper]::UnregisterListeners();
+    }
+}
+
 
 #$FrameworkPath = $PSScriptRoot
 

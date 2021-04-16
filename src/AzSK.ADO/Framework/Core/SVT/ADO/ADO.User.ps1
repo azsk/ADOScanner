@@ -57,6 +57,7 @@ class User: ADOSVTBase {
         catch {
             $controlResult.AddMessage([VerificationResult]::Error,
                 "Could not fetch the list of PATs");
+                $controlResult.LogException($_)
         }
         
         return $controlResult;
@@ -123,6 +124,7 @@ class User: ADOSVTBase {
         catch {
             $controlResult.AddMessage([VerificationResult]::Error,
                 "Could not fetch the list of PATs.");
+                $controlResult.LogException($_)
         }
         
         return $controlResult;
@@ -182,6 +184,7 @@ class User: ADOSVTBase {
         catch {
             $controlResult.AddMessage([VerificationResult]::Error,
                 "Could not fetch the list of PATs.");
+                $controlResult.LogException($_)
         }
         
         return $controlResult;
@@ -233,6 +236,7 @@ class User: ADOSVTBase {
         catch 
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of PATs");
+            $controlResult.LogException($_)
         }
         
         return $controlResult;
@@ -314,6 +318,7 @@ class User: ADOSVTBase {
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of PATs.");
+            $controlResult.LogException($_)
         }
         
         return $controlResult;

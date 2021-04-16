@@ -6,6 +6,7 @@ class Organization: ADOSVTBase
     [PSObject] $OrgPolicyObj = $null
     static $InstalledExtensionInfo
     hidden [PSObject] $allExtensionsObj; # This is used to fetch all extensions (shared+installed+requested) object so that it can be used in installed extension control where top publisher could not be computed.
+    hidden [PSObject] $graphPermissions = @{hasGraphAccess = $false; graphAccessToken = $null}; # This is used to check user has graph permissions to compute the graph api operations.
     
     #TODO: testing below line
     hidden [string] $SecurityNamespaceId;
@@ -13,6 +14,10 @@ class Organization: ADOSVTBase
     { 
         $this.GetOrgPolicyObject()
         $this.GetPipelineSettingsObj()
+        $this.graphPermissions.hasGraphAccess = [IdentityHelpers]::HasGraphAccess();
+        if ($this.graphPermissions.hasGraphAccess) {
+            $this.graphPermissions.graphAccessToken = [IdentityHelpers]::graphAccessToken
+        }
     }
 
     GetOrgPolicyObject()
@@ -128,6 +133,7 @@ class Organization: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of groups in the organization.");
+            $controlResult.LogException($_)
         }
        
         return $controlResult
@@ -281,6 +287,7 @@ class Organization: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of groups in the organization.");
+            $controlResult.LogException($_)
         }
        
         return $controlResult
@@ -305,6 +312,7 @@ class Organization: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch AAD configuration details.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -333,6 +341,7 @@ class Organization: ADOSVTBase
              catch {
                 $controlResult.AddMessage([VerificationResult]::Passed,
                 "Alternate authentication is no longer supported in Azure DevOps.");
+                $controlResult.LogException($_)
              }
         }
 
@@ -547,7 +556,7 @@ class Organization: ADOSVTBase
                             
                             $helperTable = $infotable.keys | Select @{l='Column';e={$_}},@{l='Interpretation';e={$infotable.$_}} | Format-Table -AutoSize | Out-String -Width $ftWidth
                             $controlResult.AddMessage($helperTable)
-                            $controlResult.AddMessage("The following extension permissions are considered senstive:")
+                            $controlResult.AddMessage("The following extension permissions are considered sensitive:")
                             if(!$isCriticalScopesPropertyPresent)
                             {
                                 $controlResult.AddMessage("***'Extension critical scopes' setting is not present in the policy configuration.***")
@@ -918,6 +927,7 @@ class Organization: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of installed extensions.");
+            $controlResult.LogException($_)
         }
 
         return $controlResult
@@ -966,6 +976,7 @@ class Organization: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of shared extensions.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -993,6 +1004,7 @@ class Organization: ADOSVTBase
                     {
                         # Eating the exception here as we could not fetch the further guest users
                         $continuationToken = $null
+                        $controlResult.LogException($_)
                     }
                 }
                 $guestList = @();
@@ -1014,6 +1026,7 @@ class Organization: ADOSVTBase
                         }
                         catch {
                             $userProjectEntitlements = "Could not fetch project entitlement details of the user."
+                            $controlResult.LogException($_)
                         }
                         return @{Id = $guestUser.Id; IdentityType = $guestUser.IdentityType; DisplayName = $guestUser.IdentityType; MailAddress = $guestUser.MailAddress; AccessLevel = $guestUser.AccessLevel; LastAccessedDate = $guestUser.LastAccessedDate; InactiveFromDays = $guestUser.InactiveFromDays; ProjectEntitlements = $userProjectEntitlements} 
                     }
@@ -1048,6 +1061,7 @@ class Organization: ADOSVTBase
         catch 
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of guest identities.");
+            $controlResult.LogException($_)
         } 
 
         return $controlResult
@@ -1089,6 +1103,7 @@ class Organization: ADOSVTBase
         catch 
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of extension managers.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -1155,6 +1170,7 @@ class Organization: ADOSVTBase
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of users in the organization.");
+            $controlResult.LogException($_)
         }
         return $controlResult;
     }
@@ -1189,6 +1205,7 @@ class Organization: ADOSVTBase
         catch 
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of disconnected users.");
+            $controlResult.LogException($_)
         }
        
         return $controlResult;
@@ -1645,7 +1662,8 @@ class Organization: ADOSVTBase
         }
         catch 
         {
-            $controlResult.AddMessage([VerificationResult]::Error,"Couldn't fetch the list of installed extensions in the organization.");     
+            $controlResult.AddMessage([VerificationResult]::Error,"Couldn't fetch the list of installed extensions in the organization.");  
+            $controlResult.LogException($_)   
         }
 
         return $controlResult
@@ -1657,21 +1675,52 @@ class Organization: ADOSVTBase
         $PCAMembers = @()
         $PCAMembers += [AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName)
         $TotalPCAMembers = ($PCAMembers| Measure-Object).Count
-        $PCAMembers = $PCAMembers | Select-Object displayName,mailAddress
-        $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization")
-        if($TotalPCAMembers -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
-            $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+        $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
+        if ($this.graphPermissions.hasGraphAccess)
+        {
+            $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
+            $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
+            if($HumanAcccountCount -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
+                $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+            }
+            if($TotalPCAMembers -gt 0){
+                $controlResult.AddMessage("Verify the following Project Collection Administrators: ")
+                $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
+            }        
+            
+            if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
+                $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
+                $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
+                $controlResult.SetStateData("List of human Project Collection Administrators: ",$humanAccounts)
+            }
+
+            if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
+                $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
+                $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
+                $controlResult.SetStateData("List of service account Project Collection Administrators: ",$svcAccounts)
+            }
         }
-        else{
-            $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+        else
+        {
+            $PCAMembers = $PCAMembers | Select-Object displayName,mailAddress
+            if($TotalPCAMembers -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
+                $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+            }
+            if($TotalPCAMembers -gt 0){
+                $controlResult.AddMessage("Verify the following Project Collection Administrators: ",$PCAMembers)
+                $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
+                $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
+            }
         }
-        if($TotalPCAMembers -gt 0){
-            $controlResult.AddMessage("Verify the following Project Collection Administrators: ",$PCAMembers)
-            $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
-            $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
-        }        
+        
         return $controlResult
-}
+    }
 
     hidden [ControlResult] CheckMaxPCACount([ControlResult] $controlResult)
     {
@@ -1680,20 +1729,49 @@ class Organization: ADOSVTBase
         $PCAMembers = @()
         $PCAMembers += [AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName)
         $TotalPCAMembers = ($PCAMembers| Measure-Object).Count
-        $PCAMembers = $PCAMembers | Select-Object displayName,mailAddress
-        $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization")
-        if($TotalPCAMembers -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
-            $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+        $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
+        if ($this.graphPermissions.hasGraphAccess)
+        {   
+            $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
+            $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
+            if($HumanAcccountCount -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
+                $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are within than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+            }
+            if($TotalPCAMembers -gt 0){
+                $controlResult.AddMessage("Verify the following Project Collection Administrators: ")
+                $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
+            }
+        
+            if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
+                $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
+                $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
+                $controlResult.SetStateData("List of human Project Collection Administrators: ",$humanAccounts)
+            }
+
+            if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
+                $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
+                $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
+                $controlResult.SetStateData("List of service account Project Collection Administrators: ",$svcAccounts)
+            }
         }
-        else{
-            $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+        else
+        {
+            $PCAMembers = $PCAMembers | Select-Object displayName,mailAddress
+            if($TotalPCAMembers -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
+                $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+            }
+            if($TotalPCAMembers -gt 0){
+                $controlResult.AddMessage("Verify the following Project Collection Administrators: ",$PCAMembers)
+                $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
+                $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
+            }
         }
-        if($TotalPCAMembers -gt 0){
-            $controlResult.AddMessage("Verify the following Project Collection Administrators: ",$PCAMembers)
-            $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
-            $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
-        }
-    
         return $controlResult
     }
 
@@ -1743,6 +1821,7 @@ class Organization: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of audit streams enabled on the organization.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -1810,8 +1889,8 @@ class Organization: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of requested extensions.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
-
 }

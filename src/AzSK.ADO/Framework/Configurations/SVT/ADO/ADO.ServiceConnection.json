@@ -23,7 +23,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_ServiceConnection_AuthZ_Dont_Grant_Subscription_Access",
+      "ControlID": "ADO_ServiceConnection_AuthZ_Grant_Least_Privilege_Access",
       "Description": "Azure service connection should not be provided access at subscription/management group scope.",
       "Id": "ServiceConnection120",
       "ControlSeverity": "High",
@@ -161,19 +161,19 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_ServiceConnection_AuthZ_PAT_Or_OAuth",
-      "Description": "Review permissions granted to the GitHub connections.",
+      "ControlID": "ADO_ServiceConnection_AuthN_Use_Secure_Auth_Method",
+      "Description": "Service connections should use strong authentication methods.",
       "Id": "ServiceConnection200",
       "ControlSeverity": "High",
       "Automated": "Yes",
-      "MethodName": "CheckServiceConnectionForPATOrOAuth",
-      "Rationale": "GitHub service connections can use either PAT or OAuth authorization grants. In either case, it is not a good security practice to use full access to GitHub. Always review the permission granted to such service connections.",
-      "Recommendation": "Go to Project Settings --> Service Connections --> Select Service Connection --> Select Edit --> Review permissions of the connection.",
+      "MethodName": "CheckSecureAuthN",
+      "Rationale": "Weaker authentication methods such as basic authentication can be easily compromised. Stronger authentication methods (certificate, token etc.) offer better security.",
+      "Recommendation": "Go to Project Settings --> Service Connections --> Select Service Connection --> Select Edit --> Use the recommended (stronger) authentication method as mentioned in the detailed scan logs.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthN"
       ],
       "Enabled": true
     },
@@ -227,7 +227,23 @@
         "AuthZ"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_ServiceConnection_AuthZ_Review_Broader_Group_Access",
+      "Description": "Broader groups (contributors, project collection valid users etc.) should not have user/administrator privileges on service connection.",
+      "Id": "ServiceConnection240",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupAccess",
+      "Rationale": "Granting minimum access to broader groups ensures that users are granted just enough permissions on service connection to perform their tasks. This minimizes exposure of the resources in case of user account/service connection  compromise.",
+      "Recommendation": "Go to Project Settings --> Pipelines --> Service connections --> Select your service connection --> Select Security --> Ensure broader groups have read-only access.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
     }
-
   ]
 }
