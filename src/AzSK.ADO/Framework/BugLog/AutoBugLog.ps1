@@ -193,6 +193,9 @@ class AutoBugLog {
             $StepsForRepro = "Get-AzSKADOSecurityStatus -OrganizationName '{0}' -ProjectNames '{1}' -{2}Names '{3}' -ControlIds '{4}'"
             $StepsForRepro = $StepsForRepro -f $this.OrganizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.FeatureName, $ControlResult.ResourceContext.ResourceName, $ControlResult.ControlItem.ControlID;
         }
+        if ($this.InvocationContext.BoundParameters["PolicyProject"]) {
+            $StepsForRepro += " -PolicyProject '$($this.InvocationContext.BoundParameters["PolicyProject"])'"; 
+        }
         return $StepsForRepro
     }
     
