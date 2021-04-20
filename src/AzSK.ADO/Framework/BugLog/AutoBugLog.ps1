@@ -92,8 +92,6 @@ class AutoBugLog {
                 $metaProviderObj = [BugMetaInfoProvider]::new();   
                 $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging, $this.IsBugLogCustomFlow, $this.ServiceIdPassedInCMD, $this.InvocationContext);
                 $serviceId = $metaProviderObj.ServiceId
-                #Get resource owner as created by
-                $resourceOwner = $metaProviderObj.GetResourceOwner($ControlResults[0])
 
                 #Log bug only if LogBugForUnmappedResource is enabled (default value is true) or resource is mapped to serviceid
                 #Restrict bug logging, if resource is not mapped to serviceid and LogBugForUnmappedResource is not enabled.
@@ -139,8 +137,7 @@ class AutoBugLog {
                                 $workItem = $this.GetWorkItemByHash($hash, [BugLogPathManager]::BugLoggingProject)
                                 if ($workItem[0].results.count -gt 0) {
                                     #a work item with the hash exists, find if it's state and reactivate if resolved bug
-                                    #resourceOwner will be added in the description.
-                                    $this.ManageActiveAndResolvedBugs($ProjectName, $control, $workItem, $AssignedTo, $serviceId, $resourceOwner)
+                                    $this.ManageActiveAndResolvedBugs($ProjectName, $control, $workItem, $AssignedTo, $serviceId)
                                 }
                             else {
                                 if ($printLogBugMsg) {
@@ -151,7 +148,7 @@ class AutoBugLog {
                                 #filling the bug template
                                 $Title = $this.GetTitle($control);
 
-                                $Description = $this.GetDescription($control, $resourceOwner);
+                                $Description = $this.GetDescription($control);
                                 $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
                     
                                 #function to attempt bug logging
@@ -374,7 +371,7 @@ class AutoBugLog {
     }
     
     #function to find active bugs and reactivate resolved bugs
-    hidden [void] ManageActiveAndResolvedBugs([string]$ProjectName, [SVTEventContext[]] $control, [object] $workItem, [string] $AssignedTo, [string] $serviceId, [string] $resourceOwner) {
+    hidden [void] ManageActiveAndResolvedBugs([string]$ProjectName, [SVTEventContext[]] $control, [object] $workItem, [string] $AssignedTo, [string] $serviceId) {
         
         foreach ($bugItem in $workItem[0].results) {
             #If using azure storage then calling documented api as we have ado id, so response will be different, so added if else condition
@@ -408,11 +405,11 @@ class AutoBugLog {
             #Update the serviceid details, if serviceid not null and not matched with bug response serviceid.
             #Update bug if updatebug is configured in org-policy
             #Reactivate resolved bug
-            $this.UpdateBug($ProjectName, $control, $workItem, $AssignedTo, $serviceId, $serviceIdInLoggedBug, $url, $state, $resourceOwner);
+            $this.UpdateBug($ProjectName, $control, $workItem, $AssignedTo, $serviceId, $serviceIdInLoggedBug, $url, $state);
         }
     }
 
-    hidden [bool] UpdateBug([string] $ProjectName, [SVTEventContext[]] $control, [object] $workItem, [string] $AssignedTo, [string] $serviceId, [string] $serviceIdInLoggedBug, [string] $url, [string] $state, [string] $resourceOwner)
+    hidden [bool] UpdateBug([string] $ProjectName, [SVTEventContext[]] $control, [object] $workItem, [string] $AssignedTo, [string] $serviceId, [string] $serviceIdInLoggedBug, [string] $url, [string] $state)
     {
         $TemplateForUpdateBug = @();
         $UpdateBugOperationType = "";
@@ -479,7 +476,7 @@ class AutoBugLog {
                     $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/System.Title'; value = $title };
                 }
                 if ("Description" -in $fieldsToUpdate -or "ReproSteps" -in $fieldsToUpdate) {
-                    $description = $this.GetDescription($control, $resourceOwner)
+                    $description = $this.GetDescription($control)
                     $TemplateForUpdateBug += [PSCustomObject] @{ op = 'add'; path = '/fields/Microsoft.VSTS.TCM.ReproSteps'; value = $description };
                 }
                 if ("Severity" -in $fieldsToUpdate) {
@@ -604,13 +601,16 @@ class AutoBugLog {
         }
     }
 
-    hidden [string] GetDescription([SVTEventContext[]] $control, $resourceOwner)
+    hidden [string] GetDescription([SVTEventContext[]] $control)
     {
         #TODO: Add resource owner in default bug description, although the bug will be assign to the owner.
         $bugDescription = "Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a>  </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>";
         if ([Helpers]::CheckMember($this.controlsettings.BugLogging, "Description")) {
             $bugDescription = $this.ControlSettings.BugLogging.Description;
         }
+        #Get resource owner as created by
+        $metaProviderObj = [BugMetaInfoProvider]::new();   
+        $resourceOwner = $metaProviderObj.GetResourceOwner($control);
 
         $scanCommand = $this.GetControlReproStep($control);
         $Description = $bugDescription -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlItem.Description, $control.ControlResults[0].VerificationResult, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ResourceContext.ResourceDetails.ResourceLink, $control.ResourceContext.ResourceName, $scanCommand, $resourceOwner
