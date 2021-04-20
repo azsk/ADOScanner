@@ -17,7 +17,7 @@ class BugMetaInfoProvider {
             return $this.BugLogCustomFlow($ControlResult, $serviceIdPassedInCMD)
         }
         else {
-            return $this.GetAssigneeFallback($ControlResult, $false);
+            return $this.GetAssigneeFallback($ControlResult);
         }
     }
 
@@ -37,7 +37,7 @@ class BugMetaInfoProvider {
                 $rscId = ($ControlResult.ResourceContext.ResourceId -split "$resourceType/")[-1];
                 $assignee = $this.CalculateAssignee($rscId, $projectName, $resourceType, $serviceIdPassedInCMD);
                 if (!$assignee) {
-                    $assignee = $this.GetAssigneeFallback($ControlResult, $false)
+                    $assignee = $this.GetAssigneeFallback($ControlResult)
                 }
             }            
         }
@@ -82,7 +82,7 @@ class BugMetaInfoProvider {
         return $assignee;	
     }
 
-    hidden [string] GetAssigneeFallback([SVTEventContext[]] $ControlResult, $isReturnResourceOwner) {
+    hidden [string] GetAssigneeFallback([SVTEventContext[]] $ControlResult) {
         $ResourceType = $ControlResult.ResourceContext.ResourceTypeName
         $ResourceName = $ControlResult.ResourceContext.ResourceName
         $organizationName = $ControlResult.OrganizationContext.OrganizationName;
@@ -111,21 +111,14 @@ class BugMetaInfoProvider {
                 $definitionId = $ControlResult.ResourceContext.ResourceDetails.id;
     
                 try {
-                    if (!$isReturnResourceOwner) {
-                        $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/builds?definitions={2}&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
-                        $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
-                        #check for recent trigger
-                        if ([Helpers]::CheckMember($response, "requestedBy")) {
-                            return $response[0].requestedBy.uniqueName
-                        }
-                        #if no triggers found assign to the creator
-                        else {
-                            $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
-                            $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
-                            return $response.authoredBy.uniqueName
-                        }
+                    $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/builds?definitions={2}&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                    $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
+                    #check for recent trigger
+                    if ([Helpers]::CheckMember($response, "requestedBy")) {
+                        return $response[0].requestedBy.uniqueName
                     }
-                    else { #Return creator
+                    #if no triggers found assign to the creator
+                    else {
                         $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
                         $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                         return $response.authoredBy.uniqueName
@@ -140,21 +133,14 @@ class BugMetaInfoProvider {
             'Release' {
                 $definitionId = ($ControlResult.ResourceContext.ResourceId -split "release/")[-1];
                 try {
-                    if (!$isReturnResourceOwner) {
-                        $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/releases?definitionId={2}&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
-                        $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
-                        #check for recent trigger
-                        if ([Helpers]::CheckMember($response, "modifiedBy")) {
-                            return $response[0].modifiedBy.uniqueName
-                        }
-                        #if no triggers found assign to the creator
-                        else {
-                            $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions/{2}?&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
-                            $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
-                            return $response.createdBy.uniqueName
-                        }
+                    $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/releases?definitionId={2}&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                    $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
+                    #check for recent trigger
+                    if ([Helpers]::CheckMember($response, "modifiedBy")) {
+                        return $response[0].modifiedBy.uniqueName
                     }
-                    else { #Return creator
+                    #if no triggers found assign to the creator
+                    else {
                         $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions/{2}?&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
                         $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                         return $response.createdBy.uniqueName
@@ -173,6 +159,51 @@ class BugMetaInfoProvider {
                 return [ContextHelper]::GetCurrentSessionUser();
     
             }
+        }
+        return "";
+    }
+
+    hidden [string] GetResourceOwner([SVTEventContext[]] $ControlResult) {
+        $ResourceType = $ControlResult.ResourceContext.ResourceTypeName
+        $ResourceName = $ControlResult.ResourceContext.ResourceName
+        $organizationName = $ControlResult.OrganizationContext.OrganizationName;
+        try {
+            switch -regex ($ResourceType) {
+                'ServiceConnection' {
+                    return $ControlResult.ResourceContext.ResourceDetails.createdBy.uniqueName
+                }
+                'AgentPool' {
+                    $apiurl = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $organizationName, $ResourceName
+                    $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
+                    return $response.createdBy.uniqueName
+                }
+                'VariableGroup' {
+                    return $ControlResult.ResourceContext.ResourceDetails.createdBy.uniqueName
+                }
+                'Build' {
+                    $definitionId = $ControlResult.ResourceContext.ResourceDetails.id;
+                    $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                    $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
+                    return $response.authoredBy.uniqueName
+                }
+                'Release' {
+                    $definitionId = ($ControlResult.ResourceContext.ResourceId -split "release/")[-1];
+                    $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions/{2}?&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                    $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
+                    return $response.createdBy.uniqueName
+                }
+                #assign to the person running the scan, as to reach at this point of code, it is ensured the user is PCA/PA and only they or other PCA
+                #PA members can fix the control
+                'Organization' {
+                    return [ContextHelper]::GetCurrentSessionUser();
+                }
+                'Project' {
+                    return [ContextHelper]::GetCurrentSessionUser();
+                }
+            }
+        }
+        catch {
+            return "";
         }
         return "";
     }

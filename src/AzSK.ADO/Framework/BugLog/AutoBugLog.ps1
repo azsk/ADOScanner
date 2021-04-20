@@ -92,14 +92,8 @@ class AutoBugLog {
                 $metaProviderObj = [BugMetaInfoProvider]::new();   
                 $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging, $this.IsBugLogCustomFlow, $this.ServiceIdPassedInCMD, $this.InvocationContext);
                 $serviceId = $metaProviderObj.ServiceId
-                $resourceOwner = "";
-                #If serviceid has value then get resourceowner as last triggerd by or created by, else it laready has same in $AssignedTo
-                if ($serviceId) {
-                    $resourceOwner = $metaProviderObj.GetAssigneeFallback($ControlResults[0], $true)
-                }
-                else {
-                    $resourceOwner = $AssignedTo;
-                }
+                #Get resource owner as created by
+                $resourceOwner = $metaProviderObj.GetResourceOwner($ControlResults[0])
 
                 #Log bug only if LogBugForUnmappedResource is enabled (default value is true) or resource is mapped to serviceid
                 #Restrict bug logging, if resource is not mapped to serviceid and LogBugForUnmappedResource is not enabled.
