@@ -17,7 +17,7 @@ class BugMetaInfoProvider {
             return $this.BugLogCustomFlow($ControlResult, $serviceIdPassedInCMD)
         }
         else {
-            return $this.GetAssigneeFallback($ControlResult);
+            return $this.GetAssigneeFallback($ControlResult, $false);
         }
     }
 
@@ -37,7 +37,7 @@ class BugMetaInfoProvider {
                 $rscId = ($ControlResult.ResourceContext.ResourceId -split "$resourceType/")[-1];
                 $assignee = $this.CalculateAssignee($rscId, $projectName, $resourceType, $serviceIdPassedInCMD);
                 if (!$assignee) {
-                    $assignee = $this.GetAssigneeFallback($ControlResult)
+                    $assignee = $this.GetAssigneeFallback($ControlResult, $false)
                 }
             }            
         }
@@ -82,7 +82,7 @@ class BugMetaInfoProvider {
         return $assignee;	
     }
 
-    hidden [string] GetAssigneeFallback([SVTEventContext[]] $ControlResult) {
+    hidden [string] GetAssigneeFallback([SVTEventContext[]] $ControlResult, $isReturnResourceOwner) {
         $ResourceType = $ControlResult.ResourceContext.ResourceTypeName
         $ResourceName = $ControlResult.ResourceContext.ResourceName
         $organizationName = $ControlResult.OrganizationContext.OrganizationName;
@@ -111,15 +111,21 @@ class BugMetaInfoProvider {
                 $definitionId = $ControlResult.ResourceContext.ResourceDetails.id;
     
                 try {
-                    $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/builds?definitions={2}&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
-			    	
-                    $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
-                    #check for recent trigger
-                    if ([Helpers]::CheckMember($response, "requestedBy")) {
-                        return $response[0].requestedBy.uniqueName
+                    if (!$isReturnResourceOwner) {
+                        $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/builds?definitions={2}&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                        $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
+                        #check for recent trigger
+                        if ([Helpers]::CheckMember($response, "requestedBy")) {
+                            return $response[0].requestedBy.uniqueName
+                        }
+                        #if no triggers found assign to the creator
+                        else {
+                            $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                            $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
+                            return $response.authoredBy.uniqueName
+                        }
                     }
-                    #if no triggers found assign to the creator
-                    else {
+                    else { #Return creator
                         $apiurl = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
                         $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                         return $response.authoredBy.uniqueName
@@ -134,14 +140,21 @@ class BugMetaInfoProvider {
             'Release' {
                 $definitionId = ($ControlResult.ResourceContext.ResourceId -split "release/")[-1];
                 try {
-                    $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/releases?definitionId={2}&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
-                    $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
-                    #check for recent trigger
-                    if ([Helpers]::CheckMember($response, "modifiedBy")) {
-                        return $response[0].modifiedBy.uniqueName
+                    if (!$isReturnResourceOwner) {
+                        $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/releases?definitionId={2}&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                        $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
+                        #check for recent trigger
+                        if ([Helpers]::CheckMember($response, "modifiedBy")) {
+                            return $response[0].modifiedBy.uniqueName
+                        }
+                        #if no triggers found assign to the creator
+                        else {
+                            $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions/{2}?&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
+                            $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
+                            return $response.createdBy.uniqueName
+                        }
                     }
-                    #if no triggers found assign to the creator
-                    else {
+                    else { #Return creator
                         $apiurl = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions/{2}?&api-version=6.0" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName , $definitionId;
                         $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                         return $response.createdBy.uniqueName

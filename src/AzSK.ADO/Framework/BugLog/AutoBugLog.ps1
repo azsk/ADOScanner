@@ -95,11 +95,12 @@ class AutoBugLog {
                 $resourceOwner = "";
                 #If serviceid has value then get resourceowner as last triggerd by or created by, else it laready has same in $AssignedTo
                 if ($serviceId) {
-                    $resourceOwner = $metaProviderObj.GetAssigneeFallback($ControlResults[0])
+                    $resourceOwner = $metaProviderObj.GetAssigneeFallback($ControlResults[0], $true)
                 }
                 else {
                     $resourceOwner = $AssignedTo;
                 }
+
                 #Log bug only if LogBugForUnmappedResource is enabled (default value is true) or resource is mapped to serviceid
                 #Restrict bug logging, if resource is not mapped to serviceid and LogBugForUnmappedResource is not enabled.
                 if($this.LogBugsForUnmappedResource -or $serviceId)
@@ -192,6 +193,9 @@ class AutoBugLog {
         else {
             $StepsForRepro = "Get-AzSKADOSecurityStatus -OrganizationName '{0}' -ProjectNames '{1}' -{2}Names '{3}' -ControlIds '{4}'"
             $StepsForRepro = $StepsForRepro -f $this.OrganizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.FeatureName, $ControlResult.ResourceContext.ResourceName, $ControlResult.ControlItem.ControlID;
+        }
+        if ($this.InvocationContext.BoundParameters["PolicyProject"]) {
+               $StepsForRepro += " -PolicyProject '$($this.InvocationContext.BoundParameters["PolicyProject"])'"; 
         }
         return $StepsForRepro
     }
