@@ -1321,13 +1321,13 @@ class CAAutomation : ADOSVTCommandBase
 					else {
 						if(-not [string]::IsNullOrEmpty($this.OAuthRefreshToken) -and -not [string]::IsNullOrEmpty($this.OAuthClientSecret) -and $setupType -eq "OAuth")
 						{
-                            $RefreshTokenExpiresInDays = [Constants]::RefreshTokenExpiresInDays;
-                            $ExpiryDate = [DateTime]::Now.AddDays($RefreshTokenExpiresInDays)
+							$RefreshTokenExpiresInDays = [Constants]::RefreshTokenExpiresInDays;
+							$ExpiryDate = [DateTime]::Now.AddDays($RefreshTokenExpiresInDays)
 
-                            $RefreshTokenSecret = Set-AzKeyVaultSecret -VaultName $keyVaultResource[0] -Name $this.OAuthRefreshTokenSecretName -SecretValue $this.OAuthRefreshToken -Expires $ExpiryDate
+							$RefreshTokenSecret = Set-AzKeyVaultSecret -VaultName $keyVaultResource[0] -Name $this.OAuthRefreshTokenSecretName -SecretValue $this.OAuthRefreshToken -Expires $ExpiryDate
 							$ClientSecret = Set-AzKeyVaultSecret -VaultName $keyVaultResource[0] -Name $this.OAuthClientSecretName -SecretValue $this.OAuthClientSecret
                             
-                            if(($null -eq $RefreshTokenSecret) -or ($null -eq $ClientSecret)) 
+							if(($null -eq $RefreshTokenSecret) -or ($null -eq $ClientSecret)) 
 							{
 								$this.PublishCustomMessage("Unable to refresh OAuth token. Please validate your permissions in access policy of the Azure key vault [$($keyVaultResource[0])]", [MessageType]::Error);
 							}
