@@ -1197,12 +1197,12 @@ class CAAutomation : ADOSVTCommandBase
 		[MessageData[]] $messageData = @();
 		$CreatedSecret = $null
 		$CreatedLASecret = $null
-        $CreatedAltLASecret = $null
-        $RefreshTokenSecret = $null
-        $ClientSecret = $null
+		$CreatedAltLASecret = $null
+		$RefreshTokenSecret = $null
+		$ClientSecret = $null
 		$ExistingAppSettings = @()
-        $appServResource = @()
-        $setupType = [string]::Empty
+		$appServResource = @()
+		$setupType = [string]::Empty
 
 		$this.messages += ([Constants]::DoubleDashLine + "`r`nStarted updating Continuous Assurance (CA)`r`n"+[Constants]::DoubleDashLine);
 		$this.PublishCustomMessage($this.messages, [MessageType]::Info);
@@ -1319,8 +1319,8 @@ class CAAutomation : ADOSVTCommandBase
 						$this.PublishCustomMessage("Consider using the '-RsrcTimeStamp' param. (E.g., to update values corresponding to 'ADOScannerFA200915172817' use '-RsrcTimeStamp 200915172817'.)", [MessageType]::Warning);											
 					}
 					else {
-                        if(-not [string]::IsNullOrEmpty($this.OAuthRefreshToken) -and -not [string]::IsNullOrEmpty($this.OAuthClientSecret) -and $setupType -eq "OAuth")
-                        {
+						if(-not [string]::IsNullOrEmpty($this.OAuthRefreshToken) -and -not [string]::IsNullOrEmpty($this.OAuthClientSecret) -and $setupType -eq "OAuth")
+						{
                             $RefreshTokenExpiresInDays = [Constants]::RefreshTokenExpiresInDays;
                             $ExpiryDate = [DateTime]::Now.AddDays($RefreshTokenExpiresInDays)
 
@@ -1336,7 +1336,7 @@ class CAAutomation : ADOSVTCommandBase
 								$this.PublishCustomMessage("OAuth token updated in [$($keyVaultResource[0])] Azure key vault", [MessageType]::Update);
 								$this.updateAppSettings -eq $true # So that app settings can also be updated with key vault URI
 							}
-                        }
+						}
 						if (-not [string]::IsNullOrEmpty($this.PATToken) -and $setupType -ne "OAuth")
 						{
 							$CreatedSecret = Set-AzKeyVaultSecret -VaultName $keyVaultResource[0] -Name $this.SecretName -SecretValue $this.PATToken

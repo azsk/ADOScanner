@@ -262,9 +262,9 @@ function Update-AzSKADOContinuousAssurance
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "KeyVault URL for PATToken")]
 		[Alias("ptu")]
 		[string]
-        $PATTokenURL,
+		$PATTokenURL,
         
-        [Parameter(Mandatory = $false, ParameterSetName = "Default")]
+		[Parameter(Mandatory = $false, ParameterSetName = "Default")]
 		[Alias("oai")]
 		[switch]
 		$RefreshOAuthToken,
