@@ -32,6 +32,7 @@ class CAAutomation : ADOSVTCommandBase
     hidden [string] $ExtendedCommand 
     hidden [string] $CRONExp 
     hidden [bool] $ClearExtCmd 
+    hidden [bool] $RefreshOAuthCred
     hidden [bool] $updateAppSettings = $false
     hidden [bool] $updateSecret = $false
     hidden [string] $CAScanLogsContainerName = [Constants]::CAScanLogsContainerName
@@ -39,8 +40,8 @@ class CAAutomation : ADOSVTCommandBase
     hidden [string] $WebhookAuthZHeaderName
     hidden [string] $WebhookAuthZHeaderValue
     hidden [bool] $AllowSelfSignedWebhookCertificate
-    hidden [string] $OAuthApplicationId
-    hidden [string] $OAuthClientSecret
+    hidden [System.Security.SecureString] $OAuthApplicationId
+    hidden [System.Security.SecureString] $OAuthClientSecret
     hidden [string]  $OAuthAuthorizedScopes
     hidden [System.Security.SecureString] $OAuthRefreshToken
 	
@@ -79,8 +80,8 @@ class CAAutomation : ADOSVTCommandBase
 		[int] $ScanIntervalInHours, `
 		[InvocationInfo] $invocationContext, `
 		[bool] $CreateLAWS, `
-		[string] $OAuthAppId, `
-		[string] $ClientSecret, `
+		[System.Security.SecureString] $OAuthAppId, `
+		[System.Security.SecureString] $ClientSecret, `
 		[string] $AuthorizedScopes) : Base($OrgName, $invocationContext)
     {
 		$this.SubscriptionId = $SubId
@@ -192,6 +193,7 @@ class CAAutomation : ADOSVTCommandBase
 		[int] $TriggerNextScanInMin, `
 		[int] $ScanIntervalInHours, `
 		[bool] $ClearExtendedCommand, `
+		[bool] $RefreshOAuthToken, `
 		[InvocationInfo] $invocationContext) : Base($OrgName, $invocationContext)
 		{
 			$this.SubscriptionId = $SubId
@@ -206,6 +208,7 @@ class CAAutomation : ADOSVTCommandBase
 			$this.AltLAWSId = $AltLAWorkspaceId
 			$this.AltLAWSSharedKey = $AltLAWorkspaceKey
 			$this.ClearExtCmd = $ClearExtendedCommand
+			$this.RefreshOAuthCred = $RefreshOAuthToken
 			$this.WebhookUrl = $WebhookUrl
 			$this.WebhookAuthZHeaderName = $WebhookHeaderName
 			$this.WebhookAuthZHeaderValue = $WebhookHeaderValue
@@ -244,8 +247,8 @@ class CAAutomation : ADOSVTCommandBase
 
 			#Validate if app settings update is required based on input paramaeters. 
 			$invocationContext.BoundParameters.GetEnumerator() | foreach-object {
-				# If input param is other than below 3 then app settings update will be required
-				if($_.Key -ne "SubscriptionId" -and $_.Key -ne "ResourceGroupName" -and $_.Key -ne "PATToken" )
+				# If input param is other than below 4 then app settings update will be required
+				if($_.Key -ne "SubscriptionId" -and $_.Key -ne "ResourceGroupName" -and $_.Key -ne "PATToken" -and $_.Key -ne "OrganizationName" )
 				{
 					$this.updateAppSettings = $true
 				}
@@ -508,8 +511,9 @@ class CAAutomation : ADOSVTCommandBase
             #generate authorize url
             $scope = $this.OAuthAuthorizedScopes.Trim()
             $scope = $this.OAuthAuthorizedScopes.Replace(" ", "%20")
+            $appid = [Helpers]::ConvertToPlainText($this.OAuthApplicationId)
             $callbackUrl = "https://localhost"
-            $url = "https://app.vssps.visualstudio.com/oauth2/authorize?client_id=$($this.OAuthApplicationId)&response_type=Assertion&scope=$($scope)&redirect_uri=$($callbackUrl)"
+            $url = "https://app.vssps.visualstudio.com/oauth2/authorize?client_id=$($appid)&response_type=Assertion&scope=$($scope)&redirect_uri=$($callbackUrl)"
 
             #Get Default browser
             $DefaultSettingPath = 'HKCU:\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice'
@@ -546,7 +550,8 @@ class CAAutomation : ADOSVTCommandBase
 
             #get refresh token
             $url = "https://app.vssps.visualstudio.com/oauth2/token"
-            $body = "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&client_assertion=$($this.OAuthClientSecret)&grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=$($code)&redirect_uri=$($callbackUrl)"
+            $clientSecret = [Helpers]::ConvertToPlainText($this.OAuthClientSecret)
+            $body = "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&client_assertion=$($clientSecret)&grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=$($code)&redirect_uri=$($callbackUrl)"
             try {
                 $response = Invoke-WebRequest -Uri $url -ContentType "application/x-www-form-urlencoded" -Method POST -Body $body
                 $response = $response.Content | ConvertFrom-Json
@@ -1014,8 +1019,7 @@ class CAAutomation : ADOSVTCommandBase
                     
                     
                     #Step 8a: Add OAuth Client secret and refresh token to key vault secret
-                    $secureStringsecret = ConvertTo-SecureString $this.OAuthClientSecret -AsPlainText -Force
-                    $CreatedSecret = Set-AzKeyVaultSecret -VaultName $this.KeyVaultName -Name $this.OAuthClientSecretName -SecretValue $secureStringsecret 
+                    $CreatedSecret = Set-AzKeyVaultSecret -VaultName $this.KeyVaultName -Name $this.OAuthClientSecretName -SecretValue $this.OAuthClientSecret 
                     if($null -eq $CreatedSecret) 
                     {
                         $this.PublishCustomMessage("OAuth Client secret creation in Azure key vault failed", [MessageType]::Error);
@@ -1025,7 +1029,10 @@ class CAAutomation : ADOSVTCommandBase
                         $this.PublishCustomMessage("OAuth Client secret created in Azure key vault", [MessageType]::Update);
                     }
 
-                    $CreatedtokenSecret = Set-AzKeyVaultSecret -VaultName $this.KeyVaultName -Name $this.OAuthRefreshTokenSecretName -SecretValue $this.OAuthRefreshToken 
+                    # Adding expiry date to refresh token secret.
+                    $RefreshTokenExpiresInDays = [Constants]::RefreshTokenExpiresInDays;
+                    $ExpiryDate = [DateTime]::Now.AddDays($RefreshTokenExpiresInDays)
+                    $CreatedtokenSecret = Set-AzKeyVaultSecret -VaultName $this.KeyVaultName -Name $this.OAuthRefreshTokenSecretName -SecretValue $this.OAuthRefreshToken -Expires $ExpiryDate
                     if($null -eq $CreatedtokenSecret) 
                     {
                         $this.PublishCustomMessage("OAuth refresh token secret creation in Azure key vault failed", [MessageType]::Error);
@@ -1190,9 +1197,12 @@ class CAAutomation : ADOSVTCommandBase
 		[MessageData[]] $messageData = @();
 		$CreatedSecret = $null
 		$CreatedLASecret = $null
-		$CreatedAltLASecret = $null
+        $CreatedAltLASecret = $null
+        $RefreshTokenSecret = $null
+        $ClientSecret = $null
 		$ExistingAppSettings = @()
-		$appServResource = @()
+        $appServResource = @()
+        $setupType = [string]::Empty
 
 		$this.messages += ([Constants]::DoubleDashLine + "`r`nStarted updating Continuous Assurance (CA)`r`n"+[Constants]::DoubleDashLine);
 		$this.PublishCustomMessage($this.messages, [MessageType]::Info);
@@ -1244,8 +1254,35 @@ class CAAutomation : ADOSVTCommandBase
                     $WebApp = Get-AzWebApp -Name $appServResource[0] -ResourceGroupName $this.RGname
                     $ExistingAppSettings = $WebApp.SiteConfig.AppSettings 
                     
+                    if ($this.RefreshOAuthCred -eq $true)
+                    {
+                        if($ExistingAppSettings.Name -contains "PATTokenURL" -or  $ExistingAppSettings.Name -contains "PATToken")
+                        {
+                            $messageData += [MessageData]::new("CA setup is not compatible with OAuth. Update failed!" )
+                            $this.PublishCustomMessage($messageData.Message, [MessageType]::Error);
+                            return $messageData
+                        }
+                        else {
+                            $setupType = "OAuth"
+                            $this.OAuthApplicationId = Read-Host "Provide app id for OAuth app:" -AsSecureString
+                            $this.OAuthClientSecret = Read-Host "Provide client Secret for OAuth app:" -AsSecureString
+                            $this.OAuthAuthorizedScopes = Read-Host "Provide authorised scopes of OAuth app"
+
+                            $isTokenFetched = $this.GetOAuthAccessToken();
+                            if ($isTokenFetched -eq $true)
+                            {
+                                $this.updateSecret = $true
+                            }
+                            else
+                            {
+                                $messageData += [MessageData]::new("Unable to validate OAuth application." )
+                                $this.PublishCustomMessage($messageData.Message, [MessageType]::Error);
+                                return $messageData
+                            }
+                        }
+                    } 
                     # Check if CA setup is federated or centralized, and are the paramters provided in UCA compatible with it.
-                    if (-not [string]::IsNullOrEmpty($this.PATTokenURL) -or -not [string]::IsNullOrEmpty($this.PATToken))
+                    elseif (-not [string]::IsNullOrEmpty($this.PATTokenURL) -or -not [string]::IsNullOrEmpty($this.PATToken))
                     {
                         if(($ExistingAppSettings.Name -contains "PATTokenURL" -and [string]::IsNullOrEmpty($this.PATTokenURL)) -or  ($ExistingAppSettings.Name -contains "PATToken" -and [string]::IsNullOrEmpty($this.PATToken)) )
                         {
@@ -1264,7 +1301,7 @@ class CAAutomation : ADOSVTCommandBase
                     }
                 }
 
-				#Step 4: Update PATToken in KV (if applicable)
+				#Step 4: Update PATToken/ OAuth credentials in KV (if applicable)
 				if ($this.updateSecret -eq $true)
 				{
 
@@ -1282,7 +1319,25 @@ class CAAutomation : ADOSVTCommandBase
 						$this.PublishCustomMessage("Consider using the '-RsrcTimeStamp' param. (E.g., to update values corresponding to 'ADOScannerFA200915172817' use '-RsrcTimeStamp 200915172817'.)", [MessageType]::Warning);											
 					}
 					else {
-						if (-not [string]::IsNullOrEmpty($this.PATToken))
+                        if(-not [string]::IsNullOrEmpty($this.OAuthRefreshToken) -and -not [string]::IsNullOrEmpty($this.OAuthClientSecret) -and $setupType -eq "OAuth")
+                        {
+                            $RefreshTokenExpiresInDays = [Constants]::RefreshTokenExpiresInDays;
+                            $ExpiryDate = [DateTime]::Now.AddDays($RefreshTokenExpiresInDays)
+
+                            $RefreshTokenSecret = Set-AzKeyVaultSecret -VaultName $keyVaultResource[0] -Name $this.OAuthRefreshTokenSecretName -SecretValue $this.OAuthRefreshToken -Expires $ExpiryDate
+							$ClientSecret = Set-AzKeyVaultSecret -VaultName $keyVaultResource[0] -Name $this.OAuthClientSecretName -SecretValue $this.OAuthClientSecret
+                            
+                            if(($null -eq $RefreshTokenSecret) -or ($null -eq $ClientSecret)) 
+							{
+								$this.PublishCustomMessage("Unable to refresh OAuth token. Please validate your permissions in access policy of the Azure key vault [$($keyVaultResource[0])]", [MessageType]::Error);
+							}
+							else
+							{
+								$this.PublishCustomMessage("OAuth token updated in [$($keyVaultResource[0])] Azure key vault", [MessageType]::Update);
+								$this.updateAppSettings -eq $true # So that app settings can also be updated with key vault URI
+							}
+                        }
+						if (-not [string]::IsNullOrEmpty($this.PATToken) -and $setupType -ne "OAuth")
 						{
 							$CreatedSecret = Set-AzKeyVaultSecret -VaultName $keyVaultResource[0] -Name $this.SecretName -SecretValue $this.PATToken
 							if($null -eq $CreatedSecret) 
@@ -1346,9 +1401,21 @@ class CAAutomation : ADOSVTCommandBase
                         $patUri = $patUri.Substring(0,$patUri.LastIndexOf('/'))
                         $AppSettingsHT["PATToken"] = "@Microsoft.KeyVault(SecretUri=$patUri)";
                     }
-                    if(-not [string]::IsNullOrEmpty($this.PATTokenURL))
+                    if(-not [string]::IsNullOrEmpty($this.PATTokenURL) -and $setupType -ne "OAuth")
                     {
                         $AppSettingsHT["PATTokenURL"] = $this.PATTokenURL
+                    }
+                    if((-not [string]::IsNullOrEmpty($this.OAuthRefreshToken)) -and (-not [string]::IsNullOrEmpty($RefreshTokenSecret)) -and ($setupType -eq "OAuth"))
+                    {
+                        $tokenUri = $RefreshTokenSecret.Id
+                        $tokenUri = $tokenUri.Substring(0,$tokenUri.LastIndexOf('/'))
+                        $AppSettingsHT["RefreshToken"] = "@Microsoft.KeyVault(SecretUri=$tokenUri)";
+                    }
+                    if((-not [string]::IsNullOrEmpty($this.OAuthClientSecret)) -and (-not [string]::IsNullOrEmpty($ClientSecret)) -and ($setupType -eq "OAuth"))
+                    {
+                        $secretUri = $ClientSecret.Id
+                        $secretUri = $secretUri.Substring(0,$secretUri.LastIndexOf('/'))
+                        $AppSettingsHT["ClientSecret"] = "@Microsoft.KeyVault(SecretUri=$secretUri)";
                     }
                     if(-not [string]::IsNullOrEmpty($this.LAWSId))
                     {
@@ -1519,7 +1586,10 @@ class CAAutomation : ADOSVTCommandBase
 
 				#Step 4: Validate app settings for additional app settings
 				$this.PublishCustomMessage("Check 03: Validating other app settings..", [MessageType]::Info);
-				if ([string]::IsNullOrEmpty($AppSettingsHT["PATToken"]) -and [string]::IsNullOrEmpty($AppSettingsHT["PATTokenURL"]))
+				if (-not [string]::IsNullOrEmpty($AppSettingsHT["ClientSecret"]) -and -not [string]::IsNullOrEmpty($AppSettingsHT["RefreshToken"])) { #check for OAuth based setup
+					$this.PublishCustomMessage("Status:   OK. OAuth has been configured to run the CA setup.", [MessageType]::Update);
+				}
+				elseif ([string]::IsNullOrEmpty($AppSettingsHT["PATToken"]) -and [string]::IsNullOrEmpty($AppSettingsHT["PATTokenURL"]))
 				{
 					$this.PublishCustomMessage("Status:   PAT token is not configured in the CA setup.", [MessageType]::Error);
 				}

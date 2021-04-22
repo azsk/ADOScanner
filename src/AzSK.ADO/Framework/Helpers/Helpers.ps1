@@ -876,6 +876,14 @@ class Helpers {
         return $sharedKey
     }
     
+    # Convert secure string to plain text
+    static [string] ConvertToPlainText([System.Security.SecureString] $secureString)
+	{
+        $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureString)
+        $plainText = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+        return $plainText
+    }
+    
     # Get object of a particular permission (which are allowed) for a group. 
     static [object] ResolvePermissions($permissionsInBit, $actions, $permissionName)
 	{
