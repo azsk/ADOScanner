@@ -7,7 +7,7 @@ class ServiceConnection: ADOSVTBase
     hidden [PSObject] $ServiceConnEndPointDetail = $null;
     hidden [PSObject] $pipelinePermission = $null;
     hidden [PSObject] $serviceEndPointIdentity = $null;
-    hidden [PSObject] $SvcConnActivityDetail = @{isSvcConnActive = $true; svcConnLastRunDate = $null; message = $null; isComputed = $false};
+    hidden [PSObject] $SvcConnActivityDetail = @{isSvcConnActive = $true; svcConnLastRunDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden static $IsOAuthScan = $false;
 
     ServiceConnection([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
@@ -549,6 +549,10 @@ class ServiceConnection: ADOSVTBase
         {
             if ($this.SvcConnActivityDetail.message -eq 'Could not fetch the service connection details.') {
                 $controlResult.AddMessage([VerificationResult]::Error, $this.SvcConnActivityDetail.message);
+                if ($null -ne $this.SvcConnActivityDetail.errorObject)
+                {
+                    $controlResult.LogException($this.SvcConnActivityDetail.errorObject)
+                }
             }
             elseif ($null -ne $this.SvcConnActivityDetail.svcConnLastRunDate)
             {
@@ -824,6 +828,7 @@ class ServiceConnection: ADOSVTBase
         catch
         {
             $this.SvcConnActivityDetail.message = "Could not fetch the service connection details.";
+            $this.SvcConnActivityDetail.errorObject = $_
         }
         $this.SvcConnActivityDetail.isComputed = $true
     }
