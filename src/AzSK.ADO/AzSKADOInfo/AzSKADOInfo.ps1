@@ -163,13 +163,15 @@ function Get-AzSKADOInfo
 							Write-Host "This command currently supports user permission information for a single project. Please provide a single project name." -ForegroundColor Red
 						}
 						elseif ([string]::IsNullOrWhiteSpace($PrincipalName)) {
+							$principal_flag = $true;
 							$currentUser = [ContextHelper]::GetCurrentSessionUser();
 							# Write-Host "InfoType 'UserInfo' requires principal name parameter to scan. If not provided, it'll take the context of current logged in user." -ForegroundColor Yellow
-							$userInfo = [UserInfo]::new($OrganizationName, $currentUser, $ProjectNames, $PSCmdlet.MyInvocation);
+							$userInfo = [UserInfo]::new($OrganizationName, $currentUser, $principal_flag, $ProjectNames, $PSCmdlet.MyInvocation);
 							return $userInfo.InvokeFunction($userInfo.GetPermissionDetails);
 						}
 						else {
-							$userInfo = [UserInfo]::new($OrganizationName, $PrincipalName, $ProjectNames, $PSCmdlet.MyInvocation);
+							$principal_flag = $false;
+							$userInfo = [UserInfo]::new($OrganizationName, $PrincipalName, $principal_flag, $ProjectNames, $PSCmdlet.MyInvocation);
 							return $userInfo.InvokeFunction($userInfo.GetPermissionDetails);
 						}
 					}
