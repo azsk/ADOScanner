@@ -215,7 +215,7 @@ class Release: ADOSVTBase
                             $varGrps | ForEach-Object {
                                 try
                                 {
-                                    $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $this.ProjectId, $_;
+                                    $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $this.ProjectId, $_;
                                     $varGrpObj += [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
                                 }
                                 catch
