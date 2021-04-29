@@ -98,6 +98,7 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Listeners\RemoteReports\TelemetryStrings.ps1
 . $FrameworkPath\Helpers\RemoteReportHelper.ps1
 . $FrameworkPath\Helpers\AIOrgTelemetryHelper.ps1
+. $FrameworkPath\Helpers\CommonHelper.ps1
 . $FrameworkPath\Listeners\RemoteReports\RemoteReportsListener.ps1
 . $FrameworkPath\Listeners\RemoteReports\AIOrgTelemetry.ps1
 . $FrameworkPath\Listeners\RemoteReports\UsageTelemetry.ps1
@@ -127,6 +128,7 @@ $FrameworkPath = $PSScriptRoot
 . $PSScriptRoot\Core\AzSKADOInfo\HostInfo.ps1
 . $PSScriptRoot\Core\AzSKADOInfo\ControlsInfo.ps1
 . $PSScriptRoot\Core\AzSKADOInfo\UserInfo.ps1
+. $PSScriptRoot\Core\AzSKADOInfo\ResourceInfo.ps1
 . $PSScriptRoot\Core\STMapping\AzSKADOServiceMapping.ps1
 
 . $PSScriptRoot\Core\SVT\SVTResourceResolver.ps1
