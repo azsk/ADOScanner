@@ -1382,9 +1382,9 @@ class Release: ADOSVTBase
 
                 $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
 
-                if([Helpers]::CheckMember($responseObj,"dataProviders") -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider', 'releases'))
+                if([Helpers]::CheckMember($responseObj,"dataProviders") -and ($responseObj.dataProviders | Get-Member 'ms.vss-releaseManagement-web.releases-list-data-provider') -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider', 'releases'))
                 {
-
+                    
                     $releases = $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider'.releases
 
                     if(($releases | Measure-Object).Count -gt 0 )
