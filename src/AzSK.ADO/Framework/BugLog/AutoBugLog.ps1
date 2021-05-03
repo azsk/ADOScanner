@@ -292,7 +292,7 @@ class AutoBugLog {
 
         $Messages | ForEach-Object {
             if ($_.Message) {
-                $log += "<b>$($_.Message)</b> </br></br>"
+                $log += "$($_.Message)</br></br>"
             }
             #check for state data
             if ($_.DataObject) {
@@ -623,7 +623,7 @@ class AutoBugLog {
         #check and append any detailed log and state data for the control failure
         $log = $this.GetDetailedLogForControl($control);
         if ($log) {
-            $Description += "<hr></br><b>Some other details for your reference</b> </br><hr> {10} "
+            $Description += "<hr></br><b>Additional Info: </b> </br><hr> {10} "
             $Description = $Description.Replace("{10}", $log)
         }               
         $Description = $Description.Replace("`"", "'")

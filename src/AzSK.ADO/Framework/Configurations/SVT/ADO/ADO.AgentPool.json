@@ -114,7 +114,7 @@
       "Automated": "Yes",
       "MethodName": "CheckInActiveAgentPool",
       "Rationale": "Each additional agent pool being used by pipelines to access repositories increases the attack surface. To minimize this risk ensure that only active and legitimate agent pools are present in organization.",
-      "Recommendation": "To remove inactive agent pool, follow the steps given here: 1.Navigate to the agent pool settings. 3. Click on Delete.",
+      "Recommendation": "To remove inactive agent pool: 1. Navigate to the agent pool settings using resource link -> 2. Click on Delete.",
       "Tags": [
         "SDL",
         "TCP",

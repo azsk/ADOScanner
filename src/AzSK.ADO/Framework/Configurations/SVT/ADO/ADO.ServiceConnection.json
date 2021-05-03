@@ -184,8 +184,8 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckInactiveConnection",
-      "Rationale": "Each additional service connection being used by pipelines to access repositories increases the attack surface. To minimize this risk ensure that only active and legitimate service connections are present in organization.",
-      "Recommendation": "To remove inactive service connection, follow the steps given here: 1.Navigate to the service connection settings. 2. Select service connection. 3. Select three dots (present at right top). 4. Click on Delete.",
+      "Rationale": "Each additional service connection being used by pipelines to access repositories increases the attack surface. To minimize this risk ensure that only active and legitimate service connections are present in the organization.",
+      "Recommendation": "To remove inactive service connection: 1.Navigate to the service connection settings using resource link -> 2. Select service connection -> 3. Click on the three dots (top right) -> 4. Click on Delete.",
       "Tags": [
         "SDL",
         "Best Practice",
@@ -201,8 +201,8 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckCrossProjectSharing",
-      "Rationale": "If a service connection is shared across multiple projects, then a vulnerability in components used by one project can be leveraged by an attacker to attack other projects. This is also in keeping with the principle of least privilege.",
-      "Recommendation": "To remediate this, navigate to the service connections settings page for your project -> select your service connection from the list -> click Security -> Under 'Project Permissions', remove projects that service connection no more requires access to.",
+      "Rationale": "If a service connection is shared across multiple projects, then a user in another project can access data/components that they were otherwise not supposed to access. So, in keeping with principle of least privilege, it is best to limit access to the service connection to your (current) project.",
+      "Recommendation": "Steps to remediate: 1. Navigate to the service connection settings using resource link -> 2. Select service connection -> 3. Click Security -> 4. Under 'Project Permissions', remove projects that service connection no more requires access to.",
       "Tags": [
         "SDL",
         "TCP",
