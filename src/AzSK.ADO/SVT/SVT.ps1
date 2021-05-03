@@ -6,11 +6,11 @@ function Get-AzSKADOSecurityStatus
 	.SYNOPSIS
 	This command would help in validating the security controls for the Azure resources meeting the specified input criteria.
 	.DESCRIPTION
-	This command will execute the security controls and will validate their status as 'Success' or 'Failure' based on the security guidance. Refer https://aka.ms/azskossdocs for more information 
-	
+	This command will execute the security controls and will validate their status as 'Success' or 'Failure' based on the security guidance. Refer https://aka.ms/azskossdocs for more information
+
 	.PARAMETER OrganizationName
 		Organization name for which the security evaluation has to be performed.
-	
+
 	.PARAMETER ProjectNames
 		Project name for which the security evaluation has to be performed.
 
@@ -21,16 +21,16 @@ function Get-AzSKADOSecurityStatus
 		Release name for which the security evaluation has to be performed.
 
 	.PARAMETER AgentPoolNames
-	   Agent name for which the security evaluation has to be performed.	
+	   Agent name for which the security evaluation has to be performed.
 
 	.PARAMETER DetailedScan
 		Print detailed scan logs for controls.
 
 	.NOTES
-	This command helps the application team to verify whether their Azure resources are compliant with the security guidance or not 
+	This command helps the application team to verify whether their Azure resources are compliant with the security guidance or not
 
 	.LINK
-	https://aka.ms/azskossdocs 
+	https://aka.ms/azskossdocs
 
 	#>
 
@@ -39,7 +39,7 @@ function Get-AzSKADOSecurityStatus
 	Param
 	(
 
-		[string]		 
+		[string]
 		[Parameter(Position = 0, Mandatory = $true, HelpMessage="OrganizationName for which the security evaluation has to be performed.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("oz")]
@@ -69,7 +69,7 @@ function Get-AzSKADOSecurityStatus
 		[Alias("aps", "AgentPoolName","ap")]
 		$AgentPoolNames,
 
-		
+
 		[string]
 		[Parameter(HelpMessage="Service connection names for which the security evaluation has to be performed.")]
 		[ValidateNotNullOrEmpty()]
@@ -87,7 +87,7 @@ function Get-AzSKADOSecurityStatus
 		[Alias("sar", "saa" , "ScanAllArtifacts")]
 		$ScanAllResources,
 
-		[string] 
+		[string]
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage = "Comma separated control ids to filter the security controls. e.g.: ADO_Organization_AuthN_Use_AAD_Auth, ADO_Organization_SI_Review_InActive_Users etc.")]
 		[Parameter(Mandatory = $true, ParameterSetName = "BulkAttestation", HelpMessage="Comma separated control ids to filter the security controls. e.g.: ADO_Organization_AuthN_Use_AAD_Auth, ADO_Organization_SI_Review_InActive_Users etc.")]
 		[Parameter(Mandatory = $true, ParameterSetName = "BulkAttestationClear", HelpMessage="Comma separated control ids to filter the security controls. e.g.: ADO_Organization_AuthN_Use_AAD_Auth, ADO_Organization_SI_Review_InActive_Users etc.")]
@@ -95,12 +95,12 @@ function Get-AzSKADOSecurityStatus
 		[AllowEmptyString()]
 		$ControlIds,
 
-		[string] 
+		[string]
 		[Parameter(Mandatory = $false)]
 		[Alias("ft")]
 		$FilterTags,
 
-		[string] 
+		[string]
 		[Parameter(Mandatory = $false)]
 		[Alias("xt")]
 		$ExcludeTags,
@@ -115,7 +115,7 @@ function Get-AzSKADOSecurityStatus
 		[Alias("upbc")]
 		$UsePreviewBaselineControls,
 
-		[string] 
+		[string]
 		[Parameter(Mandatory = $false, HelpMessage="Specify the severity of controls to be scanned. Example `"High, Medium`"")]
 		[Alias("ControlSeverity")]
 		$Severity,
@@ -147,7 +147,7 @@ function Get-AzSKADOSecurityStatus
         [switch]
         [Parameter(Mandatory = $false)]
 		[Alias("upc")]
-		$UsePartialCommits,	
+		$UsePartialCommits,
 
 		[switch]
         [Parameter(Mandatory = $false)]
@@ -166,16 +166,16 @@ function Get-AzSKADOSecurityStatus
 		[Alias("bc")]
 		$BulkClear,
 
-		[string] 
+		[string]
         [Parameter(Mandatory = $true, ParameterSetName = "BulkAttestation", HelpMessage="Use this option to provide an apt justification with proper business reason.")]
 		[Alias("jt")]
 		$JustificationText,
 
-		[ValidateSet("NotAnIssue", "WillNotFix", "WillFixLater","NotApplicable","StateConfirmed","ApprovedException")] 
+		[ValidateSet("NotAnIssue", "WillNotFix", "WillFixLater","NotApplicable","StateConfirmed","ApprovedException")]
         [Parameter(Mandatory = $true, ParameterSetName = "BulkAttestation", HelpMessage="Attester must select one of the attestation reasons (NotAnIssue, WillNotFix, WillFixLater, NotApplicable, StateConfirmed(if valid for the control))")]
 		[Alias("as")]
 		$AttestationStatus = [AttestationStatus]::None,
-		
+
 		[switch]
 		[Parameter(Mandatory = $false, HelpMessage = "Switch to add approved exceptions.")]
 		[Alias("aex")]
@@ -200,8 +200,14 @@ function Get-AzSKADOSecurityStatus
 
 		[ValidateSet("All","BaselineControls","PreviewBaselineControls", "Custom")]
 		[Parameter(Mandatory = $false)]
-		[Alias("abl")]		
+		[Alias("abl")]
 		[string] $AutoBugLog = [BugLogForControls]::All,
+
+
+		[switch]
+		[Parameter(HelpMessage = "Switch to auto-close bugs after the scan.")]
+		[Alias("acb")]
+		$AutoCloseBugs,
 
 		[string]
 		[Parameter(Mandatory=$false)]
@@ -260,7 +266,7 @@ function Get-AzSKADOSecurityStatus
 		[Parameter(Mandatory = $false, HelpMessage="Name of the repository containing org policy endpoint.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("prn")]
-		$PolicyRepoName 
+		$PolicyRepoName
 	)
 	Begin
 	{
@@ -270,28 +276,28 @@ function Get-AzSKADOSecurityStatus
 
 	Process
 	{
-		try 
+		try
 		{
 			[ConfigurationHelper]::PolicyCacheContent = @()
 			[AzSKSettings]::Instance = $null
-			[AzSKConfig]::Instance = $null 
+			[AzSKConfig]::Instance = $null
 			[ConfigurationHelper]::ServerConfigMetadata = $null
 			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
 			[AutoBugLog]::AutoBugInstance = $null
 			if($PromptForPAT -eq $true)
 			{
 				if($null -ne $PATToken)
-				{	
+				{
 					Write-Host "Parameters '-PromptForPAT' and '-PATToken' can not be used simultaneously in the scan command." -ForegroundColor Red
 					return;
 				}
-				else 
+				else
 				{
-					$PATToken = Read-Host "Provide PAT for [$OrganizationName] org:" -AsSecureString	
+					$PATToken = Read-Host "Provide PAT for [$OrganizationName] org:" -AsSecureString
 				}
-			
+
 			}
-		
+
 			if (-not [String]::IsNullOrEmpty($PATTokenURL))
 			{
 				# For now, if PAT URL is specified we will trigger an Azure login.
@@ -301,14 +307,14 @@ function Get-AzSKADOSecurityStatus
 					Connect-AzAccount -ErrorAction Stop
 					$Context = @(Get-AzContext -ErrorAction SilentlyContinue)
 				}
-	
+
 				if ($null -eq $Context)  {
 					Write-Host "Login failed. Azure login context is required to use a key vault-based PAT token.`r`nStopping scan command." -ForegroundColor Red
 					return;
 				}
 				#Parse the key-vault-URL to determine vaultname, secretname, version
 				if ($PATTokenURL -match "^https://(?<kv>[\w]+)(?:[\.\w+]*)/secrets/(?<sn>[\w]+)/?(?<sv>[\w]*)")
-				{ 
+				{
 					$kvName = $Matches["kv"]
 					$secretName = $Matches["sn"]
 					$secretVersion = $Matches["sv"]
@@ -337,10 +343,10 @@ function Get-AzSKADOSecurityStatus
 
 			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls);
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
-			if ($secStatus) 
-			{	
+			if ($secStatus)
+			{
 				if ($null -ne $secStatus.Resolver.SVTResources) {
-							
+
 					$secStatus.ControlIdString = $ControlIds;
 					$secStatus.Severity = $Severity;
 					$secStatus.UseBaselineControls = $UseBaselineControls;
@@ -351,25 +357,25 @@ function Get-AzSKADOSecurityStatus
 
 					#build the attestation options object
 					[AttestationOptions] $attestationOptions = [AttestationOptions]::new();
-					$attestationOptions.AttestControls = $ControlsToAttest				
+					$attestationOptions.AttestControls = $ControlsToAttest
 					$attestationOptions.JustificationText = $JustificationText
 					$attestationOptions.AttestationStatus = $AttestationStatus
 					$attestationOptions.IsBulkClearModeOn = $BulkClear
 					$attestationOptions.IsExemptModeOn = $AddException
 					$attestationOptions.ApprovedExceptionExpiryDate =  $ApprovedExceptionExpiryDate
 					$attestationOptions.ApprovedExceptionID = $ApprovedExceptionID
-					$secStatus.AttestationOptions = $attestationOptions;	
+					$secStatus.AttestationOptions = $attestationOptions;
 
 					return $secStatus.EvaluateControlStatus();
 				}
-		    }    
+		    }
 		}
-		catch 
+		catch
 		{
 			[EventBase]::PublishGenericException($_);
-		}  
+		}
 	}
-	
+
 	End
 	{
 		[ListenerHelper]::UnregisterListeners();
