@@ -282,6 +282,21 @@ class SVTControlAttestation
 					$controlState.State.ApprovedExceptionID = $this.attestOptions.ApprovedExceptionID
 					$controlState.State.ExpiryDate = $exceptionApprovalExpiryDate.ToString("MM/dd/yyyy");
 				}
+
+				# Checking if the resource id is present in extended expiry list of control settings
+				if([Helpers]::CheckMember($this.ControlSettings, "ExtendedExpiryResources") -and [Helpers]::CheckMember($this.ControlSettings, "ExtendedExpiryDuration")){
+					if(($this.ControlSettings.ExtendedExpiryResources | Get-Member "ResourceType") -and ($this.ControlSettings.ExtendedExpiryResources | Get-Member "ResourceIds")) {
+						$extended_resources = $this.ControlSettings.ExtendedExpiryResources | Where { $_.ResourceType -match $controlItem.ResourceContext.ResourceTypeName }
+						# type null check
+						if($controlState.ResourceId -in $extended_resources.ResourceIds){
+							$controlState.State.ExpiryDate = $controlState.State.AttestedDate.AddDays($this.ControlSettings.ExtendedExpiryDuration);
+						}
+					}
+					else {
+						Write-Host "ExtendedExpiryResources in ControlSettings doesn't contains ResourceType or ResourceIds property."
+					}
+				}
+
 				break;
 			}
 			"2" #Clear Attestation
@@ -405,6 +420,20 @@ class SVTControlAttestation
 							$controlState.State.ApprovedExceptionID = $this.attestOptions.ApprovedExceptionID
 							$controlState.State.ExpiryDate = $exceptionApprovalExpiryDate.ToString("MM/dd/yyyy");
 						}
+						# Checking if the resource id is present in extended expiry list of control settings
+						if([Helpers]::CheckMember($this.ControlSettings, "ExtendedExpiryResources") -and [Helpers]::CheckMember($this.ControlSettings, "ExtendedExpiryDuration")){
+							if(($this.ControlSettings.ExtendedExpiryResources | Get-Member "ResourceType") -and ($this.ControlSettings.ExtendedExpiryResources | Get-Member "ResourceIds")) {
+								$extended_resources = $this.ControlSettings.ExtendedExpiryResources | Where { $_.ResourceType -match $controlItem.ResourceContext.ResourceTypeName }
+								# type null check
+								if($controlState.ResourceId -in $extended_resources.ResourceIds){
+									$controlState.State.ExpiryDate = $controlState.State.AttestedDate.AddDays($this.ControlSettings.ExtendedExpiryDuration);
+								}
+							}
+							else {
+								Write-Host "ExtendedExpiryResources in ControlSettings doesn't contains ResourceType or ResourceIds property."
+							}
+						}
+		
 			}
 			#if attestation state provided in command parameter is not valid for the control then print warning
 			else
