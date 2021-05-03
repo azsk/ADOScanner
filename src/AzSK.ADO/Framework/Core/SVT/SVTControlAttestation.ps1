@@ -292,9 +292,6 @@ class SVTControlAttestation
 							$controlState.State.ExpiryDate = $controlState.State.AttestedDate.AddDays($this.ControlSettings.ExtendedExpiryDuration);
 						}
 					}
-					else {
-						Write-Host "ExtendedExpiryResources in ControlSettings doesn't contains ResourceType or ResourceIds property."
-					}
 				}
 
 				break;
@@ -428,9 +425,6 @@ class SVTControlAttestation
 								if($controlState.ResourceId -in $extended_resources.ResourceIds){
 									$controlState.State.ExpiryDate = $controlState.State.AttestedDate.AddDays($this.ControlSettings.ExtendedExpiryDuration);
 								}
-							}
-							else {
-								Write-Host "ExtendedExpiryResources in ControlSettings doesn't contains ResourceType or ResourceIds property."
 							}
 						}
 		
