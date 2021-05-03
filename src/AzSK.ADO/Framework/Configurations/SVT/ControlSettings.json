@@ -151,20 +151,7 @@
     }
   },
   "ExtendedExpiryDuration": 180,
-  "ExtendedExpiryResources": [
-    {
-      "ResourceType": "ServiceConnection",
-      "ResourceIds": [
-        "organization/71a9589d-73d1-47cd-9d00-b6aee2a787ae/project/3cf66fdf-da98-4143-8ba1-7f2e141d3700/serviceconnection/e314de08-5322-4045-9093-eb24d7546783"
-      ]
-    },
-    {
-      "ResourceType": "AgentPool",
-      "ResourceIds": [
-        "organization/71a9589d-73d1-47cd-9d00-b6aee2a787ae/project/3cf66fdf-da98-4143-8ba1-7f2e141d3700/agentpool/43"
-      ]
-    }
-  ],
+  "ExtendedExpiryResources": [],
   "DefaultAttestationPeriodForExemptControl" : 180,
   "GroupsWithAttestPermission": [
     {
