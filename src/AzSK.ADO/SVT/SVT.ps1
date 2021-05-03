@@ -205,7 +205,7 @@ function Get-AzSKADOSecurityStatus
 
 
 		[switch]
-		[Parameter(HelpMessage = "Autoclose bugs after the scan.")]
+		[Parameter(HelpMessage = "Switch to auto-close bugs after the scan.")]
 		[Alias("acb")]
 		$AutoCloseBugs,
 
