@@ -183,50 +183,48 @@ class ADOSVTBase: SVTBase {
 						# Skip passed ones from State Management
                         # Skip the validation if invalidatePreviousAttestations is enabled to true in control settings
 						if ($currentItem.ActualVerificationResult -ne [VerificationResult]::Passed) {
-                            if($validatePreviousAttestation -eq $true) {
-							    #compare the states
-							    if (($childResourceState.ActualVerificationResult -eq $currentItem.ActualVerificationResult) -and $childResourceState.State) {
+							#compare the states
+							if (($childResourceState.ActualVerificationResult -eq $currentItem.ActualVerificationResult) -and $childResourceState.State) {
 
-								    $currentItem.StateManagement.AttestedStateData = $childResourceState.State;
+								$currentItem.StateManagement.AttestedStateData = $childResourceState.State;
 
-								    # Compare dataobject property of State
-								    if ($null -ne $childResourceState.State.DataObject) {
-									    if ($currentItem.StateManagement.CurrentStateData -and $null -ne $currentItem.StateManagement.CurrentStateData.DataObject) {
-										    $currentStateDataObject = [JsonHelper]::ConvertToJsonCustom($currentItem.StateManagement.CurrentStateData.DataObject) | ConvertFrom-Json
+								# Compare dataobject property of State
+								if ($null -ne $childResourceState.State.DataObject) {
+									if ($currentItem.StateManagement.CurrentStateData -and $null -ne $currentItem.StateManagement.CurrentStateData.DataObject) {
+										$currentStateDataObject = [JsonHelper]::ConvertToJsonCustom($currentItem.StateManagement.CurrentStateData.DataObject) | ConvertFrom-Json
 
-										    try {
-											    # Objects match, change result based on attestation status
-											    if ($eventContext.ControlItem.AttestComparisionType -and $eventContext.ControlItem.AttestComparisionType -eq [ComparisionType]::NumLesserOrEqual) {
-												    if ([Helpers]::CompareObject($childResourceState.State.DataObject, $currentStateDataObject, $true, $eventContext.ControlItem.AttestComparisionType)) {
-													    $this.ModifyControlResult($currentItem, $childResourceState);
-												    }
+										try {
+											# Objects match, change result based on attestation status
+											if ($eventContext.ControlItem.AttestComparisionType -and $eventContext.ControlItem.AttestComparisionType -eq [ComparisionType]::NumLesserOrEqual) {
+												if ([Helpers]::CompareObject($childResourceState.State.DataObject, $currentStateDataObject, $true, $eventContext.ControlItem.AttestComparisionType)) {
+													$this.ModifyControlResult($currentItem, $childResourceState);
+												}
 
-											    }
-											    else {
-												    if ([Helpers]::CompareObject($childResourceState.State.DataObject, $currentStateDataObject, $true)) {
-													    $this.ModifyControlResult($currentItem, $childResourceState);
-												    }
-											    }
-										    }
-										    catch {
-											    $this.EvaluationError($_);
-										    }
-									    }
-								    }
-								    else {
-									    if ($currentItem.StateManagement.CurrentStateData) {
-										    if ($null -eq $currentItem.StateManagement.CurrentStateData.DataObject) {
-											    # No object is persisted, change result based on attestation status
-											    $this.ModifyControlResult($currentItem, $childResourceState);
-										    }
-									    }
-									    else {
-										    # No object is persisted, change result based on attestation status
-										    $this.ModifyControlResult($currentItem, $childResourceState);
-									    }
-								    }
-							    }
-						    }
+											}
+											else {
+												if ([Helpers]::CompareObject($childResourceState.State.DataObject, $currentStateDataObject, $true)) {
+													$this.ModifyControlResult($currentItem, $childResourceState);
+												}
+											}
+										}
+										catch {
+											$this.EvaluationError($_);
+										}
+									}
+								}
+								else {
+									if ($currentItem.StateManagement.CurrentStateData) {
+										if ($null -eq $currentItem.StateManagement.CurrentStateData.DataObject) {
+											# No object is persisted, change result based on attestation status
+											$this.ModifyControlResult($currentItem, $childResourceState);
+										}
+									}
+									else {
+										# No object is persisted, change result based on attestation status
+										$this.ModifyControlResult($currentItem, $childResourceState);
+									}
+								}
+							}
                         }
 						else {
 							#add to the dirty state list so that it can be removed later

@@ -175,7 +175,7 @@
     "ControlsList": [],
     "InvalidatePreviousAttestations": false,
     "ApprovedExceptionPromptMessage": "",
-    "NonApprovedExceptionPromptMessage": "",
+    "ByDesignExceptionPromptMessage": "",
     "DefaultPromptMessage": "Refer the docs https://github.com/azsk/ADOScanner-docs to fetch the exception id."
   },
   "IsAllowLongRunningScan": true,
