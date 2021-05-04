@@ -209,12 +209,6 @@ class RemoteReportHelper
 
 	static [bool] IsAIOrgTelemetryEnabled()
 	{
-		$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
-		# Disabled the AI telemetry for SDL scan.
-		if ($scanSource -eq 'SDL') {
-			[RemoteReportHelper]::AIOrgTelemetryState = [AIOrgTelemetryStatus]::Disabled
-			return $false
-		}
 		if([RemoteReportHelper]::AIOrgTelemetryState -eq [AIOrgTelemetryStatus]::Enabled)
 		{
 			return $true

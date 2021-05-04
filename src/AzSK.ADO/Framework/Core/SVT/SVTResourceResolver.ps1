@@ -622,7 +622,8 @@ class SVTResourceResolver: AzSKRoot {
                     }
                     # getting all the resources count
                     # and sending them to telemetry as well
-                    if($this.IsAIEnabled -eq $true) {
+                    $scanSource = [AzSKSettings]::GetInstance().GetScanSource(); # Disabling resource telemetry for SDL scan.
+                    if($this.IsAIEnabled -eq $true -and $scanSource -ne 'SDL') {
                         [CommonHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $projectData);
                     }
                     #check if long running scan allowed or not.
