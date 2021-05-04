@@ -1,14 +1,14 @@
 Set-StrictMode -Version Latest
 function Get-AzSKADOInfo
 {
-	
+
 	<#
 	.SYNOPSIS
 	This command would help users to get details of various components of AzSK.ADO.
-	
+
 	.DESCRIPTION
-	This command will fetch details of AzSK.ADO components and help user to provide details of different component using single command. Refer https://aka.ms/adoscanner/docs for more information 
-	
+	This command will fetch details of AzSK.ADO components and help user to provide details of different component using single command. Refer https://aka.ms/adoscanner/docs for more information
+
 	.PARAMETER InfoType
 		InfoType for which type of information required by user.
 	.PARAMETER ResourceTypeName
@@ -25,15 +25,15 @@ function Get-AzSKADOInfo
 		The list of control ids for which fixes should be applied.
 
 	.NOTES
-	This command helps the application team to verify whether their ADO resources are compliant with the security guidance or not 
+	This command helps the application team to verify whether their ADO resources are compliant with the security guidance or not
 
 	.LINK
-	https://aka.ms/ADOScanner 
+	https://aka.ms/ADOScanner
 
 	#>
 	Param(
 		[Parameter(Mandatory = $false)]
-		[ValidateSet("OrganizationInfo", "ControlInfo", "HostInfo", "UserInfo")] 
+		[ValidateSet("OrganizationInfo", "ControlInfo", "HostInfo", "UserInfo")]
 		[Alias("it")]
 		$InfoType,
 
@@ -53,7 +53,7 @@ function Get-AzSKADOInfo
 		[ValidateNotNullOrEmpty()]
 		[Alias("pp")]
 		$PolicyProject,
-		
+
 		[ResourceTypeName]
 		[Alias("rtn")]
 		$ResourceTypeName = [ResourceTypeName]::All,
@@ -80,7 +80,7 @@ function Get-AzSKADOInfo
 		[string]
 		[Alias("cidc")]
 		$ControlIdContains,
-		
+
 		[switch]
 		[Parameter(Mandatory = $false, HelpMessage = "Switch to specify whether to open output folder.")]
 		[Alias("dnof")]
@@ -90,7 +90,17 @@ function Get-AzSKADOInfo
 		[Parameter(Mandatory = $false, HelpMessage="User email/principal name for which permissions information is requested.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("email", "UserEmail")]
-		$PrincipalName
+		$PrincipalName,
+
+		[System.Security.SecureString]
+		[Parameter(HelpMessage = "Token to run scan in non-interactive mode")]
+		[Alias("tk")]
+		$PATToken,
+
+		[switch]
+		[Parameter(HelpMessage = "Switch to provide personal access token (PAT) using UI.")]
+		[Alias("pfp")]
+		$PromptForPAT
     )
 	Begin
 	{
@@ -100,7 +110,7 @@ function Get-AzSKADOInfo
 
 	Process
 	{
-		try 
+		try
 		{
 			$unsupported = $false
 			if([string]::IsNullOrWhiteSpace($ResourceTypeName))
@@ -119,16 +129,61 @@ function Get-AzSKADOInfo
 				#Set empty, so org-policy get refreshed in every gadi run in same PS session.
 				[ConfigurationHelper]::PolicyCacheContent = @()
 				[AzSKSettings]::Instance = $null
-				[AzSKConfig]::Instance = $null 
+				[AzSKConfig]::Instance = $null
 				[ConfigurationHelper]::ServerConfigMetadata = $null
-			
-				switch ($InfoType.ToString()) 
+
+				switch ($InfoType.ToString())
 				{
-					OrganizationInfo
-					{
-						Write-Host -ForegroundColor Yellow "OrganizationInfo support is yet to be implemented."
+					OrganizationInfo {
+						#Initialize context
+						$ContextHelper = [ContextHelper]::new()
+						if ($PromptForPAT -eq $true) {
+							if ($null -ne $PATToken) {
+								Write-Host "Parameters '-PromptForPAT' and '-PATToken' can not be used simultaneously in the scan command." -ForegroundColor Red
+								return;
+							}
+							else {
+								$PATToken = Read-Host "Provide PAT for [$OrganizationName] org:" -AsSecureString
+							}
+
+						}
+						if (-not [String]::IsNullOrEmpty($PATToken)) {
+							$ContextHelper.SetContext($organizationName, $PATToken)
+						}
+						else {
+							$ContextHelper.SetContext($organizationName)
+						}
+						$apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=6.0' -f $($OrganizationName);
+						$responseObj = "";
+						try {
+							$responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL) ;
+							if (([Helpers]::CheckMember($responseObj, "count") -and $responseObj[0].count -gt 0) -or (($responseObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($responseObj[0], "name"))) {
+								if ([string]::IsNullOrWhiteSpace($ProjectNames) -or $ProjectNames -eq "*") {
+									$projects = $responseObj
+								}
+								else {
+									$projectList = $ProjectNames.trim().Split(',');
+									$projects = $responseObj | Where-Object { $projectList -contains $_.name }
+								}
+								if (($projects | Measure-Object).count -eq 0) {
+									throw [SuppressedException] "Projects not found: Incorrect organization name or you do not have necessary permission to access the project."
+								}
+								$organizationInfo = [OrganizationInfo]::new($OrganizationName, $projects, $PSCmdlet.MyInvocation);
+								if ($organizationInfo) {
+									return $organizationInfo.InvokeFunction($organizationInfo.GetResourceInventory);
+								}
+							}
+							else {
+								Write-Host 'Projects not found: Incorrect organization name or you do not have necessary permission to access the project.' -ForegroundColor Red
+								throw;
+							}
+						}
+						catch {
+							Write-Host 'Unable to fetch resource inventory details : Incorrect organization name or you do not have necessary permission to access the project.' -ForegroundColor Red
+							throw;
+						}
 					}
-					ControlInfo 
+					ControlInfo
 					{
 						If($PSCmdlet.MyInvocation.BoundParameters["Verbose"] -and $PSCmdlet.MyInvocation.BoundParameters["Verbose"].IsPresent)
 						{
@@ -140,15 +195,15 @@ function Get-AzSKADOInfo
 						}
 
 						$controlsInfo = [ControlsInfo]::new($OrganizationName, $PSCmdlet.MyInvocation, $ResourceTypeName, $ControlIds, $UseBaselineControls, $UsePreviewBaselineControls, $FilterTags, $Full, $ControlSeverity, $ControlIdContains);
-						if ($controlsInfo) 
+						if ($controlsInfo)
 						{
 							return $controlsInfo.InvokeFunction($controlsInfo.GetControlDetails);
 						}
 					}
-					HostInfo 
+					HostInfo
 					{
 						$hInfo = [HostInfo]::new($OrganizationName, $PSCmdlet.MyInvocation);
-						if ($hInfo) 
+						if ($hInfo)
 						{
 							return $hInfo.InvokeFunction($hInfo.GetHostInfo);
 						}
@@ -184,7 +239,7 @@ function Get-AzSKADOInfo
 				Write-Host $([Constants]::DefaultInfoCmdMsg)
 			}
 		}
-		catch 
+		catch
 		{
 			[EventBase]::PublishGenericException($_);
 		}
