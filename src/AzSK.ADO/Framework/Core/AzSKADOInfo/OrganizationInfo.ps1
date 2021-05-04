@@ -17,10 +17,10 @@ class OrganizationInfo: CommandBase {
         # fetching the resource count for the given org and project
         [MessageData[]] $returnMsgs = @();
         try {
-            $this.PublishCustomMessage("Fetching the resource inventory details for the organization: $($this.organizationName)`n")
-            $returnMsgs += [MessageData]::new("Fetching the resource inventory details for the organization: $($this.organizationName)`n")
-            $this.PublishCustomMessage("Total projects in the organization: $($this.projects.count)`n")
-            $returnMsgs += [MessageData]::new("Total projects in the organization: $($this.projects.count)`n")
+            $this.PublishCustomMessage("Fetching resource inventory details for the organization [$($this.organizationName)]`n")
+            $returnMsgs += [MessageData]::new("Fetching resource inventory details for the organization: $($this.organizationName)`n")
+            $this.PublishCustomMessage("Total number of projects scanning: $($this.projects.count)`n")
+            $returnMsgs += [MessageData]::new("Total number of projects scanning: $($this.projects.count)`n")
             foreach ($project in $this.projects) {
                 $projectId = $project.id
                 $projectName = $project.name
@@ -35,8 +35,8 @@ class OrganizationInfo: CommandBase {
                     ServiceConnections = -1;
                 };
                 [CommonHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $resourceInventoryData);
-                $this.PublishCustomMessage("$([Constants]::DoubleDashLine)`nResource inventory details for the project: $($projectName) `n$([Constants]::DoubleDashLine)`n")
-                $returnMsgs += [MessageData]::new("$([Constants]::DoubleDashLine)`nResource inventory details for the project: $($projectName) `n$([Constants]::DoubleDashLine)`n")
+                $this.PublishCustomMessage("$([Constants]::DoubleDashLine)`nResource inventory details for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
+                $returnMsgs += [MessageData]::new("$([Constants]::DoubleDashLine)`nResource inventory details for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
                 $formattedResourceInventoryData = ($resourceInventoryData | Out-String)
                 $this.PublishCustomMessage($formattedResourceInventoryData);
                 $returnMsgs += $formattedResourceInventoryData;

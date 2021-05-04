@@ -32,6 +32,7 @@ class CommonHelper {
             $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
             $projectData['Release'] = ($responseList | Measure-Object).Count;
 
+            # fetch the service connections count
             $resourceURL = ("https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/endpoints?includeDetails=True&api-version=6.0-preview.4") -f $($organizationName), $($projectName);
             $serviceEndpointObj = [WebRequestHelper]::InvokeGetWebRequest($resourceURL)
             $projectData['ServiceConnections'] += ($serviceEndpointObj | Measure-Object).Count

@@ -135,10 +135,6 @@ function Get-AzSKADOInfo
 				switch ($InfoType.ToString())
 				{
 					OrganizationInfo {
-						if ([string]::IsNullOrWhiteSpace($OrganizationName)) {
-							Write-Host 'Organization is mandatory.' -ForegroundColor Red
-							throw;
-						}
 						#Initialize context
 						$ContextHelper = [ContextHelper]::new()
 						if ($PromptForPAT -eq $true) {
