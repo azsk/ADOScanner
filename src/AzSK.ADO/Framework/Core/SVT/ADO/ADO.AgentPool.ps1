@@ -374,7 +374,7 @@ class AgentPool: ADOSVTBase
         catch
         {
             $this.agentPoolActivityDetail.message = "Could not fetch agent pool details.";
-            $this.SvcConnActivityDetail.errorObject = $_
+            $this.agentPoolActivityDetail.errorObject = $_
         }
         $this.agentPoolActivityDetail.isComputed = $true
     }
