@@ -203,19 +203,19 @@ class SVTControlAttestation
 								$this.attestOptions.ApprovedExceptionID = $exceptionId
 							}
 						}
-						$approvedExceptionExpiryDate = Read-Host "Please enter the approved exception expiry date (mm/dd/yy)"
+						$approvedExceptionExpiryDate = Read-Host "Please enter the approved exception expiry date (mm/dd/yy) (optional)"
 					}
 					else {
 						while ([string]::IsNullOrWhiteSpace($exceptionId)) {
 							$exceptionId = Read-Host "Please enter the attestation id"
 							if ([string]::IsNullOrWhiteSpace($exceptionId)) {
-								Write-Host "Attestation id is mandatory for by design exception." -ForegroundColor Red
+								Write-Host "Attestation id is mandatory for by-design exception." -ForegroundColor Red
 							}
 							else {
 								$this.attestOptions.ApprovedExceptionID = $exceptionId
 							}
 						}
-						$approvedExceptionExpiryDate = Read-Host "Please enter the by design exception expiry date (mm/dd/yy)"
+						$approvedExceptionExpiryDate = Read-Host "Please enter the by-design exception expiry date (mm/dd/yy) (optional)"
 					}
 					$expiryPeriod = $this.ControlSettings.DefaultAttestationPeriodForExemptControl
 					if([string]::IsNullOrWhiteSpace($approvedExceptionExpiryDate))
@@ -484,19 +484,19 @@ class SVTControlAttestation
 										$this.attestOptions.ApprovedExceptionID = $exceptionId
 									}
 								}
-								$approvedExceptionExpiryDate = Read-Host "Please enter the approved exception expiry date (mm/dd/yy)"
+								$approvedExceptionExpiryDate = Read-Host "Please enter the approved exception expiry date (mm/dd/yy) (optional)"
 							}
 							else {
 								while ([string]::IsNullOrWhiteSpace($exceptionId)) {
 									$exceptionId = Read-Host "Please enter the attestation id"
 									if ([string]::IsNullOrWhiteSpace($exceptionId)) {
-										Write-Host "Exception id is mandatory for by design exception." -ForegroundColor Red
+										Write-Host "attestation id is mandatory for by-design exception." -ForegroundColor Red
 									}
 									else {
 										$this.attestOptions.ApprovedExceptionID = $exceptionId
 									}
 								}
-								$approvedExceptionExpiryDate = Read-Host "Please enter the by design exception expiry date (mm/dd/yy)"
+								$approvedExceptionExpiryDate = Read-Host "Please enter the by-design exception expiry date (mm/dd/yy) (optional)"
 							}
                             $this.attestOptions.ApprovedExceptionExpiryDate = $approvedExceptionExpiryDate
                         }
