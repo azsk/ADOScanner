@@ -33,9 +33,11 @@ class OrganizationInfo: CommandBase {
                     ServiceConnections = 0;
                 };
                 [InventoryHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $resourceInventoryData);
+                # Change the hashtable headers to resource type and resource count
+                $resourceInventoryDataWithNewHeaders = $resourceInventoryData.keys  | Select @{l = 'Resource type'; e = { $_ } }, @{l = 'Resource count'; e = { $resourceInventoryData.$_ } }
                 $this.PublishCustomMessage("$([Constants]::DoubleDashLine)`nResource inventory details for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
                 $returnMsgs += [MessageData]::new("$([Constants]::DoubleDashLine)`nResource inventory details for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
-                $formattedResourceInventoryData = ($resourceInventoryData | Out-String)
+                $formattedResourceInventoryData = ($resourceInventoryDataWithNewHeaders | Out-String)
                 $this.PublishCustomMessage($formattedResourceInventoryData);
                 $returnMsgs += $formattedResourceInventoryData;
             }
