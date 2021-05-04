@@ -98,7 +98,7 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Listeners\RemoteReports\TelemetryStrings.ps1
 . $FrameworkPath\Helpers\RemoteReportHelper.ps1
 . $FrameworkPath\Helpers\AIOrgTelemetryHelper.ps1
-. $FrameworkPath\Helpers\CommonHelper.ps1
+. $FrameworkPath\Helpers\InventoryHelper.ps1
 . $FrameworkPath\Listeners\RemoteReports\RemoteReportsListener.ps1
 . $FrameworkPath\Listeners\RemoteReports\AIOrgTelemetry.ps1
 . $FrameworkPath\Listeners\RemoteReports\UsageTelemetry.ps1

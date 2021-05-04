@@ -9,7 +9,7 @@ class OrganizationInfo: CommandBase {
     OrganizationInfo([string] $organizationName, [PSObject[]] $projects, [InvocationInfo] $invocationContext):
     Base($organizationName, $invocationContext) {
         $this.organizationName = $organizationName;
-        $this.projects = $projects;
+        $this.projects += $projects;
     }
 
 
@@ -19,22 +19,20 @@ class OrganizationInfo: CommandBase {
         try {
             $this.PublishCustomMessage("Fetching resource inventory details for the organization [$($this.organizationName)]`n")
             $returnMsgs += [MessageData]::new("Fetching resource inventory details for the organization: $($this.organizationName)`n")
-            $this.PublishCustomMessage("Total number of projects scanning: $($this.projects.count)`n")
-            $returnMsgs += [MessageData]::new("Total number of projects scanning: $($this.projects.count)`n")
             foreach ($project in $this.projects) {
                 $projectId = $project.id
                 $projectName = $project.name
                 [Hashtable] $resourceInventoryData = @{
-                    Repositories       = -1;
-                    TestPlans          = -1;
-                    Build              = -1;
-                    Release            = -1;
-                    TaskGroups         = -1;
-                    AgentPools         = -1;
-                    VariableGroups     = -1;
-                    ServiceConnections = -1;
+                    Repositories       = 0;
+                    TestPlans          = 0;
+                    Build              = 0;
+                    Release            = 0;
+                    TaskGroups         = 0;
+                    AgentPools         = 0;
+                    VariableGroups     = 0;
+                    ServiceConnections = 0;
                 };
-                [CommonHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $resourceInventoryData);
+                [InventoryHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $resourceInventoryData);
                 $this.PublishCustomMessage("$([Constants]::DoubleDashLine)`nResource inventory details for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
                 $returnMsgs += [MessageData]::new("$([Constants]::DoubleDashLine)`nResource inventory details for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
                 $formattedResourceInventoryData = ($resourceInventoryData | Out-String)
@@ -43,8 +41,8 @@ class OrganizationInfo: CommandBase {
             }
         }
         catch {
-            $this.PublishCustomMessage("Could not fetch the resource count in the organization.", [MessageType]::Error)
-            $returnMsgs += [MessageData]::new("Could not fetch the resource count in the organization.")
+            $this.PublishCustomMessage("Could not fetch the resource inventory of the organization.", [MessageType]::Error)
+            $returnMsgs += [MessageData]::new("Could not fetch the resource inventory of the organization.")
             # [EventBase]::PublishGenericException($_);
         }
         return $returnMsgs

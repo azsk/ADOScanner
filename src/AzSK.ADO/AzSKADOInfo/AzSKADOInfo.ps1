@@ -153,7 +153,7 @@ function Get-AzSKADOInfo
 						else {
 							$ContextHelper.SetContext($organizationName)
 						}
-						$apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=500&api-version=6.0' -f $($OrganizationName);
+						$apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=6.0' -f $($OrganizationName);
 						$responseObj = "";
 						try {
 							$responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL) ;
@@ -165,13 +165,12 @@ function Get-AzSKADOInfo
 									$projectList = $ProjectNames.trim().Split(',');
 									$projects = $responseObj | Where-Object { $projectList -contains $_.name }
 								}
-								if ($projects.Count -eq 0) {
+								if (($projects | Measure-Object).count -eq 0) {
 									throw [SuppressedException] "Projects not found: Incorrect organization name or you do not have necessary permission to access the project."
 								}
 								$organizationInfo = [OrganizationInfo]::new($OrganizationName, $projects, $PSCmdlet.MyInvocation);
 								if ($organizationInfo) {
-									$rf = $organizationInfo.InvokeFunction($organizationInfo.GetResourceInventory);
-									return $rf
+									return $organizationInfo.InvokeFunction($organizationInfo.GetResourceInventory);
 								}
 							}
 							else {

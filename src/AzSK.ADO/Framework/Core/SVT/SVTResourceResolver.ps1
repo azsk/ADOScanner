@@ -623,7 +623,7 @@ class SVTResourceResolver: AzSKRoot {
                     # getting all the resources count
                     # and sending them to telemetry as well
                     if($this.IsAIEnabled -eq $true) {
-                        [CommonHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $projectData);
+                        [InventoryHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $projectData);
                     }
                     #check if long running scan allowed or not.
                     if(!$this.isAllowLongRunningScanCheck())

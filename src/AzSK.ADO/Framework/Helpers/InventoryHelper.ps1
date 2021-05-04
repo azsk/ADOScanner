@@ -3,7 +3,7 @@ using namespace Microsoft.Azure.Commands.Common.Authentication.Abstractions
 using namespace Microsoft.Azure.Commands.Common.Authentication
 using namespace Microsoft.Azure.Management.Storage.Models
 Set-StrictMode -Version Latest
-class CommonHelper {
+class InventoryHelper {
     # getting resources count and sending them to telemetry as well
     static GetResourceCount($organizationName, $projectName, $projectId, $projectData) {
         try {
