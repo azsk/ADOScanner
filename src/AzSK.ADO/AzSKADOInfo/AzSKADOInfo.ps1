@@ -95,7 +95,12 @@ function Get-AzSKADOInfo
 		[System.Security.SecureString]
 		[Parameter(HelpMessage = "Token to run scan in non-interactive mode")]
 		[Alias("tk")]
-		$PATToken
+		$PATToken,
+
+		[switch]
+		[Parameter(HelpMessage = "Switch to provide personal access token (PAT) using UI.")]
+		[Alias("pfp")]
+		$PromptForPAT
     )
 	Begin
 	{
@@ -129,37 +134,57 @@ function Get-AzSKADOInfo
 
 				switch ($InfoType.ToString())
 				{
-					OrganizationInfo
-					{
-						if ([string]::IsNullOrWhiteSpace($OrganizationName) -or [string]::IsNullOrWhiteSpace($projectNames)) {
-							Write-Host 'Organization name and project are mandatory.' -ForegroundColor Red
+					OrganizationInfo {
+						if ([string]::IsNullOrWhiteSpace($OrganizationName)) {
+							Write-Host 'Organization is mandatory.' -ForegroundColor Red
 							throw;
 						}
 						#Initialize context
-        				$ContextHelper = [ContextHelper]::new()
+						$ContextHelper = [ContextHelper]::new()
+						if ($PromptForPAT -eq $true) {
+							if ($null -ne $PATToken) {
+								Write-Host "Parameters '-PromptForPAT' and '-PATToken' can not be used simultaneously in the scan command." -ForegroundColor Red
+								return;
+							}
+							else {
+								$PATToken = Read-Host "Provide PAT for [$OrganizationName] org:" -AsSecureString
+							}
+
+						}
 						if (-not [String]::IsNullOrEmpty($PATToken)) {
-        					$ContextHelper.SetContext($organizationName, $PATToken)
+							$ContextHelper.SetContext($organizationName, $PATToken)
 						}
 						else {
 							$ContextHelper.SetContext($organizationName)
 						}
-						# Get the project id to fetch other resource type inventory
-						$apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1&api-version=6.0' -f $($OrganizationName);
+						$apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=500&api-version=6.0' -f $($OrganizationName);
 						$responseObj = "";
 						try {
 							$responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL) ;
 							if (([Helpers]::CheckMember($responseObj, "count") -and $responseObj[0].count -gt 0) -or (($responseObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($responseObj[0], "name"))) {
-								$projects = $responseObj | Where-Object { $ProjectNames -contains $_.name }
+								if ([string]::IsNullOrWhiteSpace($ProjectNames) -or $ProjectNames -eq "*") {
+									$projects = $responseObj
+								}
+								else {
+									$projectList = $ProjectNames.trim().Split(',');
+									$projects = $responseObj | Where-Object { $projectList -contains $_.name }
+								}
+								if ($projects.Count -eq 0) {
+									throw [SuppressedException] "Projects not found: Incorrect organization name or you do not have necessary permission to access the project."
+								}
+								$organizationInfo = [OrganizationInfo]::new($OrganizationName, $projects, $PSCmdlet.MyInvocation);
+								if ($organizationInfo) {
+									$rf = $organizationInfo.InvokeFunction($organizationInfo.GetResourceInventory);
+									return $rf
+								}
 							}
-							$projectId = $projects[0].id;
-							$resourceInfo = [ResourceInfo]::new($OrganizationName, $projectNames, $projectId, $PSCmdlet.MyInvocation);
-							if ($resourceInfo) {
-								$rf =  $resourceInfo.InvokeFunction($resourceInfo.GetResourceInventory);
-                                return $rf
+							else {
+								Write-Host 'Projects not found: Incorrect organization name or you do not have necessary permission to access the project.' -ForegroundColor Red
+								throw;
 							}
 						}
 						catch {
-							Write-Host 'Project not found: Incorrect project name or you do not have necessary permission to access the project.' -ForegroundColor Red
+							Write-Host 'Unable to fetch resource inventory details : Incorrect organization name or you do not have necessary permission to access the project.' -ForegroundColor Red
 							throw;
 						}
 					}
