@@ -265,7 +265,7 @@ function Get-AzSKADOSecurityStatus
 		[switch]
 		[Parameter(HelpMessage="Scan control which require graph access for evaluation.")]
 		[Alias("uga")]
-		$useGraphAccess
+		$UseGraphAccess
 	)
 	Begin
 	{
