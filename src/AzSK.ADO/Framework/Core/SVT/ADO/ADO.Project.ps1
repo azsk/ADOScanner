@@ -850,7 +850,7 @@ class Project: ADOSVTBase
             $repoDefnsObj = $this.FetchRepositoriesList()
             $inactiveRepos = @()
             $threshold = $this.ControlSettings.Repo.RepoHistoryPeriodInDays
-            if (($repoDefnsObj | Measure-Object).Count -gt 0) {
+            if (-not ($repoDefnsObj.Length -eq 1 -and [Helpers]::CheckMember($repoDefnsObj,"count") -and $repoDefnsObj[0].count -eq 0)) {
                 foreach ($repo in $repoDefnsObj) {
                     $currentDate = Get-Date
                     # check if repo has commits in past RepoHistoryPeriodInDays days
