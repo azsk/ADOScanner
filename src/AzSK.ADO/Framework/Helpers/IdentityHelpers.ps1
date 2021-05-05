@@ -2,6 +2,7 @@
 
 class IdentityHelpers
 {
+	static hidden [bool] $useGraphAccess = $false
 	static hidden [string] $graphAccessToken = $null
 
 	hidden static [bool] IsServiceAccount($SignInName, $subjectKind, $graphToken)
@@ -64,6 +65,10 @@ class IdentityHelpers
 	{
 		$hasAccess = $false;
 		$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
+		# if '-UseGraphAccess' is passed in the command then only scan for graph controls.
+		if (![IdentityHelpers]::useGraphAccess) {
+			return $false
+		}
 		if ($scanSource -eq 'CICD') {
 			return $false
 		}

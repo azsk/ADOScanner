@@ -260,7 +260,12 @@ function Get-AzSKADOSecurityStatus
 		[Parameter(Mandatory = $false, HelpMessage="Name of the repository containing org policy endpoint.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("prn")]
-		$PolicyRepoName 
+		$PolicyRepoName,
+
+		[switch]
+		[Parameter(HelpMessage="Scan control which require graph access for evaluation.")]
+		[Alias("uga")]
+		$useGraphAccess
 	)
 	Begin
 	{
