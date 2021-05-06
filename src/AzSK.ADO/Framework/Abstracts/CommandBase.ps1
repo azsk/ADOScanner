@@ -1,8 +1,8 @@
 <#
 .Description
-	Base class for all command classes. 
-	Provides functionality to fire events/operations at command levels like command started, 
-	command completed and perform operation like generate run-identifier, invoke auto module update, 
+	Base class for all command classes.
+	Provides functionality to fire events/operations at command levels like command started,
+	command completed and perform operation like generate run-identifier, invoke auto module update,
 	open log folder at the end of commmand execution etc
 #>
 using namespace System.Management.Automation
@@ -10,24 +10,24 @@ Set-StrictMode -Version Latest
 
 class CommandBase: AzSKRoot {
 
-	#Region: Properties 
+	#Region: Properties
     [string[]] $FilterTags = @();
 	[bool] $DoNotOpenOutputFolder = $false;
 	[bool] $Force = $false
 	#EndRegion
 
-	#Region: Constructor 
+	#Region: Constructor
     CommandBase([string] $organizationName, [InvocationInfo] $invocationContext):
     Base($organizationName) {
 
         [Helpers]::AbstractClass($this, [CommandBase]);
-		
+
 		if (-not $invocationContext) {
             throw [System.ArgumentException] ("The argument 'invocationContext' is null. Pass the `$PSCmdlet.MyInvocation from PowerShell command.");
 		}
-		
+
 		$this.InvocationContext = $invocationContext;
-		
+
 		#Validate if privacy is accepted by user
 		#Ensure that AzSKSettings statics are setup at this point (before calling Privacy notice)
 		[AzSKSettings]::InitContexts($this.OrganizationContext, $this.InvocationContext);
@@ -44,18 +44,18 @@ class CommandBase: AzSKRoot {
 		}
 
 		#Check multiple AzSK* module should not be loaded in same session
-		$this.CheckMultipleAzSKModuleLoaded();	
+		$this.CheckMultipleAzSKModuleLoaded();
 	}
 	#EndRegion
 
-	#Region: Command level listerner events 
+	#Region: Command level listerner events
     [void] CommandStarted() {
         $this.PublishAzSKRootEvent([AzSKRootEvent]::CommandStarted, $this.CheckModuleVersion());
 	}
-	
+
 	[void] PostCommandStartedAction()
 	{
-		
+
 	}
 
     [void] CommandError([System.Management.Automation.ErrorRecord] $exception) {
@@ -68,7 +68,7 @@ class CommandBase: AzSKRoot {
     [void] CommandCompleted([MessageData[]] $messages) {
         $this.PublishAzSKRootEvent([AzSKRootEvent]::CommandCompleted, $messages);
 	}
-	
+
 	[void] CommandProgress([int] $totalItems, [int] $currentItem) {
         $this.CommandProgress($totalItems, $currentItem, 1);
     }
@@ -96,8 +96,8 @@ class CommandBase: AzSKRoot {
 	{ }
 	#EndRegion
 
-	#Region: Helper function to invoke function based on method name. 
-	# This is method called from command(GRS/GSS etc) files and resposinble for printing command start/end messages using listeners  
+	#Region: Helper function to invoke function based on method name.
+	# This is method called from command(GRS/GSS etc) files and resposinble for printing command start/end messages using listeners
     [string] InvokeFunction([PSMethod] $methodToCall) {
         return $this.InvokeFunction($methodToCall, @());
     }
@@ -122,16 +122,16 @@ class CommandBase: AzSKRoot {
 
 
 
-			
-		# Publish runidentifier(YYYYMMDD_HHMMSS) used by all listener as identifier for scan,creating log folder 
+
+		# Publish runidentifier(YYYYMMDD_HHMMSS) used by all listener as identifier for scan,creating log folder
 		$this.PublishRunIdentifier($this.InvocationContext);
-		
+
 		# <TODO Framework: Move command time calculation methods to AIOrgTelmetry Listener>
-		
+
 		[AIOrgTelemetryHelper]::TrackCommandExecution("Command Started",
 			@{"RunIdentifier" = $this.RunIdentifier}, @{}, $this.InvocationContext);
         $sw = [System.Diagnostics.Stopwatch]::StartNew();
-		
+
 		# Publish command init events
         $this.CommandStarted();
 		$this.PostCommandStartedAction();
@@ -149,9 +149,9 @@ class CommandBase: AzSKRoot {
 				$this.InvocationContext);
             $this.CommandError($_.Exception.InnerException.ErrorRecord);
 		}
-		
 
-		
+
+
 		$folderPath = $this.GetOutputFolderPath();
 
 		#the next two bug log classes have been called here as we need all the control results at one place for
@@ -166,7 +166,7 @@ class CommandBase: AzSKRoot {
 		}
 
 		#auto close passed bugs
-		if($this.InvocationContext.BoundParameters["AutoBugLog"]){
+			if ($this.InvocationContext.BoundParameters["AutoBugLog"] -or $this.InvocationContext.BoundParameters["AutoCloseBugs"]) {
 			if (([PartialScanManager]::ControlResultsWithBugSummary| Measure-Object).Count -gt 0)
 			{
 				$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
@@ -207,13 +207,13 @@ class CommandBase: AzSKRoot {
             $this.CommandError($_);
         }
 
-		# 
+		#
         $AttestControlParamFound = $this.InvocationContext.BoundParameters["AttestControls"];
 		if($null -eq $AttestControlParamFound)
 		{
 			#If controls are attested then open folder when rescan of attested controls is complete
 			$controlAttested = $false
-			if( ([FeatureFlightingManager]::GetFeatureStatus("EnableScanAfterAttestation","*"))) { 
+			if( ([FeatureFlightingManager]::GetFeatureStatus("EnableScanAfterAttestation","*"))) {
 				#Global variable "AttestationValue" is set to true when one or more controls are attested in current scan
 				#Ignore if variable AttestationValue is not found
 				if (Get-Variable AttestationValue -Scope Global -ErrorAction Ignore){
@@ -242,10 +242,10 @@ class CommandBase: AzSKRoot {
 	}
 	#EndRegion
 
-	
 
-	
-	# Function to get output log folder from WriteFolder listener 
+
+
+	# Function to get output log folder from WriteFolder listener
     [string] GetOutputFolderPath() {
         return [WriteFolderPath]::GetInstance().FolderPath;
     }
@@ -254,7 +254,7 @@ class CommandBase: AzSKRoot {
 	# Function to validate module version based on Org policy and showcase warning for update or block commands if version is less than last two minor version
     [void] CheckModuleVersion() {
 		$serverVersion = [System.Version] ([ConfigurationManager]::GetAzSKConfigData().GetLatestAzSKVersion($this.GetModuleName()));
-		$currentModuleVersion = [System.Version] $this.GetCurrentModuleVersion() 
+		$currentModuleVersion = [System.Version] $this.GetCurrentModuleVersion()
         if($currentModuleVersion -ne "0.0.0.0" -and $currentModuleVersion -ne "1.0.0.0" -and $serverVersion -gt $currentModuleVersion) {
 			$this.RunningLatestPSModule = $false;
 			$this.InvokeAutoUpdate()
@@ -263,10 +263,10 @@ class CommandBase: AzSKRoot {
 			$this.PublishCustomMessage([Constants]::VersionWarningMessage, [MessageType]::Warning);
 
 			$serverVersions = @()
-			[ConfigurationManager]::GetAzSKConfigData().GetAzSKVersionList($this.GetModuleName()) | ForEach-Object { 
+			[ConfigurationManager]::GetAzSKConfigData().GetAzSKVersionList($this.GetModuleName()) | ForEach-Object {
 				#Take major and minor version and ignore build version for comparision
 			   $serverVersions+= [System.Version] ("$($_.Major)" +"." + "$($_.Minor)")
-			 }			
+			 }
 			$serverVersions =  $serverVersions | Select-Object -Unique
 			$latestVersionList = $serverVersions | Where-Object {$_ -gt $currentModuleVersion}
 			if(($latestVersionList | Measure-Object).Count -gt [ConfigurationManager]::GetAzSKConfigData().BackwardCompatibleVersionCount)
@@ -274,15 +274,15 @@ class CommandBase: AzSKRoot {
 				throw ([SuppressedException]::new(("Your version of $([Constants]::AzSKModuleName) is too old. Please update now!"),[SuppressedExceptionType]::Generic))
 			}
 		}
-		
-		$psGalleryVersion = [System.Version] ([ConfigurationManager]::GetAzSKConfigData().GetAzSKLatestPSGalleryVersion($this.GetModuleName()));			
+
+		$psGalleryVersion = [System.Version] ([ConfigurationManager]::GetAzSKConfigData().GetAzSKLatestPSGalleryVersion($this.GetModuleName()));
 		if($psGalleryVersion -ne $serverVersion)
 		{
 			$serverVersions = @()
-			[ConfigurationManager]::GetAzSKConfigData().GetAzSKVersionList($this.GetModuleName()) | ForEach-Object { 
+			[ConfigurationManager]::GetAzSKConfigData().GetAzSKVersionList($this.GetModuleName()) | ForEach-Object {
 				#Take major and minor version and ignore build version for comparision
 			   $serverVersions+= [System.Version] ("$($_.Major)" +"." + "$($_.Minor)")
-			 }			
+			 }
 			$serverVersions =  $serverVersions | Select-Object -Unique
 			$latestVersionAvailableFromGallery = $serverVersions | Where-Object {$_ -gt $serverVersion}
 			if(($latestVersionAvailableFromGallery | Measure-Object).Count -gt [ConfigurationManager]::GetAzSKConfigData().BackwardCompatibleVersionCount)
@@ -294,7 +294,7 @@ class CommandBase: AzSKRoot {
 		#Validate if detailed scan results is required in control evaluation
 		$this.CheckDetailedScanStatus();
 	}
-	
+
 	# <TODO Framework: Move to module helper class>
 	# Funtion to execute module auto update flow based on switch
 	[void] InvokeAutoUpdate()
@@ -306,7 +306,7 @@ class CommandBase: AzSKRoot {
 		{
 			if($AutoUpdateSwitch -eq [AutoUpdate]::NotSet)
 			{
-				$AutoUpdateMsg = [Constants]::AutoUpdateMessage 
+				$AutoUpdateMsg = [Constants]::AutoUpdateMessage
 				Write-Host $AutoUpdateMsg -ForegroundColor Yellow
 			}
 			return;
@@ -317,7 +317,7 @@ class CommandBase: AzSKRoot {
 
 		$userChoice = ""
 		if(($PSProcesses | Measure-Object).Count -ge 1)
-		{			
+		{
 			Write-Host([Constants]::ModuleAutoUpdateAvailableMsg) -ForegroundColor Cyan;
 		}
 
@@ -365,7 +365,7 @@ class CommandBase: AzSKRoot {
 		#Check if the first user want to continue with auto-update using userChoice field and then check if user still wants to continue with auto-update after finding the active PS sessions.
 		#In either case it is no it would exit the auto-update process
 		if($userChoice.Trim() -eq "n" -or $secondUserChoice.Trim() -eq 'n')
-		{			
+		{
 			Write-Host "Exiting auto-update workflow. To disable auto-update permanently, run the command below:" -ForegroundColor Yellow
 			Write-Host "Set-AzSKADOPolicySettings -AutoUpdate Off`n" -ForegroundColor Green
 			return
