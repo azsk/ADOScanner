@@ -215,7 +215,7 @@ class Release: ADOSVTBase
                             $varGrps | ForEach-Object {
                                 try
                                 {
-                                    $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $this.ProjectId, $_;
+                                    $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $this.ProjectId, $_;
                                     $varGrpObj += [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
                                 }
                                 catch
@@ -1382,9 +1382,9 @@ class Release: ADOSVTBase
 
                 $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
 
-                if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider')
+                if([Helpers]::CheckMember($responseObj,"dataProviders") -and ($responseObj.dataProviders | Get-Member 'ms.vss-releaseManagement-web.releases-list-data-provider') -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider', 'releases'))
                 {
-
+                    
                     $releases = $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider'.releases
 
                     if(($releases | Measure-Object).Count -gt 0 )
