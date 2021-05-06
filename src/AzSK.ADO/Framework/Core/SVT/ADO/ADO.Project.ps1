@@ -1016,6 +1016,7 @@ class Project: ADOSVTBase
 
         ## Checking Inactive Repos
         $IsRepoActive = $false
+        $inactiveRepocount = 0
         try {            
             $repoDefnsObj = $this.FetchRepositoriesList()
             $inactiveRepos = @()
@@ -1039,10 +1040,15 @@ class Project: ADOSVTBase
                         $controlResult.LogException($_)
                     }
                 }
-                $inactivecount = $inactiveRepos.Count
-                if ($inactivecount -gt 0) {
+                $inactiveRepocount = $inactiveRepos.Count
+                if ($inactiveRepocount -gt 0) 
+                {
+                    if($inactiveRepocount -ne $repoDefnsObj.count)
+                    {
+                        $IsRepoActive = $true
+                    }
                     $inactiveRepos = $inactiveRepos | sort-object
-                    $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "Total number of inactive repositories that have no commits in last $($threshold) days: $($inactivecount) => {$($inactiveRepos -join ", ")} "}) 
+                    $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "Total number of inactive repositories that have no commits in last $($threshold) days: $($inactiveRepocount) => {$($inactiveRepos -join ", ")} "}) 
                 }
                 else {
                     $IsRepoActive = $true
@@ -1131,7 +1137,6 @@ class Project: ADOSVTBase
          try{
              $res = [WebRequestHelper]::InvokeGetWebRequest($url);
              $taskAgentQueues = @()
-             $flag = $false
              if(($res | Measure-Object).Count -ne 0)
              {
                  # Filter out legacy agent pools (Hosted, Hosted VS 2017 etc.) as they are not visible to user on the portal.
@@ -1159,14 +1164,13 @@ class Project: ADOSVTBase
                                     if ((((Get-Date) - $agtPoolLastRunDate).Days) -gt $thresholdLimit)
                                     {
                                         ## Inactive pool
-                                        $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "Agent pool has not been queued in the last $thresholdLimit days."})
+                                        continue
                                     }
                                     else
                                     {
                                         ## Active pool
                                         $IsAgentPoolActive = $true
                                         $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "Agent pool has been queued in the last $thresholdLimit days."})
-                                        #$flag = $true
                                         break
                                     }                                  
                                 }
@@ -1175,15 +1179,13 @@ class Project: ADOSVTBase
                                     ## Active pool
                                     $IsAgentPoolActive = $true
                                     $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "Agent pool was being queued during control evaluation."})
-                                    #$flag = $true
                                     break
                                 }
                             }
                             else
                             {   
                                 continue                                
-                            }
-                        
+                            }                        
                         }
                         else
                         {
@@ -1217,7 +1219,6 @@ class Project: ADOSVTBase
         try
         {
             $res = [WebRequestHelper]::InvokeGetWebRequest($url);
-            #$flag2 = $false
 
             if(-not ($res.Length -eq 1 -and [Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0))
             {
@@ -1240,7 +1241,6 @@ class Project: ADOSVTBase
                             else
                             {
                                 $IsServiceConnectionActive = $true
-                                #$flag2 = $true
                                 $ServiceConnectionrow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($IsServiceConnectionActive)"; "Additional Info" = "Service connection has been used in the last $thresholdLimit days."})
                                 break
                             }
@@ -1270,7 +1270,13 @@ class Project: ADOSVTBase
             $IsProjectActive  = $IsRepoActive -or $IsBuildActive -or $IsReleaseActive -or $IsAgentPoolActive -or $IsServiceConnectionActive 
             if($IsProjectActive)
             {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Project is active. See above table.")
+                if(($inactiveRepocount -gt 0) -and  (($IsRepoActive -eq $false) -and ($IsBuildActive -or $IsReleaseActive -or $IsAgentPoolActive -or $IsServiceConnectionActive))  )
+                {
+                    $controlResult.AddMessage([VerificationResult]::Verify,"One or more repositories are inactive.")
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Project is active. See above table.")
+                }                
             }
             else {
             $controlResult.AddMessage([VerificationResult]::Failed,"Project is inactive. See above table.")
