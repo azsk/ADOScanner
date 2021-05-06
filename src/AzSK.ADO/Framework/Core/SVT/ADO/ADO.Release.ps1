@@ -11,7 +11,7 @@ class Release: ADOSVTBase
     hidden static $IsOAuthScan = $false;
     hidden static [string] $securityNamespaceId = $null;
     hidden static [PSObject] $ReleaseVarNames = @{};
-    hidden [PSObject] $releaseActivityDetail = @{isReleaseActive = $true; latestReleaseTriggerDate = $null; releaseCreationDate = $null; message = $null; isComputed = $false};
+    hidden [PSObject] $releaseActivityDetail = @{isReleaseActive = $true; latestReleaseTriggerDate = $null; releaseCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     
     Release([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
@@ -313,6 +313,10 @@ class Release: ADOSVTBase
             if ($this.releaseActivityDetail.message -eq 'Could not fetch release details.')
             {
                 $controlResult.AddMessage([VerificationResult]::Error, $this.releaseActivityDetail.message);
+                if ($null -ne $this.releaseActivityDetail.errorObject)
+                {
+                    $controlResult.LogException($this.releaseActivityDetail.errorObject)
+                }
             }
             elseif ($this.releaseActivityDetail.isReleaseActive)
             {
@@ -1433,6 +1437,7 @@ class Release: ADOSVTBase
         catch
         {
             $this.releaseActivityDetail.message = "Could not fetch release details.";
+            $this.releaseActivityDetail.errorObject = $_
         }
         $this.releaseActivityDetail.isComputed = $true
     }
