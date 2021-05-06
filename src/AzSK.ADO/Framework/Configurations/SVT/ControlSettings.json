@@ -150,8 +150,8 @@
       "Low": 90
     }
   },
-  "ExtendedExpiryDuration": 180,
-  "ExtendedExpiryResources": [],
+  "ExtendedAttestationExpiryDuration": 180,
+  "ExtendedAttestationExpiryResources": [],
   "DefaultAttestationPeriodForExemptControl" : 180,
   "GroupsWithAttestPermission": [
     {
