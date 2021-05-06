@@ -853,19 +853,25 @@ class Project: ADOSVTBase
             if (-not ($repoDefnsObj.Length -eq 1 -and [Helpers]::CheckMember($repoDefnsObj,"count") -and $repoDefnsObj[0].count -eq 0)) {
                 foreach ($repo in $repoDefnsObj) {
                     $currentDate = Get-Date
-                    # check if repo has commits in past RepoHistoryPeriodInDays days
-                    $thresholdDate = $currentDate.AddDays(-$threshold);
-                    $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/git/repositories/$($repo.id)/commits?searchCriteria.fromDate=$($thresholdDate)&&api-version=6.0"
-                    try{
-                        $res = [WebRequestHelper]::InvokeGetWebRequest($url);
-                        # When there are no commits, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false.
-                        if (([Helpers]::CheckMember($res[0], "count", $false)) -and ($res[0].count -eq 0)) {
-                            $inactiveRepos += $repo.name
-                        }
+                    # check if repo is disabled or not
+                    if($repo.isDisabled) {
+                        $inactiveRepos += $repo.name
                     }
-                    catch{
-                        $controlResult.AddMessage("Could not fetch the history of repository [$($repo.name)].");
-                        $controlResult.LogException($_)
+                    else {
+                        # check if repo has commits in past RepoHistoryPeriodInDays days
+                        $thresholdDate = $currentDate.AddDays(-$threshold);
+                        $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/git/repositories/$($repo.id)/commits?searchCriteria.fromDate=$($thresholdDate)&&api-version=6.0"
+                        try{
+                            $res = [WebRequestHelper]::InvokeGetWebRequest($url);
+                            # When there are no commits, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false.
+                            if (([Helpers]::CheckMember($res[0], "count", $false)) -and ($res[0].count -eq 0)) {
+                                $inactiveRepos += $repo.name
+                            }
+                        }
+                        catch{
+                            $controlResult.AddMessage("Could not fetch the history of repository [$($repo.name)].");
+                            $controlResult.LogException($_)
+                        }
                     }
                 }
                 $inactivecount = $inactiveRepos.Count
