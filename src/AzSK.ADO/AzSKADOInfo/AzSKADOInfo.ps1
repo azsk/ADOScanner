@@ -173,11 +173,11 @@ function Get-AzSKADOInfo
 							return $userInfo.InvokeFunction($userInfo.GetPermissionDetails);
 						}
                     }
-                    AADGroupsInfo
-                    {
-                        $AADGroupsInfo = [AADGroupsInfo]::new($OrganizationName, $ProjectNames, $PSCmdlet.MyInvocation);
-                        return $AADGroupsInfo.InvokeFunction($AADGroupsInfo.GetAADGroupsList);
-                    }
+					AADGroupsInfo
+					{
+						$AADGroupsInfo = [AADGroupsInfo]::new($OrganizationName, $ProjectNames, $PSCmdlet.MyInvocation);
+						return $AADGroupsInfo.InvokeFunction($AADGroupsInfo.GetAADGroupsList);
+					}
 					Default
 					{
 						Write-Host $([Constants]::DefaultInfoCmdMsg)
