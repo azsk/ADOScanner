@@ -17,8 +17,15 @@ class OrganizationInfo: CommandBase {
         # fetching the resource count for the given org and project
         [MessageData[]] $returnMsgs = @();
         try {
-            $this.PublishCustomMessage("Fetching resource inventory details for the organization [$($this.organizationName)]`n")
-            $returnMsgs += [MessageData]::new("Fetching resource inventory details for the organization: $($this.organizationName)`n")
+            $this.PublishCustomMessage("Inventory details will be fetched within the scope of current identity. `n", [MessageType]::Info)
+            $returnMsgs += [MessageData]::new("Inventory details will be fetched based on permissions assigned to current identity. `n")
+            $this.PublishCustomMessage("Resource inventory for the organization [$($this.organizationName)]`n")
+            $returnMsgs += [MessageData]::new("Fetching resource inventory for the organization: $($this.organizationName)`n")
+            $returnMsgs += [MessageData]::new("Resource inventory for the organization: $($this.organizationName)`n")
+            $projectsList = $this.projects | Select-Object @{Name="Projects"; Expression = {$_.name}}
+            $projectsList = $projectsList | Out-String
+            $this.PublishCustomMessage("Fetching resource inventory for below projects : $($projectsList)`n")
+            $returnMsgs += [MessageData]::new("Fetching resource inventory for below projects: $($projectsList)`n")
             foreach ($project in $this.projects) {
                 $projectId = $project.id
                 $projectName = $project.name
@@ -33,9 +40,11 @@ class OrganizationInfo: CommandBase {
                     ServiceConnections = 0;
                 };
                 [InventoryHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $resourceInventoryData);
-                $this.PublishCustomMessage("$([Constants]::DoubleDashLine)`nResource inventory details for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
-                $returnMsgs += [MessageData]::new("$([Constants]::DoubleDashLine)`nResource inventory details for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
-                $formattedResourceInventoryData = ($resourceInventoryData | Out-String)
+                # Change the hashtable headers to resource type and resource count
+                $resourceInventoryDataWithNewHeaders = $resourceInventoryData.keys  | Select @{l = 'Resource type'; e = { $_ } }, @{l = 'Count'; e = { $resourceInventoryData.$_ } }
+                $this.PublishCustomMessage("$([Constants]::DoubleDashLine)`nResource inventory for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
+                $returnMsgs += [MessageData]::new("$([Constants]::DoubleDashLine)`nResource inventory for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
+                $formattedResourceInventoryData = ($resourceInventoryDataWithNewHeaders | Out-String)
                 $this.PublishCustomMessage($formattedResourceInventoryData);
                 $returnMsgs += $formattedResourceInventoryData;
             }
