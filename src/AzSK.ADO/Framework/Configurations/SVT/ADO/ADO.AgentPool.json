@@ -159,12 +159,12 @@
     },
     {
       "ControlID": "ADO_AgentPool_AuthZ_Review_Broader_Group_Access",
-      "Description": "Broader groups (contributors, project collection valid users etc.) should not have user/administrator privileges on agent pool.",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not have user/administrator privileges on agent pool.",
       "Id": "AgentPool200",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupAccess",
-      "Rationale": "Granting minimum access to broader groups ensures that users are granted just enough permissions on agent pool to perform their tasks. This minimizes exposure of the resources in case of user account/agent pool compromise.",
+      "Rationale": "If the broader groups (e.g., Contributors) have edit permissions (Admin/User) on agent pool, then integrity of your agent pool can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/agent pool compromise.",
       "Recommendation": "Go to Project Settings --> Pipelines --> Agent pools --> Select your agent pool --> Select Security --> Ensure broader groups have read-only access.",
       "Tags": [
         "SDL",
