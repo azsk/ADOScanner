@@ -33,7 +33,7 @@ function Get-AzSKADOInfo
 	#>
 	Param(
 		[Parameter(Mandatory = $false)]
-		[ValidateSet("OrganizationInfo", "ControlInfo", "HostInfo", "UserInfo")] 
+		[ValidateSet("OrganizationInfo", "ControlInfo", "HostInfo", "UserInfo", "AADGroupsInfo")] 
 		[Alias("it")]
 		$InfoType,
 
@@ -172,7 +172,12 @@ function Get-AzSKADOInfo
 							$userInfo = [UserInfo]::new($OrganizationName, $PrincipalName, $ProjectNames, $PSCmdlet.MyInvocation);
 							return $userInfo.InvokeFunction($userInfo.GetPermissionDetails);
 						}
-					}
+                    }
+                    AADGroupsInfo
+                    {
+                        $AADGroupsInfo = [AADGroupsInfo]::new($OrganizationName, $ProjectNames, $PSCmdlet.MyInvocation);
+                        return $AADGroupsInfo.InvokeFunction($AADGroupsInfo.GetAADGroupsList);
+                    }
 					Default
 					{
 						Write-Host $([Constants]::DefaultInfoCmdMsg)
