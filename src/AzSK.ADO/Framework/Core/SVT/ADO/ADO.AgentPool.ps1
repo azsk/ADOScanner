@@ -6,7 +6,7 @@ class AgentPool: ADOSVTBase
     hidden [PSObject] $ProjectId;
     hidden [PSObject] $AgentPoolId;
     hidden [PSObject] $agentPool; # This is used to fetch agent details in pool
-    hidden [PSObject] $agentPoolActivityDetail = @{isAgentPoolActive = $true; agentPoolLastRunDate = $null; agentPoolCreationDate = $null; message = $null; isComputed = $false};
+    hidden [PSObject] $agentPoolActivityDetail = @{isAgentPoolActive = $true; agentPoolLastRunDate = $null; agentPoolCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
 
     AgentPool([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -172,6 +172,10 @@ class AgentPool: ADOSVTBase
             if ($this.agentPoolActivityDetail.message -eq 'Could not fetch agent pool details.')
             {
                 $controlResult.AddMessage([VerificationResult]::Error, $this.agentPoolActivityDetail.message);
+                if ($null -ne $this.agentPoolActivityDetail.errorObject)
+                {
+                    $controlResult.LogException($this.agentPoolActivityDetail.errorObject)
+                }
             }
             elseif($this.agentPoolActivityDetail.isAgentPoolActive)
             {
@@ -370,6 +374,7 @@ class AgentPool: ADOSVTBase
         catch
         {
             $this.agentPoolActivityDetail.message = "Could not fetch agent pool details.";
+            $this.agentPoolActivityDetail.errorObject = $_
         }
         $this.agentPoolActivityDetail.isComputed = $true
     }

@@ -152,15 +152,15 @@ class ContextHelper {
             $Context = @(Get-AzContext -ErrorAction SilentlyContinue )
             if ($Context.count -eq 0)  
             {
-                Write-Host "No active Azure login session found. Initiating login flow..." -ForegroundColor Cyan
+                Write-Host "Graph access is required to evaluate some controls. Attempting to acquire Graph token." -ForegroundColor Cyan
+                
                 Connect-AzAccount -ErrorAction Stop
                 $Context = @(Get-AzContext -ErrorAction SilentlyContinue)
             }
 
             if ($null -eq $Context)  
             {
-                Write-Host "No Azure login found. Azure login context is required to get the graph access token." -ForegroundColor Red
-                throw [SuppressedException] "Unable to sign-in to Azure."
+                throw "Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate."
             }
             else
             {
@@ -176,7 +176,7 @@ class ContextHelper {
 
                 if (-not ($authResult -and (-not [string]::IsNullOrWhiteSpace($authResult.AccessToken))))
                 {
-                    throw ([SuppressedException]::new(("Unable to fetch graph access token."), [SuppressedExceptionType]::Generic))
+                    throw ([SuppressedException]::new(("Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate."), [SuppressedExceptionType]::Generic))
                 }
 
                 $accessToken = $authResult.AccessToken;
@@ -184,7 +184,8 @@ class ContextHelper {
         }
         catch
         {
-            write-Host "Unable to fetch graph access token."
+            Write-Host "Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate." -ForegroundColor Red
+            Write-Host "Continuing without graph access." -ForegroundColor Yellow
             return $null
         }
 
