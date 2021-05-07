@@ -10,7 +10,7 @@ class Build: ADOSVTBase
     hidden static $IsOAuthScan = $false;
     hidden static [string] $SecurityNamespaceId = $null;
     hidden static [PSObject] $BuildVarNames = @{};
-    hidden [PSObject] $buildActivityDetail = @{isBuildActive = $true; buildLastRunDate = $null; buildCreationDate = $null; message = $null; isComputed = $false};
+    hidden [PSObject] $buildActivityDetail = @{isBuildActive = $true; buildLastRunDate = $null; buildCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
@@ -287,6 +287,10 @@ class Build: ADOSVTBase
             if ($this.buildActivityDetail.message -eq 'Could not fetch build details.')
             {
                 $controlResult.AddMessage([VerificationResult]::Error, $this.buildActivityDetail.message);
+                if ($null -ne $this.buildActivityDetail.errorObject)
+                {
+                    $controlResult.LogException($this.buildActivityDetail.errorObject)
+                }
             }
             elseif($this.buildActivityDetail.isBuildActive)
             {
@@ -1439,6 +1443,7 @@ class Build: ADOSVTBase
         catch
         {
             $this.buildActivityDetail.message = "Could not fetch build details.";
+            $this.buildActivityDetail.errorObject = $_
         }
         $this.buildActivityDetail.isComputed = $true
     }
