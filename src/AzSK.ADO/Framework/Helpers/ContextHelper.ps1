@@ -83,7 +83,26 @@ class ContextHelper {
             $request_time = get-date
             $tokenInfo['ExpiresOn'] = $request_time.AddSeconds($expiry)
             $refreshToken = ConvertTo-SecureString  $response.refresh_token -AsPlainText -Force
-            Set-AzKeyVaultSecret -VaultName $env:KeyVaultName -Name "RefreshTokenForADOScan" -SecretValue $refreshToken | out-null
+
+            #Update refresh token if it is expiring in next 1 day 
+            $updateTokenInKV = $false
+            $secretName = "RefreshTokenForADOScan"
+            $tokenSecret = Get-AzKeyVaultSecret -VaultName $env:KeyVaultName -Name $secretName
+            if (-not [string]::IsNullOrEmpty($tokenSecret) -and [Helpers]::CheckMember($tokenSecret,"Expires")) {
+                if ($tokenSecret.Expires -le [DateTime]::Now.AddDays(1))
+                {
+                    $updateTokenInKV = $true
+                }
+            }
+            else {
+                $updateTokenInKV = $true
+            }
+            if ($updateTokenInKV -eq $true)
+            {
+                $RefreshTokenExpiresInDays = [Constants]::RefreshTokenExpiresInDays;
+                $ExpiryDate = [DateTime]::Now.AddDays($RefreshTokenExpiresInDays)
+                Set-AzKeyVaultSecret -VaultName $env:KeyVaultName -Name $secretName -SecretValue $refreshToken -Expires $ExpiryDate | out-null
+            }
         }
         catch{
             write-Host "Error fetching OAuth access token"
