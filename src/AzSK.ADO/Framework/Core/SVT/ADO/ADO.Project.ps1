@@ -1019,31 +1019,34 @@ class Project: ADOSVTBase
         $inactiveRepocount = 0
         try {            
             $repoDefnsObj = $this.FetchRepositoriesList()
-            $inactiveRepos = @()
-            $threshold = $this.ControlSettings.Repo.RepoHistoryPeriodInDays
-            if (-not ($repoDefnsObj.Length -eq 1 -and [Helpers]::CheckMember($repoDefnsObj,"count") -and $repoDefnsObj[0].count -eq 0)) 
+
+            if(($repoDefnsObj | Measure-Object).count -gt 0 -and -not ([Helpers]::CheckMember($repoDefnsObj,"count") -and $repoDefnsObj[0].count -eq 0) )
             {
+                # filtering out the disabled
+                $repoDefnsObj = $repoDefnsObj | Where-Object { $_.IsDisabled -ne $true }
+                $inactiveRepos = @()
+                $threshold = $this.ControlSettings.Repo.RepoHistoryPeriodInDays
                 foreach ($repo in $repoDefnsObj) {
-                    $currentDate = Get-Date
-                    # check if repo has commits in past RepoHistoryPeriodInDays days
-                    $thresholdDate = $currentDate.AddDays(-$threshold);
-                    $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/git/repositories/$($repo.id)/commits?searchCriteria.fromDate=$($thresholdDate)&&api-version=6.0"
-                    try{
-                        $res = [WebRequestHelper]::InvokeGetWebRequest($url);
-                        # When there are no commits, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false.
-                        if (([Helpers]::CheckMember($res[0], "count", $false)) -and ($res[0].count -eq 0)) {
-                            $inactiveRepos += $repo.name
+                       $currentDate = Get-Date
+                        # check if repo has commits in past RepoHistoryPeriodInDays days
+                        $thresholdDate = $currentDate.AddDays(-$threshold);
+                        $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/git/repositories/$($repo.id)/commits?searchCriteria.fromDate=$($thresholdDate)&&api-version=6.0"
+                        try{
+                            $res = [WebRequestHelper]::InvokeGetWebRequest($url);
+                            # When there are no commits, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false.
+                            if (([Helpers]::CheckMember($res[0], "count", $false)) -and ($res[0].count -eq 0)) {
+                                $inactiveRepos += $repo.name
+                            }
+                        }
+                        catch{
+                            $controlResult.AddMessage("Could not fetch the history of repository [$($repo.name)].");
+                            $controlResult.LogException($_)
                         }
                     }
-                    catch{
-                        $controlResult.AddMessage("Could not fetch the history of repository [$($repo.name)].");
-                        $controlResult.LogException($_)
-                    }
-                }
                 $inactiveRepocount = $inactiveRepos.Count
                 if ($inactiveRepocount -gt 0) 
                 {
-                    if($inactiveRepocount -ne $repoDefnsObj.count)
+                    if($inactiveRepocount -ne ($repoDefnsObj | Measure-Object).count)
                     {
                         $IsRepoActive = $true
                     }
@@ -1051,14 +1054,13 @@ class Project: ADOSVTBase
                     $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "Total number of inactive repositories that have no commits in last $($threshold) days: $($inactiveRepocount) => {$($inactiveRepos -join ", ")} "}) 
                 }
                 else {
-                    $IsRepoActive = $true
-                    $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "There are no inactive repositories in the project."})
-                }
+                        $IsRepoActive = $true
+                        $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "There are no inactive repositories in the project."})
+                }               
             }
             else {
-                $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "There are no repositories in the project."})
+                $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "All repositories are disabled in the project."})
             }
-
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the list of repositories in the project.");
@@ -1073,7 +1075,7 @@ class Project: ADOSVTBase
         $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/build/builds?minTime=$($thresholdDate)&api-version=6.0"
         try{
             $res = [WebRequestHelper]::InvokeGetWebRequest($url);
-            if(-not ($res.Length -eq 1 -and [Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0))
+            if(-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1 ))
             {
                 $res = $res | Sort-Object -Property queueTime -Descending  # most recent/latest build first
                 if($res[0].queueTime -gt $thresholdDate)
@@ -1106,7 +1108,7 @@ class Project: ADOSVTBase
         $url = "https://vsrm.dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/release/deployments?queryOrder=descending&`$top=1"
         try{
             $res = [WebRequestHelper]::InvokeGetWebRequest($url);
-            if(-not ($res.Length -eq 1 -and [Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0))
+            if(-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1))
             {
                 # $res[0] will contain latest release deployment
                 if($res[0].queuedOn -gt $thresholdDate)
@@ -1220,7 +1222,7 @@ class Project: ADOSVTBase
         {
             $res = [WebRequestHelper]::InvokeGetWebRequest($url);
 
-            if(-not ($res.Length -eq 1 -and [Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0))
+            if(-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1 ))
             {
                 foreach ($endpoint in $res)
                 {
@@ -1270,7 +1272,7 @@ class Project: ADOSVTBase
             $IsProjectActive  = $IsRepoActive -or $IsBuildActive -or $IsReleaseActive -or $IsAgentPoolActive -or $IsServiceConnectionActive 
             if($IsProjectActive)
             {
-                if(($inactiveRepocount -gt 0) -and  (($IsRepoActive -eq $false) -and ($IsBuildActive -or $IsReleaseActive -or $IsAgentPoolActive -or $IsServiceConnectionActive))  )
+                if(($inactiveRepocount -gt 0) -and  (($IsRepoActive -eq $true) -and ($IsBuildActive -eq $true) -and  ($IsReleaseActive -eq $true) -and ($IsAgentPoolActive -eq $true) -and ($IsServiceConnectionActive -eq $true)))
                 {
                     $controlResult.AddMessage([VerificationResult]::Verify,"One or more repositories are inactive.")
                 }
