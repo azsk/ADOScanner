@@ -107,10 +107,10 @@ class ServiceConnection: ADOSVTBase
 	{
         if ([ServiceConnection]::IsOAuthScan -eq $true)
         {
-            if ($this.ServiceEndpointsObj.type -eq "azurerm") 
+            if ($this.ServiceEndpointsObj.type -eq "azurerm")
             {
                 try {
-                    if([Helpers]::CheckMember($this.ServiceEndpointsObj, "data") ) 
+                    if([Helpers]::CheckMember($this.ServiceEndpointsObj, "data") )
                     {
                         $message = "Service connection has access at [{0}] {1} scope in the subscription [{2}] .";
                         $serviceEndPoint = $this.ServiceEndpointsObj
@@ -118,7 +118,7 @@ class ServiceConnection: ADOSVTBase
                         # irrespective of creationMode - pass the control for conn authorized at MLWorkspace and PublishProfile (app service) scope as such conn are granted access at resource level.
                         if(([Helpers]::CheckMember($serviceEndPoint, "data.scopeLevel") -and ([Helpers]::CheckMember($serviceEndPoint.data, "creationMode")) ))
                         {
-                            #If Service connection creation mode is 'automatic' and scopeLevel is subscription and no resource group is defined in its access definition -> conn has subscription level access -> fail the control, 
+                            #If Service connection creation mode is 'automatic' and scopeLevel is subscription and no resource group is defined in its access definition -> conn has subscription level access -> fail the control,
                             #else pass the control if scopeLevel is 'Subscription' and 'scope' is RG  (note scope property is visible, only if conn is authorized to an RG)
                             #Fail the control if it has access to management group (last condition)
                             if(($serviceEndPoint.data.scopeLevel -eq "Subscription" -and $serviceEndPoint.data.creationMode -eq "Automatic" -and !([Helpers]::CheckMember($serviceEndPoint.authorization,"parameters.scope") )) -or ($serviceEndPoint.data.scopeLevel -eq "ManagementGroup"))
@@ -137,21 +137,21 @@ class ServiceConnection: ADOSVTBase
                                 if ([Helpers]::CheckMember($serviceEndPoint.authorization.parameters, "scope")) {
                                     $message =  $message -f $serviceEndPoint.authorization.parameters.scope.split('/')[-1], 'resource group', $serviceEndPoint.data.subscriptionName
                                 }
-                                else { 
+                                else {
                                     $message = "Service connection is not configured at subscription scope."
                                 }
                                 $controlResult.AddMessage([VerificationResult]::Passed, $message);
                                 $controlResult.AdditionalInfo += $message;
                             }
                         }
-                        #elseif gets executed when scoped at AzureMLWorkspace 
+                        #elseif gets executed when scoped at AzureMLWorkspace
                         elseif(([Helpers]::CheckMember($serviceEndPoint, "data.scopeLevel") -and $serviceEndPoint.data.scopeLevel -eq "AzureMLWorkspace"))
                         {
                             $message =  $message -f $serviceEndPoint.data.mlWorkspaceName, 'ML workspace', $serviceEndPoint.data.subscriptionName
                             $controlResult.AddMessage([VerificationResult]::Passed, $message);
                             $controlResult.AdditionalInfo += $message;
                         }
-                        #elseif gets executed when scoped at PublishProfile 
+                        #elseif gets executed when scoped at PublishProfile
                         elseif(([Helpers]::CheckMember($serviceEndPoint, "authorization.scheme") -and $serviceEndPoint.authorization.scheme -eq "PublishProfile"))
                         {
                             $message =  $message -f $serviceEndPoint.data.resourceId.split('/')[-1], 'app service', $serviceEndPoint.data.subscriptionName
@@ -589,22 +589,22 @@ class ServiceConnection: ADOSVTBase
 	{
         if ([ServiceConnection]::IsOAuthScan -eq $true)
         {
-            if($this.serviceendpointsobj -and [Helpers]::CheckMember($this.serviceendpointsobj, "serviceEndpointProjectReferences") ) 
+            if($this.serviceendpointsobj -and [Helpers]::CheckMember($this.serviceendpointsobj, "serviceEndpointProjectReferences") )
             {
-                #Get the project list which are accessible to the service connection. 
+                #Get the project list which are accessible to the service connection.
                 $svcProjectReferences = $this.serviceendpointsobj.serviceEndpointProjectReferences
-                if (($svcProjectReferences | Measure-Object).Count -gt 1) 
+                if (($svcProjectReferences | Measure-Object).Count -gt 1)
                 {
                     $stateData = @();
                     $stateData += $svcProjectReferences | Select-Object name, projectReference
-    
+
                     $controlResult.AddMessage("Total number of projects that have access to the service connection: ", ($stateData | Measure-Object).Count);
                     $controlResult.AddMessage([VerificationResult]::Failed, "Review the list of projects that have access to the service connection: ", $stateData);
-                    $controlResult.SetStateData("List of projects that have access to the service connection: ", $stateData); 
+                    $controlResult.SetStateData("List of projects that have access to the service connection: ", $stateData);
                     $controlResult.AdditionalInfo += "Total number of projects that have access to the service connection: " + ($stateData | Measure-Object).Count;
                     $controlResult.AdditionalInfo += "List of projects that have access to the service connection: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
                 }
-                else 
+                else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not shared with multiple projects.");
                 }
@@ -612,7 +612,7 @@ class ServiceConnection: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Error, "Service connection details could not be fetched.");
-            }  
+            }
         }
         else
         {
@@ -734,20 +734,20 @@ class ServiceConnection: ADOSVTBase
             {
                 $apiURL = "https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/{2}/executionhistory?top=1&api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceGroupName), $($this.serviceendpointsobj.id);
                 $serviceEndpointExecutionHistory = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-                
-                if (($serviceEndpointExecutionHistory | Measure-Object).Count -gt 0 -and ([Helpers]::CheckMember($serviceEndpointExecutionHistory[0],"data"))) 
+
+                if (($serviceEndpointExecutionHistory | Measure-Object).Count -gt 0 -and ([Helpers]::CheckMember($serviceEndpointExecutionHistory[0],"data")))
                 {
                     #if this job is still running then finishTime is not available. pass the control
-                    if ([Helpers]::CheckMember($serviceEndpointExecutionHistory[0].data, "finishTime")) 
+                    if ([Helpers]::CheckMember($serviceEndpointExecutionHistory[0].data, "finishTime"))
                     {
                         #Get the last known usage (job) timestamp of the service connection
                         $svcLastRunDate = $serviceEndpointExecutionHistory[0].data.finishTime;
-                        
+
                         #format date
                         $formatLastRunTimeSpan = New-TimeSpan -Start (Get-Date $svcLastRunDate)
-                        
+
                         # $inactiveLimit denotes the upper limit on number of days of inactivity before the svc conn is deemed inactive.
-                        if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.ServiceConnectionHistoryPeriodInDays") ) 
+                        if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.ServiceConnectionHistoryPeriodInDays") )
                         {
                             $inactiveLimit = $this.ControlSettings.ServiceConnection.ServiceConnectionHistoryPeriodInDays
                             if ($formatLastRunTimeSpan.Days -gt $inactiveLimit)
@@ -880,6 +880,26 @@ class ServiceConnection: ADOSVTBase
 
         if (![string]::IsNullOrEmpty($failMsg)) {
             $controlResult.AddMessage([VerificationResult]::Manual, "Unable to fetch service connections details. $($failMsg)Please verify from portal that you are not granting global security groups access to service connections");
+        }
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckRestricedCloudEnvironmentUsage ([ControlResult] $controlResult) {
+        $disallowedEnvironments =  $this.ControlSettings.Organization.DisallowedEnvironments
+        if($disallowedEnvironments.Length -eq 0) {
+            $controlResult.AddMessage([VerificationResult]::Passed, "No restricted cloud environments were configured in control settings.");
+        }
+        elseif ([string]::IsNullOrEmpty($this.ServiceEndpointsObj.data) ){
+            $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not connected to any restricted cloud environments.");
+        }
+        else {
+            $serviceConnectionEnvironment = $this.ServiceEndpointsObj.data.environment
+            if ($disallowedEnvironments -contains $serviceConnectionEnvironment) {
+                $controlResult.AddMessage([VerificationResult]::Failed, "Service connection is connected to restricted cloud environment: $serviceConnectionEnvironment");
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not connected to restricted cloud environments.");
+            }
         }
         return $controlResult;
     }
