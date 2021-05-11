@@ -33,7 +33,7 @@ function Get-AzSKADOInfo
 	#>
 	Param(
 		[Parameter(Mandatory = $false)]
-		[ValidateSet("OrganizationInfo", "ControlInfo", "HostInfo", "UserInfo")]
+		[ValidateSet("OrganizationInfo", "ControlInfo", "HostInfo", "UserInfo", "AADGroupsInfo")]
 		[Alias("it")]
 		$InfoType,
 
@@ -227,6 +227,29 @@ function Get-AzSKADOInfo
 							$userInfo = [UserInfo]::new($OrganizationName, $PrincipalName, $ProjectNames, $PSCmdlet.MyInvocation);
 							return $userInfo.InvokeFunction($userInfo.GetPermissionDetails);
 						}
+					}
+					AADGroupsInfo
+					{
+                        #Initialize context
+						$ContextHelper = [ContextHelper]::new()
+						if ($PromptForPAT -eq $true) {
+							if ($null -ne $PATToken) {
+								Write-Host "Parameters '-PromptForPAT' and '-PATToken' can not be used simultaneously in the scan command." -ForegroundColor Red
+								return;
+							}
+							else {
+								$PATToken = Read-Host "Provide PAT for [$OrganizationName] org:" -AsSecureString
+							}
+
+						}
+						if (-not [String]::IsNullOrEmpty($PATToken)) {
+							$ContextHelper.SetContext($organizationName, $PATToken)
+						}
+						else {
+							$ContextHelper.SetContext($organizationName)
+						}
+						$AADGroupsInfo = [AADGroupsInfo]::new($OrganizationName, $ProjectNames, $PSCmdlet.MyInvocation);
+						return $AADGroupsInfo.InvokeFunction($AADGroupsInfo.GetAADGroupsList);
 					}
 					Default
 					{

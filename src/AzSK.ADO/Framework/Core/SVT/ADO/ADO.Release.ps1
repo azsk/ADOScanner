@@ -1347,11 +1347,15 @@ class Release: ADOSVTBase
                             $this.releaseActivityDetail.isReleaseActive = $false;
                             $this.releaseActivityDetail.message = "No recent release history found in last $($this.ControlSettings.Release.ReleaseHistoryPeriodInDays) days";
                         }
+                        $latestReleaseTriggerDate = [datetime]::Parse($release.createdOn);
+                        $this.releaseActivityDetail.latestReleaseTriggerDate = $latestReleaseTriggerDate;
                     }
                     else
                     {
                         $this.releaseActivityDetail.isReleaseActive = $false;
                         $this.releaseActivityDetail.message = "No release history found. Release is inactive.";
+                        [datetime] $createdDate = $this.ReleaseObj.createdOn
+                        $this.releaseActivityDetail.releaseCreationDate = $createdDate
                     }
     
                     $responseObj = $null;
