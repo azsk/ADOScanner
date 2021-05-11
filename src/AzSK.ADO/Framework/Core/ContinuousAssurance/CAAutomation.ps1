@@ -648,7 +648,6 @@ class CAAutomation : ADOSVTCommandBase
 				# Adding this block as "Set-AzKeyVaultAccessPolicy" is not creating access policy at random instances
 				if ([string]::IsNullOrEmpty($MSIAccessToKV) -or -not [Helpers]::CheckMember($MSIAccessToKV, "AccessPolicies")) 
 				{
-					write-host "inside block"
 					start-sleep -Seconds 10
 					$MSIAccessToKV = Set-AzKeyVaultAccessPolicy -VaultName $this.KeyVaultName -ResourceGroupName $this.RGname -PermissionsToSecrets get,list -PassThru -ObjectId $FuncAppIdentity
 				}
@@ -837,11 +836,10 @@ class CAAutomation : ADOSVTCommandBase
                 # Adding this block as "Set-AzKeyVaultAccessPolicy" is not creating access policy at random instances
                 if ([string]::IsNullOrEmpty($MSIAccessToKV) -or -not [Helpers]::CheckMember($MSIAccessToKV, "AccessPolicies")) 
                 {
-                    write-host "inside block"
                     start-sleep -Seconds 10
                     $MSIAccessToKV = Set-AzKeyVaultAccessPolicy -VaultName $this.KeyVaultName -ResourceGroupName $this.RGname -PermissionsToSecrets get,list -PassThru -ObjectId $FuncAppIdentity
                 }
-                
+
 				$IsMSIAccess = $MSIAccessToKV.AccessPolicies | ForEach-Object { if ($_.ObjectId -match $FuncAppIdentity ) {return $true }}
 				if($IsMSIAccess -eq $true) 
 				{
@@ -1089,7 +1087,6 @@ class CAAutomation : ADOSVTCommandBase
                     # Adding this block as "Set-AzKeyVaultAccessPolicy" is not creating access policy at random instances
                     if ([string]::IsNullOrEmpty($MSIAccessToKV) -or -not [Helpers]::CheckMember($MSIAccessToKV, "AccessPolicies")) 
                     {
-                        write-host "inside block"
                         start-sleep -Seconds 10
                         $MSIAccessToKV = Set-AzKeyVaultAccessPolicy -VaultName $this.KeyVaultName -ResourceGroupName $this.RGname -PermissionsToSecrets get,list -PassThru -ObjectId $FuncAppIdentity
                     }
