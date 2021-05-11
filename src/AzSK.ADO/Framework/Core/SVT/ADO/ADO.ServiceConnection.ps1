@@ -884,17 +884,18 @@ class ServiceConnection: ADOSVTBase
         return $controlResult;
     }
 
-    hidden [ControlResult] CheckRestricedCloudEnvironmentUsage ([ControlResult] $controlResult) {
+    hidden [ControlResult] CheckRestricedCloudEnvironment ([ControlResult] $controlResult) {
         $disallowedEnvironments =  $this.ControlSettings.Organization.DisallowedEnvironments
         if($disallowedEnvironments.Length -eq 0) {
             $controlResult.AddMessage([VerificationResult]::Passed, "No restricted cloud environments were configured in control settings.");
         }
-        elseif ([string]::IsNullOrEmpty($this.ServiceEndpointsObj.data) ){
+        elseif ((-not [Helpers]::CheckMember($this.ServiceEndpointsObj, "data")) -or [string]::IsNullOrEmpty($this.ServiceEndpointsObj.data) -or (-not[Helpers]::CheckMember($this.ServiceEndpointsObj.data, "environment"))) {
             $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not connected to any restricted cloud environments.");
         }
         else {
-            $serviceConnectionEnvironment = $this.ServiceEndpointsObj.data.environment
-            if ($disallowedEnvironments -contains $serviceConnectionEnvironment) {
+          $serviceConnectionEnvironment = $this.ServiceEndpointsObj.data.environment
+          #check if the current environment is in list of restricted environments
+          if ($disallowedEnvironments -contains $serviceConnectionEnvironment) {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Service connection is connected to restricted cloud environment: $serviceConnectionEnvironment");
             }
             else {

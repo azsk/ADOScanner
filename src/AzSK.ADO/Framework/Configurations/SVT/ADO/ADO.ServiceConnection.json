@@ -246,14 +246,14 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_ServiceConnection_Restrict_Gov_Cloud_Environment",
-      "Description": "Disallow the usage of service connection to restricted cloud environments",
+      "ControlID": "ADO_ServiceConnection_Cannot_Use_Disallowed_Environment",
+      "Description": "Azure service connections to certain environments are not permitted from this org.",
       "Id": "ServiceConnection250",
       "ControlSeverity": "High",
       "Automated": "Yes",
-      "MethodName": "CheckRestricedCloudEnvironmentUsage",
-      "Rationale": "Service connection should be restricted to connect to unwanted cloud environments to align with data sovereignty requirements and ensure their data and workloads stays in allowed cloud environments.",
-      "Recommendation": "Go to Project Settings --> Pipelines --> Service connections --> Select your service connection --> Click Edit--> Validate service connection is connected to allowed cloud 'Environment'.",
+      "MethodName": "CheckRestricedCloudEnvironment",
+      "Rationale": "Service connection should not connect to restricted cloud environments to align with data sovereignty requirements and ensure their data and workloads stays in allowed cloud environments.",
+      "Recommendation": "(1) Review the environment of your service connection: Go to Project Settings --> Pipelines --> Service connections --> Select your service connection --> Click Edit (2) Remove the service connection if it is to disallowed environments (per details available in detailed control scan logs).",
       "Tags": [
         "SDL",
         "TCP",
