@@ -151,7 +151,12 @@
     }
   },
   "ExtendedAttestationExpiryDuration": 180,
-  "ExtendedAttestationExpiryResources": [],
+  "ExtendedAttestationExpiryResources": [
+    {
+      "ResourceType": "",
+      "ResourceIds": []
+    }
+  ],
   "DefaultAttestationPeriodForExemptControl" : 180,
   "GroupsWithAttestPermission": [
     {

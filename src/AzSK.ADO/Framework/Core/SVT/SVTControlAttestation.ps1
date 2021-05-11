@@ -286,9 +286,9 @@ class SVTControlAttestation
 				# Checking if the resource id is present in extended expiry list of control settings
 				if([Helpers]::CheckMember($this.ControlSettings, "ExtendedAttestationExpiryResources") -and [Helpers]::CheckMember($this.ControlSettings, "ExtendedAttestationExpiryDuration")){
 					if(($this.ControlSettings.ExtendedAttestationExpiryResources | Get-Member "ResourceType") -and ($this.ControlSettings.ExtendedAttestationExpiryResources | Get-Member "ResourceIds")) {
-						$extended_resources = $this.ControlSettings.ExtendedAttestationExpiryResources | Where { $_.ResourceType -match $controlItem.ResourceContext.ResourceTypeName }
+						$extendedResources = $this.ControlSettings.ExtendedAttestationExpiryResources | Where { $_.ResourceType -match $controlItem.ResourceContext.ResourceTypeName }
 						# type null check
-						if($controlState.ResourceId -in $extended_resources.ResourceIds){
+						if(($extendedResources | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($extendedResources, "ResourceIds") -and $controlState.ResourceId -in $extendedResources.ResourceIds){
 							$controlState.State.ExpiryDate = $controlState.State.AttestedDate.AddDays($this.ControlSettings.ExtendedAttestationExpiryDuration);
 						}
 					}
@@ -420,9 +420,9 @@ class SVTControlAttestation
 						# Checking if the resource id is present in extended expiry list of control settings
 						if([Helpers]::CheckMember($this.ControlSettings, "ExtendedAttestationExpiryResources") -and [Helpers]::CheckMember($this.ControlSettings, "ExtendedAttestationExpiryDuration")){
 							if(($this.ControlSettings.ExtendedAttestationExpiryResources | Get-Member "ResourceType") -and ($this.ControlSettings.ExtendedAttestationExpiryResources | Get-Member "ResourceIds")) {
-								$extended_resources = $this.ControlSettings.ExtendedAttestationExpiryResources | Where { $_.ResourceType -match $controlItem.ResourceContext.ResourceTypeName }
+								$extendedResources = $this.ControlSettings.ExtendedAttestationExpiryResources | Where { $_.ResourceType -match $controlItem.ResourceContext.ResourceTypeName }
 								# type null check
-								if($controlState.ResourceId -in $extended_resources.ResourceIds){
+								if(($extendedResources | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($extendedResources, "ResourceIds") -and $controlState.ResourceId -in $extendedResources.ResourceIds){
 									$controlState.State.ExpiryDate = $controlState.State.AttestedDate.AddDays($this.ControlSettings.ExtendedAttestationExpiryDuration);
 								}
 							}
