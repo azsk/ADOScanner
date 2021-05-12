@@ -885,7 +885,10 @@ class ServiceConnection: ADOSVTBase
     }
 
     hidden [ControlResult] CheckRestricedCloudEnvironment ([ControlResult] $controlResult) {
-        $disallowedEnvironments =  $this.ControlSettings.Organization.DisallowedEnvironments
+        $disallowedEnvironments = @()
+        if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "Organization.DisallowedEnvironments") ) {
+            $disallowedEnvironments =  $this.ControlSettings.Organization.DisallowedEnvironments
+        }
         if($disallowedEnvironments.Length -ne 0) {
             $controlResult.AddMessage( "List of disallowed cloud environments.", $disallowedEnvironments);
             if ((-not [Helpers]::CheckMember($this.ServiceEndpointsObj, "data")) -or [string]::IsNullOrEmpty($this.ServiceEndpointsObj.data) -or (-not[Helpers]::CheckMember($this.ServiceEndpointsObj.data, "environment"))) {
