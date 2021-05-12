@@ -886,21 +886,24 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckRestricedCloudEnvironment ([ControlResult] $controlResult) {
         $disallowedEnvironments =  $this.ControlSettings.Organization.DisallowedEnvironments
-        if($disallowedEnvironments.Length -eq 0) {
-            $controlResult.AddMessage([VerificationResult]::Passed, "No restricted cloud environments were configured in control settings.");
-        }
-        elseif ((-not [Helpers]::CheckMember($this.ServiceEndpointsObj, "data")) -or [string]::IsNullOrEmpty($this.ServiceEndpointsObj.data) -or (-not[Helpers]::CheckMember($this.ServiceEndpointsObj.data, "environment"))) {
-            $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not connected to any restricted cloud environments.");
-        }
-        else {
-          $serviceConnectionEnvironment = $this.ServiceEndpointsObj.data.environment
-          #check if the current environment is in list of restricted environments
-          if ($disallowedEnvironments -contains $serviceConnectionEnvironment) {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Service connection is connected to restricted cloud environment: $serviceConnectionEnvironment");
+        if($disallowedEnvironments.Length -ne 0) {
+            $controlResult.AddMessage( "List of disallowed cloud environments.", $disallowedEnvironments);
+            if ((-not [Helpers]::CheckMember($this.ServiceEndpointsObj, "data")) -or [string]::IsNullOrEmpty($this.ServiceEndpointsObj.data) -or (-not[Helpers]::CheckMember($this.ServiceEndpointsObj.data, "environment"))) {
+                $controlResult.AddMessage([VerificationResult]::Passed, "Unable to determine the cloud environment for the service connection.");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not connected to restricted cloud environments.");
+            $serviceConnectionEnvironment = $this.ServiceEndpointsObj.data.environment
+            #check if the current environment is in list of restricted environments
+            if ($disallowedEnvironments -contains $serviceConnectionEnvironment) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Service connection is connected to restricted cloud environment: $serviceConnectionEnvironment");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not connected to restricted cloud environments.");
+                }
             }
+        }
+        else {
+            $controlResult.AddMessage([VerificationResult]::Passed, "No restricted cloud environments were configured in control settings.");
         }
         return $controlResult;
     }
