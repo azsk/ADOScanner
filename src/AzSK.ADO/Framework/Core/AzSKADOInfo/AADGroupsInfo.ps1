@@ -42,8 +42,8 @@ class AADGroupsInfo: CommandBase
 			$AADgroupsCSV.FileExtension = 'csv'
 			$AADgroupsCSV.FolderPath = ''
 			#$AADgroupsCSV.MessageData = $this.aadGroupsList| Select-Object -Property IdentityId, PrincipalName, SubjectKind, IsAADgroup, Domain, DisplayName, OriginId
-            $AADgroupsCSV.MessageData = $this.aadGroupsList| Select-Object -Property IdentityId
-            $this.PublishAzSKRootEvent([AzSKRootEvent]::WriteCSV, $AADgroupsCSV);
+			$AADgroupsCSV.MessageData = $this.aadGroupsList| Select-Object -Property IdentityId
+			$this.PublishAzSKRootEvent([AzSKRootEvent]::WriteCSV, $AADgroupsCSV);
             
 			$this.PublishCustomMessage("Total number of AAD groups found: $groupCount", [MessageType]::Warning);
         }
