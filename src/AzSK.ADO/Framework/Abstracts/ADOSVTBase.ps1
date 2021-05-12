@@ -177,6 +177,8 @@ class ADOSVTBase: SVTBase {
 								if ($approvedExceptionsControlList -contains $controlState.ControlId) {
 									$validatePreviousAttestation = $false
 									Write-Host "Per your org policy, this control now requires an associated approved exception id. Previous attestation has been invalidated." -ForegroundColor Yellow
+									#add to the dirty state list so that it can be removed later
+									$this.DirtyResourceStates += $childResourceState
 								}
 							}
 						}
@@ -275,6 +277,15 @@ class ADOSVTBase: SVTBase {
 		try {
 			#For exempt controls, either the no. of days for expiry were provided at the time of attestation or a default of 6 motnhs was already considered,
 			#therefore skipping this flow and calculating days directly using the expiry date already saved.
+			$isApprovedExceptionEnforced = $false
+			$approvedExceptionControlsList = @();
+			if ([Helpers]::CheckMember($this.ControlSettings, "EnforceApprovedException") -and ($this.ControlSettings.EnforceApprovedException -eq $true)) {
+				if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings") -and (($this.ControlSettings.ApprovedExceptionSettings.ControlsList | Measure-Object).Count -gt 0)) {
+					$isApprovedExceptionEnforced = $true
+					$approvedExceptionControlsList = $this.ControlSettings.ApprovedExceptionSettings.ControlsList
+				}
+			}
+			
 			if ($controlState.AttestationStatus -ne [AttestationStatus]::ApprovedException) {
 				#Get controls expiry period. Default value is zero
 				$controlAttestationExpiry = $eventcontext.controlItem.AttestationExpiryPeriodInDays
@@ -295,6 +306,7 @@ class ADOSVTBase: SVTBase {
 					$defaultAttestationExpiryInDays = $this.ControlSettings.AttestationExpiryPeriodInDays.Default
 				}
 				#Expiry in the case of WillFixLater or StateConfirmed/Recurring Attestation state will be based on Control Severity.
+				# Checking if the resource id is present in extended expiry list of control settings
 				if ($controlState.AttestationStatus -eq [AttestationStatus]::NotAnIssue -or $controlState.AttestationStatus -eq [AttestationStatus]::NotApplicable) {
 					$expiryInDays = $defaultAttestationExpiryInDays;
 				}
@@ -344,6 +356,20 @@ class ADOSVTBase: SVTBase {
 				# $expiryDate = [DateTime]$controlState.State.ExpiryDate
 				# #Adding 1 explicitly to the days since the differnce below excludes the expiryDate and that also needs to be taken into account.
 				$expiryInDays = ($expiryDate - $controlState.State.AttestedDate).Days + 1
+			}
+
+			if (($controlState.AttestationStatus -eq [AttestationStatus]::ApprovedException) -or ( $isApprovedExceptionEnforced -and $approvedExceptionControlsList -contains $controlState.ControlId)) {
+				$expiryInDays = $this.ControlSettings.DefaultAttestationPeriodForExemptControl
+			}
+			elseif([Helpers]::CheckMember($this.ControlSettings, "ExtendedAttestationExpiryResources") -and [Helpers]::CheckMember($this.ControlSettings, "ExtendedAttestationExpiryDuration")){
+				# Checking if the resource id is present in extended expiry list of control settings
+				if(($this.ControlSettings.ExtendedAttestationExpiryResources | Get-Member "ResourceType") -and ($this.ControlSettings.ExtendedAttestationExpiryResources | Get-Member "ResourceIds")) {
+					$extendedResources = $this.ControlSettings.ExtendedAttestationExpiryResources | Where { $_.ResourceType -match $eventcontext.FeatureName }
+					# type null check
+					if(($extendedResources | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($extendedResources, "ResourceIds") -and $controlState.ResourceId -in $extendedResources.ResourceIds){
+						$expiryInDays = $this.ControlSettings.ExtendedAttestationExpiryDuration;
+					}
+				}
 			}
 		}
 		catch {
