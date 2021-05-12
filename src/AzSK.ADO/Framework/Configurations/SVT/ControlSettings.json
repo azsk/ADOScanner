@@ -269,6 +269,7 @@
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
   "Organization": {
+    "DisallowedEnvironments" : [],
     "InactiveUserActivityLogsPeriodInDays": 90,
     "TopInactiveUserCount": 100,
     "KnownExtensionPublishers": [
