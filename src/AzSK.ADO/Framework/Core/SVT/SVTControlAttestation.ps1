@@ -282,7 +282,6 @@ class SVTControlAttestation
 					$controlState.State.ApprovedExceptionID = $this.attestOptions.ApprovedExceptionID
 					$controlState.State.ExpiryDate = $exceptionApprovalExpiryDate.ToString("MM/dd/yyyy");
 				}
-
 				break;
 			}
 			"2" #Clear Attestation
@@ -406,7 +405,6 @@ class SVTControlAttestation
 					$controlState.State.ApprovedExceptionID = $this.attestOptions.ApprovedExceptionID
 					$controlState.State.ExpiryDate = $exceptionApprovalExpiryDate.ToString("MM/dd/yyyy");
 				}
-		
 			}
 			#if attestation state provided in command parameter is not valid for the control then print warning
 			else
