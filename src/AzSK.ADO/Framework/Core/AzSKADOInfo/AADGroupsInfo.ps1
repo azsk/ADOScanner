@@ -38,11 +38,11 @@ class AADGroupsInfo: CommandBase
 
             $AADgroupsCSV = New-Object -TypeName WriteCSVData
             $timestamp =(Get-Date -format "yyMMddHHmmss")
-			$AADgroupsCSV.FileName = 'AAD_Groups'+ $timestamp
+			$AADgroupsCSV.FileName = 'AAD_Groups_'+ $timestamp
 			$AADgroupsCSV.FileExtension = 'csv'
 			$AADgroupsCSV.FolderPath = ''
-			$AADgroupsCSV.MessageData = $this.aadGroupsList| Select-Object -Property IdentityId, PrincipalName, SubjectKind, IsAADgroup, Domain, DisplayName, OriginId
-
+			#$AADgroupsCSV.MessageData = $this.aadGroupsList| Select-Object -Property IdentityId, PrincipalName, SubjectKind, IsAADgroup, Domain, DisplayName, OriginId
+            $AADgroupsCSV.MessageData = $this.aadGroupsList| Select-Object -Property IdentityId
             $this.PublishAzSKRootEvent([AzSKRootEvent]::WriteCSV, $AADgroupsCSV);
             
 			$this.PublishCustomMessage("Total number of AAD groups found: $groupCount", [MessageType]::Warning);
