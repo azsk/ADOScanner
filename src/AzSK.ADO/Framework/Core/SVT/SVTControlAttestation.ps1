@@ -178,12 +178,12 @@ class SVTControlAttestation
 						$approvedExceptionPromptMessage = ""
 						if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings")) {
 							if ($controlState.AttestationStatus -eq [AttestationStatus]::ApprovedException) {
-								if (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage)) {
+								if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings.ApprovedExceptionPromptMessage") -and (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage))) {
 									$approvedExceptionPromptMessage = $this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage
 								}
 							}
 							else {
-								if (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ByDesignExceptionPromptMessage)) {
+								if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings.ByDesignExceptionPromptMessage") -and (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ByDesignExceptionPromptMessage))) {
 									$approvedExceptionPromptMessage = $this.ControlSettings.ApprovedExceptionSettings.ByDesignExceptionPromptMessage
 								}
 							}
@@ -461,12 +461,12 @@ class SVTControlAttestation
 					        $approvedExceptionPromptMessage = ""
 					        if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings")) {
 						        if ($this.attestOptions.AttestationStatus -eq "ApprovedException") {
-							        if (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage)) {
+							        if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings.ApprovedExceptionPromptMessage") -and (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage))) {
 								        $approvedExceptionPromptMessage = $this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage
 							        }
 						        }
 						        else {
-							        if (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ByDesignExceptionPromptMessage)) {
+							        if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings.ByDesignExceptionPromptMessage") -and (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ByDesignExceptionPromptMessage))) {
 								        $approvedExceptionPromptMessage = $this.ControlSettings.ApprovedExceptionSettings.ByDesignExceptionPromptMessage
 							        }
 						        }
