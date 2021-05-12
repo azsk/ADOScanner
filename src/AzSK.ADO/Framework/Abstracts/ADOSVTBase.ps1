@@ -198,13 +198,46 @@ class ADOSVTBase: SVTBase {
 										try {
 											# Objects match, change result based on attestation status
 											if ($eventContext.ControlItem.AttestComparisionType -and $eventContext.ControlItem.AttestComparisionType -eq [ComparisionType]::NumLesserOrEqual) {
+												$dataObjMatched = $false
 												if ([Helpers]::CompareObject($childResourceState.State.DataObject, $currentStateDataObject, $true, $eventContext.ControlItem.AttestComparisionType)) {
+													$dataObjMatched = $true
+												}
+												if (-not $dataObjMatched)
+												{
+													#In Linux env base24 encoding is different from that in Windows. Therefore doing a comparison of decoded data object as fallback
+													$decodedAttestedDataObj = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($childResourceState.State.DataObject))  | ConvertFrom-Json
+													$decodedCurrentDataObj = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($currentStateDataObject))  | ConvertFrom-Json
+													$comparison = Compare-Object $decodedAttestedDataObj $decodedCurrentDataObj
+													if ([String]::IsNullOrEmpty($comparison))
+													{
+														$dataObjMatched = $true
+													}
+												}
+												if ($dataObjMatched)
+												{
 													$this.ModifyControlResult($currentItem, $childResourceState);
 												}
 
 											}
 											else {
+												$dataObjMatched = $false
 												if ([Helpers]::CompareObject($childResourceState.State.DataObject, $currentStateDataObject, $true)) {
+													#$this.ModifyControlResult($currentItem, $childResourceState);
+													$dataObjMatched = $true
+												}
+												if (-not $dataObjMatched)
+												{
+													#In Linux env base24 encoding is different from that in Windows. Therefore doing a comparison of decoded data object as fallback
+													$decodedAttestedDataObj = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($childResourceState.State.DataObject))  | ConvertFrom-Json
+													$decodedCurrentDataObj = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($currentStateDataObject))  | ConvertFrom-Json
+													$comparison = Compare-Object $decodedAttestedDataObj $decodedCurrentDataObj
+													if ([String]::IsNullOrEmpty($comparison))
+													{
+														$dataObjMatched = $true
+													}
+												}
+												if ($dataObjMatched)
+												{
 													$this.ModifyControlResult($currentItem, $childResourceState);
 												}
 											}
