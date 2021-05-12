@@ -283,17 +283,6 @@ class SVTControlAttestation
 					$controlState.State.ExpiryDate = $exceptionApprovalExpiryDate.ToString("MM/dd/yyyy");
 				}
 
-				# Checking if the resource id is present in extended expiry list of control settings
-				if([Helpers]::CheckMember($this.ControlSettings, "ExtendedAttestationExpiryResources") -and [Helpers]::CheckMember($this.ControlSettings, "ExtendedAttestationExpiryDuration")){
-					if(($this.ControlSettings.ExtendedAttestationExpiryResources | Get-Member "ResourceType") -and ($this.ControlSettings.ExtendedAttestationExpiryResources | Get-Member "ResourceIds")) {
-						$extendedResources = $this.ControlSettings.ExtendedAttestationExpiryResources | Where { $_.ResourceType -match $controlItem.ResourceContext.ResourceTypeName }
-						# type null check
-						if(($extendedResources | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($extendedResources, "ResourceIds") -and $controlState.ResourceId -in $extendedResources.ResourceIds){
-							$controlState.State.ExpiryDate = $controlState.State.AttestedDate.AddDays($this.ControlSettings.ExtendedAttestationExpiryDuration);
-						}
-					}
-				}
-
 				break;
 			}
 			"2" #Clear Attestation
@@ -352,81 +341,71 @@ class SVTControlAttestation
 			if( $this.attestOptions.AttestationStatus -in $ValidAttestationStatesHashTable.Name)
 			{
 
-						$controlState.AttestationStatus = $this.attestOptions.AttestationStatus;
-						$controlState.EffectiveVerificationResult = [Helpers]::EvaluateVerificationResult($controlState.ActualVerificationResult,$controlState.AttestationStatus);
+				$controlState.AttestationStatus = $this.attestOptions.AttestationStatus;
+				$controlState.EffectiveVerificationResult = [Helpers]::EvaluateVerificationResult($controlState.ActualVerificationResult,$controlState.AttestationStatus);
 
-						#In case when the user selects ApprovedException as the reason for attesting,
-						#they'll be prompted to provide the number of days till that approval expires.
-						$exceptionApprovalExpiryDate = ""
-						if($controlState.AttestationStatus -eq "ApprovedException" -or ($this.isApprovedExceptionEnforced -and ($this.approvedExceptionControlsList -contains $controlState.ControlId)))
+				#In case when the user selects ApprovedException as the reason for attesting,
+				#they'll be prompted to provide the number of days till that approval expires.
+				$exceptionApprovalExpiryDate = ""
+				if($controlState.AttestationStatus -eq "ApprovedException" -or ($this.isApprovedExceptionEnforced -and ($this.approvedExceptionControlsList -contains $controlState.ControlId)))
+				{
+					$expiryPeriod = $this.ControlSettings.DefaultAttestationPeriodForExemptControl
+					if([string]::IsNullOrWhiteSpace($this.attestOptions.ApprovedExceptionExpiryDate))
+					{
+						$exceptionApprovalExpiryDate =  ([DateTime]::UtcNow).AddDays($expiryPeriod)
+					}
+					else{
+
+						try
 						{
-							$expiryPeriod = $this.ControlSettings.DefaultAttestationPeriodForExemptControl
-							if([string]::IsNullOrWhiteSpace($this.attestOptions.ApprovedExceptionExpiryDate))
+							$maxAllowedExceptionApprovalExpiryDate = ([DateTime]::UtcNow).AddDays($expiryPeriod)
+							[datetime]$proposedExceptionApprovalExpiryDate = $this.attestOptions.ApprovedExceptionExpiryDate
+							#([DateTime]::UtcNow).AddDays($numberOfDays)
+
+							if($proposedExceptionApprovalExpiryDate -le [DateTime]::UtcNow)
 							{
-								$exceptionApprovalExpiryDate =  ([DateTime]::UtcNow).AddDays($expiryPeriod)
+								Write-Host "ExpiryDate should be greater than current date. To attest control using 'ApprovedException' status use '-ApprovedExceptionExpiryDate' parameter to specify the expiry date. Please provide this param in the command with mm/dd/yy date format. For example: -ApprovedExceptionExpiryDate '11/25/20'" -ForegroundColor Yellow;
+								break;
 							}
-							else{
-
-								try
-								{
-									$maxAllowedExceptionApprovalExpiryDate = ([DateTime]::UtcNow).AddDays($expiryPeriod)
-									[datetime]$proposedExceptionApprovalExpiryDate = $this.attestOptions.ApprovedExceptionExpiryDate
-									#([DateTime]::UtcNow).AddDays($numberOfDays)
-
-									if($proposedExceptionApprovalExpiryDate -le [DateTime]::UtcNow)
-									{
-										Write-Host "ExpiryDate should be greater than current date. To attest control using 'ApprovedException' status use '-ApprovedExceptionExpiryDate' parameter to specify the expiry date. Please provide this param in the command with mm/dd/yy date format. For example: -ApprovedExceptionExpiryDate '11/25/20'" -ForegroundColor Yellow;
-										break;
-									}
-									elseif($proposedExceptionApprovalExpiryDate -gt $maxAllowedExceptionApprovalExpiryDate)
-									{
-										Write-Host "`nNote: The exception approval expiry will be set to $($expiryPeriod) days from today.`n"  -ForegroundColor Yellow
-										$exceptionApprovalExpiryDate = $maxAllowedExceptionApprovalExpiryDate
-									}
-									else
-									{
-										$exceptionApprovalExpiryDate = $proposedExceptionApprovalExpiryDate
-									}
-								}
-								catch
-								{
-									Write-Host "`nThe date needs to be in  mm/dd/yy format. For example: 11/25/20." -ForegroundColor Red
-							        Write-Host "`Skipping the attestation for this instance." -ForegroundColor Red
-                                    break;
-								}
+							elseif($proposedExceptionApprovalExpiryDate -gt $maxAllowedExceptionApprovalExpiryDate)
+							{
+								Write-Host "`nNote: The exception approval expiry will be set to $($expiryPeriod) days from today.`n"  -ForegroundColor Yellow
+								$exceptionApprovalExpiryDate = $maxAllowedExceptionApprovalExpiryDate
+							}
+							else
+							{
+								$exceptionApprovalExpiryDate = $proposedExceptionApprovalExpiryDate
 							}
 						}
-						if($null -ne $controlResult.StateManagement -and $null -ne $controlResult.StateManagement.CurrentStateData)
+						catch
 						{
-							$controlState.State = $controlResult.StateManagement.CurrentStateData;
+							Write-Host "`nThe date needs to be in  mm/dd/yy format. For example: 11/25/20." -ForegroundColor Red
+							Write-Host "`Skipping the attestation for this instance." -ForegroundColor Red
+							break;
 						}
+					}
+				}
+				if($null -ne $controlResult.StateManagement -and $null -ne $controlResult.StateManagement.CurrentStateData)
+				{
+					$controlState.State = $controlResult.StateManagement.CurrentStateData;
+				}
 
-						if($null -eq $controlState.State)
-						{
-							$controlState.State = [StateData]::new();
-						}
-						$this.dirtyCommitState = $true
-						$controlState.State.AttestedBy = [ContextHelper]::GetCurrentSessionUser();
-						$controlState.State.AttestedDate = [DateTime]::UtcNow;
-						$controlState.State.Justification = $this.attestOptions.JustificationText
+				if($null -eq $controlState.State)
+				{
+					$controlState.State = [StateData]::new();
+				}
+				$this.dirtyCommitState = $true
+				$controlState.State.AttestedBy = [ContextHelper]::GetCurrentSessionUser();
+				$controlState.State.AttestedDate = [DateTime]::UtcNow;
+				$controlState.State.Justification = $this.attestOptions.JustificationText
 
-						#In case of control exemption, calculating the exception approval(attestation) expiry date beforehand,
-						#based on the days entered by the user (default 6 months)
-						if($controlState.AttestationStatus -eq [AttestationStatus]::ApprovedException -or ($this.isApprovedExceptionEnforced -and ($this.approvedExceptionControlsList -contains $controlState.ControlId)))
-						{
-							$controlState.State.ApprovedExceptionID = $this.attestOptions.ApprovedExceptionID
-							$controlState.State.ExpiryDate = $exceptionApprovalExpiryDate.ToString("MM/dd/yyyy");
-						}
-						# Checking if the resource id is present in extended expiry list of control settings
-						if([Helpers]::CheckMember($this.ControlSettings, "ExtendedAttestationExpiryResources") -and [Helpers]::CheckMember($this.ControlSettings, "ExtendedAttestationExpiryDuration")){
-							if(($this.ControlSettings.ExtendedAttestationExpiryResources | Get-Member "ResourceType") -and ($this.ControlSettings.ExtendedAttestationExpiryResources | Get-Member "ResourceIds")) {
-								$extendedResources = $this.ControlSettings.ExtendedAttestationExpiryResources | Where { $_.ResourceType -match $controlItem.ResourceContext.ResourceTypeName }
-								# type null check
-								if(($extendedResources | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($extendedResources, "ResourceIds") -and $controlState.ResourceId -in $extendedResources.ResourceIds){
-									$controlState.State.ExpiryDate = $controlState.State.AttestedDate.AddDays($this.ControlSettings.ExtendedAttestationExpiryDuration);
-								}
-							}
-						}
+				#In case of control exemption, calculating the exception approval(attestation) expiry date beforehand,
+				#based on the days entered by the user (default 6 months)
+				if($controlState.AttestationStatus -eq [AttestationStatus]::ApprovedException -or ($this.isApprovedExceptionEnforced -and ($this.approvedExceptionControlsList -contains $controlState.ControlId)))
+				{
+					$controlState.State.ApprovedExceptionID = $this.attestOptions.ApprovedExceptionID
+					$controlState.State.ExpiryDate = $exceptionApprovalExpiryDate.ToString("MM/dd/yyyy");
+				}
 		
 			}
 			#if attestation state provided in command parameter is not valid for the control then print warning
