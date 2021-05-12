@@ -177,6 +177,8 @@ class ADOSVTBase: SVTBase {
 								if ($approvedExceptionsControlList -contains $controlState.ControlId) {
 									$validatePreviousAttestation = $false
 									Write-Host "Per your org policy, this control now requires an associated approved exception id. Previous attestation has been invalidated." -ForegroundColor Yellow
+									#add to the dirty state list so that it can be removed later
+									$this.DirtyResourceStates += $childResourceState
 								}
 							}
 						}
@@ -345,15 +347,6 @@ class ADOSVTBase: SVTBase {
 						#Return -1 when expiry is not defined
 						else {
 							$expiryInDays = -1
-						}
-					}
-				}
-				if ([Helpers]::CheckMember($this.ControlSettings, "ExtendedAttestationExpiryResources") -and [Helpers]::CheckMember($this.ControlSettings, "ExtendedAttestationExpiryDuration")) {
-					if (($this.ControlSettings.ExtendedAttestationExpiryResources | Get-Member "ResourceType") -and ($this.ControlSettings.ExtendedAttestationExpiryResources | Get-Member "ResourceIds")) {
-						$extendedResources = $this.ControlSettings.ExtendedAttestationExpiryResources | Where { $_.ResourceType -match $controlState.FeatureName }
-						# type null check
-						if (($extendedResources | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($extendedResources, "ResourceIds") -and $controlState.ResourceId -in $extendedResources.ResourceIds) {
-							$expiryInDays = $this.ControlSettings.ExtendedAttestationExpiryDuration;
 						}
 					}
 				}
