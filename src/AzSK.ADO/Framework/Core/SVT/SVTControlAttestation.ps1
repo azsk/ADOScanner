@@ -395,8 +395,8 @@ class SVTControlAttestation
 								catch
 								{
 									Write-Host "`nThe date needs to be in  mm/dd/yy format. For example: 11/25/20." -ForegroundColor Red
-							        Write-Host "`Skipping the attestation for this instance." -ForegroundColor Red
-                                    break;
+									Write-Host "`Skipping the attestation for this instance." -ForegroundColor Red
+									break;
 								}
 							}
 						}
