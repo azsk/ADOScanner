@@ -210,37 +210,41 @@ class ControlStateExtension
 				else {
 				    $indexes += $this.ControlStateIndexer
 				}
-				$hashId = [ControlStateExtension]::ComputeHashX($id)
-				$selectedIndex = $indexes | Where-Object { $_.HashId -eq $hashId}
-				
-				if(($selectedIndex | Measure-Object).Count -gt 0)
+
+				if ($indexes)
 				{
-					$hashId = $selectedIndex.HashId | Select-Object -Unique
-					$controlStateBlobName = $hashId + ".json"
-
-					$ControlStatesJson = $null;
-					#Fetch attestation file content from repository
-					$ControlStatesJson = $this.GetRepoFileContent($controlStateBlobName)
-					if($ControlStatesJson )
+					$hashId = [ControlStateExtension]::ComputeHashX($id)
+					$selectedIndex = $indexes | Where-Object { $_.HashId -eq $hashId}
+				
+					if(($selectedIndex | Measure-Object).Count -gt 0)
 					{
-				    	$retVal = $true;
-					}
-					else {
-					    $retVal = $false;
-					}
+						$hashId = $selectedIndex.HashId | Select-Object -Unique
+						$controlStateBlobName = $hashId + ".json"
 
-					#$ControlStatesJson = Get-ChildItem -Path (Join-Path $AzSKTemp $controlStateBlobName) -Force | Get-Content | ConvertFrom-Json 
-					if($null -ne $ControlStatesJson)
-					{					
-						$ControlStatesJson | ForEach-Object {
-							try
-							{
-								$controlState = [ControlState] $_
-								$controlStates += $controlState;								
-							}
-							catch 
-							{
-								[EventBase]::PublishGenericException($_);
+						$ControlStatesJson = $null;
+						#Fetch attestation file content from repository
+						$ControlStatesJson = $this.GetRepoFileContent($controlStateBlobName)
+						if($ControlStatesJson )
+						{
+							$retVal = $true;
+						}
+						else {
+							$retVal = $false;
+						}
+
+						#$ControlStatesJson = Get-ChildItem -Path (Join-Path $AzSKTemp $controlStateBlobName) -Force | Get-Content | ConvertFrom-Json 
+						if($null -ne $ControlStatesJson)
+						{					
+							$ControlStatesJson | ForEach-Object {
+								try
+								{
+									$controlState = [ControlState] $_
+									$controlStates += $controlState;								
+								}
+								catch 
+								{
+									[EventBase]::PublishGenericException($_);
+								}
 							}
 						}
 					}
