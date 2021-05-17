@@ -37,6 +37,9 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if($invocationContext.BoundParameters["AutoBugLog"]){
 			$this.IsBugLoggingEnabled = $true; 
 		}
+		if($invocationContext.BoundParameters["UseGraphAccess"]){
+			[IdentityHelpers]::useGraphAccess = $true; 
+		}
 		[PartialScanManager]::ClearInstance();
 		$this.BaselineFilterCheck();
 		$this.UsePartialCommitsCheck();

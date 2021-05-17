@@ -135,13 +135,13 @@ function Install-AzSKADOContinuousAssurance
         
 		[Parameter(Mandatory = $true, ParameterSetName = "OAuthBasedCA")]
 		[Alias("oai")]
-		[string]
+		[System.Security.SecureString]
 		$OAuthAppId,
 
 		[Parameter(Mandatory = $true, ParameterSetName = "OAuthBasedCA")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("csec")]
-		[string]
+		[System.Security.SecureString]
 		$ClientSecret,
 
 		[Parameter(Mandatory = $true, ParameterSetName = "OAuthBasedCA")]
@@ -263,6 +263,11 @@ function Update-AzSKADOContinuousAssurance
 		[Alias("ptu")]
 		[string]
 		$PATTokenURL,
+        
+		[Parameter(Mandatory = $false, ParameterSetName = "Default")]
+		[Alias("oai")]
+		[switch]
+		$RefreshOAuthToken,
 
 		[Parameter(Mandatory = $false, ParameterSetName = "Default", HelpMessage="Resource group name where CA setup is available. (Default : ADOScannerRG)")]
 		[string]
@@ -359,7 +364,7 @@ function Update-AzSKADOContinuousAssurance
                                                     $AltLAWSId, $AltLAWSSharedKey, $ProjectName, $ExtendedCommand, `
                                                     $WebhookUrl, $WebhookAuthZHeaderName, $WebhookAuthZHeaderValue, $AllowSelfSignedWebhookCertificate, `
                                                     $RsrcTimeStamp, $ContainerImageName, $ModuleEnv, $UseDevTestImage, $TriggerNextScanInMin, `
-                                                    $ScanIntervalInHours, $ClearExtendedCommand, $PSCmdlet.MyInvocation);
+                                                    $ScanIntervalInHours, $ClearExtendedCommand, $RefreshOAuthToken, $PSCmdlet.MyInvocation);
             
                     return $caAccount.InvokeFunction($caAccount.UpdateAzSKADOContinuousAssurance);
             }

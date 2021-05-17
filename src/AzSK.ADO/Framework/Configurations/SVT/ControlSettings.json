@@ -150,6 +150,13 @@
       "Low": 90
     }
   },
+  "ExtendedAttestationExpiryDuration": 180,
+  "ExtendedAttestationExpiryResources": [
+    {
+      "ResourceType": "",
+      "ResourceIds": []
+    }
+  ],
   "DefaultAttestationPeriodForExemptControl" : 180,
   "GroupsWithAttestPermission": [
     {
@@ -175,7 +182,7 @@
     "ControlsList": [],
     "InvalidatePreviousAttestations": false,
     "ApprovedExceptionPromptMessage": "",
-    "NonApprovedExceptionPromptMessage": "",
+    "ByDesignExceptionPromptMessage": "",
     "DefaultPromptMessage": "Refer the docs https://github.com/azsk/ADOScanner-docs to fetch the exception id."
   },
   "IsAllowLongRunningScan": true,
@@ -269,6 +276,7 @@
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
   "Organization": {
+    "DisallowedEnvironments" : [],
     "InactiveUserActivityLogsPeriodInDays": 90,
     "TopInactiveUserCount": 100,
     "KnownExtensionPublishers": [

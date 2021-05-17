@@ -345,6 +345,22 @@
         "AuthZ"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_Check_Inactive_Project",
+      "Description": "Projects with no development activity (no active builds, releases, repos, agent pools, service connections, etc.) should be deleted.",
+      "Id": "Project301",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckInactiveProject",
+      "Rationale": "Projects which have no activity are likely to be abandoned efforts. It is recommended to delete such projects to minimize exposure of corporate assets, credentials, etc.",
+      "Recommendation": "If the project is not active or no more required, it should be removed.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated"
+      ],
+      "Enabled": true
     }
   ]
 }

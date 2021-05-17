@@ -6,11 +6,13 @@ class UserInfo: CommandBase {
     hidden [string] $organizationName;
 	hidden [string] $userMail;
 	hidden [string] $projectName;
+	hidden $principleFlag;
 
-	UserInfo([string] $organizationName, [string] $userMail, [string] $ProjectName, [InvocationInfo] $invocationContext):
+	UserInfo([string] $organizationName, [string] $userMail, $principleFlag, [string] $ProjectName, [InvocationInfo] $invocationContext):
 	Base($organizationName, $invocationContext) {
         $this.organizationName = $organizationName;
 		$this.userMail = $userMail;
+		$this.principleFlag = $principleFlag;
 		$this.projectName = $ProjectName;
 	}
 
@@ -45,7 +47,7 @@ class UserInfo: CommandBase {
 		$userDescriptor = $this.GetUserDescriptor()
 		
 		if([string]::IsNullOrWhiteSpace($userDescriptor)) {
-			$this.PublishCustomMessage("Could not find the user in the organization. Please validate the principal name of the user.");
+			$this.PublishCustomMessage("Could not find the user in the organization. Please validate the principal name of the user.", [MessageType]::Warning);
 		}
 		else {
 			# fetching membership details
@@ -163,8 +165,84 @@ class UserInfo: CommandBase {
 					# [EventBase]::PublishGenericException($_);
 				}
 			}
+			$this.PublishCustomMessage([Constants]::DoubleDashLine)
+			$returnMsgs += [Constants]::DoubleDashLine;
+			# flag "$this.principleFlag: $true" if PrincipleName is not passed in the command.
+			# This will not execute if principle name is provided as PAT and OAuth details can not be fetched for others.
+			if($this.principleFlag) {
+				# fetching list of all pat tokens
+				$response = $null
+				$url = "https://vssps.dev.azure.com/$($this.organizationName)/_apis/tokenadmin/personalaccesstokens/$($userDescriptor)?api-version=6.0-preview.1"
+				try {
+					$response = [WebRequestHelper]::InvokeGetWebRequest($url);
+					if ([Helpers]::CheckMember($response[0], "displayName")) {
+						$formattedData = @()
+						$count = 0
+						foreach ($obj in $response) {
+							$formattedData += @{
+								DisplayName = $obj.displayName;
+								Scope = $obj.scope;
+								ValidFrom = $obj.validFrom;
+								ValidTo = $obj.validTo;
+								IsValid = $obj.isValid;
+								IsPublic = $obj.isPublic;
+							}
+							$count += 1;
+						}
+						$returnMsgs += [MessageData]::new("Total number of PAT Tokens of user [$($this.userMail)]: $($count)")
+						$this.PublishCustomMessage("Total number of PAT Tokens of user [$($this.userMail)]: $($count)")
+						$formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.DisplayName}}, @{Name="Scope"; Expression={$_.Scope}} | Out-String
+						$returnMsgs += $formattedData
+						$this.PublishCustomMessage($formattedData)
+					}
+					else {
+						$this.PublishCustomMessage("No PAT token found for the user [$($this.userMail)].")
+						$returnMsgs +=[MessageData]::new("No PAT token found for the user [$($this.userMail)].")
+					}
+				}
+				catch {
+					$this.PublishCustomMessage("Could not fetch the PAT tokens for the user [$($this.userMail)].", [MessageType]::Error)
+					# [EventBase]::PublishGenericException($_);
+				}
+				$this.PublishCustomMessage([Constants]::DoubleDashLine)
+				$returnMsgs += [Constants]::DoubleDashLine;
+				# fetching list of all authorized oauth apps
+				$url = "https://dev.azure.com/SafetiTestVSO/_usersSettings/authorizations?__rt=fps&__ver=2"
+				try {
+					$response = [WebRequestHelper]::InvokeGetWebRequest($url);
+					if ([Helpers]::CheckMember($response, "fps") -and [Helpers]::CheckMember($response.fps, "dataProviders") -and [Helpers]::CheckMember($response.fps.dataProviders, "data") -and $response.fps.dataProviders.data."ms.vss-admin-web.authorizations-view-data-provider" -and [Helpers]::CheckMember($response.fps.dataProviders.data."ms.vss-admin-web.authorizations-view-data-provider", "authorizations")) {
+						$authorizations = $response.fps.dataProviders.data."ms.vss-admin-web.authorizations-view-data-provider".authorizations;
+						$formattedData = @()
+						$count = 0
+						foreach ($obj in $authorizations) {
+							$formattedData += @{
+								RegistrationName = $obj.authorization.clientRegistration.registrationName;
+								RegistrationLocation = $obj.authorization.clientRegistration.registrationLocation;
+								OrganizationName = $obj.authorization.clientRegistration.organizationName;
+								Scopes = $obj.authorization.clientRegistration.scopes;
+								IsValid = $obj.authorization.clientRegistration.isValid;
+							}
+							$count += 1;
+						}
+						$returnMsgs += [MessageData]::new("Total number of authorized oauth apps of user [$($this.userMail)]: $($count)")
+						$this.PublishCustomMessage("Total number of authorized oauth apps of user [$($this.userMail)]: $($count)")
+						$formattedData = $formattedData | select-object @{Name="Registration Name"; Expression={$_.RegistrationName}}, @{Name="Registration Location"; Expression={$_.RegistrationLocation}}, @{Name="Organization Name"; Expression={$_.OrganizationName}}, @{Name="Scopes"; Expression={$_.Scopes}} | Out-String
+						$returnMsgs += $formattedData
+						$this.PublishCustomMessage($formattedData)
+					}
+					else {
+						$this.PublishCustomMessage("No OAuth app found for the user [$($this.userMail)].")
+						$returnMsgs +=[MessageData]::new("No OAuth app found for the user [$($this.userMail)].")
+
+					}
+				}
+				catch {
+					$this.PublishCustomMessage("Could not fetch the list of authorized oauth apps for the user [$($this.userMail)].", [MessageType]::Error)
+					# [EventBase]::PublishGenericException($_);
+				}
+			}
+			$this.PublishCustomMessage([Constants]::DoubleDashLine)
 		}
-		$this.PublishCustomMessage([Constants]::DoubleDashLine)
 		$returnMsgs += [Constants]::DoubleDashLine;
 		return $returnMsgs
 	}

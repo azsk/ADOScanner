@@ -177,56 +177,89 @@ class ADOSVTBase: SVTBase {
 								if ($approvedExceptionsControlList -contains $controlState.ControlId) {
 									$validatePreviousAttestation = $false
 									Write-Host "Per your org policy, this control now requires an associated approved exception id. Previous attestation has been invalidated." -ForegroundColor Yellow
+									#add to the dirty state list so that it can be removed later
+									$this.DirtyResourceStates += $childResourceState
 								}
 							}
 						}
 						# Skip passed ones from State Management
                         # Skip the validation if invalidatePreviousAttestations is enabled to true in control settings
 						if ($currentItem.ActualVerificationResult -ne [VerificationResult]::Passed) {
-                            if($validatePreviousAttestation -eq $true) {
-							    #compare the states
-							    if (($childResourceState.ActualVerificationResult -eq $currentItem.ActualVerificationResult) -and $childResourceState.State) {
+							#compare the states
+							if (($childResourceState.ActualVerificationResult -eq $currentItem.ActualVerificationResult) -and $childResourceState.State) {
 
-								    $currentItem.StateManagement.AttestedStateData = $childResourceState.State;
+								$currentItem.StateManagement.AttestedStateData = $childResourceState.State;
 
-								    # Compare dataobject property of State
-								    if ($null -ne $childResourceState.State.DataObject) {
-									    if ($currentItem.StateManagement.CurrentStateData -and $null -ne $currentItem.StateManagement.CurrentStateData.DataObject) {
-										    $currentStateDataObject = [JsonHelper]::ConvertToJsonCustom($currentItem.StateManagement.CurrentStateData.DataObject) | ConvertFrom-Json
+								# Compare dataobject property of State
+								if ($null -ne $childResourceState.State.DataObject) {
+									if ($currentItem.StateManagement.CurrentStateData -and $null -ne $currentItem.StateManagement.CurrentStateData.DataObject) {
+										$currentStateDataObject = [JsonHelper]::ConvertToJsonCustom($currentItem.StateManagement.CurrentStateData.DataObject) | ConvertFrom-Json
 
-										    try {
-											    # Objects match, change result based on attestation status
-											    if ($eventContext.ControlItem.AttestComparisionType -and $eventContext.ControlItem.AttestComparisionType -eq [ComparisionType]::NumLesserOrEqual) {
-												    if ([Helpers]::CompareObject($childResourceState.State.DataObject, $currentStateDataObject, $true, $eventContext.ControlItem.AttestComparisionType)) {
-													    $this.ModifyControlResult($currentItem, $childResourceState);
-												    }
+										try {
+											# Objects match, change result based on attestation status
+											if ($eventContext.ControlItem.AttestComparisionType -and $eventContext.ControlItem.AttestComparisionType -eq [ComparisionType]::NumLesserOrEqual) {
+												$dataObjMatched = $false
+												if ([Helpers]::CompareObject($childResourceState.State.DataObject, $currentStateDataObject, $true, $eventContext.ControlItem.AttestComparisionType)) {
+													$dataObjMatched = $true
+												}
+												if (-not $dataObjMatched)
+												{
+													#In Linux env base24 encoding is different from that in Windows. Therefore doing a comparison of decoded data object as fallback
+													$decodedAttestedDataObj = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($childResourceState.State.DataObject))  | ConvertFrom-Json
+													$decodedCurrentDataObj = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($currentStateDataObject))  | ConvertFrom-Json
+													$comparison = Compare-Object $decodedAttestedDataObj $decodedCurrentDataObj
+													if ([String]::IsNullOrEmpty($comparison))
+													{
+														$dataObjMatched = $true
+													}
+												}
+												if ($dataObjMatched)
+												{
+													$this.ModifyControlResult($currentItem, $childResourceState);
+												}
 
-											    }
-											    else {
-												    if ([Helpers]::CompareObject($childResourceState.State.DataObject, $currentStateDataObject, $true)) {
-													    $this.ModifyControlResult($currentItem, $childResourceState);
-												    }
-											    }
-										    }
-										    catch {
-											    $this.EvaluationError($_);
-										    }
-									    }
-								    }
-								    else {
-									    if ($currentItem.StateManagement.CurrentStateData) {
-										    if ($null -eq $currentItem.StateManagement.CurrentStateData.DataObject) {
-											    # No object is persisted, change result based on attestation status
-											    $this.ModifyControlResult($currentItem, $childResourceState);
-										    }
-									    }
-									    else {
-										    # No object is persisted, change result based on attestation status
-										    $this.ModifyControlResult($currentItem, $childResourceState);
-									    }
-								    }
-							    }
-						    }
+											}
+											else {
+												$dataObjMatched = $false
+												if ([Helpers]::CompareObject($childResourceState.State.DataObject, $currentStateDataObject, $true)) {
+													#$this.ModifyControlResult($currentItem, $childResourceState);
+													$dataObjMatched = $true
+												}
+												if (-not $dataObjMatched)
+												{
+													#In Linux env base24 encoding is different from that in Windows. Therefore doing a comparison of decoded data object as fallback
+													$decodedAttestedDataObj = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($childResourceState.State.DataObject))  | ConvertFrom-Json
+													$decodedCurrentDataObj = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($currentStateDataObject))  | ConvertFrom-Json
+													$comparison = Compare-Object $decodedAttestedDataObj $decodedCurrentDataObj
+													if ([String]::IsNullOrEmpty($comparison))
+													{
+														$dataObjMatched = $true
+													}
+												}
+												if ($dataObjMatched)
+												{
+													$this.ModifyControlResult($currentItem, $childResourceState);
+												}
+											}
+										}
+										catch {
+											$this.EvaluationError($_);
+										}
+									}
+								}
+								else {
+									if ($currentItem.StateManagement.CurrentStateData) {
+										if ($null -eq $currentItem.StateManagement.CurrentStateData.DataObject) {
+											# No object is persisted, change result based on attestation status
+											$this.ModifyControlResult($currentItem, $childResourceState);
+										}
+									}
+									else {
+										# No object is persisted, change result based on attestation status
+										$this.ModifyControlResult($currentItem, $childResourceState);
+									}
+								}
+							}
                         }
 						else {
 							#add to the dirty state list so that it can be removed later
@@ -275,6 +308,15 @@ class ADOSVTBase: SVTBase {
 		try {
 			#For exempt controls, either the no. of days for expiry were provided at the time of attestation or a default of 6 motnhs was already considered,
 			#therefore skipping this flow and calculating days directly using the expiry date already saved.
+			$isApprovedExceptionEnforced = $false
+			$approvedExceptionControlsList = @();
+			if ([Helpers]::CheckMember($this.ControlSettings, "EnforceApprovedException") -and ($this.ControlSettings.EnforceApprovedException -eq $true)) {
+				if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings") -and (($this.ControlSettings.ApprovedExceptionSettings.ControlsList | Measure-Object).Count -gt 0)) {
+					$isApprovedExceptionEnforced = $true
+					$approvedExceptionControlsList = $this.ControlSettings.ApprovedExceptionSettings.ControlsList
+				}
+			}
+			
 			if ($controlState.AttestationStatus -ne [AttestationStatus]::ApprovedException) {
 				#Get controls expiry period. Default value is zero
 				$controlAttestationExpiry = $eventcontext.controlItem.AttestationExpiryPeriodInDays
@@ -295,6 +337,7 @@ class ADOSVTBase: SVTBase {
 					$defaultAttestationExpiryInDays = $this.ControlSettings.AttestationExpiryPeriodInDays.Default
 				}
 				#Expiry in the case of WillFixLater or StateConfirmed/Recurring Attestation state will be based on Control Severity.
+				# Checking if the resource id is present in extended expiry list of control settings
 				if ($controlState.AttestationStatus -eq [AttestationStatus]::NotAnIssue -or $controlState.AttestationStatus -eq [AttestationStatus]::NotApplicable) {
 					$expiryInDays = $defaultAttestationExpiryInDays;
 				}
@@ -344,6 +387,20 @@ class ADOSVTBase: SVTBase {
 				# $expiryDate = [DateTime]$controlState.State.ExpiryDate
 				# #Adding 1 explicitly to the days since the differnce below excludes the expiryDate and that also needs to be taken into account.
 				$expiryInDays = ($expiryDate - $controlState.State.AttestedDate).Days + 1
+			}
+
+			if (($controlState.AttestationStatus -eq [AttestationStatus]::ApprovedException) -or ( $isApprovedExceptionEnforced -and $approvedExceptionControlsList -contains $controlState.ControlId)) {
+				$expiryInDays = $this.ControlSettings.DefaultAttestationPeriodForExemptControl
+			}
+			elseif([Helpers]::CheckMember($this.ControlSettings, "ExtendedAttestationExpiryResources") -and [Helpers]::CheckMember($this.ControlSettings, "ExtendedAttestationExpiryDuration")){
+				# Checking if the resource id is present in extended expiry list of control settings
+				if(($this.ControlSettings.ExtendedAttestationExpiryResources | Get-Member "ResourceType") -and ($this.ControlSettings.ExtendedAttestationExpiryResources | Get-Member "ResourceIds")) {
+					$extendedResources = $this.ControlSettings.ExtendedAttestationExpiryResources | Where { $_.ResourceType -match $eventcontext.FeatureName }
+					# type null check
+					if(($extendedResources | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($extendedResources, "ResourceIds") -and $controlState.ResourceId -in $extendedResources.ResourceIds){
+						$expiryInDays = $this.ControlSettings.ExtendedAttestationExpiryDuration;
+					}
+				}
 			}
 		}
 		catch {

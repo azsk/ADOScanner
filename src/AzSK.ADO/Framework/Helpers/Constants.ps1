@@ -180,7 +180,7 @@ class Constants
 	static [string] $ComplianceReportPath = [Constants]::AzSKAppFolderPath + "\TempState\ComplianceData"
 
 	static [string] $ServerConfigMetadataFileName = "ServerConfigMetadata.json"
-
+	static [int] $RefreshTokenExpiresInDays = 30
 
 	#Constants for ADO
 	static [string] $DefaultClientId = "872cd9fa-d31f-45e0-9eab-6e460a02d1f1"

@@ -178,13 +178,13 @@ class SVTControlAttestation
 						$approvedExceptionPromptMessage = ""
 						if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings")) {
 							if ($controlState.AttestationStatus -eq [AttestationStatus]::ApprovedException) {
-								if (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage)) {
+								if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings.ApprovedExceptionPromptMessage") -and (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage))) {
 									$approvedExceptionPromptMessage = $this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage
 								}
 							}
 							else {
-								if (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.NonApprovedExceptionPromptMessage)) {
-									$approvedExceptionPromptMessage = $this.ControlSettings.ApprovedExceptionSettings.NonApprovedExceptionPromptMessage
+								if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings.ByDesignExceptionPromptMessage") -and (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ByDesignExceptionPromptMessage))) {
+									$approvedExceptionPromptMessage = $this.ControlSettings.ApprovedExceptionSettings.ByDesignExceptionPromptMessage
 								}
 							}
 							if([string]::IsNullOrWhiteSpace($approvedExceptionPromptMessage)) {
@@ -193,16 +193,32 @@ class SVTControlAttestation
 							Write-Host $approvedExceptionPromptMessage -ForegroundColor Cyan
 						}
 					}
-					while ([string]::IsNullOrWhiteSpace($exceptionId)) {
-						$exceptionId = Read-Host "Please enter the approved exception id"
-						if ([string]::IsNullOrWhiteSpace($exceptionId)) {
-							Write-Host "Exception id is mandatory for approved exception." -ForegroundColor Red
+					if ($controlState.AttestationStatus -eq [AttestationStatus]::ApprovedException) {
+						while ([string]::IsNullOrWhiteSpace($exceptionId)) {
+							$exceptionId = Read-Host "Please enter the approved exception id"
+							if ([string]::IsNullOrWhiteSpace($exceptionId)) {
+								Write-Host "Exception id is mandatory for approved exception." -ForegroundColor Red
+							}
+							else {
+								$this.attestOptions.ApprovedExceptionID = $exceptionId
+								$Justification = "Exception id: $($exceptionId)"
+							}
 						}
-						else {
-							$this.attestOptions.ApprovedExceptionID = $exceptionId
-						}
+						$approvedExceptionExpiryDate = Read-Host "Please enter the approved exception expiry date (mm/dd/yy) [Optional] [Default is 180 days]"
 					}
-					$approvedExceptionExpiryDate = Read-Host "Please enter the approved exception expiry date (mm/dd/yy)"
+					else {
+						while ([string]::IsNullOrWhiteSpace($exceptionId)) {
+							$exceptionId = Read-Host "Please enter the attestation id"
+							if ([string]::IsNullOrWhiteSpace($exceptionId)) {
+								Write-Host "Attestation id is mandatory for by-design exception." -ForegroundColor Red
+							}
+							else {
+								$this.attestOptions.ApprovedExceptionID = $exceptionId
+								$Justification = "Attestation id: $($exceptionId)"
+							}
+						}
+						$approvedExceptionExpiryDate = Read-Host "Please enter the by-design exception expiry date (mm/dd/yy) [Optional] [Default is 180 days]"
+					}
 					$expiryPeriod = $this.ControlSettings.DefaultAttestationPeriodForExemptControl
 					if([string]::IsNullOrWhiteSpace($approvedExceptionExpiryDate))
 					{
@@ -379,8 +395,8 @@ class SVTControlAttestation
 								catch
 								{
 									Write-Host "`nThe date needs to be in  mm/dd/yy format. For example: 11/25/20." -ForegroundColor Red
-							        Write-Host "`Skipping the attestation for this instance." -ForegroundColor Red
-                                    break;
+									Write-Host "`Skipping the attestation for this instance." -ForegroundColor Red
+									break;
 								}
 							}
 						}
@@ -445,13 +461,13 @@ class SVTControlAttestation
 					        $approvedExceptionPromptMessage = ""
 					        if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings")) {
 						        if ($this.attestOptions.AttestationStatus -eq "ApprovedException") {
-							        if (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage)) {
+							        if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings.ApprovedExceptionPromptMessage") -and (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage))) {
 								        $approvedExceptionPromptMessage = $this.ControlSettings.ApprovedExceptionSettings.ApprovedExceptionPromptMessage
 							        }
 						        }
 						        else {
-							        if (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.NonApprovedExceptionPromptMessage)) {
-								        $approvedExceptionPromptMessage = $this.ControlSettings.ApprovedExceptionSettings.NonApprovedExceptionPromptMessage
+							        if ([Helpers]::CheckMember($this.ControlSettings, "ApprovedExceptionSettings.ByDesignExceptionPromptMessage") -and (-not [string]::IsNullOrWhiteSpace($this.ControlSettings.ApprovedExceptionSettings.ByDesignExceptionPromptMessage))) {
+								        $approvedExceptionPromptMessage = $this.ControlSettings.ApprovedExceptionSettings.ByDesignExceptionPromptMessage
 							        }
 						        }
 						        if([string]::IsNullOrWhiteSpace($approvedExceptionPromptMessage)) {
@@ -460,16 +476,32 @@ class SVTControlAttestation
 						        Write-Host $approvedExceptionPromptMessage -ForegroundColor Cyan
 					        }
 							# Try fetching the exception id from the user until he provides the value
-					        while ([string]::IsNullOrWhiteSpace($exceptionId)) {
-						        $exceptionId = Read-Host "Please enter the approved exception id"
-						        if ([string]::IsNullOrWhiteSpace($exceptionId)) {
-							        Write-Host "Exception id is mandatory for approved exception." -ForegroundColor Red
-						        }
-						        else {
-							        $this.attestOptions.ApprovedExceptionID = $exceptionId
-						        }
-					        }
-					        $approvedExceptionExpiryDate = Read-Host "Please enter the approved exception expiry date (mm/dd/yy)"
+							if ($this.attestOptions.AttestationStatus -eq "ApprovedException") {
+								while ([string]::IsNullOrWhiteSpace($exceptionId)) {
+									$exceptionId = Read-Host "Please enter the approved exception id"
+									if ([string]::IsNullOrWhiteSpace($exceptionId)) {
+										Write-Host "Exception id is mandatory for approved exception." -ForegroundColor Red
+									}
+									else {
+										$this.attestOptions.ApprovedExceptionID = $exceptionId
+										$Justification = "Exception id: $($exceptionId)"
+									}
+								}
+								$approvedExceptionExpiryDate = Read-Host "Please enter the approved exception expiry date (mm/dd/yy) [Optional] [Default is 180 days]"
+							}
+							else {
+								while ([string]::IsNullOrWhiteSpace($exceptionId)) {
+									$exceptionId = Read-Host "Please enter the attestation id"
+									if ([string]::IsNullOrWhiteSpace($exceptionId)) {
+										Write-Host "attestation id is mandatory for by-design exception." -ForegroundColor Red
+									}
+									else {
+										$this.attestOptions.ApprovedExceptionID = $exceptionId
+										$Justification = "Attestation id: $($exceptionId)"
+									}
+								}
+								$approvedExceptionExpiryDate = Read-Host "Please enter the by-design exception expiry date (mm/dd/yy) [Optional] [Default is 180 days]"
+							}
                             $this.attestOptions.ApprovedExceptionExpiryDate = $approvedExceptionExpiryDate
                         }
                     }

@@ -233,8 +233,8 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckForkedBuildTrigger",
-      "Rationale": "If you build public repositories from GitHub, you must consider your stance on fork builds. Forks are especially dangerous since they come from outside your organization. Secrets can be exposed outside your organization if they are made available to builds of forked repositories.",
-      "Recommendation": "1. Navigate to the build pipeline. -> 2. Triggers -> 3. Pull request validation -> 4. Forks -> 5. Uncheck 'Make secrets available to builds of forks'.",
+      "Rationale": "For GitHub public repositories, it is possible that people from outside the organization can create forks and run builds on the forked repo. In such a case, if this setting is wrongly left checked, outsiders can get access to build pipeline secrets that were meant to be internal.",
+      "Recommendation": "Steps to remediate: 1. Navigate to the build pipeline using resource link -> 2. Triggers -> 3. Pull request validation -> 4. Forks -> 5. Uncheck 'Make secrets available to builds of forks'.",
       "Tags": [
         "SDL",
         "TCP",

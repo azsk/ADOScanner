@@ -11,7 +11,7 @@ class Release: ADOSVTBase
     hidden static $IsOAuthScan = $false;
     hidden static [string] $securityNamespaceId = $null;
     hidden static [PSObject] $ReleaseVarNames = @{};
-    hidden [PSObject] $releaseActivityDetail = @{isReleaseActive = $true; latestReleaseTriggerDate = $null; releaseCreationDate = $null; message = $null; isComputed = $false};
+    hidden [PSObject] $releaseActivityDetail = @{isReleaseActive = $true; latestReleaseTriggerDate = $null; releaseCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     
     Release([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
@@ -215,7 +215,7 @@ class Release: ADOSVTBase
                             $varGrps | ForEach-Object {
                                 try
                                 {
-                                    $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $this.ProjectId, $_;
+                                    $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $this.ProjectId, $_;
                                     $varGrpObj += [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
                                 }
                                 catch
@@ -313,6 +313,10 @@ class Release: ADOSVTBase
             if ($this.releaseActivityDetail.message -eq 'Could not fetch release details.')
             {
                 $controlResult.AddMessage([VerificationResult]::Error, $this.releaseActivityDetail.message);
+                if ($null -ne $this.releaseActivityDetail.errorObject)
+                {
+                    $controlResult.LogException($this.releaseActivityDetail.errorObject)
+                }
             }
             elseif ($this.releaseActivityDetail.isReleaseActive)
             {
@@ -1343,11 +1347,15 @@ class Release: ADOSVTBase
                             $this.releaseActivityDetail.isReleaseActive = $false;
                             $this.releaseActivityDetail.message = "No recent release history found in last $($this.ControlSettings.Release.ReleaseHistoryPeriodInDays) days";
                         }
+                        $latestReleaseTriggerDate = [datetime]::Parse($release.createdOn);
+                        $this.releaseActivityDetail.latestReleaseTriggerDate = $latestReleaseTriggerDate;
                     }
                     else
                     {
                         $this.releaseActivityDetail.isReleaseActive = $false;
                         $this.releaseActivityDetail.message = "No release history found. Release is inactive.";
+                        [datetime] $createdDate = $this.ReleaseObj.createdOn
+                        $this.releaseActivityDetail.releaseCreationDate = $createdDate
                     }
     
                     $responseObj = $null;
@@ -1382,9 +1390,9 @@ class Release: ADOSVTBase
 
                 $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
 
-                if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider')
+                if([Helpers]::CheckMember($responseObj,"dataProviders") -and ($responseObj.dataProviders | Get-Member 'ms.vss-releaseManagement-web.releases-list-data-provider') -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider', 'releases'))
                 {
-
+                    
                     $releases = $responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider'.releases
 
                     if(($releases | Measure-Object).Count -gt 0 )
@@ -1433,6 +1441,7 @@ class Release: ADOSVTBase
         catch
         {
             $this.releaseActivityDetail.message = "Could not fetch release details.";
+            $this.releaseActivityDetail.errorObject = $_
         }
         $this.releaseActivityDetail.isComputed = $true
     }

@@ -184,8 +184,8 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckInactiveConnection",
-      "Rationale": "Each additional service connection being used by pipelines to access repositories increases the attack surface. To minimize this risk ensure that only active and legitimate service connections are present in organization.",
-      "Recommendation": "To remove inactive service connection, follow the steps given here: 1.Navigate to the service connection settings. 2. Select service connection. 3. Select three dots (present at right top). 4. Click on Delete.",
+      "Rationale": "Each additional service connection being used by pipelines to access repositories increases the attack surface. To minimize this risk ensure that only active and legitimate service connections are present in the organization.",
+      "Recommendation": "To remove inactive service connection: 1.Navigate to the service connection settings using resource link -> 2. Select service connection -> 3. Click on the three dots (top right) -> 4. Click on Delete.",
       "Tags": [
         "SDL",
         "Best Practice",
@@ -201,8 +201,8 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckCrossProjectSharing",
-      "Rationale": "If a service connection is shared across multiple projects, then a vulnerability in components used by one project can be leveraged by an attacker to attack other projects. This is also in keeping with the principle of least privilege.",
-      "Recommendation": "To remediate this, navigate to the service connections settings page for your project -> select your service connection from the list -> click Security -> Under 'Project Permissions', remove projects that service connection no more requires access to.",
+      "Rationale": "If a service connection is shared across multiple projects, then a user in another project can access data/components that they were otherwise not supposed to access. So, in keeping with principle of least privilege, it is best to limit access to the service connection to your (current) project.",
+      "Recommendation": "Steps to remediate: 1. Navigate to the service connection settings using resource link -> 2. Select service connection -> 3. Click Security -> 4. Under 'Project Permissions', remove projects that service connection no more requires access to.",
       "Tags": [
         "SDL",
         "TCP",
@@ -230,18 +230,34 @@
     },
     {
       "ControlID": "ADO_ServiceConnection_AuthZ_Review_Broader_Group_Access",
-      "Description": "Broader groups (contributors, project collection valid users etc.) should not have user/administrator privileges on service connection.",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not have user/administrator privileges on service connection.",
       "Id": "ServiceConnection240",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupAccess",
-      "Rationale": "Granting minimum access to broader groups ensures that users are granted just enough permissions on service connection to perform their tasks. This minimizes exposure of the resources in case of user account/service connection  compromise.",
+      "Rationale": "If the broader groups (e.g., Contributors) have edit permissions (Admin/User) on service connection, then integrity of your service connection can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/service connection compromise.",
       "Recommendation": "Go to Project Settings --> Pipelines --> Service connections --> Select your service connection --> Select Security --> Ensure broader groups have read-only access.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
         "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_ServiceConnection_Cannot_Use_Disallowed_Environment",
+      "Description": "Azure service connections to certain environments are not permitted from this org.",
+      "Id": "ServiceConnection250",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckRestricedCloudEnvironment",
+      "Rationale": "Service connection should not connect to restricted cloud environments to align with data sovereignty requirements and ensure their data and workloads stays in allowed cloud environments.",
+      "Recommendation": "(1) Review the environment of your service connection: Go to Project Settings --> Pipelines --> Service connections --> Select your service connection --> Click Edit (2) Remove the service connection if it is to disallowed environments (per details available in detailed control scan logs).",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated"
       ],
       "Enabled": true
     }
