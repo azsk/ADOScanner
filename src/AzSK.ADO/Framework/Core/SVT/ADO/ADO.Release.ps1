@@ -1445,4 +1445,103 @@ class Release: ADOSVTBase
         }
         $this.releaseActivityDetail.isComputed = $true
     }
+
+    hidden [ControlResult] CheckDPVariableGroup([ControlResult] $controlResult)
+    {
+        $varGrps = @();
+        $varGrpsWithSecret = @();
+
+        #add var groups scoped at release scope.
+        if((($this.ReleaseObj[0].variableGroups) | Measure-Object).Count -gt 0)
+        {
+            $varGrps += $this.ReleaseObj[0].variableGroups
+        }
+
+        # Each release pipeline has atleast 1 env.
+        $envCount = ($this.ReleaseObj[0].environments).Count
+
+        for($i=0; $i -lt $envCount; $i++)
+        {
+            if((($this.ReleaseObj[0].environments[$i].variableGroups) | Measure-Object).Count -gt 0)
+            {
+                $varGrps += $this.ReleaseObj[0].environments[$i].variableGroups
+            }
+        }
+        
+        if(($varGrps | Measure-Object).Count -gt 0)
+        {
+            try
+            {   
+                $varGrps | ForEach-Object {
+
+                    #Check if "allow access to all pipelines" is enabled on variable group
+                    $VarGrp = $_
+                    $varGrpAccessibleToAll = $false
+                    $url = 'https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=variablegroup&id={2}&api-version=6.0-preview.1' -f $($this.OrganizationContext.OrganizationName),$($this.projectid) ,$_;
+                    $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
+                    if((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0) -and ([Helpers]::CheckMember($responseObj[0],"authorized")) -and ($responseObj[0].authorized -eq $true))
+                    {
+                         $varGrpAccessibleToAll = $true
+                    }
+
+                    #If variable group is accessible to all pipelines check if it has secrets or is linked to key vault
+                    if( $varGrpAccessibleToAll -eq $true)
+                    {
+                        #Fetch variable group object
+                        $varGrpObj = @()
+                        try
+                        {
+                            $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $this.ProjectId, $_;
+                            $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
+                        }
+                        catch
+                        {
+                            $controlResult.LogException($_)
+                            #eat exception if api failure occurs
+                        }
+
+                        if ($varGrpObj.Type -eq 'AzureKeyVault')
+                        {
+                            $varGrpsWithSecret += $varGrpObj
+                        }
+                        else 
+                        {
+                            Get-Member -InputObject $varGrpObj.variables -MemberType Properties | ForEach-Object {
+                                if([Helpers]::CheckMember($varGrpObj.variables.$($_.Name),"isSecret") -and ($varGrpObj.variables.$($_.Name).isSecret -eq $true))
+                                {
+                                    $varGrpsWithSecret += $varGrpObj
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if(($varGrpsWithSecret | Measure-Object).Count -gt 0)
+                {
+                    $varGrpsWithSecret =  $varGrpsWithSecret | select-Object -Property Name, Type
+                    $controlResult.AddMessage("Total number of variable groups that are accessible to all pipleines and have secrets: ", ($varGrpsWithSecret | Measure-Object).Count);
+                    $controlResult.AdditionalInfo += "Total number of variable groups that are accessible to all pipleines and have secrets: " + ($varGrpsWithSecret | Measure-Object).Count;
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Release definition is using these variable groups that are accessible to all pipleines and have secrets: ", $varGrpsWithSecret);
+                    $controlResult.SetStateData("Release definition is using these variable groups that are accessible to all pipleines and have secrets: ", $varGrpsWithSecret); 
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Variable groups used in release definition is not accessible to all pipelines or does not contain secrets.");    
+                }
+            }
+            catch
+            {
+                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the RBAC details of variable groups used in the pipeline.");
+                $controlResult.LogException($_)
+            }
+             
+        }
+        else 
+        {
+            $controlResult.AddMessage([VerificationResult]::Passed,"No variable group found in release definition.");
+        }
+
+        return $controlResult
+    }
 }

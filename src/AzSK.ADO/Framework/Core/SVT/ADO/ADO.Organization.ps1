@@ -1893,4 +1893,90 @@ class Organization: ADOSVTBase
         }
         return $controlResult
     }
+
+    hidden [ControlResult] CheckInactiveGuestUsers([ControlResult] $controlResult)
+    {
+        try {
+            $topInactiveUsers = $this.ControlSettings.Organization.TopInactiveUserCount 
+            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
+            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+
+            if(($responseObj -ne $null) -and $responseObj.Count -gt 0 -and ([Helpers]::CheckMember($responseObj[0], 'members')))
+            {
+                $users =  @()
+                $inactiveGuestUsers = @()
+                $users += $responseObj[0].members
+                $continuationToken =  $responseObj[0].continuationToken # Use the continuationToken for pagination
+
+                while ($continuationToken -ne $null){
+                    $urlEncodedToken = [System.Web.HttpUtility]::UrlEncode($continuationToken)
+                    $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?continuationToken=$urlEncodedToken&%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
+                    try{
+                        $response = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                        $users += $response[0].members
+                        $continuationToken =  $responseObj[0].continuationToken
+                    }
+                    catch
+                    {
+                        # Eating the exception here as we could not fetch the further guest users
+                        $continuationToken = $null
+                        $controlResult.LogException($_)
+                    }
+                }
+                $users | ForEach-Object { 
+                    if([datetime]::Parse($_.lastAccessedDate) -lt ((Get-Date).AddDays(-$($this.ControlSettings.Organization.GuestUserInactivePeriodInDays))) -and [Helpers]::CheckMember($_.user,"metaType") -and $_.user.metaType -eq "Guest")
+                    {
+                        $inactiveGuestUsers+= $_
+                    }                
+                }
+                if(($inactiveGuestUsers | Measure-Object).Count -gt 0)
+                {
+                    if($inactiveGuestUsers.Count -ge $topInactiveUsers)
+                    {
+                        $controlResult.AddMessage("Displaying top $($topInactiveUsers) inactive users")
+                    }
+                    #If user account created and was never active, in this case lastaccessdate is default 01-01-0001
+                    $inactiveUsers = ($inactiveGuestUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="mailAddress"; Expression = {$_.User.mailAddress}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
+                    #set data for attestation
+                    $inactiveUsersStateData = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.Name}},@{Name="mailAddress"; Expression = {$_.mailAddress}})
+                    
+                    $inactiveUsersCount = ($inactiveUsers | Measure-Object).Count
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Total number of inactive guest users present in the organization: $($inactiveUsersCount)");
+                    $controlResult.AdditionalInfo += "Total number of inactive guest users present in the organization: " + $inactiveUsersCount;
+                    $controlResult.SetStateData("Inactive guest users list: ", $inactiveUsersStateData);
+
+                    # segregate never active users from the list
+                    $neverActiveUsers = $inactiveUsers | Where-Object {$_.InactiveFromDays -eq "User was never active."}
+                    $inactiveUsersWithDays = $inactiveUsers | Where-Object {$_.InactiveFromDays -ne "User was never active."} 
+
+                    $neverActiveUsersCount = ($neverActiveUsers | Measure-Object).Count
+                    if ($neverActiveUsersCount -gt 0) {
+                        $controlResult.AddMessage("`nTotal number of users who were never active: $($neverActiveUsersCount)");
+                        $controlResult.AddMessage("Review users present in the organization who were never active: ",$neverActiveUsers);
+                        $controlResult.AdditionalInfo += "Total number of users who were never active: " + $neverActiveUsersCount;
+                        $controlResult.AdditionalInfo += "List of users who were never active: " + [JsonHelper]::ConvertToJsonCustomCompressed($neverActiveUsers);
+                    } 
+                    
+                    $inactiveUsersWithDaysCount = ($inactiveUsersWithDays | Measure-Object).Count
+                    if($inactiveUsersWithDaysCount -gt 0) {
+                        $controlResult.AddMessage("`nTotal number of guest users who are inactive from last $($this.ControlSettings.Organization.GuestUserInactivePeriodInDays) days: $($inactiveUsersWithDaysCount)");                
+                        $controlResult.AddMessage("Review users present in the organization who are inactive from last $($this.ControlSettings.Organization.GuestUserInactivePeriodInDays) days: ",$inactiveUsersWithDays);
+                        $controlResult.AdditionalInfo += "Total number of guest users who are inactive from last $($this.ControlSettings.Organization.GuestUserInactivePeriodInDays) days: " + $inactiveUsersWithDaysCount;
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No inactive guest user found.")   
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "No inactive guest user found.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of guest users in the organization.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult;
+    }
 }

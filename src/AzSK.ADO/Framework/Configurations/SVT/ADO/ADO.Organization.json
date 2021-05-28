@@ -548,6 +548,23 @@
           "AuthN"
       ],
       "Enabled": true
-  }
+    },
+    {
+        "ControlID": "ADO_Organization_AuthZ_Inactive_Guest_Users",
+        "Description": "Consider revoking access for inactive external users in your organization.",
+        "Id": "Organization430",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckInactiveGuestUsers",
+        "Rationale": "Non-AD accounts (such as xyz@hotmail.com, pqr@outlook.com, etc.) present at any scope within a organization subject your assets to undue risk. These accounts are not managed to the same standards as enterprise tenant identities. They don't have multi-factor authentication enabled.",
+        "Recommendation": "Go to Organization Settings --> Users --> Filter 'AAD User Type' as 'Guest' --> Remove users with 'last access column' showing not accessed over $($this.ControlSettings.Organization.GuestUserInactivePeriodInDays) days",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthN"
+        ],
+        "Enabled": true
+      }
   ]
 }

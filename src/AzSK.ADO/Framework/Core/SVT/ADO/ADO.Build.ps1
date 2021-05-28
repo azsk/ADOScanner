@@ -1447,4 +1447,73 @@ class Build: ADOSVTBase
         }
         $this.buildActivityDetail.isComputed = $true
     }
+
+    hidden [ControlResult] CheckDPVariableGroup([ControlResult] $controlResult)
+    {
+        if([Helpers]::CheckMember($this.BuildObj[0],"variableGroups"))
+        {
+            $varGrps = $this.BuildObj[0].variableGroups
+            $projectId = $this.BuildObj.project.id
+            $varGrpsWithSecret = @();
+            try
+            {   
+                $varGrps | ForEach-Object {
+
+                    #Check if "allow access to all pipelines" is enabled on variable group
+                    $VarGrp = $_
+                    $varGrpAccessibleToAll = $false
+                    $url = 'https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=variablegroup&id={2}&api-version=6.0-preview.1' -f $($this.OrganizationContext.OrganizationName),$projectId ,$($VarGrp.Id);
+                    $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
+                    if((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0) -and ([Helpers]::CheckMember($responseObj[0],"authorized")) -and ($responseObj[0].authorized -eq $true))
+                    {
+                         $varGrpAccessibleToAll = $true
+                    }
+
+                    #If variable group is accessible to all pipelines check if it has secrets or is linked to key vault
+                    if( $varGrpAccessibleToAll -eq $true)
+                    {
+                        if ($_.Type -eq 'AzureKeyVault')
+                        {
+                            $varGrpsWithSecret += $VarGrp
+                        }
+                        else 
+                        {
+                            Get-Member -InputObject $_.variables -MemberType Properties | ForEach-Object {
+                                if([Helpers]::CheckMember($varGrp.variables.$($_.Name),"isSecret") -and ($varGrp.variables.$($_.Name).isSecret -eq $true))
+                                {
+                                    $varGrpsWithSecret += $VarGrp
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if(($varGrpsWithSecret | Measure-Object).Count -gt 0)
+                {
+                    $varGrpsWithSecret =  $varGrpsWithSecret | select-Object -Property Name, Type
+                    $controlResult.AddMessage("Total number of variable groups that are accessible to all pipleines and have secrets: ", ($varGrpsWithSecret | Measure-Object).Count);
+                    $controlResult.AdditionalInfo += "Total number of variable groups that are accessible to all pipleines and have secrets: " + ($varGrpsWithSecret | Measure-Object).Count;
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Build definition is using these variable groups that are accessible to all pipleines and have secrets: ", $varGrpsWithSecret);
+                    $controlResult.SetStateData("Build definition is using these variable groups that are accessible to all pipleines and have secrets: ", $varGrpsWithSecret); 
+                }
+                else 
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Variable groups used in build definition is not accessible to all pipelines or does not contain secrets.");    
+                }
+            }
+            catch
+            {
+                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the RBAC details of variable groups used in the pipeline.");
+                $controlResult.LogException($_)
+            }
+             
+        }
+        else 
+        {
+            $controlResult.AddMessage([VerificationResult]::Passed,"No variable group found in build definition.");
+        }
+
+        return $controlResult
+    }
 }

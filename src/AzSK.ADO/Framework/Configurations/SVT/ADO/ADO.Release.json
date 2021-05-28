@@ -225,6 +225,23 @@
         "SI"
       ],
       "Enabled": true
-    }  
+    },
+    {
+        "ControlID": "ADO_Release_DP_Do_Not_Use_Variable_Group_Accessible_To_All_With_Secrets", 
+        "Description": "Do not use variable groups that are accessible to all pipleines and have secrets.",
+        "Id": "Release240",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckDPVariableGroup",
+        "Rationale": "To support security of the pipeline operations, variable groups which are linked to key vault or contain secrets must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
+        "Recommendation": "1. Navigate to the release pipeline. 2. Click on Variables. 3. Click on each variable groups used in the pipeline. 4. Validate if variable group has secrets or linked to Azure key vault. 5. Disable 'Allow access to all pipelines'.",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "DP"
+        ],
+        "Enabled": true
+      } 
   ]
 }

@@ -241,4 +241,49 @@ class VariableGroup: ADOSVTBase
         return $controlResult;
     }
 
+    hidden [ControlResult] CheckBroaderGroupAccess ([ControlResult] $controlResult) {
+        try {
+            $restrictedGroups = @();
+
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedBroaderGroupsForVariableGroup") ) {
+                $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup;
+
+                #Fetch variable group RBAC
+                $roleAssignments = @();
+
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId); 
+                $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
+                if(($responseObj | Measure-Object).Count -gt 0)
+                {
+                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                }
+
+                # Checking whether the broader groups have User/Admin permissions
+                $restrictedGroups = $roleAssignments | Where-Object { $restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") }
+
+                # fail the control if restricted group found on variable group
+                if ($restrictedGroups) {
+                    $restrictedGroupsCount = ($restrictedGroups | Measure-Object).Count
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nTotal number of broader groups that have user/administrator access to variable group: $($restrictedGroupsCount)");
+                    $controlResult.AddMessage("`nBroader groups that have user/administrator access to variable group.", $restrictedGroups)
+                    $controlResult.SetStateData("Broader groups that have user/administrator access to variable group", $restrictedGroups)
+                        $controlResult.AdditionalInfo += "Total number of broader groups that have user/administrator access to variable group: $($restrictedGroupsCount)";
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to variable group.");
+                }
+                $controlResult.AddMessage("`nNote: The following groups are considered 'broad' which should not have user/administrator privileges: `n`t[$($restrictedBroaderGroupsForVarGrp -join ', ')]");
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Manual, "List of restricted broader groups for variable group is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions.");
+            $controlResult.LogException($_)
+        }
+
+        return $controlResult;
+    }
+
 }
