@@ -271,13 +271,23 @@
     "RestrictedBroaderGroupsForAgentPool": [
         "Project Collection Valid Users",
         "Contributors",
-        "Readers"
+        "Readers",
+        "Project Valid Users"
+    ]
+  },
+  "VariableGroup": {
+    "RestrictedBroaderGroupsForVariableGroup": [
+        "Project Collection Valid Users",
+        "Contributors",
+        "Readers",
+        "Project Valid Users"
     ]
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
   "Organization": {
     "DisallowedEnvironments" : [],
     "InactiveUserActivityLogsPeriodInDays": 90,
+    "GuestUserInactivePeriodInDays": 90,
     "TopInactiveUserCount": 100,
     "KnownExtensionPublishers": [
       "Microsoft",
@@ -348,7 +358,8 @@
     "RestrictedBroaderGroupsForSerConn" : [
       "Project Collection Valid Users",
       "Contributors",
-      "Readers"
+      "Readers",
+      "Project Valid Users"
     ]
   },
   "Patterns": [
