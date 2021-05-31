@@ -300,7 +300,9 @@
     "MinPCAMembersPermissible": 2,
     "GroupsToCheckForSCAltMembers": [
       "Project Collection Administrators"
-    ]
+    ],
+    "GroupsToCheckForGuestUser":["Project Collection Administrators","Project Collection Build Administrators"],
+    "GroupsToCheckForInactiveUser":["Project Collection Administrators","Project Collection Build Administrators"]
   },
   "Project": {
     "MaxPAMembersPermissible": 5,
@@ -310,7 +312,10 @@
     ],
     "GroupsToCheckForFeedPermission": [
       "Contributors"
-    ]
+    ],
+    "GroupsToCheckForGuestUser":["Project Administrators","Project Readers","Build Administrators"],
+    "GroupsToCheckForInactiveUser":["Project Administrators","Project Readers","Build Administrators"],
+    "InactiveUserActivityLogsPeriodInDays": 90
   },
   "Repo": {
     "RepoHistoryPeriodInDays": 180,

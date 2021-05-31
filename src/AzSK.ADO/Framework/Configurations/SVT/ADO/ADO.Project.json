@@ -349,7 +349,7 @@
     {
       "ControlID": "ADO_Project_Check_Inactive_Project",
       "Description": "Projects with no development activity (no active builds, releases, repos, agent pools, service connections, etc.) should be deleted.",
-      "Id": "Project301",
+      "Id": "Project310",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckInactiveProject",
@@ -359,6 +359,40 @@
         "SDL",
         "TCP",
         "Automated"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Review_Guest_Users_Access",
+      "Description": "Consider revoking access for guest users having admin roles in your Project.",
+      "Id": "Project320",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckGuestUsersAccess",
+      "Rationale": "Each additional person having access at project level increases the attack surface for the entire resources. To minimize this risk ensure that critical resources present in project are accessed only by the legitimate users when required.",
+      "Recommendation": "Go to Project Settings --> Permissions --> Users --> In filter options search for Guest user --> click on its row and navigate to MemberOf section --> Remove the membership against the current project scope.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Review_Inactive_Users_Access",
+      "Description": "Consider revoking access for inactive users having admin roles in your organization.",
+      "Id": "Project330",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckInactiveUsersAccess",
+      "Rationale": "Each additional person having access at Project level increases the attack surface for the entire resources. To minimize this risk ensure that critical resources present in Project are accessed only by the legitimate users when required.",
+      "Recommendation": "Go to Organization Settings --> Users --> Filter last access column with never accessed users or not accessed over long period",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
       ],
       "Enabled": true
     }

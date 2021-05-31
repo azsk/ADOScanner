@@ -548,6 +548,40 @@
           "AuthN"
       ],
       "Enabled": true
+  },
+  {
+    "ControlID": "ADO_Organization_AuthZ_Revoke_Admin_Access_for_Guest_Users",
+    "Description": "Remove guest users from administrative roles in your organization.",
+    "Id": "Organization430",
+    "ControlSeverity": "High",
+    "Automated": "Yes",
+    "MethodName": "CheckGuestUsersAccessInAdminRoles", 
+    "Rationale": "Guest user accounts are not carefully managed and governed. If these accounts have admin access then a compromised account can be easily leveraged to access arbitrary resources in the organization.",
+    "Recommendation": "Go to Organization Settings --> Users --> In filter options select AAD User Type as Guest --> Remove the flagged guest user",
+     "Tags": [
+      "SDL",
+      "TCP",
+      "Automated",
+      "AuthZ"
+    ],
+    "Enabled": true
+  },
+  {
+    "ControlID": "ADO_Organization_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
+    "Description": "Remove inactive users from administrative roles in your organization.",
+    "Id": "Organization440",
+    "ControlSeverity": "High",
+    "Automated": "Yes",
+    "MethodName": "CheckInactiveUsersInAdminRoles",
+    "Rationale": "Inactive users in administrative roles provide opportunities for hackers to leverage spear-phishing attacks to gain admin access. It is best to restrict critical roles in the organization to active members only.",
+    "Recommendation": "Go to Organization Settings --> Users --> Filter last access column with never accessed users or not accessed over the specified period of inactivity.",
+    "Tags": [
+      "SDL",
+      "TCP",
+      "Automated",
+      "AuthZ"
+    ],
+    "Enabled": true
   }
   ]
 }
