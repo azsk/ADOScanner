@@ -319,7 +319,10 @@
       "Project Administrators"
     ],
     "GroupsToCheckForFeedPermission": [
-      "Contributors"
+        "Project Collection Valid Users",
+        "Contributors",
+        "Readers",
+        "Project Valid Users"
     ]
   },
   "Repo": {
