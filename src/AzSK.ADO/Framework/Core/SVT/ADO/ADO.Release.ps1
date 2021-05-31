@@ -1479,7 +1479,7 @@ class Release: ADOSVTBase
                     $varGrpAccessibleToAll = $false
                     $url = 'https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=variablegroup&id={2}&api-version=6.0-preview.1' -f $($this.OrganizationContext.OrganizationName),$($this.projectid) ,$_;
                     $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
-                    if((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0) -and ([Helpers]::CheckMember($responseObj[0],"authorized")) -and ($responseObj[0].authorized -eq $true))
+                    if(($responseObj.Count -gt 0) -and ([Helpers]::CheckMember($responseObj,"authorized")) -and ($responseObj.authorized -eq $true))
                     {
                          $varGrpAccessibleToAll = $true
                     }
@@ -1527,7 +1527,7 @@ class Release: ADOSVTBase
                 }
                 else 
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Variable groups used in release definition is not accessible to all pipelines or does not contain secrets.");    
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Variable groups used in release definition are not accessible to all pipelines or does not contain secrets.");    
                 }
             }
             catch
