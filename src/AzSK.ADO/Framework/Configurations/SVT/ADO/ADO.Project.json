@@ -349,7 +349,7 @@
     {
       "ControlID": "ADO_Project_Check_Inactive_Project",
       "Description": "Projects with no development activity (no active builds, releases, repos, agent pools, service connections, etc.) should be deleted.",
-      "Id": "Project301",
+      "Id": "Project310",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckInactiveProject",
@@ -361,6 +361,40 @@
         "Automated"
       ],
       "Enabled": true
+    },
+    {
+        "ControlID": "ADO_Project_AuthZ_Revoke_Admin_Access_for_Guest_Users",
+        "Description": "Remove guest users from administrative roles in your project.",
+        "Id": "Project320",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckGuestUsersAccessInAdminRoles",
+        "Rationale": "Guest user accounts are not carefully managed and governed. If these accounts have admin access then a compromised account can be easily leveraged to access arbitrary resources in the project.",
+        "Recommendation": "Go to Project Settings --> Permissions --> Users --> In filter options search for Guest user --> click on its row and navigate to MemberOf section --> Remove the membership against the current project scope.",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ"
+        ],
+        "Enabled": true
+    },
+    {
+        "ControlID": "ADO_Project_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
+        "Description": "Remove inactive users from administrative roles in your project.",
+        "Id": "Project330",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckInactiveUsersInAdminRoles",
+        "Rationale": "Inactive users in administrative roles provide opportunities for hackers to leverage spear-phishing attacks to gain admin access. It is best to restrict critical roles in the project to active members only.",
+        "Recommendation": "Go to Organization Settings --> Users --> Filter last access column with never accessed users or not accessed over long period",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ"
+        ],
+        "Enabled": true
     }
   ]
 }

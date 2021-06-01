@@ -1295,4 +1295,220 @@ class Project: ADOSVTBase
         return $controlResult
         
     }
+
+    hidden [ControlResult] CheckGuestUsersAccessInAdminRoles([ControlResult] $controlResult) 
+    {
+        if([Helpers]::CheckMember($this.ControlSettings.Project,"GroupsToCheckForGuestUser"))
+        {
+            try {
+                $GroupsToCheckForGuestUser = $this.ControlSettings.Project.GroupsToCheckForGuestUser 
+                $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName) 
+                $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                
+                $guestAccounts =  @()
+                if($responseObj.Count -gt 0)
+                {  
+                    $responseObj[0].members | ForEach-Object {
+                        if([Helpers]::CheckMember($_,"user.metaType") -and $_.user.metaType -eq "guest")
+                        {
+                            $guestAccounts += $_          
+                        }
+                    }
+                }
+                if($guestAccounts.Count -gt 0)
+                {   
+                    $formattedData = @()
+                    $guestAccounts | ForEach-Object {
+                        if([Helpers]::CheckMember($_,"user.descriptor"))
+                        {
+                            $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Graph/Memberships/$($_.user.descriptor)?api-version=6.0-preview.1"
+                            try 
+                            {
+                                $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                if([Helpers]::CheckMember($response[0],"containerDescriptor"))
+                                {
+                                    foreach ($obj in $response) 
+                                    {
+                                        $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/graph/groups/$($obj.containerDescriptor)?api-version=6.0-preview.1";
+                                        $res = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                        $data = $res.principalName.Split("\");
+                                        $scope =  $data[0] -replace '[\[\]]'
+                                        $group = $data[1]
+                                        if($scope -eq $this.ResourceContext.ResourceName -and ($group -in $GroupsToCheckForGuestUser) )
+                                        {
+                                            $formattedData += @{
+                                                Group = $data[1];
+                                                Scope = $data[0];
+                                                Name = $_.user.displayName;
+                                                PrincipalName = $_.user.principalName;
+                                            }
+                                        }       
+                                    }
+                                }
+                            }       
+                            catch 
+                            {
+                                $controlResult.AddMessage("Could not fetch the membership details for the user")
+                            }
+                        }
+                        else {
+                            $controlResult.AddMessage("Could not fetch descriptor for guest user");
+                        }
+                    }
+                    if($formattedData.Count -gt 0)
+                    {   
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Guest accounts have admin roles in the project.");                
+                        $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}
+                        $groups = $formattedData | Group-Object "Principal Name"
+                        $results = @()
+                        $results += foreach( $g in $groups ){                                      
+                                      $PrincipalName = $g.name
+                                      $OrgGroup = $g.group.group -join ','
+                                      $DisplayName = $g.group."Display Name" | select -Unique
+                                      $Scope = $g.group."User or scope" | select -Unique
+                                      [PSCustomObject]@{ PrincipalName = $PrincipalName ; Scope = $Scope ; DisplayName = $DisplayName ; Group = $OrgGroup }
+                                    }
+                        
+                        $controlResult.AddMessage("Total guest accounts having admin roles in project are: $($results.count) ");
+                        $controlResult.AddMessage("Guest account details:")
+                        $display = ($results|FT  -AutoSize | Out-String -Width 512)
+                        $controlResult.AddMessage($display)
+                        $controlResult.SetStateData("List of guest users: ", $results);
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No Guest User have admin roles in the project.");
+                    } 
+
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No Guest User found.");
+                }       
+            }
+            catch
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch user entitlements.");
+                $controlResult.LogException($_)
+            }
+        }
+        else{
+            $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting non guest accounts is not defined in your organization. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
+        }       
+
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckInactiveUsersInAdminRoles([ControlResult] $controlResult)
+    {
+        if([Helpers]::CheckMember($this.ControlSettings.Project,"GroupsToCheckForInactiveUser") -and [Helpers]::CheckMember($this.ControlSettings.Project,"InActiveUserActivityLogsPeriodInDays"))
+        {
+            try {
+                $GroupsToCheckForInactiveUser = $this.ControlSettings.Project.GroupsToCheckForInactiveUser 
+                $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
+                $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+    
+                if($responseObj.Count -gt 0)
+                {
+                    $inactiveUsers =  @()
+                    $thresholdDate =  (Get-Date).AddDays(-$($this.ControlSettings.Project.InActiveUserActivityLogsPeriodInDays))
+                    $responseObj[0].items | ForEach-Object { 
+                        if([datetime]::Parse($_.lastAccessedDate) -lt $thresholdDate )
+                        {
+                            $inactiveUsers+= $_
+                        }                
+                    }
+                    if(($inactiveUsers | Measure-Object).Count -gt 0)
+                    {   
+                        $formattedData = @()
+                        $inactiveUsers | ForEach-Object {
+                            if([Helpers]::CheckMember($_,"user.descriptor"))
+                            {
+                                $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Graph/Memberships/$($_.user.descriptor)?api-version=6.0-preview.1"
+                                try 
+                                {
+                                    $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                    if([Helpers]::CheckMember($response[0],"containerDescriptor"))
+                                    {
+                                        foreach ($obj in $response) 
+                                        {
+                                            $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/graph/groups/$($obj.containerDescriptor)?api-version=6.0-preview.1";
+                                            $res = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                            $data = $res.principalName.Split("\");
+                                            $scope =  $data[0] -replace '[\[\]]'
+                                            $group = $data[1]
+                                            if($scope -eq $this.ResourceContext.ResourceName -and ($group -in $GroupsToCheckForInactiveUser) )
+                                            {
+                                                $dateobj = [datetime]::Parse($_.lastAccessedDate)
+                                                $formatLastRunTimeSpan = New-TimeSpan -Start $dateobj
+                                                if(($formatLastRunTimeSpan).Days -gt 10000)
+                                                {
+                                                    $_.lastAccessedDate = "User was never active"
+                                                }
+
+                                                $formattedData += @{
+                                                    Group = $data[1];
+                                                    Scope = $data[0];
+                                                    Name = $_.user.displayName;
+                                                    PrincipalName = $_.user.principalName;                                                    
+                                                    Date = $_.lastAccessedDate ;
+                                                }
+                                            }       
+                                        }
+                                    }
+                                }       
+                                catch 
+                                {
+                                    $controlResult.AddMessage("Could not fetch the membership details for the user")
+                                }
+                            }
+                            else {
+                                $controlResult.AddMessage("Could not fetch descriptor for user");
+                            }
+                        }
+                        if($formattedData.Count -gt 0)
+                        {   
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Inactive users have admin roles in the project.");                
+                            $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}, @{Name="Last Accessed Date"; Expression={$_.Date}}
+                            $groups = $formattedData | Group-Object "Principal Name"
+                            $results = @()
+                            $results += foreach( $g in $groups ){                                      
+                                          $PrincipalName = $g.name
+                                          $OrgGroup = $g.group.group -join ','
+                                          $DisplayName = $g.group."Display Name" | select -Unique
+                                          $Scope = $g.group."User or scope" | select -Unique
+                                          $date = $g.group."Last Accessed Date" | select -Unique
+                                                                                    
+                                          [PSCustomObject]@{ PrincipalName = $PrincipalName ; Scope = $Scope ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date}
+                                        }
+                            
+                            $controlResult.AddMessage("Total inactive users having admin roles in project are: $($results.count) ");
+                            $controlResult.AddMessage("Inactive user details:")
+                            $display = ($results|FT  -AutoSize | Out-String -Width 512)
+                            $controlResult.AddMessage($display)
+                            $controlResult.SetStateData("List of inactive users: ", $results);
+                        }
+                        else {
+                            $controlResult.AddMessage([VerificationResult]::Passed, "No Guest User have admin roles in the project.");
+                        } 
+    
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No inactive users found.")   
+                    }
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No inactive users found.");
+                }
+            }
+            catch {
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of users in the organization.");
+                $controlResult.LogException($_)
+            }
+        }
+        else{
+            $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting inactive accounts is not defined in your organization. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
+        }
+        
+        return $controlResult;
+    }
 }

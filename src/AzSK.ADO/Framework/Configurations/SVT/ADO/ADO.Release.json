@@ -227,7 +227,7 @@
       "Enabled": true
     },
     {
-        "ControlID": "ADO_Release_DP_Do_Not_Use_Variable_Group_Accessible_To_All_With_Secrets", 
+        "ControlID": "ADO_Build_DP_Restrict_Permissions_for_Variable_Groups_With_Secrets", 
         "Description": "Do not use variable groups that are accessible to all pipleines and have secrets.",
         "Id": "Release240",
         "ControlSeverity": "High",

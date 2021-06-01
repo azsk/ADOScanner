@@ -310,6 +310,14 @@
     "MinPCAMembersPermissible": 2,
     "GroupsToCheckForSCAltMembers": [
       "Project Collection Administrators"
+    ],
+    "GroupsToCheckForGuestUser":[
+        "Project Collection Administrators",
+        "Project Collection Build Administrators"
+    ],
+    "GroupsToCheckForInactiveUser":[
+        "Project Collection Administrators",
+        "Project Collection Build Administrators"
     ]
   },
   "Project": {
@@ -323,7 +331,16 @@
         "Contributors",
         "Readers",
         "Project Valid Users"
-    ]
+    ],
+    "GroupsToCheckForGuestUser":[
+        "Project Collection Administrators",
+        "Project Collection Build Administrators"
+    ],
+    "GroupsToCheckForInactiveUser":[
+        "Project Collection Administrators",
+        "Project Collection Build Administrators"
+    ],
+    "InactiveUserActivityLogsPeriodInDays": 90
   },
   "Repo": {
     "RepoHistoryPeriodInDays": 180,
