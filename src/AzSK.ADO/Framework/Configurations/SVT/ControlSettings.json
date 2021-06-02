@@ -334,11 +334,13 @@
     ],
     "GroupsToCheckForGuestUser":[
         "Project Collection Administrators",
-        "Project Collection Build Administrators"
+        "Project Collection Build Administrators",
+        "Build Administrators"
     ],
     "GroupsToCheckForInactiveUser":[
         "Project Collection Administrators",
-        "Project Collection Build Administrators"
+        "Project Collection Build Administrators",
+        "Build Administrators"
     ],
     "InactiveUserActivityLogsPeriodInDays": 90
   },

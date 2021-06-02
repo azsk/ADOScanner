@@ -1987,7 +1987,7 @@ class Organization: ADOSVTBase
             try {
                 $GroupsToCheckForGuestUser = $this.ControlSettings.Organization.GroupsToCheckForGuestUser 
                 $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName) 
-                $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
                 
                 $guestAccounts =  @()
                 if($responseObj.Count -gt 0)
@@ -2008,13 +2008,13 @@ class Organization: ADOSVTBase
                             $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Graph/Memberships/$($_.user.descriptor)?api-version=6.0-preview.1"
                             try 
                             {
-                                $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                $response = @([WebRequestHelper]::InvokeGetWebRequest($url));
                                 if([Helpers]::CheckMember($response[0],"containerDescriptor"))
                                 {
                                     foreach ($obj in $response) 
                                     {
                                         $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/graph/groups/$($obj.containerDescriptor)?api-version=6.0-preview.1";
-                                        $res = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                        $res = @([WebRequestHelper]::InvokeGetWebRequest($url));
                                         $data = $res.principalName.Split("\");
                                         $scope =  $data[0] -replace '[\[\]]'
                                         $group = $data[1]
@@ -2045,11 +2045,11 @@ class Organization: ADOSVTBase
                         $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}
                         $groups = $formattedData | Group-Object "Principal Name"
                         $results = @()
-                        $results += foreach( $g in $groups ){                                      
-                                      $PrincipalName = $g.name
-                                      $OrgGroup = $g.group.group -join ','
-                                      $DisplayName = $g.group."Display Name" | select -Unique
-                                      $Scope = $g.group."User or scope" | select -Unique
+                        $results += foreach( $grpobj in $groups ){                                      
+                                      $PrincipalName = $grpobj.name
+                                      $OrgGroup = $grpobj.group.group -join ','
+                                      $DisplayName = $grpobj.group."Display Name" | select -Unique
+                                      $Scope = $grpobj.group."User or scope" | select -Unique
                                       [PSCustomObject]@{ PrincipalName = $PrincipalName ; Scope = $Scope ; DisplayName = $DisplayName ; Group = $OrgGroup }
                                     }
                         
@@ -2075,7 +2075,7 @@ class Organization: ADOSVTBase
             }
         }
         else{
-            $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting non guest accounts is not defined in your organization. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
+            $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting non guest accounts is not defined in control setting of your organization.");
         }
        
         return $controlResult
@@ -2088,7 +2088,7 @@ class Organization: ADOSVTBase
             try {
                 $GroupsToCheckForInactiveUser = $this.ControlSettings.Organization.GroupsToCheckForInactiveUser 
                 $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
-                $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
     
                 if($responseObj.Count -gt 0)
                 {
@@ -2109,13 +2109,13 @@ class Organization: ADOSVTBase
                                 $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Graph/Memberships/$($_.user.descriptor)?api-version=6.0-preview.1"
                                 try 
                                 {
-                                    $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                    $response = @([WebRequestHelper]::InvokeGetWebRequest($url));
                                     if([Helpers]::CheckMember($response[0],"containerDescriptor"))
                                     {
                                         foreach ($obj in $response) 
                                         {
                                             $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/graph/groups/$($obj.containerDescriptor)?api-version=6.0-preview.1";
-                                            $res = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                            $res = @([WebRequestHelper]::InvokeGetWebRequest($url));
                                             $data = $res.principalName.Split("\");
                                             $scope =  $data[0] -replace '[\[\]]'
                                             $group = $data[1]
@@ -2154,12 +2154,12 @@ class Organization: ADOSVTBase
                             $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}, @{Name="Last Accessed Date"; Expression={$_.Date}}
                             $groups = $formattedData | Group-Object "Principal Name"
                             $results = @()
-                            $results += foreach( $g in $groups ){                                      
-                                          $PrincipalName = $g.name
-                                          $OrgGroup = $g.group.group -join ','
-                                          $DisplayName = $g.group."Display Name" | select -Unique
-                                          $Scope = $g.group."User or scope" | select -Unique
-                                          $date = $g.group."Last Accessed Date" | select -Unique
+                            $results += foreach( $grpobj in $groups ){                                      
+                                          $PrincipalName = $grpobj.name
+                                          $OrgGroup = $grpobj.group.group -join ','
+                                          $DisplayName = $grpobj.group."Display Name" | select -Unique
+                                          $Scope = $grpobj.group."User or scope" | select -Unique
+                                          $date = $grpobj.group."Last Accessed Date" | select -Unique
                                           [PSCustomObject]@{ PrincipalName = $PrincipalName ; Scope = $Scope ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date}
                                         }
                             
@@ -2189,7 +2189,7 @@ class Organization: ADOSVTBase
             }
         }
         else{
-            $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting inactive accounts is not defined in your organization. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
+            $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting inactive accounts is not defined in control setting of your organization.");
         }
         
         return $controlResult;
