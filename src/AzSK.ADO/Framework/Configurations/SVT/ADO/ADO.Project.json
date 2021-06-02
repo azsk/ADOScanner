@@ -250,7 +250,7 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckSecureFilesPermission",
-      "Rationale": "To support security of the pipeline operations, secure files must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
+      "Rationale": "Secure files must not be granted access to all pipelines. An unauthorized user can steal information from the secure files by building a pipeline and accessing the secure file",
       "Recommendation": "To remediate this, go to Project -> Pipelines -> Library -> Secure Files -> select your secure file from the list -> click Security -> Under 'Pipeline Permissions', remove pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
       "Tags": [
         "SDL",
