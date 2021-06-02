@@ -539,6 +539,7 @@ class WritePsConsole: FileOutputBase
 
 	hidden [void] PrintBugSummaryData($event){
 		[PSCustomObject[]] $summary = @();
+		$bugsClosed=[AutoCloseBugManager]::ClosedBugs;
 
 		if (($event.SourceArgs | Measure-Object).Count -ne 0)
 		{
@@ -564,8 +565,34 @@ class WritePsConsole: FileOutputBase
 		else{
 			$summary = [PartialScanManager]::CollatedBugSummaryCount
 		}
+		#Print all the bugs closed in present scan 
+		# $closedBugCount=0;
+		if($bugsClosed)
+		{
+			$bugsClosed | ForEach-Object{
+				$item=$_
+				$item.ControlResults[0].Messages | ForEach-Object{
+					if($_.Message -eq "Closed Bug")
+					{
+						$summary += [PSCustomObject]@{
+							BugStatus=$_.Message
+							ControlSeverity = $item.ControlItem.ControlSeverity;
+							
+						};
+					}
+
+				}
+			}
+		}
+		else {
+			$this.WriteMessage("No bugs were closed",[MessageType]::Update);
+			$this.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info);
+		}
+		
+
 
 		#if such bugs were found, print a summary table
+
 
 		if($summary.Count -ne 0)
 		{

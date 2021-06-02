@@ -74,6 +74,15 @@ $FrameworkPath = $PSScriptRoot
 . $PSScriptRoot\BugLog\AutoBugLog.ps1
 . $PSScriptRoot\BugLog\PublishToJSON.ps1
 . $PSScriptRoot\BugLog\AutoCloseBugManager.ps1
+. $PSScriptRoot\BugLog\BugLogCsvModel.ps1
+. $PSScriptRoot\BugLog\WriteBugLogFiles.ps1
+
+
+
+
+
+
+
 
 
 #Abstracts

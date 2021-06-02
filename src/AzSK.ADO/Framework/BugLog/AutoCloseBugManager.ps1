@@ -2,6 +2,7 @@ Set-StrictMode -Version Latest
 class AutoCloseBugManager {
     hidden [string] $OrganizationName;
     hidden [PSObject] $ControlSettings;
+    static [SVTEventContext []] $ClosedBugs=$null;
     hidden [string] $ScanSource;
     hidden [bool] $UseAzureStorageAccount = $false;
     hidden [BugLogHelper] $BugLogHelperObj;
@@ -36,6 +37,7 @@ class AutoCloseBugManager {
         $PassedControlResults = @();
         $autoCloseOrgBugFlag=$true
         $autoCloseProjBugFlag=$true;
+        [AutoCloseBugManager]::ClosedBugs=$null
 
         
 
@@ -73,6 +75,8 @@ class AutoCloseBugManager {
 
         #number of passed controls
         $PassedControlResultsLength = ($PassedControlResults | Measure-Object).Count
+        $TagToControlIDMap=$null
+        $TagToControlIDMap=@{}
         #the following loop will call api for bug closing in batches of size as defined in control settings,
         #first check if passed controls length is less than the batch size, if yes then we have to combine all tags in one go
         #and call the api
@@ -87,21 +91,33 @@ class AutoCloseBugManager {
             if ($PassedControlResultsLength -lt $MaxKeyWordsToQuery) {
                 #check for number of tags in current query
                 $QueryKeyWordCount++;
+                # $this.UseAzureStorageAccount=true;
 
                 if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA")
                 {
                     #complete the query
-                    $TagSearchKeyword += "(ADOScannerHashId eq '" + $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) + "') or "
+                    $tagHash=$this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
+                    $TagToControlIDMap.add($tagHash,$control);
+                    $TagSearchKeyword += "(ADOScannerHashId eq '" + $tagHash + "') or "
                     #if the query count equals the passing control results, search for bugs for this batch
                     if ($QueryKeyWordCount -eq $PassedControlResultsLength) {
                         #to remove OR from the last tag keyword. Ex: Tags: Tag1 OR Tags: Tag2 OR. Remove the last OR from this keyword
                         $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
                         $response = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword)
+                        # if ($response[0].results.count -gt 0) {
+                        #     $response.results | ForEach-Object {
+                        #         #Add the closed bug
+                        #         $TagToControlIDMap[$_.fields."system.tags"].ControlResults.AddMessage("Closed Bug",$_.url);
+                        #         [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$_.fields."system.tags"]
+                        #     }
+                        # }
                     }
                 }
                 else {
                     #complete the query
-                    $TagSearchKeyword += "Tags: " + $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) + " OR "
+                    $tagHash= $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId);
+                    $TagToControlIDMap.add($tagHash,$control);
+                    $TagSearchKeyword += "Tags: " + $tagHash + " OR "
                     #if the query count equals the passing control results, search for bugs for this batch
                     if ($QueryKeyWordCount -eq $PassedControlResultsLength) {
                         #to remove OR from the last tag keyword. Ex: Tags: Tag1 OR Tags: Tag2 OR. Remove the last OR from this keyword
@@ -113,7 +129,12 @@ class AutoCloseBugManager {
                                 #close the bug
                                 $id = $_.fields."system.id"
                                 $Project = $_.project.name
-                                $this.CloseBug($id, $Project)
+
+                                if($this.CloseBug($id, $Project))
+                                {
+                                $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $Project , $id;
+                                $TagToControlIDMap[$_.fields."system.tags"].ControlResults.AddMessage("Closed Bug",$urlClose);
+                                [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$_.fields."system.tags"]}
                             }
                         }
                     }
@@ -131,6 +152,13 @@ class AutoCloseBugManager {
                             #query for all these tags and their bugs
                             $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
                             $response = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword);
+                            # if ($response[0].results.count -gt 0) {
+                            #     $response.results | ForEach-Object {
+                                    #Add the closed bug
+                                    # $TagToControlIDMap[$_.fields."system.tags"].ControlResults.AddMessage("Closed Bug",$_.url);
+                                    # [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$_.fields."system.tags"]
+                                # }
+                            # }
                             #Reinitialize for the next batch
                             $QueryKeyWordCount = 0;
                             $TagSearchKeyword = "";
@@ -139,7 +167,9 @@ class AutoCloseBugManager {
                     }
                     else
                     {
-                        $TagSearchKeyword += "Tags: " + $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) + " OR "
+                        $tagHash= $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
+                        $TagToControlIDMap.add($tagHash,$control);
+                        $TagSearchKeyword += "Tags: " + $tagHash + " OR "
                         #if number of tags reaches batch limit
                         if ($QueryKeyWordCount -eq $MaxKeyWordsToQuery) {
                         #query for all these tags and their bugs
@@ -149,8 +179,11 @@ class AutoCloseBugManager {
                             $response.results | ForEach-Object {
                                 $id = $_.fields."system.id"
                                 $Project = $_.project.name
-                                $this.CloseBug($id, $Project)
-                            }
+                                if($this.CloseBug($id, $Project)){
+                                $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $Project , $id;
+                                $TagToControlIDMap[$_.fields."system.tags"].ControlResults.AddMessage("Closed Bug",$urlClose);
+                                [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$_.fields."system.tags"]
+                           }}
                         }
                         #Reinitialize for the next batch
                         $QueryKeyWordCount = 0;
@@ -161,6 +194,8 @@ class AutoCloseBugManager {
                 }
                 
             }
+        $TagToControlIDMap.Clear();
+        Remove-Variable $TagToControlIDMap;
 
         
         
@@ -168,7 +203,7 @@ class AutoCloseBugManager {
     }
 
     #function to close an active bug
-    hidden [void] CloseBug([string] $id, [string] $Project) {
+    hidden [Bool] CloseBug([string] $id, [string] $Project) {
         $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=6.0" -f $this.OrganizationName, $Project, $id
         
         #load the closed bug template
@@ -181,10 +216,12 @@ class AutoCloseBugManager {
                 
         try {
             $responseObj = Invoke-RestMethod -Uri $url -Method Patch  -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
+            return $true
 
         }
         catch {
             Write-Host "Could not close the bug" -ForegroundColor Red
+            return $false
         }
     }
 
