@@ -53,9 +53,10 @@ class WriteBugLogCsv
         }
     }
     }
+    if($BugsList){
         $bugLogFilePath= $FolderPath + "\BugLogDetails.csv";
         $BugsList | Export-Csv -Path $bugLogFilePath;
-        return ;
+        return ;}
 
     }
 }
