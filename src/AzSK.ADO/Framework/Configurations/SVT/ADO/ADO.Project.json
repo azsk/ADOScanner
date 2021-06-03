@@ -200,29 +200,31 @@
       "Automated": "Yes",
       "MethodName": "CheckSCALTForAdminMembers",
       "Rationale": "Corporate accounts are subject to a lot of credential theft attacks due to various activities that a user conducts using such accounts (e.g., browsing the web, clicking on email links, etc.). A user account that gets compromised (say via a phishing attack) immediately subjects the entire Azure DevOps organization to risk if it is privileged with critical roles in the organization. Use of smartcard-backed alternate (SC-ALT) accounts instead protects the organization from this risk.",
-      "Recommendation": "Go to Project settings --> General --> Permissions --> Groups --> Review whether each user in administrator groups is added via SC-ALT account.",
+      "Recommendation": "1. Go to Project settings --> 2. General --> 3. Permissions --> 4. Groups --> 5. Review whether each user in administrator groups is added via SC-ALT account.",
       "Tags": [
         "SDL",
         "AuthN",
         "Automated",
-        "Best Practice"
+        "Best Practice",
+        "MSW"
       ],
       "Enabled": true
     },
     {
       "ControlID": "ADO_Project_AuthZ_Restrict_Feed_Permissions",
-      "Description": "Do not allow a broad pool of users to upload packages to feed.",
+      "Description": "Do not allow a broad group of users to upload packages to feed.",
       "Id": "Project230",
-      "ControlSeverity": "Medium",
+      "ControlSeverity": "High",
       "Automated": "Yes",
-      "MethodName": "CheckFeedAccess",
-      "Rationale": "If a broad pool of users (e.g., Contributors) have permissions to upload package to feed, then integrity of your pipeline can be compromised by a malicious user who uploads a package.",
-      "Recommendation": "Go to Project --> Artifacts --> Select Feed --> Feed Settings --> Permissions --> Groups --> Review users/groups which have administrator and contributor roles.",
+      "MethodName": "CheckAllPipelinesAccessOnFeeds",
+      "Rationale": "If a broad group of users (e.g., Contributors) have permissions to upload package to feed, then integrity of your pipeline can be compromised by a malicious user who uploads a package.",
+      "Recommendation": "1. Go to Project --> 2. Artifacts --> 3. Select Feed --> 4. Feed Settings --> 5. Permissions --> 6. Groups --> 7. Review users/groups which have administrator and contributor roles.",
       "Tags": [
         "SDL",
         "TCP",
         "AuthZ",
-        "RBAC"
+        "RBAC",
+        "MSW"
       ],
       "Enabled": true
     },
@@ -250,13 +252,14 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckSecureFilesPermission",
-      "Rationale": "To support security of the pipeline operations, secure files must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
-      "Recommendation": "To remediate this, go to Project -> Pipelines -> Library -> Secure Files -> select your secure file from the list -> click Security -> Under 'Pipeline Permissions', remove pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Rationale": "If a secure file is granted access to all pipelines, an unauthorized user can steal information from the secure files by building a pipeline and accessing the secure file.",
+      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. select your secure file from the list --> 6. click Security --> 7. Under 'Pipeline Permissions', remove pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
       "Tags": [
         "SDL",
         "AuthZ",
         "Automated",
-        "Best Practice"
+        "Best Practice",
+        "MSW"
       ],
       "Enabled": true
     },
@@ -349,7 +352,7 @@
     {
       "ControlID": "ADO_Project_Check_Inactive_Project",
       "Description": "Projects with no development activity (no active builds, releases, repos, agent pools, service connections, etc.) should be deleted.",
-      "Id": "Project301",
+      "Id": "Project310",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckInactiveProject",
@@ -361,6 +364,42 @@
         "Automated"
       ],
       "Enabled": true
+    },
+    {
+        "ControlID": "ADO_Project_AuthZ_Revoke_Admin_Access_for_Guest_Users",
+        "Description": "Remove guest users from administrative roles in your project.",
+        "Id": "Project320",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckGuestUsersAccessInAdminRoles",
+        "Rationale": "Guest user accounts are not carefully managed and governed. If these accounts have admin access then a compromised account can be easily leveraged to access arbitrary resources in the project.",
+        "Recommendation": "1. Go to Project Settings --> 2. Permissions --> 3. Users --> 4. In filter options search for Guest user --> 5. click on its row and navigate to MemberOf section --> 6. Remove the membership against the current project scope.",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ",
+          "MSW"
+        ],
+        "Enabled": true
+    },
+    {
+        "ControlID": "ADO_Project_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
+        "Description": "Remove inactive users from administrative roles in your project.",
+        "Id": "Project330",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckInactiveUsersInAdminRoles",
+        "Rationale": "Inactive users in administrative roles provide more opportunities for hackers to leverage credential harvesting attacks to gain admin access. It is best to restrict critical roles in the project to active members only.",
+        "Recommendation": "1. Go to Project Settings --> 2. Users --> 3. Filter last access column with never accessed users or not accessed over long period",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ",
+          "MSW"
+        ],
+        "Enabled": true
     }
   ]
 }

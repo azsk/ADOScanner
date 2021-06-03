@@ -23,7 +23,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_ServiceConnection_AuthZ_Grant_Least_Privilege_Access",
+      "ControlID": "ADO_ServiceConnection_AuthZ_Use_Least_Privilege_Access",
       "Description": "Azure service connection should not be provided access at subscription/management group scope.",
       "Id": "ServiceConnection120",
       "ControlSeverity": "High",
@@ -76,7 +76,7 @@
     },
     {
       "ControlID": "ADO_ServiceConnection_AuthZ_Dont_Use_Classic_Connections",
-      "Description": "Do not use Azure classic service connections to grant access on a subscription.",
+      "Description": "Do not use classic Azure service connections to access a subscription.",
       "Id": "ServiceConnection150",
       "ControlSeverity": "High",
       "Automated": "Yes",
@@ -88,7 +88,8 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "Azure"
+        "Azure",
+        "MSW"
       ],
       "Enabled": true
     },
@@ -128,18 +129,19 @@
     },
     {
       "ControlID": "ADO_ServiceConnection_AuthZ_Dont_Grant_BuildServAcc_Permission",
-      "Description": "Do not grant Build Service Account access for connections",
+      "Description": "Do not grant Build Service Account direct access to service connections",
       "Id": "ServiceConnection180",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBuildServiceAccountAccess",
-      "Rationale": "Build service account is default identity used as part every build in project. Providing access to this common service account will expose connection details to all build definition under project.",
-      "Recommendation": "To remediate this, navigate to the service connections settings page for your project -> select your service connection from the list -> select three dots on top right -> select security -> remove 'Project Collection Build Service Accounts' access from user permission.",
+      "Rationale": "Build service account is default identity used as part every build in project. Providing direct access to this common service account will expose connection details to all build definitions in the project.",
+      "Recommendation": "1. Navigate to the service connections settings page for your project --> 2. select your service connection from the list --> 3. select three dots on top right --> 4. select security -> remove 'Project Collection Build Service Accounts' access from user permission.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "MSW"
       ],
       "Enabled": true
     },
@@ -151,12 +153,13 @@
       "Automated": "Yes",
       "MethodName": "CheckServiceConnectionBuildAccess",
       "Rationale": "To support security of the pipeline operations, connections must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
-      "Recommendation": "To remediate this, navigate to the service connections settings page for your project -> select your service connection from the list -> click on three dots -> click Security -> under 'Pipeline Permissions', click 'Restrict Permission' to avoid granting access to all pipelines and add only those pipelines that need explicit access on service connection.",
+      "Recommendation": "1. Navigate to the service connections settings page for your project --> 2. select your service connection from the list --> 3. click on three dots --> 4. click Security --> 5. under 'Pipeline Permissions', click 'Restrict Permission' to avoid granting access to all pipelines and add only those pipelines that need explicit access on service connection.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "MSW"
       ],
       "Enabled": true
     },
@@ -229,19 +232,20 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_ServiceConnection_AuthZ_Review_Broader_Group_Access",
+      "ControlID": "ADO_ServiceConnection_AuthZ_Restrict_Broader_Group_Access",
       "Description": "Broader groups (contributors, project valid users, etc.) should not have user/administrator privileges on service connection.",
       "Id": "ServiceConnection240",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupAccess",
-      "Rationale": "If the broader groups (e.g., Contributors) have edit permissions (Admin/User) on service connection, then integrity of your service connection can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/service connection compromise.",
-      "Recommendation": "Go to Project Settings --> Pipelines --> Service connections --> Select your service connection --> Select Security --> Ensure broader groups have read-only access.",
+      "Rationale": "If the broader groups (e.g., Contributors) have excessive permissions (Admin/User) on service connection, then confidentiality/integrity of a pipeline using the service connection can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/service connection compromise.",
+      "Recommendation": "1. Go to Project Settings --> 2. Pipelines --> 3. Service connections --> 4. Select your service connection --> 5. Select Security --> 6. Ensure broader groups have read-only access.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "MSW"
       ],
       "Enabled": true
     },

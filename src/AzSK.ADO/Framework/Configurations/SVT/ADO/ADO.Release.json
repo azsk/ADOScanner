@@ -193,38 +193,40 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Release_SI_Limit_Variable_Group_Edit_Permission",
-      "Description": "Do not use variable groups that are editable by a broad pool of users.",
+      "ControlID": "ADO_Release_SI_Restrict_Variable_Group_Edit_Permission",
+      "Description": "Do not use variable groups that are editable by a broad group of users.",
       "Id": "Release220",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckVariableGroupEditPermission",
-      "Rationale": "If a broad pool of users (e.g., Contributors) have edit permissions on a variable group, then integrity of your pipeline can be compromised by a malicious user who edits the variable group.",
-      "Recommendation": "1. Navigate to the release pipeline. 2. Click on Variables. 3. Click on each variable groups used in the pipeline. 4. Select 'Security' for the variable group. 5. Ensure Contributors have only reader access to the variable group. 6. Repeat this for any other groups that should not have edit access.",
+      "Rationale": "If a broad group of users (e.g., Contributors) have edit permissions on a variable group, then integrity of your pipeline can be compromised by a malicious user who edits the variable group.",
+      "Recommendation": "1. Navigate to the release pipeline. --> 2. Click on Variables. --> 3. Click on each variable groups used in the pipeline. --> 4. Select 'Security' for the variable group. --> 5. Ensure Contributors have only reader access to the variable group. --> 6. Repeat this for any other groups that should not have edit access.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "SI"
+        "SI",
+        "MSW"
       ],
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Release_SI_Limit_Pipeline_Edit_Permission",
-      "Description": "Do not allow release pipeline to be edited by a broad pool of users.",
+      "ControlID": "ADO_Release_AuthZ_Restrict_Broader_Group_Access",
+      "Description": "Do not allow release pipeline to be edited by a broad group of users.",
       "Id": "Release230",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckPipelineEditPermission",
-      "Rationale": "If a broad pool of users (e.g., Contributors) have edit permissions on a pipeline, then integrity of your pipeline can be compromised by a malicious user who edits it.",
-      "Recommendation": "1. Navigate to the release pipeline. 2. Click on Security. 3. Ensure 'Edit release pipeline' permission of Contributors is set to 'Deny'. 4. Repeat this for any other groups that should not have edit access.",
+      "Rationale": "If a broad group of users (e.g., Contributors) have excessive permissions on a pipeline, then integrity of your pipeline can be compromised by a malicious user who edits it.",
+      "Recommendation": "1. Navigate to the release pipeline. --> 2. Click on Security. --> 3. Ensure 'Edit release pipeline' permission of Contributors is set to 'Deny'. --> 4. Repeat this for any other groups that should not have edit access.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "SI"
+        "SI",
+        "MSW"
       ],
       "Enabled": true
-    }  
+    }
   ]
 }

@@ -28,7 +28,7 @@
       "ControlSeverity": "High",
       "Automated": "No",
       "MethodName": "",
-      "Rationale": "Un-patched VMs are easy targets for compromise from various malware/trojan attacks that exploit known vulnerabilities in operating systems and related software.",
+      "Rationale": "Unpatched VMs are easy targets for compromise from various malware/trojan attacks that exploit known vulnerabilities in operating systems and related software.",
       "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/automation/automation-tutorial-update-management",
       "Tags": [
         "SDL",
@@ -97,12 +97,13 @@
       "Automated": "Yes",
       "MethodName": "CheckPrjAllPipelineAccess",
       "Rationale": "To support security of the pipeline operations, agent pools must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
-      "Recommendation": "Go to 'Project settings' --> 'Agent pools' --> Select the agent pool --> Security --> Disable 'Grant access permission to all pipeline'.",
+      "Recommendation": "1. Go to 'Project settings' --> 2. 'Agent pools' --> 3. Select the agent pool --> 4. Security --> 5. Disable 'Grant access permission to all pipeline'.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "MSW"
       ],
       "Enabled": true
     },
@@ -130,7 +131,7 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckAutoUpdate",
-      "Rationale": "Un-patched agents are easy targets for compromise from various malware/trojan attacks that exploit known vulnerabilities in operating systems and related software. Being on the latest OS version significantly reduces risks from security design issues and security bugs that may be present in older versions.",
+      "Rationale": "Unpatched agents are easy targets for compromise from various malware/trojan attacks that exploit known vulnerabilities in operating systems and related software. Being on the latest OS version significantly reduces risks from security design issues and security bugs that may be present in older versions.",
       "Recommendation": "To enable auto-update settings: 1.Navigate to the Organization settings. 2. Open Agent pools. 3. Select Settings. 4. Enable 'Allow agents in this pool to automatically update'.",
       "Tags": [
         "SDL",
@@ -158,19 +159,20 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_AgentPool_AuthZ_Review_Broader_Group_Access",
+      "ControlID": "ADO_AgentPool_AuthZ_Restrict_Broader_Group_Access",
       "Description": "Broader groups (contributors, project valid users, etc.) should not have user/administrator privileges on agent pool.",
       "Id": "AgentPool200",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupAccess",
-      "Rationale": "If the broader groups (e.g., Contributors) have edit permissions (Admin/User) on agent pool, then integrity of your agent pool can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/agent pool compromise.",
-      "Recommendation": "Go to Project Settings --> Pipelines --> Agent pools --> Select your agent pool --> Select Security --> Ensure broader groups have read-only access.",
+      "Rationale": "If the broader groups (e.g., Contributors) have excessive permissions (Admin/User) on agent pool, then integrity of your agent pool can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/agent pool compromise.",
+      "Recommendation": "1. Go to Project Settings --> 2. Pipelines --> 3. Agent pools --> 4. Select your agent pool --> 5. Select Security --> 6. Ensure broader groups have read-only access.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "MSW"
       ],
       "Enabled": true
     }
