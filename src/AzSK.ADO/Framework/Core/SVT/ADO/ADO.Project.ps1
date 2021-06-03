@@ -1301,6 +1301,7 @@ class Project: ADOSVTBase
         if([Helpers]::CheckMember($this.ControlSettings.Project,"GroupsToCheckForGuestUser"))
         {
             try {
+                $controlResult.VerificationResult = [VerificationResult]::Failed
                 $GroupsToCheckForGuestUser = $this.ControlSettings.Project.GroupsToCheckForGuestUser 
                 $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName) 
                 $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
@@ -1402,6 +1403,7 @@ class Project: ADOSVTBase
         if([Helpers]::CheckMember($this.ControlSettings.Project,"GroupsToCheckForInactiveUser") -and [Helpers]::CheckMember($this.ControlSettings.Project,"InActiveUserActivityLogsPeriodInDays"))
         {
             try {
+                $controlResult.VerificationResult = [VerificationResult]::Failed
                 $GroupsToCheckForInactiveUser = $this.ControlSettings.Project.GroupsToCheckForInactiveUser 
                 $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
                 $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
