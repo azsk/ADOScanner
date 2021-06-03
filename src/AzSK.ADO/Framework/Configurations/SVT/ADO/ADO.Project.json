@@ -251,7 +251,7 @@
       "Automated": "Yes",
       "MethodName": "CheckSecureFilesPermission",
       "Rationale": "Secure files must not be granted access to all pipelines. An unauthorized user can steal information from the secure files by building a pipeline and accessing the secure file",
-      "Recommendation": "1. Navigate to the project -> 2. Pipelines -> 3. Library -> 4. Secure Files -> 5. Select your secure file from the list -> 6. Click Security -> 7. Under 'Pipeline Permissions', remove pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Recommendation": "1. Navigate to the project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. Select your secure file from the list --> 6. Click Security --> 7. Under 'Pipeline Permissions', remove pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
       "Tags": [
         "SDL",
         "AuthZ",
