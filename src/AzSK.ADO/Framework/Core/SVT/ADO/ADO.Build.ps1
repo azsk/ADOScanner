@@ -1204,16 +1204,18 @@ class Build: ADOSVTBase
         if([Helpers]::CheckMember($this.BuildObj[0],"triggers"))
         {
             $pullRequestTrigger = $this.BuildObj[0].triggers | Where-Object {$_.triggerType -eq "pullRequest"}
+            
+            # initlizing $isRepoPrivate = $true as visibility setting is not available for ADO repositories.
             $isRepoPrivate = $true
             if ([Helpers]::CheckMember($this.BuildObj[0],"repository.properties.IsPrivate")) {
                 $isRepoPrivate = $this.BuildObj[0].repository.properties.IsPrivate
             }
             if($pullRequestTrigger) 
             {
-                if([Helpers]::CheckMember($pullRequestTrigger,"forks"))
+                if([Helpers]::CheckMember($pullRequestTrigger,"forks") -and ($isRepoPrivate -eq $false))
                 {
 
-                    if(($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true) -and ($isRepoPrivate -eq $false))
+                    if(($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true))
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed,"Secrets are available to builds of public forked repository.");
                     }
@@ -1224,7 +1226,7 @@ class Build: ADOSVTBase
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Secrets are not available to builds of forked repository."); 
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Secrets are not available to builds of public forked repository."); 
                 }               
             }
             else
