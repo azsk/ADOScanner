@@ -688,6 +688,7 @@ class Project: ADOSVTBase
     hidden [ControlResult] CheckSecureFilesPermission([ControlResult] $controlResult) {
         # getting the project ID
         try {
+            $controlResult.AddMessage([VerificationResult]::Failed);
             $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
             $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($projectId)/_apis/distributedtask/securefiles?api-version=6.1-preview.1"
             $response = [WebRequestHelper]::InvokeGetWebRequest($url);
@@ -696,7 +697,6 @@ class Project: ADOSVTBase
                 $controlResult.AddMessage([VerificationResult]::Passed, "There are no secure files present.");
             }
             # else there are secure files present
-            #WHY elseif and not else
             # elseif((-not ([Helpers]::CheckMember($response[0],"count"))) -and ($response.Count -gt 0)) {
             else{
                 # object to keep a track of authorized secure files and their count
@@ -719,6 +719,7 @@ class Project: ADOSVTBase
                 }
                 # there are secure files present that are authorized
                 if($secFiles.count -gt 0) {
+
                     $controlResult.AddMessage([VerificationResult]::Failed, "Count of secure files in the project that are authorized for use in all pipelines: $($secFiles.count)");
                     $controlResult.AddMessage("List of secure files in the project that are authorized for use in all pipelines: ", $secFiles.names);
                     $controlResult.AdditionalInfo += "Count of secure files in the project that are authorized for use in all pipelines: " + $secFiles.count;
