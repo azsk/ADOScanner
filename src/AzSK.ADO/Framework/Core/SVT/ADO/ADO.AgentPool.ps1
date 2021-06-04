@@ -145,21 +145,22 @@ class AgentPool: ADOSVTBase
     hidden [ControlResult] CheckPrjAllPipelineAccess([ControlResult] $controlResult)
     {
         try {
+            $controlResult.VerificationResult = [VerificationResult]::Failed 
             $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=queue&id={2}&api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$this.ProjectId ,$this.AgentPoolId;
-            $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
+            $agentPoolsObj = @([WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL));
 
-            if([Helpers]::CheckMember($agentPoolsObj,"authorized") -and $agentPoolsObj.authorized)
+            if([Helpers]::CheckMember($agentPoolsObj[0],"authorized") -and $agentPoolsObj[0].authorized)
             {
-                $controlResult.AddMessage([VerificationResult]::Failed,"Access permission to all pipeline is enabled for the agent pool.");
+                $controlResult.AddMessage([VerificationResult]::Failed,"Agent pool is marked as accessible to all pipelines.");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Access permission to all pipeline is not enabled for the agent pool.");
+                $controlResult.AddMessage([VerificationResult]::Passed,"Agent pool is not marked as accessible to all pipelines.");
             }
             $agentPoolsObj =$null;
         }
         catch{
             $controlResult.AddMessage($_);
-            $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch agent pool details.");
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch agent pool details.");
             $controlResult.LogException($_)
         }
         return $controlResult

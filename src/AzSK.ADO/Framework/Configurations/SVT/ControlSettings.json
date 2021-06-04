@@ -289,6 +289,10 @@
         "Contributors",
         "Readers",
         "Project Valid Users"
+    ],
+    "RestrictedRolesForBroaderGroupsInVariableGroup": [
+        "User",
+        "Administrator"
     ]
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",

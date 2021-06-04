@@ -580,56 +580,68 @@ class Project: ADOSVTBase
         return $controlResult
     }
 
-    hidden [ControlResult] CheckFeedAccess([ControlResult] $controlResult)
+    hidden [ControlResult] CheckAllPipelinesAccessOnFeeds([ControlResult] $controlResult)
     {
         try
         {
+            $controlResult.VerificationResult = [VerificationResult]::Failed 
             $url = 'https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds?api-version=6.0-preview.1' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceName;
-            $feedsObj = [WebRequestHelper]::InvokeGetWebRequest($url); 
+            $feedsObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
 
-            $feedsWithUploadPkgPermission = @();
+            $FeedsWithBroadAccess = @();
             $GroupsToCheckForFeedPermission = $null;
-            if (($feedsObj | Measure-Object).Count -gt 0) 
-            {
-                $controlResult.AddMessage("Total number of feeds found: $($feedsObj.count)")
-                $controlResult.AdditionalInfo += "Total number of feeds found: " + $feedsObj.count;
+            $TotalFeedsCount = $feedsObj.Count
 
-                if ([Helpers]::CheckMember($this.ControlSettings.Project, "GroupsToCheckForFeedPermission")) {
-                    $GroupsToCheckForFeedPermission = $this.ControlSettings.Project.GroupsToCheckForFeedPermission
+            if ( $TotalFeedsCount -gt 0 -and [Helpers]::CheckMember($feedsObj[0],"Id")) 
+            {
+                $controlResult.AddMessage("Total number of feeds found: $($TotalFeedsCount)")
+                $controlResult.AdditionalInfo += "Total number of feeds found: " + $TotalFeedsCount;
+
+                if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "Project.GroupsToCheckForFeedPermission") ) {
+                    $GroupsToCheckForFeedPermission = @($this.ControlSettings.Project.GroupsToCheckForFeedPermission)
                 }
-                
-                foreach ($feed in $feedsObj) 
+
+                if($null -ne $GroupsToCheckForFeedPermission -and $GroupsToCheckForFeedPermission.Count -gt 0)
                 {
-                    #GET https://feeds.dev.azure.com/{organization}/{project}/_apis/packaging/Feeds/{feedId}/permissions?api-version=6.0-preview.1
-                    #Using visualstudio api because new api (dev.azure.com) is giving null in the displayName property.
-                    $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceName, $feed.Id;
-                    $feedPermissionObj = [WebRequestHelper]::InvokeGetWebRequest($url); 
+                    foreach ($feed in $feedsObj) 
+                    {
+                        #GET https://feeds.dev.azure.com/{organization}/{project}/_apis/packaging/Feeds/{feedId}/permissions?api-version=6.0-preview.1
+                        #Using visualstudio api because new api (dev.azure.com) is giving null in the displayName property.
+                        $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceName, $feed.Id;
+                        $feedPermissionObj = @([WebRequestHelper]::InvokeGetWebRequest($url)); 
+                        
+                        $feedsPermission = ($feedPermissionObj | Where-Object {$_.role -eq "administrator" -or $_.role -eq "contributor" -or $_.role -eq "collaborator"}) | Select-Object -Property @{Name="FeedName"; Expression = {$feed.name}},@{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}} ;
+                        $FeedsWithBroadAccess += $feedsPermission | Where-Object { $GroupsToCheckForFeedPermission -contains $_.DisplayName.split('\')[-1] }
+                    }
 
-                    $feedsPermission = ($feedPermissionObj | Where-Object {$_.role -eq "administrator" -or $_.role -eq "contributor"}) | Select-Object -Property @{Name="FeedName"; Expression = {$feed.name}},@{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}} ;
-                    $feedsWithUploadPkgPermission += $feedsPermission | Where-Object { $GroupsToCheckForFeedPermission -contains $_.DisplayName.split('\')[-1] }
+                    $FeedsAtRisk = $FeedsWithBroadAccess.count; 
+                    if ($FeedsAtRisk -gt 0) 
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed, "List of feeds: ");
+                        $controlResult.AddMessage("`nNote: The following groups are considered as broad groups:");
+                        $controlResult.AddMessage(($GroupsToCheckForFeedPermission | FT | Out-String))
+                        $controlResult.AddMessage("`nCount of feeds with contributor/administrator/collaborator permission: $FeedsAtRisk");
+                        $controlResult.AdditionalInfo += "Count of feeds with contributor/administrator/collaborator permission: " + $FeedsAtRisk;
+
+                        $display = ($FeedsWithBroadAccess |  FT FeedName, Role, DisplayName -AutoSize | Out-String -Width 512)
+                        $controlResult.AddMessage($display)
+                    }
+                    else
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed,  "No feeds in the project are exposed to uploads from broad group of users.");
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Error, "List of groups for checking feed permission is not defined in control settings for your organization.");
                 }
             }
- 
-            $feedCount = ($feedsWithUploadPkgPermission | Measure-Object).Count;
-            if ($feedCount -gt 0) 
-            {
-                $controlResult.AddMessage("`nNote: The following groups are considered as 'critical': [$GroupsToCheckForFeedPermission]");
-                $controlResult.AddMessage("`nTotal number of feeds that have contributor/administrator permission: $feedCount");
-                $controlResult.AddMessage([VerificationResult]::Failed, "List of feeds that have contributor/administrator permission: ");
-                $controlResult.AdditionalInfo += "Total number of groups that are considered as 'critical': " + ($GroupsToCheckForFeedPermission | Measure-Object).Count;
-                $controlResult.AdditionalInfo += "Total number of feeds that have contributor/administrator permission: " + $feedCount;
-
-                $display = ($feedsWithUploadPkgPermission |  FT FeedName, Role, DisplayName -AutoSize | Out-String -Width 512)
-                $controlResult.AddMessage($display)
-            }
-            else
-            {
+            else {
                 $controlResult.AddMessage([VerificationResult]::Passed,  "No feeds found in the project.");
             }
         }
         catch
         {
-            $controlResult.AddMessage([VerificationResult]::Passed,  "Could not fetch project feed settings.");
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not fetch project feed settings.");
             $controlResult.LogException($_)
         }
         return $controlResult
