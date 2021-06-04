@@ -18,7 +18,8 @@ class BugLogHelper {
         
         $this.StorageAccount = $env:StorageName;
         $this.StorageRG = $env:StorageRG;
-        
+        # $this.StorageAccount="ritikbavdekarstorage"
+        # $this.StorageRG="Ritik_Storage_Test"
         #get storage details
         if ($this.StorageRG -and $this.StorageAccount) {
             $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
@@ -236,7 +237,7 @@ class BugLogHelper {
         return $headers
     }
 
-    hidden [bool] GetTableEntityAndCloseBug([string] $hash) 
+    hidden [PSCustomObject[]] GetTableEntityAndCloseBug([string] $hash) 
     {    
         #get table filter by name
         $tableName = $this.GetTableName();
@@ -245,6 +246,7 @@ class BugLogHelper {
 
             #Get clouddata to do perform read/write operations on the table
             $azTableBugInfo = @();
+            [PSCustomObject[]] $closedBugs=$null;
 
             $query = '({0}) and IsDeleted eq ''N''' -f $hash;
             $resource = '$filter='+[System.Web.HttpUtility]::UrlEncode($query);
@@ -257,6 +259,11 @@ class BugLogHelper {
                 foreach ($row in $azTableBugInfo) {
                     if($this.CloseBug($row.ADOBugId, $row.projectName) )
                     {
+                        $closedBugs+=[PSCustomObject]@{
+                            "BugID" = $row.ADOBugId
+                            "Project"=$row.ProjectName
+                            "Hash"=$row.ADOScannerHashId
+                        }
                         $isDeleted = $this.DeleteTableEntity($tableName, $row.PartitionKey , $row.ADOBugId);
                         if ($isDeleted -eq $true) {
                             $this.AddDataInTable($tableName, $row.PartitionKey, $row.ADOBugId, $row.projectName, "Y");
@@ -270,10 +277,10 @@ class BugLogHelper {
             if (!$this.errorMsgDisplayed) {
                Write-Host "Could not update entry of closed bug in storage table." -ForegroundColor Red  
             }
-            return $false;
+            return $null;
         }
         
-        return $true;
+        return $closedBugs;
     } 
 
     hidden [string] GetTableName()

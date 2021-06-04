@@ -12,6 +12,7 @@ class AutoCloseBugManager {
         $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
         $this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
         
+        
         if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount", $null)) {
             $this.UseAzureStorageAccount = $this.ControlSettings.BugLogging.UseAzureStorageAccount;
             if ($this.UseAzureStorageAccount) {
@@ -91,7 +92,6 @@ class AutoCloseBugManager {
             if ($PassedControlResultsLength -lt $MaxKeyWordsToQuery) {
                 #check for number of tags in current query
                 $QueryKeyWordCount++;
-                # $this.UseAzureStorageAccount=true;
 
                 if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA")
                 {
@@ -104,13 +104,15 @@ class AutoCloseBugManager {
                         #to remove OR from the last tag keyword. Ex: Tags: Tag1 OR Tags: Tag2 OR. Remove the last OR from this keyword
                         $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
                         $response = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword)
-                        # if ($response[0].results.count -gt 0) {
-                        #     $response.results | ForEach-Object {
-                        #         #Add the closed bug
-                        #         $TagToControlIDMap[$_.fields."system.tags"].ControlResults.AddMessage("Closed Bug",$_.url);
-                        #         [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$_.fields."system.tags"]
-                        #     }
-                        # }
+                        #Log closed bugs for csv,la and summary
+                        if($response)
+                        {
+                            $response| ForEach-Object{
+                            $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $_.Project , $_.BugID;
+                            $TagToControlIDMap[$_.Hash].ControlResults.AddMessage("Closed Bug",$urlClose);
+                            [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$_.Hash]
+                            }
+                        }
                     }
                 }
                 else {
@@ -134,7 +136,8 @@ class AutoCloseBugManager {
                                 {
                                 $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $Project , $id;
                                 $TagToControlIDMap[$_.fields."system.tags"].ControlResults.AddMessage("Closed Bug",$urlClose);
-                                [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$_.fields."system.tags"]}
+                                [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$_.fields."system.tags"]
+                                }
                             }
                         }
                     }
@@ -152,13 +155,14 @@ class AutoCloseBugManager {
                             #query for all these tags and their bugs
                             $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
                             $response = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword);
-                            # if ($response[0].results.count -gt 0) {
-                            #     $response.results | ForEach-Object {
-                                    #Add the closed bug
-                                    # $TagToControlIDMap[$_.fields."system.tags"].ControlResults.AddMessage("Closed Bug",$_.url);
-                                    # [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$_.fields."system.tags"]
-                                # }
-                            # }
+                            if($response)
+                            {
+                            $response| ForEach-Object{
+                                $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $_.Project , $_.BugID;
+                                $TagToControlIDMap[$_.Hash].ControlResults.AddMessage("Closed Bug",$urlClose);
+                                [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$_.Hash]
+                                }
+                            }
                             #Reinitialize for the next batch
                             $QueryKeyWordCount = 0;
                             $TagSearchKeyword = "";
