@@ -175,6 +175,8 @@ class CommandBase: AzSKRoot {
 			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 			$AutoClose.AutoCloseBug($methodResult)
 		}
+		#SARIF Logs
+		$sarifLogs=[SARIFLogsGenerator]::new($methodResult,$folderPath)
 		# Publish command complete events
         $this.CommandCompleted($methodResult);
 		[AIOrgTelemetryHelper]::TrackCommandExecution("Command Completed",

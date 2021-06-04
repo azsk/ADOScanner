@@ -75,6 +75,16 @@ $FrameworkPath = $PSScriptRoot
 . $PSScriptRoot\BugLog\PublishToJSON.ps1
 . $PSScriptRoot\BugLog\AutoCloseBugManager.ps1
 
+#SARIF
+. $PSScriptRoot\SARIF\SARIFRuleDescriptor.ps1
+. $PSScriptRoot\SARIF\SARIFResult.ps1
+. $PSScriptRoot\SARIF\SARIFDriver.ps1
+. $PSScriptRoot\SARIF\SARIFTool.ps1
+. $PSScriptRoot\SARIF\SARIFRun.ps1
+. $PSScriptRoot\SARIF\SARIFLogs.ps1
+. $PSScriptRoot\SARIF\SARIFLogsGenerator.ps1
+
+
 
 #Abstracts
 . $FrameworkPath\Abstracts\AzSKRoot.ps1
