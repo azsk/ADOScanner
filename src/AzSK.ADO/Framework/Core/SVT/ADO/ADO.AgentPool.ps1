@@ -402,7 +402,7 @@ class AgentPool: ADOSVTBase
             $controlResult.VerificationResult = [VerificationResult]::Failed
             if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool")) {
                 $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
-                $controlResult.AddMessage("`nNote: The following groups are considered 'broad' which should not have user/administrator privileges: `n`t[$($restrictedBroaderGroupsForAgentPool -join ', ')]");
+                $controlResult.AddMessage("`nNote: The following groups are considered 'broad' which should not have user/administrator privileges: `n`t[$($restrictedBroaderGroupsForAgentPool -join ', ')]`n");
 
                 if (($this.AgentObj.Count -gt 0) -and [Helpers]::CheckMember($this.AgentObj, "identity")) {
                     # match all the identities added on agentpool with defined restricted list
@@ -414,7 +414,9 @@ class AgentPool: ADOSVTBase
                     # fail the control if restricted group found on agentpool
                     if ($restrictedGroupsCount -gt 0) {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Total number of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)");
-                        $controlResult.AddMessage("`nList of groups: ", $restrictedGroups)
+                        $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
+                        $formattedGroupsTable = ($formattedGroupsData | Out-String)
+                        $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                         $controlResult.AdditionalInfo += "Total number of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)";
                     }
