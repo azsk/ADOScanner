@@ -5,6 +5,45 @@ class IdentityHelpers
 	static hidden [bool] $useGraphAccess = $false
 	static hidden [string] $graphAccessToken = $null
 
+	hidden static [bool] IsAltAccount($SignInName, $graphToken)
+	{
+		$isAltAccount = $false
+		$headers = @{"Authorization"= ("Bearer " + $graphToken); "Content-Type"="application/json"}
+		$uri=""
+		$graphURI = [WebRequestHelper]::GetGraphUrl()
+
+		if (-not [string]::IsNullOrWhiteSpace($SignInName))
+		{
+			$uri = [string]::Format('{0}/v1.0/users/{1}?$select=onPremisesExtensionAttributes', $graphURI, $SignInName)
+		}
+		else
+		{
+			return $false
+		}
+
+
+		try
+		{ 
+			$responseObj = [WebRequestHelper]::InvokeGetWebRequest($uri, $headers);
+			if ($null -ne $responseObj -and ($responseObj | Measure-Object).Count -gt 0)
+			{
+				# extensionAttribute contains 15 different values which define unique properties for users.
+				$extensionAttributes = $responseObj.onPremisesExtensionAttributes
+				#"extensionAttribute2" contains the integer values which represents the different types of users.
+				#"extensionAttribute2: -10" => Sc-Alt Accounts
+				if($extensionAttributes.extensionAttribute2 -eq "-10")
+				{
+					$isAltAccount = $true
+				}
+			}
+		} 
+		catch
+		{ 
+			return $false;
+		}
+		return $isAltAccount
+	}
+
 	hidden static [bool] IsServiceAccount($SignInName, $subjectKind, $graphToken)
 	{
 		$isServiceAccount = $false

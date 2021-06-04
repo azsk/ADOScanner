@@ -501,17 +501,27 @@ class Project: ADOSVTBase
 
                             if(($allAdminMembers | Measure-Object).Count -gt 0)
                             {
-                                if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg")){
-                                    $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
-                                    #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
-                                    if (-not [string]::IsNullOrEmpty($matchToSCAlt)) 
+                                # If switch EvaluateAlternateAccountUsingGraphAPI is set as true in org policy, then evaluating control using graph API. If not then fall back to RegEx based evaluation.
+                                if ([Helpers]::CheckMember($this.ControlSettings, "EvaluateAlternateAccountUsingGraphAPI") -and ($this.ControlSettings.EvaluateAlternateAccountUsingGraphAPI -eq $true))
+                                {
+                                    if ($this.graphPermissions.hasGraphAccess) 
                                     {
-                                        $nonSCMembers = @();
-                                        $nonSCMembers += $allAdminMembers | Where-Object { $_.mailAddress -notmatch $matchToSCAlt }
-                                        $nonSCCount = ($nonSCMembers | Measure-Object).Count
-
                                         $SCMembers = @();
-                                        $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }   
+                                        $nonSCMembers = @();
+
+                                        $allAdminMembers | ForEach-Object{
+                                            $isAltAccount = [IdentityHelpers]::IsAltAccount($_.mailAddress, $this.graphPermissions.graphAccessToken)
+                                            if ($isAltAccount)
+                                            {
+                                                $SCMembers += $_
+                                            }
+                                            else
+                                            {
+                                                $nonSCMembers += $_
+                                            }
+                                        }
+                                        
+                                        $nonSCCount = ($nonSCMembers | Measure-Object).Count
                                         $SCCount = ($SCMembers | Measure-Object).Count
 
                                         if ($nonSCCount -gt 0) 
@@ -519,7 +529,7 @@ class Project: ADOSVTBase
                                             $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
                                             $stateData = @();
                                             $stateData += $nonSCMembers
-                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nTotal number of non SC-ALT accounts with admin privileges: $nonSCCount"); 
+                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nTotal number of non SC-ALT accounts with admin privileges:  $nonSCCount"); 
                                             $controlResult.AddMessage("Review the non SC-ALT accounts with admin privileges: ", $stateData);  
                                             $controlResult.SetStateData("List of non SC-ALT accounts with admin privileges: ", $stateData);
                                             $controlResult.AdditionalInfo += "Total number of non SC-ALT accounts with admin privileges: " + $nonSCCount;
@@ -534,17 +544,61 @@ class Project: ADOSVTBase
                                             $SCData = @();
                                             $SCData += $SCMembers
                                             $controlResult.AddMessage("`nTotal number of SC-ALT accounts with admin privileges: $SCCount");
-                                            $controlResult.AdditionalInfo += "Total number of SC-ALT accounts with admin privileges: " + $SCCount;  
+                                            $controlResult.AdditionalInfo += "Total number of SC-ALT accounts with admin privileges: " + $SCCount;
                                             $controlResult.AddMessage("SC-ALT accounts with admin privileges: ", $SCData);  
                                         }
                                     }
                                     else {
-                                        $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting SC-ALT account is not defined in the organization.");
+                                        $controlResult.AddMessage([VerificationResult]::Error, "User does not have graph access.");
                                     }
-                                }
-                                else{
-                                    $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting SC-ALT account is not defined in the organization. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
-                                }   
+                                } 
+                                else
+                                {
+                                    if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg")){
+                                        $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
+                                        #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
+                                        if (-not [string]::IsNullOrEmpty($matchToSCAlt)) 
+                                        {
+                                            $nonSCMembers = @();
+                                            $nonSCMembers += $allAdminMembers | Where-Object { $_.mailAddress -notmatch $matchToSCAlt }
+                                            $nonSCCount = ($nonSCMembers | Measure-Object).Count
+
+                                            $SCMembers = @();
+                                            $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }   
+                                            $SCCount = ($SCMembers | Measure-Object).Count
+
+                                            if ($nonSCCount -gt 0) 
+                                            {
+                                                $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
+                                                $stateData = @();
+                                                $stateData += $nonSCMembers
+                                                $controlResult.AddMessage([VerificationResult]::Failed, "`nTotal number of non SC-ALT accounts with admin privileges: $nonSCCount"); 
+                                                $controlResult.AddMessage("Review the non SC-ALT accounts with admin privileges: ", $stateData);  
+                                                $controlResult.SetStateData("List of non SC-ALT accounts with admin privileges: ", $stateData);
+                                                $controlResult.AdditionalInfo += "Total number of non SC-ALT accounts with admin privileges: " + $nonSCCount;
+                                            }
+                                            else 
+                                            {
+                                                $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                            }
+                                            if ($SCCount -gt 0) 
+                                            {
+                                                $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
+                                                $SCData = @();
+                                                $SCData += $SCMembers
+                                                $controlResult.AddMessage("`nTotal number of SC-ALT accounts with admin privileges: $SCCount");
+                                                $controlResult.AdditionalInfo += "Total number of SC-ALT accounts with admin privileges: " + $SCCount;  
+                                                $controlResult.AddMessage("SC-ALT accounts with admin privileges: ", $SCData);  
+                                            }
+                                        }
+                                        else {
+                                            $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting SC-ALT account is not defined in the organization.");
+                                        }
+                                    }
+                                    else{
+                                        $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting SC-ALT account is not defined in the organization. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
+                                    }
+                                }  
                             }
                             else
                             { #count is 0 then there is no members added in the admin groups

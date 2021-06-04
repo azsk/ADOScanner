@@ -275,6 +275,7 @@
     ]
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
+  "EvaluateAlternateAccountUsingGraphAPI": true,
   "Organization": {
     "DisallowedEnvironments" : [],
     "InactiveUserActivityLogsPeriodInDays": 90,
