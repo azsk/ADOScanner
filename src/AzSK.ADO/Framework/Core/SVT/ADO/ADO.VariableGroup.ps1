@@ -16,36 +16,47 @@ class VariableGroup: ADOSVTBase
     }
     hidden [ControlResult] CheckPipelineAccess([ControlResult] $controlResult)
     {
-        $url = 'https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=variablegroup&id={2}&api-version=6.0-preview.1' -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId) ,$($this.VarGrpId);
         try 
         {
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
-            # If var grp is not shared across all pipelines, 'count' property is available for $responseObj[0] and its value is 0. 
-            # If var grp is shared across all pipelines, 'count' property is not available for $responseObj[0]. 
-            #'Count' is a PSObject property and 'count' is response object property. Notice the case sensitivity here.
+            $controlResult.VerificationResult = [VerificationResult]::Failed 
+            $url = 'https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=variablegroup&id={2}&api-version=6.0-preview.1' -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId) ,$($this.VarGrpId);
+            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+            #
             
-            # TODO: When there var grp is not shared across all pipelines, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false. Need to revisit.
-            if(([Helpers]::CheckMember($responseObj[0],"count",$false)) -and ($responseObj[0].count -eq 0))
+            # When var grp is shared across all pipelines - the below condition will be true.
+            if([Helpers]::CheckMember($responseObj[0],"authorized") -and $responseObj[0].authorized -eq $true ) 
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Variable group is not accessible to all pipelines.");
-            }
-             # When var grp is shared across all pipelines - the below condition will be true.
-            elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0) -and ([Helpers]::CheckMember($responseObj[0],"authorized"))) 
-            {
-                if($responseObj[0].authorized -eq $true)
+                $isSecretFound = $false
+
+                # Check if variable group has any secret or linked to KV
+                if ($this.VarGrp.Type -eq 'AzureKeyVault')
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Variable group is accessible to all pipelines.");
+                    $isSecretFound = $true
+                }
+                else 
+                {
+                    Get-Member -InputObject $this.VarGrp.variables -MemberType Properties | ForEach-Object {
+                        if([Helpers]::CheckMember($this.VarGrp.variables.$($_.Name),"isSecret") -and ($this.VarGrp.variables.$($_.Name).isSecret -eq $true))
+                        {
+                            $isSecretFound = $true
+                        }
+                    }
+                }
+
+                if ($isSecretFound -eq $true)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Variable group contains secrets and is accessible to all pipelines.");
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "Variable group is not accessible to all pipelines.");
-                }  
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Variable group does not contain secret.");
+                }
             }
-            else 
+            else
             {
-                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch authorization details of variable group.");
-            }   
-
+                $controlResult.AddMessage([VerificationResult]::Passed, "Variable group is not accessible to all pipelines.");
+            }  
+            
         }
         catch 
         {   
@@ -54,6 +65,7 @@ class VariableGroup: ADOSVTBase
         }
         return $controlResult
     }
+
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult)
     {
         $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId) ,$($this.VarGrpId); 
@@ -104,7 +116,8 @@ class VariableGroup: ADOSVTBase
             ],
             "Enabled": true
           }
-          #>
+        #>
+
         $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId); 
         try 
         {
@@ -258,6 +271,53 @@ class VariableGroup: ADOSVTBase
                 $controlResult.LogException($_)
             }    
         } 
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupAccess ([ControlResult] $controlResult) {
+
+        try {
+            $controlResult.VerificationResult = [VerificationResult]::Failed 
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedBroaderGroupsForVariableGroup") -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroup")) {
+                $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup;
+                $restrictedRolesForBroaderGroupsInvarGrp = $this.ControlSettings.VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroup;
+
+                #Fetch variable group RBAC
+                $roleAssignments = @();
+
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId); 
+                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                if($responseObj.Count -gt 0)
+                {
+                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                }
+
+                # Checking whether the broader groups have User/Admin permissions
+                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                $restrictedGroupsCount = $restrictedGroups.Count
+
+                # fail the control if restricted group found on variable group
+                if ($restrictedGroupsCount -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have user/administrator access to variable group: $($restrictedGroupsCount)");
+                    $controlResult.AddMessage("`nList of groups: ")
+                    $controlResult.AddMessage(($restrictedGroups | FT | Out-String));
+                    $controlResult.SetStateData("List of groups: ", $restrictedGroups)
+                    $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to variable group: $($restrictedGroupsCount)";
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to variable group.");
+                }
+                $controlResult.AddMessage("Note: The following groups are considered 'broad' which should not have user/administrator privileges: `n`t[$($restrictedBroaderGroupsForVarGrp -join ', ')]");
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and respective roles for variable group is not defined in the control settings for your organization policy.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions.");
+            $controlResult.LogException($_)
+        }
+
         return $controlResult;
     }
 
