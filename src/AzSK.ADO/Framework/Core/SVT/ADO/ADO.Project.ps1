@@ -5,6 +5,8 @@ class Project: ADOSVTBase
     hidden $PAMembers = @()
     hidden $Repos = $null
     hidden [PSObject] $graphPermissions = @{hasGraphAccess = $false; graphAccessToken = $null}; # This is used to check user has graph permissions to compute the graph api operations.
+    hidden $GuestMembers = @()
+    hidden $AllUsersInOrg = @()
 
     Project([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
     {
@@ -1296,26 +1298,80 @@ class Project: ADOSVTBase
         
     }
 
+    hidden [void] FetchGuestMembersInOrg()
+    {
+        $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName) 
+        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
+                
+        $guestAccounts =  @()
+        if(($null -ne $responseObj) -and $responseObj.Count -gt 0 -and ([Helpers]::CheckMember($responseObj[0], 'members')))
+        {  
+            $guestAccounts = @($responseObj[0].members)
+            $continuationToken =  $responseObj[0].continuationToken # Use the continuationToken for pagination
+
+            while ($null -ne $continuationToken){
+                    $urlEncodedToken = [System.Web.HttpUtility]::UrlEncode($continuationToken)
+                    $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?continuationToken=$urlEncodedToken&%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
+                    try{
+                          $response = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                          $guestAccounts += $response[0].members
+                          $continuationToken =  $responseObj[0].continuationToken
+                        }
+                    catch
+                        {
+                            # Eating the exception here as we could not fetch the further guest users
+                            $continuationToken = $null
+                        }
+                    }
+                    $this.GuestMembers = $guestAccounts
+            }
+    }
+
+    hidden [void] FetchAllUsersInOrg()
+    {
+        $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName) 
+        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
+                
+        $AllUsersAccounts =  @()
+        if(($null -ne $responseObj) -and $responseObj.Count -gt 0 -and ([Helpers]::CheckMember($responseObj[0], 'members')))
+        {  
+            $AllUsersAccounts = @($responseObj[0].members)
+            $continuationToken =  $responseObj[0].continuationToken # Use the continuationToken for pagination
+
+            while ($null -ne $continuationToken){
+                    $urlEncodedToken = [System.Web.HttpUtility]::UrlEncode($continuationToken)
+                    $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?continuationToken=$urlEncodedToken&filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
+                    try{
+                          $response = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                          $AllUsersAccounts += $response[0].members
+                          $continuationToken =  $responseObj[0].continuationToken
+                        }
+                    catch
+                        {
+                            # Eating the exception here as we could not fetch the further guest users
+                            $continuationToken = $null
+                        }
+                    }
+                    $this.AllUsersInOrg = $AllUsersAccounts
+            }
+    }
+
     hidden [ControlResult] CheckGuestUsersAccessInAdminRoles([ControlResult] $controlResult) 
     {
         if([Helpers]::CheckMember($this.ControlSettings.Project,"GroupsToCheckForGuestUser"))
         {
             try {
                 $controlResult.VerificationResult = [VerificationResult]::Failed
-                $GroupsToCheckForGuestUser = $this.ControlSettings.Project.GroupsToCheckForGuestUser 
-                $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName) 
-                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
-                
-                $guestAccounts =  @()
-                if($responseObj.Count -gt 0)
-                {  
-                    $responseObj[0].members | ForEach-Object {
-                        if([Helpers]::CheckMember($_,"user.metaType") -and $_.user.metaType -eq "guest")
-                        {
-                            $guestAccounts += $_          
-                        }
-                    }
+                $GroupsToCheckForGuestUser = @($this.ControlSettings.Project.GroupsToCheckForGuestUser)                 
+                if($this.GuestMembers -gt 0)
+                {
+                    # Continue as we already have guest member object
                 }
+                else {
+                    $this.FetchGuestMembersInOrg()
+                }
+
+                $guestAccounts = @($this.GuestMembers)
                 if($guestAccounts.Count -gt 0)
                 {   
                     $formattedData = @()
@@ -1400,19 +1456,32 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckInactiveUsersInAdminRoles([ControlResult] $controlResult)
     {
-        if([Helpers]::CheckMember($this.ControlSettings.Project,"GroupsToCheckForInactiveUser") -and [Helpers]::CheckMember($this.ControlSettings.Project,"InActiveUserActivityLogsPeriodInDays"))
+        if([Helpers]::CheckMember($this.ControlSettings.Project,"GroupsToCheckForInactiveUser"))
         {
             try {
                 $controlResult.VerificationResult = [VerificationResult]::Failed
-                $GroupsToCheckForInactiveUser = $this.ControlSettings.Project.GroupsToCheckForInactiveUser 
-                $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
-                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
+                $GroupsToCheckForInactiveUser = @($this.ControlSettings.Project.GroupsToCheckForInactiveUser)
+                if($this.AllUsersInOrg -gt 0)
+                {
+                    # Continue as we already have 'All member in Org' object
+                }
+                else {
+                    $this.FetchAllUsersInOrg()
+                }
+                $users = @($this.AllUsersInOrg)
     
-                if($responseObj.Count -gt 0)
+                if($users.Count -gt 0)
                 {
                     $inactiveUsers =  @()
-                    $thresholdDate =  (Get-Date).AddDays(-$($this.ControlSettings.Project.InActiveUserActivityLogsPeriodInDays))
-                    $responseObj[0].items | ForEach-Object { 
+                    if(-not [Helpers]::CheckMember($this.ControlSettings.Organization,"InactiveUserInAdminRoleInactivityPeriodInDays"))
+                    {
+                        $thresholdDate =  (Get-Date).AddDays(-90) # Default Value, if not provided in control settings
+                    }
+                    else {    
+                        $thresholdDate =  (Get-Date).AddDays(-$($this.ControlSettings.Organization.InactiveUserInAdminRoleInactivityPeriodInDays))
+                    }
+                    
+                    $users | ForEach-Object { 
                         if([datetime]::Parse($_.lastAccessedDate) -lt $thresholdDate )
                         {
                             $inactiveUsers+= $_
@@ -1499,7 +1568,7 @@ class Project: ADOSVTBase
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No inactive users found.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No users found in organization.");
                 }
             }
             catch {

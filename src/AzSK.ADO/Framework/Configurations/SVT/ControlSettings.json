@@ -318,7 +318,8 @@
     "GroupsToCheckForInactiveUser":[
         "Project Collection Administrators",
         "Project Collection Build Administrators"
-    ]
+    ],
+    "InactiveUserInAdminRoleInactivityPeriodInDays": 90
   },
   "Project": {
     "MaxPAMembersPermissible": 5,
@@ -342,7 +343,7 @@
         "Project Collection Build Administrators",
         "Build Administrators"
     ],
-    "InactiveUserActivityLogsPeriodInDays": 90
+    "InactiveUserInAdminRoleInactivityPeriodInDays": 90
   },
   "Repo": {
     "RepoHistoryPeriodInDays": 180,

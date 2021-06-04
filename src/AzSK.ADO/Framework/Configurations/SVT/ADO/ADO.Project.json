@@ -370,7 +370,7 @@
         "Automated": "Yes",
         "MethodName": "CheckGuestUsersAccessInAdminRoles",
         "Rationale": "Guest user accounts are not carefully managed and governed. If these accounts have admin access then a compromised account can be easily leveraged to access arbitrary resources in the project.",
-        "Recommendation": "Steps to remediate: 1. Go to Project Settings -> 2. Permissions -> 3. Search for Collection group of the guest user -> 4. Go to members tab -> 5. Remove its acces by clicking on three dots against its row.",
+        "Recommendation": "1. Go to Project Settings --> 2. Permissions --> 3. Search for Collection group of the guest user --> 4. Go to members tab --> 5. Remove its acces by clicking on three dots against its row.",
         "Tags": [
           "SDL",
           "TCP",
@@ -387,7 +387,7 @@
         "Automated": "Yes",
         "MethodName": "CheckInactiveUsersInAdminRoles",
         "Rationale": "Inactive users in administrative roles provide opportunities for hackers to leverage spear-phishing attacks to gain admin access. It is best to restrict critical roles in the project to active members only.",
-        "Recommendation": "Steps to remediate: 1. Go to Project Settings -> 2. Permissions -> 3. Search for Collection group of the inactive user -> 4. Go to members tab -> 5. Remove its acces by clicking on three dots against its row.",
+        "Recommendation": "1. Go to Project Settings --> 2. Permissions --> 3. Search for Collection group of the inactive user --> 4. Go to members tab --> 5. Remove its acces by clicking on three dots against its row.",
         "Tags": [
           "SDL",
           "TCP",
