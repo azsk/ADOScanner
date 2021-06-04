@@ -962,6 +962,8 @@ class Build: ADOSVTBase
     
     hidden [ControlResult] CheckVariableGroupEditPermission([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+
         if([Helpers]::CheckMember($this.BuildObj[0],"variableGroups"))
         {
             $varGrps = $this.BuildObj[0].variableGroups
@@ -972,8 +974,8 @@ class Build: ADOSVTBase
             {   
                 $varGrps | ForEach-Object{
                     $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($projectId), $($_.Id);
-                    $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
-                    if(($responseObj | Measure-Object).Count -gt 0)
+                    $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                    if($responseObj.Count -gt 0)
                     {
                         $contributorsObj = $responseObj | Where-Object {$_.identity.uniqueName -eq "[$projectName]\Contributors"}
                         if((-not [string]::IsNullOrEmpty($contributorsObj)) -and ($contributorsObj.role.name -ne 'Reader')){
@@ -984,10 +986,10 @@ class Build: ADOSVTBase
                     }
                 }
 
-                if(($editableVarGrps | Measure-Object).Count -gt 0)
+                if($editableVarGrps.Count -gt 0)
                 {
-                    $controlResult.AddMessage("Total number of variable groups on which contributors have edit permissions in build definition: ", ($editableVarGrps | Measure-Object).Count);
-                    $controlResult.AdditionalInfo += "Total number of variable groups on which contributors have edit permissions in build definition: " + ($editableVarGrps | Measure-Object).Count;
+                    $controlResult.AddMessage("Total number of variable groups on which contributors have edit permissions in build definition: $($editableVarGrps.Count)");
+                    $controlResult.AdditionalInfo += "Total number of variable groups on which contributors have edit permissions in build definition: " + $editableVarGrps.Count;
                     $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below variable groups used in build definition: ", $editableVarGrps);
                     $controlResult.SetStateData("List of variable groups used in build definition that contributors can edit: ", $editableVarGrps); 
                 }
@@ -1033,20 +1035,22 @@ class Build: ADOSVTBase
     }
     hidden [ControlResult] CheckPipelineEditPermission([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+
         if ([Build]::IsOAuthScan -eq $true)
         {
             $resource = $this.BuildObj.project.id+ "/" + $this.BuildObj.Id
         
             # Filter namespaceobj for current build
-            $obj = [Build]::BuildNamespacesObj | where-object {$_.token -eq $resource}  
+            $obj = @([Build]::BuildNamespacesObj | where-object {$_.token -eq $resource})
 
             # If current build object is not found, get project level obj. (Seperate build obj is not available if project level permissions are being used on pipeline)
-            if(($obj | Measure-Object).Count -eq 0)
+            if($obj.Count -eq 0)
             {
-                $obj = [Build]::BuildNamespacesObj | where-object {$_.token -eq $this.BuildObj.project.id}  
+                $obj = @([Build]::BuildNamespacesObj | where-object {$_.token -eq $this.BuildObj.project.id})
             }
 
-            if(($obj | Measure-Object).Count -gt 0)
+            if($obj.Count -gt 0)
             {
                 $properties = $obj.acesDictionary | Get-Member -MemberType Properties
                 $permissionsInBit =0
@@ -1067,16 +1071,16 @@ class Build: ADOSVTBase
                     }
 
                     # ResolvePermissions method returns object if 'Edit build pipeline' is allowed
-                    $editPerms = [Helpers]::ResolvePermissions($permissionsInBit, [Build]::BuildNamespacesPermissionObj.actions, 'Edit build pipeline')
+                    $editPerms = @([Helpers]::ResolvePermissions($permissionsInBit, [Build]::BuildNamespacesPermissionObj.actions, 'Edit build pipeline'))
                         
-                    if(($editPerms | Measure-Object).Count -gt 0)
+                    if($editPerms.Count -gt 0)
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the build pipeline.");
                     }
                     else 
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the build pipeline.");    
-                    }   
+                    }
                     
                 }
                 catch
@@ -1200,28 +1204,35 @@ class Build: ADOSVTBase
     
     hidden [ControlResult] CheckForkedBuildTrigger([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
 
         if([Helpers]::CheckMember($this.BuildObj[0],"triggers"))
         {
             $pullRequestTrigger = $this.BuildObj[0].triggers | Where-Object {$_.triggerType -eq "pullRequest"}
+            
+            # initlizing $isRepoPrivate = $true as visibility setting is not available for ADO repositories.
+            $isRepoPrivate = $true
+            if ([Helpers]::CheckMember($this.BuildObj[0],"repository.properties.IsPrivate")) {
+                $isRepoPrivate = $this.BuildObj[0].repository.properties.IsPrivate
+            }
 
             if($pullRequestTrigger) 
             {
-                if([Helpers]::CheckMember($pullRequestTrigger,"forks"))
+                if([Helpers]::CheckMember($pullRequestTrigger,"forks") -and ($isRepoPrivate -eq $false))
                 {
 
                     if(($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true))
                     {
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Secrets are available to builds of forked repository.");
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Secrets are available to builds of public forked repository.");
                     }
                     else 
                     {
-                        $controlResult.AddMessage([VerificationResult]::Passed,"Secrets are not available to builds of forked repository.");  
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Secrets are not available to builds of public forked repository.");  
                     }
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Secrets are not available to builds of forked repository."); 
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Secrets are not available to builds of public forked repository."); 
                 }               
             }
             else
