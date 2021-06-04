@@ -1129,47 +1129,48 @@ class Release: ADOSVTBase
                 $editableVarGrpsCount = $editableVarGrps.Count
                 if($editableVarGrpsCount -gt 0)
                 {
-                    $controlResult.AddMessage("Total number of variable groups on which contributors have edit permissions in release definition: ", $editableVarGrpsCount);
-                    $controlResult.AdditionalInfo += "Total number of variable groups on which contributors have edit permissions in release definition: " + $editableVarGrpsCount;
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Variable group list: `n[$($editableVarGrps -join ', ')]");
+                    $controlResult.AddMessage("`nTotal number of variable groups on which contributors have edit permissions in release definition: $editableVarGrpsCount `n");
+                    $controlResult.AdditionalInfo += "`nTotal number of variable groups on which contributors have edit permissions in release definition: $editableVarGrpsCount";
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Variable groups list: `n[$($editableVarGrps -join ', ')]");
                     $controlResult.SetStateData("List of variable groups used in release definition that contributors can edit: ", $editableVarGrps);
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any variable groups used in release definition.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"`nContributors do not have edit permissions on any variable groups used in release definition.");
                 }
             }
             catch
             {
-                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the RBAC details of variable groups used in the pipeline.");
+                $controlResult.AddMessage([VerificationResult]::Error,"`nCould not fetch the RBAC details of variable groups used in the pipeline.");
                 $controlResult.LogException($_)
             }
 
         }
         else
         {
-            $controlResult.AddMessage([VerificationResult]::Passed,"No variable groups found in release definition.");
+            $controlResult.AddMessage([VerificationResult]::Passed,"`nNo variable groups found in release definition.");
         }
 
         return $controlResult
     }
     hidden [ControlResult] CheckPipelineEditPermission([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         if ([Release]::IsOAuthScan -eq $true)
         {
             $projectName = $this.ResourceContext.ResourceGroupName
             $resource = $this.projectid+ "/" + $this.ReleaseObj.id
 
             # Filter namespaceobj for current release
-            $obj = [Release]::ReleaseNamespacesObj | where-object {$_.token -eq $resource}
+            $obj = @([Release]::ReleaseNamespacesObj | where-object {$_.token -eq $resource})
 
             # If current release object is not found, get project level obj. (Seperate release obj is not available if project level permissions are being used on pipeline)
-            if(($obj | Measure-Object).Count -eq 0)
+            if($obj.Count -eq 0)
             {
-                $obj = [Release]::ReleaseNamespacesObj | where-object {$_.token -eq $this.projectid}
+                $obj = @([Release]::ReleaseNamespacesObj | where-object {$_.token -eq $this.projectid})
             }
 
-            if(($obj | Measure-Object).Count -gt 0)
+            if($obj.Count -gt 0)
             {
                 $properties = $obj.acesDictionary | Get-Member -MemberType Properties
                 $permissionsInBit =0
@@ -1190,9 +1191,9 @@ class Release: ADOSVTBase
                     }
 
                     # ResolvePermissions method returns object if 'Edit release pipeline' is allowed
-                    $editPerms = [Helpers]::ResolvePermissions($permissionsInBit, [Release]::ReleaseNamespacesPermissionObj.actions, 'Edit release pipeline')
+                    $editPerms = @([Helpers]::ResolvePermissions($permissionsInBit, [Release]::ReleaseNamespacesPermissionObj.actions, 'Edit release pipeline'))
 
-                    if(($editPerms | Measure-Object).Count -gt 0)
+                    if($editPerms.Count -gt 0)
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the release pipeline.");
                     }
@@ -1212,38 +1213,36 @@ class Release: ADOSVTBase
             }
         }
         else {
+            try
+            {
+                $orgName = $($this.OrganizationContext.OrganizationName)
+                $projectName = $this.ResourceContext.ResourceGroupName
+                $releaseId = $this.ReleaseObj.id
+                $permissionSetToken = "$($this.projectId)/$releaseId"
+                $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release?_a=releases&view=mine&definitionId=$releaseId"
 
-            $orgName = $($this.OrganizationContext.OrganizationName)
-            $projectName = $this.ResourceContext.ResourceGroupName
-            $releaseId = $this.ReleaseObj.id
-            $permissionSetToken = "$($this.projectId)/$releaseId"
-            $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release?_a=releases&view=mine&definitionId=$releaseId"
-
-            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $($this.projectId)
-            $inputbody = "{
-                'contributionIds': [
-                    'ms.vss-admin-web.security-view-members-data-provider'
-                ],
-                'dataProviderContext': {
-                    'properties': {
-                        'permissionSetId': '$([Release]::SecurityNamespaceId)',
-                        'permissionSetToken': '$permissionSetToken',
-                        'sourcePage': {
-                            'url': '$releaseURL',
-                            'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
-                            'routeValues': {
-                                'project': '$projectName',
-                                'viewname': 'details',
-                                'controller': 'ContributedPage',
-                                'action': 'Execute'
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $($this.projectId)
+                $inputbody = "{
+                    'contributionIds': [
+                        'ms.vss-admin-web.security-view-members-data-provider'
+                    ],
+                    'dataProviderContext': {
+                        'properties': {
+                            'permissionSetId': '$([Release]::SecurityNamespaceId)',
+                            'permissionSetToken': '$permissionSetToken',
+                            'sourcePage': {
+                                'url': '$releaseURL',
+                                'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
+                                'routeValues': {
+                                    'project': '$projectName',
+                                    'viewname': 'details',
+                                    'controller': 'ContributedPage',
+                                    'action': 'Execute'
+                                }
                             }
                         }
                     }
-                }
-            }" | ConvertFrom-Json
-
-            try
-            {
+                }" | ConvertFrom-Json
                 $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
                 if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
                 {
@@ -1277,26 +1276,32 @@ class Release: ADOSVTBase
                             }
                         }" | ConvertFrom-Json
 
-                        #Web request to fetch RBAC permissions of Contributors group on task group.
+                        #Web request to fetch RBAC permissions of Contributors group on release.
                         $contributorResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$contributorInputbody);
                         $contributorRBACObj = $contributorResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
-                        $editPerms = $contributorRBACObj | Where-Object {$_.displayName -eq 'Edit release pipeline'}
-
-                        if([Helpers]::CheckMember($editPerms,"effectivePermissionValue"))
-                        {
-                            #effectivePermissionValue equals to 1 implies edit release pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
-                            if(($editPerms.effectivePermissionValue -eq 1) -or ($editPerms.effectivePermissionValue -eq 3))
-                            {
-                                $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the release pipeline.");
+                        if ([Helpers]::CheckMember($this.ControlSettings.Release, "CriticalPermissionsForBroadGroups")) {
+                            $criticalPermsForBroadGroups = $this.ControlSettings.Release.CriticalPermissionsForBroadGroups
+                            $criticalPermissionList = $contributorRBACObj | Where-Object { $_.displayName -in $criticalPermsForBroadGroups }
+                            $criticalEditPermissions = @()
+                            $criticalPermissionList | ForEach-Object {
+                                #effectivePermissionValue equals to 1 implies edit release pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
+                                if ([Helpers]::CheckMember($_, "effectivePermissionValue")) {
+                                    if (($_.effectivePermissionValue -eq 1) -or ($_.effectivePermissionValue -eq 3)) {
+                                        $criticalEditPermissions += $_
+                                    }
+                                }
                             }
-                            else
-                            {
-                                $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the release pipeline.");
+                            if ($criticalEditPermissions.Count -gt 0) {
+                                $controlResult.AddMessage([VerificationResult]::Failed, "Contributors have edit permissions on the release pipeline.");
+                                $controlResult.AddMessage("`nList of critical permissions on which contributors have access: `n[$($criticalEditPermissions.displayName -join ', ')] ");
+                                $controlResult.AdditionalInfo += "List of critical permissions on which contributors have access:  $($criticalEditPermissions.displayName).";
+                            }
+                            else {
+                                $controlResult.AddMessage([VerificationResult]::Passed, "Contributors do not have edit permissions on the release pipeline.");
                             }
                         }
-                        else
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the release pipeline.");
+                        else {
+                            $controlResult.AddMessage([VerificationResult]::Error, "List of critical permission for broad group is not defined in control settings for your organization.");
                         }
                     }
                     else
