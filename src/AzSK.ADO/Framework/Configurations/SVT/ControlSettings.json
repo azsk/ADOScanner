@@ -336,14 +336,17 @@
     "GroupsToCheckForSCAltMembers": [
       "Project Collection Administrators"
     ],
-    "GroupsToCheckForGuestUser":[
-        "Project Collection Administrators",
-        "Project Collection Build Administrators"
+    "AdminGroupsToCheckForGuestUser":[
+      "Project Collection Administrators",
+      "Project Collection Build Administrators",
+      "Project Collection Service Accounts"
     ],
-    "GroupsToCheckForInactiveUser":[
-        "Project Collection Administrators",
-        "Project Collection Build Administrators"
-    ]
+    "AdminGroupsToCheckForInactiveUser":[
+      "Project Collection Administrators",
+      "Project Collection Build Administrators",
+      "Project Collection Service Accounts"
+    ],
+    "AdminInactivityThresholdInDays": 90
   },
   "Project": {
     "MaxPAMembersPermissible": 5,
@@ -357,7 +360,15 @@
         "Readers",
         "Project Valid Users"
     ],
-    "InactiveUserActivityLogsPeriodInDays": 90
+    "AdminGroupsToCheckForGuestUser":[
+      "Endpoint Administrators",
+      "Project Administrators"
+    ],
+    "AdminGroupsToCheckForInactiveUser":[
+      "Endpoint Administrators",
+      "Project Administrators"
+    ],
+    "AdminInactivityThresholdInDays": 90
   },
   "Repo": {
     "RepoHistoryPeriodInDays": 180,

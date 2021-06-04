@@ -21,24 +21,6 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Project_AuthZ_Min_RBAC_Access",
-      "Description": "All teams/groups must be granted minimum required permissions on the project.",
-      "Id": "Project120",
-      "ControlSeverity": "High",
-      "Automated": "No",
-      "MethodName": "CheckRBACAccess",
-      "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users are granted just enough permissions to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
-      "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/set-project-collection-level-permissions?view=vsts&tabs=new-nav",
-      "Tags": [
-        "SDL",
-        "TCP",
-        "Manual",
-        "AuthZ",
-        "RBAC"
-      ],
-      "Enabled": true
-    },
-    {
       "ControlID": "ADO_Project_AuthZ_Review_Group_Members",
       "Description": "Review membership of all project level privileged groups and teams.",
       "Id": "Project130",
@@ -373,7 +355,7 @@
         "Automated": "Yes",
         "MethodName": "CheckGuestUsersAccessInAdminRoles",
         "Rationale": "Guest user accounts are not carefully managed and governed. If these accounts have admin access then a compromised account can be easily leveraged to access arbitrary resources in the project.",
-        "Recommendation": "1. Go to Project Settings --> 2. Permissions --> 3. Users --> 4. In filter options search for Guest user --> 5. click on its row and navigate to MemberOf section --> 6. Remove the membership against the current project scope.",
+        "Recommendation": "1. Go to Project Settings --> 2. Permissions --> 3. Search for Collection group of the guest user --> 4. Go to members tab --> 5. Remove its access by clicking on three dots against its row.",
         "Tags": [
           "SDL",
           "TCP",
@@ -391,7 +373,7 @@
         "Automated": "Yes",
         "MethodName": "CheckInactiveUsersInAdminRoles",
         "Rationale": "Inactive users in administrative roles provide more opportunities for hackers to leverage credential harvesting attacks to gain admin access. It is best to restrict critical roles in the project to active members only.",
-        "Recommendation": "1. Go to Project Settings --> 2. Users --> 3. Filter last access column with never accessed users or not accessed over long period",
+        "Recommendation": "1. Go to Project Settings --> 2. Permissions --> 3. Search for Collection group of the inactive user --> 4. Go to members tab --> 5. Remove its access by clicking on three dots against its row.",
         "Tags": [
           "SDL",
           "TCP",
