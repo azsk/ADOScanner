@@ -523,6 +523,27 @@ class Release: ADOSVTBase
 
     hidden [ControlResult] CheckRBACAccess ([ControlResult] $controlResult)
     {
+        <#
+        {
+            "ControlID": "ADO_Release_AuthZ_Grant_Min_RBAC_Access",
+            "Description": "All teams/groups must be granted minimum required permissions on release definition.",
+            "Id": "Release110",
+            "ControlSeverity": "High",
+            "Automated": "Yes",
+            "MethodName": "CheckRBACAccess",
+            "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users are granted just enough permissions to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
+            "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/pipelines/policies/permissions?view=vsts and https://dev.azure.com/microsoftit/OneITVSO/_wiki/wikis/OneITVSO.wiki?wikiVersion=GBwikiMaster&pagePath=%2FEngineering%20Guide%2FOneITVSO%2FDevelopment%2FRelease%2FHow%20To%20Secure%20Your%20Release%20Definition&pageId=2419&anchor=desired-state",
+            "Tags": [
+                "SDL",
+                "TCP",
+                "Automated",
+                "AuthZ",
+                "RBAC"
+            ],
+            "Enabled": true
+        }
+        
+        #>
         if ([Release]::IsOAuthScan -eq $true)
         {
             if([AzSKRoot]::IsDetailedScanRequired -eq $true)

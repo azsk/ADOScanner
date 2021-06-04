@@ -85,6 +85,26 @@ class VariableGroup: ADOSVTBase
     }
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
     {
+        <#
+        {
+            "ControlID": "ADO_VariableGroup_AuthZ_Grant_Min_RBAC_Access",
+            "Description": "All teams/groups must be granted minimum required permissions on variable group.",
+            "Id": "VariableGroup110",
+            "ControlSeverity": "High",
+            "Automated": "Yes",
+            "MethodName": "CheckRBACAccess",
+            "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users are granted just enough permissions to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
+            "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/pipelines/library/?view=azure-devops#security",
+            "Tags": [
+              "SDL",
+              "TCP",
+              "Automated",
+              "AuthZ",
+              "RBAC"
+            ],
+            "Enabled": true
+          }
+          #>
         $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId); 
         try 
         {

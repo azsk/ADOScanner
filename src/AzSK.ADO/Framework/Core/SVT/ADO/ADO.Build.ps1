@@ -418,6 +418,26 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
     {
+        <#
+        {
+            "ControlID": "ADO_Build_AuthZ_Grant_Min_RBAC_Access",
+            "Description": "All teams/groups must be granted minimum required permissions on build definition.",
+            "Id": "Build110",
+            "ControlSeverity": "High",
+            "Automated": "Yes",
+            "MethodName": "CheckRBACAccess",
+            "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users are granted just enough permissions to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
+            "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/pipelines/policies/permissions?view=vsts",
+            "Tags": [
+                "SDL",
+                "TCP",
+                "Automated",
+                "AuthZ",
+                "RBAC"
+            ],
+            "Enabled": true
+        }
+        #>
         if ([Build]::IsOAuthScan -eq $true)
         {
             if([AzSKRoot]::IsDetailedScanRequired -eq $true)
