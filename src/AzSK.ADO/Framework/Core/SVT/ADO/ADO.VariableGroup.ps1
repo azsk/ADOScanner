@@ -117,7 +117,7 @@ class VariableGroup: ADOSVTBase
             "Enabled": true
           }
         #>
-        
+
         $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId); 
         try 
         {

@@ -696,6 +696,26 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
     {
+        <#
+        {
+            "ControlID": "ADO_ServiceConnection_AuthZ_Grant_Min_RBAC_Access",
+            "Description": "Justify all users/groups that have access to the service connection.",
+            "Id": "ServiceConnection130",
+            "ControlSeverity": "High",
+            "Automated": "Yes",
+            "MethodName": "CheckRBACAccess",
+            "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users/groups are granted just enough permissions on service connection to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
+            "Recommendation": "Go to Project Settings --> Pipelines --> Service Connections --> Select Service Connection --> Select three dots on top right --> Select Security --> Under user permissions verify role assignments",
+            "Tags": [
+              "SDL",
+              "TCP",
+              "Manual",
+              "AuthZ"
+            ],
+            "Enabled": true
+          }
+        #>
+
         try
         {
             if ($null -eq $this.serviceEndPointIdentity) {

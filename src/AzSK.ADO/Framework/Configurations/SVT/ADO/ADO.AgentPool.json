@@ -4,24 +4,6 @@
   "IsMaintenanceMode": false,
   "Controls": [
     {
-      "ControlID": "ADO_AgentPool_AuthZ_Grant_Min_RBAC_Access",
-      "Description": "All teams/groups must be granted minimum required permissions on agent pool.",
-      "Id": "AgentPool110",
-      "ControlSeverity": "High",
-      "Automated": "Yes",
-      "MethodName": "CheckRBACAccess",
-      "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users are granted just enough permissions to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
-      "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/pipelines/policies/permissions?view=vsts",
-      "Tags": [
-        "SDL",
-        "TCP",
-        "Automated",
-        "AuthZ",
-        "RBAC"
-      ],
-      "Enabled": true
-    },
-    {
       "ControlID": "ADO_AgentPool_SI_Apply_Security_Patches",
       "Description": "Non-hosted agent virtual machine must have all the required security patches installed.",
       "Id": "AgentPool120",
