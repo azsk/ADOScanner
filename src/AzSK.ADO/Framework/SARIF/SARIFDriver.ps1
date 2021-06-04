@@ -5,7 +5,7 @@ class SARIFDriver{
     hidden [string] $SemanticVersion
     hidden [SARIFRuleDescriptor[]] $rules
     SARIFDriver([SVTEventContext[]] $ControlResults){
-        $this.name="SVT.ps1"
+        $this.name=$PSCmdlet.MyInvocation.PSCommandPath
         ##Fix
         $this.version="1.2"
         $this.SemanticVersion="1.7"
@@ -15,6 +15,24 @@ class SARIFDriver{
     }   
     hidden [void] populateRules([SVTEventContext[]] $ControlResults){
         #Parsing through rules
-        $this.rules+=[SARIFRuleDescriptor]::new();
+        $ControlResults | ForEach-Object{
+            $control=$_
+            if($control.ControlResults[0].VerificationResult -eq "Failed" -or $control.ControlResults[0].VerificationResult -eq "Verify"){
+                if(!$this.ContainsRules($control)){
+                    $this.rules+=[SARIFRuleDescriptor]::new($control);
+                }
+            }
+        }
+
+    }
+    hidden [bool] ContainsRules([SVTEventContext] $control)
+    {
+        $this.rules | ForEach-Object{
+            if($control.ControlResults.ControlID -eq $_.id){
+                return $true
+            }
+        }
+        return $false
+
     }
 }
