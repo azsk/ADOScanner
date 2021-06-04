@@ -454,13 +454,14 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckSCALTForAdminMembers([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
             if(($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "Project.GroupsToCheckForSCAltMembers"))
             {
 
-                $adminGroupNames = $this.ControlSettings.Project.GroupsToCheckForSCAltMembers;
-                if (($adminGroupNames | Measure-Object).Count -gt 0) 
+                $adminGroupNames = @($this.ControlSettings.Project.GroupsToCheckForSCAltMembers);
+                if ($adminGroupNames.Count -gt 0) 
                 {
                     #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
                     $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
@@ -475,7 +476,7 @@ class Project: ADOSVTBase
                         $adminGroups = @();
                         $adminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $adminGroupNames }
                         
-                        if(($adminGroups | Measure-Object).Count -gt 0)
+                        if($adminGroups.Count -gt 0)
                         {
                             #global variable to track admin members across all admin groups
                             $allAdminMembers = @();
@@ -499,7 +500,7 @@ class Project: ADOSVTBase
                             # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
                             $allAdminMembers = $allAdminMembers| Sort-Object -Property id -Unique
 
-                            if(($allAdminMembers | Measure-Object).Count -gt 0)
+                            if($allAdminMembers.Count -gt 0)
                             {
                                 # If switch EvaluateAlternateAccountUsingGraphAPI is set as true in org policy, then evaluating control using graph API. If not then fall back to RegEx based evaluation.
                                 if ([Helpers]::CheckMember($this.ControlSettings, "EvaluateAlternateAccountUsingGraphAPI") -and ($this.ControlSettings.EvaluateAlternateAccountUsingGraphAPI -eq $true))
@@ -521,8 +522,8 @@ class Project: ADOSVTBase
                                             }
                                         }
                                         
-                                        $nonSCCount = ($nonSCMembers | Measure-Object).Count
-                                        $SCCount = ($SCMembers | Measure-Object).Count
+                                        $nonSCCount = $nonSCMembers.Count
+                                        $SCCount = $SCMembers.Count
 
                                         if ($nonSCCount -gt 0) 
                                         {
@@ -530,7 +531,7 @@ class Project: ADOSVTBase
                                             $stateData = @();
                                             $stateData += $nonSCMembers
                                             $controlResult.AddMessage([VerificationResult]::Failed, "`nTotal number of non SC-ALT accounts with admin privileges:  $nonSCCount"); 
-                                            $controlResult.AddMessage("Review the non SC-ALT accounts with admin privileges: ", $stateData);  
+                                            $controlResult.AddMessage("Review the non SC-ALT accounts with admin privileges: ", $($stateData | Format-Table -AutoSize | Out-String));  
                                             $controlResult.SetStateData("List of non SC-ALT accounts with admin privileges: ", $stateData);
                                             $controlResult.AdditionalInfo += "Total number of non SC-ALT accounts with admin privileges: " + $nonSCCount;
                                         }
@@ -545,7 +546,7 @@ class Project: ADOSVTBase
                                             $SCData += $SCMembers
                                             $controlResult.AddMessage("`nTotal number of SC-ALT accounts with admin privileges: $SCCount");
                                             $controlResult.AdditionalInfo += "Total number of SC-ALT accounts with admin privileges: " + $SCCount;
-                                            $controlResult.AddMessage("SC-ALT accounts with admin privileges: ", $SCData);  
+                                            $controlResult.AddMessage("SC-ALT accounts with admin privileges: ", $($SCData | Format-Table -AutoSize | Out-String));  
                                         }
                                     }
                                     else {
@@ -561,11 +562,11 @@ class Project: ADOSVTBase
                                         {
                                             $nonSCMembers = @();
                                             $nonSCMembers += $allAdminMembers | Where-Object { $_.mailAddress -notmatch $matchToSCAlt }
-                                            $nonSCCount = ($nonSCMembers | Measure-Object).Count
+                                            $nonSCCount = $nonSCMembers.Count
 
                                             $SCMembers = @();
                                             $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }   
-                                            $SCCount = ($SCMembers | Measure-Object).Count
+                                            $SCCount = $SCMembers.Count
 
                                             if ($nonSCCount -gt 0) 
                                             {
@@ -573,7 +574,7 @@ class Project: ADOSVTBase
                                                 $stateData = @();
                                                 $stateData += $nonSCMembers
                                                 $controlResult.AddMessage([VerificationResult]::Failed, "`nTotal number of non SC-ALT accounts with admin privileges: $nonSCCount"); 
-                                                $controlResult.AddMessage("Review the non SC-ALT accounts with admin privileges: ", $stateData);  
+                                                $controlResult.AddMessage("Review the non SC-ALT accounts with admin privileges: ", $($stateData | Format-Table -AutoSize | Out-String));  
                                                 $controlResult.SetStateData("List of non SC-ALT accounts with admin privileges: ", $stateData);
                                                 $controlResult.AdditionalInfo += "Total number of non SC-ALT accounts with admin privileges: " + $nonSCCount;
                                             }
@@ -588,7 +589,7 @@ class Project: ADOSVTBase
                                                 $SCData += $SCMembers
                                                 $controlResult.AddMessage("`nTotal number of SC-ALT accounts with admin privileges: $SCCount");
                                                 $controlResult.AdditionalInfo += "Total number of SC-ALT accounts with admin privileges: " + $SCCount;  
-                                                $controlResult.AddMessage("SC-ALT accounts with admin privileges: ", $SCData);  
+                                                $controlResult.AddMessage("SC-ALT accounts with admin privileges: ", $($SCData | Format-Table -AutoSize | Out-String));  
                                             }
                                         }
                                         else {
