@@ -427,7 +427,7 @@ class AgentPool: ADOSVTBase
                 }
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Manual, "List of restricted broader groups for agent pool is not defined in control settings for your organization.");
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups for agent pool is not defined in control settings for your organization.");
             }
         }
         catch {
