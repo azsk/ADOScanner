@@ -21,7 +21,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Organization_AuthN_Disable_External_Guest_Users",
+      "ControlID": "ADO_Organization_AuthN_Disable_Guest_Users",
       "Description": "Do not enable access for external users in your organization.",
       "Id": "Organization120",
       "ControlSeverity": "High",

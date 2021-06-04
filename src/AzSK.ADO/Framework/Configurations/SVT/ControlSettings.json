@@ -5,7 +5,7 @@
         "ResourceType": "Organization",
         "ControlIds": [
           "ADO_Organization_AuthN_Use_AAD_Auth",
-          "ADO_Organization_AuthN_Disable_External_Guest_Users",
+          "ADO_Organization_AuthN_Disable_Guest_Users",
           "ADO_Organization_AuthZ_Review_Guest_Members",
           "ADO_Organization_SI_Review_Installed_Extensions",
           "ADO_Organization_SI_Review_Shared_Extensions",
@@ -54,7 +54,7 @@
           "ADO_ServiceConnection_DP_Review_Inactive_Connection",
           "ADO_ServiceConnection_SI_Dont_Share_Across_Projects",
           "ADO_ServiceConnection_AuthZ_Use_Least_Privilege_Access",
-          "ADO_ServiceConnection_AuthZ_Dont_Grant_BuildServAcc_Permission",
+          "ADO_ServiceConnection_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
           "ADO_ServiceConnection_AuthZ_Restrict_Broader_Group_Access"
         ]
       },

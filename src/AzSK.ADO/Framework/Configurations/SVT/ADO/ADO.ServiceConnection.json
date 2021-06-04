@@ -128,7 +128,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_ServiceConnection_AuthZ_Dont_Grant_BuildServAcc_Permission",
+      "ControlID": "ADO_ServiceConnection_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
       "Description": "Do not grant Build Service Account direct access to service connections",
       "Id": "ServiceConnection180",
       "ControlSeverity": "High",
