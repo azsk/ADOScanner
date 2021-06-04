@@ -686,10 +686,11 @@ class Project: ADOSVTBase
     }
     
     hidden [ControlResult] CheckSecureFilesPermission([ControlResult] $controlResult) {
-        # getting the project ID
-        $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-        $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($projectId)/_apis/distributedtask/securefiles?api-version=6.1-preview.1"
         try {
+            # getting the project ID
+            $controlResult.VerificationResult=[VerificationResult]::Failed;
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($projectId)/_apis/distributedtask/securefiles?api-version=6.1-preview.1"
             $response = [WebRequestHelper]::InvokeGetWebRequest($url);
             # check on response object, if null -> no secure files present
             if(([Helpers]::CheckMember($response[0],"count",$false)) -and ($response[0].count -eq 0)) {
@@ -717,9 +718,9 @@ class Project: ADOSVTBase
                 }
                 # there are secure files present that are authorized
                 if($secFiles.count -gt 0) {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Total number of secure files in the project that are authorized for use in all pipelines: $($secFiles.count)");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of secure files in the project that are authorized for use in all pipelines: $($secFiles.count)");
                     $controlResult.AddMessage("List of secure files in the project that are authorized for use in all pipelines: ", $secFiles.names);
-                    $controlResult.AdditionalInfo += "Total number of secure files in the project that are authorized for use in all pipelines: " + $secFiles.count;
+                    $controlResult.AdditionalInfo += "Count of secure files in the project that are authorized for use in all pipelines: " + $secFiles.count;
                 }
                 # there are no secure files present that are authorized
                 else {
