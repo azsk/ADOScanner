@@ -382,8 +382,7 @@ class AgentPool: ADOSVTBase
     hidden [ControlResult] CheckBroaderGroupAccess ([ControlResult] $controlResult) {
         try {
             $controlResult.VerificationResult = [VerificationResult]::Failed
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool") -and -not[string]::IsNullOrEmpty($this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool)) {
-
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool")) {
                 $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
                 $controlResult.AddMessage("`nNote: The following groups are considered 'broad' which should not have user/administrator privileges: `n`t[$($restrictedBroaderGroupsForAgentPool -join ', ')]");
 
