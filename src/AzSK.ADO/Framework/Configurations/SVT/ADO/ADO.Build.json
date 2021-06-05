@@ -198,9 +198,9 @@
       "Id": "Build230",
       "ControlSeverity": "High",
       "Automated": "Yes",
-      "MethodName": "CheckPipelineEditPermission",
+      "MethodName": "CheckBroaderGroupAccess",
       "Rationale": "If a broad group of users (e.g., Contributors) have excessive permissions on a pipeline, then integrity of your pipeline can be compromised by a malicious user who edits it.",
-      "Recommendation": "1. Navigate to the build pipeline. --> 2. Click on Security. --> 3. Ensure 'Edit build pipeline' permission of Contributors is set to 'Deny'. --> 4. Repeat this for any other groups that should not have edit access.",
+      "Recommendation": "1. Navigate to the build pipeline. --> 2. Click on Security. --> 3. Ensure 'Excessive' permissions of broader groups is set to 'Deny'. --> 4. Repeat this for any other groups that should not have edit access.",
       "Tags": [
         "SDL",
         "TCP",
@@ -228,7 +228,7 @@
       ],
       "Enabled": true
     },
-    {  
+    {
       "ControlID": "ADO_Build_DP_Do_Not_Use_Forked_Repo_With_Self_Hosted_Agent",
       "Description": "Do not allow build pipeline to build code from forked repository on self-hosted agent.",
       "Id": "Build250",
@@ -261,6 +261,6 @@
         "DP"
       ],
       "Enabled": true
-    }  
+    }
   ]
 }

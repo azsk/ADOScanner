@@ -244,13 +244,20 @@
         "Environment",
         "SolutionName"
     ],
-    "CriticalPermissionsForBroadGroups": [
+    "RestrictedBroaderGroupsForBuild" : [
+      "Contributors",
+      "Readers",
+      "Project Collection Valid Users",
+      "Project Valid Users"
+    ],
+    "ExcessivePermissionsForBroadGroups": [
       "Administer build permissions",
       "Delete build pipeline",
       "Delete builds ",
       "Destroy builds",
       "Edit build pipeline"
-    ]
+    ],
+    "ValidateInheritedPermissionsForBroadGroups" : false
   },
   "Release": {
     "ReleaseHistoryPeriodInDays": 180,
@@ -280,12 +287,19 @@
         "System.debug",
         "BuildConfiguration"
     ],
-    "CriticalPermissionsForBroadGroups": [
+    "RestrictedBroaderGroupsForRelease": [
+      "Contributors",
+      "Readers",
+      "Project Collection Valid Users",
+      "Project Valid Users"
+    ],
+    "ExcessivePermissionsForBroadGroups": [
       "Administer release permissions",
       "Delete release pipeline",
       "Delete releases ",
       "Edit release pipeline"
-    ]
+    ],
+    "ValidateInheritedPermissionsForBroadGroups": false
   },
   "AgentPool": {
     "AgentPoolHistoryPeriodInDays": 180 ,

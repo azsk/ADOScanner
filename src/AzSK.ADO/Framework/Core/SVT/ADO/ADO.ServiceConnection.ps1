@@ -865,7 +865,7 @@ class ServiceConnection: ADOSVTBase
 
             if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.RestrictedBroaderGroupsForSerConn") ) {
                 $restrictedBroaderGroupsForSerConn = $this.ControlSettings.ServiceConnection.RestrictedBroaderGroupsForSerConn;
-                $controlResult.AddMessage("`nNote: The following groups are considered 'broad' which should not have user/administrator privileges: `n`t[$($restrictedBroaderGroupsForSerConn -join ', ')]");
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n`t[$($restrictedBroaderGroupsForSerConn -join ', ')]");
                 if ((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity, "identity")) {
                     # match all the identities added on service connection with defined restricted list
                     $roleAssignments = @();

@@ -198,9 +198,9 @@
       "Id": "Release230",
       "ControlSeverity": "High",
       "Automated": "Yes",
-      "MethodName": "CheckPipelineEditPermission",
+      "MethodName": "CheckBroaderGroupAccess",
       "Rationale": "If a broad group of users (e.g., Contributors) have excessive permissions on a pipeline, then integrity of your pipeline can be compromised by a malicious user who edits it.",
-      "Recommendation": "1. Navigate to the release pipeline. --> 2. Click on Security. --> 3. Ensure 'Edit release pipeline' permission of Contributors is set to 'Deny'. --> 4. Repeat this for any other groups that should not have edit access.",
+      "Recommendation": "1. Navigate to the release pipeline. --> 2. Click on Security. --> 3. Ensure 'Excessive' permissions of broader groups is set to 'Deny'. --> 4. Repeat this for any other groups that should not have edit access.",
       "Tags": [
         "SDL",
         "TCP",
