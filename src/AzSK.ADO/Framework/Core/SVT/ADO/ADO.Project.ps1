@@ -691,13 +691,13 @@ class Project: ADOSVTBase
             $controlResult.VerificationResult=[VerificationResult]::Failed;
             $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
             $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($projectId)/_apis/distributedtask/securefiles?api-version=6.1-preview.1"
-            $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+            $response = @([WebRequestHelper]::InvokeGetWebRequest($url));
             # check on response object, if null -> no secure files present
             if(([Helpers]::CheckMember($response[0],"count",$false)) -and ($response[0].count -eq 0)) {
                 $controlResult.AddMessage([VerificationResult]::Passed, "There are no secure files present.");
             }
             # else there are secure files present
-            elseif((-not ([Helpers]::CheckMember($response[0],"count"))) -and ($response.Count -gt 0)) {
+            elseif($response.Count -gt 0 -and [Helpers]::CheckMember($response[0],"id")) {
                 # object to keep a track of authorized secure files and their count
                 [Hashtable] $secFiles = @{
                     count = 0;
