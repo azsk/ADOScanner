@@ -1125,7 +1125,7 @@ class Build: ADOSVTBase
                     $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
                     $excessivePermissions = $this.ControlSettings.Build.ExcessivePermissionsForBroadGroups
                     $excessivePermissionBits = @(1)
-                    if ([Helpers]::CheckMember($this.ControlSettings.Build, "ValidateInheritedPermissionsForBroadGroups") -and $this.ControlSettings.Build.ValidateInheritedPermissionsForBroadGroups) {
+                    if ([Helpers]::CheckMember($this.ControlSettings.Build, "CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions) {
                         #allow permission bit for inherited permission is '3'
                         $excessivePermissionBits = @(1,3)
                     }

@@ -1153,7 +1153,7 @@ class Release: ADOSVTBase
                     $controlResult.AddMessage("`nTotal number of variable groups on which contributors have edit permissions in release definition: $editableVarGrpsCount `n");
                     $controlResult.AdditionalInfo += "`nTotal number of variable groups on which contributors have edit permissions in release definition: $editableVarGrpsCount";
                     $controlResult.AddMessage([VerificationResult]::Failed,"Variable groups list: `n[$($editableVarGrps -join ', ')]");
-                    $controlResult.SetStateData("List of variable groups used in release definition that contributors can edit: ", $editableVarGrps);
+                    $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
                 }
                 else
                 {
@@ -1244,7 +1244,7 @@ class Release: ADOSVTBase
                     $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
                     $excessivePermissions = $this.ControlSettings.Release.ExcessivePermissionsForBroadGroups
                     $excessivePermissionBits = @(1)
-                    if ([Helpers]::CheckMember($this.ControlSettings.Release, "ValidateInheritedPermissionsForBroadGroups") -and $this.ControlSettings.Release.ValidateInheritedPermissionsForBroadGroups) {
+                    if ([Helpers]::CheckMember($this.ControlSettings.Release, "CheckForInheritedPermissions") -and $this.ControlSettings.Release.CheckForInheritedPermissions) {
                         #allow permission bit for inherited permission is '3'
                         $excessivePermissionBits = @(1, 3)
                     }
