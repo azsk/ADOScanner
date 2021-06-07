@@ -719,8 +719,8 @@ class Project: ADOSVTBase
                 # there are secure files present that are authorized
                 if($secFiles.count -gt 0) {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Count of secure files in the project that are authorized for use in all pipelines: $($secFiles.count)");
-                    $controlResult.AddMessage("List of secure files in the project that are authorized for use in all pipelines: ", $secFiles.names);
-                    $controlResult.AdditionalInfo += "Count of secure files in the project that are authorized for use in all pipelines: " + $secFiles.count;
+                    $controlResult.AddMessage("List of secure files: ", $secFiles.names);
+                    $controlResult.AdditionalInfo += "Count of secure files: " + $secFiles.count;
                 }
                 # there are no secure files present that are authorized
                 else {
