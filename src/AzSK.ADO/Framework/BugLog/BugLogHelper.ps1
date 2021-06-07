@@ -66,11 +66,11 @@ class BugLogHelper {
                 }
                 else {
                     #if bug state is closed on the ADO side and isDeleted is 'N' in azuretable then update azure table -> set isdeleted ='Y'
-                    $isDeleted = $this.DeleteTableEntity($tableName, $hash, $adoBugId);
-                    if ($isDeleted -eq $true) {
-                        $this.AddDataInTable($tableName, $hash, $adoBugId, $projectName, "Y");
-                    }
-                    #$this.UpdateTableEntity($tableName, $hash, $adoBugId, $projectName);
+                   #$isDeleted = $this.DeleteTableEntity($tableName, $hash, $adoBugId);
+                   #if ($isDeleted -eq $true) {
+                   #    $this.AddDataInTable($tableName, $hash, $adoBugId, $projectName, "Y");
+                   #}
+                    $isUpdated = $this.UpdateTableEntity($tableName, $hash, $adoBugId, $projectName);
                 }
                 return $bugObj;
             }
@@ -149,45 +149,44 @@ class BugLogHelper {
         }
     }
 
-    #hidden [bool] UpdateTableEntity($tableName, $hash, $ADOBugId, $projectName)
-    #{
-    #    $PartitionKey = $hash;
-    #    $Rowkey = $hash + "_" + $ADOBugId;
-    #    
-    #    try {
-    #        #Add data in table.
-    #       
-    #        $entity = @{"ADOBugId" = $ADOBugId; "ADOScannerHashId" = $hash; "IsDeleted" = "Y"; "ProjectName" = $projectName};
-    #        $body = $entity | ConvertTo-Json
-#
-    #        $version = "2017-04-17"
-    #        $resource = "$tableName(PartitionKey='$PartitionKey',RowKey='$Rowkey')"
-    #        $table_url = "https://$($this.StorageAccount).table.core.windows.net/$resource"
-    #        $GMTTime = (Get-Date).ToUniversalTime().toString('R')
-    #        $stringToSign = "$GMTTime`n/$($this.StorageAccount)/$resource"
-#
-    #        $signature = $this.hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign))
-    #        $signature = [Convert]::ToBase64String($signature)
-    #        $body = $entity | ConvertTo-Json
-    #        $headers = @{
-    #            'x-ms-date'      = $GMTTime
-    #            Authorization    = "SharedKeyLite " + $this.StorageAccount + ":" + $signature
-    #            "x-ms-version"   = $version
-    #            Accept           = "application/json;odata=minimalmetadata"
-    #            'If-Match'       = "*"
-    #            'Content-Length' = $body.length
-    #        }
-    #        Invoke-RestMethod -Method MERGE -Uri $table_url -Headers $headers -Body $body -ContentType "application/json;odata=minimalmetadata"
-#
-    #        return $true;
-    #    }
-    #    catch
-    #    {
-    #        Write-Host $_
-    #        Write-Host "Could not update the entry in the table for row key [$RowKey]";
-    #        return $false;
-    #    }
-    #}
+    hidden [bool] UpdateTableEntity($tableName, $hash, $ADOBugId, $projectName)
+    {
+        $PartitionKey = $hash;
+        $Rowkey = $hash + "_" + $ADOBugId;
+        
+        try {
+            #Update data in table.
+           
+            $entity = @{"ADOBugId" = $ADOBugId; "ADOScannerHashId" = $hash; "IsDeleted" = "Y"; "ProjectName" = $projectName};
+            $body = $entity | ConvertTo-Json
+
+            $version = "2017-04-17"
+            $resource = "$tableName(PartitionKey='$PartitionKey',RowKey='$Rowkey')"
+            $table_url = "https://$($this.StorageAccount).table.core.windows.net/$resource"
+            $GMTTime = (Get-Date).ToUniversalTime().toString('R')
+            $stringToSign = "$GMTTime`n/$($this.StorageAccount)/$resource"
+
+            $signature = $this.hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign))
+            $signature = [Convert]::ToBase64String($signature)
+            $body = $entity | ConvertTo-Json
+            $headers = @{
+                'x-ms-date'      = $GMTTime
+                Authorization    = "SharedKeyLite " + $this.StorageAccount + ":" + $signature
+                "x-ms-version"   = $version
+                Accept           = "application/json;odata=minimalmetadata"
+                'If-Match'       = "*"
+            }
+            Invoke-RestMethod -Method PUT -Uri $table_url -Headers $headers -Body $body -ContentType "application/json;odata=minimalmetadata"
+
+            return $true;
+        }
+        catch
+        {
+            Write-Host $_
+            Write-Host "Could not update entry in the table for row key [$RowKey]";
+            return $false;
+        }
+    }
 
     hidden [bool] DeleteTableEntity($tableName, $hash, $ADOBugId) {
         $PartitionKey = $hash;
@@ -254,14 +253,23 @@ class BugLogHelper {
             
             $azTableBugInfo = $item.value
             if ($azTableBugInfo -and $azTableBugInfo.count -gt 0) {
-                foreach ($row in $azTableBugInfo) {
-                    if($this.CloseBug($row.ADOBugId, $row.projectName) )
-                    {
-                        $isDeleted = $this.DeleteTableEntity($tableName, $row.PartitionKey , $row.ADOBugId);
-                        if ($isDeleted -eq $true) {
-                            $this.AddDataInTable($tableName, $row.PartitionKey, $row.ADOBugId, $row.projectName, "Y");
+                $adoBugId = @();
+                $adoBugId += $azTableBugInfo.ADOBugId;
+                $adoClosedBugResponse = $this.CloseBugBulk($adoBugId);
+
+                if($adoClosedBugResponse)
+                {
+                    foreach ($row in $adoClosedBugResponse) {
+                        if($row.code -eq 200 )
+                        {
+                            $id = ($row.body | ConvertFrom-Json).id
+                            $tableData = $azTableBugInfo | Where {$_.ADOBugId -eq $id} | Select PartitionKey, projectName
+                            #$isDeleted = $this.DeleteTableEntity($tableName, $tableData.partitionKey , $id);
+                            #if ($isDeleted -eq $true) {
+                            #    $this.AddDataInTable($tableName, $tableData.partitionKey, $id, $tableData.projectName, "Y");
+                            #}
+                            $isUpdated = $this.UpdateTableEntity($tableName, $tableData.partitionKey, $id, $tableData.projectName);
                         }
-                       #$this.UpdateTableEntity($tableName, $row.ADOScannerHashId, $row.ADOBugId, $row.projectName);
                     }
                 } 
             }
@@ -292,6 +300,42 @@ class BugLogHelper {
         try {
             $responseObj = Invoke-RestMethod -Uri $url -Method Patch  -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
             return $true;
+        }
+        catch {
+            Write-Host $_
+            Write-Host "Could not close the bug." -ForegroundColor Red
+            return $false
+        }
+        return $true;
+
+    }
+
+    #function to close an active bugs in bulk
+    hidden [object] CloseBugBulk([string[]] $ids) 
+    {
+        try {
+            $closeBugTemplate = @();
+            foreach ($id in $ids) {
+                $closeBugTemplate += [PSCustomObject] @{ method = 'PATCH'; uri = "/_apis/wit/workitems/$($id)?api-version=4.1"; headers = @{"Content-Type" = 'application/json-patch+json'};
+                body = @(@{op = "add"; "path"= "/fields/System.State"; "value"= "Closed"}; @{op = "add"; "path"= "/fields/Microsoft.VSTS.Common.ResolvedReason"; "value"= ""})
+                }
+            }
+            if ($closeBugTemplate.count -gt 0) {
+                $body = $null;
+                if ($closeBugTemplate.count -eq 1) {
+                    $body = "[$($closeBugTemplate | ConvertTo-Json -depth 10)]"
+                }
+                else {
+                    $body = $closeBugTemplate | ConvertTo-Json -depth 10  
+                }
+                $uri = 'https://{0}.visualstudio.com/_apis/wit/$batch?api-version=4.1' -f $this.OrganizationName
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                $adoResult = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
+                if ($adoResult -and $adoResult.count -gt 0) {
+                    return $adoResult.value;
+                }
+            }
+            return $false;
         }
         catch {
             Write-Host $_
