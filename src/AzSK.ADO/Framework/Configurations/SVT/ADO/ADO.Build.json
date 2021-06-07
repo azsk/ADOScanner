@@ -194,7 +194,7 @@
     },
     {
       "ControlID": "ADO_Build_AuthZ_Restrict_Broader_Group_Access",
-      "Description": "Do not allow build pipeline to be edited by a broad group of users.",
+      "Description": "Do not allow build pipeline to have excessive permissions by a broad group of users.",
       "Id": "Build230",
       "ControlSeverity": "High",
       "Automated": "Yes",

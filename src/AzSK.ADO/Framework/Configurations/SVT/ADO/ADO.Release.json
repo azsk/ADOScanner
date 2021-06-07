@@ -194,7 +194,7 @@
     },
     {
       "ControlID": "ADO_Release_AuthZ_Restrict_Broader_Group_Access",
-      "Description": "Do not allow release pipeline to be edited by a broad group of users.",
+      "Description": "Do not allow release pipeline to be have excessive permissions by a broad group of users.",
       "Id": "Release230",
       "ControlSeverity": "High",
       "Automated": "Yes",
