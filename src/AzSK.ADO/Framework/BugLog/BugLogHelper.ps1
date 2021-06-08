@@ -18,7 +18,10 @@ class BugLogHelper {
         
         $this.StorageAccount = $env:StorageName;
         $this.StorageRG = $env:StorageRG;
-        
+        #ToDO Remove
+        # $this.StorageAccount="ritikbavdekarstorage"
+        # $this.StorageRG="Ritik_Storage_Test"
+
         #get storage details
         if ($this.StorageRG -and $this.StorageAccount) {
             $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
@@ -235,7 +238,7 @@ class BugLogHelper {
         return $headers
     }
 
-    hidden [bool] GetTableEntityAndCloseBug([string] $hash) 
+    hidden [object[]] GetTableEntityAndCloseBug([string] $hash) 
     {    
         #get table filter by name
         $tableName = $this.GetTableName();
@@ -263,14 +266,19 @@ class BugLogHelper {
                         if($row.code -eq 200 )
                         {
                             $id = ($row.body | ConvertFrom-Json).id
-                            $tableData = $azTableBugInfo | Where {$_.ADOBugId -eq $id} | Select PartitionKey, projectName
+                            $tableData = $azTableBugInfo | Where {$_.ADOBugId -eq $id} | Select PartitionKey, projectName ,ADOScannerHashId
                             #$isDeleted = $this.DeleteTableEntity($tableName, $tableData.partitionKey , $id);
                             #if ($isDeleted -eq $true) {
                             #    $this.AddDataInTable($tableName, $tableData.partitionKey, $id, $tableData.projectName, "Y");
                             #}
+                            $row.body=$row.body.TrimEnd("}")
+                            $row.body+=",`"ADOScannerHashId`":`"{0}`"" -f $tableData.ADOScannerHashId
+                            $row.body+="}"
                             $isUpdated = $this.UpdateTableEntity($tableName, $tableData.partitionKey, $id, $tableData.projectName);
+
                         }
                     }
+                    return $adoClosedBugResponse
                 } 
             }
         }
@@ -278,10 +286,10 @@ class BugLogHelper {
             if (!$this.errorMsgDisplayed) {
                Write-Host "Could not update entry of closed bug in storage table." -ForegroundColor Red  
             }
-            return $false;
+            return $null;
         }
         
-        return $true;
+        return $null;
     } 
 
     hidden [string] GetTableName()

@@ -162,7 +162,6 @@ class CommandBase: AzSKRoot {
 			{
 				$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
 			}
-			[PublishToJSON]::new($methodResult,$folderPath)
 		}
 
 		#auto close passed bugs
@@ -174,7 +173,14 @@ class CommandBase: AzSKRoot {
 			#call the AutoCloseBugManager
 			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 			$AutoClose.AutoCloseBug($methodResult)
+			$bugsClosed=[AutoCloseBugManager]::ClosedBugs
+			if([BugLogPathManager]::GetIsPathValid()){
+				[PublishToJSON]::new($methodResult,$folderPath,$bugsClosed)
+				[WriteBugLogCsv]::new($methodResult,$folderPath,$bugsClosed)
+			}
 		}
+		
+
 		# Publish command complete events
         $this.CommandCompleted($methodResult);
 		[AIOrgTelemetryHelper]::TrackCommandExecution("Command Completed",
