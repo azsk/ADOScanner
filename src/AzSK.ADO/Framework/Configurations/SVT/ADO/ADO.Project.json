@@ -390,7 +390,7 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupInheritanceSettingsForBuild",
-      "Rationale": "If a broad group (e.g., Contributors) for build have excessive permissions at a project level, they are inherited by individual build pipelines in the project. A malicious user can abuse these permissions to compromise security of the pipeline.",
+      "Rationale": "If a broad group (e.g., Contributors) is configured with excessive permissions at a project level, they are inherited by individual build pipelines in the project. A malicious user can abuse these permissions to compromise the security of the pipeline.",
       "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Click on three dots at top right corner. --> 4. Manage security --> 5. Ensure 'Excessive' permissions of broader groups is not set to 'Allow'. Refer to detailed scan log (Project.LOG) for broader groups and excessive permissions list. --> 6. Repeat this for any other groups that should not have excessive permissions.",
       "Tags": [
         "SDL",
@@ -408,7 +408,7 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupInheritanceSettingsForRelease",
-      "Rationale": "If a broad group (e.g., Contributors) for release have excessive permissions at a project level, they are inherited by individual release pipelines in the project. A malicious user can abuse these permissions to compromise security of the pipeline.",
+      "Rationale": "If a broad group (e.g., Contributors) is configured with excessive permissions at a project level, they are inherited by individual release pipelines in the project. A malicious user can abuse these permissions to compromise the security of the pipeline.",
       "Recommendation": "1. Go to Project --> 2. Pipelines -->  3. Releases. --> 4. Click on 'View all release pipelines' (Folder icon). --> 5. All pipelines. --> 6. Click on three dots. --> 7. Security --> 8. Ensure 'Excessive' permissions of broader groups is not set to 'Allow'. Refer to detailed scan log (Project.LOG) for broader groups and excessive permissions list. --> 9. Repeat this for any other groups that should not have excessive permissions.",
       "Tags": [
         "SDL",

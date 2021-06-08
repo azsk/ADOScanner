@@ -12,6 +12,7 @@ class Release: ADOSVTBase
     hidden static [string] $securityNamespaceId = $null;
     hidden static [PSObject] $ReleaseVarNames = @{};
     hidden [PSObject] $releaseActivityDetail = @{isReleaseActive = $true; latestReleaseTriggerDate = $null; releaseCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
+    hidden [PSObject] $excessivePermissionBits = @(1)
 
     Release([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -88,6 +89,11 @@ class Release: ADOSVTBase
                 $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$TaskGroupSecurityNamespace
                 [Release]::TaskGroupNamespacePermissionObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlNamespace);
             }
+        }
+
+        if ([Helpers]::CheckMember($this.ControlSettings.Release, "CheckForInheritedPermissions") -and $this.ControlSettings.Release.CheckForInheritedPermissions) {
+            #allow permission bit for inherited permission is '3'
+            $this.excessivePermissionBits = @(1, 3)
         }
     }
 
@@ -1134,6 +1140,7 @@ class Release: ADOSVTBase
                     $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                     if($responseObj.Count -gt 0)
                     {
+                        #$_.identity.uniqueName.split("\")[-1]
                         $contributorsObj = $responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"}
                         if((-not [string]::IsNullOrEmpty($contributorsObj)) -and ($contributorsObj.role.name -ne 'Reader')){
 
@@ -1150,14 +1157,14 @@ class Release: ADOSVTBase
                 $editableVarGrpsCount = $editableVarGrps.Count
                 if($editableVarGrpsCount -gt 0)
                 {
-                    $controlResult.AddMessage("`nTotal number of variable groups on which contributors have edit permissions: $editableVarGrpsCount `n");
-                    $controlResult.AdditionalInfo += "`nTotal number of variable groups on which contributors have edit permissions: $editableVarGrpsCount";
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Variable groups list: `n[$($editableVarGrps -join ', ')]");
+                    $controlResult.AddMessage("`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount `n");
+                    $controlResult.AdditionalInfo += "`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount";
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Variable groups list: `n$($editableVarGrps | FT | Out-String)");
                     $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"`nContributors do not have edit permissions on any variable groups used in release definition.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"`nContributors do not have edit permissions on variable groups used in release definition.");
                 }
             }
             catch
@@ -1243,11 +1250,6 @@ class Release: ADOSVTBase
                 if ([Helpers]::CheckMember($this.ControlSettings.Release, "RestrictedBroaderGroupsForRelease") -and [Helpers]::CheckMember($this.ControlSettings.Release, "ExcessivePermissionsForBroadGroups")) {
                     $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
                     $excessivePermissions = $this.ControlSettings.Release.ExcessivePermissionsForBroadGroups
-                    $excessivePermissionBits = @(1)
-                    if ([Helpers]::CheckMember($this.ControlSettings.Release, "CheckForInheritedPermissions") -and $this.ControlSettings.Release.CheckForInheritedPermissions) {
-                        #allow permission bit for inherited permission is '3'
-                        $excessivePermissionBits = @(1, 3)
-                    }
                     $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release?_a=releases&view=mine&definitionId=$releaseId"
 
                     $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $($this.projectId)
@@ -1277,6 +1279,19 @@ class Release: ADOSVTBase
                     {
 
                         $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $broaderGroups -contains $_.displayName })
+
+                        #Check if inheritance is disabled on release pipeline, if disabled, inherited permissions should be considered irrespective of control settings
+
+                        $apiURLForInheritedPerms = "https://dev.azure.com/{0}/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&style=min" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $([Release]::SecurityNamespaceId), $($this.ProjectId), $($this.ReleaseObj.id);
+                        $header = [WebRequestHelper]::GetAuthHeaderFromUri($apiURLForInheritedPerms);
+                        $responseObj = Invoke-RestMethod -Method Get -Uri $apiURLForInheritedPerms -Headers $header -UseBasicParsing
+                        $responseObj = ($responseObj.SelectNodes("//script") | Where-Object { $_.class -eq "permissions-context" }).InnerXML | ConvertFrom-Json;
+                        if($responseObj -and -not [Helpers]::CheckMember($responseObj,"inheritPermissions"))
+                        {
+                            $this.excessivePermissionBits = @(1, 3)
+                        }
+
+
                         # $broaderGroupsList would be null if none of its permissions are set i.e. all perms are 'Not Set'.
 
                         if ($broaderGroupsList.Count -gt 0)
@@ -1311,11 +1326,11 @@ class Release: ADOSVTBase
                                 $broaderGroupResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $contributorInputbody);
                                 $broaderGroupRBACObj = $broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
                                 $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
-                                $excessiveEditPermissions = @()
+                                $excessiveEditPermissions = @() # excessiveEditPermissions to excessivePermissions
                                 $excessivePermissionList | ForEach-Object {
                                     #effectivePermissionValue equals to 1 implies edit release pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
                                     if ([Helpers]::CheckMember($_, "effectivePermissionValue")) {
-                                        if ($excessivePermissionBits -contains $_.effectivePermissionValue) {
+                                        if ($this.excessivePermissionBits -contains $_.effectivePermissionValue) {
                                             $excessiveEditPermissions += $_
                                         }
                                     }

@@ -401,7 +401,9 @@ class AgentPool: ADOSVTBase
     hidden [ControlResult] CheckBroaderGroupAccess ([ControlResult] $controlResult) {
         try {
             $controlResult.VerificationResult = [VerificationResult]::Failed
+
             if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool")) {
+
                 $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
                 if (($this.AgentObj.Count -gt 0) -and [Helpers]::CheckMember($this.AgentObj, "identity")) {
                     # match all the identities added on agentpool with defined restricted list
@@ -412,13 +414,12 @@ class AgentPool: ADOSVTBase
                     $restrictedGroupsCount = $restrictedGroups.Count
                     # fail the control if restricted group found on agentpool
                     if ($restrictedGroupsCount -gt 0) {
-                        $controlResult.AddMessage([VerificationResult]::Failed, "Total number of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)");
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)");
                         $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
                         $formattedGroupsTable = ($formattedGroupsData | Out-String)
                         $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
-                        $controlResult.AdditionalInfo += "Total number of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)";
-                        $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n`t[$($restrictedBroaderGroupsForAgentPool -join ', ')]`n");
+                        $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)";
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to agent pool.");
@@ -427,6 +428,7 @@ class AgentPool: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No groups have given access to agent pool.");
                 }
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForAgentPool | FT | out-string )`n");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups for agent pool is not defined in control settings for your organization.");

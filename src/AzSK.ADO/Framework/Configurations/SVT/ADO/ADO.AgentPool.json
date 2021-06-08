@@ -147,8 +147,8 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupAccess",
-      "Rationale": "If the broader groups (e.g., Contributors) have excessive permissions (Admin/User) on agent pool, then integrity of your agent pool can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/agent pool compromise.",
-      "Recommendation": "1. Go to Project Settings --> 2. Pipelines --> 3. Agent pools --> 4. Select your agent pool --> 5. Select Security --> 6. Ensure broader groups have read-only access.",
+      "Rationale": "If broader groups (e.g., Contributors) have excessive permissions (Admin/User) on an agent pool, integrity of your agent pool can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/agent pool compromise.",
+      "Recommendation": "1. Go to Project Settings --> 2. Pipelines --> 3. Agent pools --> 4. Select your agent pool --> 5. Select Security --> 6. Ensure broader groups have read-only access. Refer to detailed scan log (Agentpool.LOG) for broader group list.",
       "Tags": [
         "SDL",
         "TCP",

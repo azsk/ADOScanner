@@ -11,6 +11,7 @@ class Build: ADOSVTBase
     hidden static [string] $SecurityNamespaceId = $null;
     hidden static [PSObject] $BuildVarNames = @{};
     hidden [PSObject] $buildActivityDetail = @{isBuildActive = $true; buildLastRunDate = $null; buildCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
+    hidden [PSObject] $excessivePermissionBits = @(1)
 
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -93,6 +94,11 @@ class Build: ADOSVTBase
                 $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$TaskGroupSecurityNamespace
                 [Build]::TaskGroupNamespacePermissionObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlNamespace);
             }
+        }
+
+        if ([Helpers]::CheckMember($this.ControlSettings.Build, "CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions) {
+            #allow permission bit for inherited permission is '3'
+            $this.excessivePermissionBits = @(1,3)
         }
     }
 
@@ -1124,11 +1130,6 @@ class Build: ADOSVTBase
                 if ([Helpers]::CheckMember($this.ControlSettings.Build, "RestrictedBroaderGroupsForBuild") -and [Helpers]::CheckMember($this.ControlSettings.Build, "ExcessivePermissionsForBroadGroups")) {
                     $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
                     $excessivePermissions = $this.ControlSettings.Build.ExcessivePermissionsForBroadGroups
-                    $excessivePermissionBits = @(1)
-                    if ([Helpers]::CheckMember($this.ControlSettings.Build, "CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions) {
-                        #allow permission bit for inherited permission is '3'
-                        $excessivePermissionBits = @(1,3)
-                    }
                     $buildURL = "https://dev.azure.com/$orgName/$projectName/_build?definitionId=$buildId"
 
                     $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
@@ -1157,6 +1158,18 @@ class Build: ADOSVTBase
                     if ([Helpers]::CheckMember($responseObj[0], "dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider', "identities"))) {
 
                         $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $broaderGroups -contains $_.displayName })
+
+                        #Check if inheritance is disabled on build pipeline, if disabled, inherited permissions should be considered irrespective of control settings
+                        # Here 'permissionSet' = security namespace identifier, 'token' = project id and 'tokenDisplayVal' = build name
+                        $apiURLForInheritedPerms = "https://dev.azure.com/{0}/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&tokenDisplayVal={5}&style=min" -f $($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($this.BuildObj.id), $($this.BuildObj.name) ;
+                        $header = [WebRequestHelper]::GetAuthHeaderFromUri($apiURLForInheritedPerms);
+                        $responseObj = Invoke-RestMethod -Method Get -Uri $apiURLForInheritedPerms -Headers $header -UseBasicParsing
+                        $responseObj = ($responseObj.SelectNodes("//script") | Where-Object { $_.class -eq "permissions-context" }).InnerXML | ConvertFrom-Json;
+                        if($responseObj -and [Helpers]::CheckMember($responseObj,"inheritPermissions") -and $responseObj.inheritPermissions -ne $true)
+                        {
+                            $this.excessivePermissionBits = @(1, 3)
+                        }
+
                         # $broaderGroupsList would be empty if none of its permissions are set i.e. all perms are 'Not Set'.
 
                         if ($broaderGroupsList.Count) {
@@ -1194,7 +1207,7 @@ class Build: ADOSVTBase
                                 $excessivePermissionList | ForEach-Object {
                                     #effectivePermissionValue equals to 1 implies edit build pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
                                     if ([Helpers]::CheckMember($_, "effectivePermissionValue")) {
-                                        if ($excessivePermissionBits -contains $_.effectivePermissionValue) {
+                                        if ($this.excessivePermissionBits -contains $_.effectivePermissionValue) {
                                             $excessiveEditPermissions += $_
                                         }
                                     }
