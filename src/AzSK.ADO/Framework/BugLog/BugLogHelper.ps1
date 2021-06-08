@@ -18,9 +18,6 @@ class BugLogHelper {
         
         $this.StorageAccount = $env:StorageName;
         $this.StorageRG = $env:StorageRG;
-        #ToDO Remove
-        # $this.StorageAccount="ritikbavdekarstorage"
-        # $this.StorageRG="Ritik_Storage_Test"
 
         #get storage details
         if ($this.StorageRG -and $this.StorageAccount) {

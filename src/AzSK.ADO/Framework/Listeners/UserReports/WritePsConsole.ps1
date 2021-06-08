@@ -583,10 +583,6 @@ class WritePsConsole: FileOutputBase
 				}
 			}
 		}
-		else {
-			$this.WriteMessage("No bugs were closed",[MessageType]::Update);
-			$this.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info);
-		}
 
 		#if such bugs were found, print a summary table
 

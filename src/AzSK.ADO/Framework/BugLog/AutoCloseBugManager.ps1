@@ -108,14 +108,13 @@ class AutoCloseBugManager {
                         #     #Store bug details for CSV,Summary and LA
                                 $bug=$_.body |ConvertFrom-Json
                                 
-                                #Check if Closed
-                                if($bug.fields.'System.State' -eq 'Closed')
-                                {
-                                    $id=$bug.id
-                                    $project=$bug.fields.'System.TeamProject'
-                                    $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $project , $id;
-                                    $TagToControlIDMap[$bug.ADOScannerHashId].ControlResults.AddMessage("Closed Bug",$urlClose);
-                                    [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$bug.ADOScannerHashId]
+                                #Check if Closed and Hash Id available in map
+                                if($TagToControlIDMap.ContainsKey($bug.ADOScannerHashId) -and $bug.fields.'System.State' -eq 'Closed'){
+                                        $id=$bug.id
+                                        $project=$bug.fields.'System.TeamProject'
+                                        $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $project , $id;
+                                        $TagToControlIDMap[$bug.ADOScannerHashId].ControlResults.AddMessage("Closed Bug",$urlClose);
+                                        [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$bug.ADOScannerHashId]                     
                                 }
                             }
                         }
@@ -143,7 +142,7 @@ class AutoCloseBugManager {
                                     $bug=$_.body |ConvertFrom-Json
                                     
                                     #Check if Closed
-                                    if($bug.fields.'System.State' -eq 'Closed')
+                                    if($TagToControlIDMap.ContainsKey($bug.fields.'System.Tags') -and $bug.fields.'System.State' -eq 'Closed')
                                     {
                                         $id=$bug.id
                                         $project=$bug.fields.'System.TeamProject'
@@ -179,7 +178,7 @@ class AutoCloseBugManager {
                                     $bug=$_.body |ConvertFrom-Json
                                     
                                     #Check if Closed
-                                    if($bug.fields.'System.State' -eq 'Closed')
+                                    if($TagToControlIDMap.ContainsKey($bug.ADOScannerHashId) -and $bug.fields.'System.State' -eq 'Closed')
                                     {
                                         $id=$bug.id
                                         $project=$bug.fields.'System.TeamProject'
@@ -214,7 +213,7 @@ class AutoCloseBugManager {
                                     $bug=$_.body |ConvertFrom-Json
                                     
                                     #Check if Closed
-                                    if($bug.fields.'System.State' -eq 'Closed')
+                                    if($TagToControlIDMap.ContainsKey($bug.fields.'System.Tags') -and $bug.fields.'System.State' -eq 'Closed')
                                     {
                                         $id=$bug.id
                                         $project=$bug.fields.'System.TeamProject'
