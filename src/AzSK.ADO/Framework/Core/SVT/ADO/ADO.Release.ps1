@@ -1150,8 +1150,8 @@ class Release: ADOSVTBase
                 $editableVarGrpsCount = $editableVarGrps.Count
                 if($editableVarGrpsCount -gt 0)
                 {
-                    $controlResult.AddMessage("`nTotal number of variable groups on which contributors have edit permissions in release definition: $editableVarGrpsCount `n");
-                    $controlResult.AdditionalInfo += "`nTotal number of variable groups on which contributors have edit permissions in release definition: $editableVarGrpsCount";
+                    $controlResult.AddMessage("`nTotal number of variable groups on which contributors have edit permissions: $editableVarGrpsCount `n");
+                    $controlResult.AdditionalInfo += "`nTotal number of variable groups on which contributors have edit permissions: $editableVarGrpsCount";
                     $controlResult.AddMessage([VerificationResult]::Failed,"Variable groups list: `n[$($editableVarGrps -join ', ')]");
                     $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
                 }
@@ -1333,9 +1333,7 @@ class Release: ADOSVTBase
                                 $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group } }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
                                 $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                                 $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
-                                $controlResult.AdditionalInfo += "List of critical permissions on which contributors have access:  $($groupsWithExcessivePermissionsList.Group).";
-                                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n`t[$($broaderGroups -join ', ')]`n");
-                                $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n`t[$($excessivePermissions -join ', ')]`n");
+                                $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
                             }
                             else {
                                 $controlResult.AddMessage([VerificationResult]::Passed, "Broader Groups do not have excessive permissions on the release pipeline.");
@@ -1343,16 +1341,18 @@ class Release: ADOSVTBase
                         }
                         else
                         {
-                            $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have access to the release pipeline.");
+                            $controlResult.AddMessage([VerificationResult]::Passed,"Broader groups do not have access to the release pipeline.");
                         }
                     }
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
                     }
+                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT)`n");
+                    $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT)`n");
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or critical permissions are not defined in control settings for your organization.");
+                    $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
                 }
             }
             catch

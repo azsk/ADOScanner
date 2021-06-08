@@ -1629,4 +1629,259 @@ class Project: ADOSVTBase
 
         return $controlResult;
     }
+
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForBuild([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $orgName = $($this.OrganizationContext.OrganizationName)
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $projectName = $this.ResourceContext.ResourceName;
+            $permissionSetToken = $projectId
+            if ([Helpers]::CheckMember($this.ControlSettings.Build, "RestrictedBroaderGroupsForBuild") -and [Helpers]::CheckMember($this.ControlSettings.Build, "ExcessivePermissionsForBroadGroups")) {
+                $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
+                $excessivePermissions = $this.ControlSettings.Build.ExcessivePermissionsForBroadGroups
+                $namespacesApiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($orgName)
+                $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
+                $buildSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "Build") -and ($_.actions.name -contains "ViewBuilds")}).namespaceId
+                $buildURL = "https://dev.azure.com/$orgName/$projectName/_build"
+                $allowPermissionBits = @(1,3)
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
+                $inputbody = "{
+                'contributionIds': [
+                    'ms.vss-admin-web.security-view-members-data-provider'
+                ],
+                'dataProviderContext': {
+                    'properties': {
+                        'permissionSetId': '$buildSecurityNamespaceId',
+                        'permissionSetToken': '$permissionSetToken',
+                        'sourcePage': {
+                            'url': '$buildURL',
+                            'routeId': 'ms.vss-build-web.pipeline-details-route',
+                            'routeValues': {
+                                'project': '$projectName',
+                                'viewname': 'details',
+                                'controller': 'ContributedPage',
+                                'action': 'Execute'
+                            }
+                        }
+                    }
+                }
+                }" | ConvertFrom-Json
+                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
+                if ([Helpers]::CheckMember($responseObj[0], "dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider', "identities"))) {
+
+                    $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $broaderGroups -contains $_.displayName })
+                    # $broaderGroupsList would be empty if none of its permissions are set i.e. all perms are 'Not Set'.
+
+                    if ($broaderGroupsList.Count) {
+                        $groupsWithExcessivePermissionsList = @()
+                        foreach ($broderGroup in $broaderGroupsList) {
+                            $broaderGroupInputbody = "{
+                                'contributionIds': [
+                                    'ms.vss-admin-web.security-view-permissions-data-provider'
+                                ],
+                                'dataProviderContext': {
+                                    'properties': {
+                                        'subjectDescriptor': '$($broderGroup.descriptor)',
+                                        'permissionSetId': '$buildSecurityNamespaceId',
+                                        'permissionSetToken': '$permissionSetToken',
+                                        'accountName': '$(($broderGroup.principalName).Replace('\','\\'))',
+                                        'sourcePage': {
+                                            'url': '$buildURL',
+                                            'routeId': 'ms.vss-build-web.pipeline-details-route',
+                                            'routeValues': {
+                                                'project': '$projectName',
+                                                'viewname': 'details',
+                                                'controller': 'ContributedPage',
+                                                'action': 'Execute'
+                                            }
+                                        }
+                                    }
+                                }
+                            }" | ConvertFrom-Json
+
+                            #Web request to fetch RBAC permissions of broader groups on build.
+                            $broaderGroupResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $broaderGroupInputbody);
+                            $broaderGroupRBACObj = $broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
+                            $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
+                            $excessiveEditPermissions = @()
+                            $excessivePermissionList | ForEach-Object {
+                                #effectivePermissionValue equals to 1 implies edit build pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
+                                if ([Helpers]::CheckMember($_, "effectivePermissionValue")) {
+                                    if ($allowPermissionBits -contains $_.effectivePermissionValue) {
+                                        $excessiveEditPermissions += $_
+                                    }
+                                }
+                            }
+                            if ($excessiveEditPermissions.Count -gt 0) {
+                                $excessivePermissionsGroupObj = @{}
+                                $excessivePermissionsGroupObj['Group'] = $broderGroup.principalName
+                                $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessiveEditPermissions.displayName -join ', ')
+                                $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
+                            }
+                        }
+                        if ($groupsWithExcessivePermissionsList.count -gt 0) {
+                            #TODO: Do we need to put state object?
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Build pipelines are allowed to inherit excessive permissions for a broad group of users at project level.");
+                            $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
+                            $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
+                            $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
+                            $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
+                        }
+                        else {
+                            $controlResult.AddMessage([VerificationResult]::Passed, "Build pipelines are not allowed to inherit excessive permissions for a broad group of users at project level.");
+                        }
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Broader groups do not have access to the build pipelines at a project level.");
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the build pipelines at a project level.");
+                }
+                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT)`n");
+                $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT)`n");
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the build pipelines at a project level.");
+            $controlResult.LogException($_)
+        }
+
+        return $controlResult;
+    }
+
+
+  hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForRelease([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $orgName = $($this.OrganizationContext.OrganizationName)
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $projectName = $this.ResourceContext.ResourceName;
+            $permissionSetToken = $projectId
+            if ([Helpers]::CheckMember($this.ControlSettings.Release, "RestrictedBroaderGroupsForRelease") -and [Helpers]::CheckMember($this.ControlSettings.Release, "ExcessivePermissionsForBroadGroups")) {
+                $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
+                $excessivePermissions = $this.ControlSettings.Release.ExcessivePermissionsForBroadGroups
+                $namespacesApiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($orgName)
+                $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
+                $releaseSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ReleaseManagement") -and ($_.actions.name -contains "ViewReleaseDefinition")}).namespaceId
+                $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release"
+                $allowPermissionBits = @(1,3)
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
+                $inputbody = "{
+                'contributionIds': [
+                    'ms.vss-admin-web.security-view-members-data-provider'
+                ],
+                'dataProviderContext': {
+                    'properties': {
+                        'permissionSetId': '$releaseSecurityNamespaceId',
+                        'permissionSetToken': '$permissionSetToken',
+                        'sourcePage': {
+                            'url': '$releaseURL',
+                            'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
+                            'routeValues': {
+                                'project': '$projectName',
+                                'viewname': 'details',
+                                'controller': 'ContributedPage',
+                                'action': 'Execute'
+                            }
+                        }
+                    }
+                }
+                }" | ConvertFrom-Json
+                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
+                if ([Helpers]::CheckMember($responseObj[0], "dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider', "identities"))) {
+
+                    $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $broaderGroups -contains $_.displayName })
+                    # $broaderGroupsList would be empty if none of its permissions are set i.e. all perms are 'Not Set'.
+
+                    if ($broaderGroupsList.Count) {
+                        $groupsWithExcessivePermissionsList = @()
+                        foreach ($broderGroup in $broaderGroupsList) {
+                            $broaderGroupInputbody = "{
+                                'contributionIds': [
+                                    'ms.vss-admin-web.security-view-permissions-data-provider'
+                                ],
+                                'dataProviderContext': {
+                                    'properties': {
+                                        'subjectDescriptor': '$($broderGroup.descriptor)',
+                                        'permissionSetId': '$releaseSecurityNamespaceId',
+                                        'permissionSetToken': '$permissionSetToken',
+                                        'accountName': '$(($broderGroup.principalName).Replace('\','\\'))',
+                                        'sourcePage': {
+                                            'url': '$releaseURL',
+                                            'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
+                                            'routeValues': {
+                                                'project': '$projectName',
+                                                'viewname': 'details',
+                                                'controller': 'ContributedPage',
+                                                'action': 'Execute'
+                                            }
+                                        }
+                                    }
+                                }
+                            }" | ConvertFrom-Json
+
+                            #Web request to fetch RBAC permissions of broader groups on release.
+                            $broaderGroupResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $broaderGroupInputbody);
+                            $broaderGroupRBACObj = $broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
+                            $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
+                            $excessiveEditPermissions = @()
+                            $excessivePermissionList | ForEach-Object {
+                                #effectivePermissionValue equals to 1 implies edit release pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
+                                if ([Helpers]::CheckMember($_, "effectivePermissionValue")) {
+                                    if ($allowPermissionBits -contains $_.effectivePermissionValue) {
+                                        $excessiveEditPermissions += $_
+                                    }
+                                }
+                            }
+                            if ($excessiveEditPermissions.Count -gt 0) {
+                                $excessivePermissionsGroupObj = @{}
+                                $excessivePermissionsGroupObj['Group'] = $broderGroup.principalName
+                                $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessiveEditPermissions.displayName -join ', ')
+                                $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
+                            }
+                        }
+                        if ($groupsWithExcessivePermissionsList.count -gt 0) {
+                            #TODO: Do we need to put state object?
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Release pipelines are allowed to inherit excessive permissions for a broad group of users at project level.");
+                            $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
+                            $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
+                            $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
+                            $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
+                        }
+                        else {
+                            $controlResult.AddMessage([VerificationResult]::Passed, "Broader Groups do not have excessive permissions on the release pipelines at a project level.");
+                        }
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Broader groups do not have access to the release pipelines at a project level.");
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the pipelines at a project level.");
+                }
+                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT)`n");
+                $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT)`n");
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the release pipelines at a project level.");
+            $controlResult.LogException($_)
+        }
+
+        return $controlResult;
+    }
 }

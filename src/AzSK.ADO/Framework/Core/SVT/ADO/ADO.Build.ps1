@@ -1212,9 +1212,7 @@ class Build: ADOSVTBase
                                 $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
                                 $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                                 $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
-                                $controlResult.AdditionalInfo += "List of critical permissions on which contributors have access:  $($groupsWithExcessivePermissionsList.Group).";
-                                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n`t[$($broaderGroups -join ', ')]`n");
-                                $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n`t[$($excessivePermissions -join ', ')]`n");
+                                $controlResult.AdditionalInfo += "List of excessive permissions on which contributors have access:  $($groupsWithExcessivePermissionsList.Group).";
                             }
                             else {
                                 $controlResult.AddMessage([VerificationResult]::Passed, "Broader Groups do not have excessive permissions on the build pipeline.");
@@ -1227,9 +1225,11 @@ class Build: ADOSVTBase
                     else {
                         $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the pipeline.");
                     }
+                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT)`n");
+                    $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT)`n");
                 }
             else {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or critical permissions are not defined in control settings for your organization.");
+                    $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
                 }
             }
             catch

@@ -257,7 +257,7 @@
       "Destroy builds",
       "Edit build pipeline"
     ],
-    "ValidateInheritedPermissionsForBroadGroups" : false
+    "CheckForInheritedPermissions" : false
   },
   "Release": {
     "ReleaseHistoryPeriodInDays": 180,
@@ -299,7 +299,7 @@
       "Delete releases ",
       "Edit release pipeline"
     ],
-    "ValidateInheritedPermissionsForBroadGroups": false
+    "CheckForInheritedPermissions": false
   },
   "AgentPool": {
     "AgentPoolHistoryPeriodInDays": 180 ,
