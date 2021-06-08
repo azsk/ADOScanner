@@ -139,7 +139,10 @@
     "Release",
     "ServiceConnection",
     "AgentPool",
-    "VariableGroup"
+    "VariableGroup",
+    "Repository",
+    "Feed",
+    "SecureFile"
   ],
   "AttestationExpiryPeriodInDays": {
     "Default": 90,
@@ -307,8 +310,10 @@
     "MinPAMembersPermissible": 2,
     "GroupsToCheckForSCAltMembers": [
       "Project Administrators"
-    ],
-    "GroupsToCheckForFeedPermission": [
+    ]
+  },
+  "Feed":{
+  "RestrictedBroaderGroupsForFeeds": [
       "Contributors"
     ]
   },
@@ -345,10 +350,11 @@
       "Contributors",
       "Readers"
     ],
-    "RestrictedBroaderGroupsForSerConn" : [
+    "RestrictedBroaderGroupsForSvcConn" : [
       "Project Collection Valid Users",
       "Contributors",
-      "Readers"
+      "Readers",
+      "Project Valid Users"
     ]
   },
   "Patterns": [
@@ -415,5 +421,6 @@
     "vso.release_execute",
     "vso.release_manage"
   ],
-  "DisableWarningMessage" : false
+  "DisableWarningMessage" : false,
+  "ResourceTypesUseCommonScan": ["Repository","SecureFile", "Feed"]
 }

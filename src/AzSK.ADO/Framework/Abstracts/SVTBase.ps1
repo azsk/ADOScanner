@@ -241,7 +241,7 @@ class SVTBase: AzSKRoot
 	hidden [SVTEventContext] CreateSVTEventContextObject()
 	{
 		return [SVTEventContext]@{
-			FeatureName = $this.SVTConfig.FeatureName;
+			FeatureName = $this.ResourceContext.ResourceTypeName #$this.ResourceContext.ResourceTypeName bcz feature and rtn is same and feature name is coming from control.json file, in case of generic it will have generic name
 			Metadata = [Metadata]@{
 				Reference = $this.SVTConfig.Reference;
 			};
@@ -424,7 +424,9 @@ class SVTBase: AzSKRoot
 	hidden [ControlItem[]] GetApplicableControls()
 	{
 		#Lazy load the list of the applicable controls
-		if($null -eq $this.ApplicableControls)
+		#If applicablecontrol is already there in singleton object case, then need to filter again for different resourcetype
+		#Second condition (in case of singleton) ApplicableControls will not empty for second resource scan in and check if resource type is different 
+		if($null -eq $this.ApplicableControls -or ($this.ApplicableControls -and !($this.ApplicableControls[0].Id.StartsWith($this.ResourceContext.ResourceTypeName)) ) )
 		{
 			$this.ApplicableControls = @();
 			$this.FeatureApplicableControls = @();
@@ -534,6 +536,12 @@ class SVTBase: AzSKRoot
 			#this filtering has been done as the first step it self;
 			#$this.ApplicableControls += $this.ApplyServiceFilters($filteredControls);
 			
+		}
+		#filter control for generic common control 
+		if ($this.SVTConfig.FeatureName -eq "CommonConfigForControlScan") {
+			$controlstoscan = @();
+			$controlstoscan += $this.ApplicableControls | Where {$_.Id.StartsWith($this.ResourceContext.ResourceTypeName)};
+			$this.ApplicableControls = $controlstoscan;
 		}
 		return $this.ApplicableControls;
 	}
