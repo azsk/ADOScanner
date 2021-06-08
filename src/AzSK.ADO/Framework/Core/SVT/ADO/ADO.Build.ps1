@@ -11,6 +11,7 @@ class Build: ADOSVTBase
     hidden static [string] $SecurityNamespaceId = $null;
     hidden static [PSObject] $BuildVarNames = @{};
     hidden [PSObject] $buildActivityDetail = @{isBuildActive = $true; buildLastRunDate = $null; buildCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
+    hidden [PSObject] $excessivePermissionBits = @(1)
 
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -66,6 +67,12 @@ class Build: ADOSVTBase
         if ($null -ne $this.buildActivityDetail.buildLastRunDate)
         {
             $this.InactiveFromDays = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
+        }
+        
+        # initlizing excessivePermissionBits at constructor level because it computes for all the builds.
+        if ([Helpers]::CheckMember($this.ControlSettings.Build, "CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions) {
+            #allow permission bit for inherited permission is '3'
+            $this.excessivePermissionBits = @(1,3)
         }
 
         if ([Build]::IsOAuthScan -eq $true)
@@ -997,21 +1004,19 @@ class Build: ADOSVTBase
                     $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                     if($responseObj.Count -gt 0)
                     {
-                        $contributorsObj = $responseObj | Where-Object {$_.identity.uniqueName -eq "[$projectName]\Contributors"}
+                        $contributorsObj = $responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"}
                         if((-not [string]::IsNullOrEmpty($contributorsObj)) -and ($contributorsObj.role.name -ne 'Reader')){
-                            if ([Helpers]::CheckMember($_,"name")) {
-                                $editableVarGrps += $_.name
-                            }
+                            $editableVarGrps += $_.name
                         }
                     }
                 }
                 $editableVarGrpsCount = $editableVarGrps.Count
                 if($editableVarGrpsCount -gt 0)
                 {
-                    $controlResult.AddMessage("Count of variable groups on which contributors have edit permissions in build definition: $($editableVarGrpsCount)");
-                    $controlResult.AdditionalInfo += "Count of variable groups on which contributors have edit permissions in build definition: " + $editableVarGrpsCount;
+                    $controlResult.AddMessage("Count of variable groups on which contributors have edit permissions: $($editableVarGrpsCount)");
+                    $controlResult.AdditionalInfo += "Count of variable groups on which contributors have edit permissions: " + $editableVarGrpsCount;
                     $controlResult.AddMessage([VerificationResult]::Failed, "`nVariable groups list: `n`t[$($editableVarGrps -join ', ')]`n");
-                    $controlResult.SetStateData("List of variable groups used in build definition that contributors can edit: ", $editableVarGrps);
+                    $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
                 }
                 else
                 {
@@ -1124,11 +1129,6 @@ class Build: ADOSVTBase
                 if ([Helpers]::CheckMember($this.ControlSettings.Build, "RestrictedBroaderGroupsForBuild") -and [Helpers]::CheckMember($this.ControlSettings.Build, "ExcessivePermissionsForBroadGroups")) {
                     $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
                     $excessivePermissions = $this.ControlSettings.Build.ExcessivePermissionsForBroadGroups
-                    $excessivePermissionBits = @(1)
-                    if ([Helpers]::CheckMember($this.ControlSettings.Build, "CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions) {
-                        #allow permission bit for inherited permission is '3'
-                        $excessivePermissionBits = @(1,3)
-                    }
                     $buildURL = "https://dev.azure.com/$orgName/$projectName/_build?definitionId=$buildId"
 
                     $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
@@ -1194,7 +1194,7 @@ class Build: ADOSVTBase
                                 $excessivePermissionList | ForEach-Object {
                                     #effectivePermissionValue equals to 1 implies edit build pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
                                     if ([Helpers]::CheckMember($_, "effectivePermissionValue")) {
-                                        if ($excessivePermissionBits -contains $_.effectivePermissionValue) {
+                                        if ($this.excessivePermissionBits -contains $_.effectivePermissionValue) {
                                             $excessiveEditPermissions += $_
                                         }
                                     }
@@ -1225,11 +1225,11 @@ class Build: ADOSVTBase
                     else {
                         $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the pipeline.");
                     }
-                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT | Out-String)`n");
-                    $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT | Out-String)`n");
+                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':", $broaderGroups);
+                    $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':", $excessivePermissions);
                 }
-            else {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Error, "List of broader groups or excessive permissions is not defined in control settings for your organization.");
                 }
             }
             catch
@@ -1263,21 +1263,21 @@ class Build: ADOSVTBase
 
                     if(($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true))
                     {
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Pipeline secrets are marked as available to pull request validations of forks.");
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Pipeline secrets are marked as available to pull request validations of public repo forks.");
                     }
                     else
                     {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "Pipeline secrets are not  marked as available to pull request validations of forks.");
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Pipeline secrets are not marked as available to pull request validations of public repo forks.");
                     }
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "Pipeline secrets are not marked as available to pull request validations of forks.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Pipeline secrets are not marked as available to pull request validations of public repo forks.");
                 }
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Pull request validation trigger is not enabled for build pipeline.");
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pull request validation trigger is not set for build pipeline.");
             }
         }
         else
