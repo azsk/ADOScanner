@@ -40,6 +40,10 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if($invocationContext.BoundParameters["UseGraphAccess"]){
 			[IdentityHelpers]::useGraphAccess = $true; 
 		}
+		if($invocationContext.BoundParameters["AltControlEvaluation"])
+		{
+			[IdentityHelpers]::AltControlEvaluationMethod = $invocationContext.BoundParameters["AltControlEvaluation"]
+		}
 		[PartialScanManager]::ClearInstance();
 		$this.BaselineFilterCheck();
 		$this.UsePartialCommitsCheck();

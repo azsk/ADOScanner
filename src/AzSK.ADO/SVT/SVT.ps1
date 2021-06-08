@@ -271,7 +271,12 @@ function Get-AzSKADOSecurityStatus
 		[switch]
 		[Parameter(HelpMessage="Scan control which require graph access for evaluation.")]
 		[Alias("uga")]
-		$UseGraphAccess
+		$UseGraphAccess,
+
+		[ValidateSet("FallBack", "GraphAPI", "RegEx")]
+        [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
+		[Alias("ace")]
+		[string] $AltControlEvaluation
 
 	)
 	Begin
