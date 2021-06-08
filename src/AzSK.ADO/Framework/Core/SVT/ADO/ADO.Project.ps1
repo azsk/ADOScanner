@@ -1741,8 +1741,8 @@ class Project: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the build pipelines at a project level.");
                 }
-                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT)`n");
-                $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT)`n");
+                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT | Out-String )`n");
+                $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT | Out-String  )`n");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
@@ -1869,8 +1869,8 @@ class Project: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the pipelines at a project level.");
                 }
-                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT)`n");
-                $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT)`n");
+                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT | Out-String)`n");
+                $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT | Out-String)`n");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");

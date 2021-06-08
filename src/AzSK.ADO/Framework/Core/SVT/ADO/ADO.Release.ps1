@@ -1134,7 +1134,7 @@ class Release: ADOSVTBase
                     $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                     if($responseObj.Count -gt 0)
                     {
-                        $contributorsObj = $responseObj | Where-Object {$_.identity.uniqueName -eq "[$projectName]\Contributors"}
+                        $contributorsObj = $responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"}
                         if((-not [string]::IsNullOrEmpty($contributorsObj)) -and ($contributorsObj.role.name -ne 'Reader')){
 
                             #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
@@ -1348,8 +1348,8 @@ class Release: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
                     }
-                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT)`n");
-                    $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT)`n");
+                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT | Out-String)`n");
+                    $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT | Out-String)`n");
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
