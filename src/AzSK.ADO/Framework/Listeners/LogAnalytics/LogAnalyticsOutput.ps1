@@ -125,7 +125,14 @@ class LogAnalyticsOutput: ListenerBase
 				$currentInstance.PushAIEventsfromHandler("LogAnalyticsOutput CommandCompleted"); 
 				try 
 				{
-					$currentInstance.CommandAction($Event,"Command Completed");				
+					$currentInstance.CommandAction($Event,"Command Completed");
+					$InvocationContext = [System.Management.Automation.InvocationInfo] $currentInstance.InvocationContext	
+					if($InvocationContext.BoundParameters["AutoBugLog"] -or $InvocationContext.BoundParameters["AutoCloseBugs"]){
+						$bugsClosed=[AutoCloseBugManager]::ClosedBugs
+						if($bugsClosed){
+							$currentInstance.WriteControlResult($bugsClosed)
+						}
+					}			
 				}
 				catch 
 				{
