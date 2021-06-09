@@ -149,10 +149,10 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 
 		#Declaring null object variable here, will initialize latter.
 		$svtObject = $null;
-		#Declaring $resourceTypeForCommonSVT to store resource types which uses common file.
-		$resourceTypeForCommonSVT = "";
-		if ([Helpers]::CheckMember($ControlSettings, "ResourceTypeForCommonSVT")) {
-			$resourceTypeForCommonSVT = $ControlSettings.ResourceTypeForCommonSVT
+		#Declaring $resourceTypesForCommonSVT to store resource types which uses common file.
+		$resourceTypesForCommonSVT = "";
+		if ([Helpers]::CheckMember($ControlSettings, "ResourceTypesForCommonSVT")) {
+			$resourceTypesForCommonSVT = $ControlSettings.ResourceTypesForCommonSVT
 		}
 		
 		$automatedResources | ForEach-Object {
@@ -206,7 +206,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 						{
 							#Check if $svtClassName is not common class then create object.
 							#Check if $svtClassName is common class and objec of this class is not already created then on create new object.
-							if ($svtClassName -ne "CommonSVTControls" -or ($svtClassName -eq "CommonSVTControls" -and (!$svtObject -or $svtObject.ResourceContext.ResourceTypeName -notin $resourceTypeForCommonSVT))) {
+							if ($svtClassName -ne "CommonSVTControls" -or ($svtClassName -eq "CommonSVTControls" -and (!$svtObject -or $svtObject.ResourceContext.ResourceTypeName -notin $resourceTypesForCommonSVT))) {
 								$svtObject = New-Object -TypeName $svtClassName -ArgumentList $this.OrganizationContext.OrganizationName, $_
 							}
 							else {

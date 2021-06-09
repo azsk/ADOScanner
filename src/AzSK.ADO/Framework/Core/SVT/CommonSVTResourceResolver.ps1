@@ -10,7 +10,7 @@ class CommonSVTResourceResolver {
         $this.organizationName = $organizationName;
     }
 
-    [SVTResource[]] LoadResourcesForScan($projectName, $repoNames, $secureFileNames, $feedNames, $ResourceTypeName) {
+    [SVTResource[]] LoadResourcesForScan($projectName, $repoNames, $secureFileNames, $feedNames, $ResourceTypeName, $MaxObjectsToScan) {
         #Get resources    
         [SVTResource[]] $SVTResources = @();
         if ($repoNames.Count -gt 0 -or $ResourceTypeName -eq [ResourceTypeName]::Repository) {
@@ -18,15 +18,17 @@ class CommonSVTResourceResolver {
             if ($ResourceTypeName -eq [ResourceTypeName]::Repository -and $repoNames.Count -eq 0) {
                 $repoNames += "*";
             }
-            $objRepoList = @();
-            $objRepoList += $this.FetchRepositories($projectName, $repoNames);
-            if ($objRepoList.count -gt 0) {
-                foreach ($repo in $objRepoList) {
+            $repoObjList = @();
+            $repoObjList += $this.FetchRepositories($projectName, $repoNames);
+            if ($repoObjList.count -gt 0) {
+                $maxObjScan = $MaxObjectsToScan
+                foreach ($repo in $repoObjList) {
                     $resourceId = "organization/{0}/project/{1}/repository/{2}" -f $this.organizationName, $projectName, $repo.id;
                     $SVTResources += $this.AddSVTResource($repo.name, $projectName, "ADO.Repository", $resourceId, $repo, $repo.webUrl);
+                    if (--$maxObjScan -eq 0) { break; }
                 }
-                
-                $objRepoList = $null;
+
+                $repoObjList = $null;
             }
         }
         
@@ -36,16 +38,18 @@ class CommonSVTResourceResolver {
                 $secureFileNames += "*"
             }
             # Here we are fetching all the secure files in the project.
-            $objSecureFileList = @();
-            $objSecureFileList += $this.FetchSecureFiles($projectName, $secureFileNames);
-            if ($objSecureFileList.count -gt 0) {
-                foreach ($securefile in $objSecureFileList) {
+            $secureFileObjList = @();
+            $secureFileObjList += $this.FetchSecureFiles($projectName, $secureFileNames);
+            if ($secureFileObjList.count -gt 0) {
+                $maxObjScan = $MaxObjectsToScan
+                foreach ($securefile in $secureFileObjList) {
                     $resourceId = "organization/{0}/project/{1}/securefile/{2}" -f $this.organizationName, $projectName, $securefile.Id;
                     $secureFileLink = "https://dev.azure.com/{0}/{1}/_library?itemType=SecureFiles&view=SecureFileView&secureFileId={2}&path={3}" -f $this.organizationName, $projectName, $securefile.Id, $securefile.Name;
                     $SVTResources += $this.AddSVTResource($securefile.Name, $projectName, "ADO.SecureFile", $resourceId, $securefile, $secureFileLink);
+                    if (--$maxObjScan -eq 0) { break; }
                 }
 
-                $objSecureFileList = $null;
+                $secureFileObjList = $null;
             }
         }
 
@@ -56,17 +60,19 @@ class CommonSVTResourceResolver {
                 $feedNames += "*"
             }
 
-            $objFeedList = @();
-            $objFeedList += $this.FetchFeeds($projectName, $feedNames);
-            if ($objFeedList.count -gt 0) {
-                foreach ($feed in $objFeedList) {
+            $feedObjList = @();
+            $feedObjList += $this.FetchFeeds($projectName, $feedNames);
+            if ($feedObjList.count -gt 0) {
+                $maxObjScan = $MaxObjectsToScan
+                foreach ($feed in $feedObjList) {
                     if ([Helpers]::CheckMember($feed, "id")) {
                         $resourceId = "organization/{0}/project/{1}/feed/{2}" -f $this.organizationName, $projectName, $feed.id;
                         $SVTResources += $this.AddSVTResource($feed.name, $projectName, "ADO.Feed", $resourceId, $feed, $feed.Url);
+                        if (--$maxObjScan -eq 0) { break; }
                     }
                 }
 
-                $objFeedList = $null;
+                $feedObjList = $null;
             }
         }
 
