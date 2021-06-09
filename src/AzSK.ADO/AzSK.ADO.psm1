@@ -137,7 +137,12 @@ function Set-AzSKADOPolicySettings {
         [Parameter(Mandatory = $false, HelpMessage = "Provide the local policy folder path")]
         [string]
         [Alias("lopf")]
-        $LocalOrgPolicyFolderPath
+        $LocalOrgPolicyFolderPath,
+
+        [Parameter(Mandatory = $false, HelpMessage = "Restore default org policy settings")]
+        [switch]
+        [Alias("rdops")]
+        $RestoreDefaultOrgPolicySettings
     )
     Begin {
         [CommandHelper]::BeginCommand($PSCmdlet.MyInvocation);
@@ -203,6 +208,12 @@ function Set-AzSKADOPolicySettings {
                     [EventBase]::PublishGenericCustomMessage("Policy folder does not exists. Enter valid policy folder path: $LocalOrgPolicyFolderPath", [MessageType]::Error);
                     return
                 }
+            }
+
+            if ($RestoreDefaultOrgPolicySettings) {
+                $defaultOrgPolicyLocation = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/Items?path=%2F`$FileName&recursionLevel=0&includeContentMetadata=true&versionDescriptor.version={3}&versionDescriptor.versionOptions=0&versionDescriptor.versionType=0&includeContent=true&resolveLfs=true?api-version=4.1-preview.1"
+                [EventBase]::PublishGenericCustomMessage("Updating the org policy to default location.", [MessageType]::Info);
+                $azskSettings.OnlinePolicyStoreUrl = $defaultOrgPolicyLocation
             }
 
             [ConfigurationManager]::UpdateAzSKSettings($azskSettings);

@@ -110,7 +110,7 @@ class ConfigurationHelper {
 							$serverFileContent = [ConfigurationHelper]::InvokeControlsAPI($onlineStoreUri, $Version, $policyFileName, $enableAADAuthForOnlinePolicyStore);
 							if ([String]::IsNullOrWhiteSpace($serverFileContent)) {
 								if (Test-Path $onlineStoreUri) {
-									[EventBase]::PublishGenericCustomMessage("Running Org-Policy from local policy store location: [$onlineStoreUri]", [MessageType]::Warning);
+									[EventBase]::PublishGenericCustomMessage("Running Org-Policy from local policy store location: [$onlineStoreUri]", [MessageType]::Info);
 									$serverFileContent = [ConfigurationHelper]::LoadOfflineConfigFile($policyFileName, $true, $onlineStoreUri)
 									[ConfigurationHelper]::LocalPolicyEnabled = $true
 								}
@@ -120,7 +120,7 @@ class ConfigurationHelper {
 						catch {
 							#Dead code??
 							if (Test-Path $onlineStoreUri) {
-								[EventBase]::PublishGenericCustomMessage("Running Org-Policy from local policy store location: [$onlineStoreUri]", [MessageType]::Warning);
+								[EventBase]::PublishGenericCustomMessage("Running Org-Policy from local policy store location: [$onlineStoreUri]", [MessageType]::Info);
 								$serverFileContent = [ConfigurationHelper]::LoadOfflineConfigFile($policyFileName, $true, $onlineStoreUri)
 								[ConfigurationHelper]::LocalPolicyEnabled = $true
 							}
