@@ -705,7 +705,7 @@ class Helpers {
                 $source = ($source + $extend)
                 if ($source.Count -gt 0)
                 {
-                    $source = @($source | Select-Object -Unique)
+                    $source = $source | Select-Object -Unique
                 }
 			}
 		}
