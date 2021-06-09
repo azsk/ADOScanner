@@ -70,7 +70,7 @@ class Build: ADOSVTBase
         }
         
         # initlizing excessivePermissionBits at constructor level because it computes for all the builds.
-        if ([Helpers]::CheckMember($this.ControlSettings.Build, "CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions) {
+        if ([Helpers]::CheckMember($this.ControlSettings, "Build.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions) {
             #allow permission bit for inherited permission is '3'
             $this.excessivePermissionBits = @(1,3)
         }
@@ -1004,7 +1004,7 @@ class Build: ADOSVTBase
                     $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                     if($responseObj.Count -gt 0)
                     {
-                        $contributorsObj = $responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"}
+                        $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})
                         if((-not [string]::IsNullOrEmpty($contributorsObj)) -and ($contributorsObj.role.name -ne 'Reader')){
                             $editableVarGrps += $_.name
                         }
