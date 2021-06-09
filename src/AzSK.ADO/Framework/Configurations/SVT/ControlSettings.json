@@ -308,7 +308,8 @@
         "Contributors",
         "Readers",
         "Project Valid Users"
-    ]
+    ],
+    "CheckForInheritedPermissions": false
   },
   "VariableGroup": {
     "RestrictedBroaderGroupsForVariableGroup": [
@@ -320,7 +321,8 @@
     "RestrictedRolesForBroaderGroupsInVariableGroup": [
         "User",
         "Administrator"
-    ]
+    ],
+    "CheckForInheritedPermissions": false
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
   "Organization": {
@@ -417,12 +419,13 @@
       "Contributors",
       "Readers"
     ],
-    "RestrictedBroaderGroupsForSerConn" : [
+    "RestrictedBroaderGroupsForSvcConn": [
       "Project Collection Valid Users",
       "Contributors",
       "Readers",
       "Project Valid Users"
-    ]
+    ],
+    "CheckForInheritedPermissions": false
   },
   "Patterns": [
     {

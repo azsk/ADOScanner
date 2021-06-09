@@ -221,8 +221,8 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupAccess",
-      "Rationale": "If the broader groups (e.g., Contributors) have excessive permissions (Admin/User) on service connection, then confidentiality/integrity of a pipeline using the service connection can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/service connection compromise.",
-      "Recommendation": "1. Go to Project Settings --> 2. Pipelines --> 3. Service connections --> 4. Select your service connection --> 5. Select Security --> 6. Ensure broader groups have read-only access.",
+      "Rationale": "If broader groups (e.g., Contributors) have excessive permissions (Admin/User) on service connection, then confidentiality/integrity of a pipeline using the service connection can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/service connection compromise.",
+      "Recommendation": "1. Go to Project Settings --> 2. Service connections --> 3. Select your service connection --> 4. Select Security --> 6. User Permissions --> 7. Ensure broader groups have read-only access. Refer to detailed scan log (ServiceConnection.LOG) for broader group list.",
       "Tags": [
         "SDL",
         "TCP",

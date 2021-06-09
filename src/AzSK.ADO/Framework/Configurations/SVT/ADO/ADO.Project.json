@@ -193,24 +193,6 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Project_AuthZ_Restrict_Feed_Permissions",
-      "Description": "Do not allow a broad group of users to upload packages to feed.",
-      "Id": "Project230",
-      "ControlSeverity": "High",
-      "Automated": "Yes",
-      "MethodName": "CheckAllPipelinesAccessOnFeeds",
-      "Rationale": "If a broad group of users (e.g., Contributors) have permissions to upload package to feed, then integrity of your pipeline can be compromised by a malicious user who uploads a package.",
-      "Recommendation": "1. Go to Project --> 2. Artifacts --> 3. Select Feed --> 4. Feed Settings --> 5. Permissions --> 6. Groups --> 7. Review users/groups which have administrator and contributor roles.",
-      "Tags": [
-        "SDL",
-        "TCP",
-        "AuthZ",
-        "RBAC",
-        "MSW"
-      ],
-      "Enabled": true
-    },
-    {
       "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Environment",
       "Description": "Do not make environment accessible to all pipelines.",
       "Id": "Project240",
@@ -224,24 +206,6 @@
         "TCP",
         "Automated",
         "AuthZ"
-      ],
-      "Enabled": true
-    },
-    {
-      "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secure_Files",
-      "Description": "Do not make secure files accessible to all pipelines.",
-      "Id": "Project250",
-      "ControlSeverity": "High",
-      "Automated": "Yes",
-      "MethodName": "CheckSecureFilesPermission",
-      "Rationale": "If a secure file is granted access to all pipelines, an unauthorized user can steal information from the secure files by building a pipeline and accessing the secure file.",
-      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. select your secure file from the list --> 6. click Security --> 7. Under 'Pipeline Permissions', remove pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
-      "Tags": [
-        "SDL",
-        "AuthZ",
-        "Automated",
-        "Best Practice",
-        "MSW"
       ],
       "Enabled": true
     },
@@ -278,41 +242,6 @@
         "Best Practice"
       ],
       "Enabled": false
-    },
-    {
-      "ControlID": "ADO_Project_DP_Inactive_Repos",
-      "Description": "Inactive repositories must be removed if no more required.",
-      "Id": "Project280",
-      "ControlSeverity": "Medium",
-      "Automated": "Yes",
-      "MethodName": "CheckInactiveRepo",
-      "Rationale": "Each additional repository being accessed by pipelines increases the attack surface. To minimize this risk ensure that only active and legitimate repositories are present in project.",
-      "Recommendation": "To remove inactive repository, follow the steps given here: 1. Navigate to the project settings -> 2. Repositories -> 3. Select the repository and delete.",
-      "Tags": [
-        "SDL",
-        "TCP",
-        "Automated",
-        "DP"
-      ],
-      "Enabled": true
-    },
-    {
-      "ControlID": "ADO_Project_AuthZ_Repo_Grant_Min_RBAC_Access",
-      "Description": "All teams/groups must be granted minimum required permissions on repositories.",
-      "Id": "Project290",
-      "ControlSeverity": "High",
-      "Automated": "Yes",
-      "MethodName": "CheckRepoRBACAccess",
-      "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users are granted just enough permissions to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
-      "Recommendation": "Go to Project Settings --> Repositories --> Permissions --> Validate whether each user/group is granted minimum required access to repositories.",
-      "Tags": [
-        "SDL",
-        "TCP",
-        "Automated",
-        "AuthZ",
-        "RBAC"
-      ],
-      "Enabled": true
     },
     {
       "ControlID": "ADO_Project_AuthZ_Disable_Repo_Inherited_Permissions",
@@ -410,6 +339,60 @@
       "MethodName": "CheckBroaderGroupInheritanceSettingsForRelease",
       "Rationale": "If a broad group (e.g., Contributors) is configured with excessive permissions at a project level, they are inherited by individual release pipelines in the project. A malicious user can abuse these permissions to compromise the security of the pipeline.",
       "Recommendation": "1. Go to Project --> 2. Pipelines -->  3. Releases. --> 4. Click on 'View all release pipelines' (Folder icon). --> 5. All pipelines. --> 6. Click on three dots. --> 7. Security --> 8. Ensure 'Excessive' permissions of broader groups is not set to 'Allow'. Refer to detailed scan log (Project.LOG) for broader groups and excessive permissions list. --> 9. Repeat this for any other groups that should not have excessive permissions.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "MSW"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SvcConn",
+      "Description": "Do not allow service connections to inherit excessive permissions for a broad group of users at project level.",
+      "Id": "Project360",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupInheritanceSettingsForSvcConn",
+      "Rationale": "If a broad group (e.g., Contributors) is configured with excessive permissions at a project level, they are inherited by individual service connections in the project. Then the confidentiality/integrity of a pipeline using such service connections can be compromised by a malicious user.",
+      "Recommendation": "1. Go to Project Settings --> 2. Service connections -->  3. Click on three dots and select security. --> 4. Ensure broader groups have read-only access. Refer to detailed scan log (Project.LOG) for broader group list",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "MSW"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Agentpool",
+      "Description": "Do not allow Agent pools to inherit excessive permissions for a broad group of users at project level.",
+      "Id": "Project370",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupInheritanceSettingsForAgentpool",
+      "Rationale": "If a broad group (e.g., Contributors) is configured with excessive permissions at a project level, they are inherited by individual agent pools in the project. Then integrity of such agent pools can be compromised by a malicious user",
+      "Recommendation": "1. Go to Project Settings --> 2. Agent pools -->  3. select security. --> 4. Ensure broader groups have read-only access. Refer to detailed scan log (Project.LOG) for broader group list",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "MSW"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_VarGrp",
+      "Description": "Do not allow variable groups to inherit excessive permissions for a broad group of users at project level.",
+      "Id": "Project380",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupInheritanceSettingsForVarGrp",
+      "Rationale": "If a broad group (e.g., Contributors) is configured with excessive permissions at a project level, they are inherited by individual variable groups in the project. Then the integrity of variable groups can be compromised by a malicious user",
+      "Recommendation": "1. Go to Project --> 2. Pipelines -->  3. Library. --> 4. Security. --> 5. Ensure broader groups have read-only access. Refer to detailed scan log (Project.LOG) for broader group list",
       "Tags": [
         "SDL",
         "TCP",

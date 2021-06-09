@@ -608,6 +608,27 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckAllPipelinesAccessOnFeeds([ControlResult] $controlResult)
     {
+
+        <#
+            {
+            "ControlID": "ADO_Project_AuthZ_Restrict_Feed_Permissions",
+            "Description": "Do not allow a broad group of users to upload packages to feed.",
+            "Id": "Project230",
+            "ControlSeverity": "High",
+            "Automated": "Yes",
+            "MethodName": "CheckAllPipelinesAccessOnFeeds",
+            "Rationale": "If a broad group of users (e.g., Contributors) have permissions to upload package to feed, then integrity of your pipeline can be compromised by a malicious user who uploads a package.",
+            "Recommendation": "1. Go to Project --> 2. Artifacts --> 3. Select Feed --> 4. Feed Settings --> 5. Permissions --> 6. Groups --> 7. Review users/groups which have administrator and contributor roles.",
+            "Tags": [
+                "SDL",
+                "TCP",
+                "AuthZ",
+                "RBAC",
+                "MSW"
+            ],
+            "Enabled": true
+            }
+        #>
         try
         {
             $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -725,6 +746,26 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckSecureFilesPermission([ControlResult] $controlResult) {
         # getting the project ID
+        <#
+            {
+            "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secure_Files",
+            "Description": "Do not make secure files accessible to all pipelines.",
+            "Id": "Project250",
+            "ControlSeverity": "High",
+            "Automated": "Yes",
+            "MethodName": "CheckSecureFilesPermission",
+            "Rationale": "If a secure file is granted access to all pipelines, an unauthorized user can steal information from the secure files by building a pipeline and accessing the secure file.",
+            "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. select your secure file from the list --> 6. click Security --> 7. Under 'Pipeline Permissions', remove pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+            "Tags": [
+                "SDL",
+                "AuthZ",
+                "Automated",
+                "Best Practice",
+                "MSW"
+            ],
+            "Enabled": true
+            }
+        #>
         $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
         $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($projectId)/_apis/distributedtask/securefiles?api-version=6.1-preview.1"
         try {
@@ -884,6 +925,25 @@ class Project: ADOSVTBase
     }
 
     hidden [ControlResult] CheckInactiveRepo([ControlResult] $controlResult) {
+        <#
+            {
+            "ControlID": "ADO_Project_DP_Inactive_Repos",
+            "Description": "Inactive repositories must be removed if no more required.",
+            "Id": "Project280",
+            "ControlSeverity": "Medium",
+            "Automated": "Yes",
+            "MethodName": "CheckInactiveRepo",
+            "Rationale": "Each additional repository being accessed by pipelines increases the attack surface. To minimize this risk ensure that only active and legitimate repositories are present in project.",
+            "Recommendation": "To remove inactive repository, follow the steps given here: 1. Navigate to the project settings -> 2. Repositories -> 3. Select the repository and delete.",
+            "Tags": [
+                "SDL",
+                "TCP",
+                "Automated",
+                "DP"
+            ],
+            "Enabled": true
+            }
+        #>
         try {
             $repoDefnsObj = $this.FetchRepositoriesList()
             $inactiveRepos = @()
@@ -930,6 +990,26 @@ class Project: ADOSVTBase
     }
 
     hidden [ControlResult] CheckRepoRBACAccess([ControlResult] $controlResult) {
+        <#
+            {
+            "ControlID": "ADO_Project_AuthZ_Repo_Grant_Min_RBAC_Access",
+            "Description": "All teams/groups must be granted minimum required permissions on repositories.",
+            "Id": "Project290",
+            "ControlSeverity": "High",
+            "Automated": "Yes",
+            "MethodName": "CheckRepoRBACAccess",
+            "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users are granted just enough permissions to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
+            "Recommendation": "Go to Project Settings --> Repositories --> Permissions --> Validate whether each user/group is granted minimum required access to repositories.",
+            "Tags": [
+                "SDL",
+                "TCP",
+                "Automated",
+                "AuthZ",
+                "RBAC"
+            ],
+            "Enabled": true
+            }
+        #>
 
         $accessList = @()
         #permissionSetId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
@@ -1880,6 +1960,151 @@ class Project: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the release pipelines at a project level.");
+            $controlResult.LogException($_)
+        }
+
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForSvcConn ([ControlResult] $controlResult) {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+
+        try {
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}" -f $($this.OrganizationContext.OrganizationName), $($projectId);
+            $serviceEndPointIdentity = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
+            $restrictedGroups = @();
+            if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.RestrictedBroaderGroupsForSvcConn") ) {
+                $restrictedBroaderGroupsForSvcConn = $this.ControlSettings.ServiceConnection.RestrictedBroaderGroupsForSvcConn;
+
+                if (($serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($serviceEndPointIdentity, "identity")) {
+                    # match all the identities added on service connection with defined restricted list
+                    $roleAssignments = @();
+                    $roleAssignments +=   ($serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                    #Checking where broader groups have user/admin permission for service connection
+                    $restrictedGroups += @($roleAssignments | Where-Object { $restrictedBroaderGroupsForSvcConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+
+                    $restrictedGroupsCount = $restrictedGroups.Count
+
+                    # fail the control if restricted group found on service connection
+                    if ($restrictedGroupsCount -gt 0) {
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Service connections are allowed to inherit excessive permissions for a broad group of users at project level.");
+                        $controlResult.AddMessage("Count of broader groups: $($restrictedGroupsCount)`n")
+                        $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
+                        $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                        $controlResult.AddMessage("`nList of groups: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of groups: ", $formattedGroupsData)
+                        $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to service connection at a project level:  $($restrictedGroupsCount)";
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection at a project level.");
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection at a project level.");
+                }
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForSvcConn | FT | out-string )`n");
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of broader groups for service connection is not defined in control settings for your organization.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Unable to fetch service connections details. $($_)Please verify from portal that you are not granting global security groups access to service connections");
+        }
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForAgentpool ([ControlResult] $controlResult) {
+        try {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool")) {
+                $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($projectId)";
+                $agentPoolPermObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
+                $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
+
+                if (($agentPoolPermObj.Count -gt 0) -and [Helpers]::CheckMember($agentPoolPermObj, "identity")) {
+                    # match all the identities added on agentpool with defined restricted list
+                    $roleAssignments = @($agentPoolPermObj | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                    # Checking whether the broader groups have User/Admin permissions
+                    $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+
+                    $restrictedGroupsCount = $restrictedGroups.Count
+                    # fail the control if restricted group found on agentpool
+                    if ($restrictedGroupsCount -gt 0) {
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Agent pools are allowed to inherit excessive permissions for a broad group of users at project level.");
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups: $($restrictedGroupsCount)");
+                        $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
+                        $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                        $controlResult.AddMessage("`nList of groups: $formattedGroupsTable")
+                        $controlResult.SetStateData("List of groups: ", $restrictedGroups)
+                        $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool at a project level: $($restrictedGroupsCount)";
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to agent pool at a project level.");
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No groups have given access to agent pool at a project level.");
+                }
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForAgentPool | FT | out-string )`n");
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups for agent pool is not defined in control settings for your organization.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the agent pool permissions at a project level.");
+            $controlResult.LogException($_)
+        }
+
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForVarGrp ([ControlResult] $controlResult) {
+
+        try {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedBroaderGroupsForVariableGroup") -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroup")) {
+                $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup;
+                $restrictedRolesForBroaderGroupsInvarGrp = $this.ControlSettings.VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroup;
+
+                #Fetch variable group RBAC
+                $roleAssignments = @();
+
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.library/roleassignments/resources/{1}%240' -f $($this.OrganizationContext.OrganizationName), $($projectId);
+                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                if($responseObj.Count -gt 0)
+                {
+                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                }
+
+                # Checking whether the broader groups have User/Admin permissions
+                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                $restrictedGroupsCount = $restrictedGroups.Count
+
+                # fail the control if restricted group found on variable group
+                if ($restrictedGroupsCount -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have user/administrator access to variable group at a project level: $($restrictedGroupsCount)");
+                    $controlResult.AddMessage("`nList of groups: `n($restrictedGroups | FT | Out-String)")
+                    $controlResult.SetStateData("List of groups: ", $restrictedGroups)
+                    $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to variable group at a project level: $($restrictedGroupsCount)";
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to variable group at a project level.");
+                }
+                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have user/administrator privileges: `n[$($restrictedBroaderGroupsForVarGrp | FT | out-string)");
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions at a project level.");
             $controlResult.LogException($_)
         }
 

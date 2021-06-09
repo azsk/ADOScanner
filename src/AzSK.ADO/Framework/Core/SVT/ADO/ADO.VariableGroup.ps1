@@ -5,7 +5,7 @@ class VariableGroup: ADOSVTBase
     hidden [PSObject] $VarGrp;
     hidden [PSObject] $ProjectId;
     hidden [PSObject] $VarGrpId;
-
+    hidden [string] $checkInheritedPermissions = $false
     VariableGroup([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0];
@@ -13,6 +13,9 @@ class VariableGroup: ADOSVTBase
         $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ProjectId)/_apis/distributedtask/variablegroups/$($this.VarGrpId)?api-version=6.1-preview.2"
         $this.VarGrp = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
+        if ([Helpers]::CheckMember($this.ControlSettings, "VariableGroup.CheckForInheritedPermissions") -and $this.ControlSettings.VariableGroup.CheckForInheritedPermissions) {
+            $this.checkInheritedPermissions = $true
+        }
     }
     hidden [ControlResult] CheckPipelineAccess([ControlResult] $controlResult)
     {
@@ -289,6 +292,9 @@ class VariableGroup: ADOSVTBase
                 $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                 if($responseObj.Count -gt 0)
                 {
+                    if ($this.checkInheritedPermissions -eq $false) {
+                        $responseObj = $responseObj  | where-object { $_.access -ne "inherited" }
+                    }
                     $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
                 }
 
@@ -307,10 +313,10 @@ class VariableGroup: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to variable group.");
                 }
-                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have user/administrator privileges: `n`t[$($restrictedBroaderGroupsForVarGrp -join ', ')]");
+                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have user/administrator privileges: `n$( $restrictedBroaderGroupsForVarGrp| FT | out-string)");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and respective roles for variable group is not defined in the control settings for your organization policy.");
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
             }
         }
         catch {
