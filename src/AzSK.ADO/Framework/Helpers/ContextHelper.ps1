@@ -8,9 +8,18 @@ using namespace Microsoft.IdentityModel.Clients.ActiveDirectory
 class ContextHelper {
     
     static hidden [Context] $currentContext;
-    
+    static hidden [bool] $IsOAuthScan;
     #This will be used to carry current org under current context.
     static hidden [string] $orgName;
+
+    ContextHelper()
+    {
+        if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret))  # this if block will be executed for OAuth based scan
+        {
+            [ContextHelper]::IsOAuthScan = $true
+        }
+    }
+
     hidden static [PSObject] GetCurrentContext()
     {
         return [ContextHelper]::GetCurrentContext($false);
@@ -30,7 +39,7 @@ class ContextHelper {
             [AuthenticationResult] $result = $null;
 
             $azSKUI = $null;
-            if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret)) { # this if block will be executed for OAuth based scan
+            if([ContextHelper]::IsOAuthScan) { # this if block will be executed for OAuth based scan
                 $tokenInfo = [ContextHelper]::GetOAuthAccessToken()
                 [ContextHelper]::ConvertToContextObject($tokenInfo)
             }
@@ -264,7 +273,7 @@ class ContextHelper {
         $contextObj.Organization.Id = [ContextHelper]::orgName
         $contextObj.Organization.Name = [ContextHelper]::orgName
 
-        if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret)) { # this if block will be executed for OAuth based scan
+        if([ContextHelper]::IsOAuthScan) { # this if block will be executed for OAuth based scan
             $contextObj.Account.Id = [ContextHelper]::GetOAuthUserIdentity($context.AccessToken, $contextObj.Organization.Name)
             $contextObj.AccessToken = $context.AccessToken
             $contextObj.TokenExpireTimeLocal = $context.ExpiresOn

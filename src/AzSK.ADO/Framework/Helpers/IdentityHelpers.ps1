@@ -4,7 +4,7 @@ class IdentityHelpers
 {
 	static hidden [bool] $useGraphAccess = $false
 	static hidden [string] $graphAccessToken = $null
-	static hidden [string] $AltControlEvaluationMethod
+	static hidden [string] $ALTControlEvaluationMethod
 
 	hidden static [bool] IsAltAccount($SignInName, $graphToken)
 	{
@@ -138,7 +138,7 @@ class IdentityHelpers
 	}
 
 	#This method differentiate human accounts and service account from the list.
-	hidden static [PSObject] distinguishHumanAndServiceAccount([PSObject] $allMembers, $orgName)
+	hidden static [PSObject] DistinguishHumanAndServiceAccount([PSObject] $allMembers, $orgName)
 	{
 		$humanAccount = @(); 
 		$serviceAccount = @();
@@ -160,7 +160,7 @@ class IdentityHelpers
 	}
 
 	#This method differentiate alt accounts and non-alt account from the list.
-	hidden static [PSObject] distinguishAltAndNonAltAccount([PSObject] $allMembers)
+	hidden static [PSObject] DistinguishAltAndNonAltAccount([PSObject] $allMembers)
 	{
 		$altAccount = @(); 
 		$nonAltAccount = @();

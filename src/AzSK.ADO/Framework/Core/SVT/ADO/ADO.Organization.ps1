@@ -22,15 +22,15 @@ class Organization: ADOSVTBase
         }
 
         # If switch ALtControlEvaluationMethod is set as true in org policy, then evaluating control using graph API. If not then fall back to RegEx based evaluation.
-        if ([string]::IsNullOrWhiteSpace([IdentityHelpers]::AltControlEvaluationMethod)) {
-            [IdentityHelpers]::AltControlEvaluationMethod = "FallBack"
-            if ([Helpers]::CheckMember($this.ControlSettings, "ALtControlEvaluationMethod"))
+        if ([string]::IsNullOrWhiteSpace([IdentityHelpers]::ALTControlEvaluationMethod)) {
+            [IdentityHelpers]::ALTControlEvaluationMethod = "GraphThenRegEx"
+            if ([Helpers]::CheckMember($this.ControlSettings, "ALTControlEvaluationMethod"))
             {
-                if (($this.ControlSettings.ALtControlEvaluationMethod -eq "GraphAPI")) {
-                    [IdentityHelpers]::AltControlEvaluationMethod = "GraphAPI"
+                if (($this.ControlSettings.ALtControlEvaluationMethod -eq "Graph")) {
+                    [IdentityHelpers]::ALTControlEvaluationMethod = "Graph"
                 }
                 elseif (($this.ControlSettings.ALtControlEvaluationMethod -eq "RegEx")) {
-                    [IdentityHelpers]::AltControlEvaluationMethod = "RegEx"
+                    [IdentityHelpers]::ALTControlEvaluationMethod = "RegEx"
                 }
             }
         }
@@ -233,7 +233,7 @@ class Organization: ADOSVTBase
                             {
                                 $useGraphEvaluation = $false
                                 $useRegExEvaluation = $false
-                                if ([IdentityHelpers]::AltControlEvaluationMethod -eq "FallBack") {
+                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
                                     if ($this.graphPermissions.hasGraphAccess){
                                         $useGraphEvaluation = $true
                                     }
@@ -242,11 +242,11 @@ class Organization: ADOSVTBase
                                     }
                                 }
 
-                                if ([IdentityHelpers]::AltControlEvaluationMethod -eq "GraphAPI" -or $useGraphEvaluation)
+                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
                                 {
                                     if ($this.graphPermissions.hasGraphAccess) 
                                     {
-                                        $allAdmins = [IdentityHelpers]::distinguishAltAndNonAltAccount($allAdminMembers)
+                                        $allAdmins = [IdentityHelpers]::DistinguishAltAndNonAltAccount($allAdminMembers)
                                         $SCMembers = $allAdmins.altAccount
                                         $nonSCMembers = $allAdmins.nonAltAccount
                                     
@@ -283,7 +283,7 @@ class Organization: ADOSVTBase
                                     }
                                 }
 
-                                if ([IdentityHelpers]::AltControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
+                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
                                 {
                                     if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg"))
                                     {
@@ -1774,7 +1774,7 @@ class Organization: ADOSVTBase
         $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
         if ($this.graphPermissions.hasGraphAccess)
         {
-            $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
+            $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
             $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
             if($HumanAcccountCount -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
                 $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
@@ -1828,7 +1828,7 @@ class Organization: ADOSVTBase
         $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
         if ($this.graphPermissions.hasGraphAccess)
         {   
-            $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
+            $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
             $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
             if($HumanAcccountCount -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
                 $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");

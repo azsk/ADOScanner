@@ -309,7 +309,7 @@
     ]
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
-  "ALtControlEvaluationMethod": "FallBack",
+  "ALTControlEvaluationMethod": "GraphThenRegEx",
   "Organization": {
     "DisallowedEnvironments" : [],
     "InactiveUserActivityLogsPeriodInDays": 90,

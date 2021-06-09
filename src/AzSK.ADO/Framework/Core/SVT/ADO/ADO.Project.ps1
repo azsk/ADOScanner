@@ -18,15 +18,15 @@ class Project: ADOSVTBase
         }
 
         # If switch ALtControlEvaluationMethod is set as true in org policy, then evaluating control using graph API. If not then fall back to RegEx based evaluation.
-        if ([string]::IsNullOrWhiteSpace([IdentityHelpers]::AltControlEvaluationMethod)) {
-            [IdentityHelpers]::AltControlEvaluationMethod = "FallBack"
-            if ([Helpers]::CheckMember($this.ControlSettings, "ALtControlEvaluationMethod"))
+        if ([string]::IsNullOrWhiteSpace([IdentityHelpers]::ALTControlEvaluationMethod)) {
+            [IdentityHelpers]::ALTControlEvaluationMethod = "GraphThenRegEx"
+            if ([Helpers]::CheckMember($this.ControlSettings, "ALTControlEvaluationMethod"))
             {
-                if (($this.ControlSettings.ALtControlEvaluationMethod -eq "GraphAPI")) {
-                    [IdentityHelpers]::AltControlEvaluationMethod = "GraphAPI"
+                if (($this.ControlSettings.ALtControlEvaluationMethod -eq "Graph")) {
+                    [IdentityHelpers]::ALTControlEvaluationMethod = "Graph"
                 }
                 elseif (($this.ControlSettings.ALtControlEvaluationMethod -eq "RegEx")) {
-                    [IdentityHelpers]::AltControlEvaluationMethod = "RegEx"
+                    [IdentityHelpers]::ALTControlEvaluationMethod = "RegEx"
                 }
             }
         }
@@ -379,7 +379,7 @@ class Project: ADOSVTBase
         if ($TotalPAMembers -gt 0) {
             if ($this.graphPermissions.hasGraphAccess)
             {
-                $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
+                $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
                 $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
                 if($HumanAcccountCount -lt $this.ControlSettings.Project.MinPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
@@ -440,7 +440,7 @@ class Project: ADOSVTBase
         {
             if ($this.graphPermissions.hasGraphAccess)
             {
-                $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
+                $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
                 $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
                 if($HumanAcccountCount -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible)");
@@ -541,7 +541,7 @@ class Project: ADOSVTBase
                             {
                                 $useGraphEvaluation = $false
                                 $useRegExEvaluation = $false
-                                if ([IdentityHelpers]::AltControlEvaluationMethod -eq "FallBack") {
+                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
                                     if ($this.graphPermissions.hasGraphAccess){
                                         $useGraphEvaluation = $true
                                     }
@@ -550,11 +550,11 @@ class Project: ADOSVTBase
                                     }
                                 }
 
-                                if ([IdentityHelpers]::AltControlEvaluationMethod -eq "GraphAPI" -or $useGraphEvaluation)
+                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
                                 {
                                     if ($this.graphPermissions.hasGraphAccess) 
                                     {
-                                        $allAdmins = [IdentityHelpers]::distinguishAltAndNonAltAccount($allAdminMembers)
+                                        $allAdmins = [IdentityHelpers]::DistinguishAltAndNonAltAccount($allAdminMembers)
                                         $SCMembers = $allAdmins.altAccount
                                         $nonSCMembers = $allAdmins.nonAltAccount
                                         
@@ -582,7 +582,7 @@ class Project: ADOSVTBase
                                             $SCData += $SCMembers
                                             $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
                                             $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
-                                            $controlResult.AddMessage("SC-ALT accounts with admin privileges: ", $($SCData | Format-Table -AutoSize | Out-String));  
+                                            $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));  
                                         }
                                     }
                                     else {
@@ -590,7 +590,7 @@ class Project: ADOSVTBase
                                     }
                                 }
 
-                                if ([IdentityHelpers]::AltControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
+                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
                                 {
                                     if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg")){
                                         $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
