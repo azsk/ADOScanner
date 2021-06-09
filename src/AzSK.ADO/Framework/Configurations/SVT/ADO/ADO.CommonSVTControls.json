@@ -1,6 +1,6 @@
 {
-  "FeatureName": "CommonConfigForControlScan",
-  "Reference": "aka.ms/azsktcp/CommonConfigForControlScan",
+  "FeatureName": "CommonSVTControls",
+  "Reference": "aka.ms/azsktcp/commonsvtcontrols",
   "IsMaintenanceMode": false,
   "Controls": [
     {

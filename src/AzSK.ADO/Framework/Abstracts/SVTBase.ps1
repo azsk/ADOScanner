@@ -538,7 +538,7 @@ class SVTBase: AzSKRoot
 			
 		}
 		#filter control for generic common control 
-		if ($this.SVTConfig.FeatureName -eq "CommonConfigForControlScan") {
+		if ($this.SVTConfig.FeatureName -eq "CommonSVTControls") {
 			$controlstoscan = @();
 			$controlstoscan += $this.ApplicableControls | Where {$_.Id.StartsWith($this.ResourceContext.ResourceTypeName)};
 			$this.ApplicableControls = $controlstoscan;

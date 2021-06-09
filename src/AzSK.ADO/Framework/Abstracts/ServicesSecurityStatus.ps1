@@ -146,13 +146,15 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		$totalResources = $automatedResources.Count;
 		[int] $currentCount = 0;
 		$childResources = @();
-		#Declaring null object variable here, will initializ latter.
+
+		#Declaring null object variable here, will initialize latter.
 		$svtObject = $null;
-		#Declaring $resourceTypesUseCommonScan to store resource types which uses common file
-		$resourceTypesUseCommonScan = "";
-		if ([Helpers]::CheckMember($ControlSettings, "ResourceTypesUseCommonScan")) {
-			$resourceTypesUseCommonScan = $ControlSettings.ResourceTypesUseCommonScan
+		#Declaring $resourceTypeForCommonSVT to store resource types which uses common file.
+		$resourceTypeForCommonSVT = "";
+		if ([Helpers]::CheckMember($ControlSettings, "ResourceTypeForCommonSVT")) {
+			$resourceTypeForCommonSVT = $ControlSettings.ResourceTypeForCommonSVT
 		}
+		
 		$automatedResources | ForEach-Object {
 			$exceptionMessage = "Exception for resource: [ResourceType: $($_.ResourceTypeMapping.ResourceTypeName)] [ResourceGroupName: $($_.ResourceGroupName)] [ResourceName: $($_.ResourceName)]"
             try
@@ -204,7 +206,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 						{
 							#Check if $svtClassName is not common class then create object.
 							#Check if $svtClassName is common class and objec of this class is not already created then on create new object.
-							if ($svtClassName -ne "CommonClsForControlScan" -or ($svtClassName -eq "CommonClsForControlScan" -and (!$svtObject -or $svtObject.ResourceContext.ResourceTypeName -notin $resourceTypesUseCommonScan))) {
+							if ($svtClassName -ne "CommonSVTControls" -or ($svtClassName -eq "CommonSVTControls" -and (!$svtObject -or $svtObject.ResourceContext.ResourceTypeName -notin $resourceTypeForCommonSVT))) {
 								$svtObject = New-Object -TypeName $svtClassName -ArgumentList $this.OrganizationContext.OrganizationName, $_
 							}
 							else {

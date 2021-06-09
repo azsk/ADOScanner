@@ -1,12 +1,12 @@
 Set-StrictMode -Version Latest
 
-class SVTResourceResolverHelper {
+class CommonSVTResourceResolver {
     [string] $ResourceType = "";
     [ResourceTypeName] $ResourceTypeName = [ResourceTypeName]::All;
 
     [string] $organizationName
 
-    SVTResourceResolverHelper($organizationName) {
+    CommonSVTResourceResolver($organizationName) {
         $this.organizationName = $organizationName;
     }
 
@@ -18,14 +18,15 @@ class SVTResourceResolverHelper {
             if ($ResourceTypeName -eq [ResourceTypeName]::Repository -and $repoNames.Count -eq 0) {
                 $repoNames += "*";
             }
-            $objRepos = @();
-            $objRepos += $this.FetchRepositories($projectName, $repoNames);
-            if ($objRepos -and $objRepos.count -gt 0) {
-                foreach ($repos in $objRepos) {
-                    $resourceId = "organization/{0}/project/{1}/repository/{2}" -f $this.organizationName, $projectName, $repos.id;
-                    $SVTResources += $this.AddSVTResource($repos.name, $projectName, "ADO.Repository", $resourceId, $repos, $repos.webUrl);
+            $objRepoList = @();
+            $objRepoList += $this.FetchRepositories($projectName, $repoNames);
+            if ($objRepoList.count -gt 0) {
+                foreach ($repo in $objRepoList) {
+                    $resourceId = "organization/{0}/project/{1}/repository/{2}" -f $this.organizationName, $projectName, $repo.id;
+                    $SVTResources += $this.AddSVTResource($repo.name, $projectName, "ADO.Repository", $resourceId, $repo, $repo.webUrl);
                 }
-                $objRepos = $null;
+                
+                $objRepoList = $null;
             }
         }
         
@@ -35,13 +36,16 @@ class SVTResourceResolverHelper {
                 $secureFileNames += "*"
             }
             # Here we are fetching all the secure files in the project.
-            $objSecureFiles = $this.FetchSecureFiles($projectName, $secureFileNames);
-            if ($objSecureFiles -and $objSecureFiles.count -gt 0) {
-                foreach ($securefile in $objSecureFiles) {
+            $objSecureFileList = @();
+            $objSecureFileList += $this.FetchSecureFiles($projectName, $secureFileNames);
+            if ($objSecureFileList.count -gt 0) {
+                foreach ($securefile in $objSecureFileList) {
                     $resourceId = "organization/{0}/project/{1}/securefile/{2}" -f $this.organizationName, $projectName, $securefile.Id;
-                    $filelinke = "https://dev.azure.com/{0}/{1}/_library?itemType=SecureFiles&view=SecureFileView&secureFileId={2}&path={3}" -f $this.organizationName, $projectName, $securefile.Id, $securefile.Name;
-                    $SVTResources += $this.AddSVTResource($securefile.Name, $projectName, "ADO.SecureFile", $resourceId, $securefile, $filelinke);
+                    $secureFileLink = "https://dev.azure.com/{0}/{1}/_library?itemType=SecureFiles&view=SecureFileView&secureFileId={2}&path={3}" -f $this.organizationName, $projectName, $securefile.Id, $securefile.Name;
+                    $SVTResources += $this.AddSVTResource($securefile.Name, $projectName, "ADO.SecureFile", $resourceId, $securefile, $secureFileLink);
                 }
+
+                $objSecureFileList = $null;
             }
         }
 
@@ -51,15 +55,18 @@ class SVTResourceResolverHelper {
             if ($ResourceTypeName -eq [ResourceTypeName]::Feed -and $feedNames.Count -eq 0) {
                 $feedNames += "*"
             }
-            $objFeeds = $this.FetchFeeds($projectName, $feedNames);
-            if ($objFeeds -and $objFeeds.count -gt 0) {
-                foreach ($feed in $objFeeds) {
+
+            $objFeedList = @();
+            $objFeedList += $this.FetchFeeds($projectName, $feedNames);
+            if ($objFeedList.count -gt 0) {
+                foreach ($feed in $objFeedList) {
                     if ([Helpers]::CheckMember($feed, "id")) {
                         $resourceId = "organization/{0}/project/{1}/feed/{2}" -f $this.organizationName, $projectName, $feed.id;
                         $SVTResources += $this.AddSVTResource($feed.name, $projectName, "ADO.Feed", $resourceId, $feed, $feed.Url);
                     }
                 }
-                $objFeeds = $null;
+
+                $objFeedList = $null;
             }
         }
 

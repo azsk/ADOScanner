@@ -494,5 +494,9 @@
     "vso.release_manage"
   ],
   "DisableWarningMessage" : false,
-  "ResourceTypesUseCommonScan": ["Repository","SecureFile", "Feed"]
+  "ResourceTypeForCommonSVT": [
+    "Repository",
+    "SecureFile", 
+    "Feed"
+  ]
 }

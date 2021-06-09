@@ -1,10 +1,10 @@
 Set-StrictMode -Version Latest
-class CommonClsForControlScan: ADOSVTBase {
+class CommonSVTControls: ADOSVTBase {
 
     hidden [PSObject] $Repos; # This is used for fetching repo details
     hidden [PSObject] $ProjectId;
 
-    CommonClsForControlScan([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
+    CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
         
     }
 
