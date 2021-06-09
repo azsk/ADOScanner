@@ -258,6 +258,8 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckClassicConnection([ControlResult] $controlResult)
 	{
+        $controlResult.VerificationResult = [VerificationResult]::Failed   
+
         if([Helpers]::CheckMember($this.ServiceEndpointsObj,"type"))
         {
             if($this.ServiceEndpointsObj.type -eq "azure")
@@ -271,7 +273,7 @@ class ServiceConnection: ADOSVTBase
             }
         }
         else{
-            $controlResult.AddMessage([VerificationResult]::Manual,
+            $controlResult.AddMessage([VerificationResult]::Error,
                                                 "Service connection type could not be detected.");
         }
         return $controlResult;
@@ -339,7 +341,7 @@ class ServiceConnection: ADOSVTBase
         {
             if ($null -eq $this.serviceEndPointIdentity) {
                 $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
-                $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                $this.serviceEndPointIdentity = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
             }
             $restrictedGroups = @();
 
@@ -386,35 +388,47 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckBuildServiceAccountAccess([ControlResult] $controlResult)
 	{
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         $failMsg = $null
+
         try
         {
-            $isBuildSvcAccGrpFound = $false
+            #$isBuildSvcAccGrpFound = $false
+            $buildServieAccountOnSvc = @();
             if ($null -eq $this.serviceEndPointIdentity) {
                 $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
-                $this.serviceEndPointIdentity = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                $this.serviceEndPointIdentity = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
             }
-            if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))
+            if(($this.serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))
             {
                 foreach ($identity in $this.serviceEndPointIdentity.identity)
                 {
-                    if ($identity.uniqueName -like '*Project Collection Build Service Accounts')
+                    if ($identity.displayName -like '*Project Collection Build Service Accounts' -or $identity.displayName -like "*$($this.ResourceContext.ResourceGroupName) Build Service ($($this.OrganizationContext.OrganizationName))")
                     {
-                        $isBuildSvcAccGrpFound = $true;
-                        break;
+                        $buildServieAccountOnSvc += $identity.displayName;
+                        #$isBuildSvcAccGrpFound = $true;
+                        #break;
                     }
                 }
                 #Faile the control if prj coll Buil Ser Acc Group Found added on serv conn
-                if($isBuildSvcAccGrpFound -eq $true)
+                $restrictedBuildSVCAcctCount = $buildServieAccountOnSvc.Count;
+                if($restrictedBuildSVCAcctCount -gt 0)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant 'Project Collection Build Service Account' groups access to service connections.");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)")
+                    $formattedBSAData = $($buildServieAccountOnSvc | FT | out-string )
+                    #$formattedGroupsTable = ($formattedGroupsData | Out-String)
+                    $controlResult.AddMessage("`nList of 'Build Service' Accounts: ", $formattedBSAData)
+                    $controlResult.SetStateData("List of 'Build Service' Accounts: ", $formattedBSAData)
+                    $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)";
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"'Project Collection Build Service Account' is not granted access to the service connection.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the service connection.");
                 }
+
+                $controlResult.AddMessage("`nNote:`nThe following 'Build Service' accounts should not have access to service connection: `nProject Collection Build Service Account`n$($this.ResourceContext.ResourceGroupName) Build Service ($($this.OrganizationContext.OrganizationName))");
             }
             else{
-                $controlResult.AddMessage([VerificationResult]::Passed,"'Project Collection Build Service Account' does not have access to service connection.");
+                $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch service endpoint group identity.");
             }
         }
         catch {
@@ -424,35 +438,34 @@ class ServiceConnection: ADOSVTBase
 
         if(![string]::IsNullOrEmpty($failMsg))
         {
-            $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connections details. $($failMsg)Please verify from portal that you are not granting global security groups access to service connections");
+            $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch service connections details. $($failMsg)Please verify from portal that you are not granting global security groups access to service connections");
         }
         return $controlResult;
     }
 
     hidden [ControlResult] CheckServiceConnectionBuildAccess([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
             if ($null -eq $this.pipelinePermission) {
-
-            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.ServiceEndpointsObj.id) ;
-            $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-
+                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.ServiceEndpointsObj.id) ;
+                $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             }
             if([Helpers]::CheckMember($this.pipelinePermission,"allPipelines")) {
                 if($this.pipelinePermission.allPipelines.authorized){
-                $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant global security access to all pipeline.");
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Service connection is accessible to all pipelines.");
                 }
                 else {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Service connection is not granted access to all pipeline");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Service connection is not accessible to all pipelines.");
                 }
             }
             else {
-            $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not granted access to all pipeline");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not accessible to all pipelines.");
             }
         }
         catch {
-            $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connection details. $($_) Please verify from portal that you are not granting all pipeline access to service connections");
+            $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch service connection details. $($_) Please verify from portal that you are not granting all pipeline access to service connections");
             $controlResult.LogException($_)
         }
 
@@ -871,7 +884,7 @@ class ServiceConnection: ADOSVTBase
 
             if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.RestrictedBroaderGroupsForSvcConn") ) {
                 $restrictedBroaderGroupsForSvcConn = $this.ControlSettings.ServiceConnection.RestrictedBroaderGroupsForSvcConn;
-
+                
                 if (($this.serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity, "identity")) {
                     # match all the identities added on service connection with defined restricted list
                     $roleAssignments = @();
@@ -901,7 +914,8 @@ class ServiceConnection: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection.");
                 }
-                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForSvcConn | FT | out-string )");
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForSvcConn | FT | out-string )`n");
+
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups for service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
