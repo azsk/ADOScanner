@@ -42,7 +42,9 @@ class ADOSVTCommandBase: SVTCommandBase {
 
 	[void] PostCommandStartedAction()
 	{
-
+        if ([ContextHelper]::IsOAuthScan) {
+            $this.PublishCustomMessage("The OAuth-based scan feature is in preview. Results for some controls may not match the regular scan results.", [MessageType]::Warning);
+        }
 	}
     [void] PostPolicyComplianceTelemetry()
 	{

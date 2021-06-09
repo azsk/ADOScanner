@@ -20,6 +20,20 @@ class Organization: ADOSVTBase
         if ($this.graphPermissions.hasGraphAccess) {
             $this.graphPermissions.graphAccessToken = [IdentityHelpers]::graphAccessToken
         }
+
+        # If switch ALtControlEvaluationMethod is set as true in org policy, then evaluating control using graph API. If not then fall back to RegEx based evaluation.
+        if ([string]::IsNullOrWhiteSpace([IdentityHelpers]::ALTControlEvaluationMethod)) {
+            [IdentityHelpers]::ALTControlEvaluationMethod = "GraphThenRegEx"
+            if ([Helpers]::CheckMember($this.ControlSettings, "ALTControlEvaluationMethod"))
+            {
+                if (($this.ControlSettings.ALtControlEvaluationMethod -eq "Graph")) {
+                    [IdentityHelpers]::ALTControlEvaluationMethod = "Graph"
+                }
+                elseif (($this.ControlSettings.ALtControlEvaluationMethod -eq "RegEx")) {
+                    [IdentityHelpers]::ALTControlEvaluationMethod = "RegEx"
+                }
+            }
+        }
     }
 
     GetOrgPolicyObject()
@@ -143,13 +157,14 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckSCALTForAdminMembers([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
             if(($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "Organization.GroupsToCheckForSCAltMembers"))
             {
 
-                $adminGroupNames = $this.ControlSettings.Organization.GroupsToCheckForSCAltMembers;
-                if (($adminGroupNames | Measure-Object).Count -gt 0) 
+                $adminGroupNames = @($this.ControlSettings.Organization.GroupsToCheckForSCAltMembers);
+                if ($adminGroupNames.Count -gt 0) 
                 {
                     #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
                     $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
@@ -161,7 +176,7 @@ class Organization: ADOSVTBase
                     {
                         $adminGroups = @();
                         $adminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $adminGroupNames }
-                        $PCSAGroup = $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -eq "Project Collection Service Accounts"}
+                        $PCSAGroup = @($response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -eq "Project Collection Service Accounts"})
                             
                         if(($adminGroups | Measure-Object).Count -gt 0)
                         {
@@ -183,7 +198,7 @@ class Organization: ADOSVTBase
                                 $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )} 
                             }
                             
-                            if(($PCSAGroup | Measure-Object).Count -gt 0)
+                            if($PCSAGroup.Count -gt 0)
                             {
 
                                 # [AdministratorHelper]::AllPCAMembers is a static variable. Needs to be reinitialized as it might contain group info from the previous for loop.
@@ -203,7 +218,7 @@ class Organization: ADOSVTBase
 
                             #Removing PCSA members from PCA members using id.
                             #TODO: HAVE ANOTHER CONTROL TO CHECK FOR PCA because some service accounts might be added directly as PCA and as well as part of PCSA. This new control will serve as a hygiene control.
-                            if(($allPCSAMembers | Measure-Object).Count -gt 0)
+                            if($allPCSAMembers.Count -gt 0)
                             {
                                 $allAdminMembers = $allAdminMembers | ? {$_.id -notin $allPCSAMembers.id}
                             }
@@ -214,30 +229,39 @@ class Organization: ADOSVTBase
                             # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
                             $allAdminMembers = $allAdminMembers| Sort-Object -Property id -Unique
 
-                            if(($allAdminMembers | Measure-Object).Count -gt 0)
+                            if($allAdminMembers.Count -gt 0)
                             {
-                                if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg")){
-                                    $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
-                                    #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
-                                    if (-not [string]::IsNullOrEmpty($matchToSCAlt)) 
-                                    {
-                                        $nonSCMembers = @();
-                                        $nonSCMembers += $allAdminMembers | Where-Object { $_.mailAddress -notmatch $matchToSCAlt }  
-                                        $nonSCCount = ($nonSCMembers | Measure-Object).Count
+                                $useGraphEvaluation = $false
+                                $useRegExEvaluation = $false
+                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
+                                    if ($this.graphPermissions.hasGraphAccess){
+                                        $useGraphEvaluation = $true
+                                    }
+                                    else {
+                                        $useRegExEvaluation = $true
+                                    }
+                                }
 
-                                        $SCMembers = @();
-                                        $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }
-                                        $SCCount = ($SCMembers | Measure-Object).Count
+                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
+                                {
+                                    if ($this.graphPermissions.hasGraphAccess) 
+                                    {
+                                        $allAdmins = [IdentityHelpers]::DistinguishAltAndNonAltAccount($allAdminMembers)
+                                        $SCMembers = $allAdmins.altAccount
+                                        $nonSCMembers = $allAdmins.nonAltAccount
+                                    
+                                        $nonSCCount = $nonSCMembers.Count
+                                        $SCCount = $SCMembers.Count
 
                                         if ($nonSCCount -gt 0) 
                                         {
                                             $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
                                             $stateData = @();
                                             $stateData += $nonSCMembers
-                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nTotal number of non SC-ALT accounts with admin privileges:  $nonSCCount"); 
-                                            $controlResult.AddMessage("Review the non SC-ALT accounts with admin privileges: ", $stateData);  
-                                            $controlResult.SetStateData("List of non SC-ALT accounts with admin privileges: ", $stateData);
-                                            $controlResult.AdditionalInfo += "Total number of non SC-ALT accounts with admin privileges: " + $nonSCCount;
+                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non ALT accounts with admin privileges:  $nonSCCount"); 
+                                            $controlResult.AddMessage("List of non ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));  
+                                            $controlResult.SetStateData("List of non ALT accounts: ", $stateData);
+                                            $controlResult.AdditionalInfo += "Count of non ALT accounts with admin privileges: " + $nonSCCount;
                                         }
                                         else 
                                         {
@@ -248,18 +272,66 @@ class Organization: ADOSVTBase
                                             $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
                                             $SCData = @();
                                             $SCData += $SCMembers
-                                            $controlResult.AddMessage("`nTotal number of SC-ALT accounts with admin privileges: $SCCount");
-                                            $controlResult.AdditionalInfo += "Total number of SC-ALT accounts with admin privileges: " + $SCCount;
-                                            $controlResult.AddMessage("SC-ALT accounts with admin privileges: ", $SCData);  
+                                            $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
+                                            $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
+                                            $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));  
                                         }
                                     }
-                                    else {
-                                        $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting SC-ALT account is not defined in the organization.");
+                                    else
+                                    {
+                                        $controlResult.AddMessage([VerificationResult]::Error, "The signed-in user identity does not have graph permission.");
                                     }
                                 }
-                                else{
-                                    $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting SC-ALT account is not defined in the organization. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
-                                }   
+
+                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
+                                {
+                                    if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg"))
+                                    {
+                                        $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
+                                        #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
+                                        if (-not [string]::IsNullOrEmpty($matchToSCAlt)) 
+                                        {
+                                            $nonSCMembers = @();
+                                            $nonSCMembers += $allAdminMembers | Where-Object { $_.mailAddress -notmatch $matchToSCAlt }  
+                                            $nonSCCount = $nonSCMembers.Count
+
+                                            $SCMembers = @();
+                                            $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }
+                                            $SCCount = $SCMembers.Count
+
+                                            if ($nonSCCount -gt 0) 
+                                            {
+                                                $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
+                                                $stateData = @();
+                                                $stateData += $nonSCMembers
+                                                $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non ALT accounts with admin privileges:  $nonSCCount"); 
+                                                $controlResult.AddMessage("List of non SC-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));  
+                                                $controlResult.SetStateData("List of non SC-ALT accounts: ", $stateData);
+                                                $controlResult.AdditionalInfo += "Count of non SC-ALT accounts with admin privileges: " + $nonSCCount;
+                                            }
+                                            else 
+                                            {
+                                                $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                            }
+                                            if ($SCCount -gt 0) 
+                                            {
+                                                $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
+                                                $SCData = @();
+                                                $SCData += $SCMembers
+                                                $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
+                                                $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
+                                                $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));  
+                                            }
+                                        }
+                                        else {
+                                            $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting SC-ALT account is not defined in the organization.");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting SC-ALT account is not defined in the organization. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
+                                    }
+                                }  
                             }
                             else
                             { #count is 0 then there is no members added in the admin groups
@@ -1702,7 +1774,7 @@ class Organization: ADOSVTBase
         $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
         if ($this.graphPermissions.hasGraphAccess)
         {
-            $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
+            $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
             $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
             if($HumanAcccountCount -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
                 $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
@@ -1756,7 +1828,7 @@ class Organization: ADOSVTBase
         $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
         if ($this.graphPermissions.hasGraphAccess)
         {   
-            $SvcAndHumanAccounts = [IdentityHelpers]::distinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
+            $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
             $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
             if($HumanAcccountCount -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
                 $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
