@@ -69,7 +69,6 @@ class Build: ADOSVTBase
             $this.InactiveFromDays = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
         }
         
-        # initlizing excessivePermissionBits at constructor level because it computes for all the builds.
         if ([Helpers]::CheckMember($this.ControlSettings, "Build.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions) {
             #allow permission bit for inherited permission is '3'
             $this.excessivePermissionBits = @(1,3)
@@ -1015,7 +1014,7 @@ class Build: ADOSVTBase
                 {
                     $controlResult.AddMessage("Count of variable groups on which contributors have edit permissions: $($editableVarGrpsCount)");
                     $controlResult.AdditionalInfo += "Count of variable groups on which contributors have edit permissions: " + $editableVarGrpsCount;
-                    $controlResult.AddMessage([VerificationResult]::Failed, "`nVariable groups list: `n`t[$($editableVarGrps -join ', ')]`n");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nVariable groups list: `n$($editableVarGrps | FT | Out-String)");
                     $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
                 }
                 else
@@ -1058,6 +1057,7 @@ class Build: ADOSVTBase
 
         return  $controlResult
     }
+
     hidden [ControlResult] CheckBroaderGroupAccess([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -1153,10 +1153,24 @@ class Build: ADOSVTBase
                         }
                     }
                     }" | ConvertFrom-Json
+
+                    # Web request to fetch the group details for a build definition
                     $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
                     if ([Helpers]::CheckMember($responseObj[0], "dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider', "identities"))) {
 
                         $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $broaderGroups -contains $_.displayName })
+
+                        #Check if inheritance is disabled on build pipeline, if disabled, inherited permissions should be considered irrespective of control settings
+                        # Here 'permissionSet' = security namespace identifier, 'token' = project id and 'tokenDisplayVal' = build name
+                        $apiURLForInheritedPerms = "https://dev.azure.com/{0}/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&tokenDisplayVal={5}&style=min" -f $($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $([Build]::SecurityNamespaceId), $($this.BuildObj.project.id), $($this.BuildObj.id), $($this.BuildObj.name) ;
+                        $header = [WebRequestHelper]::GetAuthHeaderFromUri($apiURLForInheritedPerms);
+                        $responseObj = Invoke-RestMethod -Method Get -Uri $apiURLForInheritedPerms -Headers $header -UseBasicParsing
+                        $responseObj = ($responseObj.SelectNodes("//script") | Where-Object { $_.class -eq "permissions-context" }).InnerXML | ConvertFrom-Json;
+                        if($responseObj -and [Helpers]::CheckMember($responseObj,"inheritPermissions") -and $responseObj.inheritPermissions -ne $true)
+                        {
+                            $this.excessivePermissionBits = @(1, 3)
+                        }
+
                         # $broaderGroupsList would be empty if none of its permissions are set i.e. all perms are 'Not Set'.
 
                         if ($broaderGroupsList.Count) {
@@ -1190,19 +1204,19 @@ class Build: ADOSVTBase
                                 $broaderGroupResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $broaderGroupInputbody);
                                 $broaderGroupRBACObj = $broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
                                 $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
-                                $excessiveEditPermissions = @()
+                                $excessivePermissionsPerGroup = @()
                                 $excessivePermissionList | ForEach-Object {
                                     #effectivePermissionValue equals to 1 implies edit build pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
                                     if ([Helpers]::CheckMember($_, "effectivePermissionValue")) {
                                         if ($this.excessivePermissionBits -contains $_.effectivePermissionValue) {
-                                            $excessiveEditPermissions += $_
+                                            $excessivePermissionsPerGroup += $_
                                         }
                                     }
                                 }
-                                if ($excessiveEditPermissions.Count -gt 0) {
+                                if ($excessivePermissionsPerGroup.Count -gt 0) {
                                     $excessivePermissionsGroupObj = @{}
                                     $excessivePermissionsGroupObj['Group'] = $broderGroup.principalName
-                                    $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessiveEditPermissions.displayName -join ', ')
+                                    $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join ', ')
                                     $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
                                 }
                             }
@@ -1225,11 +1239,11 @@ class Build: ADOSVTBase
                     else {
                         $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the pipeline.");
                     }
-                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':", $broaderGroups);
-                    $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':", $excessivePermissions);
+                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT | Out-String)");
+                    $controlResult.AddMessage("Following permissions are considered 'excessive':`n$($excessivePermissions | FT | Out-String)");
                 }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Error, "List of broader groups or excessive permissions is not defined in control settings for your organization.");
+            else {
+                    $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
                 }
             }
             catch
