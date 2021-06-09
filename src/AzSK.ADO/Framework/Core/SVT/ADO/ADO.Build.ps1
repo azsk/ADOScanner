@@ -1003,21 +1003,19 @@ class Build: ADOSVTBase
                     $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                     if($responseObj.Count -gt 0)
                     {
-                        $contributorsObj = $responseObj | Where-Object {$_.identity.uniqueName -eq "[$projectName]\Contributors"}
+                        $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})
                         if((-not [string]::IsNullOrEmpty($contributorsObj)) -and ($contributorsObj.role.name -ne 'Reader')){
-                            if ([Helpers]::CheckMember($_,"name")) {
-                                $editableVarGrps += $_.name
-                            }
+                            $editableVarGrps += $_.name
                         }
                     }
                 }
                 $editableVarGrpsCount = $editableVarGrps.Count
                 if($editableVarGrpsCount -gt 0)
                 {
-                    $controlResult.AddMessage("Count of variable groups on which contributors have edit permissions in build definition: $($editableVarGrpsCount)");
-                    $controlResult.AdditionalInfo += "Count of variable groups on which contributors have edit permissions in build definition: " + $editableVarGrpsCount;
-                    $controlResult.AddMessage([VerificationResult]::Failed, "`nVariable groups list: `n$($editableVarGrps | FT | Out-String)`n");
-                    $controlResult.SetStateData("List of variable groups used in build definition that contributors can edit: ", $editableVarGrps);
+                    $controlResult.AddMessage("Count of variable groups on which contributors have edit permissions: $($editableVarGrpsCount)");
+                    $controlResult.AdditionalInfo += "Count of variable groups on which contributors have edit permissions: " + $editableVarGrpsCount;
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nVariable groups list: `n$($editableVarGrps | FT | Out-String)");
+                    $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
                 }
                 else
                 {
@@ -1280,21 +1278,21 @@ class Build: ADOSVTBase
 
                     if(($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true))
                     {
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Pipeline secrets are marked as available to pull request validations of forks.");
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Pipeline secrets are marked as available to pull request validations of public repo forks.");
                     }
                     else
                     {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "Pipeline secrets are not  marked as available to pull request validations of forks.");
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Pipeline secrets are not  marked as available to pull request validations of public repo forks.");
                     }
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "Pipeline secrets are not marked as available to pull request validations of forks.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Pipeline secrets are not marked as available to pull request validations of public repo forks.");
                 }
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Pull request validation trigger is not enabled for build pipeline.");
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pull request validation trigger is not set for build pipeline.");
             }
         }
         else

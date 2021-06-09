@@ -152,7 +152,10 @@
     "Release",
     "ServiceConnection",
     "AgentPool",
-    "VariableGroup"
+    "VariableGroup",
+    "Repository",
+    "Feed",
+    "SecureFile"
   ],
   "AttestationExpiryPeriodInDays": {
     "Default": 90,
@@ -330,6 +333,7 @@
     "CheckForInheritedPermissions": false
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
+  "ALTControlEvaluationMethod": "GraphThenRegEx",
   "Organization": {
     "DisallowedEnvironments" : [],
     "InactiveUserActivityLogsPeriodInDays": 90,
@@ -375,12 +379,6 @@
     "GroupsToCheckForSCAltMembers": [
       "Project Administrators"
     ],
-    "GroupsToCheckForFeedPermission": [
-        "Project Collection Valid Users",
-        "Contributors",
-        "Readers",
-        "Project Valid Users"
-    ],
     "AdminGroupsToCheckForGuestUser":[
       "Endpoint Administrators",
       "Project Administrators"
@@ -390,6 +388,14 @@
       "Project Administrators"
     ],
     "AdminInactivityThresholdInDays": 90
+  },
+  "Feed":{
+  "RestrictedBroaderGroupsForFeeds": [
+    "Project Collection Valid Users",
+    "Contributors",
+    "Readers",
+    "Project Valid Users"
+    ]
   },
   "Repo": {
     "RepoHistoryPeriodInDays": 180,
@@ -496,5 +502,10 @@
     "vso.release_execute",
     "vso.release_manage"
   ],
-  "DisableWarningMessage" : false
+  "DisableWarningMessage" : false,
+  "ResourceTypesForCommonSVT": [
+    "Repository",
+    "SecureFile", 
+    "Feed"
+  ]
 }
