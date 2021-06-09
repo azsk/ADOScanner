@@ -1274,6 +1274,8 @@ class Release: ADOSVTBase
                             }
                         }
                     }" | ConvertFrom-Json
+
+                    # Web request to fetch the group details for a release definition
                     $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
                     if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
                     {
@@ -1326,24 +1328,23 @@ class Release: ADOSVTBase
                                 $broaderGroupResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $contributorInputbody);
                                 $broaderGroupRBACObj = $broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
                                 $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
-                                $excessiveEditPermissions = @() # excessiveEditPermissions to excessivePermissions
+                                $excessivePermissionsPerGroup = @()
                                 $excessivePermissionList | ForEach-Object {
                                     #effectivePermissionValue equals to 1 implies edit release pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
                                     if ([Helpers]::CheckMember($_, "effectivePermissionValue")) {
                                         if ($this.excessivePermissionBits -contains $_.effectivePermissionValue) {
-                                            $excessiveEditPermissions += $_
+                                            $excessivePermissionsPerGroup += $_
                                         }
                                     }
                                 }
-                                if ($excessiveEditPermissions.Count -gt 0) {
+                                if ($excessivePermissionsPerGroup.Count -gt 0) {
                                     $excessivePermissionsGroupObj = @{}
                                     $excessivePermissionsGroupObj['Group'] = $broderGroup.principalName
-                                    $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessiveEditPermissions.displayName -join ', ')
+                                    $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join ', ')
                                     $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
                                 }
                             }
                             if ($groupsWithExcessivePermissionsList.count -gt 0) {
-                                #TODO: Do we need to put state object?
                                 $controlResult.AddMessage([VerificationResult]::Failed, "Broader groups have excessive permissions on the release pipeline.");
                                 $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group } }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
                                 $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
