@@ -75,13 +75,12 @@ class AutoCloseBugManager {
 
         #number of passed controls
         $PassedControlResultsLength = ($PassedControlResults | Measure-Object).Count
+        $TagToControlIDMap=@{}
         #the following loop will call api for bug closing in batches of size as defined in control settings,
         #first check if passed controls length is less than the batch size, if yes then we have to combine all tags in one go
         #and call the api
         #if length is more divide the control results in chunks of batch size, after a particular batch is made call the api
         #reinitialize the variables for the next batch
-        $TagToControlIDMap=$null
-        $TagToControlIDMap=@{}
 
         $PassedControlResults | ForEach-Object {
             			
