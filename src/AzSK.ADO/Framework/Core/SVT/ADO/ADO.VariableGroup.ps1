@@ -305,9 +305,9 @@ class VariableGroup: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to variable group: $($restrictedGroupsCount)";
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to variable group.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "`nBroader groups do not have user/administrator access to variable group.");
                 }
-                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have user/administrator privileges: `n`t[$($restrictedBroaderGroupsForVarGrp -join ', ')]");
+                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad' and should not have user/administrator privileges: `n$($restrictedBroaderGroupsForVarGrp | FT | Out-String)");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and respective roles for variable group is not defined in the control settings for your organization policy.");
