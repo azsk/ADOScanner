@@ -1016,7 +1016,7 @@ class Build: ADOSVTBase
                 {
                     $controlResult.AddMessage("Count of variable groups on which contributors have edit permissions in build definition: $($editableVarGrpsCount)");
                     $controlResult.AdditionalInfo += "Count of variable groups on which contributors have edit permissions in build definition: " + $editableVarGrpsCount;
-                    $controlResult.AddMessage([VerificationResult]::Failed, "`nVariable groups list: `n`t[$($editableVarGrps -join ', ')]`n");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nVariable groups list: `n$($editableVarGrps | FT | Out-String)`n");
                     $controlResult.SetStateData("List of variable groups used in build definition that contributors can edit: ", $editableVarGrps);
                 }
                 else
