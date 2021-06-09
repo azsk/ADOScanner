@@ -163,20 +163,20 @@ class CommonClsForControlScan: ADOSVTBase {
                 #Using visualstudio api because new api (dev.azure.com) is giving null in the displayName property.
                 $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
                 $feedPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                $excesiveFeedsPermissions = @(($feedPermissionList | Where-Object {$_.role -eq "administrator" -or $_.role -eq "contributor"}) | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}}) ;
+                $excesiveFeedsPermissions = @(($feedPermissionList | Where-Object {$_.role -eq "administrator" -or $_.role -eq "collaborator" -or $_.role -eq "contributor"}) | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}}) ;
                 $feedWithBroaderGroup = @($excesiveFeedsPermissions | Where-Object { $restrictedBroaderGroupsForFeeds -contains $_.DisplayName.split('\')[-1] })
                 $feedWithroaderGroupCount = $feedWithBroaderGroup.count;
                 
                 if ($feedWithroaderGroupCount -gt 0) 
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have contributor/administrator access to feed: $($feedWithroaderGroupCount)")
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have administrator/contributor/collaborator access to feed: $($feedWithroaderGroupCount)")
 
                     $display = ($feedWithBroaderGroup |  FT FeedName, Role, DisplayName -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with contributor/administrator permission to broad groups.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with administrator/contributor/collaborator permission to broad groups.");
                 } 
                 $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($restrictedBroaderGroupsForFeeds | FT | out-string)");
             }
@@ -198,19 +198,13 @@ class CommonClsForControlScan: ADOSVTBase {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try {
             $url = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=securefile&id={2}&api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id
-            $secureFileObj = [WebRequestHelper]::InvokeGetWebRequest($url);
+            $secureFileObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
             
-            # check if the secure file is authorized
-            if((-not ([Helpers]::CheckMember($secureFileObj[0],"count"))) -and ($secureFileObj.Count -gt 0)) {
-                if([Helpers]::CheckMember($secureFileObj[0], "authorized")) {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is acccesible to all pipelines: $($this.ResourceContext.ResourceName)");
-                }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all pipelines.");
-                }
+            if(($secureFileObj.Count -gt 0) -and [Helpers]::CheckMember($secureFileObj[0], "authorized") -and  $secureFileObj[0].authorized -eq $true) {
+                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is acccesible to all pipelines.");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch authorization details of secure file.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all pipelines.");
             }
         }
         catch {

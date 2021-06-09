@@ -395,7 +395,7 @@ class ServiceConnection: ADOSVTBase
                 $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
                 $this.serviceEndPointIdentity = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
             }
-            if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))
+            if(($this.serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))
             {
                 foreach ($identity in $this.serviceEndPointIdentity.identity)
                 {
@@ -421,7 +421,7 @@ class ServiceConnection: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the service connection.");
                 }
 
-                $controlResult.AddMessage("`nNote:`nThe following 'Build Service' accounts should not have access: `nProject Collection Build Service Account`n[Project] Build Service Account");
+                $controlResult.AddMessage("`nNote:`nThe following 'Build Service' accounts should not have access to service connection: `nProject Collection Build Service Account`n$($this.ResourceContext.ResourceGroupName) Build Service ($($this.OrganizationContext.OrganizationName))");
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch service endpoint group identity.");
