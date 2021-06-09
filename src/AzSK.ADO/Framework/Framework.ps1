@@ -132,6 +132,7 @@ $FrameworkPath = $PSScriptRoot
 . $PSScriptRoot\Core\AzSKADOInfo\AADGroupsInfo.ps1
 . $PSScriptRoot\Core\STMapping\AzSKADOServiceMapping.ps1
 
+. $PSScriptRoot\Core\SVT\SVTResourceResolverHelper.ps1
 . $PSScriptRoot\Core\SVT\SVTResourceResolver.ps1
 . $PSScriptRoot\Abstracts\ServicesSecurityStatus.ps1
 . $PSScriptRoot\Core\SVT\Resolver.ps1

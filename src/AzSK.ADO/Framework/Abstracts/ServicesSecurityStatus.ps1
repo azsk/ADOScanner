@@ -146,6 +146,13 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		$totalResources = $automatedResources.Count;
 		[int] $currentCount = 0;
 		$childResources = @();
+		#Declaring null object variable here, will initializ latter.
+		$svtObject = $null;
+		#Declaring $resourceTypesUseCommonScan to store resource types which uses common file
+		$resourceTypesUseCommonScan = "";
+		if ([Helpers]::CheckMember($ControlSettings, "ResourceTypesUseCommonScan")) {
+			$resourceTypesUseCommonScan = $ControlSettings.ResourceTypesUseCommonScan
+		}
 		$automatedResources | ForEach-Object {
 			$exceptionMessage = "Exception for resource: [ResourceType: $($_.ResourceTypeMapping.ResourceTypeName)] [ResourceGroupName: $($_.ResourceGroupName)] [ResourceName: $($_.ResourceName)]"
             try
@@ -161,10 +168,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 				{
 					$this.PublishCustomMessage(" `r`nChecking resource [$currentCount/$totalResources] ");
 				}
-				
+				#Getting class name here from resourcetypemapping
 				$svtClassName = $_.ResourceTypeMapping.ClassName;
-
-				$svtObject = $null;
 
                 #Update resource scan retry count in scan snapshot in storage if user partial commit switch is on
 				if($this.UsePartialCommits)
@@ -197,7 +202,23 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 						#If $extensionSVTClassFilePath is null => use the built-in type from our module.
 						if([string]::IsNullOrWhiteSpace($extensionSVTClassFilePath))
 						{
-							$svtObject = New-Object -TypeName $svtClassName -ArgumentList $this.OrganizationContext.OrganizationName, $_
+							#Check if $svtClassName is not common class then create object.
+							#Check if $svtClassName is common class and objec of this class is not already created then on create new object.
+							if ($svtClassName -ne "CommonClsForControlScan" -or ($svtClassName -eq "CommonClsForControlScan" -and (!$svtObject -or $svtObject.ResourceContext.ResourceTypeName -notin $resourceTypesUseCommonScan))) {
+								$svtObject = New-Object -TypeName $svtClassName -ArgumentList $this.OrganizationContext.OrganizationName, $_
+							}
+							else {
+								$svtObject.ResourceId = $_.ResourceId;
+								$svtObject.ResourceContext = [ResourceContext]@{
+									ResourceGroupName = $_.ResourceGroupName;
+									ResourceName = $_.ResourceName;
+									ResourceType = $_.ResourceTypeMapping.ResourceType;
+									ResourceTypeName = $_.ResourceTypeMapping.ResourceTypeName;
+									ResourceId = $_.ResourceId
+									ResourceDetails = $_.ResourceDetails
+								};
+								$svtObject.ControlStateExt.resourceName = $_.ResourceName;
+							}
 						}
 						else #Use extended type.
 						{
