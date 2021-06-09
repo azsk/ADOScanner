@@ -9,7 +9,7 @@ class ServiceConnection: ADOSVTBase
     hidden [PSObject] $serviceEndPointIdentity = $null;
     hidden [PSObject] $SvcConnActivityDetail = @{isSvcConnActive = $true; svcConnLastRunDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden static $IsOAuthScan = $false;
-
+    hidden [string] $checkInheritedPermissions = $false
     ServiceConnection([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret))  # this if block will be executed for OAuth based scan
@@ -74,6 +74,10 @@ class ServiceConnection: ADOSVTBase
         if ($null -ne $this.SvcConnActivityDetail.svcConnLastRunDate)
         {
             $this.InactiveFromDays = ((Get-Date) - $this.SvcConnActivityDetail.svcConnLastRunDate).Days
+        }
+
+        if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.CheckForInheritedPermissions") -and $this.ControlSettings.ServiceConnection.CheckForInheritedPermissions) {
+            $this.checkInheritedPermissions = $true
         }
 
     }
@@ -868,8 +872,8 @@ class ServiceConnection: ADOSVTBase
 
 
     hidden [ControlResult] CheckBroaderGroupAccess ([ControlResult] $controlResult) {
-        $failMsg = $null
         $controlResult.VerificationResult = [VerificationResult]::Failed
+        $failMsg = $null
 
         try {
             if ($null -eq $this.serviceEndPointIdentity) {
@@ -884,7 +888,11 @@ class ServiceConnection: ADOSVTBase
                 if (($this.serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity, "identity")) {
                     # match all the identities added on service connection with defined restricted list
                     $roleAssignments = @();
-                    $roleAssignments +=   ($this.serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                    $roleAssignmentsToCheck = $this.serviceEndPointIdentity
+                    if ($this.checkInheritedPermissions -eq $false) {
+                        $roleAssignmentsToCheck = $this.serviceEndPointIdentity | where-object { $_.access -ne "inherited" }
+                    }
+                    $roleAssignments +=   ($roleAssignmentsToCheck | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
                     #Checking where broader groups have user/admin permission for service connection
                     $restrictedGroups += @($roleAssignments | Where-Object { $restrictedBroaderGroupsForSvcConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
 
@@ -907,6 +915,7 @@ class ServiceConnection: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection.");
                 }
                 $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForSvcConn | FT | out-string )`n");
+
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups for service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");

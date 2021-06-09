@@ -1282,6 +1282,7 @@ class Release: ADOSVTBase
 
                         $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $broaderGroups -contains $_.displayName })
 
+                        <#
                         #Check if inheritance is disabled on release pipeline, if disabled, inherited permissions should be considered irrespective of control settings
 
                         $apiURLForInheritedPerms = "https://dev.azure.com/{0}/{1}/_admin/_security/index?useApiUrl=true&permissionSet={2}&token={3}%2F{4}&style=min" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $([Release]::SecurityNamespaceId), $($this.ProjectId), $($this.ReleaseObj.id);
@@ -1292,7 +1293,7 @@ class Release: ADOSVTBase
                         {
                             $this.excessivePermissionBits = @(1, 3)
                         }
-
+                        #>
 
                         # $broaderGroupsList would be null if none of its permissions are set i.e. all perms are 'Not Set'.
 
