@@ -705,7 +705,7 @@ class Helpers {
                 $source = ($source + $extend)
                 if ($source.Count -gt 0)
                 {
-                    $source = $source | Select-Object -Unique
+                    $source = @($source | Select-Object -Unique)
                 }
 			}
 		}
@@ -875,7 +875,7 @@ class Helpers {
         $sharedKey = $ResourceName+":"+$SignedString
         return $sharedKey
     }
-    
+
     # Convert secure string to plain text
     static [string] ConvertToPlainText([System.Security.SecureString] $secureString)
 	{
@@ -883,19 +883,19 @@ class Helpers {
         $plainText = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
         return $plainText
     }
-    
-    # Get object of a particular permission (which are allowed) for a group. 
+
+    # Get object of a particular permission (which are allowed) for a group.
     static [object] ResolvePermissions($permissionsInBit, $actions, $permissionName)
 	{
         $obj = @();
         #$editPerms = @();
         #check allowed permissions
         if($permissionsInBit -gt 0 )
-        {                           
+        {
             $permissionsInBinary = [convert]::ToString($permissionsInBit,2) # to binary
             # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
 
-            for ($a = 0 ; $a -lt $permissionsInBinary.Length; $a++) 
+            for ($a = 0 ; $a -lt $permissionsInBinary.Length; $a++)
             {
                 if( $permissionsInBinary.Substring($permissionsInBinary.Length-$a-1,1) -ge 1) # each binary digit
                 {
@@ -906,21 +906,21 @@ class Helpers {
                 }
             }
         }
-        return $obj      	
+        return $obj
     }
 
-    # Resolve allowed permissions of a particular group. 
+    # Resolve allowed permissions of a particular group.
     static [object] ResolveAllPermissions($AllowedPermissionsInBit, $InheritedAllowedPermissionsInBit, $actions)
 	{
         $obj = @();
         #$editPerms = @();
         #check allowed permissions
         if($AllowedPermissionsInBit -gt 0 )
-        {                           
+        {
             $permissionsInBinary = [convert]::ToString($AllowedPermissionsInBit,2) # to binary
             # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
 
-            for ($a = 0 ; $a -lt $permissionsInBinary.Length; $a++) 
+            for ($a = 0 ; $a -lt $permissionsInBinary.Length; $a++)
             {
                 if( $permissionsInBinary.Substring($permissionsInBinary.Length-$a-1,1) -ge 1) # each binary digit
                 {
@@ -933,11 +933,11 @@ class Helpers {
         }
 
         if($InheritedAllowedPermissionsInBit -gt 0 )
-        {                           
+        {
             $permissionsInBinary = [convert]::ToString($InheritedAllowedPermissionsInBit,2) # to binary
             # loop thru the decoded base 2 number and check the bit. if 1(on) then that permission is set
 
-            for ($a = 0 ; $a -lt $permissionsInBinary.Length; $a++) 
+            for ($a = 0 ; $a -lt $permissionsInBinary.Length; $a++)
             {
                 if( $permissionsInBinary.Substring($permissionsInBinary.Length-$a-1,1) -ge 1) # each binary digit
                 {
@@ -951,7 +951,7 @@ class Helpers {
 
         $obj = $obj | Sort-Object -Property Name
 
-        return $obj      	
+        return $obj
     }
 }
 
