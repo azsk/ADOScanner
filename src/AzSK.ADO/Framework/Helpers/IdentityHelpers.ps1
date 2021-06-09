@@ -4,6 +4,46 @@ class IdentityHelpers
 {
 	static hidden [bool] $useGraphAccess = $false
 	static hidden [string] $graphAccessToken = $null
+	static hidden [string] $ALTControlEvaluationMethod
+
+	hidden static [bool] IsAltAccount($SignInName, $graphToken)
+	{
+		$isAltAccount = $false
+		$headers = @{"Authorization"= ("Bearer " + $graphToken); "Content-Type"="application/json"}
+		$uri=""
+		$graphURI = [WebRequestHelper]::GetGraphUrl()
+
+		if (-not [string]::IsNullOrWhiteSpace($SignInName))
+		{
+			$uri = [string]::Format('{0}/v1.0/users/{1}?$select=onPremisesExtensionAttributes', $graphURI, $SignInName)
+		}
+		else
+		{
+			return $false
+		}
+
+
+		try
+		{ 
+			$responseObj = [WebRequestHelper]::InvokeGetWebRequest($uri, $headers);
+			if ($null -ne $responseObj -and ($responseObj | Measure-Object).Count -gt 0)
+			{
+				# extensionAttribute contains 15 different values which define unique properties for users.
+				$extensionAttributes = $responseObj.onPremisesExtensionAttributes
+				#"extensionAttribute2" contains the integer values which represents the different types of users.
+				#"extensionAttribute2: -10" => SC-ALT Accounts
+				if($extensionAttributes.extensionAttribute2 -eq "-10")
+				{
+					$isAltAccount = $true
+				}
+			}
+		} 
+		catch
+		{ 
+			return $false;
+		}
+		return $isAltAccount
+	}
 
 	hidden static [bool] IsServiceAccount($SignInName, $subjectKind, $graphToken)
 	{
@@ -98,7 +138,7 @@ class IdentityHelpers
 	}
 
 	#This method differentiate human accounts and service account from the list.
-	hidden static [PSObject] distinguishHumanAndServiceAccount([PSObject] $allMembers, $orgName)
+	hidden static [PSObject] DistinguishHumanAndServiceAccount([PSObject] $allMembers, $orgName)
 	{
 		$humanAccount = @(); 
 		$serviceAccount = @();
@@ -116,6 +156,26 @@ class IdentityHelpers
 			}
 		}
 		$adminMembers = @{serviceAccount = $serviceAccount; humanAccount = $humanAccount;};
+		return $adminMembers
+	}
+
+	#This method differentiate alt accounts and non-alt account from the list.
+	hidden static [PSObject] DistinguishAltAndNonAltAccount([PSObject] $allMembers)
+	{
+		$altAccount = @(); 
+		$nonAltAccount = @();
+		$allMembers | ForEach-Object{
+			$isAltAccount = [IdentityHelpers]::IsAltAccount($_.mailAddress, $this.graphPermissions.graphAccessToken)
+			if ($isAltAccount)
+			{
+				$altAccount += $_
+			}
+			else
+			{
+				$nonAltAccount += $_
+			}
+		}
+		$adminMembers = @{altAccount = $altAccount; nonAltAccount = $nonAltAccount;};
 		return $adminMembers
 	}
 }

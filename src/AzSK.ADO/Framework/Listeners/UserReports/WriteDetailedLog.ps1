@@ -248,7 +248,7 @@ class WriteDetailedLog: FileOutputBase
 
 						if ($stateObject.DataObject) 
 						{							
-							$this.AddOutputLog("Attestation Data");
+							$this.AddOutputLog("Previously attested state was as follows:");
 
 							#Bootstrapping the conversion from b64 as older attestation state data might be PSObject. b64 attestted state data will be a string.
 
