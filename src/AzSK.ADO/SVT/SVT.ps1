@@ -269,7 +269,7 @@ function Get-AzSKADOSecurityStatus
 		$PolicyRepoName,
 
 		[switch]
-		[Parameter(HelpMessage="Scan control which require graph access for evaluation.")]
+		[Parameter(HelpMessage="Scan control which require graph permission for evaluation.")]
 		[Alias("uga")]
 		$UseGraphAccess,
 

@@ -279,7 +279,7 @@ class Organization: ADOSVTBase
                                     }
                                     else
                                     {
-                                        $controlResult.AddMessage([VerificationResult]::Error, "User does not have graph access.");
+                                        $controlResult.AddMessage([VerificationResult]::Error, "The signed-in user identity does not have graph permission.");
                                     }
                                 }
 
