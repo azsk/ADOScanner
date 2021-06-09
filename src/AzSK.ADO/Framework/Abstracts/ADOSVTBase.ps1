@@ -213,7 +213,7 @@ class ADOSVTBase: SVTBase {
 													}
 
 													# Don't fail attestation if current state data object is a subset of attested state data object
-													if ($decodedCurrentDataObj.Length -lt $decodedAttestedDataObj.Length) {
+													if (($decodedCurrentDataObj | Measure-Object).Count -lt ($decodedAttestedDataObj | Measure-Object).Count) {
 														if ([Helpers]::CompareObject($decodedAttestedDataObj, $decodedCurrentDataObj, $false, $eventContext.ControlItem.AttestComparisionType))
 														{
 															$dataObjMatched = $true
