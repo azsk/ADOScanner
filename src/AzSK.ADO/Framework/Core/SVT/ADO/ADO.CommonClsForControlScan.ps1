@@ -10,6 +10,7 @@ class CommonClsForControlScan: ADOSVTBase {
 
     hidden [ControlResult] CheckInactiveRepo([ControlResult] $controlResult) 
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try 
         {
             $repoDefnsObj = $this.ResourceContext.ResourceDetails;
@@ -25,9 +26,10 @@ class CommonClsForControlScan: ADOSVTBase {
                 $thresholdDate = $currentDate.AddDays(-$threshold);
                 $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceGroupName)/_apis/git/repositories/$($repoDefnsObj.id)/commits?searchCriteria.fromDate=$($thresholdDate)&&api-version=6.0"
                 try {
-                    $res = [WebRequestHelper]::InvokeGetWebRequest($url);
+                    $repoCommitHistoryObj = @();
+                    $repoCommitHistoryObj += @([WebRequestHelper]::InvokeGetWebRequest($url))
                     # When there are no commits, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false.
-                    if (([Helpers]::CheckMember($res[0], "count", $false)) -and ($res[0].count -eq 0)) {
+                    if (([Helpers]::CheckMember($repoCommitHistoryObj[0], "count", $false)) -and ($repoCommitHistoryObj[0].count -eq 0)) {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Repositories does not have any commits in last $($threshold) days. ");
                     }
                     else {
@@ -35,7 +37,7 @@ class CommonClsForControlScan: ADOSVTBase {
                     }
                 }
                 catch {
-                    $controlResult.AddMessage("Could not fetch the history of repository [$($repoDefnsObj.name)].");
+                    $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the history of repository [$($repoDefnsObj.name)].");
                     $controlResult.LogException($_)
                 }
             }

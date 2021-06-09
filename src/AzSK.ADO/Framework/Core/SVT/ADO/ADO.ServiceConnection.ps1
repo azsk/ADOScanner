@@ -389,7 +389,8 @@ class ServiceConnection: ADOSVTBase
 
         try
         {
-            $isBuildSvcAccGrpFound = $false
+            #$isBuildSvcAccGrpFound = $false
+            $buildServieAccountOnSvc = @();
             if ($null -eq $this.serviceEndPointIdentity) {
                 $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
                 $this.serviceEndPointIdentity = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
@@ -398,19 +399,20 @@ class ServiceConnection: ADOSVTBase
             {
                 foreach ($identity in $this.serviceEndPointIdentity.identity)
                 {
-                    if ($identity.uniqueName -like '*Project Collection Build Service Accounts')
+                    if ($identity.displayName -like '*Project Collection Build Service Accounts' -or $identity.displayName -like "*$($this.ResourceContext.ResourceGroupName) Build Service ($($this.OrganizationContext.OrganizationName))")
                     {
-                        $isBuildSvcAccGrpFound = $true;
-                        break;
+                        $buildServieAccountOnSvc += $identity.displayName;
+                        #$isBuildSvcAccGrpFound = $true;
+                        #break;
                     }
                 }
                 #Faile the control if prj coll Buil Ser Acc Group Found added on serv conn
-                if($isBuildSvcAccGrpFound -eq $true)
+                if($buildServieAccountOnSvc.Count -gt 0)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed,"'Project Collection Build Service Account' is granted access to service connection.");
+                    $controlResult.AddMessage([VerificationResult]::Failed,"'$($buildServieAccountOnSvc -join ", ")' are granted access to service connection.");
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"'Project Collection Build Service Account' is not granted access to the service connection.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Build Service Accounts are not granted access to the service connection.");
                 }
             }
             else{
