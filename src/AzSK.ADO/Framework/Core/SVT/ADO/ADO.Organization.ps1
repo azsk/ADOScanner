@@ -2191,8 +2191,8 @@ class Organization: ADOSVTBase
                         }
                     }
                     if($formattedData.Count -gt 0)
-                    {
-                        #$controlResult.AddMessage([VerificationResult]::Failed, "Guest accounts have admin roles in the organization.");
+                    {   
+                        $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");                
                         $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}
                         $groups = $formattedData | Group-Object "Principal Name"
                         $results = @()
@@ -2294,6 +2294,9 @@ class Organization: ADOSVTBase
                                                 {
                                                     $_.lastAccessedDate = "User was never active"
                                                 }
+                                                else {
+                                                    $_.lastAccessedDate = ([datetime] $_.lastAccessedDate).ToString("MM-dd-yyyy")
+                                                }
 
                                                 $formattedData += @{
                                                     Group = $data[1];
@@ -2316,8 +2319,8 @@ class Organization: ADOSVTBase
                             }
                         }
                         if($formattedData.Count -gt 0)
-                        {
-                            #$controlResult.AddMessage([VerificationResult]::Failed, "Inactive users have admin roles in the organization.");
+                        {   
+                            $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n`t[$($AdminGroupsToCheckForInactiveUser -join ', ')]`n");              
                             $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}, @{Name="Last Accessed Date"; Expression={$_.Date}}
                             $groups = $formattedData | Group-Object "Principal Name"
                             $results = @()
