@@ -407,13 +407,21 @@ class ServiceConnection: ADOSVTBase
                     }
                 }
                 #Faile the control if prj coll Buil Ser Acc Group Found added on serv conn
-                if($buildServieAccountOnSvc.Count -gt 0)
+                $restrictedBuildSVCAcctCount = $buildServieAccountOnSvc.Count;
+                if($restrictedBuildSVCAcctCount -gt 0)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed,"'$($buildServieAccountOnSvc -join ", ")' are granted access to service connection.");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)")
+                    $formattedBSAData = $($buildServieAccountOnSvc | FT | out-string )
+                    #$formattedGroupsTable = ($formattedGroupsData | Out-String)
+                    $controlResult.AddMessage("`nList of 'Build Service' Accounts: ", $formattedBSAData)
+                    $controlResult.SetStateData("List of 'Build Service' Accounts: ", $formattedBSAData)
+                    $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)";
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Build Service Accounts are not granted access to the service connection.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the service connection.");
                 }
+
+                $controlResult.AddMessage("`nNote:`nThe following 'Build Service' accounts should not have access: `nProject Collection Build Service Account`n[Project] Build Service Account");
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch service endpoint group identity.");
