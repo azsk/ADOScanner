@@ -37,8 +37,6 @@
           "ADO_Project_AuthZ_Limit_Release_Pipeline_Access",
           "ADO_Project_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
           "ADO_Project_AuthN_Use_ALT_Accounts_For_Admin",
-          "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secure_Files",
-          "ADO_Project_AuthZ_Restrict_Feed_Permissions",
           "ADO_Project_AuthZ_Disable_Repo_Inherited_Permissions",
           "ADO_Project_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
           "ADO_Project_AuthZ_Revoke_Admin_Access_for_Guest_Users"
@@ -105,6 +103,18 @@
           "ADO_VariableGroup_AuthZ_Disable_Inherited_Permissions",
           "ADO_VariableGroup_DP_No_PlainText_Secrets_In_Variables",
           "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access"
+        ]
+      },
+      {
+        "ResourceType": "Feed",
+        "ControlIds": [
+          "ADO_Feed_AuthZ_Restrict_Permissions"
+        ]
+      },
+      {
+        "ResourceType": "SecureFile",
+        "ControlIds": [
+          "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access"
         ]
       }
     ]
