@@ -118,7 +118,7 @@
       "Automated": "Yes",
       "MethodName": "CheckBuildServiceAccountAccess",
       "Rationale": "Build service account is default identity used as part every build in project. Providing direct access to this common service account will expose connection details to all build definitions in the project.",
-      "Recommendation": "1. Navigate to the service connections settings page for your project --> 2. select your service connection from the list --> 3. select three dots on top right --> 4. select security -> remove 'Project Collection Build Service Accounts' access from user permission.",
+      "Recommendation": "1. Navigate to the service connections settings page for your project --> 2. Select your service connection from the list --> 3. Select three dots on top right -> 4. Select security --> 5. Remove 'Project Collection Build Service Accounts/[Project] Build Service Account' access from user permission.",
       "Tags": [
         "SDL",
         "TCP",
@@ -130,13 +130,13 @@
     },
     {
       "ControlID": "ADO_ServiceConnection_AuthZ_Dont_Grant_All_Pipelines_Access",
-      "Description": "Do not make service connections accessible to all pipelines.",
+      "Description": "Do not make service connection accessible to all pipelines.",
       "Id": "ServiceConnection190",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckServiceConnectionBuildAccess",
       "Rationale": "To support security of the pipeline operations, connections must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
-      "Recommendation": "1. Navigate to the service connections settings page for your project --> 2. select your service connection from the list --> 3. click on three dots --> 4. click Security --> 5. under 'Pipeline Permissions', click 'Restrict Permission' to avoid granting access to all pipelines and add only those pipelines that need explicit access on service connection.",
+      "Recommendation": "1. Navigate to the service connections settings page for your project --> 2. Select your service connection from the list --> 3. Click on three dots --> 4. Click Security --> 5. Under 'Pipeline Permissions', click 'Restrict Permission' to avoid granting access to all pipelines and add only those pipelines that need explicit access on service connection.",
       "Tags": [
         "SDL",
         "TCP",
@@ -221,8 +221,8 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupAccess",
-      "Rationale": "If the broader groups (e.g., Contributors) have excessive permissions (Admin/User) on service connection, then confidentiality/integrity of a pipeline using the service connection can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/service connection compromise.",
-      "Recommendation": "1. Go to Project Settings --> 2. Pipelines --> 3. Service connections --> 4. Select your service connection --> 5. Select Security --> 6. Ensure broader groups have read-only access.",
+      "Rationale": "If broader groups (e.g., Contributors) have excessive permissions (Admin/User) on service connection, then confidentiality/integrity of a pipeline using the service connection can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/service connection compromise.",
+      "Recommendation": "1. Go to Project Settings --> 2. Service connections --> 3. Select your service connection --> 4. Select Security --> 6. User Permissions --> 7. Ensure broader groups have read-only access. Refer to detailed scan log (ServiceConnection.LOG) for broader group list.",
       "Tags": [
         "SDL",
         "TCP",

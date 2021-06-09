@@ -1,0 +1,61 @@
+{
+  "FeatureName": "CommonSVTControls",
+  "Reference": "aka.ms/azsktcp/commonsvtcontrols",
+  "IsMaintenanceMode": false,
+  "Controls": [
+    {
+      "ControlID": "ADO_Repository_DP_Inactive_Repos",
+      "Description": "Inactive repositories must be removed if no more required.",
+      "Id": "Repository100",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckInactiveRepo",
+      "Rationale": "Each additional repository being accessed by pipelines increases the attack surface. To minimize this risk ensure that only active and legitimate repositories are present in project.",
+      "Recommendation": "To remove inactive repository, follow the steps given here: 1. Navigate to the project settings -> 2. Repositories -> 3. Select the repository and delete.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP",
+        "Repository"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Feed_AuthZ_Restrict_Permissions",
+      "Description": "Do not allow a broad group of users to upload packages to feed.",
+      "Id": "Feed100",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupAccessOnFeeds",
+      "Rationale": "If a broad group of users (e.g., Contributors) have permissions to upload package to feed, then integrity of your pipeline can be compromised by a malicious user who uploads a package.",
+      "Recommendation": "1. Go to Project --> 2. Artifacts --> 3. Select Feed --> 4. Feed Settings --> 5. Permissions --> 6. Groups --> 7. Review users/groups which have administrator and contributor roles. Ensure broader groups have read-only access. Refer to detailed scan log (Feed.LOG) for broader group list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "AuthZ",
+        "RBAC",
+        "MSW"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access",
+      "Description": "Do not make secure files accessible to all pipelines.",
+      "Id": "SecureFile100",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckSecureFilesPermission",
+      "Rationale": "If a secure file is granted access to all pipelines, an unauthorized user can steal information from the secure files by building a pipeline and accessing the secure file.",
+      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. Select your secure file from the list --> 6. Click Security --> 7. Under 'Pipeline Permissions', remove pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Tags": [
+        "SDL",
+        "AuthZ",
+        "Automated",
+        "Best Practice",
+        "MSW"
+      ],
+      "Enabled": true
+    }
+  ]
+}

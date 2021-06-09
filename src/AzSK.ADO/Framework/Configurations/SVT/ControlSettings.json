@@ -37,11 +37,14 @@
           "ADO_Project_AuthZ_Limit_Release_Pipeline_Access",
           "ADO_Project_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
           "ADO_Project_AuthN_Use_ALT_Accounts_For_Admin",
-          "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secure_Files",
-          "ADO_Project_AuthZ_Restrict_Feed_Permissions",
           "ADO_Project_AuthZ_Disable_Repo_Inherited_Permissions",
           "ADO_Project_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
-          "ADO_Project_AuthZ_Revoke_Admin_Access_for_Guest_Users"
+          "ADO_Project_AuthZ_Revoke_Admin_Access_for_Guest_Users",
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Builds",
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Releases",
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SvcConn",
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Agentpool",
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_VarGrp"
         ]
       },
       {
@@ -106,6 +109,18 @@
           "ADO_VariableGroup_DP_No_PlainText_Secrets_In_Variables",
           "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access"
         ]
+      },
+      {
+        "ResourceType": "Feed",
+        "ControlIds": [
+          "ADO_Feed_AuthZ_Restrict_Permissions"
+        ]
+      },
+      {
+        "ResourceType": "SecureFile",
+        "ControlIds": [
+          "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access"
+        ]
       }
     ]
   },
@@ -147,7 +162,10 @@
     "Release",
     "ServiceConnection",
     "AgentPool",
-    "VariableGroup"
+    "VariableGroup",
+    "Repository",
+    "Feed",
+    "SecureFile"
   ],
   "AttestationExpiryPeriodInDays": {
     "Default": 90,
@@ -244,13 +262,20 @@
         "Environment",
         "SolutionName"
     ],
-    "CriticalPermissionsForBroadGroups": [
+    "RestrictedBroaderGroupsForBuild" : [
+      "Contributors",
+      "Readers",
+      "Project Collection Valid Users",
+      "Project Valid Users"
+    ],
+    "ExcessivePermissionsForBroadGroups": [
       "Administer build permissions",
       "Delete build pipeline",
       "Delete builds ",
       "Destroy builds",
       "Edit build pipeline"
-    ]
+    ],
+    "CheckForInheritedPermissions" : false
   },
   "Release": {
     "ReleaseHistoryPeriodInDays": 180,
@@ -280,12 +305,19 @@
         "System.debug",
         "BuildConfiguration"
     ],
-    "CriticalPermissionsForBroadGroups": [
+    "RestrictedBroaderGroupsForRelease": [
+      "Contributors",
+      "Readers",
+      "Project Collection Valid Users",
+      "Project Valid Users"
+    ],
+    "ExcessivePermissionsForBroadGroups": [
       "Administer release permissions",
       "Delete release pipeline",
       "Delete releases ",
       "Edit release pipeline"
-    ]
+    ],
+    "CheckForInheritedPermissions": false
   },
   "AgentPool": {
     "AgentPoolHistoryPeriodInDays": 180 ,
@@ -294,7 +326,8 @@
         "Contributors",
         "Readers",
         "Project Valid Users"
-    ]
+    ],
+    "CheckForInheritedPermissions": false
   },
   "VariableGroup": {
     "RestrictedBroaderGroupsForVariableGroup": [
@@ -306,7 +339,8 @@
     "RestrictedRolesForBroaderGroupsInVariableGroup": [
         "User",
         "Administrator"
-    ]
+    ],
+    "CheckForInheritedPermissions": false
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
   "ALTControlEvaluationMethod": "GraphThenRegEx",
@@ -355,12 +389,6 @@
     "GroupsToCheckForSCAltMembers": [
       "Project Administrators"
     ],
-    "GroupsToCheckForFeedPermission": [
-        "Project Collection Valid Users",
-        "Contributors",
-        "Readers",
-        "Project Valid Users"
-    ],
     "AdminGroupsToCheckForGuestUser":[
       "Endpoint Administrators",
       "Project Administrators"
@@ -370,6 +398,14 @@
       "Project Administrators"
     ],
     "AdminInactivityThresholdInDays": 90
+  },
+  "Feed":{
+  "RestrictedBroaderGroupsForFeeds": [
+    "Project Collection Valid Users",
+    "Contributors",
+    "Readers",
+    "Project Valid Users"
+    ]
   },
   "Repo": {
     "RepoHistoryPeriodInDays": 180,
@@ -404,12 +440,13 @@
       "Contributors",
       "Readers"
     ],
-    "RestrictedBroaderGroupsForSerConn" : [
+    "RestrictedBroaderGroupsForSvcConn": [
       "Project Collection Valid Users",
       "Contributors",
       "Readers",
       "Project Valid Users"
-    ]
+    ],
+    "CheckForInheritedPermissions": false
   },
   "Patterns": [
     {
@@ -475,5 +512,10 @@
     "vso.release_execute",
     "vso.release_manage"
   ],
-  "DisableWarningMessage" : false
+  "DisableWarningMessage" : false,
+  "ResourceTypesForCommonSVT": [
+    "Repository",
+    "SecureFile",
+    "Feed"
+  ]
 }

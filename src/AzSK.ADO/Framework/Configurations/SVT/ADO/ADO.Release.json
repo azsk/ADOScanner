@@ -194,13 +194,13 @@
     },
     {
       "ControlID": "ADO_Release_AuthZ_Restrict_Broader_Group_Access",
-      "Description": "Do not allow release pipeline to be edited by a broad group of users.",
+      "Description": "Do not allow release pipeline to be have excessive permissions by a broad group of users.",
       "Id": "Release230",
       "ControlSeverity": "High",
       "Automated": "Yes",
-      "MethodName": "CheckPipelineEditPermission",
-      "Rationale": "If a broad group of users (e.g., Contributors) have excessive permissions on a pipeline, then integrity of your pipeline can be compromised by a malicious user who edits it.",
-      "Recommendation": "1. Navigate to the release pipeline. --> 2. Click on Security. --> 3. Ensure 'Edit release pipeline' permission of Contributors is set to 'Deny'. --> 4. Repeat this for any other groups that should not have edit access.",
+      "MethodName": "CheckBroaderGroupAccess",
+      "Rationale": "If a broad group of users (e.g., Contributors) have excessive permissions on a pipeline, a malicious user can abuse these permissions to compromise security of the pipeline.",
+      "Recommendation": "1. Navigate to the release pipeline. --> 2. Click on Security. --> 3. Ensure 'Excessive' permissions of broader groups  is not set to 'Allow'. Refer to detailed scan log (Release.LOG) for broader groups and excessive permissions list. --> 4. Repeat this for any other groups that should not have excessive permissions.",
       "Tags": [
         "SDL",
         "TCP",

@@ -1,6 +1,6 @@
-Set-StrictMode -Version Latest 
+Set-StrictMode -Version Latest
 class Organization: ADOSVTBase
-{    
+{
     [PSObject] $ServiceEndPointsObj = $null
     [PSObject] $PipelineSettingsObj = $null
     [PSObject] $OrgPolicyObj = $null
@@ -12,8 +12,8 @@ class Organization: ADOSVTBase
 
     #TODO: testing below line
     hidden [string] $SecurityNamespaceId;
-    Organization([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource) 
-    { 
+    Organization([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
+    {
         $this.GetOrgPolicyObject()
         $this.GetPipelineSettingsObj()
         $this.graphPermissions.hasGraphAccess = [IdentityHelpers]::HasGraphAccess();
@@ -39,10 +39,10 @@ class Organization: ADOSVTBase
     GetOrgPolicyObject()
     {
         try
-        {   
+        {
             $uri ="https://dev.azure.com/{0}/_settings/organizationPolicy?__rt=fps&__ver=2" -f $($this.OrganizationContext.OrganizationName);
             $response = [WebRequestHelper]::InvokeGetWebRequest($uri);
-            
+
             if($response -and [Helpers]::CheckMember($response.fps.dataProviders,"data") -and $response.fps.dataProviders.data.'ms.vss-admin-web.organization-policies-data-provider')
             {
                 $this.OrgPolicyObj = $response.fps.dataProviders.data.'ms.vss-admin-web.organization-policies-data-provider'.policies
@@ -61,7 +61,7 @@ class Organization: ADOSVTBase
             }
         }
     }
-    
+
     GetPipelineSettingsObj()
     {
         $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
@@ -69,8 +69,8 @@ class Organization: ADOSVTBase
         $orgUrl = "https://dev.azure.com/{0}" -f $($this.OrganizationContext.OrganizationName);
         #$inputbody =  "{'contributionIds':['ms.vss-org-web.collection-admin-policy-data-provider'],'context':{'properties':{'sourcePage':{'url':'$orgUrl/_settings/policy','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'policy','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
         $inputbody = "{'contributionIds':['ms.vss-build-web.pipelines-org-settings-data-provider'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgUrl/_settings/pipelinessettings','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'pipelinessettings','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-        
-        $responseObj = $null 
+
+        $responseObj = $null
 
         try{
             $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
@@ -78,39 +78,39 @@ class Organization: ADOSVTBase
         catch{
             #Write-Host "Pipeline settings for the organization [$($this.OrganizationContext.OrganizationName)] can not be fetched."
         }
-        
-      
+
+
         if([Helpers]::CheckMember($responseObj,"dataProviders"))
         {
             try {
-             if($responseObj.dataProviders.'ms.vss-build-web.pipelines-org-settings-data-provider') 
-              { 
+             if($responseObj.dataProviders.'ms.vss-build-web.pipelines-org-settings-data-provider')
+              {
                   $this.PipelineSettingsObj = $responseObj.dataProviders.'ms.vss-build-web.pipelines-org-settings-data-provider'
               }
             }
             catch {
                 #Write-Host "Pipeline settings for the organization [$($this.OrganizationContext.OrganizationName)] can not be fetched."
             }
-            
+
         }
     }
-    
+
     hidden [ControlResult] CheckProCollSerAcc([ControlResult] $controlResult)
     {
         try
         {
             #api call to get PCSA descriptor which used to get PCSA members api call.
             $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-            $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}' 
+            $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'
             $body = ($body.Replace("{0}", $this.OrganizationContext.OrganizationName)) | ConvertFrom-Json
-            $response = [WebRequestHelper]::InvokePostWebRequest($url,$body);    
-       
+            $response = [WebRequestHelper]::InvokePostWebRequest($url,$body);
+
             $accname = "Project Collection Service Accounts"; #Enterprise Service Accounts
             if ($response -and [Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider") {
-                
+
                 $prcollobj = $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where {$_.displayName -eq $accname}
                 #$prcollobj = $responseObj | where {$_.displayName -eq $accname}
-                
+
                 if(($prcollobj | Measure-Object).Count -gt 0)
                 {
                     #pai call to get PCSA members
@@ -118,18 +118,18 @@ class Organization: ADOSVTBase
                     $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{1}/_settings/groups?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'
                     $inputbody = $inputbody.Replace("{0}",$prcollobj.descriptor)
                     $inputbody = $inputbody.Replace("{1}",$this.OrganizationContext.OrganizationName) | ConvertFrom-Json
-                    
+
                     $responsePrCollObj = [WebRequestHelper]::InvokePostWebRequest($prmemberurl,$inputbody);
                     $responsePrCollData = $responsePrCollObj.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
-                    $memberCount = ($responsePrCollData | Measure-Object).Count                
+                    $memberCount = ($responsePrCollData | Measure-Object).Count
                     if($memberCount -gt 0){
                         $responsePrCollData = $responsePrCollData | Select-Object displayName,mailAddress,subjectKind
                         $stateData = @();
                         $stateData += $responsePrCollData
                         $controlResult.AddMessage("Total number of Project Collection Service Accounts: $($memberCount)");
                         $controlResult.AdditionalInfo += "Total number of Project Collection Service Accounts: " + $memberCount;
-                        $controlResult.AddMessage([VerificationResult]::Verify, "Review the members of the group Project Collection Service Accounts: ", $stateData); 
-                        $controlResult.SetStateData("Members of the Project Collection Service Accounts group: ", $stateData); 
+                        $controlResult.AddMessage([VerificationResult]::Verify, "Review the members of the group Project Collection Service Accounts: ", $stateData);
+                        $controlResult.SetStateData("Members of the Project Collection Service Accounts group: ", $stateData);
                     }
                     else
                     { #count is 0 then there is no member in the prj coll ser acc group
@@ -151,7 +151,7 @@ class Organization: ADOSVTBase
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of groups in the organization.");
             $controlResult.LogException($_)
         }
-       
+
         return $controlResult
     }
 
@@ -162,42 +162,39 @@ class Organization: ADOSVTBase
         {
             if(($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "Organization.GroupsToCheckForSCAltMembers"))
             {
-
                 $adminGroupNames = @($this.ControlSettings.Organization.GroupsToCheckForSCAltMembers);
                 if ($adminGroupNames.Count -gt 0) 
                 {
                     #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
                     $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-                    $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}' 
+                    $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'
                     $body = ($body.Replace("{0}", $this.OrganizationContext.OrganizationName)) | ConvertFrom-Json
-                    $response = [WebRequestHelper]::InvokePostWebRequest($url,$body);    
-                    
-                    if ($response -and [Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider") 
+                    $response = [WebRequestHelper]::InvokePostWebRequest($url,$body);
+
+                    if ($response -and [Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider")
                     {
                         $adminGroups = @();
                         $adminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $adminGroupNames }
                         $PCSAGroup = @($response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -eq "Project Collection Service Accounts"})
-                            
                         if(($adminGroups | Measure-Object).Count -gt 0)
                         {
                             #global variable to track admin members across all admin groups
                             $allAdminMembers = @();
                             $allPCSAMembers = @();
 
-                            for ($i = 0; $i -lt $adminGroups.Count; $i++) 
+                            for ($i = 0; $i -lt $adminGroups.Count; $i++)
                             {
                                 # [AdministratorHelper]::AllPCAMembers is a static variable. Always needs to be initialized. At the end of each iteration, it will be populated with members of that particular admin group.
                                 [AdministratorHelper]::AllPCAMembers = @();
                                 # Helper function to fetch flattened out list of group members.
                                 [AdministratorHelper]::FindPCAMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName)
-                                
+
                                 $groupMembers = @();
                                 # Add the members of current group to this temp variable.
                                 $groupMembers += [AdministratorHelper]::AllPCAMembers
                                 # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
-                                $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )} 
-                            }
-                            
+                                $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )}
+                            } 
                             if($PCSAGroup.Count -gt 0)
                             {
 
@@ -212,7 +209,7 @@ class Organization: ADOSVTBase
 
                                 # Preparing the list of members of PCSA which needs to be subtracted from $allAdminMembers
                                 #USE IDENTITY ID
-                                $groupMembers | ForEach-Object {$allPCSAMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = "Project Collection Administrators" } )} 
+                                $groupMembers | ForEach-Object {$allPCSAMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = "Project Collection Administrators" } )}
 
                             }
 
@@ -225,7 +222,7 @@ class Organization: ADOSVTBase
 
                             # clearing cached value in [AdministratorHelper]::AllPCAMembers as it can be used in attestation later and might have incorrect group loaded.
                             [AdministratorHelper]::AllPCAMembers = @();
-                            
+
                             # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
                             $allAdminMembers = $allAdminMembers| Sort-Object -Property id -Unique
 
@@ -253,7 +250,7 @@ class Organization: ADOSVTBase
                                         $nonSCCount = $nonSCMembers.Count
                                         $SCCount = $SCMembers.Count
 
-                                        if ($nonSCCount -gt 0) 
+                                        if ($nonSCCount -gt 0)
                                         {
                                             $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
                                             $stateData = @();
@@ -263,11 +260,11 @@ class Organization: ADOSVTBase
                                             $controlResult.SetStateData("List of non ALT accounts: ", $stateData);
                                             $controlResult.AdditionalInfo += "Count of non ALT accounts with admin privileges: " + $nonSCCount;
                                         }
-                                        else 
+                                        else
                                         {
                                             $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
                                         }
-                                        if ($SCCount -gt 0) 
+                                        if ($SCCount -gt 0)
                                         {
                                             $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
                                             $SCData = @();
@@ -350,7 +347,7 @@ class Organization: ADOSVTBase
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Manual, "List of administrator groups for detecting non SC-Alt accounts is not defined in your organization.");    
+                    $controlResult.AddMessage([VerificationResult]::Manual, "List of administrator groups for detecting non SC-Alt accounts is not defined in your organization.");
                 }
             }
             else
@@ -363,23 +360,23 @@ class Organization: ADOSVTBase
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of groups in the organization.");
             $controlResult.LogException($_)
         }
-       
+
         return $controlResult
     }
 
     hidden [ControlResult] CheckAADConfiguration([ControlResult] $controlResult)
     {
-        try 
+        try
         {
             $apiURL = "https://dev.azure.com/{0}/_settings/organizationAad?__rt=fps&__ver=2" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-            
+
             if(([Helpers]::CheckMember($responseObj[0],"fps.dataProviders.data") ) -and  (($responseObj[0].fps.dataProviders.data."ms.vss-admin-web.organization-admin-aad-data-provider") -and $responseObj[0].fps.dataProviders.data."ms.vss-admin-web.organization-admin-aad-data-provider".orgnizationTenantData) -and (-not [string]::IsNullOrWhiteSpace($responseObj[0].fps.dataProviders.data."ms.vss-admin-web.organization-admin-aad-data-provider".orgnizationTenantData.domain)))
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Organization is configured with [$($responseObj.fps.dataProviders.data.'ms.vss-admin-web.organization-admin-aad-data-provider'.orgnizationTenantData.displayName)] directory.");
                 $controlResult.AdditionalInfo += "Organization is configured with [$($responseObj.fps.dataProviders.data.'ms.vss-admin-web.organization-admin-aad-data-provider'.orgnizationTenantData.displayName)] directory.";
             }
-            else 
+            else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Organization is not configured with AAD.");
             }
@@ -396,7 +393,7 @@ class Organization: ADOSVTBase
     {
        if([Helpers]::CheckMember($this.OrgPolicyObj,"applicationConnection"))
        {
-           try {                       
+           try {
                #https://devblogs.microsoft.com/devops/azure-devops-will-no-longer-support-alternate-credentials-authentication/
                 $altAuthObj = $this.OrgPolicyObj.applicationConnection | Where-Object {$_.Policy.Name -eq "Policy.DisallowBasicAuthentication"}
                  if(($altAuthObj | Measure-Object).Count -gt 0)
@@ -426,7 +423,7 @@ class Organization: ADOSVTBase
     {
         if([Helpers]::CheckMember($this.OrgPolicyObj,"user"))
         {
-            $userPolicyObj = $this.OrgPolicyObj.user; 
+            $userPolicyObj = $this.OrgPolicyObj.user;
             $guestAuthObj = $userPolicyObj | Where-Object {$_.Policy.Name -eq "Policy.DisallowAadGuestUserAccess"}
             if(($guestAuthObj | Measure-Object).Count -gt 0)
             {
@@ -434,18 +431,18 @@ class Organization: ADOSVTBase
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"External guest access is disabled in the organization.");
                 }
-                else 
+                else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "External guest access is enabled in the organization.");
                 }
             }
-            else 
+            else
             {
                 #Manual control status because external guest access notion is not applicable when AAD is not configured. Instead invite GitHub user policy is available in non-AAD backed orgs.
-                $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch external guest access policy details of the organization. This policy is available only when the organization is connected to AAD.");    
+                $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch external guest access policy details of the organization. This policy is available only when the organization is connected to AAD.");
             }
         }
-        else 
+        else
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch user policy details of the organization.");
         }
@@ -463,7 +460,7 @@ class Organization: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Public projects are not allowed in the organization.");
                     }
-                    else 
+                    else
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Public projects are allowed in the organization.");
                     }
@@ -471,25 +468,25 @@ class Organization: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the public project security policies.");
-            }  
+            }
         }
         else
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization security policies.");
-        }  
+        }
         return $controlResult
     }
 
 
     hidden [ControlResult] ValidateInstalledExtensions([ControlResult] $controlResult)
     {
-        try 
-        {           
+        try
+        {
             $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-            
+
             if(($responseObj | Measure-Object).Count -gt 0 ) #includes both custom installed and built in extensions.
-            {               
+            {
                 $extensionList = $responseObj | Select-Object extensionName,publisherId,publisherName,version,flags,lastPublished,scopes,extensionId # 'flags' is not available in every extension. It is visible only for built in extensions. Hence this appends 'flags' to trimmed objects.
                 $extensionList = $extensionList | Where-Object {$_.flags -notlike "*builtin*" } # to filter out extensions that are built in and are not visible on portal.
                 $ftWidth = 512 #Used for table output width to avoid "..." truncation
@@ -497,9 +494,9 @@ class Organization: ADOSVTBase
 
                 if($extCount -gt 0)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the list of installed extensions for your org: ");                                   
+                    $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the list of installed extensions for your org: ");
                     $controlResult.AddMessage("No. of installed extensions: " + $extCount);
-                    $controlResult.AdditionalInfo += "No. of installed extensions: " + $extCount;             
+                    $controlResult.AdditionalInfo += "No. of installed extensions: " + $extCount;
                     if([AzSKRoot]::IsDetailedScanRequired -eq $false)
                     {
                         #if([Helpers]::CheckMember($this.ControlSettings, "Organization.KnownExtensionPublishersId"))
@@ -510,13 +507,13 @@ class Organization: ADOSVTBase
                         #$knownExtensions += $extensionList | Where-Object {$_.publisherId -in $KnownExtPublishersId}
                         $knownExtensions += $extensionList | Where-Object {$_.publisherName -in $knownExtPublishers}
                         $knownCount = ($knownExtensions | Measure-Object).Count
-                    
+
                         $unKnownExtensions = @(); #Publishers not Known by Microsoft
                         #$unKnownExtensions += $extensionList | Where-Object {$_.publisherId -notin $KnownExtPublishersId}
                         $unKnownExtensions += $extensionList | Where-Object {$_.publisherName -notin $knownExtPublishers}
                         $unKnownCount = ($unKnownExtensions | Measure-Object).Count
-                    
-                        $controlResult.AddMessage("`nNote: The following publishers are considered as 'known publishers': `n`t[$($knownExtPublishers -join ', ')]"); 
+
+                        $controlResult.AddMessage("`nNote: The following publishers are considered as 'known publishers': `n`t[$($knownExtPublishers -join ', ')]");
 
                         if($unKnownCount -gt 0){
                             $controlResult.AddMessage("`nNo. of extensions (from publishers not in 'known publishers' list): $unKnownCount");
@@ -548,7 +545,7 @@ class Organization: ADOSVTBase
 
                     ## Deep scan start
                     if([AzSKRoot]::IsDetailedScanRequired -eq $true)
-                    {   
+                    {
                         $this.PublishCustomMessage("You have requested for detailed scan, it will take few minutes..`n",[MessageType]::Warning);
                         $isKnownPublishersPropertyPresent = $false
                         $islastUpdatedPropertyPresent = $false
@@ -556,7 +553,7 @@ class Organization: ADOSVTBase
                         $isNonProdIndicatorsPropertyPresent = $false
 
                         if($null -ne $this.ControlSettings)
-                        {   
+                        {
                             if([Helpers]::CheckMember($this.ControlSettings, "Organization.KnownExtensionPublishers"))
                             {
                                 $knownExtPublishers = $this.ControlSettings.Organization.KnownExtensionPublishers;
@@ -574,7 +571,7 @@ class Organization: ADOSVTBase
                             else {
                                 $extensionsLastUpdatedInYears = 2 ##Default value
                             }
-                            
+
                             if([Helpers]::CheckMember($this.ControlSettings, "Organization.ExtensionCriticalScopes") )
                             {
                                 $extensionCriticalScopes=$this.ControlSettings.Organization.ExtensionCriticalScopes;
@@ -591,22 +588,22 @@ class Organization: ADOSVTBase
                             }
                             else {
                                 $nonProductionExtensionIndicators = @()
-                            }                            
-                            
+                            }
+
                             $ExemptedExtensionNames = @()
                             if([Helpers]::CheckMember($this.ControlSettings, "Organization.ExemptedExtensionNames"))
                             {
                                 $ExemptedExtensionNames += $this.ControlSettings.Organization.ExemptedExtensionNames;
-                            }  
+                            }
 
-                            $controlResult.AddMessage([Constants]::HashLine)   
+                            $controlResult.AddMessage([Constants]::HashLine)
                             if( !($isKnownPublishersPropertyPresent -and $islastUpdatedPropertyPresent -and $isCriticalScopesPropertyPresent -and $isNonProdIndicatorsPropertyPresent))
                             {
                                 $controlResult.AddMessage("***Note: Some settings are not present in the policy configuration.***")
-                            }                         
+                            }
                             $controlResult.AddMessage("`nNote: Apart from this LOG, a combined listing of all extensions and their security sensitive attributes has been output to the '$($this.ResourceContext.ResourceName)"+"_ExtensionInfo.CSV' file in the current folder. Columns with value as 'Unavailable' indicate that data was not available.")
-                            
-                            $infotable = [ordered] @{ 
+
+                            $infotable = [ordered] @{
                                 "KnownPublisher" = "Yes/No [if extension is from [$($knownExtPublishers -join ', ')]]";
                                 "Too Old (> $($extensionsLastUpdatedInYears)year(s))" = "Yes/No [if extension has not been updated by publishers for more than [$extensionsLastUpdatedInYears] year(s)]";
                                 "SensitivePermissions" = "Lists if any permissions requested by extension are in the sensitive permissions list. (See list below for the full list of permissions considered to be sensitive.)";
@@ -615,7 +612,7 @@ class Organization: ADOSVTBase
                                 "TopPublisher" = "Yes/No [if extension's publisher has 'Top Publisher' certification]";
                                 "PrivateVisibility" = "Yes/No [if extension has been shared privately with the org]" ;
                                 "Score" = "Secure score of extension. (See further below for the scoring scheme.) "
-                            }  
+                            }
 
                             $scoretable = @(
                                 New-Object psobject -Property $([ordered] @{"Parameter"="'Top Publisher' certification";"Score (if Yes)"="+10"; "Score (if No)" = "0"});
@@ -627,14 +624,14 @@ class Organization: ADOSVTBase
                                 New-Object psobject -Property $([ordered] @{"Parameter"="Private visibility";"Score (if Yes)"="-10"; "Score (if No)" = "+10"})
                                 New-Object psobject -Property $([ordered] @{"Parameter"="Average Rating ";"Score (if Yes)"="+2*(Marketplace average rating)"; "Score (if No)" = "0"})
                             ) | Format-Table -AutoSize | Out-String -Width $ftWidth
-                            
+
                             $helperTable = $infotable.keys | Select @{l='Column';e={$_}},@{l='Interpretation';e={$infotable.$_}} | Format-Table -AutoSize | Out-String -Width $ftWidth
                             $controlResult.AddMessage($helperTable)
                             $controlResult.AddMessage("The following extension permissions are considered sensitive:")
                             if(!$isCriticalScopesPropertyPresent)
                             {
                                 $controlResult.AddMessage("***'Extension critical scopes' setting is not present in the policy configuration.***")
-                            } 
+                            }
                             $controlResult.AddMessage($extensionCriticalScopes)
                             $controlResult.AddMessage("`nThe following scheme is used for assigning secure score:")
                             $controlResult.AddMessage($scoretable)
@@ -652,7 +649,7 @@ class Organization: ADOSVTBase
                             $allInstalledExtensions = @() # This variable gets all installed extensions details from $allExtensionsObj
 
 
-                            $date = Get-Date                            
+                            $date = Get-Date
                             $thresholdDate = $date.AddYears(-$extensionsLastUpdatedInYears)
 
                             $extensionList | ForEach-Object {
@@ -663,8 +660,8 @@ class Organization: ADOSVTBase
                                 $extensionInfo.Version = $_.version
                                 $extensionInfo.LastPublished = ([datetime] $_.lastPublished).ToString("MM-dd-yyyy")
                                 $extensionInfo.Score = 0
-                                $extensionInfo.MaxScore = 0                                
-                                
+                                $extensionInfo.MaxScore = 0
+
                                 # Checking for known publishers
                                 $extensionInfo.MaxScore += 10 # Known publisher score
                                 if($_.publisherName -in $knownExtPublishers)
@@ -677,7 +674,7 @@ class Organization: ADOSVTBase
                                     $extensionInfo.KnownPublisher = "No"
                                     $unKnownExtensions += $_
                                 }
-                                
+
                                 # Checking whether extension is too old or not
                                 if(([datetime] $_.lastPublished) -lt $thresholdDate)
                                 {
@@ -687,9 +684,9 @@ class Organization: ADOSVTBase
                                     $extensionInfo.Score -= $diffInYears * (5)
                                 }
                                 else {
-                                    $extensionInfo.TooOld = "No"                                    
+                                    $extensionInfo.TooOld = "No"
                                 }
-                                
+
                                 # Checking whether extension have sensitive permissions
                                 $riskyScopes = @($_.scopes | ? {$_ -in $extensionCriticalScopes})
                                 if($riskyScopes.count -gt 0)
@@ -701,15 +698,15 @@ class Organization: ADOSVTBase
                                 else {
                                     $extensionInfo.SensitivePermissions = "None"
                                 }
-                                
+
                                 # Checking whether extension name comes under exempted extension name or non prod indicators
                                 $extensionInfo.MaxScore += 10 # Score for extension Name  not in non prod indicators
                                 if($_.extensionName -in $ExemptedExtensionNames)
                                 {
-                                    $extensionInfo.NonProdByName = "No"  
-                                    $extensionInfo.Score += 10 
+                                    $extensionInfo.NonProdByName = "No"
+                                    $extensionInfo.Score += 10
                                 }
-                                else 
+                                else
                                 {
                                     $isExtensionNameInIndicators = $false
                                     for($j=0;$j -lt $nonProductionExtensionIndicators.Count;$j++)
@@ -721,20 +718,20 @@ class Organization: ADOSVTBase
                                         }
                                     }
                                     if($isExtensionNameInIndicators)
-                                    {    
+                                    {
                                         $extensionInfo.NonProdByName = "Yes"
                                         $extensionListWithNonProductionExtensionIndicators += $_
-                                        $extensionInfo.Score -= 10 
+                                        $extensionInfo.Score -= 10
                                     }
-                                    else 
+                                    else
                                     {
-                                        $extensionInfo.NonProdByName = "No"  
-                                        $extensionInfo.Score += 10 
+                                        $extensionInfo.NonProdByName = "No"
+                                        $extensionInfo.Score += 10
                                     }
-                                } 
-                                
-                                
-                                
+                                }
+
+
+
                                     $url="https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery?api-version=6.1-preview.1"
                                     $inputbody = "{
                                         'assetTypes': null,
@@ -745,33 +742,33 @@ class Organization: ADOSVTBase
                                                         'filterType': 7,
                                                         'value': '$($_.publisherId).$($_.extensionId)'
                                                     }
-                                                ]                                
+                                                ]
                                             }
                                         ],
                                         'flags': 870
-                                    }" 
-        
+                                    }"
+
                                     $response= Invoke-WebRequest -Uri $url `
                                         -Method Post `
                                         -ContentType "application/json" `
                                         -Body $inputbody `
                                         -UseBasicParsing
-        
+
                                     $responseObject=$response.Content | ConvertFrom-Json
-    
+
                                     # if response object does not get details of extension, those extensions are private extensions
-                                    
-                                    $extensionInfo.MaxScore += 10   # Private visibility score                                
-                                    $extensionInfo.MaxScore += 10   # Preview in Gallery flags score                                 
-                                    $extensionInfo.MaxScore += 10   # Marketplace average rating score                                    
+
+                                    $extensionInfo.MaxScore += 10   # Private visibility score
+                                    $extensionInfo.MaxScore += 10   # Preview in Gallery flags score
+                                    $extensionInfo.MaxScore += 10   # Marketplace average rating score
                                     $extensionInfo.MaxScore += 10   # Top publisher certification score
 
                                     if([Helpers]::CheckMember($responseobject.results[0], "extensions") -eq $false )
                                     {
                                         $extensionInfo.PrivateVisibility = "Yes"
-                                        $extensionInfo.Preview = "Unavailable" 
+                                        $extensionInfo.Preview = "Unavailable"
                                         $extensionInfo.Score -= 10
-                                        
+
                                         if($null -eq $this.allExtensionsObj)
                                         {
                                             $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
@@ -779,9 +776,9 @@ class Organization: ADOSVTBase
                                             $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
                                             $this.allExtensionsObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
                                         }
-                                        
+
                                         if(($allInstalledExtensions.Count -eq 0) -and [Helpers]::CheckMember($this.allExtensionsObj[0],"dataProviders") -and $this.allExtensionsObj.dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
-                                        {                                 
+                                        {
                                             # Using sharedExtension Object so that we can get details of all extensions from shared extension api and later use it to compute top publisher for installed extension
                                             $allInstalledExtensions = $this.allExtensionsObj[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.installedextensions
                                         }
@@ -805,7 +802,7 @@ class Organization: ADOSVTBase
                                         else {
                                             $extensionInfo.TopPublisher = "Unavailable"
                                         }
-                                         
+
                                         $privateExtensions += $_
                                     }
                                     else
@@ -813,7 +810,7 @@ class Organization: ADOSVTBase
                                         $extensionInfo.PrivateVisibility = "No"
                                         $extensionInfo.Score += 10
                                         $extensionflags=$responseobject.results[0].extensions.flags
-                                        
+
                                         if($extensionflags -match 'Preview')
                                         {
                                             $extensionInfo.Preview = "Yes"
@@ -824,7 +821,7 @@ class Organization: ADOSVTBase
                                             $extensionInfo.Preview = "No"
                                             $extensionInfo.Score += 10
                                         }
-    
+
                                         $publisherFlags = $responseobject.results[0].extensions.publisher.flags
                                         if($publisherFlags -match "Certified")
                                         {
@@ -836,7 +833,7 @@ class Organization: ADOSVTBase
                                             $extensionInfo.TopPublisher = "No"
                                         }
                                     }
-                                    
+
                                     if([Helpers]::CheckMember($responseObject.results[0].extensions,"statistics"))
                                     {
                                         $statistics = $responseObject.results[0].extensions.statistics
@@ -845,7 +842,7 @@ class Organization: ADOSVTBase
                                             if($_.statisticName -eq "averagerating")
                                             {
                                                 $extensionInfo.MarketPlaceAverageRating = [Math]::Round($_.Value,1)
-                                                $extensionInfo.Score += [Math]::Round($extensionInfo.MarketPlaceAverageRating*2) 
+                                                $extensionInfo.Score += [Math]::Round($extensionInfo.MarketPlaceAverageRating*2)
                                             }
                                             if($_.statisticName -eq "install")
                                             {
@@ -867,21 +864,21 @@ class Organization: ADOSVTBase
                                         $extensionInfo.MarketPlaceAverageRating = "Unavailable"
                                         $extensionInfo.NoOfInstalls = "Unavailable"
                                     }
-                                    
-                                $combinedTable += $extensionInfo                                
+
+                                $combinedTable += $extensionInfo
                             }
                             $MaxScore = $combinedTable[0].MaxScore
                             $controlResult.AddMessage("Note: Using this scheme an extension can get a maximum secure score of $MaxScore.`n")
-                            $controlResult.AddMessage([Constants]::HashLine)                          
-                            $controlResult.AddMessage([Constants]::SingleDashLine +"`nLooking for extensions from known publishers`n"+[Constants]::SingleDashLine) 
+                            $controlResult.AddMessage([Constants]::HashLine)
+                            $controlResult.AddMessage([Constants]::SingleDashLine +"`nLooking for extensions from known publishers`n"+[Constants]::SingleDashLine)
                             $controlResult.AddMessage("`nNote: The following are considered as 'known' publishers: `n`t[$($knownExtPublishers -join ', ')]");
                             if(!$IsKnownPublishersPropertyPresent)
                                 {
                                     $controlResult.AddMessage("***'Known publisher' setting is not present in the policy configuration.***")
-                                } 
+                                }
                             $unKnownCount = ($unKnownExtensions | Measure-Object).Count
                             if($unKnownCount -gt 0){
-                                                               
+
                                 $controlResult.AddMessage("`nNo. of extensions (from publishers not in 'known publishers' list): $unKnownCount");
                                 $controlResult.AdditionalInfo += "No. of installed extensions (from publishers not in 'known publishers' list): " + $unKnownCount;
                                 $controlResult.AddMessage("`nExtension details (from publishers not in 'known publishers' list): ")
@@ -890,7 +887,7 @@ class Organization: ADOSVTBase
                                 $controlResult.AdditionalInfo += "Installed extensions (from unknown publishers): " + [JsonHelper]::ConvertToJsonCustomCompressed($unKnownExtensions);
                             }
 
-                            $knownCount = ($knownExtensions | Measure-Object).Count        
+                            $knownCount = ($knownExtensions | Measure-Object).Count
                             if($knownCount -gt 0){
                                 $controlResult.AddMessage("`nNo. of  extensions (from publishers in the 'known publishers' list): $knownCount");
                                 $controlResult.AdditionalInfo += "No. of extensions (from publishers in the 'known publishers' list): " + $knownCount;
@@ -898,22 +895,22 @@ class Organization: ADOSVTBase
                                 $display = ($knownExtensions|FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
                                 $controlResult.AddMessage($display)
                             }
-                            
+
 
                             $stateData = @{
                                 known_Extensions = @();
                                 unKnown_Extensions = @();
                             };
-        
+
                             $stateData.known_Extensions += $knownExtensions
                             $stateData.unKnown_Extensions += $unKnownExtensions
                             $controlResult.SetStateData("List of installed extensions: ", $stateData);
 
-                            
-                             
+
+
                             if($staleExtensionList.count -gt 0)
                                 {
-                                    $controlResult.AddMessage([Constants]::HashLine)                          
+                                    $controlResult.AddMessage([Constants]::HashLine)
                                     $controlResult.AddMessage([Constants]::SingleDashLine +"`nLooking for extensions that have not been updated by publishers for more than [$extensionsLastUpdatedInYears] years...`n" +[Constants]::SingleDashLine)
                                     if(!$islastUpdatedPropertyPresent)
                                     {
@@ -923,32 +920,32 @@ class Organization: ADOSVTBase
                                     $controlResult.AddMessage("`nExtension details (oldest first): ")
                                     $display = ($staleExtensionList| Sort-Object lastPublished | FT ExtensionName, @{Name = "lastPublished (MM-dd-yyyy)"; Expression = { ([datetime] $_.lastPublished).ToString("MM-dd-yyyy")} }, PublisherId, PublisherName, version -AutoSize | Out-String -Width $ftWidth)
                                     $controlResult.AddMessage($display)
-                                }                           
-                        
+                                }
+
                             if($extensionListWithCriticalScopes.count -gt 0)
-                                {  
-                                    $controlResult.AddMessage([Constants]::HashLine)                            
+                                {
+                                    $controlResult.AddMessage([Constants]::HashLine)
                                     $controlResult.AddMessage([Constants]::SingleDashLine + "`nLooking for extensions that have sensitive access permissions...`n" + [Constants]::SingleDashLine)
                                     if(!$isCriticalScopesPropertyPresent)
                                     {
                                         $controlResult.AddMessage("***'Extension critical scopes' setting is not present in the policy configuration.***")
-                                    } 
+                                    }
                                     $controlResult.AddMessage("Note: The following permissions are considered sensitive: `n`t[$($extensionCriticalScopes -join ', ')]")
-                                    $controlResult.AddMessage("`nNo. of extensions that have sensitive access permissions: "+ $extensionListWithCriticalScopes.count)                        
+                                    $controlResult.AddMessage("`nNo. of extensions that have sensitive access permissions: "+ $extensionListWithCriticalScopes.count)
                                     $controlResult.AddMessage("`nExtension details (extensions that have sensitive access permissions): ")
                                     $display= ($extensionListWithCriticalScopes | FT ExtensionName, scopes, PublisherId, PublisherName  -AutoSize | Out-String -Width $ftWidth)
-                                    $controlResult.AddMessage($display) 
+                                    $controlResult.AddMessage($display)
                                 }
-                            
-                            
+
+
                             if($extensionListWithNonProductionExtensionIndicators.count -gt 0)
-                                {   
+                                {
                                     $controlResult.AddMessage([Constants]::HashLine)
                                     $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that are not production ready...`n"+[Constants]::SingleDashLine)
                                     if(!$isNonProdIndicatorsPropertyPresent)
                                     {
                                         $controlResult.AddMessage("***'Non-production extension indicators' setting is not present in the policy configuration.***")
-                                    } 
+                                    }
                                     $controlResult.AddMessage("Note: This checks for extensions with words [$($nonProductionExtensionIndicators -join ', ')] in extension names.")
                                     $controlResult.AddMessage("`nNo. of non-production extensions (based on name):  "+ $extensionListWithNonProductionExtensionIndicators.count)
                                     $controlResult.AddMessage("`nExtension details (non-production extensions (based on name)):  ")
@@ -956,35 +953,35 @@ class Organization: ADOSVTBase
                                 }
 
                             if($nonProdExtensions.count -gt 0)
-                            {   
-                                $controlResult.AddMessage([Constants]::HashLine) 
+                            {
+                                $controlResult.AddMessage([Constants]::HashLine)
                                 $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that are marked 'Preview' via Gallery flags...`n"+[Constants]::SingleDashLine)
                                 $controlResult.AddMessage("`nNo. of installed extensions marked as 'Preview' via Gallery flags: "+ $nonProdExtensions.count);
                                 $controlResult.AddMessage("`nExtension details (installed extensions which are marked as 'Preview' via Gallery flags): ")
                                 $controlResult.AddMessage(($nonProdExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth));
-                            } 
-    
+                            }
+
                             if($topPublisherExtensions.count -gt 0)
-                            {   
+                            {
                                 $controlResult.AddMessage([Constants]::HashLine)
                                 $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that are from publishers with a 'Top Publisher' certification...`n"+[Constants]::SingleDashLine);
                                 $controlResult.AddMessage("`nNo. of installed extensions from 'Top Publishers': "+$topPublisherExtensions.count);
                                 $controlResult.AddMessage("`nExtension details (installed extensions from 'Top Publishers'): ")
                                 $controlResult.AddMessage(($topPublisherExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth) );
                             }
-                                
+
                             if($privateExtensions.count -gt 0)
-                            {   
+                            {
                                 $controlResult.AddMessage([Constants]::HashLine)
                                 $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that have 'private' visibility for the org...`n"+[Constants]::SingleDashLine);
                                 $controlResult.AddMessage("`nNo. of installed extensions with 'private' visibility: "+$privateExtensions.count);
                                 $controlResult.AddMessage("`nExtension details (installed extensions with 'private' visibility): ")
                                 $controlResult.AddMessage(($privateExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth));
-                            }                            
-                            [Organization]::InstalledExtensionInfo = $combinedTable   
-                                                  
-                        }                                                                      
-                    }                                        
+                            }
+                            [Organization]::InstalledExtensionInfo = $combinedTable
+
+                        }
+                    }
                     ## end Deep scan
                 }
                 else
@@ -992,7 +989,7 @@ class Organization: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Passed, "No installed extensions found.");
                 }
             }#>
-            else 
+            else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "No installed extensions found.");
             }
@@ -1008,7 +1005,7 @@ class Organization: ADOSVTBase
     }
 
     hidden [ControlResult] ValidateSharedExtensions([ControlResult] $controlResult)
-    {        
+    {
         try
         {
             if($null -eq $this.allExtensionsObj)
@@ -1028,23 +1025,23 @@ class Organization: ADOSVTBase
                     $controlResult.AddMessage("No. of shared extensions: " + $sharedExtensions.Count)
                     $controlResult.AdditionalInfo += "No. of shared extensions: " + ($sharedExtensions | Measure-Object).Count;
                     $extensionList = @();
-                    $extensionList +=  ($sharedExtensions | Select-Object extensionName, publisherId, publisherName, version) 
+                    $extensionList +=  ($sharedExtensions | Select-Object extensionName, publisherId, publisherName, version)
 
-                    $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of shared extensions: "); 
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of shared extensions: ");
                     $ftWidth = 512 #To avoid "..." truncation
-                    $display = ($extensionList |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)                                
+                    $display = ($extensionList |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
                     $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of shared extensions: ", $extensionList);
-                    $controlResult.AdditionalInfo += "List of shared extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($extensionList);                               
+                    $controlResult.AdditionalInfo += "List of shared extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($extensionList);
                 }
-                else 
+                else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No shared extensions found.");
-                } 
+                }
             }
-            else 
+            else
             {
-                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of shared extensions.");    
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of shared extensions.");
             }
         }
         catch
@@ -1057,7 +1054,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckGuestIdentities([ControlResult] $controlResult)
     {
-        try 
+        try
         {
             $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL); # returns a maximum of 100 guest users
@@ -1084,16 +1081,16 @@ class Organization: ADOSVTBase
                 $guestList = @();
                 $guestList +=  ($guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}},@{Name="AccessLevel"; Expression = {$_.accessLevel.licenseDisplayName}},@{Name="LastAccessedDate"; Expression = {$_.lastAccessedDate}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
                 $stateData = @();
-                $stateData += ($guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}})                
+                $stateData += ($guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}})
                 # $guestListDetailed would be same if DetailedScan is not enabled.
-                $guestListDetailed = $guestList 
+                $guestListDetailed = $guestList
 
                 if([AzSKRoot]::IsDetailedScanRequired -eq $true)
                 {
                     # If DetailedScan is enabled. fetch the project entitlements for the guest user
                     $guestListDetailed = $guestList | ForEach-Object {
                         try{
-                            $guestUser = $_ 
+                            $guestUser = $_
                             $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/userentitlements/{1}?api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName), $($guestUser.Id);
                             $projectEntitlements = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                             $userProjectEntitlements = $projectEntitlements[0].projectEntitlements
@@ -1102,13 +1099,13 @@ class Organization: ADOSVTBase
                             $userProjectEntitlements = "Could not fetch project entitlement details of the user."
                             $controlResult.LogException($_)
                         }
-                        return @{Id = $guestUser.Id; IdentityType = $guestUser.IdentityType; DisplayName = $guestUser.IdentityType; MailAddress = $guestUser.MailAddress; AccessLevel = $guestUser.AccessLevel; LastAccessedDate = $guestUser.LastAccessedDate; InactiveFromDays = $guestUser.InactiveFromDays; ProjectEntitlements = $userProjectEntitlements} 
+                        return @{Id = $guestUser.Id; IdentityType = $guestUser.IdentityType; DisplayName = $guestUser.IdentityType; MailAddress = $guestUser.MailAddress; AccessLevel = $guestUser.AccessLevel; LastAccessedDate = $guestUser.LastAccessedDate; InactiveFromDays = $guestUser.InactiveFromDays; ProjectEntitlements = $userProjectEntitlements}
                     }
                 }
-                
+
                 $totalGuestCount = ($guestListDetailed | Measure-Object).Count
                 $controlResult.AddMessage("Displaying all guest users in the organization...");
-                $controlResult.AddMessage([VerificationResult]::Verify,"Total number of guest users in the organization: $($totalGuestCount)"); 
+                $controlResult.AddMessage([VerificationResult]::Verify,"Total number of guest users in the organization: $($totalGuestCount)");
                 $controlResult.AdditionalInfo += "Total number of guest users in the organization: " + $totalGuestCount;
                 $inactiveGuestUsers = $guestListDetailed | Where-Object { $_.InactiveFromDays -eq "User was never active." }
                 $inactiveCount = ($inactiveGuestUsers | Measure-Object).Count
@@ -1117,26 +1114,26 @@ class Organization: ADOSVTBase
                     $controlResult.AdditionalInfo += "Total number of inactive guest users in the organization: " + $inactiveCount;
                     $controlResult.AddMessage("List of guest users who were never active: ",$inactiveGuestUsers);
                 }
-                
-                $activeGuestUsers = $guestListDetailed | Where-Object { $_.InactiveFromDays -ne "User was never active." }    
+
+                $activeGuestUsers = $guestListDetailed | Where-Object { $_.InactiveFromDays -ne "User was never active." }
                 $activeCount = ($activeGuestUsers | Measure-Object).Count
                 if($activeCount) {
                     $controlResult.AddMessage("`nTotal number of guest users who are active: $($activeCount)");
                     $controlResult.AdditionalInfo += "Total number of active guest users in the organization: " + $activeCount;
                     $controlResult.AddMessage("List of guest users who are active: ",$activeGuestUsers);
-                }  
-                $controlResult.SetStateData("Guest users list: ", $stateData);    
+                }
+                $controlResult.SetStateData("Guest users list: ", $stateData);
             }
             else #external guest access notion is not applicable when AAD is not configured. Instead GitHub user notion is available in non-AAD backed orgs.
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "There are no guest users in the organization.");
             }
         }
-        catch 
+        catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of guest identities.");
             $controlResult.LogException($_)
-        } 
+        }
 
         return $controlResult
     }
@@ -1145,36 +1142,36 @@ class Organization: ADOSVTBase
     {
 
         $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/securityroles/scopes/ems.manage.ui/roleassignments/resources/ems-ui" -f $($this.OrganizationContext.OrganizationName);
-        
-        try 
+
+        try
         {
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-        
-            # If no ext. managers are present, 'count' property is available for $responseObj[0] and its value is 0. 
-            # If ext. managers are assigned, 'count' property is not available for $responseObj[0]. 
+
+            # If no ext. managers are present, 'count' property is available for $responseObj[0] and its value is 0.
+            # If ext. managers are assigned, 'count' property is not available for $responseObj[0].
             #'Count' is a PSObject property and 'count' is response object property. Notice the case sensitivity here.
-            
+
             # TODO: When there are no managers check member in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false. Need to revisit.
             if(([Helpers]::CheckMember($responseObj[0],"count",$false)) -and ($responseObj[0].count -eq 0))
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "No extension managers assigned.");
             }
              # When there are managers - the below condition will be true.
-            elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0)) 
+            elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0))
             {
                 $controlResult.AddMessage("No. of extension managers present: " + $responseObj.Count)
                 $controlResult.AdditionalInfo += "No. of extension managers present: " + ($responseObj | Measure-Object).Count;
                 $extensionManagerList = @();
                 $extensionManagerList +=  ($responseObj | Select-Object @{Name="IdentityName"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}})
-                $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of extension managers: ",$extensionManagerList);        
-                $controlResult.SetStateData("List of extension managers: ", $extensionManagerList);   
+                $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of extension managers: ",$extensionManagerList);
+                $controlResult.SetStateData("List of extension managers: ", $extensionManagerList);
             }
-            else 
+            else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "No extension managers assigned.");
             }
         }
-        catch 
+        catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of extension managers.");
             $controlResult.LogException($_)
@@ -1185,18 +1182,18 @@ class Organization: ADOSVTBase
     hidden [ControlResult] CheckInactiveUsers([ControlResult] $controlResult)
     {
         try {
-            $topInactiveUsers = $this.ControlSettings.Organization.TopInactiveUserCount 
+            $topInactiveUsers = $this.ControlSettings.Organization.TopInactiveUserCount
             $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?top={1}&filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName), $topInActiveUsers;
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
             if($responseObj.Count -gt 0)
             {
                 $inactiveUsers =  @()
-                $responseObj[0].items | ForEach-Object { 
+                $responseObj[0].items | ForEach-Object {
                     if([datetime]::Parse($_.lastAccessedDate) -lt ((Get-Date).AddDays(-$($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays))))
                     {
                         $inactiveUsers+= $_
-                    }                
+                    }
                 }
                 if(($inactiveUsers | Measure-Object).Count -gt 0)
                 {
@@ -1208,7 +1205,7 @@ class Organization: ADOSVTBase
                     $inactiveUsers = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="mailAddress"; Expression = {$_.User.mailAddress}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
                     #set data for attestation
                     $inactiveUsersStateData = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.Name}},@{Name="mailAddress"; Expression = {$_.mailAddress}})
-                    
+
                     $inactiveUsersCount = ($inactiveUsers | Measure-Object).Count
                     $controlResult.AddMessage([VerificationResult]::Failed,"Total number of inactive users present in the organization: $($inactiveUsersCount)");
                     $controlResult.AdditionalInfo += "Total number of inactive users present in the organization: " + $inactiveUsersCount;
@@ -1216,7 +1213,7 @@ class Organization: ADOSVTBase
 
                     # segregate never active users from the list
                     $neverActiveUsers = $inactiveUsers | Where-Object {$_.InactiveFromDays -eq "User was never active."}
-                    $inactiveUsersWithDays = $inactiveUsers | Where-Object {$_.InactiveFromDays -ne "User was never active."} 
+                    $inactiveUsersWithDays = $inactiveUsers | Where-Object {$_.InactiveFromDays -ne "User was never active."}
 
                     $neverActiveUsersCount = ($neverActiveUsers | Measure-Object).Count
                     if ($neverActiveUsersCount -gt 0) {
@@ -1224,17 +1221,17 @@ class Organization: ADOSVTBase
                         $controlResult.AddMessage("Review users present in the organization who were never active: ",$neverActiveUsers);
                         $controlResult.AdditionalInfo += "Total number of users who were never active: " + $neverActiveUsersCount;
                         $controlResult.AdditionalInfo += "List of users who were never active: " + [JsonHelper]::ConvertToJsonCustomCompressed($neverActiveUsers);
-                    } 
-                    
+                    }
+
                     $inactiveUsersWithDaysCount = ($inactiveUsersWithDays | Measure-Object).Count
                     if($inactiveUsersWithDaysCount -gt 0) {
-                        $controlResult.AddMessage("`nTotal number of users who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: $($inactiveUsersWithDaysCount)");                
+                        $controlResult.AddMessage("`nTotal number of users who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: $($inactiveUsersWithDaysCount)");
                         $controlResult.AddMessage("Review users present in the organization who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: ",$inactiveUsersWithDays);
                         $controlResult.AdditionalInfo += "Total number of users who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: " + $inactiveUsersWithDaysCount;
                     }
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No inactive users found.")   
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No inactive users found.")
                 }
             }
             else
@@ -1251,37 +1248,37 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckDisconnectedIdentities([ControlResult] $controlResult)
     {
-        try 
+        try
         {
             $apiURL = "https://dev.azure.com/{0}/_apis/OrganizationSettings/DisconnectedUser" -f $($this.OrganizationContext.OrganizationName);
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-            
+
             #disabling null check to CheckMember because if there are no disconnected users - it will return null.
-            if ([Helpers]::CheckMember($responseObj[0], "users",$false)) 
+            if ([Helpers]::CheckMember($responseObj[0], "users",$false))
             {
-                if (($responseObj[0].users | Measure-Object).Count -gt 0 ) 
+                if (($responseObj[0].users | Measure-Object).Count -gt 0 )
                 {
-        
-                    $userNames = @();   
+
+                    $userNames = @();
                     $userNames += ($responseObj[0].users | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "mailAddress"; Expression = { $_.preferredEmailAddress } })
                     $controlResult.AddMessage("Total number of disconnected users: ", ($userNames | Measure-Object).Count);
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Remove access for below disconnected users: ", $userNames);  
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Remove access for below disconnected users: ", $userNames);
                     $controlResult.SetStateData("Disconnected users list: ", $userNames);
                     $controlResult.AdditionalInfo += "Total number of disconnected users: " + ($userNames | Measure-Object).Count;
                     $controlResult.AdditionalInfo += "List of disconnected users: " + [JsonHelper]::ConvertToJsonCustomCompressed($userNames);
                 }
-                else 
+                else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No disconnected users found.");
-                }   
-            } 
+                }
+            }
         }
-        catch 
+        catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of disconnected users.");
             $controlResult.LogException($_)
         }
-       
+
         return $controlResult;
     }
 
@@ -1316,19 +1313,19 @@ class Organization: ADOSVTBase
         $usersObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
         $Users =  @()
-        $usersObj[0].items | ForEach-Object { 
-                $Users+= $_   
+        $usersObj[0].items | ForEach-Object {
+                $Users+= $_
         }
 
         $groups = ($groupsObj | Select-Object -Property @{Name="Name"; Expression = {$_.displayName}},@{Name="mailAddress"; Expression = {$_.mailAddress}});
-        
+
         $UsersNames = ($Users | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="mailAddress"; Expression = {$_.User.mailAddress}})
 
         if ( (($groups | Measure-Object).Count -gt 0) -or (($UsersNames | Measure-Object).Count -gt 0)) {
             $controlResult.AddMessage([VerificationResult]::Verify, "Verify users and groups present on Organization");
 
-            $controlResult.AddMessage("Verify groups present on Organization", $groups); 
-            $controlResult.AddMessage("Verify users present on Organization", $UsersNames); 
+            $controlResult.AddMessage("Verify groups present on Organization", $groups);
+            $controlResult.AddMessage("Verify users present on Organization", $UsersNames);
         }
         else
         {
@@ -1339,19 +1336,19 @@ class Organization: ADOSVTBase
     }
 
     hidden [ControlResult] JustifyGroupMember([ControlResult] $controlResult)
-    {   
-        $grpmember = @();   
+    {
+        $grpmember = @();
         $url= "https://vssps.dev.azure.com/{0}/_apis/graph/groups?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
         $groupsObj = [WebRequestHelper]::InvokeGetWebRequest($url);
-         
+
         $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview" -f $($this.OrganizationContext.OrganizationName);
 
         $membercount =0;
         Foreach ($group in $groupsObj){
-         $groupmember = @();    
+         $groupmember = @();
          $descriptor = $group.descriptor;
          $inputbody =  '{"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
-        
+
          $inputbody.dataProviderContext.properties.subjectDescriptor = $descriptor;
          $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_settings/groups?subjectDescriptor=$($descriptor)";
          $usersObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
@@ -1359,13 +1356,13 @@ class Organization: ADOSVTBase
          if([Helpers]::CheckMember($usersObj.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities")) {
             $usersObj.dataProviders."ms.vss-admin-web.org-admin-members-data-provider".identities  | ForEach-Object {
                 $groupmember += $_;
-            }  
+            }
         }
 
         $grpmember = ($groupmember | Select-Object -Property @{Name="Name"; Expression = {$_.displayName}},@{Name="mailAddress"; Expression = {$_.mailAddress}});
         if ($grpmember -ne $null) {
             $membercount= $membercount + 1
-            $controlResult.AddMessage("Verify below members of the group: '$($group.principalname)', Description: $($group.description)", $grpmember); 
+            $controlResult.AddMessage("Verify below members of the group: '$($group.principalname)', Description: $($group.description)", $grpmember);
         }
         }
 
@@ -1381,7 +1378,7 @@ class Organization: ADOSVTBase
     }
 
     hidden [ControlResult] CheckOAuthAppAccess([ControlResult] $controlResult)
-    {       
+    {
        if([Helpers]::CheckMember($this.OrgPolicyObj,"applicationConnection"))
        {
             $OAuthObj = $this.OrgPolicyObj.applicationConnection | Where-Object {$_.Policy.Name -eq "Policy.DisallowOAuthAuthentication"}
@@ -1464,14 +1461,14 @@ class Organization: ADOSVTBase
     {
        if($this.PipelineSettingsObj)
        {
-            
+
             if($this.PipelineSettingsObj.statusBadgesArePrivate -eq $true )
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Anonymous access to status badge API is disabled.");
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Anonymous access to status badge API is enabled.");
-            }       
+            }
        }
        else{
             $controlResult.AddMessage([VerificationResult]::Manual, "Pipeline settings could not be fetched due to insufficient permissions at organization scope.");
@@ -1483,14 +1480,14 @@ class Organization: ADOSVTBase
     {
        if($this.PipelineSettingsObj)
        {
-            
+
             if($this.PipelineSettingsObj.enforceSettableVar -eq $true )
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Only limited variables can be set at queue time.");
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "All variables can be set at queue time.");
-            }       
+            }
        }
        else{
             $controlResult.AddMessage([VerificationResult]::Manual, "Pipeline settings could not be fetched due to insufficient permissions at organization scope.");
@@ -1503,18 +1500,18 @@ class Organization: ADOSVTBase
        if($this.PipelineSettingsObj)
        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceJobAuthScope
-            
+
             if($orgLevelScope -eq $true )
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Job authorization scope is limited to current project for non-release pipelines at organization level.");
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope is set to project collection for non-release pipelines at organization level.");
-            }       
+            }
        }
        else{
              $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
-       }       
+       }
         return $controlResult
     }
 
@@ -1523,18 +1520,18 @@ class Organization: ADOSVTBase
        if($this.PipelineSettingsObj)
        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceJobAuthScopeForReleases
-            
+
             if($orgLevelScope -eq $true )
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Job authorization scope is limited to current project for release pipelines at organization level.");
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope is set to project collection for release pipelines at organization level.");
-            }       
+            }
        }
        else{
              $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
-       }       
+       }
         return $controlResult
     }
 
@@ -1543,18 +1540,18 @@ class Organization: ADOSVTBase
        if($this.PipelineSettingsObj)
        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceReferencedRepoScopedToken
-            
+
             if($orgLevelScope -eq $true )
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Job authorization scope of pipelines is limited to explicitly referenced Azure DevOps repositories at organization level.");
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope of pipelines is set to all Azure DevOps repositories in the authorized projects at organization level.");
-            }       
+            }
        }
        else{
              $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
-       }       
+       }
         return $controlResult
     }
 
@@ -1582,7 +1579,7 @@ class Organization: ADOSVTBase
        if($this.PipelineSettingsObj)
        {
             $orgLevelScope = $this.PipelineSettingsObj.disableInBoxTasksVar
-            
+
             if($orgLevelScope -eq $true )
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Built-in tasks are disabled at organization level.");
@@ -1590,12 +1587,12 @@ class Organization: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Built-in tasks are not disabled at organization level.");
-            }       
+            }
        }
        else
        {
              $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
-       }       
+       }
         return $controlResult
     }
 
@@ -1623,7 +1620,7 @@ class Organization: ADOSVTBase
        if($this.PipelineSettingsObj)
        {
             $orgLevelScope = $this.PipelineSettingsObj.disableMarketplaceTasksVar
-            
+
             if($orgLevelScope -eq $true )
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Market place tasks are disabled at organization level.");
@@ -1631,12 +1628,12 @@ class Organization: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Market place tasks are not disabled at organization level.");
-            }       
+            }
        }
        else
        {
              $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
-       }       
+       }
         return $controlResult
     }
 
@@ -1648,23 +1645,23 @@ class Organization: ADOSVTBase
             $userInviteObj = $userPolicyObj | Where-Object {$_.Policy.Name -eq "Policy.AllowTeamAdminsInvitationsAccessToken"}
             if(($userInviteObj | Measure-Object).Count -gt 0)
             {
-            
+
                 if($userInviteObj.policy.effectiveValue -eq $false )
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Team and project administrators are not allowed to invite new users.");
                 }
-                else 
+                else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Team and project administrators are allowed to invite new users.");
                 }
             }
-            else 
+            else
             {
                 #Manual control status because the notion of team and project admins inviting new users is not applicable when AAD is not configured.
-                $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch invite new user policy details of the organization. This policy is available only when the organization is connected to AAD.");    
+                $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch invite new user policy details of the organization. This policy is available only when the organization is connected to AAD.");
             }
         }
-        else 
+        else
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch user policy details of the organization.");
         }
@@ -1698,37 +1695,37 @@ class Organization: ADOSVTBase
             $requestAccessObj = $userPolicyObj | Where-Object {$_.Policy.Name -eq "Policy.AllowRequestAccessToken"}
             if(($requestAccessObj | Measure-Object).Count -gt 0)
             {
-            
+
                 if($requestAccessObj.policy.effectiveValue -eq $false )
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Users can not request access to organization or projects within the organization.");
                 }
-                else 
+                else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Users can request access to organization or projects within the organization.");
                 }
             }
-            else 
+            else
             {
                 #Manual control status because the notion of request access is not applicable when AAD is not configured.
-                $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch request access policy details of the organization. This policy is available only when the organization is connected to AAD.");    
+                $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch request access policy details of the organization. This policy is available only when the organization is connected to AAD.");
             }
         }
-        else 
+        else
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch user policy details of the organization.");
         }
         return $controlResult
     }
-    
+
     hidden [ControlResult] CheckAutoInjectedExtensions([ControlResult] $controlResult)
     {
         try
         {
             $url ="https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);     
+            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
             $autoInjExt = @();
-            
+
             foreach($extension in $responseObj)
             {
                 foreach($cont in $extension.contributions)
@@ -1740,26 +1737,26 @@ class Organization: ADOSVTBase
                             $autoInjExt +=  ($extension | Select-Object -Property @{Name="Name"; Expression = {$_.extensionName}},@{Name="Publisher"; Expression = {$_.PublisherName}},@{Name="Version"; Expression = {$_.version}})
                             break;
                         }
-                    }  
-                }     
+                    }
+                }
             }
 
             if (($autoInjExt | Measure-Object).Count -gt 0)
             {
                 $controlResult.AddMessage([VerificationResult]::Verify,"Verify the below auto-injected tasks at organization level: ", $autoInjExt);
-                $controlResult.SetStateData("Auto-injected tasks list: ", $autoInjExt); 
+                $controlResult.SetStateData("Auto-injected tasks list: ", $autoInjExt);
                 $controlResult.AdditionalInfo += "Total number of auto-injected extensions: " + ($autoInjExt | Measure-Object).Count;
                 $controlResult.AdditionalInfo += "List of auto-injected extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($autoInjExt);
             }
-            else 
+            else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed,"No auto-injected tasks found at organization level");
             }
         }
-        catch 
+        catch
         {
-            $controlResult.AddMessage([VerificationResult]::Error,"Couldn't fetch the list of installed extensions in the organization.");  
-            $controlResult.LogException($_)   
+            $controlResult.AddMessage([VerificationResult]::Error,"Couldn't fetch the list of installed extensions in the organization.");
+            $controlResult.LogException($_)
         }
 
         return $controlResult
@@ -1785,8 +1782,8 @@ class Organization: ADOSVTBase
             if($TotalPCAMembers -gt 0){
                 $controlResult.AddMessage("Verify the following Project Collection Administrators: ")
                 $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
-            }        
-            
+            }
+
             if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
                 $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
                 $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
@@ -1814,20 +1811,20 @@ class Organization: ADOSVTBase
                 $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
             }
         }
-        
+
         return $controlResult
     }
 
     hidden [ControlResult] CheckMaxPCACount([ControlResult] $controlResult)
     {
-        
+
         $TotalPCAMembers=0
         $PCAMembers = @()
         $PCAMembers += [AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName)
         $TotalPCAMembers = ($PCAMembers| Measure-Object).Count
         $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
         if ($this.graphPermissions.hasGraphAccess)
-        {   
+        {  
             $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
             $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
             if($HumanAcccountCount -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
@@ -1840,7 +1837,7 @@ class Organization: ADOSVTBase
                 $controlResult.AddMessage("Verify the following Project Collection Administrators: ")
                 $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
             }
-        
+
             if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
                 $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
                 $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
@@ -1873,23 +1870,23 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckAuditStream([ControlResult] $controlResult)
     {
-        
+
         try
         {
             $url ="https://auditservice.dev.azure.com/{0}/_apis/audit/streams?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);  
-            
-            # If no audit streams are configured, 'count' property is available for $responseObj[0] and its value is 0. 
-            # If audit streams are configured, 'count' property is not available for $responseObj[0]. 
+            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
+
+            # If no audit streams are configured, 'count' property is available for $responseObj[0] and its value is 0.
+            # If audit streams are configured, 'count' property is not available for $responseObj[0].
             #'Count' is a PSObject property and 'count' is response object property. Notice the case sensitivity here.
-            
+
             # TODO: When there are no audit streams configured, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false. Need to revisit.
             if(([Helpers]::CheckMember($responseObj[0],"count",$false)) -and ($responseObj[0].count -eq 0))
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "No audit stream has been configured on the organization.");
             }
              # When audit streams are configured - the below condition will be true.
-            elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0)) 
+            elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0))
             {
                 $enabledStreams = $responseObj | Where-Object {$_.status -eq 'enabled'}
                 $enabledStreams = $enabledStreams | Select-Object consumerType,displayName,status
@@ -1909,10 +1906,10 @@ class Organization: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Failed, "None of the audit streams that have been configured are currently enabled.");
                 }
             }
-            else 
+            else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "No audit stream has been configured on the organization.");
-            }   
+            }
         }
         catch
         {
@@ -1927,7 +1924,7 @@ class Organization: ADOSVTBase
         $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
         $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.OrganizationContext.OrganizationName);
         $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-        
+
         try
         {
             $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
@@ -1943,43 +1940,43 @@ class Organization: ADOSVTBase
                 if(($PendingExtensionsForApproval| Measure-Object).Count -gt 0)
                 {
                     $extensionList = @();
-                    $extensionList +=  ($PendingExtensionsForApproval | Select-Object extensionID, publisherId,@{Name="Requested By";Expression={requests.userName}})                                         
+                    $extensionList +=  ($PendingExtensionsForApproval | Select-Object extensionID, publisherId,@{Name="Requested By";Expression={requests.userName}})
 
                     $ftWidth = 512 #To avoid "..." truncation
                     <#if(($ApprovedExtensions | Measure-Object).Count -gt 0)
                     {
                         $controlResult.AddMessage("No. of requested extensions that are approved: " + $ApprovedExtensions.Count)
                         $controlResult.AddMessage("`nExtension details")
-                        $display = ($ApprovedExtensions |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)                                
+                        $display = ($ApprovedExtensions |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)
                         $controlResult.AddMessage($display)
-                    } 
-                    
+                    }
+
                     if(($RejectedExtensions| Measure-Object).Count -gt 0)
                     {
                         $controlResult.AddMessage("No. of requested extensions that are rejected: " + $RejectedExtensions.Count)
                         $controlResult.AddMessage("`nExtension details")
-                        $display = ($RejectedExtensions |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)                                
+                        $display = ($RejectedExtensions |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)
                         $controlResult.AddMessage($display)
-                    }                    
-                    #>              
+                    }
+                    #>
                     $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the below list of pending requested extensions: ");
                     $controlResult.AddMessage("No. of requested extensions that are pending for approval: " + $PendingExtensionsForApproval.Count)
                     $controlResult.AddMessage("`nExtension details")
-                    $display = ($PendingExtensionsForApproval |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)                                
+                    $display = ($PendingExtensionsForApproval |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)
                     $controlResult.AddMessage($display)
-                    
+
                     $controlResult.SetStateData("List of requested extensions: ", $extensionList);
                     $controlResult.AdditionalInfo += "No. of pending requested extensions: " + ($PendingExtensionsForApproval | Measure-Object).Count;
-                    $controlResult.AdditionalInfo += "List of requested extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($extensionList);                               
+                    $controlResult.AdditionalInfo += "List of requested extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($extensionList);
                 }
-                else 
+                else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No requested extensions found.");
-                } 
+                }
             }
-            else 
+            else
             {
-                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of requested extensions.");    
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of requested extensions.");
             }
         }
         catch
@@ -1993,7 +1990,7 @@ class Organization: ADOSVTBase
     hidden [ControlResult] CheckInactiveGuestUsers([ControlResult] $controlResult)
     {
         try {
-            $controlResult.VerificationResult = [VerificationResult]::Failed 
+            $controlResult.VerificationResult = [VerificationResult]::Failed
             if($this.GuestMembers.Count -eq 0)
             {
                 $this.FetchGuestMembersInOrg()
@@ -2009,47 +2006,49 @@ class Organization: ADOSVTBase
                 }
 
                 #(Get-Date).AddDays(-$($GuestUserInactivePeriodInDays) should be done only once
-                $users | ForEach-Object { 
+                $users | ForEach-Object {
                     if([datetime]::Parse($_.lastAccessedDate) -lt ((Get-Date).AddDays(-$($GuestUserInactivePeriodInDays))))
                     {
                         $inactiveGuestUsers+= $_
-                    }                
+                    }
                 }
 
                 $inactiveGuestUsersCount = $inactiveGuestUsers.Count
                 if($inactiveGuestUsersCount -gt 0)
                 {
                     #If user account created and was never active, in this case lastaccessdate is default 01-01-0001
-                    $inactiveUsers = ($inactiveGuestUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="mailAddress"; Expression = {$_.User.mailAddress}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
+                    $inactiveUsers = ($inactiveGuestUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="Email"; Expression = {$_.User.mailAddress}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
                     #set data for attestation
-                    $inactiveUsersStateData = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.Name}},@{Name="mailAddress"; Expression = {$_.mailAddress}})
-                    
+                    $inactiveUsersStateData = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.Name}},@{Name="Email"; Expression = {$_.Email}}) #Can Expect drift, are there any org level attestations?
+
                     #$inactiveUsersCount = ($inactiveUsers | Measure-Object).Count
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive guest users present in the organization: $($inactiveGuestUsersCount)");
-                    $controlResult.AdditionalInfo += "Count of inactive guest users present in the organization: " + $inactiveGuestUsersCount;
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive guest users in the organization: $($inactiveGuestUsersCount)");
+                    $controlResult.AdditionalInfo += "Count of inactive guest users in the organization: " + $inactiveGuestUsersCount;
                     $controlResult.SetStateData("Inactive guest users list: ", $inactiveUsersStateData);
 
                     # segregate never active users from the list
                     $neverActiveUsers = $inactiveUsers | Where-Object {$_.InactiveFromDays -eq "User was never active."}
-                    $inactiveUsersWithDays = $inactiveUsers | Where-Object {$_.InactiveFromDays -ne "User was never active."} 
+                    $inactiveUsersWithDays = $inactiveUsers | Where-Object {$_.InactiveFromDays -ne "User was never active."}
 
                     $neverActiveUsersCount = ($neverActiveUsers | Measure-Object).Count
                     if ($neverActiveUsersCount -gt 0) {
                         $controlResult.AddMessage("`nCount of users who were never active: $($neverActiveUsersCount)");
-                        $controlResult.AddMessage("Review users present in the organization who were never active: ",$neverActiveUsers); # show in table
+                        $neverActiveUsersTable = ($neverActiveUsers | FT | Out-String)
+                        $controlResult.AddMessage("Never active guest users list: `n$neverActiveUsersTable"); # show in table
                         $controlResult.AdditionalInfo += "Count of users who were never active: " + $neverActiveUsersCount;
                         $controlResult.AdditionalInfo += "List of users who were never active: " + [JsonHelper]::ConvertToJsonCustomCompressed($neverActiveUsers);
-                    } 
-                    
+                    }
+
                     $inactiveUsersWithDaysCount = ($inactiveUsersWithDays | Measure-Object).Count
                     if($inactiveUsersWithDaysCount -gt 0) {
-                        $controlResult.AddMessage("`nCount of guest users who are inactive from last $($GuestUserInactivePeriodInDays) days: $($inactiveUsersWithDaysCount)");                
-                        $controlResult.AddMessage("Review users present in the organization who are inactive from last $($GuestUserInactivePeriodInDays) days: ",$inactiveUsersWithDays);
+                        $controlResult.AddMessage("`nCount of guest users who are inactive from last $($GuestUserInactivePeriodInDays) days: $($inactiveUsersWithDaysCount)");
+                        $inactiveUsersTable = ($inactiveUsersWithDays | FT | Out-String)
+                        $controlResult.AddMessage("Inactive guest users list: `n$inactiveUsersTable");
                         $controlResult.AdditionalInfo += "Count of guest users who are inactive from last $($GuestUserInactivePeriodInDays) days: " + $inactiveUsersWithDaysCount;
                     }
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No inactive guest user found.")   
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No inactive guest user found.")
                 }
             }
             else
@@ -2068,12 +2067,12 @@ class Organization: ADOSVTBase
     hidden [void] FetchGuestMembersInOrg()
     {
         try {
-            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName) 
+            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName)
             $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
-                
+
             $guestAccounts =  @()
             if(($null -ne $responseObj) -and $responseObj.Count -gt 0 -and ([Helpers]::CheckMember($responseObj[0], 'members')))
-            {  
+            {
                 $guestAccounts = @($responseObj[0].members)
                 $continuationToken =  $responseObj[0].continuationToken # Use the continuationToken for pagination
 
@@ -2096,19 +2095,19 @@ class Organization: ADOSVTBase
             }
         }
         catch {
-           throw 
-        }        
+           throw
+        }
     }
 
     hidden [void] FetchAllUsersInOrg()
     {
         try {
-            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName) 
+            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName)
             $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
-                
+
             $AllUsersAccounts =  @()
             if(($null -ne $responseObj) -and $responseObj.Count -gt 0 -and ([Helpers]::CheckMember($responseObj[0], 'members')))
-            {  
+            {
                 $AllUsersAccounts = @($responseObj[0].members)
                 $continuationToken =  $responseObj[0].continuationToken # Use the continuationToken for pagination
 
@@ -2133,7 +2132,7 @@ class Organization: ADOSVTBase
         catch {
             throw
         }
-        
+
     }
 
     hidden [ControlResult] CheckGuestUsersAccessInAdminRoles([ControlResult] $controlResult)
@@ -2143,27 +2142,27 @@ class Organization: ADOSVTBase
             try {
                 $controlResult.VerificationResult = [VerificationResult]::Failed
                 $AdminGroupsToCheckForGuestUser = @($this.ControlSettings.Organization.AdminGroupsToCheckForGuestUser)
-                
+
                 if($this.GuestMembers.Count -eq 0)
                 {
                     $this.FetchGuestMembersInOrg()
                 }
-                
+
                 $guestAccounts = @($this.GuestMembers)
 
                 if($guestAccounts.Count -gt 0)
-                {   
+                {
                     $formattedData = @()
                     $guestAccounts | ForEach-Object {
                         if([Helpers]::CheckMember($_,"user.descriptor"))
                         {
-                            try 
+                            try
                             {
                                 $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Graph/Memberships/$($_.user.descriptor)?api-version=6.0-preview.1"
                                 $response = @([WebRequestHelper]::InvokeGetWebRequest($url));
                                 if([Helpers]::CheckMember($response[0],"containerDescriptor"))
                                 {
-                                    foreach ($obj in $response) 
+                                    foreach ($obj in $response)
                                     {
                                         $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/graph/groups/$($obj.containerDescriptor)?api-version=6.0-preview.1";
                                         $res = @([WebRequestHelper]::InvokeGetWebRequest($url));
@@ -2178,11 +2177,11 @@ class Organization: ADOSVTBase
                                                 Name = $_.user.displayName;
                                                 PrincipalName = $_.user.principalName;
                                             }
-                                        }       
+                                        }
                                     }
                                 }
-                            }       
-                            catch 
+                            }
+                            catch
                             {
                                 $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the membership details for the user")
                             }
@@ -2197,15 +2196,15 @@ class Organization: ADOSVTBase
                         $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}
                         $groups = $formattedData | Group-Object "Principal Name"
                         $results = @()
-                        $results += foreach( $grpobj in $groups ){                                      
+                        $results += foreach( $grpobj in $groups ){
                                       $PrincipalName = $grpobj.name
                                       $OrgGroup = $grpobj.group.group -join ','
                                       $DisplayName = $grpobj.group."Display Name" | select -Unique
                                       $Scope = $grpobj.group."User or scope" | select -Unique
                                       [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; Scope = $Scope }
                                     }
-                        
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Count of guest users found in admin roles: $($results.count) ");
+
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Count of guest users in admin roles: $($results.count) ");
                         $controlResult.AddMessage("`nGuest account details:")
                         $display = ($results|FT  -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage($display)
@@ -2213,12 +2212,12 @@ class Organization: ADOSVTBase
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No Guest User have admin roles in the organization.");
-                    } 
+                    }
 
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No Guest User found.");
-                }       
+                }
             }
             catch
             {
@@ -2229,7 +2228,7 @@ class Organization: ADOSVTBase
         else{
             $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting non guest accounts is not defined in control setting of your organization.");
         }
-       
+
         return $controlResult
     }
 
@@ -2245,7 +2244,7 @@ class Organization: ADOSVTBase
                 {
                     $this.FetchAllUsersInOrg()
                 }
-                $users = @($this.AllUsersInOrg)                
+                $users = @($this.AllUsersInOrg)
 
                 if($users.Count -gt 0)
                 {
@@ -2254,33 +2253,33 @@ class Organization: ADOSVTBase
                     {
                         $thresholdDate =  (Get-Date).AddDays(-90) # Default Value, if not provided in control settings
                     }
-                    else {    
+                    else {
                         $thresholdDate =  (Get-Date).AddDays(-$($this.ControlSettings.Organization.AdminInactivityThresholdInDays))
                     }
-                    
-                    if($users.count -gt 0) 
+
+                    if($users.count -gt 0)
                     {
-                        $users | ForEach-Object { 
+                        $users | ForEach-Object {
                             if([datetime]::Parse($_.lastAccessedDate) -lt $thresholdDate )
                             {
                                 $inactiveUsers+= $_
-                            }                
-                        }    
-                    }                  
-                    
+                            }
+                        }
+                    }
+
                     if($inactiveUsers.count -gt 0)
-                    {   
+                    {
                         $formattedData = @()
                         $inactiveUsers | ForEach-Object {
                             if([Helpers]::CheckMember($_,"user.descriptor"))
                             {
-                                try 
-                                {   
+                                try
+                                {
                                     $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Graph/Memberships/$($_.user.descriptor)?api-version=6.0-preview.1"
                                     $response = @([WebRequestHelper]::InvokeGetWebRequest($url));
                                     if([Helpers]::CheckMember($response[0],"containerDescriptor"))
                                     {
-                                        foreach ($obj in $response) 
+                                        foreach ($obj in $response)
                                         {
                                             $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/graph/groups/$($obj.containerDescriptor)?api-version=6.0-preview.1";
                                             $res = @([WebRequestHelper]::InvokeGetWebRequest($url));
@@ -2306,11 +2305,11 @@ class Organization: ADOSVTBase
                                                     PrincipalName = $_.user.principalName;
                                                     Date = $_.lastAccessedDate ;
                                                 }
-                                            }       
+                                            }
                                         }
                                     }
-                                }       
-                                catch 
+                                }
+                                catch
                                 {
                                     $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the membership details for the user")
                                 }
@@ -2325,28 +2324,30 @@ class Organization: ADOSVTBase
                             $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}, @{Name="Last Accessed Date"; Expression={$_.Date}}
                             $groups = $formattedData | Group-Object "Principal Name"
                             $results = @()
-                            $results += foreach( $grpobj in $groups ){                                      
+                            $results += foreach( $grpobj in $groups ){
                                           $PrincipalName = $grpobj.name
                                           $OrgGroup = $grpobj.group.group -join ','
                                           $DisplayName = $grpobj.group."Display Name" | select -Unique
                                           $Scope = $grpobj.group."User or scope" | select -Unique
-                                          $date = $grpobj.group."Last Accessed Date" | select -Unique
-                                          [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date ; Scope = $Scope}
+                                          [datetime]$date = $grpObj.group."Last Accessed Date" | select -Unique
+                                          $formattedDate = $date.ToString("yyyy-MM-dd")
+                                          [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $formattedDate ; Scope = $Scope}
                                         }
-                            
+
                             $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive users found in admin roles: $($results.count) ");
                             $controlResult.AddMessage("`nInactive user details:")
                             $display = ($results|FT  -AutoSize | Out-String -Width 512)
                             $controlResult.AddMessage($display)
                             $controlResult.SetStateData("List of inactive users: ", $results);
+                            $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'admin groups':`n`t[$($AdminGroupsToCheckForInactiveUser -join ', ')]`n");
                         }
                         else {
                             $controlResult.AddMessage([VerificationResult]::Passed, "No Inactive User have admin roles in the organization.");
-                        } 
-    
+                        }
+
                     }
                     else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No inactive users found.")   
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No inactive users found.")
                     }
                 }
                 else
@@ -2362,7 +2363,7 @@ class Organization: ADOSVTBase
         else{
             $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting inactive accounts is not defined in control setting of your organization.");
         }
-        
+
         return $controlResult;
-    }    
+    }
 }

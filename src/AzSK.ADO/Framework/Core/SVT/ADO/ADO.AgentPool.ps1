@@ -7,6 +7,7 @@ class AgentPool: ADOSVTBase
     hidden [PSObject] $AgentPoolId;
     hidden [PSObject] $agentPool; # This is used to fetch agent details in pool
     hidden [PSObject] $agentPoolActivityDetail = @{isAgentPoolActive = $true; agentPoolLastRunDate = $null; agentPoolCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
+    hidden [string] $checkInheritedPermissions = $false
 
     AgentPool([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -36,6 +37,10 @@ class AgentPool: ADOSVTBase
         if ($null -ne $this.agentPoolActivityDetail.agentPoolLastRunDate)
         {
             $this.InactiveFromDays = ((Get-Date) - $this.agentPoolActivityDetail.agentPoolLastRunDate).Days
+        }
+
+        if ([Helpers]::CheckMember($this.ControlSettings, "Agentpool.CheckForInheritedPermissions") -and $this.ControlSettings.Agentpool.CheckForInheritedPermissions) {
+            $this.checkInheritedPermissions = $true
         }
     }
 
@@ -163,7 +168,7 @@ class AgentPool: ADOSVTBase
     hidden [ControlResult] CheckPrjAllPipelineAccess([ControlResult] $controlResult)
     {
         try {
-            $controlResult.VerificationResult = [VerificationResult]::Failed 
+            $controlResult.VerificationResult = [VerificationResult]::Failed
             $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=queue&id={2}&api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$this.ProjectId ,$this.AgentPoolId;
             $agentPoolsObj = @([WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL));
 
@@ -401,25 +406,29 @@ class AgentPool: ADOSVTBase
     hidden [ControlResult] CheckBroaderGroupAccess ([ControlResult] $controlResult) {
         try {
             $controlResult.VerificationResult = [VerificationResult]::Failed
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool")) {
-                $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
-                $controlResult.AddMessage("`nNote: The following groups are considered 'broad' which should not have user/administrator privileges: `n`t[$($restrictedBroaderGroupsForAgentPool -join ', ')]`n");
 
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool")) {
+
+                $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
                 if (($this.AgentObj.Count -gt 0) -and [Helpers]::CheckMember($this.AgentObj, "identity")) {
                     # match all the identities added on agentpool with defined restricted list
-                    $roleAssignments = @($this.AgentObj | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                    $roleAssignmentsToCheck = $this.AgentObj
+                    if ($this.checkInheritedPermissions -eq $false) {
+                        $roleAssignmentsToCheck = $this.AgentObj | where-object { $_.access -ne "inherited" }
+                    }
+                    $roleAssignments = @($roleAssignmentsToCheck | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
                     # Checking whether the broader groups have User/Admin permissions
                     $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
 
                     $restrictedGroupsCount = $restrictedGroups.Count
                     # fail the control if restricted group found on agentpool
                     if ($restrictedGroupsCount -gt 0) {
-                        $controlResult.AddMessage([VerificationResult]::Failed, "Total number of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)");
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)");
                         $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
                         $formattedGroupsTable = ($formattedGroupsData | Out-String)
                         $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
-                        $controlResult.AdditionalInfo += "Total number of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)";
+                        $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)";
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to agent pool.");
@@ -428,6 +437,7 @@ class AgentPool: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No groups have given access to agent pool.");
                 }
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForAgentPool | FT | out-string )`n");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups for agent pool is not defined in control settings for your organization.");

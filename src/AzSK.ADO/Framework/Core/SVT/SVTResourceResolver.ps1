@@ -45,11 +45,20 @@ class SVTResourceResolver: AzSKRoot {
     hidden [string[]] $VariableGroupIds = @();
     hidden [bool] $isServiceIdBasedScan = $false;
 
-    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls): Base($organizationName, $PATToken) {
+    #Common svt resources
+    hidden [string[]] $RepoNames = @();
+    hidden [string[]] $SecureFileNames = @();
+    hidden [string[]] $FeedNames = @();
+
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames): Base($organizationName, $PATToken) {
 
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
         $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);
         $this.skipOrgUserControls = $skipOrgUserControls
+
+        $this.RepoNames += $this.ConvertToStringArray($RepoNames);
+        $this.SecureFileNames += $this.ConvertToStringArray($SecureFileNames);
+        $this.FeedNames += $this.ConvertToStringArray($FeedNames);
     }
 
     [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls) {
@@ -620,6 +629,13 @@ class SVTResourceResolver: AzSKRoot {
                             }
                         }
                     }
+
+                    #Ceating resource in common resource resolver
+                    if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -ge 0 -or $this.FeedNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed))) {
+                        $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName);
+                        $this.SVTResources += $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.ResourceTypeName, $this.MaxObjectsToScan);
+                    }
+
                     # getting all the resources count
                     # and sending them to telemetry as well
                     $scanSource = [AzSKSettings]::GetInstance().GetScanSource(); # Disabling resource telemetry for SDL scan.
