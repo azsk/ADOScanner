@@ -41,7 +41,12 @@
           "ADO_Project_AuthZ_Restrict_Feed_Permissions",
           "ADO_Project_AuthZ_Disable_Repo_Inherited_Permissions",
           "ADO_Project_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
-          "ADO_Project_AuthZ_Revoke_Admin_Access_for_Guest_Users"
+          "ADO_Project_AuthZ_Revoke_Admin_Access_for_Guest_Users",
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Builds",
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Releases",
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SvcConn",
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Agentpool",
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_VarGrp"
         ]
       },
       {
