@@ -20,6 +20,8 @@
           "ADO_Organization_Enable_Audit_Stream",
           "ADO_Organization_BCDR_Min_Admin_Count",
           "ADO_Organization_AuthN_Use_ALT_Accounts_For_Admin",
+          "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secure_Files",
+          "ADO_Project_AuthZ_Restrict_Feed_Permissions",
           "ADO_Organization_AuthZ_Disable_OAuth_App_Access",
           "ADO_Organization_AuthN_Disable_SSH_Access",
           "ADO_Organization_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
@@ -103,18 +105,6 @@
           "ADO_VariableGroup_AuthZ_Disable_Inherited_Permissions",
           "ADO_VariableGroup_DP_No_PlainText_Secrets_In_Variables",
           "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access"
-        ]
-      },
-      {
-        "ResourceType": "Feed",
-        "ControlIds": [
-          "ADO_Feed_AuthZ_Restrict_Permissions"
-        ]
-      },
-      {
-        "ResourceType": "SecureFile",
-        "ControlIds": [
-          "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access"
         ]
       }
     ]
