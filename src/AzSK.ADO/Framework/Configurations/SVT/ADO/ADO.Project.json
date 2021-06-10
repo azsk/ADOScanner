@@ -295,24 +295,6 @@
         "Enabled": true
     },
     {
-        "ControlID": "ADO_Project_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
-        "Description": "Remove inactive users from administrative roles in your project.",
-        "Id": "Project330",
-        "ControlSeverity": "High",
-        "Automated": "Yes",
-        "MethodName": "CheckInactiveUsersInAdminRoles",
-        "Rationale": "Inactive users in administrative roles provide more opportunities for hackers to leverage credential harvesting attacks to gain admin access. It is best to restrict critical roles in the project to active members only.",
-        "Recommendation": "1. Go to Project Settings --> 2. Permissions --> 3. Search for Collection group of the inactive user --> 4. Go to members tab --> 5. Remove its access by clicking on three dots against its row.",
-        "Tags": [
-          "SDL",
-          "TCP",
-          "Automated",
-          "AuthZ",
-          "MSW"
-        ],
-        "Enabled": true
-    },
-    {
       "ControlID": "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Builds",
       "Description": "Do not allow build pipelines to inherit excessive permissions for a broad group of users at project level.",
       "Id": "Project340",
@@ -401,6 +383,24 @@
         "MSW"
       ],
       "Enabled": true
-    }
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
+      "Description": "Remove inactive users from administrative roles in your project.",
+      "Id": "Project330",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckInactiveUsersInAdminRoles",
+      "Rationale": "Inactive users in administrative roles provide more opportunities for hackers to leverage credential harvesting attacks to gain admin access. It is best to restrict critical roles in the project to active members only.",
+      "Recommendation": "1. Go to Project Settings --> 2. Permissions --> 3. Search for Collection group of the inactive user --> 4. Go to members tab --> 5. Remove its access by clicking on three dots against its row.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "MSW"
+      ],
+      "Enabled": true
+  }
   ]
 }
