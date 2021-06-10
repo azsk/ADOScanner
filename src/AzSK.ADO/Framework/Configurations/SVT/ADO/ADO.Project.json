@@ -368,7 +368,7 @@
     },
     {
       "ControlID": "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Agentpool",
-      "Description": "Do not allow Agent pools to inherit excessive permissions for a broad group of users at project level.",
+      "Description": "Do not allow agent pools to inherit excessive permissions for a broad group of users at project level.",
       "Id": "Project370",
       "ControlSeverity": "High",
       "Automated": "Yes",
