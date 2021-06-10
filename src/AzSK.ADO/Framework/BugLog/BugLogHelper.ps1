@@ -255,7 +255,7 @@ class BugLogHelper {
             if ($azTableBugInfo -and $azTableBugInfo.count -gt 0) {
                 $adoBugIds = @();
                 $adoBugIds += $azTableBugInfo.ADOBugId;
-                $adoClosedBugResponse = $this.CloseBugBulk($adoBugIds);
+                $adoClosedBugResponse = $this.CloseBugsInBulk($adoBugIds);
 
                 if($adoClosedBugResponse)
                 {
@@ -311,7 +311,7 @@ class BugLogHelper {
     }
 
     #function to close an active bugs in bulk
-    hidden [object] CloseBugBulk([string[]] $ids) 
+    hidden [object] CloseBugsInBulk([string[]] $ids) 
     {
         try {
             $closeBugTemplate = @();

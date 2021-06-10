@@ -111,7 +111,7 @@ class AutoCloseBugManager {
                         if ($response[0].results.count -gt 0) {
                             $ids = @();
                             $ids += $response.results.fields."system.id";
-                            $closedBugs = $this.CloseBugBulk($ids);
+                            $closedBugs = $this.CloseBugsInBulk($ids);
                             #$response.results | ForEach-Object {
                             #    #close the bug
                             #    $id = $_.fields."system.id"
@@ -151,7 +151,7 @@ class AutoCloseBugManager {
                         if ($response[0].results.count -gt 0) {
                             $ids = @();
                             $ids += $response.results.fields."system.id";
-                            $closedBugs = $this.CloseBugBulk($ids);
+                            $closedBugs = $this.CloseBugsInBulk($ids);
                             #$response.results | ForEach-Object {
                             #    $id = $_.fields."system.id"
                             #    $Project = $_.project.name
@@ -195,7 +195,7 @@ class AutoCloseBugManager {
     }
 
     #function to close an active bugs in bulk
-    hidden [object] CloseBugBulk([string[]] $ids) 
+    hidden [object] CloseBugsInBulk([string[]] $ids) 
     {
         try {
             $closeBugTemplate = @();
