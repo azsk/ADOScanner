@@ -1729,7 +1729,12 @@ class Project: ADOSVTBase
                                         $response = @([WebRequestHelper]::InvokeGetWebRequest($url));
                                         if([Helpers]::CheckMember($response[0],"members.lastAccessedDate"))
                                         {
-                                            $dateobj = [datetime]::Parse($response[0].members.lastAccessedDate)
+                                            $members = @($response[0].members)
+                                            if($members.count -gt 1)
+                                            {
+                                                $members = $members | where-object {$_.user.descriptor -eq $currentObj.Descriptor }
+                                            }
+                                            $dateobj = [datetime]::Parse($members[0].lastAccessedDate)
                                             if($dateobj -lt $thresholdDate )
                                             {
                                                 $formatLastRunTimeSpan = New-TimeSpan -Start $dateobj
