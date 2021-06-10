@@ -1561,24 +1561,27 @@ class Project: ADOSVTBase
                             $AdminUsersMasterList | ForEach-Object{
                                 try 
                                 {
-                                    $currentObj = $_
-                                    $url = "https://vsaex.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/userentitlements/$($_.Descriptor)?api-version=6.0-preview.3"
-                                    $response = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                                    if([Helpers]::CheckMember($response,"lastAccessedDate"))
+                                    if([Helpers]::CheckMember($_,"PrincipalName"))
                                     {
-                                        $dateobj = [datetime]::Parse($response.lastAccessedDate)
-                                        if($dateobj -lt $thresholdDate )
+                                        $currentObj = $_
+                                        $url = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?%24filter=name%20eq%20%27{1}%27&%24orderBy=name%20Ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName), $_.PrincipalName;
+                                        $response = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                                        if([Helpers]::CheckMember($response,"members.lastAccessedDate"))
                                         {
-                                            $formatLastRunTimeSpan = New-TimeSpan -Start $dateobj
-                                            if(($formatLastRunTimeSpan).Days -gt 10000)
+                                            $dateobj = [datetime]::Parse($response.members.lastAccessedDate)
+                                            if($dateobj -lt $thresholdDate )
                                             {
-                                                $_.LastAccessedDate = "User was never active"
-                                            }
-                                            else {
-                                                $_.LastAccessedDate = $dateobj.ToString("MM-dd-yyyy")
-                                            }
-                                            $inactiveUsersWithAdminAccess += $_
-                                        }                        
+                                                $formatLastRunTimeSpan = New-TimeSpan -Start $dateobj
+                                                if(($formatLastRunTimeSpan).Days -gt 10000)
+                                                {
+                                                    $_.LastAccessedDate = "User was never active"
+                                                }
+                                                else {
+                                                    $_.LastAccessedDate = $dateobj.ToString("MM-dd-yyyy")
+                                                }
+                                                $inactiveUsersWithAdminAccess += $_
+                                            }                        
+                                        }
                                     }
                                 }
                                 catch 
@@ -1590,16 +1593,15 @@ class Project: ADOSVTBase
                         }                        
                     }
                     else {
-                       $controlResult.AddMessage([VerificationResult]::Passed, "No user found with admin roles in the organization.")
+                       $controlResult.AddMessage([VerificationResult]::Passed, "No user found with admin roles in the project.")
                     }                       
                     
                     if($null -eq (Compare-Object -ReferenceObject $AdminUsersMasterList -DifferenceObject $AdminUsersFailureCases))
                     {
-                        $controlResult.AddMessage([VerificationResult]::Error, "You do not have proper permissons.")
+                        $controlResult.AddMessage([VerificationResult]::Error, "Unable to fetch details of inactive users in admin role. Please run the scan with admin priveleges.")
                     }                    
                     elseif($inactiveUsersWithAdminAccess.count -gt 0)
                     {
-                        $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForInactiveUser|FT|Out-String)"); 
                         $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive users found in admin roles: $($inactiveUsersWithAdminAccess.count) ");
                         $controlResult.AddMessage("`nInactive user details:")
                         $display = ($inactiveUsersWithAdminAccess|FT PrincipalName,DisplayName,Group,LastAccessedDate  -AutoSize | Out-String -Width 512)
@@ -1607,13 +1609,13 @@ class Project: ADOSVTBase
                         $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
                     }
                     else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No Inactive User have admin roles in project.");
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No inactive user have admin roles in project.");
                     }
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of groups in the project.")
                 }
-                
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForInactiveUser|FT|Out-String)");        
             }
             catch
             {
