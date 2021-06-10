@@ -152,6 +152,9 @@ class SVTResourceResolver: AzSKRoot {
             $this.AgentPools = "*"
             $this.ServiceConnections = "*"
             $this.VariableGroups = "*"
+            $this.RepoNames = "*"
+            $this.SecureFileNames = "*"
+            $this.FeedNames = "*"
         }
 
         if (( $this.MaxObjectsToScan -eq 0 -or $this.MaxObjectsToScan -gt $this.longRunningScanCheckPoint) -and ($this.ProjectNames -eq "*" -or $this.BuildNames -eq "*" -or $this.ReleaseNames -eq "*" -or $this.ServiceConnections -eq "*" -or $this.AgentPools -eq "*" -or $this.VariableGroups -eq "*")) {
