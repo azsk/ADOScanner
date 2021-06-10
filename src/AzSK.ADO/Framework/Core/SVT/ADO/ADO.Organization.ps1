@@ -2241,9 +2241,9 @@ class Organization: ADOSVTBase
                                         $currentObj = $_
                                         $url = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?%24filter=name%20eq%20%27{1}%27&%24orderBy=name%20Ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName), $_.PrincipalName;
                                         $response = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                                        if([Helpers]::CheckMember($response,"members.lastAccessedDate"))
+                                        if([Helpers]::CheckMember($response[0],"members.lastAccessedDate"))
                                         {
-                                            $dateobj = [datetime]::Parse($response.members.lastAccessedDate)
+                                            $dateobj = [datetime]::Parse($response[0].members.lastAccessedDate)
                                             if($dateobj -lt $thresholdDate )
                                             {
                                                 $formatLastRunTimeSpan = New-TimeSpan -Start $dateobj
