@@ -498,7 +498,7 @@ class Project: ADOSVTBase
             {
 
                 $adminGroupNames = @($this.ControlSettings.Project.GroupsToCheckForSCAltMembers);
-                if ($adminGroupNames.Count -gt 0) 
+                if ($adminGroupNames.Count -gt 0)
                 {
                     #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
                     $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
@@ -512,7 +512,7 @@ class Project: ADOSVTBase
                     {
                         $adminGroups = @();
                         $adminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $adminGroupNames }
-                        
+
                         if($adminGroups.Count -gt 0)
                         {
                             #global variable to track admin members across all admin groups
@@ -552,12 +552,12 @@ class Project: ADOSVTBase
 
                                 if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
                                 {
-                                    if ($this.graphPermissions.hasGraphAccess) 
+                                    if ($this.graphPermissions.hasGraphAccess)
                                     {
                                         $allAdmins = [IdentityHelpers]::DistinguishAltAndNonAltAccount($allAdminMembers)
                                         $SCMembers = $allAdmins.altAccount
                                         $nonSCMembers = $allAdmins.nonAltAccount
-                                        
+
                                         $nonSCCount = $nonSCMembers.Count
                                         $SCCount = $SCMembers.Count
 
@@ -566,8 +566,8 @@ class Project: ADOSVTBase
                                             $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
                                             $stateData = @();
                                             $stateData += $nonSCMembers
-                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non ALT accounts with admin privileges:  $nonSCCount"); 
-                                            $controlResult.AddMessage("List of non ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));  
+                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non ALT accounts with admin privileges:  $nonSCCount");
+                                            $controlResult.AddMessage("List of non ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
                                             $controlResult.SetStateData("List of non ALT accounts: ", $stateData);
                                             $controlResult.AdditionalInfo += "Count of non ALT accounts with admin privileges: " + $nonSCCount;
                                         }
@@ -582,7 +582,7 @@ class Project: ADOSVTBase
                                             $SCData += $SCMembers
                                             $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
                                             $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
-                                            $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));  
+                                            $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
                                         }
                                     }
                                     else {
@@ -595,38 +595,38 @@ class Project: ADOSVTBase
                                     if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg")){
                                         $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
                                         #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
-                                        if (-not [string]::IsNullOrEmpty($matchToSCAlt)) 
+                                        if (-not [string]::IsNullOrEmpty($matchToSCAlt))
                                         {
                                             $nonSCMembers = @();
                                             $nonSCMembers += $allAdminMembers | Where-Object { $_.mailAddress -notmatch $matchToSCAlt }
                                             $nonSCCount = $nonSCMembers.Count
 
                                             $SCMembers = @();
-                                            $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }   
+                                            $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }
                                             $SCCount = $SCMembers.Count
 
-                                            if ($nonSCCount -gt 0) 
+                                            if ($nonSCCount -gt 0)
                                             {
                                                 $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
                                                 $stateData = @();
                                                 $stateData += $nonSCMembers
-                                                $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non ALT accounts with admin privileges: $nonSCCount"); 
-                                                $controlResult.AddMessage("List of non ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));  
+                                                $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non ALT accounts with admin privileges: $nonSCCount");
+                                                $controlResult.AddMessage("List of non ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
                                                 $controlResult.SetStateData("List of non ALT accounts: ", $stateData);
                                                 $controlResult.AdditionalInfo += "Count of non ALT accounts with admin privileges: " + $nonSCCount;
                                             }
-                                            else 
+                                            else
                                             {
                                                 $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
                                             }
-                                            if ($SCCount -gt 0) 
+                                            if ($SCCount -gt 0)
                                             {
                                                 $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
                                                 $SCData = @();
                                                 $SCData += $SCMembers
                                                 $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
-                                                $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;  
-                                                $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));  
+                                                $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
+                                                $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
                                             }
                                         }
                                         else {
@@ -636,7 +636,7 @@ class Project: ADOSVTBase
                                     else{
                                         $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting SC-ALT account is not defined in the organization. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
                                     }
-                                }  
+                                }
                             }
                             else
                             { #count is 0 then there is no members added in the admin groups
@@ -1605,8 +1605,8 @@ class Project: ADOSVTBase
                         }
                     }
                     if($formattedData.Count -gt 0)
-                    {   
-                        $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");               
+                    {
+                        $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");
                         $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}
                         $groups = $formattedData | Group-Object "Principal Name"
                         $results = @()
@@ -1705,7 +1705,7 @@ class Project: ADOSVTBase
                                                 if(($formatLastRunTimeSpan).Days -gt 10000)
                                                 {
                                                     $_.lastAccessedDate = "User was never active"
-                                                }                                                
+                                                }
                                                 else {
                                                     $_.lastAccessedDate = ([datetime] $_.lastAccessedDate).ToString("MM-dd-yyyy")
                                                 }
@@ -1731,8 +1731,8 @@ class Project: ADOSVTBase
                             }
                         }
                         if($formattedData.Count -gt 0)
-                        {   
-                            $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n`t[$($AdminGroupsToCheckForInactiveUser -join ', ')]`n");               
+                        {
+                            $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n`t[$($AdminGroupsToCheckForInactiveUser -join ', ')]`n");
                             $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}, @{Name="Last Accessed Date"; Expression={$_.Date}}
                             $groups = $formattedData | Group-Object "Principal Name"
                             $results = @()
@@ -2106,7 +2106,7 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage([VerificationResult]::Failed, "Agent pools are allowed to inherit excessive permissions for a broad group of users at project level.");
                         $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups: $($restrictedGroupsCount)");
                         $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
-                        $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                        $formattedGroupsTable = ($formattedGroupsData | Out-String)
                         $controlResult.AddMessage("`nList of groups: $formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool at a project level: $($restrictedGroupsCount)";
@@ -2159,7 +2159,9 @@ class Project: ADOSVTBase
                 # fail the control if restricted group found on variable group
                 if ($restrictedGroupsCount -gt 0) {
                     $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have user/administrator access to variable group at a project level: $($restrictedGroupsCount)");
-                    $controlResult.AddMessage("`nList of groups: `n($restrictedGroups | FT | Out-String)")
+                    $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                    $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to variable group at a project level: $($restrictedGroupsCount)";
                 }

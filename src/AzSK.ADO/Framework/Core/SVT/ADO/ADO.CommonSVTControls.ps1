@@ -5,13 +5,13 @@ class CommonSVTControls: ADOSVTBase {
     hidden [PSObject] $ProjectId;
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
-        
+
     }
 
-    hidden [ControlResult] CheckInactiveRepo([ControlResult] $controlResult) 
+    hidden [ControlResult] CheckInactiveRepo([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        try 
+        try
         {
             $repoDefnsObj = $this.ResourceContext.ResourceDetails;
             $threshold = $this.ControlSettings.Repo.RepoHistoryPeriodInDays
@@ -84,7 +84,7 @@ class CommonSVTControls: ADOSVTBase {
             $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.id)"
 
             # Get list of all users and groups granted permissions on all repositories
-            $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody); 
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
 
             # Iterate through each user/group to fetch detailed permissions list
             if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
@@ -94,21 +94,21 @@ class CommonSVTControls: ADOSVTBase {
                 $body.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceGroupName;
                 $body.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.id)"
 
-                $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { $_.subjectKind -eq "group" } | ForEach-Object { 
-                    $identity = $_ 
+                $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { $_.subjectKind -eq "group" } | ForEach-Object {
+                    $identity = $_
                     $body.dataProviderContext.properties.accountName = $_.principalName
                     $body.dataProviderContext.properties.subjectDescriptor = $_.descriptor
 
-                    $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body); 
+                    $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body);
                     $configuredPermissions = $identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
                     return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.subjectKind; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
                 }
 
-                $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { $_.subjectKind -eq "user" } | ForEach-Object { 
-                    $identity = $_ 
+                $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { $_.subjectKind -eq "user" } | ForEach-Object {
+                    $identity = $_
                     $body.dataProviderContext.properties.subjectDescriptor = $_.descriptor
 
-                    $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body); 
+                    $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body);
                     $configuredPermissions = $identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
                     return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.subjectKind; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
                 }
@@ -118,12 +118,12 @@ class CommonSVTControls: ADOSVTBase {
             {
                 $accessList= $accessList | Select-Object -Property @{Name="IdentityName"; Expression = {$_.IdentityName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Permissions"; Expression = {$_.Permissions}}
                 $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to repositories.", $accessList);
-                $controlResult.SetStateData("List of identities having access to repositories: ", ($responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.subjectKind}},@{Name="Scope"; Expression = {$_.Scope}})); 
+                $controlResult.SetStateData("List of identities having access to repositories: ", ($responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.subjectKind}},@{Name="Scope"; Expression = {$_.Scope}}));
             }
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed,"No identities have been explicitly provided access to repositories.");
-            } 
+            }
             $responseObj = $null;
 
         }
@@ -158,7 +158,7 @@ class CommonSVTControls: ADOSVTBase {
             $RestrictedBroaderGroupsForFeeds = $null;
             if ([Helpers]::CheckMember($this.ControlSettings, "Feed.RestrictedBroaderGroupsForFeeds")) {
                 $restrictedBroaderGroupsForFeeds = $this.ControlSettings.Feed.RestrictedBroaderGroupsForFeeds
-    
+
                 #GET https://feeds.dev.azure.com/{organization}/{project}/_apis/packaging/Feeds/{feedId}/permissions?api-version=6.0-preview.1
                 #Using visualstudio api because new api (dev.azure.com) is giving null in the displayName property.
                 $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
@@ -166,8 +166,8 @@ class CommonSVTControls: ADOSVTBase {
                 $excesiveFeedsPermissions = @(($feedPermissionList | Where-Object {$_.role -eq "administrator" -or $_.role -eq "collaborator" -or $_.role -eq "contributor"}) | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}}) ;
                 $feedWithBroaderGroup = @($excesiveFeedsPermissions | Where-Object { $restrictedBroaderGroupsForFeeds -contains $_.DisplayName.split('\')[-1] })
                 $feedWithroaderGroupCount = $feedWithBroaderGroup.count;
-                
-                if ($feedWithroaderGroupCount -gt 0) 
+
+                if ($feedWithroaderGroupCount -gt 0)
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have administrator/contributor/collaborator access to feed: $($feedWithroaderGroupCount)")
 
@@ -177,7 +177,7 @@ class CommonSVTControls: ADOSVTBase {
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with administrator/contributor/collaborator permission to broad groups.");
-                } 
+                }
                 $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($restrictedBroaderGroupsForFeeds | FT | out-string)");
             }
             else
@@ -193,15 +193,15 @@ class CommonSVTControls: ADOSVTBase {
         return $controlResult
     }
 
-    hidden [ControlResult] CheckSecureFilesPermission([ControlResult] $controlResult) 
+    hidden [ControlResult] CheckSecureFilesPermission([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try {
             $url = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=securefile&id={2}&api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id
             $secureFileObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-            
+
             if(($secureFileObj.Count -gt 0) -and [Helpers]::CheckMember($secureFileObj[0], "authorized") -and  $secureFileObj[0].authorized -eq $true) {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is acccesible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is accesible to all pipelines.");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all pipelines.");
