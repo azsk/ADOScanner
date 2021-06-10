@@ -253,9 +253,9 @@ class BugLogHelper {
             
             $azTableBugInfo = $item.value
             if ($azTableBugInfo -and $azTableBugInfo.count -gt 0) {
-                $adoBugId = @();
-                $adoBugId += $azTableBugInfo.ADOBugId;
-                $adoClosedBugResponse = $this.CloseBugBulk($adoBugId);
+                $adoBugIds = @();
+                $adoBugIds += $azTableBugInfo.ADOBugId;
+                $adoClosedBugResponse = $this.CloseBugBulk($adoBugIds);
 
                 if($adoClosedBugResponse)
                 {
