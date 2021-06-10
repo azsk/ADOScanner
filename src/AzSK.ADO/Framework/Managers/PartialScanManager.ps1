@@ -21,6 +21,8 @@ class PartialScanManager
 	hidden static $CollatedSummaryCount = @(); # Matrix of counts for severity and control status
 	hidden static $CollatedBugSummaryCount = @(); # Matrix of counts for severity and Bug status
 	hidden static $ControlResultsWithBugSummary = @();
+	hidden static $ControlResultsWithClosedBugSummary= @();
+
 	hidden [string] $SummaryMarkerText = "------";
 
 
@@ -667,6 +669,30 @@ class PartialScanManager
 				};
 				#Collecting control results where bug has been found (new/active/resolved). This is used to generate BugSummary at the end of scan
 				[PartialScanManager]::ControlResultsWithBugSummary += $item
+			}
+		};
+
+	}
+
+	[void] CollateBugClosedSummaryData($event){
+		#gather all control results that have failed/verify as their control result
+		#obtain their control severities
+		$event | ForEach-Object {
+			$item = $_
+			if ($item -and $item.ControlResults -and ($item.ControlResults[0].VerificationResult -eq "Passed"))
+			{
+				$item
+				$item.ControlResults[0].Messages | ForEach-Object{
+					if($_.Message -eq "Closed Bug"){
+					[PartialScanManager]::CollatedBugSummaryCount += [PSCustomObject]@{
+						BugStatus=$_.Message
+						ControlSeverity = $item.ControlItem.ControlSeverity;
+						
+					};
+				}
+				};
+				#Collecting control results where bug has been found (new/active/resolved). This is used to generate BugSummary at the end of scan
+				[PartialScanManager]::ControlResultsWithClosedBugSummary += $item
 			}
 		};
 

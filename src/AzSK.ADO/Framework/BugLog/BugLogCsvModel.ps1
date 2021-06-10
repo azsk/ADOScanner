@@ -3,7 +3,7 @@ Set-StrictMode -Version Latest
 class BugLogCsvItem
 {
     #Fields from JSON
-    [string] $BugType=""
+    [string] $BugStatus=""
     [string] $FeatureName = ""
     [string] $ResourceName = ""
     [string] $ControlID = ""

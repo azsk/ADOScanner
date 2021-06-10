@@ -19,7 +19,7 @@ class WriteBugLogCsv
                 $result.ControlResults[0].Messages | ForEach-Object{
                     if($_.Message -eq "Active Bug" -or $_.Message -eq "Resolved Bug" -or $_.Message -eq "New Bug"){	
                         $Bug=[BugLogCsvItem] @{
-                            BugType=$_.Message
+                            BugStatus=$_.Message
                             FeatureName=$result.FeatureName
                             ResourceName=$result.ResourceContext.ResourceName
                             ControlId=$result.ControlItem.ControlID
@@ -41,7 +41,7 @@ class WriteBugLogCsv
         $bug.ControlResults[0].Messages | ForEach-Object{
         if($_.Message -eq "Closed Bug"){
             $Bug=[BugLogCsvItem] @{
-                BugType=$_.Message
+                BugStatus=$_.Message
                 FeatureName=$bug.FeatureName
                 ResourceName=$bug.ResourceContext.ResourceName
                 ControlId=$bug.ControlItem.ControlID

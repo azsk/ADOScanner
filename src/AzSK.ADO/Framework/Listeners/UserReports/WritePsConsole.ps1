@@ -539,8 +539,8 @@ class WritePsConsole: FileOutputBase
 
 	hidden [void] PrintBugSummaryData($event){
 		[PSCustomObject[]] $summary = @();
+		$partialScanPassed=$false
 		#ToDo check if class exists always
-		$bugsClosed=[AutoCloseBugManager]::ClosedBugs;
 		if (($event.SourceArgs | Measure-Object).Count -ne 0)
 		{
 			#gather all control results that have failed/verify as their control result
@@ -564,8 +564,20 @@ class WritePsConsole: FileOutputBase
 		}
 		else{
 			$summary = [PartialScanManager]::CollatedBugSummaryCount
+			$partialScanPassed=$true
 		}
 		#ifBugsClosed
+		if(!$partialScanPassed -and [AutoCloseBugManager]::ClosedBugs)
+		{
+			$bugsClosed=[AutoCloseBugManager]::ClosedBugs
+		}
+		elseif(!$partialScanPassed -and [PartialScanManager]::ControlResultsWithClosedBugSummary)
+		{
+			$bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
+		}
+		else{
+			$bugsClosed=$null
+		}
 		if($bugsClosed)
 		{
 			$bugsClosed | ForEach-Object{
@@ -582,6 +594,7 @@ class WritePsConsole: FileOutputBase
 
 				}
 			}
+
 		}
 
 		#if such bugs were found, print a summary table
@@ -657,6 +670,7 @@ class WritePsConsole: FileOutputBase
 		#Clearing the static variables
 		[PartialScanManager]::ControlResultsWithBugSummary = @();
 		[PartialScanManager]::CollatedBugSummaryCount = @();
+        [PartialScanManager]::ControlResultsWithClosedBugSummary = @();
 		
 
 	}

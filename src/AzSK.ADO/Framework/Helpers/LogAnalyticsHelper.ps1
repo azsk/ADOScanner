@@ -99,18 +99,6 @@ Class LogAnalyticsHelper{
 	{
 		[PSObject[]] $output = @();
 		#Improves overall performance by identifying if we called function for usual use or to send closed bug information to LA.
-		$AutoBugCloseMode=$false
-		$checkControl= $eventContext.ControlResults[0] #Check if first control has closed bug info in messages and decide mode of operation of function
-		if($checkControl.VerificationResult -eq "Passed")
-		{
-			$checkControl.Messages | ForEach-Object{
-				if($_.Message -eq "Closed Bug")
-				{
-					$AutoBugCloseMode=$true
-				}
-
-			}
-		}
 
 
 
@@ -174,7 +162,7 @@ Class LogAnalyticsHelper{
             }
 			$isBugFlag=$false
 			#ToDo Check if AutoBuglogging activated. If not skip part
-			if(!$AutoBugCloseMode -and ( $ControlResult.VerificationResult -eq "Failed" -or $ControlResult.VerificationResult -eq "Verify")){
+			if($ControlResult.VerificationResult -eq "Failed" -or $ControlResult.VerificationResult -eq "Verify"){
 				$ControlResult.Messages| ForEach-Object{
 					if($_.Message -eq "Active Bug" -or $_.Message -eq "Resolved Bug" -or $_.Message -eq "New Bug"){
 						$out.bugStatus=$_.Message
@@ -184,19 +172,6 @@ Class LogAnalyticsHelper{
 					}
 
 				}
-
-			}
-			if($AutoBugCloseMode -and $ControlResult.VerificationResult -eq "Passed"){
-				$ControlResult.Messages| ForEach-Object{
-					if($_.Message -eq "Closed Bug"){
-						$out.bugStatus=$_.Message
-						$out.bugUrl=$_.DataObject
-						$isBugFlag=$true
-
-					}
-
-				}
-
 			}
 			if(!$isBugFlag){
 				$out.bugUrl=$null

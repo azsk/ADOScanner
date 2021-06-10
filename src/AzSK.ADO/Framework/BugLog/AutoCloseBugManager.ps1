@@ -75,7 +75,8 @@ class AutoCloseBugManager {
 
         #number of passed controls
         $PassedControlResultsLength = ($PassedControlResults | Measure-Object).Count
-        $TagToControlIDMap=@{}
+        #This Hash map is used to map an ADOScan hashtag value to a control. 
+        $hashToControlIDMap=@{}
         #the following loop will call api for bug closing in batches of size as defined in control settings,
         #first check if passed controls length is less than the batch size, if yes then we have to combine all tags in one go
         #and call the api
@@ -94,7 +95,7 @@ class AutoCloseBugManager {
                 if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA")
                 { 
                     $tagHash=$this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
-                    $TagToControlIDMap.add($tagHash,$control);
+                    $hashToControlIDMap.add($tagHash,$control);
                     #complete the query
                     $TagSearchKeyword += "(ADOScannerHashId eq '" + $tagHash + "') or "
                     #if the query count equals the passing control results, search for bugs for this batch
@@ -108,12 +109,12 @@ class AutoCloseBugManager {
                                 $bug=$_.body |ConvertFrom-Json
                                 
                                 #Check if Closed and Hash Id available in map
-                                if($TagToControlIDMap.ContainsKey($bug.ADOScannerHashId) -and $bug.fields.'System.State' -eq 'Closed'){
+                                if($hashToControlIDMap.ContainsKey($bug.ADOScannerHashId) -and $bug.fields.'System.State' -eq 'Closed'){
                                         $id=$bug.id
                                         $project=$bug.fields.'System.TeamProject'
                                         $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $project , $id;
-                                        $TagToControlIDMap[$bug.ADOScannerHashId].ControlResults.AddMessage("Closed Bug",$urlClose);
-                                        [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$bug.ADOScannerHashId]                     
+                                        $hashToControlIDMap[$bug.ADOScannerHashId].ControlResults.AddMessage("Closed Bug",$urlClose);
+                                        [AutoCloseBugManager]::ClosedBugs+=$hashToControlIDMap[$bug.ADOScannerHashId]                     
                                 }
                             }
                         }
@@ -122,7 +123,7 @@ class AutoCloseBugManager {
                 else {
                     #complete the query
                     $tagHash=$this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
-                    $TagToControlIDMap.add($tagHash,$control);
+                    $hashToControlIDMap.add($tagHash,$control);
                     $TagSearchKeyword += "Tags: " + $tagHash + " OR "
 
                     #if the query count equals the passing control results, search for bugs for this batch
@@ -141,13 +142,13 @@ class AutoCloseBugManager {
                                     $bug=$_.body |ConvertFrom-Json
                                     
                                     #Check if Closed
-                                    if($TagToControlIDMap.ContainsKey($bug.fields.'System.Tags') -and $bug.fields.'System.State' -eq 'Closed')
+                                    if($hashToControlIDMap.ContainsKey($bug.fields.'System.Tags') -and $bug.fields.'System.State' -eq 'Closed')
                                     {
                                         $id=$bug.id
                                         $project=$bug.fields.'System.TeamProject'
                                         $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $project , $id;
-                                        $TagToControlIDMap[$bug.fields.'System.Tags'].ControlResults.AddMessage("Closed Bug",$urlClose);
-                                        [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$bug.fields.'System.Tags']
+                                        $hashToControlIDMap[$bug.fields.'System.Tags'].ControlResults.AddMessage("Closed Bug",$urlClose);
+                                        [AutoCloseBugManager]::ClosedBugs+=$hashToControlIDMap[$bug.fields.'System.Tags']
                                     }
                                 }
                             }
@@ -163,7 +164,7 @@ class AutoCloseBugManager {
                     if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA")
                     {
                         $tagHash=$this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
-                        $TagToControlIDMap.add($tagHash,$control);
+                        $hashToControlIDMap.add($tagHash,$control);
                         $TagSearchKeyword += "(ADOScannerHashId eq '" + $tagHash + "') or "
 
                         #if number of tags reaches batch limit
@@ -177,13 +178,13 @@ class AutoCloseBugManager {
                                     $bug=$_.body |ConvertFrom-Json
                                     
                                     #Check if Closed
-                                    if($TagToControlIDMap.ContainsKey($bug.ADOScannerHashId) -and $bug.fields.'System.State' -eq 'Closed')
+                                    if($hashToControlIDMap.ContainsKey($bug.ADOScannerHashId) -and $bug.fields.'System.State' -eq 'Closed')
                                     {
                                         $id=$bug.id
                                         $project=$bug.fields.'System.TeamProject'
                                         $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $project , $id;
-                                        $TagToControlIDMap[$bug.ADOScannerHashId].ControlResults.AddMessage("Closed Bug",$urlClose);
-                                        [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$bug.ADOScannerHashId]
+                                        $hashToControlIDMap[$bug.ADOScannerHashId].ControlResults.AddMessage("Closed Bug",$urlClose);
+                                        [AutoCloseBugManager]::ClosedBugs+=$hashToControlIDMap[$bug.ADOScannerHashId]
                                     }
                                 }
                             }
@@ -212,13 +213,13 @@ class AutoCloseBugManager {
                                     $bug=$_.body |ConvertFrom-Json
                                     
                                     #Check if Closed
-                                    if($TagToControlIDMap.ContainsKey($bug.fields.'System.Tags') -and $bug.fields.'System.State' -eq 'Closed')
+                                    if($hashToControlIDMap.ContainsKey($bug.fields.'System.Tags') -and $bug.fields.'System.State' -eq 'Closed')
                                     {
                                         $id=$bug.id
                                         $project=$bug.fields.'System.TeamProject'
                                         $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $project , $id;
-                                        $TagToControlIDMap[$bug.fields.'System.Tags'].ControlResults.AddMessage("Closed Bug",$urlClose);
-                                        [AutoCloseBugManager]::ClosedBugs+=$TagToControlIDMap[$bug.fields.'System.Tags']
+                                        $hashToControlIDMap[$bug.fields.'System.Tags'].ControlResults.AddMessage("Closed Bug",$urlClose);
+                                        [AutoCloseBugManager]::ClosedBugs+=$hashToControlIDMap[$bug.fields.'System.Tags']
                                     }
                                 }
                             }
@@ -233,8 +234,8 @@ class AutoCloseBugManager {
             }
                 
             
-        $TagToControlIDMap.Clear();
-        Remove-Variable $TagToControlIDMap;
+        $hashToControlIDMap.Clear();
+        Remove-Variable $hashToControlIDMap;
     
     }
 
