@@ -200,7 +200,7 @@
       "Automated": "Yes",
       "MethodName": "CheckPipelineEditPermission",
       "Rationale": "If a broad group of users (e.g., Contributors) have excessive permissions on a pipeline, then integrity of your pipeline can be compromised by a malicious user who edits it.",
-      "Recommendation": "1. Navigate to the build pipeline. --> 2. Click on Security. --> 3. Ensure 'Edit build pipeline' permission of Contributors is set to 'Deny'. --> 4. Repeat this for any other groups that should not have edit access.",
+      "Recommendation": "1. Navigate to the build pipeline --> 2. Click on three dots at top right corner --> 3. Manage security --> 4. Ensure 'Edit build pipeline' permission of Contributors is set to 'Deny' --> 5. Repeat this for any other groups that should not have edit access",
       "Tags": [
         "SDL",
         "TCP",
@@ -218,7 +218,7 @@
       "Automated": "Yes",
       "MethodName": "CheckForkedBuildTrigger",
       "Rationale": "For GitHub public repositories, it is possible that people from outside the organization can create forks and run builds on the forked repo. In such a case, if this setting is wrongly left enabled, outsiders can get access to build pipeline secrets that were meant to be internal.",
-      "Recommendation": "1. Navigate to the build pipeline using resource link -->  2. Triggers --> 3. Pull request validation --> 4. Forks --> 5. Uncheck 'Make secrets available to builds of forks'.",
+      "Recommendation": "1. Navigate to the build pipeline -->  2. Triggers --> 3. Pull request validation --> 4. Forks --> 5. Uncheck 'Make secrets available to builds of forks'.",
       "Tags": [
         "SDL",
         "TCP",
