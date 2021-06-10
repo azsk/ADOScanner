@@ -62,9 +62,9 @@ class CommonSVTResourceResolver {
 
             $feedObjList = @();
             $feedObjList += $this.FetchFeeds($projectName, $feedNames);
-            if ($feedObjList.count -gt 0) {
+            if ($feedObjList.count -gt 0 -and [Helpers]::CheckMember($feedObjList[0], "Id")) {
                 $maxObjScan = $MaxObjectsToScan
-                foreach ($feed in $feedObjList -and [Helpers]::CheckMember($feedObjList[0], "Id")) {
+                foreach ($feed in $feedObjList) {
                     if ([Helpers]::CheckMember($feed, "id")) {
                         $resourceId = "organization/{0}/project/{1}/feed/{2}" -f $this.organizationName, $projectName, $feed.id;
                         $SVTResources += $this.AddSVTResource($feed.name, $projectName, "ADO.Feed", $resourceId, $feed, $feed.Url);
