@@ -539,7 +539,7 @@
         "ControlSeverity": "High",
         "Automated": "Yes",
         "MethodName": "CheckInactiveGuestUsers",
-        "Rationale": "Guest accounts present at any scope within an organization subject your assets to undue risk. These accounts are not managed to the same standards as native enterprise identities. They don't have multi-factor authentication enabled, etc. Even where needed for business purposes, such accounts should be promptly removed if they have not been active for a specified period.",
+        "Rationale": "Guest accounts present at any scope within an organization subject your assets to undue risk. These accounts are not managed to the same standards as native enterprise identities. They don't have multi-factor authentication enabled, etc. Even where needed for business purposes, such accounts should be promptly removed if they have not been active for a specified period.",
         "Recommendation": "1. Go to Organization Settings --> 2. Users --> 3. Filter 'AAD User Type' as 'Guest' --> 4. Remove users with 'last access column' showing not accessed over specific number of days.",
         "Tags": [
           "SDL",
