@@ -1606,7 +1606,6 @@ class Project: ADOSVTBase
                     }
                     if($formattedData.Count -gt 0)
                     {
-                        $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");
                         $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}
                         $groups = $formattedData | Group-Object "Principal Name"
                         $results = @()
@@ -1632,6 +1631,7 @@ class Project: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No Guest User found.");
                 }
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");
             }
             catch
             {
