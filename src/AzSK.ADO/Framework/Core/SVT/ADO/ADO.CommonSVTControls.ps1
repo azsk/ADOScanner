@@ -201,7 +201,7 @@ class CommonSVTControls: ADOSVTBase {
             $secureFileObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
             
             if(($secureFileObj.Count -gt 0) -and [Helpers]::CheckMember($secureFileObj[0], "authorized") -and  $secureFileObj[0].authorized -eq $true) {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is acccesible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is accesible to all pipelines.");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all pipelines.");
