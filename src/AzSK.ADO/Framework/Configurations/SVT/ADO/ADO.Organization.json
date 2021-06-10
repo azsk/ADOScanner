@@ -585,24 +585,6 @@
             "MSW"
         ],
         "Enabled": true
-    },
-    {
-      "ControlID": "ADO_Organization_AuthZ_Revoke_Admin_Access_for_Inactive_Users2",
-      "Description": "Remove inactive users from administrative roles in your organization.",
-      "Id": "Organization450",
-      "ControlSeverity": "High",
-      "Automated": "Yes",
-      "MethodName": "CheckInactiveUsersInAdminRoles2",
-      "Rationale": "Inactive users in administrative roles provide opportunities for hackers to leverage credential harvesting attacks to gain admin access. It is best to restrict critical roles in the organization to active members only.",
-      "Recommendation": "1. Go to Organization Settings --> 2. Permissions --> 3. Search for Collection group of the inactive user --> 4. Go to members tab --> 5. Remove its access by clicking on three dots against its row.",
-      "Tags": [
-          "SDL",
-          "TCP",
-          "Automated",
-          "AuthZ",
-          "MSW"
-      ],
-      "Enabled": true
-  }
+    }
   ]
 }

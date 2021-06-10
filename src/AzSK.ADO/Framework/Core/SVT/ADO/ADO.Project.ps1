@@ -1487,133 +1487,143 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckInactiveUsersInAdminRoles([ControlResult] $controlResult)
     {
-        ## As we cannot find inactivity of a control at project level, so we are fetching inactive users from org level
-        ## and then checking for their Admin groups at project levels
-
-        if($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings,"Project.AdminGroupsToCheckForInactiveUser"))
+        if($this.ControlSettings -and  [Helpers]::CheckMember($this.ControlSettings,"Project.AdminGroupsToCheckForInactiveUser"))
         {
-            try {
+            try
+            {
                 $controlResult.VerificationResult = [VerificationResult]::Failed
                 $AdminGroupsToCheckForInactiveUser = @($this.ControlSettings.Project.AdminGroupsToCheckForInactiveUser)
-                if($this.AllUsersInOrg.Count -eq 0)
+       
+                $inactiveUsersWithAdminAccess = @()
+
+                if(-not [Helpers]::CheckMember($this.ControlSettings,"Project.AdminInactivityThresholdInDays"))
                 {
-                    $this.FetchAllUsersInOrg()
+                    $thresholdDate =  (Get-Date).AddDays(-90) # Default Value, if not provided in control settings
                 }
-                $users = @($this.AllUsersInOrg)
+                else {    
+                    $thresholdDate =  (Get-Date).AddDays(-$($this.ControlSettings.Organization.AdminInactivityThresholdInDays))
+                }
+                
+                ## API Call to fetch project level groups
+                $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+                $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
+                $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
     
-                if($users.Count -gt 0)
+                $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+
+                if([Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider")
                 {
-                    $inactiveUsers =  @()
-                    if(-not [Helpers]::CheckMember($this.ControlSettings.Organization,"AdminInactivityThresholdInDays"))
-                    {
-                        $thresholdDate =  (Get-Date).AddDays(-90) # Default Value, if not provided in control settings
-                    }
-                    else {    
-                        $thresholdDate =  (Get-Date).AddDays(-$($this.ControlSettings.Organization.AdminInactivityThresholdInDays))  
-                    }
+                    $ReqdAdminGroups = @();
+                    $ReqdAdminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $AdminGroupsToCheckForInactiveUser }
                     
-                    $users | ForEach-Object { 
-                        if([datetime]::Parse($_.lastAccessedDate) -lt $thresholdDate )
+                    $allAdminMembers =@();
+
+                    $ReqdAdminGroups | ForEach-Object{
+                        $currentGroup = $_
+
+                        # [AdministratorHelper]::AllPCAMembers is a static variable. Always needs to be initialized. At the end of each iteration, it will be populated with members of that particular admin group.
+                        [AdministratorHelper]::AllPCAMembers = @();
+                        # Helper function to fetch flattened out list of group members.
+                        [AdministratorHelper]::FindPCAMembers($currentGroup.descriptor, $this.OrganizationContext.OrganizationName)
+
+                        $groupMembers = @();
+
+                        # Add the members of current group to this temp variable.
+                        $groupMembers += [AdministratorHelper]::AllPCAMembers
+                        # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
+                        if($groupMembers.count -gt 0)
                         {
-                            $inactiveUsers+= $_
-                        }                
+                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor } )} 
+                        }
                     }
-                    if(($inactiveUsers | Measure-Object).Count -gt 0)
-                    {   
-                        $formattedData = @()
-                        $inactiveUsers | ForEach-Object {
-                            if([Helpers]::CheckMember($_,"user.descriptor"))
-                            {
+                
+                    $AdminUsersMasterList = @()
+                    $AdminUsersFailureCases = @()
+
+                    if($allAdminMembers.count -gt 0)
+                    {
+                        $groups = $allAdminMembers | Group-Object "mailAddress"
+                        $AdminUsersMasterList += foreach( $grpobj in $groups ){                                      
+                                                  $PrincipalName = $grpobj.name
+                                                  $OrgGroup = ($grpobj.group.groupName  | select -Unique)-join ','
+                                                  $DisplayName = $grpobj.group.name | select -Unique
+                                                  $date = ""
+                                                  $descriptor = $grpobj.group.descriptor | select -Unique
+                                                  [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date ; Descriptor = $descriptor}
+                                                }
+                                            
+                        $inactiveUsersWithAdminAccess =@()                        
+
+                        if($AdminUsersMasterList.count -gt 0)
+                        {
+                            $currentObj = $null
+                            $AdminUsersMasterList | ForEach-Object{
                                 try 
                                 {
-                                    $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Graph/Memberships/$($_.user.descriptor)?api-version=6.0-preview.1"                                
+                                    $currentObj = $_
+                                    $url = "https://vsaex.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/userentitlements/$($_.Descriptor)?api-version=6.0-preview.3"
                                     $response = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                                    if([Helpers]::CheckMember($response[0],"containerDescriptor"))
+                                    if([Helpers]::CheckMember($response,"lastAccessedDate"))
                                     {
-                                        foreach ($obj in $response) 
+                                        $dateobj = [datetime]::Parse($response.lastAccessedDate)
+                                        if($dateobj -lt $thresholdDate )
                                         {
-                                            $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/graph/groups/$($obj.containerDescriptor)?api-version=6.0-preview.1";
-                                            $res = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                                            $data = $res.principalName.Split("\");
-                                            $scope =  $data[0] -replace '[\[\]]'
-                                            $group = $data[1]
-                                            if($scope -eq $this.ResourceContext.ResourceName -and ($group -in $AdminGroupsToCheckForInactiveUser) )
+                                            $formatLastRunTimeSpan = New-TimeSpan -Start $dateobj
+                                            if(($formatLastRunTimeSpan).Days -gt 10000)
                                             {
-                                                $dateobj = [datetime]::Parse($_.lastAccessedDate)
-                                                $formatLastRunTimeSpan = New-TimeSpan -Start $dateobj
-                                                if(($formatLastRunTimeSpan).Days -gt 10000)
-                                                {
-                                                    $_.lastAccessedDate = "User was never active"
-                                                }                                                
-                                                else {
-                                                    $_.lastAccessedDate = ([datetime] $_.lastAccessedDate).ToString("MM-dd-yyyy")
-                                                }
-
-                                                $formattedData += @{
-                                                    Group = $data[1];
-                                                    Scope = $data[0];
-                                                    Name = $_.user.displayName;
-                                                    PrincipalName = $_.user.principalName;                                                    
-                                                    Date = $_.lastAccessedDate ;
-                                                }
-                                            }       
-                                        }
+                                                $_.LastAccessedDate = "User was never active"
+                                            }
+                                            else {
+                                                $_.LastAccessedDate = $dateobj.ToString("MM-dd-yyyy")
+                                            }
+                                            $inactiveUsersWithAdminAccess += $_
+                                        }                        
                                     }
-                                }       
+                                }
                                 catch 
                                 {
-                                    $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the membership details for the user")
+                                    $controlResult.LogException($_)
+                                    $AdminUsersFailureCases += $currentObj
                                 }
                             }
-                            else {
-                                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch descriptor for user");
-                            }
-                        }
-                        if($formattedData.Count -gt 0)
-                        {   
-                            $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n`t[$($AdminGroupsToCheckForInactiveUser -join ', ')]`n");               
-                            $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}, @{Name="Last Accessed Date"; Expression={$_.Date}}
-                            $groups = $formattedData | Group-Object "Principal Name"
-                            $results = @()
-                            $results += foreach( $grpObj in $groups ){                                      
-                                          $PrincipalName = $grpObj.name
-                                          $OrgGroup = $grpObj.group.group -join ','
-                                          $DisplayName = $grpObj.group."Display Name" | select -Unique
-                                          $Scope = $grpObj.group."User or scope" | select -Unique
-                                          $date = $grpObj.group."Last Accessed Date" | select -Unique
-                                                                                    
-                                          [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date ; Scope = $Scope}
-                                        }
-                            
-                            $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive users found in admin roles: $($results.count) ");
-                            $controlResult.AddMessage("`nInactive user details:")
-                            $display = ($results|FT  -AutoSize | Out-String -Width 512)
-                            $controlResult.AddMessage($display)
-                            $controlResult.SetStateData("List of inactive users: ", $results);
-                        }
-                        else {
-                            $controlResult.AddMessage([VerificationResult]::Passed, "No inactive User have admin roles in the project.");
-                        } 
-    
+                        }                        
                     }
                     else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No inactive users found.")   
+                       $controlResult.AddMessage([VerificationResult]::Passed, "No user found with admin roles in the organization.")
+                    }                       
+                    
+                    if($null -eq (Compare-Object -ReferenceObject $AdminUsersMasterList -DifferenceObject $AdminUsersFailureCases))
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Error, "You do not have proper permissons.")
+                    }                    
+                    elseif($inactiveUsersWithAdminAccess.count -gt 0)
+                    {
+                        $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForInactiveUser|FT|Out-String)"); 
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive users found in admin roles: $($inactiveUsersWithAdminAccess.count) ");
+                        $controlResult.AddMessage("`nInactive user details:")
+                        $display = ($inactiveUsersWithAdminAccess|FT PrincipalName,DisplayName,Group,LastAccessedDate  -AutoSize | Out-String -Width 512)
+                        $controlResult.AddMessage($display)
+                        $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No Inactive User have admin roles in project.");
                     }
                 }
-                else
-                {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No users found in organization.");
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of groups in the project.")
                 }
+                
             }
-            catch {
-                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of users in the organization.");
+            catch
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "Not able to fetch project level groups")
                 $controlResult.LogException($_)
-            }
+            }         
         }
         else{
             $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting inactive accounts is not defined in control setting of your organization.");
-        }
-        
+        }        
         return $controlResult;
     }
 }
