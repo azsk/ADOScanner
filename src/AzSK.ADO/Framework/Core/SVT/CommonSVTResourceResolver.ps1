@@ -20,7 +20,7 @@ class CommonSVTResourceResolver {
             }
             $repoObjList = @();
             $repoObjList += $this.FetchRepositories($projectName, $repoNames);
-            if ($repoObjList.count -gt 0) {
+            if ($repoObjList.count -gt 0 -and [Helpers]::CheckMember($repoObjList[0], "Id")) {
                 $maxObjScan = $MaxObjectsToScan
                 foreach ($repo in $repoObjList) {
                     $resourceId = "organization/{0}/project/{1}/repository/{2}" -f $this.organizationName, $projectName, $repo.id;
@@ -40,7 +40,7 @@ class CommonSVTResourceResolver {
             # Here we are fetching all the secure files in the project.
             $secureFileObjList = @();
             $secureFileObjList += $this.FetchSecureFiles($projectName, $secureFileNames);
-            if ($secureFileObjList.count -gt 0) {
+            if ($secureFileObjList.count -gt 0 -and [Helpers]::CheckMember($secureFileObjList[0], "Id")) {
                 $maxObjScan = $MaxObjectsToScan
                 foreach ($securefile in $secureFileObjList) {
                     $resourceId = "organization/{0}/project/{1}/securefile/{2}" -f $this.organizationName, $projectName, $securefile.Id;
@@ -64,7 +64,7 @@ class CommonSVTResourceResolver {
             $feedObjList += $this.FetchFeeds($projectName, $feedNames);
             if ($feedObjList.count -gt 0) {
                 $maxObjScan = $MaxObjectsToScan
-                foreach ($feed in $feedObjList) {
+                foreach ($feed in $feedObjList -and [Helpers]::CheckMember($feedObjList[0], "Id")) {
                     if ([Helpers]::CheckMember($feed, "id")) {
                         $resourceId = "organization/{0}/project/{1}/feed/{2}" -f $this.organizationName, $projectName, $feed.id;
                         $SVTResources += $this.AddSVTResource($feed.name, $projectName, "ADO.Feed", $resourceId, $feed, $feed.Url);
