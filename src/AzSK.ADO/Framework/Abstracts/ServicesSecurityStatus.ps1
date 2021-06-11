@@ -34,7 +34,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if ([RemoteReportHelper]::IsAIOrgTelemetryEnabled()) { 
 			$this.IsAIEnabled = $true; 
 		}
-		if($invocationContext.BoundParameters["AutoBugLog"]){
+		if($invocationContext.BoundParameters["AutoBugLog"] -or $invocationContext.BoundParameters["AutoCloseBugs"]){
 			$this.IsBugLoggingEnabled = $true; 
 		}
 		if($invocationContext.BoundParameters["UseGraphAccess"]){
@@ -532,9 +532,11 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		$partialScanMngr.CollateSummaryData($result);
 
 		# append summary counts for bug logging & append control results with bug logging data
-		if($this.IsBugLoggingEnabled  -and [BugLogPathManager]::GetIsPathValid()){
+		if($this.IsBugLoggingEnabled){
 			$partialScanMngr.CollateBugSummaryData($result);
-		}
+			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
+			$AutoClose.AutoCloseBug($result)
+        }
 		
 	}
 

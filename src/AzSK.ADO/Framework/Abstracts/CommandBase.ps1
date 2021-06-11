@@ -167,10 +167,6 @@ class CommandBase: AzSKRoot {
 
 		#auto close passed bugs
 			if ($this.InvocationContext.BoundParameters["AutoBugLog"] -or $this.InvocationContext.BoundParameters["AutoCloseBugs"]) {
-			if (([PartialScanManager]::ControlResultsWithBugSummary| Measure-Object).Count -gt 0)
-			{
-				$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
-			}
 			#call the AutoCloseBugManager
 			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 			$AutoClose.AutoCloseBug($methodResult)
