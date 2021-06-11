@@ -157,21 +157,14 @@ Class LogAnalyticsHelper{
 			{
                 $out.Exception += $ControlResult.Exception;
             }
-			$isBugFlag=$false
 			if($ControlResult.VerificationResult -eq "Failed" -or $ControlResult.VerificationResult -eq "Verify"){
 				$ControlResult.Messages| ForEach-Object{
 					if($_.Message -eq "Active Bug" -or $_.Message -eq "Resolved Bug" -or $_.Message -eq "New Bug"){
 						$out.bugStatus=$_.Message
 						$out.bugUrl=$_.DataObject
-						$isBugFlag=$true
-
 					}
 
 				}
-			}
-			if(!$isBugFlag){
-				$out.bugUrl=$null
-				$out.bugStatus="None"
 			}
 			$output += $out
 		}
@@ -472,8 +465,8 @@ Class LAWSModel {
 	[int] $InactiveFromDays
 	[String] $ResourceLink
 	[String[]] $Exception
-	[String] $bugStatus
-	[String] $bugURL
+	[String] $bugStatus="None"
+	[String] $bugURL=$null
 }
 
 Class LAWSResourceInvModel{
