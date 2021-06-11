@@ -21,50 +21,33 @@ class PublishToJSON {
 				if($result.ControlResults[0].VerificationResult -eq "Failed" -or $result.ControlResults[0].VerificationResult -eq "Verify"){
 					$result.ControlResults[0].Messages | ForEach-Object{
 						if($_.Message -eq "Active Bug"){							
-							$ActiveBugs.ActiveBugs+= [PSCustomObject]@{
-								'Feature Name'=$result.FeatureName
-								'Resource Name'=$result.ResourceContext.ResourceName
-								'Control'=$result.ControlItem.ControlID
-								'Severity'=$result.ControlItem.ControlSeverity
-								'Url'=$_.DataObject
-							}
-							$bugsList+=[PSCustomObject]@{
+							$bug= [PSCustomObject]@{
 								'Feature Name'=$result.FeatureName
 								'Bug Status'=$_.Message
 								'Resource Name'=$result.ResourceContext.ResourceName
 								'Control'=$result.ControlItem.ControlID
 								'Severity'=$result.ControlItem.ControlSeverity
 								'Url'=$_.DataObject
-							}						
+							}
+							$ActiveBugs.ActiveBugs+=$bug
+							$bugsList+=$bug
 							
 						}
 						if($_.Message -eq "Resolved Bug"){
-							$ResolvedBugs.ResolvedBugs+= [PSCustomObject]@{
-								'Feature Name'=$result.FeatureName
-								'Resource Name'=$result.ResourceContext.ResourceName
-								'Control'=$result.ControlItem.ControlID
-								'Severity'=$result.ControlItem.ControlSeverity
-								'Url'=$_.DataObject
-							}
-							$bugsList+=[PSCustomObject]@{
+							$bug= [PSCustomObject]@{
 								'Feature Name'=$result.FeatureName
 								'Bug Status'=$_.Message
 								'Resource Name'=$result.ResourceContext.ResourceName
 								'Control'=$result.ControlItem.ControlID
 								'Severity'=$result.ControlItem.ControlSeverity
 								'Url'=$_.DataObject
-							}						
+							}
+							$ResolvedBugs.ResolvedBugs+=$bug
+							$bugsList+=$bug		
 							
 						}
 						if($_.Message -eq "New Bug"){
-							$NewBugs.NewBugs+= [PSCustomObject]@{
-								'Feature Name'=$result.FeatureName
-								'Resource Name'=$result.ResourceContext.ResourceName
-								'Control'=$result.ControlItem.ControlID
-								'Severity'=$result.ControlItem.ControlSeverity
-								'Url'=$_.DataObject
-							}
-							$bugsList+=[PSCustomObject]@{
+							$bug = [PSCustomObject]@{
 								'Feature Name'=$result.FeatureName
 								'Bug Status'=$_.Message
 								'Resource Name'=$result.ResourceContext.ResourceName
@@ -72,7 +55,8 @@ class PublishToJSON {
 								'Severity'=$result.ControlItem.ControlSeverity
 								'Url'=$_.DataObject
 							}
-							
+							$NewBugs.NewBugs+=$bug
+							$bugsList+=$bug
 							
 						}
 					}
@@ -81,9 +65,11 @@ class PublishToJSON {
 		}
 
 		
-		#the file where the json is stores
+		#the file where the json is stored
 		$FilePath=$FolderPath+"\BugSummary.json"
         $combinedJson=$null;
+
+		$CSVFilePath=$FolderPath+"\BugLogDetails.csv"
         
         #merge all three jsons in one consolidated json
 		if($NewBugs.NewBugs){
@@ -96,15 +82,10 @@ class PublishToJSON {
 			$combinedJson+=$ActiveBugs
         }
         
-        #output the json to file
+        #output the json and csv to file
 		if($combinedJson){
 		Add-Content $FilePath -Value ($combinedJson | ConvertTo-Json)
-		}
-
-		#CSV path
-		$CsvPath=$FolderPath+"\BugLogDetails.csv"
-		if($bugsList){
-			$bugsList | Export-Csv -Path $CsvPath -NoTypeInformation;
+		$bugsList | Export-Csv -Path $CSVFilePath -NoTypeInformation;
 		}
 		
     }
