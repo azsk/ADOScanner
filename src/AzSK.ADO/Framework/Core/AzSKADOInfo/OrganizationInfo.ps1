@@ -41,7 +41,7 @@ class OrganizationInfo: CommandBase {
                 };
                 [InventoryHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $resourceInventoryData);
                 # Change the hashtable headers to resource type and resource count
-                $resourceInventoryDataWithNewHeaders = $resourceInventoryData.keys  | Select @{l = 'Resource type'; e = { $_ } }, @{l = 'Count'; e = { $resourceInventoryData.$_ } }
+                $resourceInventoryDataWithNewHeaders = $resourceInventoryData.keys  | Select @{l = 'Resource type'; e = { $_ } }, @{l = 'Count'; e = { if ($resourceInventoryData.$_ -eq -1 ) { 0 } else { $resourceInventoryData.$_ } } }
                 $this.PublishCustomMessage("$([Constants]::DoubleDashLine)`nResource inventory for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
                 $returnMsgs += [MessageData]::new("$([Constants]::DoubleDashLine)`nResource inventory for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
                 $formattedResourceInventoryData = ($resourceInventoryDataWithNewHeaders | Out-String)
