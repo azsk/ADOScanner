@@ -21,7 +21,7 @@ class PublishToJSON {
 				if($result.ControlResults[0].VerificationResult -eq "Failed" -or $result.ControlResults[0].VerificationResult -eq "Verify"){
 					$result.ControlResults[0].Messages | ForEach-Object{
 						if($_.Message -eq "Active Bug"){							
-							$bug= [PSCustomObject]@{
+							$bugInfo= [PSCustomObject]@{
 								'Feature Name'=$result.FeatureName
 								'Bug Status'=$_.Message
 								'Resource Name'=$result.ResourceContext.ResourceName
@@ -29,12 +29,12 @@ class PublishToJSON {
 								'Severity'=$result.ControlItem.ControlSeverity
 								'Url'=$_.DataObject
 							}
-							$ActiveBugs.ActiveBugs+=$bug
-							$bugsList+=$bug
+							$ActiveBugs.ActiveBugs+=$bugInfo
+							$bugsList+=$bugInfo
 							
 						}
 						if($_.Message -eq "Resolved Bug"){
-							$bug= [PSCustomObject]@{
+							$bugInfo= [PSCustomObject]@{
 								'Feature Name'=$result.FeatureName
 								'Bug Status'=$_.Message
 								'Resource Name'=$result.ResourceContext.ResourceName
@@ -42,12 +42,12 @@ class PublishToJSON {
 								'Severity'=$result.ControlItem.ControlSeverity
 								'Url'=$_.DataObject
 							}
-							$ResolvedBugs.ResolvedBugs+=$bug
-							$bugsList+=$bug		
+							$ResolvedBugs.ResolvedBugs+=$bugInfo
+							$bugsList+=$bugInfo	
 							
 						}
 						if($_.Message -eq "New Bug"){
-							$bug = [PSCustomObject]@{
+							$bugInfo = [PSCustomObject]@{
 								'Feature Name'=$result.FeatureName
 								'Bug Status'=$_.Message
 								'Resource Name'=$result.ResourceContext.ResourceName
@@ -55,8 +55,8 @@ class PublishToJSON {
 								'Severity'=$result.ControlItem.ControlSeverity
 								'Url'=$_.DataObject
 							}
-							$NewBugs.NewBugs+=$bug
-							$bugsList+=$bug
+							$NewBugs.NewBugs+=$bugInfo
+							$bugsList+=$bugInfo
 							
 						}
 					}
@@ -69,7 +69,7 @@ class PublishToJSON {
 		$FilePath=$FolderPath+"\BugSummary.json"
         $combinedJson=$null;
 
-		$CSVFilePath=$FolderPath+"\BugLogDetails.csv"
+		$CSVFilePath=$FolderPath+"\BugSummary.csv"
         
         #merge all three jsons in one consolidated json
 		if($NewBugs.NewBugs){
