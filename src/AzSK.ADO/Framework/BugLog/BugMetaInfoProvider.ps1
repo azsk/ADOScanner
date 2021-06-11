@@ -151,6 +151,9 @@ class BugMetaInfoProvider {
                     return "";
                 }
             }
+            'SecureFile' {
+                return $ControlResult.ResourceContext.ResourceDetails.createdBy.uniqueName
+            }
             #assign to the person running the scan, as to reach at this point of code, it is ensured the user is PCA/PA and only they or other PCA
             #PA members can fix the control
             'Organization' {

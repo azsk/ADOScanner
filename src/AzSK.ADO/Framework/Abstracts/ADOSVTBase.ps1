@@ -207,10 +207,17 @@ class ADOSVTBase: SVTBase {
 													#In Linux env base24 encoding is different from that in Windows. Therefore doing a comparison of decoded data object as fallback
 													$decodedAttestedDataObj = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($childResourceState.State.DataObject))  | ConvertFrom-Json
 													$decodedCurrentDataObj = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($currentStateDataObject))  | ConvertFrom-Json
-													$comparison = Compare-Object $decodedAttestedDataObj $decodedCurrentDataObj
-													if ([String]::IsNullOrEmpty($comparison))
+													if ([Helpers]::CompareObject($decodedAttestedDataObj, $decodedCurrentDataObj, $true))
 													{
 														$dataObjMatched = $true
+													}
+
+													# Don't fail attestation if current state data object is a subset of attested state data object
+													if (($decodedCurrentDataObj | Measure-Object).Count -lt ($decodedAttestedDataObj | Measure-Object).Count) {
+														if ([Helpers]::CompareObject($decodedAttestedDataObj, $decodedCurrentDataObj, $false, $eventContext.ControlItem.AttestComparisionType))
+														{
+															$dataObjMatched = $true
+														}
 													}
 												}
 												if ($dataObjMatched)
@@ -230,10 +237,17 @@ class ADOSVTBase: SVTBase {
 													#In Linux env base24 encoding is different from that in Windows. Therefore doing a comparison of decoded data object as fallback
 													$decodedAttestedDataObj = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($childResourceState.State.DataObject))  | ConvertFrom-Json
 													$decodedCurrentDataObj = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($currentStateDataObject))  | ConvertFrom-Json
-													$comparison = Compare-Object $decodedAttestedDataObj $decodedCurrentDataObj
-													if ([String]::IsNullOrEmpty($comparison))
+													if ([Helpers]::CompareObject($decodedAttestedDataObj, $decodedCurrentDataObj, $true))
 													{
 														$dataObjMatched = $true
+													}
+													
+													# Don't fail attestation if current state data object is a subset of attested state data object
+													if (($decodedCurrentDataObj | Measure-Object).Count -lt ($decodedAttestedDataObj | Measure-Object).Count) {
+														if ([Helpers]::CompareObject($decodedCurrentDataObj, $decodedAttestedDataObj, $false))
+														{
+															$dataObjMatched = $true
+														}
 													}
 												}
 												if ($dataObjMatched)

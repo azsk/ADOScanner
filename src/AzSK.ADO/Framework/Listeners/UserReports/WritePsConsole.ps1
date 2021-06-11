@@ -639,7 +639,6 @@ class WritePsConsole: FileOutputBase
 		[PartialScanManager]::ControlResultsWithBugSummary = @();
 		[PartialScanManager]::CollatedBugSummaryCount = @();
 
-
 	}
 
 
