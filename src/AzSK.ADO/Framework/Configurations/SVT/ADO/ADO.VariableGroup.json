@@ -4,37 +4,20 @@
     "IsMaintenanceMode": false,
     "Controls": [
           {
-            "ControlID": "ADO_VariableGroup_AuthZ_Grant_Min_RBAC_Access",
-            "Description": "All teams/groups must be granted minimum required permissions on variable group.",
-            "Id": "VariableGroup110",
+            "ControlID": "ADO_VariableGroup_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secrets",
+            "Description": "Do not make variable groups with secret variables accessible to all pipelines.",
+            "Id": "VariableGroup120",
             "ControlSeverity": "High",
             "Automated": "Yes",
-            "MethodName": "CheckRBACAccess",
-            "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users are granted just enough permissions to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
-            "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/pipelines/library/?view=azure-devops#security",
+            "MethodName": "CheckPipelineAccess",
+            "Rationale": "If a variable group containing secrets is marked as accessible to all pipelines then an attacker can extract or compromise the assets involving the secret variables by creating a new pipeline.",
+            "Recommendation": "1.Navigate to the variable group --> 2. Click on 'Pipeline permissions' --> 3. Click on 'Restrict permission' --> 4. Add pipeline which needs permission on the variable group",
             "Tags": [
               "SDL",
               "TCP",
               "Automated",
               "AuthZ",
-              "RBAC"
-            ],
-            "Enabled": true
-          },
-          {
-            "ControlID": "ADO_VariableGroup_AuthZ_Dont_Grant_All_Pipelines_Access",
-            "Description": "Do not allow variable groups accessible to all pipelines.",
-            "Id": "VariableGroup120",
-            "ControlSeverity": "High",
-            "Automated": "Yes",
-            "MethodName": "CheckPipelineAccess",
-            "Rationale": "To support security of the pipeline operations, variable groups must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
-            "Recommendation": "To remediate this, 1.Navigate to the variable group. 2. Disable 'Allow access to all pipelines'.",
-            "Tags": [
-              "SDL",
-              "TCP",
-              "Automated",
-              "AuthZ"
+              "MSW"
             ],
             "Enabled": true
           },
@@ -86,6 +69,24 @@
               "TCP",
               "Manual",
               "DP"
+            ],
+            "Enabled": true
+          },
+          {
+            "ControlID": "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access",
+            "Description": "Broader groups (contributors, project valid users, etc.) should not have user/administrator privileges on variable group.",
+            "Id": "VariableGroup160",
+            "ControlSeverity": "High",
+            "Automated": "Yes",
+            "MethodName": "CheckBroaderGroupAccess",
+            "Rationale": "If the broader groups (e.g., Contributors) have excessive permissions (Admin/User) on variable group, then integrity of your variable group can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/variable group compromise.",
+            "Recommendation": "1.Navigate to the variable group. --> 2. Select Security. --> 3. Ensure broader groups have read-only access.",
+            "Tags": [
+              "SDL",
+              "TCP",
+              "Automated",
+              "AuthZ",
+              "MSW"
             ],
             "Enabled": true
           }
