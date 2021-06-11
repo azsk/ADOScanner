@@ -9,7 +9,7 @@ class ServiceConnection: ADOSVTBase
     hidden [PSObject] $serviceEndPointIdentity = $null;
     hidden [PSObject] $SvcConnActivityDetail = @{isSvcConnActive = $true; svcConnLastRunDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden static $IsOAuthScan = $false;
-    hidden [string] $checkInheritedPermissions = $false
+    hidden [string] $checkInheritedPermissionsPerSvcConn = $false
     ServiceConnection([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret))  # this if block will be executed for OAuth based scan
@@ -77,7 +77,7 @@ class ServiceConnection: ADOSVTBase
         }
 
         if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.CheckForInheritedPermissions") -and $this.ControlSettings.ServiceConnection.CheckForInheritedPermissions) {
-            $this.checkInheritedPermissions = $true
+            $this.checkInheritedPermissionsPerSvcConn = $true
         }
 
     }
@@ -258,7 +258,7 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckClassicConnection([ControlResult] $controlResult)
 	{
-        $controlResult.VerificationResult = [VerificationResult]::Failed   
+        $controlResult.VerificationResult = [VerificationResult]::Failed
 
         if([Helpers]::CheckMember($this.ServiceEndpointsObj,"type"))
         {
@@ -884,12 +884,12 @@ class ServiceConnection: ADOSVTBase
 
             if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.RestrictedBroaderGroupsForSvcConn") ) {
                 $restrictedBroaderGroupsForSvcConn = $this.ControlSettings.ServiceConnection.RestrictedBroaderGroupsForSvcConn;
-                
+
                 if (($this.serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity, "identity")) {
                     # match all the identities added on service connection with defined restricted list
                     $roleAssignments = @();
                     $roleAssignmentsToCheck = $this.serviceEndPointIdentity
-                    if ($this.checkInheritedPermissions -eq $false) {
+                    if ($this.checkInheritedPermissionsPerSvcConn -eq $false) {
                         $roleAssignmentsToCheck = $this.serviceEndPointIdentity | where-object { $_.access -ne "inherited" }
                     }
                     $roleAssignments +=   ($roleAssignmentsToCheck | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});

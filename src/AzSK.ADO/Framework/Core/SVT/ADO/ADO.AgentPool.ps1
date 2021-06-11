@@ -7,7 +7,7 @@ class AgentPool: ADOSVTBase
     hidden [PSObject] $AgentPoolId;
     hidden [PSObject] $agentPool; # This is used to fetch agent details in pool
     hidden [PSObject] $agentPoolActivityDetail = @{isAgentPoolActive = $true; agentPoolLastRunDate = $null; agentPoolCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
-    hidden [string] $checkInheritedPermissions = $false
+    hidden [string] $checkInheritedPermissionsAgentPool= $false
 
     AgentPool([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -40,7 +40,7 @@ class AgentPool: ADOSVTBase
         }
 
         if ([Helpers]::CheckMember($this.ControlSettings, "Agentpool.CheckForInheritedPermissions") -and $this.ControlSettings.Agentpool.CheckForInheritedPermissions) {
-            $this.checkInheritedPermissions = $true
+            $this.checkInheritedPermissionsAgentPool = $true
         }
     }
 
@@ -413,7 +413,7 @@ class AgentPool: ADOSVTBase
                 if (($this.AgentObj.Count -gt 0) -and [Helpers]::CheckMember($this.AgentObj, "identity")) {
                     # match all the identities added on agentpool with defined restricted list
                     $roleAssignmentsToCheck = $this.AgentObj
-                    if ($this.checkInheritedPermissions -eq $false) {
+                    if ($this.checkInheritedPermissionsAgentPool -eq $false) {
                         $roleAssignmentsToCheck = $this.AgentObj | where-object { $_.access -ne "inherited" }
                     }
                     $roleAssignments = @($roleAssignmentsToCheck | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
