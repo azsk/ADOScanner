@@ -33,7 +33,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthN"
+        "AuthN",
+        "MSW"
       ],
       "Enabled": true
     },
