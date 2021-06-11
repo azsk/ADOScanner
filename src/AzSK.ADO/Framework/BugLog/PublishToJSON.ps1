@@ -65,12 +65,13 @@ class PublishToJSON {
 				}
 			
 		}
+        $bug=$null
 
 		if($bugsClosed)
             {
 			$bugsClosed | ForEach-Object{
-			$bug=$_;
-			$bug.ControlResults[0].Messages | ForEach-Object{
+			$result=$_;
+			$result.ControlResults[0].Messages | ForEach-Object{
 			if($_.Message -eq "Closed Bug"){
 				$bug= [PSCustomObject]@{
 					BugStatus=$_.Message
