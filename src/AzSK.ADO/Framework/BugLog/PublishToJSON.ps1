@@ -13,6 +13,7 @@ class PublishToJSON {
         $ActiveBugs=@{ActiveBugs=@()}
 		$ResolvedBugs=@{ResolvedBugs=@()}
         $NewBugs=@{NewBugs=@()}
+		[PSCustomObject[]] $bugsList = @();
 
         #for each control result, check for failed/verify control results and look for the message associated with bug that differentiates it as one of the three kinds of bug
 		$ControlResults | ForEach-Object{
@@ -22,6 +23,14 @@ class PublishToJSON {
 						if($_.Message -eq "Active Bug"){							
 							$ActiveBugs.ActiveBugs+= [PSCustomObject]@{
 								'Feature Name'=$result.FeatureName
+								'Resource Name'=$result.ResourceContext.ResourceName
+								'Control'=$result.ControlItem.ControlID
+								'Severity'=$result.ControlItem.ControlSeverity
+								'Url'=$_.DataObject
+							}
+							$bugsList+=[PSCustomObject]@{
+								'Feature Name'=$result.FeatureName
+								'Bug Status'=$_.Message
 								'Resource Name'=$result.ResourceContext.ResourceName
 								'Control'=$result.ControlItem.ControlID
 								'Severity'=$result.ControlItem.ControlSeverity
@@ -36,12 +45,28 @@ class PublishToJSON {
 								'Control'=$result.ControlItem.ControlID
 								'Severity'=$result.ControlItem.ControlSeverity
 								'Url'=$_.DataObject
+							}
+							$bugsList+=[PSCustomObject]@{
+								'Feature Name'=$result.FeatureName
+								'Bug Status'=$_.Message
+								'Resource Name'=$result.ResourceContext.ResourceName
+								'Control'=$result.ControlItem.ControlID
+								'Severity'=$result.ControlItem.ControlSeverity
+								'Url'=$_.DataObject
 							}						
 							
 						}
 						if($_.Message -eq "New Bug"){
 							$NewBugs.NewBugs+= [PSCustomObject]@{
 								'Feature Name'=$result.FeatureName
+								'Resource Name'=$result.ResourceContext.ResourceName
+								'Control'=$result.ControlItem.ControlID
+								'Severity'=$result.ControlItem.ControlSeverity
+								'Url'=$_.DataObject
+							}
+							$bugsList+=[PSCustomObject]@{
+								'Feature Name'=$result.FeatureName
+								'Bug Status'=$_.Message
 								'Resource Name'=$result.ResourceContext.ResourceName
 								'Control'=$result.ControlItem.ControlID
 								'Severity'=$result.ControlItem.ControlSeverity
@@ -75,5 +100,12 @@ class PublishToJSON {
 		if($combinedJson){
 		Add-Content $FilePath -Value ($combinedJson | ConvertTo-Json)
 		}
+
+		#CSV path
+		$CsvPath=$FolderPath+"\BugLogDetails.csv"
+		if($bugsList){
+			$bugsList | Export-Csv -Path $CsvPath -NoTypeInformation;
+		}
+		
     }
 }
