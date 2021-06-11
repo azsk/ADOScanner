@@ -35,7 +35,7 @@ class InventoryHelper {
             # fetch the service connections count
             $resourceURL = ("https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/endpoints?includeDetails=True&api-version=6.0-preview.4") -f $($organizationName), $($projectName);
             $serviceEndpointObj = [WebRequestHelper]::InvokeGetWebRequest($resourceURL)
-            $projectData['ServiceConnections'] += ($serviceEndpointObj | Measure-Object).Count
+            $projectData['ServiceConnections'] = ($serviceEndpointObj | Measure-Object).Count
 
             # fetch the agent pools count
             if ($projectData["AgentPools"] -eq -1) {

@@ -5,7 +5,7 @@ class VariableGroup: ADOSVTBase
     hidden [PSObject] $VarGrp;
     hidden [PSObject] $ProjectId;
     hidden [PSObject] $VarGrpId;
-    hidden [string] $checkInheritedPermissions = $false
+    hidden [string] $checkInheritedPermissionsPerVarGrp = $false
     VariableGroup([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0];
@@ -14,7 +14,7 @@ class VariableGroup: ADOSVTBase
         $this.VarGrp = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
         if ([Helpers]::CheckMember($this.ControlSettings, "VariableGroup.CheckForInheritedPermissions") -and $this.ControlSettings.VariableGroup.CheckForInheritedPermissions) {
-            $this.checkInheritedPermissions = $true
+            $this.checkInheritedPermissionsPerVarGrp = $true
         }
     }
     hidden [ControlResult] CheckPipelineAccess([ControlResult] $controlResult)
@@ -292,7 +292,7 @@ class VariableGroup: ADOSVTBase
                 $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                 if($responseObj.Count -gt 0)
                 {
-                    if ($this.checkInheritedPermissions -eq $false) {
+                    if ($this.checkInheritedPermissionsPerVarGrp -eq $false) {
                         $responseObj = $responseObj  | where-object { $_.access -ne "inherited" }
                     }
                     $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
