@@ -1498,7 +1498,7 @@ class Project: ADOSVTBase
                     try{
                           $response = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                           $guestAccounts += $response[0].members
-                          $continuationToken =  $responseObj[0].continuationToken
+                          $continuationToken =  $response[0].continuationToken
                         }
                     catch
                         {
@@ -1533,7 +1533,7 @@ class Project: ADOSVTBase
                     try{
                           $response = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                           $AllUsersAccounts += $response[0].members
-                          $continuationToken =  $responseObj[0].continuationToken
+                          $continuationToken =  $response[0].continuationToken
                         }
                     catch
                         {
