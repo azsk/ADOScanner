@@ -620,7 +620,7 @@ class PartialScanManager
 					$summaryItem = [PartialScanManager]::CollatedSummaryCount | Where-Object { $_.Summary -eq $item.Name } | Select-Object -First 1;
 					if($summaryItem)
 					{
-						$summaryItem.Total = $_.Count;
+						$summaryItem.Total += $_.Count;
 						if($totalRow)
 						{
 							$totalRow.Total += $_.Count
