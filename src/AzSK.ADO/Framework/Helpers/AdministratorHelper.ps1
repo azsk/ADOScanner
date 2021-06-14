@@ -159,8 +159,8 @@ class AdministratorHelper{
                     if($_.subjectKind -eq "group"){
                         if ([string]::IsNullOrWhiteSpace($_.descriptor) -and (-not [string]::IsNullOrWhiteSpace($_.entityId)))
                         {
-                            $identities = [AdministratorHelper]::GetIdentitiesFromAADGroup($OrgName, $_.entityId, $_.displayName)
-                            if ($null -ne $identities)
+                            $identities = @([AdministratorHelper]::GetIdentitiesFromAADGroup($OrgName, $_.entityId, $_.displayName))
+                            if ($identities.Count -gt 0)
                             {
                                 $identities | ForEach-Object{
                                     if([AdministratorHelper]::isCurrentUserPCA -eq $false -and [ContextHelper]::GetCurrentSessionUser() -eq $_.mailAddress)
@@ -214,8 +214,8 @@ class AdministratorHelper{
                     {
                         if ([string]::IsNullOrWhiteSpace($_.descriptor) -and (-not [string]::IsNullOrWhiteSpace($_.entityId)))
                         {
-                            $identities = [AdministratorHelper]::GetIdentitiesFromAADGroup($OrgName, $_.entityId, $_.displayName)
-                            if ($null -ne $identities)
+                            $identities = @([AdministratorHelper]::GetIdentitiesFromAADGroup($OrgName, $_.entityId, $_.displayName))
+                            if ($identities.Count -gt 0)
                             {
                                 $identities | ForEach-Object{
                                     if([AdministratorHelper]::isCurrentUserPA -eq $false -and [ContextHelper]::GetCurrentSessionUser() -eq $_.mailAddress)
@@ -251,6 +251,7 @@ class AdministratorHelper{
 
     static [object] GetIdentitiesFromAADGroup([string] $OrgName, [String] $EntityId, [String] $groupName)
     {
+        $members = @()
         $rmContext = [ContextHelper]::GetCurrentContext();
 		$user = "";
         $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
@@ -260,18 +261,14 @@ class AdministratorHelper{
             # successors property will not be available if there are no users added to group.
             if ([Helpers]::CheckMember($responseObj[0], "successors"))
             {
-                $identities = $responseObj.successors | Select-Object originId, displayName, @{Name="subjectKind"; Expression = {$_.entityType}}, @{Name="mailAddress"; Expression = {$_.signInAddress}}, @{Name="descriptor"; Expression = {$_.subjectDescriptor}}, @{Name="groupName"; Expression = {$groupName}}
-                return $identities
+                $members = @($responseObj.successors | Select-Object originId, displayName, @{Name="subjectKind"; Expression = {$_.entityType}}, @{Name="mailAddress"; Expression = {$_.signInAddress}}, @{Name="descriptor"; Expression = {$_.subjectDescriptor}}, @{Name="groupName"; Expression = {$groupName}})
             }
-            else
-            {
-                return $null
-            }
+            return $members
         }
         catch
         {
             Write-Host $_
-            return $null
+            return $members
         }
     }
 
