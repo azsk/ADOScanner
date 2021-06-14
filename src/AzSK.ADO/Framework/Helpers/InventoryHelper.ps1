@@ -10,32 +10,44 @@ class InventoryHelper {
             # fetching the repository count of a project
             $resourceURL = "https://dev.azure.com/$($organizationName)/$($projectName)/_apis/git/repositories?api-version=6.1-preview.1"
             $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
-            $projectData['Repositories'] = ($responseList | Measure-Object).Count
+            if (([Helpers]::CheckMember($responseList, "count") -and $responseList[0].count -gt 0) -or (($responseList | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($responseList[0], "name"))) {
+                $projectData['Repositories'] = ($responseList | Measure-Object).Count
+            }
 
             # fetching the testPlan count of a project
             $resourceURL = "https://dev.azure.com/$($organizationName)/$($projectName)/_apis/testplan/plans?api-version=6.0-preview.1"
             $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
-            $projectData['TestPlans'] = ($responseList | Measure-Object).Count
+            if (([Helpers]::CheckMember($responseList, "count") -and $responseList[0].count -gt 0) -or (($responseList | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($responseList[0], "name"))) {
+                $projectData['TestPlans'] = ($responseList | Measure-Object).Count
+            }
 
             # fetching the taskGroups count of a project
             $resourceURL = "https://dev.azure.com/$($organizationName)/$($projectName)/_apis/distributedtask/taskgroups?api-version=6.0-preview.1"
             $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
-            $projectData['TaskGroups'] = ($responseList | Measure-Object).Count
+            if (([Helpers]::CheckMember($responseList, "count") -and $responseList[0].count -gt 0) -or (($responseList | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($responseList[0], "name"))) {
+                $projectData['TaskGroups'] = ($responseList | Measure-Object).Count
+            }
 
             # fetch the builds count
             $resourceURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0&queryOrder=lastModifiedDescending&`$top=10000") -f $($organizationName), $projectName;
             $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
-            $projectData['Build'] = ($responseList | Measure-Object).Count
+            if (([Helpers]::CheckMember($responseList, "count") -and $responseList[0].count -gt 0) -or (($responseList | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($responseList[0], "name"))) {
+                $projectData['Build'] = ($responseList | Measure-Object).Count
+            }
 
             # fetch the release count
             $resourceURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0&`$top=10000") -f $($organizationName), $projectName;
             $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
-            $projectData['Release'] = ($responseList | Measure-Object).Count;
+            if (([Helpers]::CheckMember($responseList, "count") -and $responseList[0].count -gt 0) -or (($responseList | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($responseList[0], "name"))) {
+                $projectData['Release'] = ($responseList | Measure-Object).Count
+            }
 
             # fetch the service connections count
             $resourceURL = ("https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/endpoints?includeDetails=True&api-version=6.0-preview.4") -f $($organizationName), $($projectName);
             $serviceEndpointObj = [WebRequestHelper]::InvokeGetWebRequest($resourceURL)
-            $projectData['ServiceConnections'] = ($serviceEndpointObj | Measure-Object).Count
+            if (([Helpers]::CheckMember($serviceEndpointObj, "count") -and $serviceEndpointObj[0].count -gt 0) -or (($serviceEndpointObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($serviceEndpointObj[0], "name"))) {
+                $projectData['ServiceConnections'] = ($serviceEndpointObj | Measure-Object).Count
+            }
 
             # fetch the agent pools count
             if ($projectData["AgentPools"] -eq -1) {
