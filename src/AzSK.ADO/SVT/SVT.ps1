@@ -101,8 +101,8 @@ function Get-AzSKADOSecurityStatus
 		$FeedNames,
 
 		[switch]
-		[Parameter(HelpMessage="Scan all supported resources present under organization like build, release, projects etc.")]
-		[Alias("sar", "saa" , "ScanAllArtifacts")]
+		[Parameter(HelpMessage="Scan all supported resource types present under organization like build, release, projects etc.")]
+		[Alias("sar", "saa" , "ScanAllArtifacts", "sat", "ScanAllResourceTypes")]
 		$ScanAllResources,
 
 		[string]
