@@ -268,11 +268,8 @@ class AdministratorHelper{
             }
 
             $members | ForEach-Object{
-                if ($_.subjectKind -eq 'group')
+                if ($_.subjectKind -eq 'User')
                 {
-                    return ([AdministratorHelper]::GetIdentitiesFromAADGroup($OrgName, $_.entityId, $_.displayName))
-                }
-                else {
                     $AllUsers += $_
                 }
             }
