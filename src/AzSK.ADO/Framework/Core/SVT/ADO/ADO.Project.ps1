@@ -535,7 +535,7 @@ class Project: ADOSVTBase
                             # clearing cached value in [AdministratorHelper]::AllPAMembers as it can be used in attestation later and might have incorrect group loaded.
                             [AdministratorHelper]::AllPAMembers = @();
                             # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
-                            $allAdminMembers = $allAdminMembers| Sort-Object -Property id -Unique
+                            $allAdminMembers = @($allAdminMembers| Sort-Object -Property id -Unique)
 
                             if($allAdminMembers.Count -gt 0)
                             {

@@ -147,6 +147,7 @@ class AdministratorHelper{
         $postbody=$postbody.Replace("{0}",$descriptor)
         $postbody=$postbody.Replace("{1}",$OrgName)
         $rmContext = [ContextHelper]::GetCurrentContext();
+        $currentUser = [ContextHelper]::GetCurrentSessionUser();
 		$user = "";
         $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
         try {
@@ -157,10 +158,27 @@ class AdministratorHelper{
                 $data | ForEach-Object{
         
                     if($_.subjectKind -eq "group"){
-                        return [AdministratorHelper]::FindPCAMembers($_.descriptor,$OrgName)
+                        if ([string]::IsNullOrWhiteSpace($_.descriptor) -and (-not [string]::IsNullOrWhiteSpace($_.entityId)))
+                        {
+                            $identities = @([AdministratorHelper]::GetIdentitiesFromAADGroup($OrgName, $_.entityId, $_.displayName))
+                            if ($identities.Count -gt 0)
+                            {
+                                $identities | ForEach-Object{
+                                    if([AdministratorHelper]::isCurrentUserPCA -eq $false -and $currentUser -eq $_.mailAddress)
+                                    {
+                                        [AdministratorHelper]::isCurrentUserPCA=$true;
+                                    }
+                                    [AdministratorHelper]::AllPCAMembers += $_
+                                }
+                            }   
+                        }
+                        else
+                        {
+                            return [AdministratorHelper]::FindPCAMembers($_.descriptor,$OrgName)
+                        }
                     }
                     else{
-                        if([AdministratorHelper]::isCurrentUserPCA -eq $false -and [ContextHelper]::GetCurrentSessionUser() -eq $_.mailAddress){
+                        if([AdministratorHelper]::isCurrentUserPCA -eq $false -and $currentUser -eq $_.mailAddress){
                             [AdministratorHelper]::isCurrentUserPCA=$true;
                         }
                         [AdministratorHelper]::AllPCAMembers += $_
@@ -184,22 +202,46 @@ class AdministratorHelper{
         $postbody=$postbody.Replace("{2}",$OrgName)
         $postbody=$postbody.Replace("{1}",$projName)
         $rmContext = [ContextHelper]::GetCurrentContext();
+        $currentUser = [ContextHelper]::GetCurrentSessionUser();
 		$user = "";
         $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
-        try {
+        try
+        {
             $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
-            $data=$response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
-            $data | ForEach-Object{
-    
-            if($_.subjectKind -eq "group"){
-                return [AdministratorHelper]::FindPAMembers($_.descriptor,$OrgName,$projName)
-            }
-            else{
-                if([AdministratorHelper]::isCurrentUserPA -eq $false -and [ContextHelper]::GetCurrentSessionUser() -eq $_.mailAddress){
-                    [AdministratorHelper]::isCurrentUserPA=$true;
+            if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
+            {
+                $data=$response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
+                $data | ForEach-Object{
+                    if($_.subjectKind -eq "group")
+                    {
+                        if ([string]::IsNullOrWhiteSpace($_.descriptor) -and (-not [string]::IsNullOrWhiteSpace($_.entityId)))
+                        {
+                            $identities = @([AdministratorHelper]::GetIdentitiesFromAADGroup($OrgName, $_.entityId, $_.displayName))
+                            if ($identities.Count -gt 0)
+                            {
+                                $identities | ForEach-Object{
+                                    if([AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -eq $_.mailAddress)
+                                    {
+                                        [AdministratorHelper]::isCurrentUserPA=$true;
+                                    }
+                                    [AdministratorHelper]::AllPAMembers += $_
+                                }
+                            }   
+                        }
+                        else
+                        {
+                            return [AdministratorHelper]::FindPAMembers($_.descriptor,$OrgName,$projName)
+                        }
+                    }
+                    else
+                    {
+                        if([AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -eq $_.mailAddress)
+                        {
+                            [AdministratorHelper]::isCurrentUserPA=$true;
+                        }
+                        [AdministratorHelper]::AllPAMembers += $_
+                    }
                 }
-                [AdministratorHelper]::AllPAMembers += $_
-            }
             }
         }
         catch {
@@ -207,6 +249,37 @@ class AdministratorHelper{
         }
 		
 
+    }
+
+    static [object] GetIdentitiesFromAADGroup([string] $OrgName, [String] $EntityId, [String] $groupName)
+    {
+        $members = @()
+        $AllUsers = @()
+        $rmContext = [ContextHelper]::GetCurrentContext();
+		$user = "";
+        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+        try {
+            $apiUrl = 'https://dev.azure.com/{0}/_apis/IdentityPicker/Identities/{1}/connections?identityTypes=user&identityTypes=group&operationScopes=ims&operationScopes=source&connectionTypes=successors&depth=1&properties=DisplayName&properties=SubjectDescriptor&properties=SignInAddress' -f $($OrgName), $($EntityId)
+            $responseObj = @(Invoke-RestMethod -Method Get -Uri $apiURL -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -UseBasicParsing)
+            # successors property will not be available if there are no users added to group.
+            if ([Helpers]::CheckMember($responseObj[0], "successors"))
+            {
+                $members = @($responseObj.successors | Select-Object originId, displayName, @{Name="subjectKind"; Expression = {$_.entityType}}, @{Name="mailAddress"; Expression = {$_.signInAddress}}, @{Name="descriptor"; Expression = {$_.subjectDescriptor}}, @{Name="groupName"; Expression = {$groupName}})
+            }
+
+            $members | ForEach-Object{
+                if ($_.subjectKind -eq 'User')
+                {
+                    $AllUsers += $_
+                }
+            }
+            return $AllUsers
+        }
+        catch
+        {
+            Write-Host $_
+            return $AllUsers
+        }
     }
 
     static [object] GetTotalPCAMembers([string] $OrgName){
