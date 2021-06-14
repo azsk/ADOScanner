@@ -74,13 +74,13 @@
           },
           {
             "ControlID": "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access",
-            "Description": "Broader groups (contributors, project valid users, etc.) should not have user/administrator privileges on variable group.",
+            "Description": "Broader groups (contributors, project valid users, etc.) should not have administrator privileges on variable group.",
             "Id": "VariableGroup160",
             "ControlSeverity": "High",
             "Automated": "Yes",
             "MethodName": "CheckBroaderGroupAccess",
-            "Rationale": "If the broader groups (e.g., Contributors) have excessive permissions (Admin/User) on variable group, then integrity of your variable group can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/variable group compromise.",
-            "Recommendation": "1.Navigate to the variable group. --> 2. Select Security. --> 3. Ensure broader groups have read-only access.",
+            "Rationale": "If the broader groups (e.g., Contributors) have excessive permissions (Admin) on variable group, then integrity of your variable group can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/variable group compromise.",
+            "Recommendation": "1.Navigate to the variable group. --> 2. Select Security. --> 3. Ensure broader groups have read-only access. Refer to detailed scan log (VariableGroup.LOG) for broader group list.",
             "Tags": [
               "SDL",
               "TCP",
