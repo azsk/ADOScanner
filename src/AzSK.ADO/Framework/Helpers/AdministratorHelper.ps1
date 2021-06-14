@@ -147,6 +147,7 @@ class AdministratorHelper{
         $postbody=$postbody.Replace("{0}",$descriptor)
         $postbody=$postbody.Replace("{1}",$OrgName)
         $rmContext = [ContextHelper]::GetCurrentContext();
+        $currentUser = [ContextHelper]::GetCurrentSessionUser();
 		$user = "";
         $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
         try {
@@ -163,7 +164,7 @@ class AdministratorHelper{
                             if ($identities.Count -gt 0)
                             {
                                 $identities | ForEach-Object{
-                                    if([AdministratorHelper]::isCurrentUserPCA -eq $false -and [ContextHelper]::GetCurrentSessionUser() -eq $_.mailAddress)
+                                    if([AdministratorHelper]::isCurrentUserPCA -eq $false -and $currentUser -eq $_.mailAddress)
                                     {
                                         [AdministratorHelper]::isCurrentUserPCA=$true;
                                     }
@@ -177,7 +178,7 @@ class AdministratorHelper{
                         }
                     }
                     else{
-                        if([AdministratorHelper]::isCurrentUserPCA -eq $false -and [ContextHelper]::GetCurrentSessionUser() -eq $_.mailAddress){
+                        if([AdministratorHelper]::isCurrentUserPCA -eq $false -and $currentUser -eq $_.mailAddress){
                             [AdministratorHelper]::isCurrentUserPCA=$true;
                         }
                         [AdministratorHelper]::AllPCAMembers += $_
@@ -201,6 +202,7 @@ class AdministratorHelper{
         $postbody=$postbody.Replace("{2}",$OrgName)
         $postbody=$postbody.Replace("{1}",$projName)
         $rmContext = [ContextHelper]::GetCurrentContext();
+        $currentUser = [ContextHelper]::GetCurrentSessionUser();
 		$user = "";
         $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
         try
@@ -218,7 +220,7 @@ class AdministratorHelper{
                             if ($identities.Count -gt 0)
                             {
                                 $identities | ForEach-Object{
-                                    if([AdministratorHelper]::isCurrentUserPA -eq $false -and [ContextHelper]::GetCurrentSessionUser() -eq $_.mailAddress)
+                                    if([AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -eq $_.mailAddress)
                                     {
                                         [AdministratorHelper]::isCurrentUserPA=$true;
                                     }
@@ -233,7 +235,7 @@ class AdministratorHelper{
                     }
                     else
                     {
-                        if([AdministratorHelper]::isCurrentUserPA -eq $false -and [ContextHelper]::GetCurrentSessionUser() -eq $_.mailAddress)
+                        if([AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -eq $_.mailAddress)
                         {
                             [AdministratorHelper]::isCurrentUserPA=$true;
                         }
@@ -252,6 +254,7 @@ class AdministratorHelper{
     static [object] GetIdentitiesFromAADGroup([string] $OrgName, [String] $EntityId, [String] $groupName)
     {
         $members = @()
+        $AllUsers = @()
         $rmContext = [ContextHelper]::GetCurrentContext();
 		$user = "";
         $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
@@ -263,12 +266,22 @@ class AdministratorHelper{
             {
                 $members = @($responseObj.successors | Select-Object originId, displayName, @{Name="subjectKind"; Expression = {$_.entityType}}, @{Name="mailAddress"; Expression = {$_.signInAddress}}, @{Name="descriptor"; Expression = {$_.subjectDescriptor}}, @{Name="groupName"; Expression = {$groupName}})
             }
-            return $members
+
+            $members | ForEach-Object{
+                if ($_.subjectKind -eq 'group')
+                {
+                    return ([AdministratorHelper]::GetIdentitiesFromAADGroup($OrgName, $_.entityId, $_.displayName))
+                }
+                else {
+                    $AllUsers += $_
+                }
+            }
+            return $AllUsers
         }
         catch
         {
             Write-Host $_
-            return $members
+            return $AllUsers
         }
     }
 
