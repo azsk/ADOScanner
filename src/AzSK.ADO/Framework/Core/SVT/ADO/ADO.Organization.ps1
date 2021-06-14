@@ -421,11 +421,13 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckExternalUserPolicy([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+
         if([Helpers]::CheckMember($this.OrgPolicyObj,"user"))
         {
             $userPolicyObj = $this.OrgPolicyObj.user;
-            $guestAuthObj = $userPolicyObj | Where-Object {$_.Policy.Name -eq "Policy.DisallowAadGuestUserAccess"}
-            if(($guestAuthObj | Measure-Object).Count -gt 0)
+            $guestAuthObj = @($userPolicyObj | Where-Object {$_.Policy.Name -eq "Policy.DisallowAadGuestUserAccess"})
+            if($guestAuthObj.Count -gt 0)
             {
                 if($guestAuthObj.policy.effectiveValue -eq $false )
                 {
@@ -434,6 +436,15 @@ class Organization: ADOSVTBase
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "External guest access is enabled in the organization.");
+                    if($this.GuestMembers.Count -eq 0)
+                    {
+                        $this.FetchGuestMembersInOrg()
+                    }                        
+                    $totalGuestCount = $this.GuestMembers.Count
+                    if($totalGuestCount -gt 0) {
+                        $controlResult.AddMessage("`nCount of guest users in the organization: $($totalGuestCount)");
+                        $controlResult.AdditionalInfo += "Count of guest users in the organization: " + $totalGuestCount;
+                    }
                 }
             }
             else
@@ -1056,28 +1067,13 @@ class Organization: ADOSVTBase
     {
         try
         {
-            $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL); # returns a maximum of 100 guest users
-            $guestUsers = @()
-            if(($responseObj -ne $null) -and $responseObj.Count -gt 0 -and ([Helpers]::CheckMember($responseObj[0], 'members')))
+            if($this.GuestMembers.Count -eq 0)
             {
-                $guestUsers += $responseObj[0].members
-                $continuationToken =  $responseObj[0].continuationToken # Use the continuationToken for pagination
-                while ($continuationToken -ne $null){
-                    $urlEncodedToken = [System.Web.HttpUtility]::UrlEncode($continuationToken)
-                    $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?continuationToken=$urlEncodedToken&%24filter=userType%20eq%20%27guest%27&%24orderBy=name%20Ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName);
-                    try{
-                        $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-                        $guestUsers += $responseObj[0].members
-                        $continuationToken =  $responseObj[0].continuationToken
-                    }
-                    catch
-                    {
-                        # Eating the exception here as we could not fetch the further guest users
-                        $continuationToken = $null
-                        $controlResult.LogException($_)
-                    }
-                }
+                $this.FetchGuestMembersInOrg()
+            }                        
+            $guestUsers = @($this.GuestMembers)
+            if($guestUsers.Count -gt 0) 
+            {
                 $guestList = @();
                 $guestList +=  ($guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}},@{Name="AccessLevel"; Expression = {$_.accessLevel.licenseDisplayName}},@{Name="LastAccessedDate"; Expression = {$_.lastAccessedDate}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
                 $stateData = @();
