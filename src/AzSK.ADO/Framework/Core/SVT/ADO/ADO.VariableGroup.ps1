@@ -304,16 +304,16 @@ class VariableGroup: ADOSVTBase
 
                 # fail the control if restricted group found on variable group
                 if ($restrictedGroupsCount -gt 0) {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have user/administrator access to variable group: $($restrictedGroupsCount)");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to variable group: $($restrictedGroupsCount)");
                     $controlResult.AddMessage("`nList of groups: ")
                     $controlResult.AddMessage(($restrictedGroups | FT | Out-String));
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
-                    $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to variable group: $($restrictedGroupsCount)";
+                    $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group: $($restrictedGroupsCount)";
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to variable group.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group.");
                 }
-                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have user/administrator privileges: `n$( $restrictedBroaderGroupsForVarGrp| FT | out-string)");
+                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$( $restrictedBroaderGroupsForVarGrp| FT | out-string)");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
