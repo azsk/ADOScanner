@@ -337,7 +337,6 @@
         "Project Valid Users"
     ],
     "RestrictedRolesForBroaderGroupsInVariableGroup": [
-        "User",
         "Administrator"
     ],
     "CheckForInheritedPermissions": false
