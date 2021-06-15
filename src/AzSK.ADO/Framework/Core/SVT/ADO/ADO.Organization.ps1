@@ -255,10 +255,10 @@ class Organization: ADOSVTBase
                                             $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
                                             $stateData = @();
                                             $stateData += $nonSCMembers
-                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non ALT accounts with admin privileges:  $nonSCCount"); 
-                                            $controlResult.AddMessage("List of non ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));  
-                                            $controlResult.SetStateData("List of non ALT accounts: ", $stateData);
-                                            $controlResult.AdditionalInfo += "Count of non ALT accounts with admin privileges: " + $nonSCCount;
+                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount"); 
+                                            $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));  
+                                            $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
+                                            $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
                                         }
                                         else
                                         {
@@ -301,7 +301,7 @@ class Organization: ADOSVTBase
                                                 $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
                                                 $stateData = @();
                                                 $stateData += $nonSCMembers
-                                                $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non ALT accounts with admin privileges:  $nonSCCount"); 
+                                                $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount"); 
                                                 $controlResult.AddMessage("List of non SC-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));  
                                                 $controlResult.SetStateData("List of non SC-ALT accounts: ", $stateData);
                                                 $controlResult.AdditionalInfo += "Count of non SC-ALT accounts with admin privileges: " + $nonSCCount;
@@ -1180,19 +1180,22 @@ class Organization: ADOSVTBase
         try {
             $topInactiveUsers = $this.ControlSettings.Organization.TopInactiveUserCount
             $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/UserEntitlements?top={1}&filter=&sortOption=lastAccessDate+ascending&api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName), $topInActiveUsers;
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
 
             if($responseObj.Count -gt 0)
             {
                 $inactiveUsers =  @()
+                $inactivityThresholdInDays = $this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays
+                $thresholdDate = (Get-Date).AddDays(-$($inactivityThresholdInDays))
                 $responseObj[0].items | ForEach-Object {
-                    if([datetime]::Parse($_.lastAccessedDate) -lt ((Get-Date).AddDays(-$($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays))))
+                    if([datetime]::Parse($_.lastAccessedDate) -lt $thresholdDate)
                     {
                         $inactiveUsers+= $_
                     }
                 }
-                if(($inactiveUsers | Measure-Object).Count -gt 0)
+                if($inactiveUsers.Count -gt 0)
                 {
+                    $controlResult.AddMessage("Found $($inactiveUsers.Count) inactive for last $($inactivityThresholdInDays) days.")
                     if($inactiveUsers.Count -ge $topInactiveUsers)
                     {
                         $controlResult.AddMessage("Displaying top $($topInactiveUsers) inactive users")
@@ -1227,12 +1230,12 @@ class Organization: ADOSVTBase
                     }
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No inactive users found.")
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No users found to be inactive for last $($inactivityThresholdInDays) days.")
                 }
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "No inactive users found.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "No users found in the org.");
             }
         }
         catch {
@@ -2001,15 +2004,16 @@ class Organization: ADOSVTBase
                     $GuestUserInactivePeriodInDays = $this.ControlSettings.Organization.GuestUserInactivePeriodInDays
                 }
 
-                #(Get-Date).AddDays(-$($GuestUserInactivePeriodInDays) should be done only once
+                $thresholdDate = (Get-Date).AddDays(-$($GuestUserInactivePeriodInDays))
                 $users | ForEach-Object {
-                    if([datetime]::Parse($_.lastAccessedDate) -lt ((Get-Date).AddDays(-$($GuestUserInactivePeriodInDays))))
+                    if([datetime]::Parse($_.lastAccessedDate) -lt $thresholdDate)
                     {
                         $inactiveGuestUsers+= $_
                     }
                 }
-
+                
                 $inactiveGuestUsersCount = $inactiveGuestUsers.Count
+                $controlResult.AddMessage("`nFound total $($users.Count) guest users.");
                 if($inactiveGuestUsersCount -gt 0)
                 {
                     #If user account created and was never active, in this case lastaccessdate is default 01-01-0001
@@ -2044,12 +2048,12 @@ class Organization: ADOSVTBase
                     }
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No inactive guest user found.")
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found to be inactive from last $($GuestUserInactivePeriodInDays) days.")
                 }
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "No inactive guest user found.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in org.");
             }
         }
         catch {
@@ -2206,7 +2210,7 @@ class Organization: ADOSVTBase
                         $controlResult.SetStateData("List of guest users: ", $results);
                     }
                     else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No Guest User have admin roles in the organization.");
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No guest users have admin roles in the organization.");
                     }
 
                 }
@@ -2238,15 +2242,13 @@ class Organization: ADOSVTBase
                 $AdminGroupsToCheckForInactiveUser = @($this.ControlSettings.Organization.AdminGroupsToCheckForInactiveUser)
        
                 $inactiveUsersWithAdminAccess = @()
-
-                if(-not [Helpers]::CheckMember($this.ControlSettings,"Organization.AdminInactivityThresholdInDays"))
+                $inactivityThresholdInDays = 90
+                if([Helpers]::CheckMember($this.ControlSettings,"Organization.AdminInactivityThresholdInDays"))
                 {
-                    $thresholdDate =  (Get-Date).AddDays(-90) # Default Value, if not provided in control settings
+                    $inactivityThresholdInDays = $this.ControlSettings.Organization.AdminInactivityThresholdInDays
                 }
-                else {    
-                    $thresholdDate =  (Get-Date).AddDays(-$($this.ControlSettings.Organization.AdminInactivityThresholdInDays))
-                }
-                
+
+                $thresholdDate = (Get-Date).AddDays(-$inactivityThresholdInDays)
                 ## API Call to fetch Org level collection groups
                 $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1"
                 $body = '{"contributionIds": ["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext": {"properties": {"sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'| ConvertFrom-Json
@@ -2282,7 +2284,7 @@ class Organization: ADOSVTBase
                 
                     $AdminUsersMasterList = @()
                     $AdminUsersFailureCases = @()
-
+                    $controlResult.AddMessage("Found total $($allAdminMembers.count) admin users in the org.")
                     if($allAdminMembers.count -gt 0)
                     {
                         $groups = $allAdminMembers | Group-Object "mailAddress"
@@ -2349,14 +2351,14 @@ class Organization: ADOSVTBase
                     }                    
                     elseif($inactiveUsersWithAdminAccess.count -gt 0)
                     {
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive users found in admin roles: $($inactiveUsersWithAdminAccess.count) ");
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Count of users found inactive for $($inactivityThresholdInDays) days in admin roles: $($inactiveUsersWithAdminAccess.count) ");
                         $controlResult.AddMessage("`nInactive user details:")
                         $display = ($inactiveUsersWithAdminAccess|FT PrincipalName,DisplayName,Group,LastAccessedDate  -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
                     }
                     else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No inactive user have admin roles in the organization.");
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No users in org admin roles have been inactive for $($inactivityThresholdInDays) days.");
                     }
                 }
                 else {

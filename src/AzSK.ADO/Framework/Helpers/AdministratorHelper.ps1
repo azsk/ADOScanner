@@ -168,9 +168,11 @@ class AdministratorHelper{
                                     {
                                         [AdministratorHelper]::isCurrentUserPCA=$true;
                                     }
-                                    [AdministratorHelper]::AllPCAMembers += $_
+                                    
                                 }
-                            }   
+                                [AdministratorHelper]::AllPCAMembers += $identities 
+                            }  
+                            
                         }
                         else
                         {
@@ -224,8 +226,8 @@ class AdministratorHelper{
                                     {
                                         [AdministratorHelper]::isCurrentUserPA=$true;
                                     }
-                                    [AdministratorHelper]::AllPAMembers += $_
                                 }
+                                [AdministratorHelper]::AllPAMembers += $identities
                             }   
                         }
                         else

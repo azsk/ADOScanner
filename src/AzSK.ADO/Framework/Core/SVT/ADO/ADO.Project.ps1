@@ -566,10 +566,10 @@ class Project: ADOSVTBase
                                             $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
                                             $stateData = @();
                                             $stateData += $nonSCMembers
-                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non ALT accounts with admin privileges:  $nonSCCount");
-                                            $controlResult.AddMessage("List of non ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
-                                            $controlResult.SetStateData("List of non ALT accounts: ", $stateData);
-                                            $controlResult.AdditionalInfo += "Count of non ALT accounts with admin privileges: " + $nonSCCount;
+                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount");
+                                            $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
+                                            $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
+                                            $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
                                         }
                                         else
                                         {
@@ -610,10 +610,10 @@ class Project: ADOSVTBase
                                                 $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
                                                 $stateData = @();
                                                 $stateData += $nonSCMembers
-                                                $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non ALT accounts with admin privileges: $nonSCCount");
-                                                $controlResult.AddMessage("List of non ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
-                                                $controlResult.SetStateData("List of non ALT accounts: ", $stateData);
-                                                $controlResult.AdditionalInfo += "Count of non ALT accounts with admin privileges: " + $nonSCCount;
+                                                $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges: $nonSCCount");
+                                                $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
+                                                $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
+                                                $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
                                             }
                                             else
                                             {
@@ -1015,8 +1015,8 @@ class Project: ADOSVTBase
             $inactiveRepos = @()
             $threshold = $this.ControlSettings.Repo.RepoHistoryPeriodInDays
             if (-not ($repoDefnsObj.Length -eq 1 -and [Helpers]::CheckMember($repoDefnsObj,"count") -and $repoDefnsObj[0].count -eq 0)) {
+                $currentDate = Get-Date
                 foreach ($repo in $repoDefnsObj) {
-                    $currentDate = Get-Date
                     # check if repo is disabled or not
                     if($repo.isDisabled) {
                         $inactiveRepos += $repo.name
@@ -1216,10 +1216,10 @@ class Project: ADOSVTBase
                 $repoDefnsObj = $repoDefnsObj | Where-Object { $_.IsDisabled -ne $true }
                 $inactiveRepos = @()
                 $threshold = $this.ControlSettings.Repo.RepoHistoryPeriodInDays
+                $currentDate = Get-Date
+                $thresholdDate = $currentDate.AddDays(-$threshold);
                 foreach ($repo in $repoDefnsObj) {
-                       $currentDate = Get-Date
                         # check if repo has commits in past RepoHistoryPeriodInDays days
-                        $thresholdDate = $currentDate.AddDays(-$threshold);
                         $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/git/repositories/$($repo.id)/commits?searchCriteria.fromDate=$($thresholdDate)&&api-version=6.0"
                         try{
                             $res = [WebRequestHelper]::InvokeGetWebRequest($url);
@@ -1624,7 +1624,7 @@ class Project: ADOSVTBase
                         $controlResult.SetStateData("Guest users list : ", $results);
                     }
                     else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No Guest User have admin roles in the project.");
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No guest users have admin roles in the project.");
                     }
 
                 }
@@ -1656,15 +1656,12 @@ class Project: ADOSVTBase
                 $AdminGroupsToCheckForInactiveUser = @($this.ControlSettings.Project.AdminGroupsToCheckForInactiveUser)
        
                 $inactiveUsersWithAdminAccess = @()
-
-                if(-not [Helpers]::CheckMember($this.ControlSettings,"Project.AdminInactivityThresholdInDays"))
+                $inactivityPeriodInDays = 90
+                if([Helpers]::CheckMember($this.ControlSettings,"Project.AdminInactivityThresholdInDays"))
                 {
-                    $thresholdDate =  (Get-Date).AddDays(-90) # Default Value, if not provided in control settings
+                    $inactivityPeriodInDays = $this.ControlSettings.Organization.AdminInactivityThresholdInDays
                 }
-                else {    
-                    $thresholdDate =  (Get-Date).AddDays(-$($this.ControlSettings.Organization.AdminInactivityThresholdInDays))
-                }
-                
+                $thresholdDate =  (Get-Date).AddDays(-$inactivityPeriodInDays)
                 ## API Call to fetch project level groups
                 $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
                 $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
@@ -1718,6 +1715,8 @@ class Project: ADOSVTBase
 
                         if($AdminUsersMasterList.count -gt 0)
                         {
+                            $controlResult.AddMessage("`nFound $($AdminUsersMasterList.count) users in admin roles overall.")
+                            $controlResult.AddMessage("`nLooking for admin users who have not been active for $($inactivityPeriodInDays) days.")
                             $currentObj = $null
                             $AdminUsersMasterList | ForEach-Object{
                                 try 
@@ -1768,14 +1767,14 @@ class Project: ADOSVTBase
                     }                    
                     elseif($inactiveUsersWithAdminAccess.count -gt 0)
                     {
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive users found in admin roles: $($inactiveUsersWithAdminAccess.count) ");
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive users in admin roles: $($inactiveUsersWithAdminAccess.count) ");
                         $controlResult.AddMessage("`nInactive user details:")
                         $display = ($inactiveUsersWithAdminAccess|FT PrincipalName,DisplayName,Group,LastAccessedDate  -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
                     }
                     else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No inactive user have admin roles in project.");
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No users in project admin roles found to be inactive for $($inactivityPeriodInDays) days.");
                     }
                 }
                 else {
@@ -1889,7 +1888,7 @@ class Project: ADOSVTBase
                         }
                         if ($groupsWithExcessivePermissionsList.count -gt 0) {
                             #TODO: Do we need to put state object?
-                            $controlResult.AddMessage([VerificationResult]::Failed, "Build pipelines are allowed to inherit excessive permissions for a broad group of users at project level.");
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Build pipelines are set to inherit excessive permissions for a broad group of users at project level.");
                             $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
                             $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                             $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
@@ -2018,7 +2017,7 @@ class Project: ADOSVTBase
                         }
                         if ($groupsWithExcessivePermissionsList.count -gt 0) {
                             #TODO: Do we need to put state object?
-                            $controlResult.AddMessage([VerificationResult]::Failed, "Release pipelines are allowed to inherit excessive permissions for a broad group of users at project level.");
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Release pipelines are set to inherit excessive permissions for a broad group of users at project level.");
                             $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
                             $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                             $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
@@ -2073,7 +2072,7 @@ class Project: ADOSVTBase
 
                     # fail the control if restricted group found on service connection
                     if ($restrictedGroupsCount -gt 0) {
-                        $controlResult.AddMessage([VerificationResult]::Failed, "Service connections are allowed to inherit excessive permissions for a broad group of users at project level.");
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Service connections are set to inherit excessive permissions for a broad group of users at project level.");
                         $controlResult.AddMessage("Count of broader groups: $($restrictedGroupsCount)`n")
                         $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
                         $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
@@ -2119,7 +2118,7 @@ class Project: ADOSVTBase
                     $restrictedGroupsCount = $restrictedGroups.Count
                     # fail the control if restricted group found on agentpool
                     if ($restrictedGroupsCount -gt 0) {
-                        $controlResult.AddMessage([VerificationResult]::Failed, "Agent pools are allowed to inherit excessive permissions for a broad group of users at project level.");
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Agent pools are set to inherit excessive permissions for a broad group of users at project level.");
                         $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups: $($restrictedGroupsCount)");
                         $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
                         $formattedGroupsTable = ($formattedGroupsData | Out-String)
@@ -2174,17 +2173,17 @@ class Project: ADOSVTBase
 
                 # fail the control if restricted group found on variable group
                 if ($restrictedGroupsCount -gt 0) {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have user/administrator access to variable group at a project level: $($restrictedGroupsCount)");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)");
                     $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
                     $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
-                    $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to variable group at a project level: $($restrictedGroupsCount)";
+                    $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to variable group at a project level.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group at a project level.");
                 }
-                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have user/administrator privileges: `n[$($restrictedBroaderGroupsForVarGrp | FT | out-string)");
+                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n[$($restrictedBroaderGroupsForVarGrp | FT | out-string)");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
