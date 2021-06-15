@@ -73,7 +73,7 @@
     },
     {
       "ControlID": "ADO_User_AuthZ_Dont_Use_All_Orgs_PAT",
-      "Description": "Do not use personal access tokens (PATs) that are accessible to all organizations.",
+      "Description": "Do not use personal access tokens (PATs) that are scoped across multiple organizations.",
       "Id": "User150",
       "ControlSeverity": "Medium",
       "Automated": "Yes",

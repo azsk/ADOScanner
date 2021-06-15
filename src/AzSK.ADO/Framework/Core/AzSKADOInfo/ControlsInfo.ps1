@@ -1,8 +1,8 @@
 using namespace System.Management.Automation
-Set-StrictMode -Version Latest 
+Set-StrictMode -Version Latest
 
 class ControlsInfo: CommandBase
-{    
+{
 	hidden [string] $ResourceTypeName
 	hidden [string] $ResourceType
 	hidden [bool] $OnlyBaselineControls
@@ -16,9 +16,9 @@ class ControlsInfo: CommandBase
 	hidden [string] $ControlSeverity
 	hidden [string] $ControlIdContains
 
-	ControlsInfo([string] $organizationName, [InvocationInfo] $invocationContext, [string] $resourceTypeName, [string] $controlIdString, [bool] $OnlyBaselineControls,[bool] $OnlyPreviewBaselineControls, 
+	ControlsInfo([string] $organizationName, [InvocationInfo] $invocationContext, [string] $resourceTypeName, [string] $controlIdString, [bool] $OnlyBaselineControls,[bool] $OnlyPreviewBaselineControls,
 					[string] $filterTagsString, [bool] $full, [string] $controlSeverity, [string] $controlIdContains) :  Base($organizationName, $invocationContext)
-    { 
+    {
 		$this.ResourceTypeName = $resourceTypeName;
 		$this.OnlyBaselineControls = $OnlyBaselineControls;
 		$this.OnlyPreviewBaselineControls = $OnlyPreviewBaselineControls
@@ -35,12 +35,12 @@ class ControlsInfo: CommandBase
 			$this.DoNotOpenOutputFolder = $true;
 		}
 	}
-	
-	[MessageData[]] GetControlDetails() 
+
+	[MessageData[]] GetControlDetails()
 	{
 		[MessageData[]] $returnMsgs = @();
-		$resourcetypes = @() 
-		$SVTConfig = @{} 
+		$resourcetypes = @()
+		$SVTConfig = @{}
 		$allControls = @()
 		$controlSummary = @()
 
@@ -59,7 +59,7 @@ class ControlsInfo: CommandBase
 			throw [SuppressedException] "Both the parameters 'ResourceTypeName' and 'ResourceType' contains values. You should use only one of these parameters."
 		}
 
-		if (-not [string]::IsNullOrEmpty($this.ResourceType)) 
+		if (-not [string]::IsNullOrEmpty($this.ResourceType))
 		{
 			$resourcetypes += ([SVTMapping]::AzSKADOResourceMapping |
 					Where-Object { $_.ResourceType -eq $this.ResourceType } | Select-Object JsonFileName)
@@ -80,10 +80,10 @@ class ControlsInfo: CommandBase
 		# Filter control for baseline controls
 		$baselineControls = @();
 		$baselineControls += $this.ControlSettings.BaselineControls.ResourceTypeControlIdMappingList | Select-Object ControlIds | ForEach-Object {  $_.ControlIds }
-		
-		
-		
-		
+
+
+
+
 		if($this.OnlyBaselineControls)
 		{
 			$this.ControlIds = $baselineControls
@@ -99,50 +99,52 @@ class ControlsInfo: CommandBase
 
 		if($this.OnlyPreviewBaselineControls)
 		{
-			#If preview baseline switch is passed and there is no preview baseline control list present then throw exception 
-			if (($previewBaselineControls | Measure-Object).Count -eq 0 -and -not $this.OnlyBaselineControls) 
+			#If preview baseline switch is passed and there is no preview baseline control list present then throw exception
+			if (($previewBaselineControls | Measure-Object).Count -eq 0 -and -not $this.OnlyBaselineControls)
 			{
 				throw ([SuppressedException]::new(("There are no preview baseline controls defined for this policy."), [SuppressedExceptionType]::Generic))
 			}
-			
+
 			$this.ControlIds += $previewBaselineControls
 
 		}
 
 		$resourcetypes | ForEach-Object{
-					$controls = [ConfigurationManager]::GetSVTConfig($_.JsonFileName); 
+					$controls = [ConfigurationManager]::GetSVTConfig($_.JsonFileName);
 
-					# Filter control for enable only			
+					# Filter control for enable only
 					$controls.Controls = ($controls.Controls | Where-Object { $_.Enabled -eq $true })
 
 					# Filter control for ControlIds
-					if ([Helpers]::CheckMember($controls, "Controls") -and $this.ControlIds.Count -gt 0) 
+					if ([Helpers]::CheckMember($controls, "Controls") -and $this.ControlIds.Count -gt 0)
 					{
 						$controls.Controls = ($controls.Controls | Where-Object { $this.ControlIds -contains $_.ControlId })
 					}
 
 					# Filter control for ControlId Contains
-					if ([Helpers]::CheckMember($controls, "Controls") -and (-not [string]::IsNullOrEmpty($this.ControlIdContains))) 
+					if ([Helpers]::CheckMember($controls, "Controls") -and (-not [string]::IsNullOrEmpty($this.ControlIdContains)))
 					{
 						$controls.Controls = ($controls.Controls | Where-Object { $_.ControlId -Match $this.ControlIdContains })
 					}
 
 					# Filter control for Tags
-					if ([Helpers]::CheckMember($controls, "Controls") -and $this.Tags.Count -gt 0) 
+					if ([Helpers]::CheckMember($controls, "Controls") -and $this.Tags.Count -gt 0)
 					{
 						$controls.Controls = ($controls.Controls | Where-Object { ((Compare-Object $_.Tags $this.Tags -PassThru -IncludeEqual -ExcludeDifferent) | Measure-Object).Count -gt 0 })
 					}
 
 					# Filter control for ControlSeverity
-					if ([Helpers]::CheckMember($controls, "Controls") -and (-not [string]::IsNullOrEmpty($this.ControlSeverity))) 
+					if ([Helpers]::CheckMember($controls, "Controls") -and (-not [string]::IsNullOrEmpty($this.ControlSeverity)))
 					{
 						$controls.Controls = ($controls.Controls | Where-Object { $this.ControlSeverity -eq $_.ControlSeverity })
 					}
 
 					if ([Helpers]::CheckMember($controls, "Controls") -and $controls.Controls.Count -gt 0)
 					{
+                        if (-not $SVTConfig.ContainsKey($controls.FeatureName)) {
 						$SVTConfig.Add($controls.FeatureName, @($controls.Controls))
-					} 
+                        }
+					}
                 }
 
 		if($SVTConfig.Keys.Count -gt 0)
@@ -161,7 +163,7 @@ class ControlsInfo: CommandBase
 					{
 						$fixControl = "No"
 					}
-					
+
 					if($baselineControls -contains $_.ControlID)
 					{
 						$isBaselineControls = "Yes"
@@ -189,9 +191,9 @@ class ControlsInfo: CommandBase
 					{
 						$_.ControlSeverity = $ControlSeverity
 					}
-										
+
 					$ctrlObj = New-Object -TypeName PSObject
-					$ctrlObj | Add-Member -NotePropertyName FeatureName -NotePropertyValue $featureName 
+					$ctrlObj | Add-Member -NotePropertyName FeatureName -NotePropertyValue $featureName
 					$ctrlObj | Add-Member -NotePropertyName ControlID -NotePropertyValue $_.ControlID
 					$ctrlObj | Add-Member -NotePropertyName Description -NotePropertyValue $_.Description
 					$ctrlObj | Add-Member -NotePropertyName ControlSeverity -NotePropertyValue $_.ControlSeverity
@@ -202,7 +204,7 @@ class ControlsInfo: CommandBase
 					$ctrlObj | Add-Member -NotePropertyName Automated -NotePropertyValue $_.Automated
 					$ctrlObj | Add-Member -NotePropertyName SupportsAutoFix -NotePropertyValue $fixControl
 					$tags = [system.String]::Join(", ", $_.Tags)
-					$ctrlObj | Add-Member -NotePropertyName Tags -NotePropertyValue $tags 
+					$ctrlObj | Add-Member -NotePropertyName Tags -NotePropertyValue $tags
 
 					$allControls += $ctrlObj
 
@@ -214,7 +216,7 @@ class ControlsInfo: CommandBase
 				}
 
 				$ctrlSummary = New-Object -TypeName PSObject
-				$ctrlSummary | Add-Member -NotePropertyName FeatureName -NotePropertyValue $featureName 
+				$ctrlSummary | Add-Member -NotePropertyName FeatureName -NotePropertyValue $featureName
 				$ctrlSummary | Add-Member -NotePropertyName Total -NotePropertyValue ($SVTConfig[$_]).Count
 				$ctrlSummary | Add-Member -NotePropertyName $this.GetControlSeverity('Critical') -NotePropertyValue (($SVTConfig[$_] | Where-Object { $_.ControlSeverity -eq $this.GetControlSeverity("Critical") })|Measure-Object).Count
 				$ctrlSummary | Add-Member -NotePropertyName $this.GetControlSeverity('High') -NotePropertyValue (($SVTConfig[$_] | Where-Object { $_.ControlSeverity -eq $this.GetControlSeverity("High") })|Measure-Object).Count
@@ -245,7 +247,7 @@ class ControlsInfo: CommandBase
 			$this.PublishCustomMessage([Constants]::DoubleDashLine, [MessageType]::Default);
 
 			$ctrlSummary = New-Object -TypeName PSObject
-			$ctrlSummary | Add-Member -NotePropertyName FeatureName -NotePropertyValue "Total" 
+			$ctrlSummary | Add-Member -NotePropertyName FeatureName -NotePropertyValue "Total"
 			$ctrlSummary | Add-Member -NotePropertyName Total -NotePropertyValue ($controlSummary | Measure-Object 'Total' -Sum).Sum
 
 			$ctrlSummary | Add-Member -NotePropertyName $this.GetControlSeverity('Critical') -NotePropertyValue ($controlSummary | Measure-Object "$($this.GetControlSeverity('Critical'))" -Sum).Sum
@@ -270,7 +272,7 @@ class ControlsInfo: CommandBase
 		$returnMsgs += [MessageData]::new("Returning ADO Control Info.");
 		return $returnMsgs
 	}
-	
+
 	[string] GetControlSeverity($ControlSeverityFromServer)
 	{
 		if([Helpers]::CheckMember($this.ControlSettings,"ControlSeverity.$ControlSeverityFromServer"))

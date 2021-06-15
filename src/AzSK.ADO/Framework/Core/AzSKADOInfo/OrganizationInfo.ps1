@@ -30,18 +30,18 @@ class OrganizationInfo: CommandBase {
                 $projectId = $project.id
                 $projectName = $project.name
                 [Hashtable] $resourceInventoryData = @{
-                    Repositories       = 0;
-                    TestPlans          = 0;
-                    Build              = 0;
-                    Release            = 0;
-                    TaskGroups         = 0;
-                    AgentPools         = 0;
-                    VariableGroups     = 0;
-                    ServiceConnections = 0;
+                    Repositories       = -1;
+                    TestPlans          = -1;
+                    Build              = -1;
+                    Release            = -1;
+                    TaskGroups         = -1;
+                    AgentPools         = -1;
+                    VariableGroups     = -1;
+                    ServiceConnections = -1;
                 };
                 [InventoryHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $resourceInventoryData);
                 # Change the hashtable headers to resource type and resource count
-                $resourceInventoryDataWithNewHeaders = $resourceInventoryData.keys  | Select @{l = 'Resource type'; e = { $_ } }, @{l = 'Count'; e = { $resourceInventoryData.$_ } }
+                $resourceInventoryDataWithNewHeaders = $resourceInventoryData.keys  | Select @{l = 'Resource type'; e = { $_ } }, @{l = 'Count'; e = { if ($resourceInventoryData.$_ -eq -1 ) { 0 } else { $resourceInventoryData.$_ } } }
                 $this.PublishCustomMessage("$([Constants]::DoubleDashLine)`nResource inventory for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
                 $returnMsgs += [MessageData]::new("$([Constants]::DoubleDashLine)`nResource inventory for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
                 $formattedResourceInventoryData = ($resourceInventoryDataWithNewHeaders | Out-String)

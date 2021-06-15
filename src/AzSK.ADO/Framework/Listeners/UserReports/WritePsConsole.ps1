@@ -531,6 +531,7 @@ class WritePsConsole: FileOutputBase
 				} 	
 				$nonNullProps = $nonNullProps | Select -Unique
 				$this.WriteMessage(([PartialScanManager]::CollatedSummaryCount | Format-Table -Property $nonNullProps | Out-String), [MessageType]::Info)
+				[PartialScanManager]::CollatedSummaryCount = @()
 			}
 		}
 	}
@@ -635,6 +636,9 @@ class WritePsConsole: FileOutputBase
 
 			
 		}
+		#Clearing the static variables
+		[PartialScanManager]::ControlResultsWithBugSummary = @();
+		[PartialScanManager]::CollatedBugSummaryCount = @();
 
 	}
 

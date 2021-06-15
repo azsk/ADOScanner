@@ -82,9 +82,27 @@ function Get-AzSKADOSecurityStatus
 		[Alias("vg", "VariableGroupName", "vgs")]
 		$VariableGroupNames,
 
+		[string]
+		[Parameter(HelpMessage="Repo name for which the security evaluation has to be perform.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("rpn", "RepoName","rp")]
+		$RepoNames,
+
+		[string]
+		[Parameter(HelpMessage="Secure file name for which the security evaluation has to be perform.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("sfn", "SecureFileName","sf")]
+		$SecureFileNames,
+
+		[string]
+		[Parameter(HelpMessage="Feed name for which the security evaluation has to be perform.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("fd", "FeedName","fdn")]
+		$FeedNames,
+
 		[switch]
-		[Parameter(HelpMessage="Scan all supported resources present under organization like build, release, projects etc.")]
-		[Alias("sar", "saa" , "ScanAllArtifacts")]
+		[Parameter(HelpMessage="Scan all supported resource types present under organization like build, release, projects etc.")]
+		[Alias("sar", "saa" , "ScanAllArtifacts", "sat", "ScanAllResourceTypes")]
 		$ScanAllResources,
 
 		[string]
@@ -269,9 +287,14 @@ function Get-AzSKADOSecurityStatus
 		$PolicyRepoName,
 
 		[switch]
-		[Parameter(HelpMessage="Scan control which require graph access for evaluation.")]
+		[Parameter(HelpMessage="Scan control which require graph permission for evaluation.")]
 		[Alias("uga")]
-		$UseGraphAccess
+		$UseGraphAccess,
+
+		[ValidateSet("Graph", "RegEx", "GraphThenRegEx")]
+        [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
+		[Alias("acem")]
+		[string] $ALTControlEvaluationMethod
 
 	)
 	Begin
@@ -347,7 +370,7 @@ function Get-AzSKADOSecurityStatus
 				}
 			}
 
-			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls);
+			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames);
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus)
 			{

@@ -23,7 +23,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_ServiceConnection_AuthZ_Grant_Least_Privilege_Access",
+      "ControlID": "ADO_ServiceConnection_AuthZ_Use_Least_Privilege_Access",
       "Description": "Azure service connection should not be provided access at subscription/management group scope.",
       "Id": "ServiceConnection120",
       "ControlSeverity": "High",
@@ -37,23 +37,6 @@
         "TCP",
         "AuthZ",
         "AzureRM"
-      ],
-      "Enabled": true
-    },
-    {
-      "ControlID": "ADO_ServiceConnection_AuthZ_Grant_Min_RBAC_Access",
-      "Description": "Justify all users/groups that have access to the service connection.",
-      "Id": "ServiceConnection130",
-      "ControlSeverity": "High",
-      "Automated": "Yes",
-      "MethodName": "CheckRBACAccess",
-      "Rationale": "Granting minimum access by leveraging RBAC feature ensures that users/groups are granted just enough permissions on service connection to perform their tasks. This minimizes exposure of the resources in case of user/service account compromise.",
-      "Recommendation": "Go to Project Settings --> Pipelines --> Service Connections --> Select Service Connection --> Select three dots on top right --> Select Security --> Under user permissions verify role assignments",
-      "Tags": [
-        "SDL",
-        "TCP",
-        "Manual",
-        "AuthZ"
       ],
       "Enabled": true
     },
@@ -76,19 +59,20 @@
     },
     {
       "ControlID": "ADO_ServiceConnection_AuthZ_Dont_Use_Classic_Connections",
-      "Description": "Do not use Azure classic service connections to grant access on a subscription.",
+      "Description": "Do not use classic Azure service connections to access a subscription.",
       "Id": "ServiceConnection150",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckClassicConnection",
-      "Rationale": "You should use new ARM/v2 resources as the ARM model provides several security enhancements such as: stronger access control (RBAC), better auditing, ARM-based deployment/governance, access to managed identities, access to key vault for secrets, AAD-based authentication, support for tags and resource groups for easier security management, etc.",
-      "Recommendation": "Migrate each v1/ASM-based service connections to a corresponding v2/ARM-based connection. Refer: https://docs.microsoft.com/en-us/azure/virtual-machines/windows/migration-classic-resource-manager-overview",
+      "Rationale": "You should use Azure resource Manager type service connection as the ARM model provides several security enhancements such as: stronger access control (RBAC), better auditing, ARM-based deployment/governance, access to managed identities, access to key vault for secrets, AAD-based authentication, support for tags and resource groups for easier security management, etc.",
+      "Recommendation": "Delete the Azure Classic service connection and create a new service connection of type 'Azure resource Manager'(i.e., ARM based) scoped to a resource/resource group in subscription.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
         "AuthZ",
-        "Azure"
+        "Azure",
+        "MSW"
       ],
       "Enabled": true
     },
@@ -127,36 +111,38 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_ServiceConnection_AuthZ_Dont_Grant_BuildServAcc_Permission",
-      "Description": "Do not grant Build Service Account access for connections",
+      "ControlID": "ADO_ServiceConnection_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
+      "Description": "Do not grant Build Service Account direct access to service connections",
       "Id": "ServiceConnection180",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBuildServiceAccountAccess",
-      "Rationale": "Build service account is default identity used as part every build in project. Providing access to this common service account will expose connection details to all build definition under project.",
-      "Recommendation": "To remediate this, navigate to the service connections settings page for your project -> select your service connection from the list -> select three dots on top right -> select security -> remove 'Project Collection Build Service Accounts' access from user permission.",
+      "Rationale": "Build service account is default identity used as part every build in project. Providing direct access to this common service account will expose connection details to all build definitions in the project.",
+      "Recommendation": "1. Navigate to the service connections settings page for your project --> 2. Select your service connection from the list --> 3. Select three dots on top right -> 4. Select security --> 5. Remove 'Project Collection Build Service Accounts/[Project] Build Service Account' access from user permission.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "MSW"
       ],
       "Enabled": true
     },
     {
       "ControlID": "ADO_ServiceConnection_AuthZ_Dont_Grant_All_Pipelines_Access",
-      "Description": "Do not make service connections accessible to all pipelines.",
+      "Description": "Do not make service connection accessible to all pipelines.",
       "Id": "ServiceConnection190",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckServiceConnectionBuildAccess",
       "Rationale": "To support security of the pipeline operations, connections must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
-      "Recommendation": "To remediate this, navigate to the service connections settings page for your project -> select your service connection from the list -> click on three dots -> click Security -> under 'Pipeline Permissions', click 'Restrict Permission' to avoid granting access to all pipelines and add only those pipelines that need explicit access on service connection.",
+      "Recommendation": "1. Navigate to the service connections settings page for your project --> 2. Select your service connection from the list --> 3. Click on three dots --> 4. Click Security --> 5. Under 'Pipeline Permissions', click 'Restrict Permission' to avoid granting access to all pipelines and add only those pipelines that need explicit access on service connection.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "MSW"
       ],
       "Enabled": true
     },
@@ -229,19 +215,20 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_ServiceConnection_AuthZ_Review_Broader_Group_Access",
+      "ControlID": "ADO_ServiceConnection_AuthZ_Restrict_Broader_Group_Access",
       "Description": "Broader groups (contributors, project valid users, etc.) should not have user/administrator privileges on service connection.",
       "Id": "ServiceConnection240",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupAccess",
-      "Rationale": "If the broader groups (e.g., Contributors) have edit permissions (Admin/User) on service connection, then integrity of your service connection can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/service connection compromise.",
-      "Recommendation": "Go to Project Settings --> Pipelines --> Service connections --> Select your service connection --> Select Security --> Ensure broader groups have read-only access.",
+      "Rationale": "If broader groups (e.g., Contributors) have excessive permissions (Admin/User) on service connection, then confidentiality/integrity of a pipeline using the service connection can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/service connection compromise.",
+      "Recommendation": "1. Go to Project Settings --> 2. Service connections --> 3. Select your service connection --> 4. Select Security --> 5. User Permissions --> 6. Ensure broader groups have read-only access. Refer to detailed scan log (ServiceConnection.LOG) for broader group list.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "MSW"
       ],
       "Enabled": true
     },

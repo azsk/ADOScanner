@@ -20,22 +20,22 @@ class ConfigurationHelper {
 	}
 	hidden static [PSObject] LoadOfflineConfigFile([string] $fileName, [bool] $parseJson, $path) {
 		#Load file from AzSK App folder"
-		$rootConfigPath = $path ;	
-        #Split file name and take last, if it is supplied like foldername\filename 	
+		$rootConfigPath = $path ;
+        #Split file name and take last, if it is supplied like foldername\filename
         $fileName = $fileName.Split('\')[-1]
 		$extension = [System.IO.Path]::GetExtension($fileName);
 
 		$filePath = $null
 		if (Test-Path -Path $rootConfigPath) {
-			$filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1 
+			$filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1
 		}
-		#If file not present in App folder load settings from Configurations in Module folder 
+		#If file not present in App folder load settings from Configurations in Module folder
 		if (!$filePath) {
 
 			$basePath = [ConfigurationHelper]::GetBaseFrameworkPath()
 			$rootConfigPath = $basePath | Join-Path -ChildPath "Configurations";
-			
-			$filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1 
+
+			$filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1
 		}
 
 		if ($filePath) {
@@ -44,28 +44,28 @@ class ConfigurationHelper {
 					$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath)) | ConvertFrom-Json
 				}
 				else {
-					$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath)) 
+					$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath))
 				}
 			}
 			else {
-				$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath)) 
+				$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath))
 			}
 		}
 		else {
-			throw "Unable to find the specified file '$fileName'"          
+			throw "Unable to find the specified file '$fileName'"
 		}
 		if (-not $fileContent) {
-			throw "The specified file '$fileName' is empty"                                  
+			throw "The specified file '$fileName' is empty"
 		}
 
 		return $fileContent;
-	}	
+	}
 
 	hidden static [PSObject] LoadServerConfigFile([string] $policyFileName, [bool] $useOnlinePolicyStore, [string] $onlineStoreUri, [bool] $enableAADAuthForOnlinePolicyStore) {
 		[PSObject] $fileContent = "";
 		if ([string]::IsNullOrWhiteSpace($policyFileName)) {
 			throw [System.ArgumentException] ("The argument 'policyFileName' is null");
-		} 
+		}
 
 
 		#Check if policy is present in cache and fetch the same if present
@@ -75,7 +75,7 @@ class ConfigurationHelper {
 			$fileContent = $cachedPolicyContent.Content
 			if ($fileContent)
 			{
-				return $fileContent                                  
+				return $fileContent
 			}
 		}
 
@@ -87,11 +87,11 @@ class ConfigurationHelper {
 		#>
 
 		if ($useOnlinePolicyStore) {
-			
+
 			if ([string]::IsNullOrWhiteSpace($onlineStoreUri)) {
 				throw [System.ArgumentException] ("The argument 'onlineStoreUri' is null");
-			} 
-			
+			}
+
 			#Remember if the file we are attempting is SCMD.json
 			$bFetchingSCMD = ($policyFileName -eq [Constants]::ServerConfigMetadataFileName)
 			if ($bFetchingSCMD -and $null -ne [ConfigurationHelper]::ServerConfigMetadata) {
@@ -109,22 +109,23 @@ class ConfigurationHelper {
 							$Version = [System.Version] ($global:ExecutionContext.SessionState.Module.Version);
 							$serverFileContent = [ConfigurationHelper]::InvokeControlsAPI($onlineStoreUri, $Version, $policyFileName, $enableAADAuthForOnlinePolicyStore);
 							[ConfigurationHelper]::ConfigVersion = $Version;
-						}
-						catch {
-							try {
-								$Version = ([ConfigurationHelper]::LoadOfflineConfigFile("AzSK.json")).ConfigSchemaBaseVersion;
-								$serverFileContent = [ConfigurationHelper]::InvokeControlsAPI($onlineStoreUri, $Version, $policyFileName, $enableAADAuthForOnlinePolicyStore);
-								[ConfigurationHelper]::ConfigVersion = $Version;
-							}
-							catch {
-								if (Test-Path $onlineStoreUri) {	
-									[EventBase]::PublishGenericCustomMessage("Running Org-Policy from local policy store location: [$onlineStoreUri]", [MessageType]::Warning);
+							if ([String]::IsNullOrWhiteSpace($serverFileContent)) {
+								if (Test-Path $onlineStoreUri) {
+									[EventBase]::PublishGenericCustomMessage("Running Org-Policy from local policy store location: [$onlineStoreUri]", [MessageType]::Info);
 									$serverFileContent = [ConfigurationHelper]::LoadOfflineConfigFile($policyFileName, $true, $onlineStoreUri)
 									[ConfigurationHelper]::LocalPolicyEnabled = $true
 								}
-								else {
-									throw $_
-								}
+							}
+						}
+						catch {
+
+							if (Test-Path $onlineStoreUri) {
+								[EventBase]::PublishGenericCustomMessage("Running Org-Policy from local policy store location: [$onlineStoreUri]", [MessageType]::Info);
+								$serverFileContent = [ConfigurationHelper]::LoadOfflineConfigFile($policyFileName, $true, $onlineStoreUri)
+								[ConfigurationHelper]::LocalPolicyEnabled = $true
+							}
+							else {
+								throw $_
 							}
 						}
 					}
@@ -141,7 +142,7 @@ class ConfigurationHelper {
 						$fileContent = $serverFileContent
 					}
 					else {
-						$fileContent = [Helpers]::MergeObjects($fileContent, $serverFileContent)	
+						$fileContent = [Helpers]::MergeObjects($fileContent, $serverFileContent)
 					}
 					#Write-Host -ForegroundColor Green "**ADDING TO CACHE** $policyFileName"
 				}
@@ -162,8 +163,8 @@ class ConfigurationHelper {
 							[EventBase]::PublishGenericException($_);
 							[ConfigurationHelper]::IsIssueLogged = $true
 						}
-					}            
-				}					
+					}
+				}
 			}
 
 			#If we were trying to fetch SCMD and the returned JSON does not have 'OnlinePolicyList' something is wrong!
@@ -176,27 +177,27 @@ class ConfigurationHelper {
 			}
 
 			if (-not $fileContent) {
-				#Fire special event to notify user about switching to offline policy  
+				#Fire special event to notify user about switching to offline policy
 				[EventBase]::PublishGenericCustomMessage(([Constants]::OfflineModeWarning + " Policy: $policyFileName"), [MessageType]::Warning);
 				$fileContent = [ConfigurationHelper]::LoadOfflineConfigFile($policyFileName)
 			}
-			# return $updateResult	
+			# return $updateResult
 		}
 		else {
 			[EventBase]::PublishGenericCustomMessage(([Constants]::OfflineModeWarning + " Policy: $policyFileName"), [MessageType]::Warning);
 			$fileContent = [ConfigurationHelper]::LoadOfflineConfigFile($policyFileName)
-		}        
+		}
 		if (-not $fileContent) {
-			throw "The specified file '$policyFileName' is empty"                                  
+			throw "The specified file '$policyFileName' is empty"
 		}
 
-		#Store policy file content into cache. 
-		#Note: This will happen only once per file (whether found on server or not). 
+		#Store policy file content into cache.
+		#Note: This will happen only once per file (whether found on server or not).
 		#In case of SVT config JSONs, we will overwrite this (only once) right after resolving baselines/dynamic parameters in control recos, etc. (in LoadSVTConfig)
 
 		#ADOTODO: by Sep2020. Do any controlSettings processing here. Revisit after Asim's policy cache changes are integrated.
 		if ($policyFileName -match "ControlSettings.json")
-		{	
+		{
 			#Compile regex-s once upon load. The Env setting is just to compare perf during dev-test.
 			#This code will overwrite the text regex with compiled version. (At point of usage, no change is needed.)
 			if ((@($fileContent.Patterns)).Count -gt 0 -and -not $env:AzSKNoCompileRegex)
@@ -230,18 +231,18 @@ class ConfigurationHelper {
 		[PSObject] $fileContent = "";
 		if ([string]::IsNullOrWhiteSpace($fileName)) {
 			throw [System.ArgumentException] ("The argument 'fileName' is null");
-		} 
+		}
 
 		if ($useOnlinePolicyStore) {
-			
+
 			if ([string]::IsNullOrWhiteSpace($onlineStoreUri)) {
 				throw [System.ArgumentException] ("The argument 'onlineStoreUri' is null");
-			} 
+			}
 
 			#Check if policy present in server using metadata file
 			if (-not [ConfigurationHelper]::OfflineMode -and [ConfigurationHelper]::IsPolicyPresentOnServer($fileName, $useOnlinePolicyStore, $onlineStoreUri, $enableAADAuthForOnlinePolicyStore)) {
 				try {
-					if ([String]::IsNullOrWhiteSpace([ConfigurationHelper]::ConfigVersion)) {							
+					if ([String]::IsNullOrWhiteSpace([ConfigurationHelper]::ConfigVersion)) {
 						try {
 							$Version = [System.Version] ($global:ExecutionContext.SessionState.Module.Version);
 							$serverFileContent = [ConfigurationHelper]::InvokeControlsAPI($onlineStoreUri, $Version, $fileName, $enableAADAuthForOnlinePolicyStore);
@@ -257,7 +258,7 @@ class ConfigurationHelper {
 						$Version = [ConfigurationHelper]::ConfigVersion ;
 						$serverFileContent = [ConfigurationHelper]::InvokeControlsAPI($onlineStoreUri, $Version, $fileName, $enableAADAuthForOnlinePolicyStore);
 					}
-						
+
 					$fileContent = $serverFileContent
 				}
 				catch {
@@ -277,22 +278,22 @@ class ConfigurationHelper {
 							[EventBase]::PublishGenericException($_);
 							[ConfigurationHelper]::IsIssueLogged = $true
 						}
-					}            
+					}
 				}
-				
-				
+
+
 			}
 
 		}
 		else {
-			[EventBase]::PublishGenericCustomMessage(([Constants]::OfflineModeWarning + " Policy: $fileName"), [MessageType]::Warning);            
-		}        
+			[EventBase]::PublishGenericCustomMessage(([Constants]::OfflineModeWarning + " Policy: $fileName"), [MessageType]::Warning);
+		}
 
 		return $fileContent;
 	}
 
 	hidden static [PSObject] InvokeControlsAPI([string] $onlineStoreUri, [string] $configVersion, [string] $policyFileName, [bool] $enableAADAuthForOnlinePolicyStore) {
-		#Evaluate all code block in onlineStoreUri. 
+		#Evaluate all code block in onlineStoreUri.
 		#Can use '$FileName' in uri to fill dynamic file name.
 		#Revisit
         # We are adding this code in AzSK.Framework for time-being. Need to revisit our strategy to update this code in framework later. This is ADO specific.
@@ -316,27 +317,27 @@ class ConfigurationHelper {
 	hidden static [PSObject] LoadModuleJsonFile([string] $fileName) {
 	 $basePath = [ConfigurationHelper]::GetBaseFrameworkPath()
 	 $rootConfigPath = Join-Path $basePath -ChildPath "Configurations";
-		$filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1 
+		$filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1
 	 if ($filePath) {
 			$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath)) | ConvertFrom-Json
 		}
 		else {
-			throw "Unable to find the specified file '$fileName'"          
+			throw "Unable to find the specified file '$fileName'"
 		}
 		return $fileContent;
 	}
 
 	hidden static [PSObject] LoadModuleRawFile([string] $fileName) {
-	
+
 	 $basePath = [ConfigurationHelper]::GetBaseFrameworkPath()
 	 $rootConfigPath = Join-Path $basePath | Join-Path -ChildPath "Configurations";
 
-		$filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1 
+		$filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1
 	 if ($filePath) {
-			$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath)) 
+			$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath))
 		}
 		else {
-			throw "Unable to find the specified file '$fileName'"          
+			throw "Unable to find the specified file '$fileName'"
 		}
 		return $fileContent;
 	}
@@ -348,12 +349,12 @@ class ConfigurationHelper {
 			if ($fileName -eq [Constants]::ServerConfigMetadataFileName) {
 				return $true
 			}
-			else {				
-				$filecontent = [ConfigurationHelper]::LoadServerConfigFile([Constants]::ServerConfigMetadataFileName, $useOnlinePolicyStore, $onlineStoreUri, $enableAADAuthForOnlinePolicyStore);							
+			else {
+				$filecontent = [ConfigurationHelper]::LoadServerConfigFile([Constants]::ServerConfigMetadataFileName, $useOnlinePolicyStore, $onlineStoreUri, $enableAADAuthForOnlinePolicyStore);
 				[ConfigurationHelper]::ServerConfigMetadata = $filecontent;
 			}
 		}
-		
+
 		if ($null -ne [ConfigurationHelper]::ServerConfigMetadata) {
 			if ([ConfigurationHelper]::ServerConfigMetadata.OnlinePolicyList | Where-Object { $_.Name -eq $fileName }) {
 				return $true
@@ -363,13 +364,13 @@ class ConfigurationHelper {
 			}
 		}
 		else {
-			#If Metadata file is not present on server then set offline default meta data.. 
+			#If Metadata file is not present on server then set offline default meta data..
 			[ConfigurationHelper]::ServerConfigMetadata = [ConfigurationHelper]::LoadOfflineConfigFile([Constants]::ServerConfigMetadataFileName);
-			return $false			
+			return $false
 		}
 	}
 
-	#Function to check if Override Offline flag is enabled 
+	#Function to check if Override Offline flag is enabled
 	hidden static [bool] IsOverrideOfflineEnabled([string] $fileName) {
 		if ($fileName -eq [Constants]::ServerConfigMetadataFileName) {
 			return $true
@@ -383,23 +384,23 @@ class ConfigurationHelper {
 			return $false
 		}
 	}
-	
+
 	#Helper function to get base Framework folder path
 
 	hidden static [PSObject] GetBaseFrameworkPath() {
 		$moduleName = $([Constants]::AzSKModuleName)
-		
+
 		#Remove Staging from module name before forming config base path
 		$moduleName = $moduleName -replace "Staging", ""
 
 		#Irrespective of whether Dev-Test mode is on or off, base framework path will now remain same as the new source code repo doesn't have AzSK.Framework folder.
-		$basePath = (Get-Item $PSScriptRoot).Parent.FullName	
-		
+		$basePath = (Get-Item $PSScriptRoot).Parent.FullName
+
 		return $basePath
 	}
 }
 
-#Model to store online policy file content with name. 
+#Model to store online policy file content with name.
 #Used in ConfigurationHelper to cache online policy files
 class Policy {
 	[string] $Name
