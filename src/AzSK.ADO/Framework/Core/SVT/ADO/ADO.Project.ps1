@@ -1148,8 +1148,8 @@ class Project: ADOSVTBase
         {
             $repoPermissionUrl = 'https://dev.azure.com/{0}/_apis/accesscontrollists/2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87?api-version=6.0' -f $this.OrganizationContext.OrganizationName;
             # Fetch the repo permissions for all the repositories in the organization
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($repoPermissionUrl)
-            if ($null -ne $responseObj -and ($responseObj | Measure-Object).Count -gt 0)
+            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($repoPermissionUrl))
+            if ($responseObj.Count -gt 0)
             {
                 # Filter the inherited permissions specific to the given project
                 $repoPermissionsForProject = $responseObj | where-object {$_.token.Contains("repoV2/$projectId") -and (-not $_.token.Contains("refs/heads")) -and  $_.inheritPermissions -eq $true}
