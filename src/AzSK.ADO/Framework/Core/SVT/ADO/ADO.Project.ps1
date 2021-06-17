@@ -1147,9 +1147,11 @@ class Project: ADOSVTBase
         try
         {
             $repoPermissionUrl = 'https://dev.azure.com/{0}/_apis/accesscontrollists/2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87?api-version=6.0' -f $this.OrganizationContext.OrganizationName;
+            # Fetch the repo permissions for all the repositories in the organization
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($repoPermissionUrl)
             if ($null -ne $responseObj -and ($responseObj | Measure-Object).Count -gt 0)
             {
+                # Filter the inherited permissions specific to the given project
                 $repoPermissionsForProject = $responseObj | where-object {$_.token.Contains("repoV2/$projectId") -and (-not $_.token.Contains("refs/heads")) -and  $_.inheritPermissions -eq $true}
                 $inheritedRepoTokensList = @($repoPermissionsForProject | select token)
                 $repoDefnsObj = $this.FetchRepositoriesList()
@@ -1157,6 +1159,7 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Passed, "No repositories found in the current project.");
                 }
                 else {
+                    #Fetch the repo list whose token id is part of inherited permission token's list
                     $failedRepos = @($repoDefnsObj | where-object {$inheritedRepoTokensList.token -contains "repoV2/$projectId/$($_.id)"})
                     $passedRepos = @($repoDefnsObj |  Where-Object  {$failedRepos -notcontains $_})
                     $failedReposCount = $failedRepos.Count
