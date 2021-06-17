@@ -1141,45 +1141,44 @@ class Project: ADOSVTBase
     }
 
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult) {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
         #permissionSetId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
-        $repoNamespaceId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87'
         try
         {
-            $repoPermissionUrl = 'https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?api-version=6.0' -f $this.OrganizationContext.OrganizationName, $repoNamespaceId;
+            $repoPermissionUrl = 'https://dev.azure.com/{0}/_apis/accesscontrollists/2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87?api-version=6.0' -f $this.OrganizationContext.OrganizationName;
             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($repoPermissionUrl)
             if ($null -ne $responseObj -and ($responseObj | Measure-Object).Count -gt 0)
             {
+                $repoPermissionsForProject = $responseObj | where-object {$_.token.Contains("repoV2/$projectId") -and (-not $_.token.Contains("refs/heads")) -and  $_.inheritPermissions -eq $true}
+                $inheritedRepoTokensList = @($repoPermissionsForProject | select token)
                 $repoDefnsObj = $this.FetchRepositoriesList()
-                $failedRepos = @()
-                $passedRepos = @()
-                foreach ($repo in $repoDefnsObj)
-                {
-                    $repoToken = "repoV2/$projectId/$($repo.id)"
-                    $repoObj = $responseObj | where-object {$_.token -eq $repoToken}
-                    if ($null -ne $repoObj -and ($repoObj | Measure-Object).Count -gt 0 -and $repoObj.inheritPermissions)
+                if(([Helpers]::CheckMember($repoDefnsObj[0],"count",$false)) -and ($repoDefnsObj[0].count -eq 0)) {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No repositories found in the current project.");
+                }
+                else {
+                    $failedRepos = @($repoDefnsObj | where-object {$inheritedRepoTokensList.token -contains "repoV2/$projectId/$($_.id)"})
+                    $passedRepos = @($repoDefnsObj |  Where-Object  {$failedRepos -notcontains $_})
+                    $failedReposCount = $failedRepos.Count
+                    $passedReposCount = $passedRepos.Count
+                    $passedRepoNames = @()
+                    $failedRepoNames = @()
+                    if($failedReposCount -gt 0)
                     {
-                        $failedRepos += $repo.name
+                        $failedRepoNames += $failedRepos.name
+                        if($passedReposCount -gt 0){
+                           $passedRepoNames += $passedRepos.name
+                        }
+                        $failedRepos = $failedRepos | sort-object
+                        $passedRepos = $passedRepos | sort-object
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Inherited permissions are enabled on the repositories.");
+                        $controlResult.AddMessage("Count of repositories on which inherited permissions are enabled: $failedReposCount", ($failedRepoNames | FT | Out-String));
+                        $controlResult.AddMessage("`nCount of repositories on which inherited permissions are disabled: $passedReposCount",($passedRepoNames | FT | Out-String));
                     }
                     else
                     {
-                        $passedRepos += $repo.name
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Inherited permissions are disabled on all repositories.");
                     }
-                }
-
-                $failedReposCount = $failedRepos.Count
-                $passedReposCount = $passedRepos.Count
-                $passedRepos = $passedRepos | sort-object
-                if($failedReposCount -gt 0)
-                {
-                    $failedRepos = $failedRepos | sort-object
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Inherited permissions are enabled on the repositories.");
-                    $controlResult.AddMessage("Total number of repositories on which inherited permissions are enabled: $failedReposCount", $failedRepos);
-                    $controlResult.AddMessage("Total number of repositories on which inherited permissions are disabled: $passedReposCount", $passedRepos);
-                }
-                else
-                {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "Inherited permissions are disabled on all repositories.");
                 }
             }
             else
@@ -1654,7 +1653,7 @@ class Project: ADOSVTBase
             {
                 $controlResult.VerificationResult = [VerificationResult]::Failed
                 $AdminGroupsToCheckForInactiveUser = @($this.ControlSettings.Project.AdminGroupsToCheckForInactiveUser)
-       
+
                 $inactiveUsersWithAdminAccess = @()
                 $inactivityPeriodInDays = 90
                 if([Helpers]::CheckMember($this.ControlSettings,"Project.AdminInactivityThresholdInDays"))
@@ -1667,14 +1666,14 @@ class Project: ADOSVTBase
                 $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
                 $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
                 $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
-    
+
                 $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
 
                 if([Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider")
                 {
                     $ReqdAdminGroups = @();
                     $ReqdAdminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $AdminGroupsToCheckForInactiveUser }
-                    
+
                     $allAdminMembers =@();
 
                     $ReqdAdminGroups | ForEach-Object{
@@ -1692,17 +1691,17 @@ class Project: ADOSVTBase
                         # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
                         if($groupMembers.count -gt 0)
                         {
-                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor } )} 
+                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor } )}
                         }
                     }
-                
+
                     $AdminUsersMasterList = @()
                     $AdminUsersFailureCases = @()
 
                     if($allAdminMembers.count -gt 0)
                     {
                         $groups = $allAdminMembers | Group-Object "mailAddress"
-                        $AdminUsersMasterList += foreach( $grpobj in $groups ){                                      
+                        $AdminUsersMasterList += foreach( $grpobj in $groups ){
                                                   $PrincipalName = $grpobj.name
                                                   $OrgGroup = ($grpobj.group.groupName  | select -Unique)-join ','
                                                   $DisplayName = $grpobj.group.name | select -Unique
@@ -1710,8 +1709,8 @@ class Project: ADOSVTBase
                                                   $descriptor = $grpobj.group.descriptor | select -Unique
                                                   [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date ; Descriptor = $descriptor}
                                                 }
-                                            
-                        $inactiveUsersWithAdminAccess =@()                        
+
+                        $inactiveUsersWithAdminAccess =@()
 
                         if($AdminUsersMasterList.count -gt 0)
                         {
@@ -1719,7 +1718,7 @@ class Project: ADOSVTBase
                             $controlResult.AddMessage("`nLooking for admin users who have not been active for $($inactivityPeriodInDays) days.")
                             $currentObj = $null
                             $AdminUsersMasterList | ForEach-Object{
-                                try 
+                                try
                                 {
                                     if([Helpers]::CheckMember($_,"PrincipalName"))
                                     {
@@ -1745,26 +1744,26 @@ class Project: ADOSVTBase
                                                     $_.LastAccessedDate = $dateobj.ToString("MM-dd-yyyy")
                                                 }
                                                 $inactiveUsersWithAdminAccess += $_
-                                            }                        
+                                            }
                                         }
                                     }
                                 }
-                                catch 
+                                catch
                                 {
                                     $controlResult.LogException($_)
                                     $AdminUsersFailureCases += $currentObj
                                 }
                             }
-                        }                        
+                        }
                     }
                     else {
                        $controlResult.AddMessage([VerificationResult]::Passed, "No user found with admin roles in the project.")
-                    }                       
-                    
+                    }
+
                     if($null -eq (Compare-Object -ReferenceObject $AdminUsersMasterList -DifferenceObject $AdminUsersFailureCases))
                     {
                         $controlResult.AddMessage([VerificationResult]::Error, "Unable to fetch details of inactive users in admin role. Please run the scan with admin priveleges.")
-                    }                    
+                    }
                     elseif($inactiveUsersWithAdminAccess.count -gt 0)
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive users in admin roles: $($inactiveUsersWithAdminAccess.count) ");
@@ -1780,17 +1779,17 @@ class Project: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of groups in the project.")
                 }
-                $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForInactiveUser|FT|Out-String)");        
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForInactiveUser|FT|Out-String)");
             }
             catch
             {
                 $controlResult.AddMessage([VerificationResult]::Error, "Not able to fetch project level groups")
                 $controlResult.LogException($_)
-            }         
+            }
         }
         else{
             $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting inactive accounts is not defined in control setting of your organization.");
-        }        
+        }
         return $controlResult;
     }
 
