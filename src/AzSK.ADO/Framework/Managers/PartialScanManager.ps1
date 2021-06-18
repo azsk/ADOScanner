@@ -21,6 +21,8 @@ class PartialScanManager
 	hidden static $CollatedSummaryCount = @(); # Matrix of counts for severity and control status
 	hidden static $CollatedBugSummaryCount = @(); # Matrix of counts for severity and Bug status
 	hidden static $ControlResultsWithBugSummary = @();
+	hidden static $ControlResultsWithClosedBugSummary= @();
+	hidden static $duplicateClosedBugCount=0;
 	hidden [string] $SummaryMarkerText = "------";
 
 
@@ -669,6 +671,34 @@ class PartialScanManager
 				[PartialScanManager]::ControlResultsWithBugSummary += $item
 			}
 		};
+
+	}
+		    # Collect Closed Bugs summary data and append to it at every checkpoint. Any changes in this method should be synced with WritePSConsole.ps1 PrintBugSummaryData method
+	[void] CollateBugClosedSummaryData($event){
+		#gather all control results that have passed as their control result
+		#obtain their control severities
+		$TotalWorkItemCount=0;
+		$TotalControlsClosedCount=0;
+		$event | ForEach-Object {
+			$item = $_
+			if ($item -and $item.ControlResults)
+			{
+				$TotalControlsClosedCount+=1;
+
+				$item.ControlResults[0].Messages | ForEach-Object{
+					if($_.Message -eq "Closed Bug"){
+						[PartialScanManager]::CollatedBugSummaryCount += [PSCustomObject]@{
+							BugStatus=$_.Message
+							ControlSeverity = $item.ControlItem.ControlSeverity;
+						};
+						$TotalWorkItemCount+=1
+					}
+				};
+				#Collecting control results where closed bug has been found. This is used to generate BugSummary at the end of scan
+				[PartialScanManager]::ControlResultsWithClosedBugSummary += $item
+			}
+		};
+		[PartialScanManager]::duplicateClosedBugCount+=($TotalWorkItemCount-$TotalControlsClosedCount)
 
 	}
 

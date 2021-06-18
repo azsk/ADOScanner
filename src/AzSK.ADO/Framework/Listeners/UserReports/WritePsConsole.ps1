@@ -250,6 +250,10 @@ class WritePsConsole: FileOutputBase
                         $currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
                         $currentInstance.PrintBugSummaryData($Event);
                     }
+					if($currentInstance.InvocationContext.BoundParameters["AutoCloseBugs"]){
+                        $currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
+                        $currentInstance.PrintBugSummaryData($Event);
+                    }
                     $currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
                 }
 
@@ -540,31 +544,59 @@ class WritePsConsole: FileOutputBase
 
 	hidden [void] PrintBugSummaryData($event){
 		[PSCustomObject[]] $summary = @();
-
-		if (($event.SourceArgs | Measure-Object).Count -ne 0)
-		{
-			#gather all control results that have failed/verify as their control result
-			#obtain their control severities
-			$event.SourceArgs | ForEach-Object {
-				$item = $_
-				if ($item -and $item.ControlResults -and ($item.ControlResults[0].VerificationResult -eq "Failed" -or $item.ControlResults[0].VerificationResult -eq "Verify"))
-				{
-					$item
-					$item.ControlResults[0].Messages | ForEach-Object{
-						if($_.Message -eq "New Bug" -or $_.Message -eq "Active Bug" -or $_.Message -eq "Resolved Bug"){
-						$summary += [PSCustomObject]@{
-							BugStatus=$_.Message
-							ControlSeverity = $item.ControlItem.ControlSeverity;
-							
+		$currentInstance = [WritePsConsole]::GetInstance();
+		#If condition for -upc mode both AutoBugLog and AutoCloseBugs
+		if($currentInstance.InvocationContext.BoundParameters["UsePartialCommits"]){
+			$summary=[PartialScanManager]::CollatedBugSummaryCount
+			$duplicateClosedBugCount=[PartialScanManager]::duplicateClosedBugCount
+		}
+		else {
+			if (($event.SourceArgs | Measure-Object).Count -ne 0)
+			{
+				#gather all control results that have failed/verify as their control result
+				#obtain their control severities
+				$event.SourceArgs | ForEach-Object {
+					$item = $_
+					if ($item -and $item.ControlResults -and ($item.ControlResults[0].VerificationResult -eq "Failed" -or $item.ControlResults[0].VerificationResult -eq "Verify"))
+					{
+						$item
+						$item.ControlResults[0].Messages | ForEach-Object{
+							if($_.Message -eq "New Bug" -or $_.Message -eq "Active Bug" -or $_.Message -eq "Resolved Bug"){
+							$summary += [PSCustomObject]@{
+								BugStatus=$_.Message
+								ControlSeverity = $item.ControlItem.ControlSeverity;
+								
+							};
+						}
 						};
 					}
-					};
+				};
+			}
+			#These 2 variables are introduced to identify duplicate work items in different paths.
+			$TotalWorkItemCount=0;
+			$TotalControlsClosedCount=0;
+			$bugsClosed=[AutoCloseBugManager]::ClosedBugs
+			if($bugsClosed){
+				$bugsClosed | ForEach-Object{
+					$TotalControlsClosedCount+=1
+					$item=$_
+					$item.ControlResults[0].Messages | ForEach-Object{
+					if($_.Message -eq "Closed Bug"){
+							$summary += [PSCustomObject]@{
+									BugStatus=$_.Message
+									ControlSeverity = $item.ControlItem.ControlSeverity;
+									};
+							$TotalWorkItemCount+=1;
+
+						}
+					}
 				}
-			};
+
+			}
+			$duplicateClosedBugCount=$TotalWorkItemCount- $TotalControlsClosedCount		
 		}
-		else{
-			$summary = [PartialScanManager]::CollatedBugSummaryCount
-		}
+
+		
 
 		#if such bugs were found, print a summary table
 
@@ -636,9 +668,15 @@ class WritePsConsole: FileOutputBase
 
 			
 		}
+		if($duplicateClosedBugCount -gt 0){
+			$currentInstance.WriteMessage("Count of duplicate work items closed : $duplicateClosedBugCount ", [MessageType]::Info)
+		}
 		#Clearing the static variables
 		[PartialScanManager]::ControlResultsWithBugSummary = @();
+		[PartialScanManager]::ControlResultsWithClosedBugSummary = @();
 		[PartialScanManager]::CollatedBugSummaryCount = @();
+		[PartialScanManager]::duplicateClosedBugCount = 0;
+
 
 	}
 

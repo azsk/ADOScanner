@@ -538,6 +538,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			}
 			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 			$AutoClose.AutoCloseBug($result)
+			$bugsClosed=[AutoCloseBugManager]::ClosedBugs
+            $partialScanMngr.CollateBugClosedSummaryData($bugsClosed)
         }
 		
 	}
