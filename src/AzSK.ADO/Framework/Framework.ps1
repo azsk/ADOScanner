@@ -42,6 +42,7 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Models\RemoteReports\RecommendationReportModel.ps1
 . $FrameworkPath\Models\RemoteReports\ScanResultModels.ps1
 
+
 #Helpers
 . $FrameworkPath\Helpers\Helpers.ps1
 . $FrameworkPath\Managers\ConfigurationManager.ps1
@@ -53,6 +54,7 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Helpers\ControlHelper.ps1
 
 . $FrameworkPath\Models\Common\ResourceInventory.ps1
+. $FrameworkPath\Helpers\QuickScanHelper.ps1
 
 
 #Managers

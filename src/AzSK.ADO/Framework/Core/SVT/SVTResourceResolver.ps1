@@ -228,6 +228,7 @@ class SVTResourceResolver: AzSKRoot {
             #Add this to QS only if $MaxObj is specified. If so, this will download only $maxObj configs.
             $topNQueryString = '&$top='+ $this.MaxObjectsToScan
         }
+        $scanSrc=[AzSKSettings]::GetInstance().GetScanSource()
         #Get project resources
         if ($this.ProjectNames.Count -gt 0) {
             $this.PublishCustomMessage("Querying api for resources to be scanned. This may take a while...");
@@ -317,49 +318,54 @@ class SVTResourceResolver: AzSKRoot {
                                 $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
                             }
                             $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL)
-                            if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
-                                $nObj = $this.MaxObjectsToScan
-                                foreach ($bldDef in $buildDefnsObj) {
-                                    $link = $bldDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
-                                    $buildResourceId = "organization/$organizationId/project/$projectId/build/$($bldDef.id)";
-                                    $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
-
-                                    if (--$nObj -eq 0) { break; }
-                                }
-                                $buildDefnsObj = $null;
-                                Remove-Variable buildDefnsObj;
+                            if($scanSrc -eq 'CA' ) ##ToDO add quickScan Switch
+                            {
+                                $quickScanInstance=[QuickScanHelper]::new($this.OrganizationName)
+                                $buildDefnsObj=$quickScanInstance.GetNewList($buildDefnsObj)
                             }
-                        }
-                        else {
-
-                            $buildDefnURL = "";
-                            #If service id based scan then will break the loop after one run because, sending all build ids to api as comma separated in one go.
-                            for ($i = 0; $i -lt $this.BuildNames.Count; $i++) {
-                                #If service id based scan then send all build ids to api as comma separated in one go.
-                                if ($this.isServiceIdBasedScan -eq $true) {
-                                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $projectName, ($this.BuildIds -join ",");
-                                }
-                                else { #If normal scan (not service id based) then send each build name in api one by one.
-                                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?name={2}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $projectName, $this.BuildNames[$i];
-                                }
-                                $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL)
-                                if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
+                            if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
+                                    $nObj = $this.MaxObjectsToScan
                                     foreach ($bldDef in $buildDefnsObj) {
                                         $link = $bldDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
                                         $buildResourceId = "organization/$organizationId/project/$projectId/build/$($bldDef.id)";
                                         $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
 
+                                        if (--$nObj -eq 0) { break; }
                                     }
                                     $buildDefnsObj = $null;
                                     Remove-Variable buildDefnsObj;
                                 }
-                                #If service id based scan then no need to run loop as all the build ids has been sent to api as comma separated list in one go. so break the loop.
-                                if ($this.isServiceIdBasedScan -eq $true) {
-                                    break;
+                            }
+                            else {
+
+                                $buildDefnURL = "";
+                                #If service id based scan then will break the loop after one run because, sending all build ids to api as comma separated in one go.
+                                for ($i = 0; $i -lt $this.BuildNames.Count; $i++) {
+                                    #If service id based scan then send all build ids to api as comma separated in one go.
+                                    if ($this.isServiceIdBasedScan -eq $true) {
+                                        $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $projectName, ($this.BuildIds -join ",");
+                                    }
+                                    else { #If normal scan (not service id based) then send each build name in api one by one.
+                                        $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?name={2}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $projectName, $this.BuildNames[$i];
+                                    }
+                                    $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL)
+                                    if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
+                                        foreach ($bldDef in $buildDefnsObj) {
+                                            $link = $bldDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
+                                            $buildResourceId = "organization/$organizationId/project/$projectId/build/$($bldDef.id)";
+                                            $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
+
+                                        }
+                                        $buildDefnsObj = $null;
+                                        Remove-Variable buildDefnsObj;
+                                    }
+                                    #If service id based scan then no need to run loop as all the build ids has been sent to api as comma separated list in one go. so break the loop.
+                                    if ($this.isServiceIdBasedScan -eq $true) {
+                                        break;
                                 }
                             }
                         }
-
+                    
                         #Initialysing null to SecurityNamespaceId variable for new scan, it is static variable, setting once only in svc class and same value is applicable for all the svc con withing org
                         [Build]::SecurityNamespaceId = $null;
 
