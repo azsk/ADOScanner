@@ -183,7 +183,7 @@ class CommandBase: AzSKRoot {
 					[PublishToJSONAndCSV]::new($methodResult,$folderPath,$bugsClosed)
 			}
 		}
-		if($this.InvocationContext.BoundParameters["AutoCloseBugs"]){
+		elseif($this.InvocationContext.BoundParameters["AutoCloseBugs"]){
 			if (([PartialScanManager]::ControlResultsWithClosedBugSummary| Measure-Object).Count -gt 0)
 			{
 				$bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
@@ -197,7 +197,7 @@ class CommandBase: AzSKRoot {
 			if($bugsClosed)
 			{
 				# [PublishToJSONAndCSV]::new($null,$folderPath,$bugsClosed)
-				[PublishToJSONAndCSV]::new($methodResult,$folderPath,$bugsClosed)
+				[PublishToJSONAndCSV]::new($null,$folderPath,$bugsClosed)
 			}
 		}
 
