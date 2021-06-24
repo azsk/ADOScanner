@@ -1489,7 +1489,7 @@ class Organization: ADOSVTBase
             }
        }
        else{
-            $controlResult.AddMessage([VerificationResult]::Error, "Pipeline settings could not be fetched due to insufficient permissions at organization scope.");
+            $controlResult.AddMessage([VerificationResult]::Error, "Organization pipeline settings could not be fetched due to insufficient permissions at organization scope.");
         }
         return $controlResult
     }
@@ -1509,7 +1509,7 @@ class Organization: ADOSVTBase
             }
        }
        else{
-             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
+             $controlResult.AddMessage([VerificationResult]::Error, "Organization pipeline settings could not be fetched due to insufficient permissions at organization scope.");
        }
         return $controlResult
     }
@@ -1529,7 +1529,7 @@ class Organization: ADOSVTBase
             }
        }
        else{
-             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
+             $controlResult.AddMessage([VerificationResult]::Error, "Organization pipeline settings could not be fetched due to insufficient permissions at organization scope.");
        }
         return $controlResult
     }
@@ -1549,7 +1549,7 @@ class Organization: ADOSVTBase
             }
        }
        else{
-             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
+             $controlResult.AddMessage([VerificationResult]::Error, "Organization pipeline settings could not be fetched due to insufficient permissions at organization scope.");
        }
         return $controlResult
     }
@@ -1590,7 +1590,7 @@ class Organization: ADOSVTBase
        }
        else
        {
-             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
+             $controlResult.AddMessage([VerificationResult]::Error, "Organization pipeline settings could not be fetched due to insufficient permissions at organization scope.");
        }
         return $controlResult
     }
@@ -1631,7 +1631,7 @@ class Organization: ADOSVTBase
        }
        else
        {
-             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
+             $controlResult.AddMessage([VerificationResult]::Error, "Organization pipeline settings could not be fetched due to insufficient permissions at organization scope.");
        }
         return $controlResult
     }
