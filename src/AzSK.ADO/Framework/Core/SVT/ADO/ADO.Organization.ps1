@@ -1477,8 +1477,10 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckSettableQueueTime([ControlResult] $controlResult)
     {
-       if($this.PipelineSettingsObj)
-       {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        
+        if($this.PipelineSettingsObj)
+        {
 
             if($this.PipelineSettingsObj.enforceSettableVar -eq $true )
             {
@@ -1487,8 +1489,8 @@ class Organization: ADOSVTBase
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "All variables can be set at queue time.");
             }
-       }
-       else{
+        }
+        else{
             $controlResult.AddMessage([VerificationResult]::Error, "Pipeline settings could not be fetched due to insufficient permissions at organization scope.");
         }
         return $controlResult
@@ -1496,8 +1498,10 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckJobAuthZScope([ControlResult] $controlResult)
     {
-       if($this.PipelineSettingsObj)
-       {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+
+        if($this.PipelineSettingsObj)
+        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceJobAuthScope
 
             if($orgLevelScope -eq $true )
@@ -1507,17 +1511,19 @@ class Organization: ADOSVTBase
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope is set to project collection for non-release pipelines at organization level.");
             }
-       }
-       else{
+        }
+        else{
              $controlResult.AddMessage([VerificationResult]::Error, "Pipeline settings could not be fetched due to insufficient permissions at organization scope.");
-       }
+        }
         return $controlResult
     }
 
     hidden [ControlResult] CheckJobAuthZReleaseScope([ControlResult] $controlResult)
     {
-       if($this.PipelineSettingsObj)
-       {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+
+        if($this.PipelineSettingsObj)
+        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceJobAuthScopeForReleases
 
             if($orgLevelScope -eq $true )
@@ -1527,10 +1533,10 @@ class Organization: ADOSVTBase
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope is set to project collection for release pipelines at organization level.");
             }
-       }
-       else{
+        }
+        else{
              $controlResult.AddMessage([VerificationResult]::Error, "Pipeline settings could not be fetched due to insufficient permissions at organization scope.");
-       }
+        }
         return $controlResult
     }
 
