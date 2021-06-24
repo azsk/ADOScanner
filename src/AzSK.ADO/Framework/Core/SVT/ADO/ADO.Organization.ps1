@@ -1489,7 +1489,7 @@ class Organization: ADOSVTBase
             }
        }
        else{
-            $controlResult.AddMessage([VerificationResult]::Manual, "Pipeline settings could not be fetched due to insufficient permissions at organization scope.");
+            $controlResult.AddMessage([VerificationResult]::Error, "Pipeline settings could not be fetched due to insufficient permissions at organization scope.");
         }
         return $controlResult
     }
