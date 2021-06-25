@@ -44,8 +44,8 @@ class ContextHelper {
                 [ContextHelper]::ConvertToContextObject($tokenInfo)
             }
             else {
-                if ( !$authNRefresh -and ($azSKUI = Get-Variable 'AzSKADOLoginUI' -Scope Global -ErrorAction 'Ignore')) {
-                    if ($azSKUI.Value -eq 1) {
+                if ( !$authNRefresh -and ($azSKUI = Get-Variable 'ResetCredentials' -ErrorAction 'Ignore'   )) {
+                    if ($azSKUI.Value -eq $true) {
                         $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Always
                         $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
                         $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
