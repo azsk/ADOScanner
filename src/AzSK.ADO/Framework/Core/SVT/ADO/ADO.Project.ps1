@@ -762,10 +762,11 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckEnviornmentAccess([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed;
         try
         {
             $apiURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceName);
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
 
             # TODO: When there are no environments configured, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false. Need to revisit.
             if(([Helpers]::CheckMember($responseObj[0],"count",$false)) -and ($responseObj[0].count -eq 0))
