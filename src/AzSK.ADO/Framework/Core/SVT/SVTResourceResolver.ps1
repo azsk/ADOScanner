@@ -37,7 +37,6 @@ class SVTResourceResolver: AzSKRoot {
     [bool] $includeAdminControls = $false;
     [bool] $isUserPCA = $false;
     [bool] $skipOrgUserControls = $false
-    [bool] $resetCredentials = $false;
 
     hidden [string[]] $BuildIds = @();
     hidden [string[]] $ReleaseIds = @();
@@ -51,10 +50,10 @@ class SVTResourceResolver: AzSKRoot {
     hidden [string[]] $SecureFileNames = @();
     hidden [string[]] $FeedNames = @();
 
-    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $ResetCredentials): Base($organizationName, $PATToken) {
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames): Base($organizationName, $PATToken) {
 
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
-        $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $ResetCredentials);
+        $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);
         $this.skipOrgUserControls = $skipOrgUserControls
 
         $this.RepoNames += $this.ConvertToStringArray($RepoNames);
@@ -62,12 +61,11 @@ class SVTResourceResolver: AzSKRoot {
         $this.FeedNames += $this.ConvertToStringArray($FeedNames);
     }
 
-    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $ResetCredentials) {
+    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls) {
         $this.organizationName = $organizationName
         $this.ResourceTypeName = $ResourceTypeName
         $this.allowLongRunningScan = $AllowLongRunningScan
         $this.includeAdminControls = $IncludeAdminControls
-        $this.resetCredentials = $ResetCredentials
 
         if (-not [string]::IsNullOrEmpty($ProjectNames)) {
             $this.ProjectNames += $this.ConvertToStringArray($ProjectNames);
