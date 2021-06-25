@@ -187,3 +187,11 @@ enum SecuritySeverity
 	Medium
 	Low
 }
+
+enum SarifBaselineState
+{
+	new
+	unchanged
+	updated
+	absent
+}

@@ -239,9 +239,9 @@
   },
   "ControlSeverity": {
     "Critical": "Critical",
-    "High": "High",
-    "Medium": "Medium",
-    "Low": "Low"
+    "High": "Important",
+    "Medium": "Moderate",
+    "Low": "Note"
   },
   "Build": {
     "BuildHistoryPeriodInDays": 180,
@@ -518,3 +518,5 @@
     "Feed"
   ]
 }
+
+

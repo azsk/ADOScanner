@@ -110,6 +110,18 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Listeners\GenericListener\GenericListener.ps1
 . $PSScriptRoot\Listeners\ListenerHelper.ps1
 
+
+#SARIF Feature
+. $PSScriptRoot\SARIF\SARIFLocation.ps1
+. $PSScriptRoot\SARIF\SARIFRuleDescriptor.ps1
+. $PSScriptRoot\SARIF\SARIFResult.ps1
+. $PSScriptRoot\SARIF\SARIFDriver.ps1
+. $PSScriptRoot\SARIF\SARIFTool.ps1
+. $PSScriptRoot\SARIF\SARIFRun.ps1
+. $PSScriptRoot\SARIF\SARIFLogs.ps1
+. $PSScriptRoot\SARIF\SARIFLogsGenerator.ps1
+
+
 #Remaining Abstracts
 . $PSScriptRoot\Core\SVT\SVTControlAttestation.ps1
 . $FrameworkPath\Abstracts\CommandBase.ps1

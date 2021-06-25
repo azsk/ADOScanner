@@ -171,12 +171,22 @@ class CommandBase: AzSKRoot {
 			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 			$AutoClose.AutoCloseBug($methodResult)
 		}
+		#SARIF Logs generation.Note if SDL or upc with Auto Bug Log controlResults are already available in $methodResult
+		if($this.InvocationContext.BoundParameters["GenerateSarifLogs"]){
+			if(!$methodResult){
+				$methodResult=[PartialScanManager]::ControlResultsWithSARIFSummary
+			}
+		    [SARIFLogsGenerator]::new($methodResult,$folderPath)
+			# [SARIFHelper]::new($folderPath)
+			[PartialScanManager]::ControlResultsWithSARIFSummary=@()
+        }
 		# Publish command complete events
         $this.CommandCompleted($methodResult);
 		[AIOrgTelemetryHelper]::TrackCommandExecution("Command Completed",
 			@{"RunIdentifier" = $this.RunIdentifier},
 			@{"TimeTakenInMs" = $sw.ElapsedMilliseconds; "SuccessCount" = 1},
 			$this.InvocationContext)
+		
         $this.PostCommandCompletedAction($methodResult);
 
 

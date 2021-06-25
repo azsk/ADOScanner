@@ -8,6 +8,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	[Datetime] $ScanEnd
 	[bool] $IsAIEnabled = $false;
 	[bool] $IsBugLoggingEnabled = $false;
+	[bool] $IsSarifEnabled = $false;
 	$ActualResourcesPerRsrcType = @(); # Resources count based on resource type . This count is evaluated before comparison with resource tracker file.
 
 	ServicesSecurityStatus([string] $organizationName, [InvocationInfo] $invocationContext, [SVTResourceResolver] $resolver):
@@ -43,6 +44,9 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if($invocationContext.BoundParameters["ALTControlEvaluationMethod"])
 		{
 			[IdentityHelpers]::ALTControlEvaluationMethod = $invocationContext.BoundParameters["ALTControlEvaluationMethod"]
+		}
+		if($invocationContext.BoundParameters["GenerateSarifLogs"]){
+			$this.IsSarifEnabled = $true; 
 		}
 		[PartialScanManager]::ClearInstance();
 		$this.BaselineFilterCheck();
@@ -539,6 +543,10 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 			$AutoClose.AutoCloseBug($result)
         }
+		#sarif information. Save in ControlResultsWithSarifSummary only if controls not available in ControlResultsWithBugSummary
+		if($this.IsSarifEnabled -and !$this.invocationContext.BoundParameters["AutoBugLog"]){
+				$partialScanMngr.CollateSarifData($result);
+		}
 		
 	}
 
