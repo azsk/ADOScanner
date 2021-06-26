@@ -9,8 +9,8 @@ class SARIFDriver{
 
      [SARIFRuleDescriptor[]] $rules
     SARIFDriver([SVTEventContext[]] $ControlResults){
-        #ToDo add driver name not hardcoded
-        $this.name="SVT.ps1"
+        $callStack= Get-PSCallStack
+        $this.name=$callStack[-2].Location.Split(":")[0]
         ##ADO Version and Source populate
         $ver=$PSCmdlet.MyInvocation.MyCommand.Version 
         $this.semanticVersion="{0}.{1}" -f $ver.Major, $ver.Minor
@@ -37,19 +37,4 @@ class SARIFDriver{
         }
         $RulesHashMap.Clear()
     }
-
-#     hidden [bool] ContainsRules([SVTEventContext] $control)
-#     {
-#         if($null -eq $this.rules)
-#         {
-#             return $false
-#         }
-#         $this.rules | ForEach-Object{
-#             if($control.ControlItem.Id -eq $_.id){
-#                 return $true
-#             }
-#         }
-#         return $false
-
-#     }
 }

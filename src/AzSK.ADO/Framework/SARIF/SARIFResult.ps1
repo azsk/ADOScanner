@@ -13,7 +13,7 @@ class SARIFResult{
         OrgName=""
     }
 
-    [SarifBaselineState] $baselineState="new"
+    # [string] $baselineState="unchanged"
     [SARIFLocation[]] $locations
     SARIFResult( [SVTEventContext] $control)
     {
@@ -28,6 +28,7 @@ class SARIFResult{
         $this.properties.OrgId=$control.OrganizationContext.OrganizationId
         $this.properties.OrgName=$control.OrganizationContext.OrganizationName
         $this.locations+=[SARIFLocation]::new($control)
+
 
     }
 

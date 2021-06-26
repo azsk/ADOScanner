@@ -171,13 +171,18 @@ class CommandBase: AzSKRoot {
 			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 			$AutoClose.AutoCloseBug($methodResult)
 		}
-		#SARIF Logs generation.Note if SDL or upc with Auto Bug Log controlResults are already available in $methodResult
+		#SARIF Logs generation.Note if upc with Auto Bug Log we have controls available in ControlResultsWithBugSummary static variable.
+        $sarifMethodResults=$methodResult
 		if($this.InvocationContext.BoundParameters["GenerateSarifLogs"]){
-			if(!$methodResult){
-				$methodResult=[PartialScanManager]::ControlResultsWithSARIFSummary
+			if(!$sarifMethodResults){
+                if(([PartialScanManager]::ControlResultsWithBugSummary| Measure-Object).Count -gt 0){
+                    $sarifMethodResults=[PartialScanManager]::ControlResultsWithBugSummary
+                }
+                else{
+				    $sarifMethodResults=[PartialScanManager]::ControlResultsWithSARIFSummary
+                }
 			}
-		    [SARIFLogsGenerator]::new($methodResult,$folderPath)
-			# [SARIFHelper]::new($folderPath)
+		    [SARIFLogsGenerator]::new($sarifMethodResults,$folderPath)
 			[PartialScanManager]::ControlResultsWithSARIFSummary=@()
         }
 		# Publish command complete events
