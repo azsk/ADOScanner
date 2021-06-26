@@ -157,56 +157,60 @@ class CommandBase: AzSKRoot {
 		#the next two bug log classes have been called here as we need all the control results at one place for
 		#dumping them in json file and auto closing them(to minimize api calls and auto close them in batches)
 		#if bug logging is enabled and path is valid, create the JSON file for bugs
-		#AutoBugLog Conditions
-		$isPartialScan=$false
-		$bugsClosed=$null
-		if($this.InvocationContext.BoundParameters["AutoBugLog"]){
-			if (([PartialScanManager]::ControlResultsWithBugSummary| Measure-Object).Count -gt 0)
-			{
-				$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
-				# $bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
-				$isPartialScan=$true
-			}
-			if (([PartialScanManager]::ControlResultsWithClosedBugSummary| Measure-Object).Count -gt 0)
-			{
-				$bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
-				$isPartialScan=$true
-			}
-			 #If upc enabled dont call Auto close functions again
-			if(!$isPartialScan)
-			{
-				$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
-				$AutoClose.AutoCloseBug($methodResult)
-				$bugsClosed=[AutoCloseBugManager]::ClosedBugs
-                if($bugsClosed){
-			        $laInstance= [LogAnalyticsOutput]::Instance
-			        $laInstance.WriteControlResult($bugsClosed)
-                }
-			}
-			if([BugLogPathManager]::GetIsPathValid()){
-					[PublishToJSONAndCSV]::new($methodResult,$folderPath,$bugsClosed)
-			}
+		#AutoBugLog and AutoCloseBug Conditions
+		# $isPartialScan=$false
+		# $bugsClosed=$null
+
+		if($this.InvocationContext.BoundParameters["AutoBugLog"] -or $this.InvocationContext.BoundParameters["AutoCloseBugs"]){
+			$this.bugInfoSend($methodResult,$folderPath)
 		}
-		elseif($this.InvocationContext.BoundParameters["AutoCloseBugs"]){
-			if (([PartialScanManager]::ControlResultsWithClosedBugSummary| Measure-Object).Count -gt 0)
-			{
-				$bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
-				$isPartialScan=$true
-			}
-			if(!$isPartialScan){
-				$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
-				$AutoClose.AutoCloseBug($methodResult)
-				$bugsClosed=[AutoCloseBugManager]::ClosedBugs
-                if($bugsClosed){
-			        $laInstance= [LogAnalyticsOutput]::Instance
-			        $laInstance.WriteControlResult($bugsClosed)
-                }
-			}
-			if($bugsClosed)
-			{
-				[PublishToJSONAndCSV]::new($null,$folderPath,$bugsClosed)
-			}
-		}
+		# if($this.InvocationContext.BoundParameters["AutoBugLog"]){
+		# 	if (([PartialScanManager]::ControlResultsWithBugSummary| Measure-Object).Count -gt 0)
+		# 	{
+		# 		$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
+		# 		# $bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
+		# 		$isPartialScan=$true
+		# 	}
+		# 	if (([PartialScanManager]::ControlResultsWithClosedBugSummary| Measure-Object).Count -gt 0)
+		# 	{
+		# 		$bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
+		# 		$isPartialScan=$true
+		# 	}
+		# 	 #If upc enabled dont call Auto close functions again
+		# 	if(!$isPartialScan)
+		# 	{
+		# 		$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
+		# 		$AutoClose.AutoCloseBug($methodResult)
+		# 		$bugsClosed=[AutoCloseBugManager]::ClosedBugs
+        #         if($bugsClosed){
+		# 	        $laInstance= [LogAnalyticsOutput]::Instance
+		# 	        $laInstance.WriteControlResult($bugsClosed)
+        #         }
+		# 	}
+		# 	if([BugLogPathManager]::GetIsPathValid()){
+		# 			[PublishToJSONAndCSV]::new($methodResult,$folderPath,$bugsClosed)
+		# 	}
+		# }
+		# elseif($this.InvocationContext.BoundParameters["AutoCloseBugs"]){
+		# 	if (([PartialScanManager]::ControlResultsWithClosedBugSummary| Measure-Object).Count -gt 0)
+		# 	{
+		# 		$bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
+		# 		$isPartialScan=$true
+		# 	}
+		# 	if(!$isPartialScan){
+		# 		$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
+		# 		$AutoClose.AutoCloseBug($methodResult)
+		# 		$bugsClosed=[AutoCloseBugManager]::ClosedBugs
+        #         if($bugsClosed){
+		# 	        $laInstance= [LogAnalyticsOutput]::Instance
+		# 	        $laInstance.WriteControlResult($bugsClosed)
+        #         }
+		# 	}
+		# 	if($bugsClosed)
+		# 	{
+		# 		[PublishToJSONAndCSV]::new($null,$folderPath,$bugsClosed)
+		# 	}
+		# }
 
 		# Publish command complete events
         $this.CommandCompleted($methodResult);
@@ -282,6 +286,42 @@ class CommandBase: AzSKRoot {
     [string] GetOutputFolderPath() {
         return [WriteFolderPath]::GetInstance().FolderPath;
     }
+
+	#Sends bug information to Json,CSV. Closed bug information is sent to LA.
+	[void] bugInfoSend([SVTEventContext[]] $methodResult, [string] $folderPath){
+		[bool] $isPartialScan=$false
+		[SVTEventContext[]] $bugsClosed=$null
+		if (([PartialScanManager]::ControlResultsWithBugSummary| Measure-Object).Count -gt 0)
+		{
+				$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
+				$isPartialScan=$true
+			}
+		if (([PartialScanManager]::ControlResultsWithClosedBugSummary| Measure-Object).Count -gt 0)
+		{
+				$bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
+				$isPartialScan=$true
+			}
+		if(!$isPartialScan)
+		{
+			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
+			$AutoClose.AutoCloseBug($methodResult)
+			$bugsClosed=[AutoCloseBugManager]::ClosedBugs
+            if($bugsClosed){
+			    $laInstance= [LogAnalyticsOutput]::Instance
+			    $laInstance.WriteControlResult($bugsClosed)
+            }
+		}
+		if($this.InvocationContext.BoundParameters["AutoBugLog"]){
+			if([BugLogPathManager]::GetIsPathValid()){
+				[PublishToJSONAndCSV]::new($methodResult,$folderPath,$bugsClosed)
+			}
+		}
+		else{
+			if($bugsClosed){
+				[PublishToJSONAndCSV]::new($null,$folderPath,$bugsClosed)
+			}
+		}
+	}
 
 	# <TODO Framework: Move to module helper class>
 	# Function to validate module version based on Org policy and showcase warning for update or block commands if version is less than last two minor version

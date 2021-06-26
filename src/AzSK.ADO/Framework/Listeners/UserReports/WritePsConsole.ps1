@@ -246,14 +246,14 @@ class WritePsConsole: FileOutputBase
                     }
 
                     #if bug logging is enabled and the path is valid, print a summary all all bugs encountered
-                    if($currentInstance.InvocationContext.BoundParameters["AutoBugLog"] -and [BugLogPathManager]::GetIsPathValid()){
+                    if(($currentInstance.InvocationContext.BoundParameters["AutoBugLog"] -and [BugLogPathManager]::GetIsPathValid()) -or $currentInstance.InvocationContext.BoundParameters["AutoCloseBugs"]){
                         $currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
                         $currentInstance.PrintBugSummaryData($Event);
                     }
-					if($currentInstance.InvocationContext.BoundParameters["AutoCloseBugs"]){
-                        $currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
-                        $currentInstance.PrintBugSummaryData($Event);
-                    }
+					# if($currentInstance.InvocationContext.BoundParameters["AutoCloseBugs"]){
+                    #     $currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
+                    #     $currentInstance.PrintBugSummaryData($Event);
+                    # }
                     $currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
                 }
 

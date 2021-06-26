@@ -77,7 +77,6 @@ class AutoCloseBugManager {
         $PassedControlResultsLength = ($PassedControlResults | Measure-Object).Count
         #This Hash map is used to map an ADOScan hashtag value to a control. 
         $hashToControlIDMap=@{}
-        $hashClosedBugs=@{}
         #the following loop will call api for bug closing in batches of size as defined in control settings,
         #first check if passed controls length is less than the batch size, if yes then we have to combine all tags in one go
         #and call the api
@@ -105,21 +104,7 @@ class AutoCloseBugManager {
                         $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
                         $closedBugsResponse = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword)
                         if ($closedBugsResponse){
-                            $closedBugsResponse | ForEach-Object{
-                                #Store bug details for CSV,Json, LA and PSConsole summary
-                                $bug=$_.body |ConvertFrom-Json
-                                #Check if Closed and Hash Id available in map
-                                if ($hashToControlIDMap.ContainsKey($bug.ADOScannerHashId) -and $bug.fields.'System.State' -eq 'Closed'){
-                                        $id=$bug.id
-                                        $project=$bug.fields.'System.TeamProject'
-                                        $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $project , $id;
-                                        $hashToControlIDMap[$bug.ADOScannerHashId].ControlResults.AddMessage("Closed Bug",$urlClose);
-                                        if(!$hashClosedBugs.ContainsKey($bug.ADOScannerHashId)){
-                                            [AutoCloseBugManager]::ClosedBugs+=$hashToControlIDMap[$bug.ADOScannerHashId]
-                                            $hashClosedBugs.add($bug.ADOScannerHashId,$true)
-                                        }
-                                }
-                            }
+                            $this.closedBugInfoCollect($closedBugsResponse, $hashToControlIDMap)
                         }
                     }
                 }
@@ -145,21 +130,7 @@ class AutoCloseBugManager {
                             #}
                             
                             if ($closedBugsResponse){
-                                $closedBugsResponse| ForEach-Object{
-                                    #Store closed bug details
-                                    $bug=$_.body |ConvertFrom-Json
-                                    if ($hashToControlIDMap.ContainsKey($bug.fields.'System.Tags') -and $bug.fields.'System.State' -eq 'Closed')
-                                    {
-                                        $id=$bug.id
-                                        $project=$bug.fields.'System.TeamProject'
-                                        $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $project , $id;
-                                        $hashToControlIDMap[$bug.fields.'System.Tags'].ControlResults.AddMessage("Closed Bug",$urlClose);
-                                        if(!$hashClosedBugs.ContainsKey($bug.fields.'System.Tags')){
-                                            [AutoCloseBugManager]::ClosedBugs+=$hashToControlIDMap[$bug.fields.'System.Tags']
-                                            $hashClosedBugs.add($bug.fields.'System.Tags',$true)
-                                        }
-                                    }
-                                }
+                                $this.closedBugInfoCollect($closedBugsResponse, $hashToControlIDMap)
                             }
                         }
                     }
@@ -182,27 +153,13 @@ class AutoCloseBugManager {
                             $closedBugsResponse = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword);
 
                             if ($closedBugsResponse){
-                                $closedBugsResponse |ForEach-Object{
-                                    $bug= $_.body |ConvertFrom-Json
-                                    if ($hashToControlIDMap.ContainsKey($bug.ADOScannerHashId) -and $bug.fields.'System.State' -eq 'Closed')
-                                    {
-                                        $id=$bug.id
-                                        $project=$bug.fields.'System.TeamProject'
-                                        $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $project , $id;
-                                        $hashToControlIDMap[$bug.ADOScannerHashId].ControlResults.AddMessage("Closed Bug",$urlClose);
-                                        if(!$hashClosedBugs.ContainsKey($bug.ADOScannerHashId)){
-                                            [AutoCloseBugManager]::ClosedBugs+=$hashToControlIDMap[$bug.ADOScannerHashId]
-                                            $hashClosedBugs.add($bug.ADOScannerHashId,$true)
-                                        }
-                                    }
-                                }
+                                $this.closedBugInfoCollect($closedBugsResponse, $hashToControlIDMap)
                             }
                             #Reinitialize for the next batch
                             $QueryKeyWordCount = 0;
                             $TagSearchKeyword = "";
                             $PassedControlResultsLength -= $MaxKeyWordsToQuery
                             $hashToControlIDMap.Clear();
-                            $hashClosedBugs.Clear();
                         }
                     }
                     else
@@ -225,21 +182,7 @@ class AutoCloseBugManager {
                             #    $this.CloseBug($id, $Project)
                             #}
                             if ($closedBugsResponse){
-                                $closedBugsResponse| ForEach-Object{
-                                    #Store closed bug details
-                                    $bug=$_.body |ConvertFrom-Json
-                                    if ($hashToControlIDMap.ContainsKey($bug.fields.'System.Tags') -and $bug.fields.'System.State' -eq 'Closed')
-                                    {
-                                        $id=$bug.id
-                                        $project=$bug.fields.'System.TeamProject'
-                                        $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $project , $id;
-                                        $hashToControlIDMap[$bug.fields.'System.Tags'].ControlResults.AddMessage("Closed Bug",$urlClose);
-                                        if(!$hashClosedBugs.ContainsKey($bug.fields.'System.Tags')){
-                                            [AutoCloseBugManager]::ClosedBugs+=$hashToControlIDMap[$bug.fields.'System.Tags']
-                                            $hashClosedBugs.add($bug.fields.'System.Tags',$true)
-                                        }
-                                    }
-                                }
+                                $this.closedBugInfoCollect($closedBugsResponse, $hashToControlIDMap)
                             }
                         }
                         #Reinitialize for the next batch
@@ -247,19 +190,13 @@ class AutoCloseBugManager {
                         $TagSearchKeyword = "";
                         $PassedControlResultsLength -= $MaxKeyWordsToQuery
                         $hashToControlIDMap.Clear();
-                        $hashClosedBugs.Clear();
                         }
                     }
                 }
                 
             }
-
-        $hashClosedBugs.Clear();
         $hashToControlIDMap.Clear();
-        Remove-Variable $hashClosedBugs
         Remove-Variable $hashToControlIDMap;    
-        
-    
     }
 
     #function to close an active bug
@@ -316,6 +253,35 @@ class AutoCloseBugManager {
             return $false
         }
     }
+
+    hidden [void] closedBugInfoCollect([object] $closedBugsResponse, [hashtable] $hashToControlIDMap){
+        # Hash map checks for duplicate work items
+        $hashClosedBugs=@{}
+        $closedBugsResponse| ForEach-Object{
+            #Store closed bug details
+            $bug=$_.body |ConvertFrom-Json
+            $controlHashValue=$null
+            if($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA"){
+                $controlHashValue=$bug.ADOScannerHashID
+            }
+            else{
+                $controlHashValue=$bug.fields.'System.Tags'
+            }
+            
+            if ($hashToControlIDMap.ContainsKey($controlHashValue) -and $bug.fields.'System.State' -eq 'Closed')
+            {
+                $id=$bug.id
+                $project=$bug.fields.'System.TeamProject'
+                $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $project , $id;
+                $hashToControlIDMap[$controlHashValue].ControlResults.AddMessage("Closed Bug",$urlClose);
+                if(!$hashClosedBugs.ContainsKey($controlHashValue)){
+                    [AutoCloseBugManager]::ClosedBugs+=$hashToControlIDMap[$controlHashValue]
+                    $hashClosedBugs.add($controlHashValue,$true)
+                }
+            }
+        }
+        $hashClosedBugs.Clear()
+    } 
 
     #function to retrieve all new/active/resolved bugs 
     hidden [object] GetWorkItemByHash([string] $hash,[int] $MaxKeyWordsToQuery) 
