@@ -15,7 +15,7 @@ class SARIFLog{
         #hardCoded $
         # ($this |ConvertTo-Json -Depth 10).Insert(34,"$") | Out-File $filePath
         #Replace schema with $schema
-        ($this |ConvertTo-Json -Depth 10).Replace("schema","`$schema") | Out-File ($filePath+"a")
+        ($this |ConvertTo-Json -Depth 10).Replace("schema","`$schema") | Out-File $filePath
     }
 
 }
