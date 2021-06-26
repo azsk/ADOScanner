@@ -13,7 +13,7 @@ class SARIFLog{
         #endregion
         $filePath=$FolderPath+"\logs.sarif"
         #hardCoded $
-        ($this |ConvertTo-Json -Depth 10).Insert(34,"$") | Out-File $filePath
+        # ($this |ConvertTo-Json -Depth 10).Insert(34,"$") | Out-File $filePath
         #Replace schema with $schema
         ($this |ConvertTo-Json -Depth 10).Replace("schema","`$schema") | Out-File ($filePath+"a")
     }

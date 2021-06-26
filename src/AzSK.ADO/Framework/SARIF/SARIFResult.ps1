@@ -11,6 +11,7 @@ class SARIFResult{
         ResourceName=""
         OrgId=""
         OrgName=""
+        VerificationResult=""
     }
 
     # [string] $baselineState="unchanged"
@@ -27,6 +28,7 @@ class SARIFResult{
         $this.properties.ResourceName=$control.ResourceContext.ResourceName
         $this.properties.OrgId=$control.OrganizationContext.OrganizationId
         $this.properties.OrgName=$control.OrganizationContext.OrganizationName
+        $this.properties.VerificationResult= $control.ControlResults[0].VerificationResult
         $this.locations+=[SARIFLocation]::new($control)
 
 
