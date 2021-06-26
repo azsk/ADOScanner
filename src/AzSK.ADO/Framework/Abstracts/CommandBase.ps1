@@ -178,6 +178,10 @@ class CommandBase: AzSKRoot {
 				$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 				$AutoClose.AutoCloseBug($methodResult)
 				$bugsClosed=[AutoCloseBugManager]::ClosedBugs
+                if($bugsClosed){
+			        $laInstance= [LogAnalyticsOutput]::Instance
+			        $laInstance.WriteControlResult($bugsClosed)
+                }
 			}
 			if([BugLogPathManager]::GetIsPathValid()){
 					[PublishToJSONAndCSV]::new($methodResult,$folderPath,$bugsClosed)
@@ -193,10 +197,13 @@ class CommandBase: AzSKRoot {
 				$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 				$AutoClose.AutoCloseBug($methodResult)
 				$bugsClosed=[AutoCloseBugManager]::ClosedBugs
+                if($bugsClosed){
+			        $laInstance= [LogAnalyticsOutput]::Instance
+			        $laInstance.WriteControlResult($bugsClosed)
+                }
 			}
 			if($bugsClosed)
 			{
-				# [PublishToJSONAndCSV]::new($null,$folderPath,$bugsClosed)
 				[PublishToJSONAndCSV]::new($null,$folderPath,$bugsClosed)
 			}
 		}

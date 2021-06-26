@@ -540,6 +540,10 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			$AutoClose.AutoCloseBug($result)
 			$bugsClosed=[AutoCloseBugManager]::ClosedBugs
             $partialScanMngr.CollateBugClosedSummaryData($bugsClosed)
+            if($bugsClosed){
+			    $laInstance= [LogAnalyticsOutput]::Instance
+			    $laInstance.WriteControlResult($bugsClosed)
+            }
         }
 		
 	}
