@@ -28,7 +28,7 @@
       "Automated": "Yes",
       "MethodName": "CheckExternalUserPolicy",
       "Rationale": "Non-AD accounts (such as xyz@hotmail.com, pqr@outlook.com, etc.) present at any scope within a organization subject your assets to undue risk. These accounts are not managed to the same standards as enterprise tenant identities. They don't have multi-factor authentication enabled.",
-      "Recommendation": "Go to Organization Settings --> Security --> Policies --> User Policies --> Turn 'Off' external guest access",
+      "Recommendation": "1. Go to Organization Settings --> 2. Security --> 3. Policies --> 4. User Policies --> 5. Turn 'Off' external guest access",
       "Tags": [
         "SDL",
         "TCP",
@@ -251,7 +251,7 @@
       "Automated": "Yes",
       "MethodName": "CheckProCollSerAcc",
       "Rationale": "Any accounts that are members of Project Collection Service Accounts are effectively Project Collection Administrators. An adversary that executes code in a pipeline assigned to one of these build agents can take over the entire ADO organization.",
-      "Recommendation": "Go to Organization Settings --> Security --> Permissions --> Project Collection Service Accounts --> Validate all the members.",
+      "Recommendation": "1. Go to Organization Settings --> 2. Security --> 3. Permissions --> 4. Project Collection Service Accounts --> 5. Validate all the members.",
       "Tags": [
         "SDL",
         "TCP",
