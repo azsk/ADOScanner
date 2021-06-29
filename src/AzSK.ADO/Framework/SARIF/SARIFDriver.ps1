@@ -27,11 +27,17 @@ class SARIFDriver{
         if([Helpers]::CheckMember($ControlSettings,"ControlSeverity")){
             $severityMap=$ControlSettings."ControlSeverity"
         }
+
+        #Information required for helpuri. Please comment it out after documentation is updated.
+        $CommonSVTResources=@{}
+        if([Helpers]::CheckMember($ControlSettings,"ResourceTypesForCommonSVT")){
+            $CommonSVTResources=$ControlSettings."ResourceTypesForCommonSVT"
+        }
         $RulesHashMap=@{}
         $ControlResults | ForEach-Object{
             $control=$_
                 if(!$RulesHashMap.ContainsKey($control.ControlItem.Id)){
-                    $this.rules+=[SARIFRuleDescriptor]::new($control,$severityMap);
+                    $this.rules+=[SARIFRuleDescriptor]::new($control,$severityMap,$CommonSVTResources);
                     $RulesHashMap.Add($control.ControlItem.Id,$true)
                     }
         }

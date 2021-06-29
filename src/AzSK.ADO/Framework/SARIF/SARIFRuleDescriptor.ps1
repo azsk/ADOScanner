@@ -33,7 +33,7 @@ class SARIFRuleDescriptor{
     }
 
 
-    SARIFRuleDescriptor([SVTEventContext] $control,$severityMap)
+    SARIFRuleDescriptor([SVTEventContext] $control,$severityMap,$CommonSVTResources)
     {
         $this.id="AdoS@"+ $control.ControlItem.Id
         $this.name=$control.ControlItem.ControlID
@@ -44,9 +44,13 @@ class SARIFRuleDescriptor{
         $this.defaultConfiguration.level=$this.MapConfigToSARIF($control.ControlItem.ControlSeverity,$severityMap)
         $this.properties.FeatureName=$control.FeatureName
         $this.properties.isBaseline=$control.ControlItem.isBaselineControl
-        #Common SVT Resources
-        # if($this.properties.FeatureName -eq "feed" -or )
-        $this.helpUri="https://github.com/azsk/ADOScanner-docs/tree/master/References/Control%20Coverage#{0}" -f $control.FeatureName 
+        #Common SVT Resources are mapped to Common SVT header of github docs.
+        if($CommonSVTResources -Contains $this.properties.FeatureName){
+            $this.helpUri="https://github.com/azsk/ADOScanner-docs/tree/master/References/Control%20Coverage#{0}" -f "CommonSVTControls"
+        }
+        else{
+            $this.helpUri="https://github.com/azsk/ADOScanner-docs/tree/master/References/Control%20Coverage#{0}" -f $control.FeatureName 
+        }
         # $this.help.text=$control.ControlItem.Recommendation
         
 
