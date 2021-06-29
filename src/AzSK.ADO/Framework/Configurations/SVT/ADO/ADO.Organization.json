@@ -353,7 +353,7 @@
       "Automated": "Yes",
       "MethodName": "CheckJobAuthZScope",
       "Rationale": "If this setting is disabled, a hacker can build a pipeline in any misconfigured project to gain access to most resources in an organization.This is also in keeping with the principle of least privilege.",
-      "Recommendation": "Go to Organization Settings --> Pipelines --> Settings --> Enable 'Limit job authorization scope to current project for non-release pipelines'.",
+      "Recommendation": "1. Go to Organization Settings -->2. Pipelines -->3. Settings -->4. Enable 'Limit job authorization scope to current project for non-release pipelines'.",
       "Tags": [
         "SDL",
         "TCP",
@@ -370,7 +370,7 @@
       "Automated": "Yes",
       "MethodName": "CheckJobAuthZReleaseScope",
       "Rationale": "If this setting is disabled, a hacker can build a pipeline in any misconfigured project to gain access to most resources in an organization. This is also in keeping with the principle of least privilege.",
-      "Recommendation": "Go to Organization Settings --> Pipelines --> Settings --> Enable 'Limit job authorization scope to current project for release pipelines'.",
+      "Recommendation": "1. Go to Organization Settings -->2. Pipelines -->3. Settings -->4. Enable 'Limit job authorization scope to current project for release pipelines'.",
       "Tags": [
         "SDL",
         "TCP",
@@ -387,7 +387,7 @@
       "Automated": "Yes",
       "MethodName": "CheckAuthZRepoScope",
       "Rationale": "If this setting is disabled, a hacker can build a pipeline in any misconfigured project to gain access to most resources in an organization. This is also in keeping with the principle of least privilege.",
-      "Recommendation": "Go to Organization Settings --> Settings --> Enable 'Limit job authorization scope to referenced Azure DevOps repositories'.",
+      "Recommendation": "1. Go to Organization Settings -->2. Settings -->3. Enable 'Limit job authorization scope to referenced Azure DevOps repositories'.",
       "Tags": [
         "SDL",
         "TCP",
