@@ -28,20 +28,32 @@ class SARIFResult{
         $this.properties.ResourceName=$control.ResourceContext.ResourceName
         $this.properties.OrgId=$control.OrganizationContext.OrganizationId
         $this.properties.OrgName=$control.OrganizationContext.OrganizationName
-        $this.properties.VerificationResult= $control.ControlResults[0].VerificationResult
+        $this.properties.VerificationResult= $this.mapEnumToString($control.ControlResults[0].VerificationResult);
         $this.locations+=[SARIFLocation]::new($control)
 
 
     }
+    #To populate baselineState in SARIF 
+    # hidden [void] determineBaselineState([SVTEventContext] $control){
+    #     if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("AutoBugLog")){
+    #         $control.ControlResults[0].Messages |ForEach-Object{
+    #             if($_.Message -eq "Active Bug"){
+    #                 $this.baselineState="unchanged"
+    #             }
+    #         }
+    #     }
+    # }
 
-    hidden [void] determineBaselineState([SVTEventContext] $control){
-        if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("AutoBugLog")){
-            $control.ControlResults[0].Messages |ForEach-Object{
-                if($_.Message -eq "Active Bug"){
-                    $this.baselineState="unchanged"
-                }
-            }
+    hidden [string] mapEnumToString($result){
+        if($result -eq 1){
+            return "Failed"
+
         }
+        else{
+            return "Verify"
+
+        }
+
     }
 
 

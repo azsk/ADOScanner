@@ -3,14 +3,14 @@ class SARIFDriver{
     hidden [string] $name
     hidden [string] $version
     hidden [string] $semanticVersion
+    hidden [string] $informationUri="https://github.com/azsk/ADOScanner-docs"
     $properties=[PSCustomObject]@{
         Source=""
     }
 
      [SARIFRuleDescriptor[]] $rules
     SARIFDriver([SVTEventContext[]] $ControlResults){
-        $callStack= Get-PSCallStack
-        $this.name=$callStack[-2].Location.Split(":")[0]
+        $this.name="ADO Scanner"
         ##ADO Version and Source populate
         $ver=$PSCmdlet.MyInvocation.MyCommand.Version 
         $this.semanticVersion="{0}.{1}" -f $ver.Major, $ver.Minor

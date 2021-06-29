@@ -44,7 +44,9 @@ class SARIFRuleDescriptor{
         $this.defaultConfiguration.level=$this.MapConfigToSARIF($control.ControlItem.ControlSeverity,$severityMap)
         $this.properties.FeatureName=$control.FeatureName
         $this.properties.isBaseline=$control.ControlItem.isBaselineControl
-        $this.helpUri="https://"+ $control.Metadata.Reference
+        #Common SVT Resources
+        # if($this.properties.FeatureName -eq "feed" -or )
+        $this.helpUri="https://github.com/azsk/ADOScanner-docs/tree/master/References/Control%20Coverage#{0}" -f $control.FeatureName 
         # $this.help.text=$control.ControlItem.Recommendation
         
 
