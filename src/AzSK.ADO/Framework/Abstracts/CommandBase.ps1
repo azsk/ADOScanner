@@ -182,7 +182,9 @@ class CommandBase: AzSKRoot {
 				    $sarifMethodResults=[PartialScanManager]::ControlResultsWithSARIFSummary
                 }
 			}
-		    [SARIFLogsGenerator]::new($sarifMethodResults,$folderPath,$this.RunIdentifier)
+			if($sarifMethodResults){
+		    	[SARIFLogsGenerator]::new($sarifMethodResults,$folderPath,$this.RunIdentifier)
+			}
 			[PartialScanManager]::ControlResultsWithSARIFSummary=@()
         }
 		# Publish command complete events
