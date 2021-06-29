@@ -533,7 +533,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 
 		# append summary counts for bug logging & append control results with bug logging data
 		if($this.IsBugLoggingEnabled){
-			if(!$this.invocationContext.BoundParameters["AutoCloseBugs"]){
+			if($this.invocationContext.BoundParameters["AutoBugLog"]){
 				$partialScanMngr.CollateBugSummaryData($result);
 			}
 			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
