@@ -261,6 +261,24 @@
         "DP"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Build_AuthZ_Restrict_Access_To_OAuth_Token",
+      "Description": "",
+      "Id": "Build270",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckAccessToOAuthToken",
+      "Rationale": "",
+      "Recommendation": "1. Navigate to the build pipeline --> 2. Edit the pipeline  --> 3. Go to Agent Job (Run on Agent) --> 4. Disable the field 'Allow scripts to access the OAuth token'",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP",
+        "SkipYAML"
+      ],
+      "Enabled": true
     }
   ]
 }

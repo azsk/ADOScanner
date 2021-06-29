@@ -1513,4 +1513,28 @@ class Build: ADOSVTBase
         }
         $this.buildActivityDetail.isComputed = $true
     }
+
+    hidden [ControlResult] CheckAccessToOAuthToken([ControlResult] $controlResult)
+    {
+        if(($this.BuildObj | Measure-Object).Count -gt 0)
+        {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            if([Helpers]::CheckMember($this.BuildObj,"process.phases.target") -and [Helpers]::CheckMember($this.BuildObj.process.phases.target,"allowScriptsAuthAccessOption",$false))
+            {
+                if($this.BuildObj.process.phases.target.allowScriptsAuthAccessOption -eq $true)
+                {
+                    $controlResult.AddMessage("OAuth token is accessible to tasks");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"OAuth token access is restricted.");
+                }
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch build details");
+            }
+            
+        }
+
+        return $controlResult;
+    }
 }
