@@ -250,10 +250,6 @@ class WritePsConsole: FileOutputBase
                         $currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
                         $currentInstance.PrintBugSummaryData($Event);
                     }
-					# if($currentInstance.InvocationContext.BoundParameters["AutoCloseBugs"]){
-                    #     $currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
-                    #     $currentInstance.PrintBugSummaryData($Event);
-                    # }
                     $currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
                 }
 

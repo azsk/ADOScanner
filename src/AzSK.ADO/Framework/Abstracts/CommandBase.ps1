@@ -164,54 +164,6 @@ class CommandBase: AzSKRoot {
 		if($this.InvocationContext.BoundParameters["AutoBugLog"] -or $this.InvocationContext.BoundParameters["AutoCloseBugs"]){
 			$this.bugInfoSend($methodResult,$folderPath)
 		}
-		# if($this.InvocationContext.BoundParameters["AutoBugLog"]){
-		# 	if (([PartialScanManager]::ControlResultsWithBugSummary| Measure-Object).Count -gt 0)
-		# 	{
-		# 		$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
-		# 		# $bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
-		# 		$isPartialScan=$true
-		# 	}
-		# 	if (([PartialScanManager]::ControlResultsWithClosedBugSummary| Measure-Object).Count -gt 0)
-		# 	{
-		# 		$bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
-		# 		$isPartialScan=$true
-		# 	}
-		# 	 #If upc enabled dont call Auto close functions again
-		# 	if(!$isPartialScan)
-		# 	{
-		# 		$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
-		# 		$AutoClose.AutoCloseBug($methodResult)
-		# 		$bugsClosed=[AutoCloseBugManager]::ClosedBugs
-        #         if($bugsClosed){
-		# 	        $laInstance= [LogAnalyticsOutput]::Instance
-		# 	        $laInstance.WriteControlResult($bugsClosed)
-        #         }
-		# 	}
-		# 	if([BugLogPathManager]::GetIsPathValid()){
-		# 			[PublishToJSONAndCSV]::new($methodResult,$folderPath,$bugsClosed)
-		# 	}
-		# }
-		# elseif($this.InvocationContext.BoundParameters["AutoCloseBugs"]){
-		# 	if (([PartialScanManager]::ControlResultsWithClosedBugSummary| Measure-Object).Count -gt 0)
-		# 	{
-		# 		$bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
-		# 		$isPartialScan=$true
-		# 	}
-		# 	if(!$isPartialScan){
-		# 		$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
-		# 		$AutoClose.AutoCloseBug($methodResult)
-		# 		$bugsClosed=[AutoCloseBugManager]::ClosedBugs
-        #         if($bugsClosed){
-		# 	        $laInstance= [LogAnalyticsOutput]::Instance
-		# 	        $laInstance.WriteControlResult($bugsClosed)
-        #         }
-		# 	}
-		# 	if($bugsClosed)
-		# 	{
-		# 		[PublishToJSONAndCSV]::new($null,$folderPath,$bugsClosed)
-		# 	}
-		# }
-
 		# Publish command complete events
         $this.CommandCompleted($methodResult);
 		[AIOrgTelemetryHelper]::TrackCommandExecution("Command Completed",
