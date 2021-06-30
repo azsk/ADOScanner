@@ -2110,12 +2110,15 @@ class Project: ADOSVTBase
                 $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
 
                 if (($agentPoolPermObj.Count -gt 0) -and [Helpers]::CheckMember($agentPoolPermObj, "identity")) {
-                    # match all the identities added on agentpool with defined restricted list
-                    $roleAssignments = @($agentPoolPermObj | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                    # Filter broader groups from agentPoolPermObj
+                    $broaderGroupFilteredAgentPoolObj= @($agentPoolPermObj | Where-Object {$restrictedBroaderGroupsForAgentPool -contains $_.identity.displayName.split('\')[-1]})
                     # Checking whether the broader groups have User/Admin permissions
-                    $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
-
+                    $restrictedGroupsCount=0
+                    $restrictedGroups=@()
+                    if($broaderGroupFilteredAgentPoolObj.Count -gt 0){
+                        $restrictedGroups = @($broaderGroupFilteredAgentPoolObj | Where-Object {$_.role.displayName -eq "Administrator" -or $_.role.displayName -eq "User" })
                     $restrictedGroupsCount = $restrictedGroups.Count
+                    }
                     # fail the control if restricted group found on agentpool
                     if ($restrictedGroupsCount -gt 0) {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Agent pools are set to inherit excessive permissions for a broad group of users at project level.");
