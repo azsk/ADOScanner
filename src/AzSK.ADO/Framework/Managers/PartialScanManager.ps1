@@ -3,6 +3,7 @@
 class PartialScanManager
 {
 	hidden [string] $OrgName = $null;
+	hidden [string] $ProjectName = $null;
 	hidden [PSObject] $ScanPendingForResources = $null;
 	hidden [string] $ResourceScanTrackerFileName=$null;
 	hidden [PartialScanResourceMap] $ResourceScanTrackerObj = $null
@@ -21,7 +22,12 @@ class PartialScanManager
 	hidden static $CollatedSummaryCount = @(); # Matrix of counts for severity and control status
 	hidden static $CollatedBugSummaryCount = @(); # Matrix of counts for severity and Bug status
 	hidden static $ControlResultsWithBugSummary = @();
-	hidden [string] $SummaryMarkerText = "------";
+    hidden [string] $SummaryMarkerText = "------";
+    hidden [string] $BackupControlStatePath = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState" | Join-Path -ChildPath "BackupControlState");
+	hidden [string] $OrgBackupControlStateFilePath;
+	hidden [PSObject] $StateOfNonOrgControlsToBeFixed = $null;
+	hidden [PSObject] $StateOfOrgControlsToBeFixed = $null;
+	hidden [bool] $IsControlStateBackupFetched = $false;
 
 
 	hidden static [PartialScanManager] $Instance = $null;
@@ -780,6 +786,94 @@ class PartialScanManager
 			($csvItems | Select-Object -Property $nonNullProps.Name -ExcludeProperty SupportsAutoFix,ChildResourceName,IsPreviewBaselineControl,UserComments ) | Group-Object -Property FeatureName | Foreach-Object {$_.Group | Export-Csv -Path $FilePath -append -NoTypeInformation}
 			[PartialScanManager]::IsCsvUpdatedAtCheckpoint = $true
         }
-	}	
+    }	
+    
+    
+    [void] FetchControlStateBackup()
+    {
+        if ($this.ScanSource -eq "SDL" -or $this.ScanSource -eq "")
+        {
+            $this.OrgBackupControlStateFilePath = (Join-Path $this.BackupControlStatePath $this.OrgName)
+            if(-not (Test-Path $this.OrgBackupControlStateFilePath))
+            {
+                New-Item -ItemType Directory -Path $this.OrgBackupControlStateFilePath -ErrorAction Stop | Out-Null
+            }
+            else {
+                $this.StateOfOrgControlsToBeFixed += Get-Content (Join-Path $this.OrgBackupControlStateFilePath "Organization.Json") -Raw | ConvertFrom-Json
+                if (-not [string]::IsNullOrEmpty($this.projectName)) {
+                    $this.StateOfNonOrgControlsToBeFixed += Get-Content (Join-Path $this.OrgBackupControlStateFilePath "$($this.ProjectName + '.Json')") -Raw | ConvertFrom-Json
+                    #Todo: If any data object is older than x days delete it
+                }
+            }
+        }
+        $this.IsControlStateBackupFetched = $true
+    }
+
+
+    [void] WriteControlFixDataObject($results)
+    {
+        if ($this.ScanSource -eq "SDL" -or $this.ScanSource -eq "")
+        {
+            $scannedby = [ContextHelper]::GetCurrentSessionUser();
+            $date = [DateTime]::UtcNow;
+            $applicableOrgControls = @()
+            $applicableNonOrgControls = @()
+
+            $controlsDataObject = @($results  | Where-Object {$_.ControlItem.Tags -contains 'AutomatedFix' -and $_.ControlResults.VerificationResult -eq 'Failed' -and $null -ne $_.ControlResults.stateManagement.CurrentStateData.DataObject} `
+                                            | Select-Object @{Name="ProjectName"; Expression={$_.ResourceContext.ResourceGroupName}}, @{Name="ResourceId"; Expression={$_.ResourceContext.ResourceId}}, @{Name="InternalId"; Expression={$_.ControlItem.id}}, @{Name="DataObject"; Expression={$_.ControlResults.stateManagement.CurrentStateData.DataObject}}); 
+
+            if($null -ne $controlsDataObject -and $controlsDataObject.Count -gt 0)
+            {
+                $controlsDataObject | Add-Member -NotePropertyName ScannedBy -NotePropertyValue $scannedBy 
+                $controlsDataObject | Add-Member -NotePropertyName Date -NotePropertyValue $date  
+
+                if(-not $this.IsControlStateBackupFetched)  
+                {
+                    $this.ProjectName = ($controlsDataObject | Select-Object -Property ProjectName -Unique).ProjectName
+                    $this.ProjectName = $this.ProjectName.Trim()
+                    $this.FetchControlStateBackup();
+                }
+
+                $orgControls = @($controlsDataObject | where-object {$_.InternalId -match "Organization"})
+                $nonOrgControls = @($controlsDataObject | where-object {$_.InternalId -notmatch "Organization"})
+
+                if($orgControls.Count -gt 0)
+                {
+                    if($null -ne $this.StateOfOrgControlsToBeFixed )
+                    {
+                        $existingDataObj = $this.StateOfOrgControlsToBeFixed | where-Object {$_.ResourceId -in $orgControls.ResourceId  -and $_.InternalId -in  $orgControls.InternalId}
+                        if ($null -ne $existingDataObj)
+                        {
+                            $this.StateOfOrgControlsToBeFixed = @($this.StateOfOrgControlsToBeFixed | where-Object {$_ -notin $existingDataObj})
+                        }
+                        $this.StateOfOrgControlsToBeFixed = @($this.StateOfOrgControlsToBeFixed)
+                    }
+
+                    $applicableOrgControls += ($orgControls | Select-Object -Property Date,InternalId,ResourceId,DataObject,ScannedBy)
+                    $this.StateOfOrgControlsToBeFixed += $applicableOrgControls
+                    [JsonHelper]::ConvertToJsonCustom($this.StateOfOrgControlsToBeFixed) | Out-File (Join-Path $this.OrgBackupControlStateFilePath "Organization.json") -Force
+                }
+
+                if($nonOrgControls.Count -gt 0)
+                {
+                    $fileName = $this.projectName + ".json"
+
+                    if($null -ne $this.StateOfNonOrgControlsToBeFixed)
+                    {
+                        $existingDataObj = $this.StateOfNonOrgControlsToBeFixed | where-Object {$_.ResourceId -in $nonOrgControls.ResourceId  -and $_.InternalId -in  $nonOrgControls.InternalId}
+                        if (($existingDataObj | Measure-Object).Count -gt 0)
+                        {
+                            $this.StateOfNonOrgControlsToBeFixed = @($this.StateOfNonOrgControlsToBeFixed | where-Object {$_ -notin $existingDataObj})
+                        }
+                    }
+
+                    $applicableNonOrgControls += $nonOrgControls |  select-object -property Date,InternalId,ResourceId,DataObject,ScannedBy
+                    $this.StateOfNonOrgControlsToBeFixed += $applicableNonOrgControls
+                    [JsonHelper]::ConvertToJsonCustom($this.StateOfNonOrgControlsToBeFixed) | Out-File (Join-Path $this.OrgBackupControlStateFilePath $fileName) -Force
+                }
+            }
+        }
+    }
+
 }
 

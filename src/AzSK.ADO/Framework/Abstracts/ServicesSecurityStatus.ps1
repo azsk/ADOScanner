@@ -523,6 +523,9 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			$partialScanMngr.WriteToDurableStorage();
 		}
 		else {
+			if($this.invocationContext.BoundParameters["PrepareForControlFix"]){
+				$partialScanMngr.WriteControlFixDataObject($result);
+			}
 			$partialScanMngr.WriteToResourceTrackerFile();
 		}
 		# write to csv after every partial commit

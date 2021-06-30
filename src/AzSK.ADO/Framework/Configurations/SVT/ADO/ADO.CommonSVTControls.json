@@ -35,7 +35,8 @@
         "TCP",
         "AuthZ",
         "RBAC",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },

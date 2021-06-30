@@ -173,6 +173,7 @@ class CommonSVTControls: ADOSVTBase {
 
                     $display = ($feedWithBroaderGroup |  FT FeedName, Role, DisplayName -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
+                    $controlResult.SetStateData("List of groups: ", $feedWithBroaderGroup);
                 }
                 else
                 {
