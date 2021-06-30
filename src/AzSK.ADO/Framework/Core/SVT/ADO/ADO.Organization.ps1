@@ -9,7 +9,7 @@ class Organization: ADOSVTBase
     hidden [PSObject] $graphPermissions = @{hasGraphAccess = $false; graphAccessToken = $null}; # This is used to check user has graph permissions to compute the graph api operations.
     hidden $GuestMembers = @()
     hidden $AllUsersInOrg = @()
-
+    hidden $PCAMembersList = @()
     #TODO: testing below line
     hidden [string] $SecurityNamespaceId;
     Organization([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
@@ -1765,7 +1765,10 @@ class Organization: ADOSVTBase
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         $TotalPCAMembers=0
-        $PCAMembers = @([AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName))
+        if ($this.PCAMembersList.Count -eq 0) {
+            $this.PCAMembersList =@([AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName))
+        }
+        $PCAMembers = $this.PCAMembersList
         $TotalPCAMembers = $PCAMembers.Count
         $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
         if ($this.graphPermissions.hasGraphAccess)
@@ -1779,22 +1782,7 @@ class Organization: ADOSVTBase
             else{
                 $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
             }
-            if($TotalPCAMembers -gt 0){
-                $controlResult.AddMessage("Review the following Project Collection Administrators: ")
-                $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;
-            }
-
-            if ($humanAccounts.Count -gt 0) {
-                $display=($humanAccounts |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
-                $controlResult.AddMessage("`nHuman Administrators: $($humanAccounts.Count) `n", $display)
-                $controlResult.SetStateData("List of human Project Collection Administrators: ",$humanAccounts)
-            }
-
-            if ($svcAccounts.Count -gt 0) {
-                $display=($svcAccounts |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
-                $controlResult.AddMessage("`nService Account Administrators: $($svcAccounts.Count) `n", $display)
-                $controlResult.SetStateData("List of service account Project Collection Administrators: ",$svcAccounts)
-            }
+            [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
         }
         else
         {
@@ -1820,7 +1808,10 @@ class Organization: ADOSVTBase
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         $TotalPCAMembers=0
-        $PCAMembers = @([AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName))
+        if ($this.PCAMembersList.Count -eq 0) {
+            $this.PCAMembersList =@([AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName))
+        }
+        $PCAMembers = $this.PCAMembersList
         $TotalPCAMembers = $PCAMembers.Count
         $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
         if ($this.graphPermissions.hasGraphAccess)
@@ -1834,22 +1825,7 @@ class Organization: ADOSVTBase
             else{
                 $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are within than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
             }
-            if($TotalPCAMembers -gt 0){
-                $controlResult.AddMessage("Review the following Project Collection Administrators: ")
-                $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;
-            }
-
-            if ($humanAccounts.Count -gt 0) {
-                $display=($humanAccounts |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
-                $controlResult.AddMessage("`nHuman Administrators: $($humanAccounts.Count) `n", $display)
-                $controlResult.SetStateData("List of human Project Collection Administrators: ",$humanAccounts)
-            }
-
-            if ($svcAccounts.Count -gt 0) {
-                $display=($svcAccounts |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
-                $controlResult.AddMessage("`nService Account Administrators: $($svcAccounts.Count) `n", $display)
-                $controlResult.SetStateData("List of service account Project Collection Administrators: ",$svcAccounts)
-            }
+            [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
         }
         else
         {

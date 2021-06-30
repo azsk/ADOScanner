@@ -471,7 +471,7 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckMinPCACount",
-      "Rationale": "Having atleast the minimum required number of administrators reduces the risk of losing admin access. This is useful in case of break-glass account scenarios.",
+      "Rationale": "Having atleast the minimum required number of administrators reduces the risk of losing admin access. This is useful in case of breakglass scenarios.",
       "Recommendation": "1. Go to Organization settings --> 2. Security --> 3. Permissions --> 4. Groups --> 5. Select the group : Project Collection Administrators --> 6. Review the members of this group",
       "Tags": [
         "SDL",
