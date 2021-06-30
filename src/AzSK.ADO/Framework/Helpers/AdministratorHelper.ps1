@@ -106,6 +106,7 @@ class AdministratorHelper{
         }
     }
     catch {
+        Write-Host $_
 
     }
     }
@@ -293,7 +294,7 @@ class AdministratorHelper{
         [AdministratorHelper]::GetPCADescriptorAndMembers($OrgName)
 
         #get unique pca based on display name and mail address
-        [AdministratorHelper]::AllPCAMembers = [AdministratorHelper]::AllPCAMembers | Sort-Object 'displayName','mailAddress' | Get-Unique -AsString
+        [AdministratorHelper]::AllPCAMembers = [AdministratorHelper]::AllPCAMembers | Sort-Object -unique 'mailAddress'
         return [AdministratorHelper]::AllPCAMembers
     }
     static [object] GetTotalPAMembers([string] $OrgName,[string] $projName){
