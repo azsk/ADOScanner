@@ -18,6 +18,7 @@ class SVTResourceResolver: AzSKRoot {
 	[bool] $IsAIEnabled = $false;
 
     [string] $ResourcePath;
+    [string] $BuildsFolderPath;
     [string] $organizationName
     hidden [string[]] $ProjectNames = @();
     hidden [string[]] $BuildNames = @();
@@ -50,10 +51,10 @@ class SVTResourceResolver: AzSKRoot {
     hidden [string[]] $SecureFileNames = @();
     hidden [string[]] $FeedNames = @();
 
-    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames): Base($organizationName, $PATToken) {
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $BuildsFolderPath): Base($organizationName, $PATToken) {
 
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
-        $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);
+        $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath);
         $this.skipOrgUserControls = $skipOrgUserControls
 
         $this.RepoNames += $this.ConvertToStringArray($RepoNames);
@@ -61,11 +62,12 @@ class SVTResourceResolver: AzSKRoot {
         $this.FeedNames += $this.ConvertToStringArray($FeedNames);
     }
 
-    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls) {
+    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath) {
         $this.organizationName = $organizationName
         $this.ResourceTypeName = $ResourceTypeName
         $this.allowLongRunningScan = $AllowLongRunningScan
         $this.includeAdminControls = $IncludeAdminControls
+        $this.BuildsFolderPath = $BuildsFolderPath.Trim()
 
         if (-not [string]::IsNullOrEmpty($ProjectNames)) {
             $this.ProjectNames += $this.ConvertToStringArray($ProjectNames);
@@ -319,8 +321,61 @@ class SVTResourceResolver: AzSKRoot {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting build configurations...");
                         }
+                        if(-not [string]::IsNullOrEmpty($this.BuildsFolderPath)){
+                            # Validate folder path is valid
+                            $path = $this.BuildsFolderPath
+                            $applicableBuilds = @()
+                            $this.BuildsFolderPath = $this.BuildsFolderPath.Replace(' ','%20').Replace('\','%5C')
+                            $buildFoldersURL = "https://dev.azure.com/{0}/{1}/_apis/build/folders/{2}?api-version=6.1-preview.2"  -f $($this.OrganizationContext.OrganizationName), $thisProj.name, $this.BuildsFolderPath
+                            $buildFoldersObj = [WebRequestHelper]::InvokeGetWebRequest($buildFoldersURL)
+                            if ($null -eq $buildFoldersObj -or $buildFoldersObj.Count -eq 0)
+                            {
+                                $this.PublishCustomMessage("Folder path not found. Please validate the -BuildsFolderPath provided in the command. `n", [MessageType]::Warning);
+                            }
+                            else {
+                                #Iterate on each folder to get applicale build definition if folders count is le 100
+                                if($buildFoldersObj.Count -le 100)
+                                {
+                                    foreach($path in $buildFoldersObj.Path)
+                                    {
+                                        $buildDefByFolderObj = $null
+                                        $formattedPath = $path.Replace(' ','%20').Replace('\','%5C')
+                                        $buildDefByFolderURL = 'https://dev.azure.com/{0}/{1}/_apis/build/definitions?path={2}' -f $($this.OrganizationContext.OrganizationName), $thisProj.name, $formattedPath
+                                        $buildDefByFolderObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefByFolderURL)
 
-                        if ($this.BuildNames -eq "*") {
+                                        #api return element 0 even when no build is there in the folder
+                                        if ([Helpers]::CheckMember($buildDefByFolderObj[0], "name"))
+                                        {
+                                            $applicableBuilds += $buildDefByFolderObj
+                                        }
+                                    }
+                                }
+                                else {
+                                    #$buildDefURL = ('https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0'+$topNQueryString) -f  $($this.OrganizationContext.OrganizationName), $thisProj.name
+                                    $buildDefURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
+
+                                    $buildDefObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefURL)
+                                    $applicableBuilds = $buildDefObj | Where-Object {$_.path -eq "\$($path)" -or $_.path -match "^\\$($path)\\"}
+                                }
+
+                                
+                                if (([Helpers]::CheckMember($applicableBuilds, "count") -and $applicableBuilds[0].count -gt 0) -or (($applicableBuilds | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($applicableBuilds[0], "name"))) {
+                                    $nObj = $this.MaxObjectsToScan
+                                    foreach ($bldDef in $applicableBuilds) {
+                                        $link = $bldDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
+                                        $buildResourceId = "organization/$organizationId/project/$projectId/build/$($bldDef.id)";
+                                        $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
+    
+                                        if (--$nObj -eq 0) { break; }
+                                    }
+                                    $applicableBuilds = $null;
+                                    Remove-Variable applicableBuilds;
+                                }
+                                
+
+                            }
+                        }
+                        elseif ($this.BuildNames -eq "*") {
                             if ([string]::IsNullOrEmpty($topNQueryString)) {
                                 $topNQueryString = '&$top=10000'
                                 $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
