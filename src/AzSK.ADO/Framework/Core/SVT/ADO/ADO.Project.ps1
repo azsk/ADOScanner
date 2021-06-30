@@ -2103,20 +2103,22 @@ class Project: ADOSVTBase
         try {
             $controlResult.VerificationResult = [VerificationResult]::Failed
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool")) {
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool") -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedRolesForBroaderGroupsInAgentPool")) {
                 $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                 $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($projectId)";
                 $agentPoolPermObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
                 $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
+                $restrictedRolesForBroaderGroupsInAgentPool = $this.ControlSettings.AgentPool.RestrictedRolesForBroaderGroupsInAgentPool;
 
-                if (($agentPoolPermObj.Count -gt 0) -and [Helpers]::CheckMember($agentPoolPermObj, "identity")) {
+
+                if (($agentPoolPermObj.Count -gt 0) -and [Helpers]::CheckMember($agentPoolPermObj, "identity") ) {
                     # Filter broader groups from agentPoolPermObj
                     $broaderGroupFilteredAgentPoolObj= @($agentPoolPermObj | Where-Object {$restrictedBroaderGroupsForAgentPool -contains $_.identity.displayName.split('\')[-1]})
                     # Checking whether the broader groups have User/Admin permissions
                     $restrictedGroupsCount=0
                     $restrictedGroups=@()
                     if($broaderGroupFilteredAgentPoolObj.Count -gt 0){
-                        $restrictedGroups = @($broaderGroupFilteredAgentPoolObj | Where-Object {$_.role.displayName -eq "Administrator" -or $_.role.displayName -eq "User" })
+                        $restrictedGroups = @($broaderGroupFilteredAgentPoolObj | Where-Object {$restrictedRolesForBroaderGroupsInAgentPool -contains $_.role.displayName })
                     $restrictedGroupsCount = $restrictedGroups.Count
                     }
                     # fail the control if restricted group found on agentpool

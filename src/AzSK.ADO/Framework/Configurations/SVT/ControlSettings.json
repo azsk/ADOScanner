@@ -327,6 +327,10 @@
         "Readers",
         "Project Valid Users"
     ],
+    "RestrictedRolesForBroaderGroupsInAgentPool": [
+        "Administrator",
+        "User"
+    ],
     "CheckForInheritedPermissions": false
   },
   "VariableGroup": {
