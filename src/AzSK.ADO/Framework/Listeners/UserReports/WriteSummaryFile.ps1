@@ -226,17 +226,17 @@ class WriteSummaryFile: FileOutputBase
 					{
                       $csvItem.UserComments=$_.UserComments;	
 					}
-					#if($anyFixableControls)
-					#{
-					# if($item.ControlItem.FixControl)
-					# {
-					# 	$csvItem.SupportsAutoFix = "Yes";
-					# }
-					# else
-					# {
-					# 	$csvItem.SupportsAutoFix = "No";
-					# }
-					#}
+					<#if($anyFixableControls)
+					{
+					if($item.ControlItem.FixControl)
+					{
+						$csvItem.SupportsAutoFix = "Yes";
+					}
+					else
+					{
+						$csvItem.SupportsAutoFix = "No";
+					}
+					}#>
 					
 					if($item.ControlItem.IsBaselineControl)
 					{
@@ -303,14 +303,14 @@ class WriteSummaryFile: FileOutputBase
 							}
 						}
 					}
-					# if($_.IsControlInGrace -eq $true)
-					# {
-					# 	$csvItem.IsControlInGrace = "Yes"
-					# }
-					# else 
-					# {
-					# 	$csvItem.IsControlInGrace = "No"
-					# }					
+					<#if($_.IsControlInGrace -eq $true)
+					{
+						$csvItem.IsControlInGrace = "Yes"
+					}
+					else 
+					{
+						$csvItem.IsControlInGrace = "No"
+					}#>					
                     $csvItems += $csvItem;
                 }                                
             }
