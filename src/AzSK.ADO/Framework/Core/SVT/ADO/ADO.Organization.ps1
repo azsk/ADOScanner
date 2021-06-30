@@ -1538,6 +1538,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckAuthZRepoScope([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
        if($this.PipelineSettingsObj)
        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceReferencedRepoScopedToken
