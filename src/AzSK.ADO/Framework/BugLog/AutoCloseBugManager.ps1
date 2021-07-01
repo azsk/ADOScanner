@@ -88,6 +88,7 @@ class AutoCloseBugManager {
             $control = $_;
 
             #if control results are less than the maximum no of tags per batch
+            #ToDo add common method for both if and else condition
             if ($PassedControlResultsLength -lt $MaxKeyWordsToQuery) {
                 #check for number of tags in current query
                 $QueryKeyWordCount++;

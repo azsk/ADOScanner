@@ -674,7 +674,7 @@ class PartialScanManager
 
 	}
 		    # Collect Closed Bugs summary data and append to it at every checkpoint. Any changes in this method should be synced with WritePSConsole.ps1 PrintBugSummaryData method
-	[void] CollateBugClosedSummaryData($event){
+	[void] CollateClosedBugSummaryData($event){
 		#gather all control results that have passed as their control result
 		#obtain their control severities
 		$TotalWorkItemCount=0;

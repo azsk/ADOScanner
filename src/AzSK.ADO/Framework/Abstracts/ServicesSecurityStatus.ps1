@@ -541,7 +541,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			$AutoClose.AutoCloseBug($result)
 			$bugsClosed=[AutoCloseBugManager]::ClosedBugs
 			#Collects closed bugs information in partialScanManager class
-            $partialScanMngr.CollateBugClosedSummaryData($bugsClosed)
+            $partialScanMngr.CollateClosedBugSummaryData($bugsClosed)
 			#Sends closed bugs information to Log Analytics after every partial commit.
             if($bugsClosed){
 			    $laInstance= [LogAnalyticsOutput]::Instance
