@@ -15,7 +15,9 @@ class PublishToJSONAndCSV {
         $ActiveBugs=@{ActiveBugs=@()}
 		$ResolvedBugs=@{ResolvedBugs=@()}
         $NewBugs=@{NewBugs=@()}
+		#create empty json for closed bugs
 		$ClosedBugs=@{ClosedBugs=@()}
+		#Variable to dump info to CSV
 		[PSCustomObject[]] $bugsList = @();
 
         #for each control result, check for failed/verify control results and look for the message associated with bug that differentiates it as one of the three kinds of bug
@@ -69,8 +71,9 @@ class PublishToJSONAndCSV {
 				
 			}
 		}
-
+		#For each closed bug search for "Closed Bug" message and add to publishing files.
 		if($bugsClosed){
+		
 			$bugsClosed | ForEach-Object{
 				$result=$_
 				$result.ControlResults[0].Messages | ForEach-Object{

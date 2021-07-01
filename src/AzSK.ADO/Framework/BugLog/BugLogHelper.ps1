@@ -267,6 +267,7 @@ class BugLogHelper {
                             #if ($isDeleted -eq $true) {
                             #    $this.AddDataInTable($tableName, $tableData.partitionKey, $id, $tableData.projectName, "Y");
                             #}
+                            #Adds ADOScannerHashId to response object
                             $row.body=$row.body.TrimEnd("}")
                             $row.body+=",`"ADOScannerHashId`":`"{0}`"" -f $tableData.ADOScannerHashId
                             $row.body+="}"

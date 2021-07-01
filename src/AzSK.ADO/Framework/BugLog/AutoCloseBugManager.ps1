@@ -261,9 +261,11 @@ class AutoCloseBugManager {
             #Store closed bug details
             $bug=$_.body |ConvertFrom-Json
             $controlHashValue=$null
+            #Fetch hash From storage account CA response
             if($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA"){
                 $controlHashValue=$bug.ADOScannerHashID
             }
+            #Fetch hash for regular scan
             else{
                 $controlHashValue=$bug.fields.'System.Tags'
             }
@@ -274,6 +276,7 @@ class AutoCloseBugManager {
                 $project=$bug.fields.'System.TeamProject'
                 $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $project , $id;
                 $hashToControlIDMap[$controlHashValue].ControlResults.AddMessage("Closed Bug",$urlClose);
+                # duplicate work items do not populate static variable $ClosedBugs multiple times
                 if(!$hashClosedBugs.ContainsKey($controlHashValue)){
                     [AutoCloseBugManager]::ClosedBugs+=$hashToControlIDMap[$controlHashValue]
                     $hashClosedBugs.add($controlHashValue,$true)

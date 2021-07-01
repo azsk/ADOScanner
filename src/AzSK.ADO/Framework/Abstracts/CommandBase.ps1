@@ -162,7 +162,7 @@ class CommandBase: AzSKRoot {
 		# $bugsClosed=$null
 
 		if($this.InvocationContext.BoundParameters["AutoBugLog"] -or $this.InvocationContext.BoundParameters["AutoCloseBugs"]){
-			$this.bugInfoSend($methodResult,$folderPath)
+			$this.sendBugInfo($methodResult,$folderPath) #sendBugInfo
 		}
 		# Publish command complete events
         $this.CommandCompleted($methodResult);
@@ -239,21 +239,15 @@ class CommandBase: AzSKRoot {
         return [WriteFolderPath]::GetInstance().FolderPath;
     }
 
-	#Sends bug information to Json,CSV. Closed bug information is sent to LA.
-	[void] bugInfoSend([SVTEventContext[]] $methodResult, [string] $folderPath){
-		[bool] $isPartialScan=$false
+	#Sends bug information to Json and CSV. In non upc scan closes bugs and sends info to LA as well.
+	[void] sendBugInfo([SVTEventContext[]] $methodResult, [string] $folderPath){
 		[SVTEventContext[]] $bugsClosed=$null
-		if (([PartialScanManager]::ControlResultsWithBugSummary| Measure-Object).Count -gt 0)
+		if ($this.InvocationContext.BoundParameters["UsePartialCommits"])
 		{
 				$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
-				$isPartialScan=$true
-			}
-		if (([PartialScanManager]::ControlResultsWithClosedBugSummary| Measure-Object).Count -gt 0)
-		{
 				$bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
-				$isPartialScan=$true
-			}
-		if(!$isPartialScan)
+		}
+		else
 		{
 			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 			$AutoClose.AutoCloseBug($methodResult)
@@ -263,11 +257,13 @@ class CommandBase: AzSKRoot {
 			    $laInstance.WriteControlResult($bugsClosed)
             }
 		}
+		#If condition publishes information about New, Active and Closed bugs 
 		if($this.InvocationContext.BoundParameters["AutoBugLog"]){
 			if([BugLogPathManager]::GetIsPathValid()){
 				[PublishToJSONAndCSV]::new($methodResult,$folderPath,$bugsClosed)
 			}
 		}
+		#condition publishes only closed bugs. $null is passed instead of $methodResult to avoid performance slow down in PublishToJSONAndCSV
 		else{
 			if($bugsClosed){
 				[PublishToJSONAndCSV]::new($null,$folderPath,$bugsClosed)

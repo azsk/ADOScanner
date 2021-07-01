@@ -245,7 +245,7 @@ class WritePsConsole: FileOutputBase
 						
                     }
 
-                    #if bug logging is enabled and the path is valid, print a summary all all bugs encountered
+                    #if auto bug logging is enabled and the path is valid or autoClosedBugs is enabled, print a summary of all bugs encountered
                     if(($currentInstance.InvocationContext.BoundParameters["AutoBugLog"] -and [BugLogPathManager]::GetIsPathValid()) -or $currentInstance.InvocationContext.BoundParameters["AutoCloseBugs"]){
                         $currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info)
                         $currentInstance.PrintBugSummaryData($Event);
@@ -539,13 +539,15 @@ class WritePsConsole: FileOutputBase
 	#function to print metrics summary for all kinds of bugs encountered
 
 	hidden [void] PrintBugSummaryData($event){
+
 		[PSCustomObject[]] $summary = @();
 		$currentInstance = [WritePsConsole]::GetInstance();
-		#If condition for -upc mode both AutoBugLog and AutoCloseBugs
+		# For -upc mode summary information is already available in static variable
 		if($currentInstance.InvocationContext.BoundParameters["UsePartialCommits"]){
 			$summary=[PartialScanManager]::CollatedBugSummaryCount
 			$duplicateClosedBugCount=[PartialScanManager]::duplicateClosedBugCount
 		}
+		# In regular scan populate summary
 		else {
 			if (($event.SourceArgs | Measure-Object).Count -ne 0)
 			{
@@ -568,7 +570,7 @@ class WritePsConsole: FileOutputBase
 					}
 				};
 			}
-			#These 2 variables are introduced to identify duplicate work items in different paths.
+			#The following 2 integer variables help identify duplicate work items.
 			$TotalWorkItemCount=0;
 			$TotalControlsClosedCount=0;
 			$bugsClosed=[AutoCloseBugManager]::ClosedBugs
@@ -664,8 +666,9 @@ class WritePsConsole: FileOutputBase
 
 			
 		}
+		#Print information about duplicate work items in Console summary
 		if($duplicateClosedBugCount -gt 0){
-			$currentInstance.WriteMessage("Count of duplicate work items closed : $duplicateClosedBugCount ", [MessageType]::Info)
+			$currentInstance.WriteMessage("Count of duplicate closed work items : $duplicateClosedBugCount ", [MessageType]::Info)
 		}
 		#Clearing the static variables
 		[PartialScanManager]::ControlResultsWithBugSummary = @();
