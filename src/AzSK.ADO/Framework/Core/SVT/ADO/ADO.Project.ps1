@@ -1152,7 +1152,7 @@ class Project: ADOSVTBase
             if ($responseObj.Count -gt 0)
             {
                 # Filter the inherited permissions specific to the given project
-                $repoPermissionsForProject = $responseObj | where-object {$_.token.Contains("repoV2/$projectId") -and (-not $_.token.Contains("refs/heads")) -and  $_.inheritPermissions -eq $true}
+                $repoPermissionsForProject = $responseObj | where-object {($_.token -match "^repoV2/$projectId\/.{36}$")  -and  $_.inheritPermissions -eq $true}
                 $inheritedRepoTokensList = @($repoPermissionsForProject | select token)
                 $repoDefnsObj = $this.FetchRepositoriesList()
                 if(([Helpers]::CheckMember($repoDefnsObj[0],"count",$false)) -and ($repoDefnsObj[0].count -eq 0)) {
