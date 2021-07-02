@@ -21,7 +21,8 @@ class SARIFLog{
         $sarif=$this |ConvertTo-Json -Depth 10
         $s=[regex]'schema';
         ($s.Replace($sarif,"`$schema",1)) | Out-File $filePath;
-
+        $sarif=$null
+        Remove-Variable sarif
     }
 
 }

@@ -9,7 +9,7 @@ class SARIFLogsGenerator {
         $this.sarifLogInstance=$null
         $this.GenerateSARIFLogs($filteredControlResults,$FolderPath,$RunIdentifier)
     }
-    hidden [void] GenerateSARIFLogs([SVTEventContext []] $Controls, [string] $FolderPath,[string] $RunIdentifier)
+    hidden [void] GenerateSARIFLogs([SVTEventContext []] $Controls,[string] $FolderPath,[string] $RunIdentifier)
     {
         $this.sarifLogInstance=[SARIFLog]::new()
         $this.sarifLogInstance.PublishLogs($FolderPath,$Controls,$RunIdentifier);

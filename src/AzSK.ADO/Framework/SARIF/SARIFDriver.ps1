@@ -12,10 +12,23 @@ class SARIFDriver{
     SARIFDriver([SVTEventContext[]] $ControlResults){
         $this.name="ADO Scanner"
         ##ADO Version and Source populate
-        $ver=$PSCmdlet.MyInvocation.MyCommand.Version 
-        $this.semanticVersion="{0}.{1}" -f $ver.Major, $ver.Minor
-        $this.version="{0}.{1}.{2}" -f $ver.Major, $ver.Minor, $ver.Build
-        $this.properties.Source=$PSCmdlet.MyInvocation.MyCommand.Source
+        #ToDo remove both if else condition, if it works correctly on CA
+        $tempVersion=$PSCmdlet.MyInvocation.MyCommand.Version
+        if($tempVersion){ 
+            $this.semanticVersion="{0}.{1}" -f $tempVersion.Major, $tempVersion.Minor
+            $this.version="{0}.{1}.{2}" -f $tempVersion.Major, $tempVersion.Minor, $tempVersion.Build
+        }
+        else{
+            $this.semanticVersion="1.1"
+            $this.version="1.1.1"
+        }
+        $source=$PSCmdlet.MyInvocation.MyCommand.Source
+        if($source){
+            $this.properties.Source=$PSCmdlet.MyInvocation.MyCommand.Source
+        }
+        else{
+            $this.properties.Source="Stage"
+        }
         $this.rules=$null
         $this.populateRules($ControlResults)
 

@@ -196,7 +196,8 @@ class AutoCloseBugManager {
                 
             }
         $hashToControlIDMap.Clear();
-        # Remove-Variable $hashToControlIDMap;    
+        $hashToControlIDMap=$null
+        Remove-Variable hashToControlIDMap;    
     }
 
     #function to close an active bug
