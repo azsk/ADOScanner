@@ -8,8 +8,8 @@ class SARIFLog{
         $this.schema="https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
         $this.runs=$null;
     }
-    hidden [void] PublishLogs([string] $FolderPath,[SVTEventContext[]] $ControlResults,[SVTEventContext[]]$ClosedBugs,[string] $RunIdentifier){
-        $this.runs+=[SARIFRun]::new($ControlResults,$ClosedBugs)
+    hidden [void] PublishLogs([string] $FolderPath,[SVTEventContext[]] $ControlResults,[string] $RunIdentifier){
+        $this.runs+=[SARIFRun]::new($ControlResults)
         #Publishing SARIF File
         $fileName="\ScanLog-{0}.sarif" -f $RunIdentifier 
         $filePath=$FolderPath+$fileName
