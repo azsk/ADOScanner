@@ -21,6 +21,7 @@ class PartialScanManager
 	hidden static $CollatedSummaryCount = @(); # Matrix of counts for severity and control status
 	hidden static $CollatedBugSummaryCount = @(); # Matrix of counts for severity and Bug status
 	hidden static $ControlResultsWithBugSummary = @();
+	hidden static $ControlResultsWithSARIFSummary= @();
 	hidden static $ControlResultsWithClosedBugSummary= @();
 	hidden static $duplicateClosedBugCount=0;
 	hidden [string] $SummaryMarkerText = "------";
@@ -810,6 +811,17 @@ class PartialScanManager
 			($csvItems | Select-Object -Property $nonNullProps.Name -ExcludeProperty SupportsAutoFix,ChildResourceName,IsPreviewBaselineControl,UserComments ) | Group-Object -Property FeatureName | Foreach-Object {$_.Group | Export-Csv -Path $FilePath -append -NoTypeInformation}
 			[PartialScanManager]::IsCsvUpdatedAtCheckpoint = $true
         }
-	}	
+	}
+	[void] 	CollateSARIFData($event)
+	{
+		$event | ForEach-Object {
+			$item = $_
+			if ($item -and $item.ControlResults -and ($item.ControlResults[0].VerificationResult -eq "Failed" -or $item.ControlResults[0].VerificationResult -eq "Verify"))
+			{
+				#Collecting Failed and verify controls
+				[PartialScanManager]::ControlResultsWithSARIFSummary += $item
+			}
+		};
+	}
 }
 

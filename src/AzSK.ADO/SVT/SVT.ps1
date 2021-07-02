@@ -294,7 +294,12 @@ function Get-AzSKADOSecurityStatus
 		[ValidateSet("Graph", "RegEx", "GraphThenRegEx")]
         [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
 		[Alias("acem")]
-		[string] $ALTControlEvaluationMethod
+		[string] $ALTControlEvaluationMethod,
+
+		[switch]
+        [Parameter(HelpMessage="Print SARIF logs for the scan.")]
+        [Alias("gsl")]
+        $GenerateSarifLogs
 
 	)
 	Begin

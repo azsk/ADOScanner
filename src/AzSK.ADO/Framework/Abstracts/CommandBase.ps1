@@ -164,12 +164,30 @@ class CommandBase: AzSKRoot {
 		if($this.InvocationContext.BoundParameters["AutoBugLog"] -or $this.InvocationContext.BoundParameters["AutoCloseBugs"]){
 			$this.sendBugInfo($methodResult,$folderPath) #sendBugInfo
 		}
+		#SARIF Logs generation.Note if upc with Auto Bug Log we have controls available in ControlResultsWithBugSummary static variable.
+        
+		if($this.InvocationContext.BoundParameters["GenerateSarifLogs"]){
+			$sarifMethodResults=$methodResult
+			if(!$sarifMethodResults){
+                if(([PartialScanManager]::ControlResultsWithBugSummary| Measure-Object).Count -gt 0){
+                    $sarifMethodResults=[PartialScanManager]::ControlResultsWithBugSummary
+                }
+                else{
+				    $sarifMethodResults=[PartialScanManager]::ControlResultsWithSARIFSummary
+                }
+			}
+			if($sarifMethodResults){
+		    	[SARIFLogsGenerator]::new($sarifMethodResults,$folderPath,$this.RunIdentifier)
+			}
+			[PartialScanManager]::ControlResultsWithSARIFSummary=@()
+        }
 		# Publish command complete events
         $this.CommandCompleted($methodResult);
 		[AIOrgTelemetryHelper]::TrackCommandExecution("Command Completed",
 			@{"RunIdentifier" = $this.RunIdentifier},
 			@{"TimeTakenInMs" = $sw.ElapsedMilliseconds; "SuccessCount" = 1},
 			$this.InvocationContext)
+		
         $this.PostCommandCompletedAction($methodResult);
 
 
