@@ -8,19 +8,22 @@ class AzSKADOServiceMapping: CommandBase
     [string] $ProjectId
     [string] $BuildMappingsFilePath
     [string] $ReleaseMappingsFilePath
+    [string] $RepositoryMappingsFilePath
     [string] $MappingType
     [string] $OutputFolderPath
     $BuildSTDetails = @();
     $ReleaseSTDetails =@();
+    $RepositorySTDetails =@();
 
 
-	AzSKADOServiceMapping([string] $organizationName, [string] $projectName, [string] $buildFileLocation, [string] $releaseFileLocation, [string] $mappingType, [InvocationInfo] $invocationContext): 
+	AzSKADOServiceMapping([string] $organizationName, [string] $projectName, [string] $buildFileLocation, [string] $releaseFileLocation, [string] $repositoryFileLocation,[string] $mappingType, [InvocationInfo] $invocationContext): 
         Base($organizationName, $invocationContext) 
     { 
         $this.OrgName = $organizationName
         $this.ProjectName = $projectName
         $this.BuildMappingsFilePath = $buildFileLocation
         $this.ReleaseMappingsFilePath = $releaseFileLocation
+        $this.RepositoryMappingsFilePath = $repositoryFileLocation
         $this.MappingType = $MappingType
 	}
 	
@@ -38,11 +41,15 @@ class AzSKADOServiceMapping: CommandBase
                 {
                     $this.FetchAgentPoolMapping();
                 }
-                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup")
+                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup" -or $this.MappingType -eq "SecureFile")
                 {
                     $this.FetchVarGrpMapping();
                 }
+                
             }
+        }
+        if(![string]::IsNullOrWhiteSpace($this.RepositoryMappingsFilePath) -and(Test-Path $this.RepositoryMappingsFilePath)) {
+            $this.GetRepositoryMapping();
         }
 		[MessageData[]] $returnMsgs = @();
 		$returnMsgs += [MessageData]::new("Returning service mappings.");
@@ -72,6 +79,19 @@ class AzSKADOServiceMapping: CommandBase
         }
         $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
 
+    }
+
+    hidden GetRepositoryMapping() {  
+        $this.RepositorySTDetails = Get-content $this.RepositoryMappingsFilePath | ConvertFrom-Json
+        if ([Helpers]::CheckMember($this.RepositorySTDetails, "data") -and ($this.RepositorySTDetails.data | Measure-Object).Count -gt 0)
+        {
+            $this.RepositorySTDetails.data = $this.RepositorySTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}
+            if (($this.RepositorySTDetails.data | Measure-Object).Count -gt 0)
+            {
+                $this.ProjectId = $this.RepositorySTDetails.data[0].projectId
+            }
+        }
+        $this.ExportObjToJsonFile($this.RepositorySTDetails, 'RepositorySTData.json');
     }
 
     hidden ExportObjToJsonFile($serviceMapping, $fileName) {  
@@ -224,20 +244,26 @@ class AzSKADOServiceMapping: CommandBase
             data = @();
         };
 
+        $secureFileSTMapping = @{
+            data = @();
+        };
+
         $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrgName), $this.ProjectName;
         $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);
           
         if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
             
             $this.PublishCustomMessage(([Constants]::DoubleDashLine))
-            $this.PublishCustomMessage("Generating service mappings of variable group using release for project [$($this.ProjectName)]...")
+            $this.PublishCustomMessage("Generating service mappings of variable group/secure file using release for project [$($this.ProjectName)]...")
             $this.PublishCustomMessage("Total mappings to be evaluated:  $(($releaseDefnsObj | Measure-Object).Count)")
             $counter = 0
 
+            #This variable is used to store details returned from secure file api(fetching all the secure file details in one call)
+            $secureFileDetails = @();
             foreach ($relDef in $releaseDefnsObj) {
 
                 $counter++
-                Write-Progress -Activity 'Variable group mappings via release...' -CurrentOperation $relDef.Name -PercentComplete (($counter / $releaseDefnsObj.count) * 100)
+                Write-Progress -Activity 'Variable group/secure file mappings via release...' -CurrentOperation $relDef.Name -PercentComplete (($counter / $releaseDefnsObj.count) * 100)
 
                 try
                 {
@@ -245,21 +271,40 @@ class AzSKADOServiceMapping: CommandBase
                     $varGrps = @();
                     
                     #add var groups scoped at release scope.
-                    if((($releaseObj[0].variableGroups) | Measure-Object).Count -gt 0)
-                    {
-                        $varGrps += $releaseObj[0].variableGroups
-                    }
-
-                    #get var grps from each env of release pipeline
-                    foreach ($env in $releaseObj[0].environments) {
-                        if((($env.variableGroups) | Measure-Object).Count -gt 0)
+                    if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
+                        if((($releaseObj[0].variableGroups) | Measure-Object).Count -gt 0)
                         {
-                            $varGrps += $env.variableGroups
+                            $varGrps += $releaseObj[0].variableGroups
                         }
                     }
 
-                    if(($varGrps | Measure-Object).Count -gt 0)
-                    {
+                    #get var grps from each env of release pipeline
+                    $tasksInputs = @();
+                    $secureFiles = @();
+                    foreach ($env in $releaseObj[0].environments) {
+                        if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
+                            if((($env.variableGroups) | Measure-Object).Count -gt 0)
+                            {
+                                $varGrps += $env.variableGroups
+                            }
+                        }
+
+                        if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
+                            if([Helpers]::CheckMember($env, "deployPhases.workflowtasks.inputs") )
+                            {
+                                $tasksInputs += $env.deployPhases.workflowtasks.inputs;
+                            }
+                            foreach ($item in $tasksInputs) {
+                                if ([Helpers]::CheckMember($item, "secureFile")) {
+                                    $secureFiles += $item.secureFile;
+                                }
+                            }
+                        }
+                    }
+
+                    if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
+                        if(($varGrps | Measure-Object).Count -gt 0)
+                        {
                         $varGrps | ForEach-Object{
                             $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;
                             $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
@@ -268,6 +313,28 @@ class AzSKADOServiceMapping: CommandBase
                             if($releaseSTData){
                                 $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
                             }
+                        }
+                        }
+                    }
+
+                    if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
+                        if(($secureFiles | Measure-Object).Count -gt 0)
+                        {
+                        $secureFiles | Foreach-ObjectFast ForEach-Object{
+                            if ($secureFileDetails.count -eq 0) {
+                                $secureFilesURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/securefiles?api-version=6.1-preview.1" -f $this.OrgName, $this.projectId;
+                                $secureFileDetails = [WebRequestHelper]::InvokeGetWebRequest($secureFilesURL);
+                            }
+                            $secureFile = $_;
+                            $secureFilesObj = $secureFileDetails | Where {$_.Name -eq $secureFile -or $_.Id -eq $secureFile}
+
+                            if ($secureFilesObj) {
+                                $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $relDef.id) };
+                                if($releaseSTData){
+                                    $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $secureFilesObj.name; secureFileID = $secureFilesObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
+                                }
+                            }
+                        }
                         }
                     }
                 }
@@ -316,11 +383,22 @@ class AzSKADOServiceMapping: CommandBase
         }
 
         #Removing duplicate entries of the tuple (variableGroupId,serviceId)
-        $variableGroupSTMapping.data = $variableGroupSTMapping.data | Sort-Object -Unique variableGroupID,serviceID
+        if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
+            $variableGroupSTMapping.data = $variableGroupSTMapping.data | Sort-Object -Unique variableGroupID,serviceID
 
-        $this.PublishCustomMessage("Service mapping found:  $(($variableGroupSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
+            $this.PublishCustomMessage("Service mapping found:  $(($variableGroupSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
 
-        $this.ExportObjToJsonFile($variableGroupSTMapping, 'VariableGroupSTData.json');
+            $this.ExportObjToJsonFile($variableGroupSTMapping, 'VariableGroupSTData.json');
+        }
+        #Removing duplicate entries of the tuple (securefile,serviceId)
+        if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
+            $secureFileSTMapping.data = $secureFileSTMapping.data | Sort-Object -Unique variableGroupID,serviceID
+
+            $this.PublishCustomMessage("Service mapping found:  $(($secureFileSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
+
+            $this.ExportObjToJsonFile($secureFileSTMapping, 'SecureFileSTData.json');
+        }
         return $true;
     }
+
 }
