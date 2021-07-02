@@ -1519,22 +1519,85 @@ class Build: ADOSVTBase
         if(($this.BuildObj | Measure-Object).Count -gt 0)
         {
             $controlResult.VerificationResult = [VerificationResult]::Failed
-            if([Helpers]::CheckMember($this.BuildObj,"process.phases.target") -and [Helpers]::CheckMember($this.BuildObj.process.phases.target,"allowScriptsAuthAccessOption",$false))
+            if([Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename"))
             {
-                if($this.BuildObj.process.phases.target.allowScriptsAuthAccessOption -eq $true)
+                ## In case it is YAML build
+                $orgName = $this.OrganizationContext.OrganizationName
+                $projectName = $this.BuildObj.project.name
+                $projectId = $this.BuildObj.project.id
+                $buildId = $this.BuildObj.id
+                $repoid = $this.BuildObj.repository.id
+                $resultObj = @()
+                try{
+                    $url = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=6.0" -f $orgName,$projectName,$repoid
+                    $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url);)
+                    $branches = @($responseObj.name | Foreach-Object { $_.split("/")[-1]})
+                    if($branches.count -gt 0)
+                    {
+                        $branches | where-object {
+                            $currentBranch = $_
+                            $refobj = "" | Select-Object branch,fileName
+                            try{
+                                $url = 'https://dev.azure.com/{0}/{1}/_apps/hub/ms.vss-build-web.ci-designer-hub?pipelineId={2}&branch={3}&__rt=fps&__ver=2' -f $orgName, $projectId , $buildId, $currentBranch;
+                                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url);)
+                                if([Helpers]::CheckMember($responseObj,"fps.dataProviders.data") -and $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider' -and [Helpers]::CheckMember($responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider',"content") -and  $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'.content)
+                                {
+                                    $dataprovider = $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'
+                                    $yamlFileContent = $dataprovider.content
+                                    if($yamlFileContent -match "SYSTEM_ACCESSTOKEN")
+                                    {
+                                        $refobj.branch = $_
+                                        $refobj.fileName = $dataprovider.definition.process.yamlFilename
+                                        $resultObj += $refobj
+                                    }
+                                }
+                                else {
+                                    $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch YAML file content for the branch: $($currentBranch)");                                    
+                                }
+                            }
+                            catch
+                            {
+                                $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch YAML file for the branch: $($currentBranch)");
+                                $controlResult.LogException($_)
+                            }                        
+                        }
+                        if($resultObj.Count -gt 0)
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Failed,"OAuth token is used in Yaml file")
+                            $display = $resultObj | FT -AutoSize | Out-String -Width 512
+                            $controlResult.AddMessage($display)
+                        }
+                        else {
+                            $controlResult.AddMessage([VerificationResult]::Passed,"OAuth token access is restricted.");
+                        }
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Passed,"YAML Build pipeline is not assoaciated with yaml file of any branch,");
+                    }                    
+                }
+                catch
                 {
-                    $controlResult.AddMessage("OAuth token is accessible to tasks");
-                }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"OAuth token access is restricted.");
-                }
+                    $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch branches associated with build.");
+                    $controlResult.LogException($_)
+                }        
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch build details");
-            }
-            
+                if([Helpers]::CheckMember($this.BuildObj,"process.phases.target") -and [Helpers]::CheckMember($this.BuildObj.process.phases.target,"allowScriptsAuthAccessOption",$false))
+                {
+                    # In case it is classic build
+                    if($this.BuildObj.process.phases.target.allowScriptsAuthAccessOption -eq $true)
+                    {
+                        $controlResult.AddMessage("OAuth token is accessible to tasks");
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Passed,"OAuth token access is restricted.");
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch build details");
+                }
+            }     
         }
-
         return $controlResult;
     }
 }
