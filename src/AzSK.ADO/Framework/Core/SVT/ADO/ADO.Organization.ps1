@@ -8,11 +8,11 @@ class Organization: ADOSVTBase
     static $SharedExtensionInfo
     static $AutoInjectedExtensionInfo
     hidden [PSObject] $allExtensionsObj; # This is used to fetch all extensions (shared+installed+requested) object so that it can be used in installed extension control where top publisher could not be computed.
-    hidden [PSObject] $installedExtensionObj
+    hidden [PSObject] $installedExtensionObj # This is used to store install extensions details, that we fetch using documented API.
     hidden [PSObject] $graphPermissions = @{hasGraphAccess = $false; graphAccessToken = $null}; # This is used to check user has graph permissions to compute the graph api operations.
     hidden $GuestMembers = @()
     hidden $AllUsersInOrg = @()
-    hidden [PSObject] $extensionDetailsFromOrgPolicy = @{knownExtPublishers = @(); extensionsLastUpdatedInYears = 2; ExemptedExtensionNames = @(); nonProductionExtensionIndicators = @(); extensionCriticalScopes = @(); isKnownPublishersPropertyPresent=$false;islastUpdatedPropertyPresent=$false;isCriticalScopesPropertyPresent=$false;isNonProdIndicatorsPropertyPresent=$false;}; 
+    hidden [PSObject] $extensionDetailsFromOrgPolicy = @{knownExtPublishers = @(); extensionsLastUpdatedInYears = 2; ExemptedExtensionNames = @(); nonProductionExtensionIndicators = @(); extensionCriticalScopes = @(); isKnownPublishersPropertyPresent=$false; islastUpdatedPropertyPresent=$false; isCriticalScopesPropertyPresent=$false; isNonProdIndicatorsPropertyPresent=$false; isComputed=$false}; 
     hidden [PSObject] $ComputedExtensionDetails = @{}; 
 
     #TODO: testing below line
@@ -40,37 +40,6 @@ class Organization: ADOSVTBase
             }
         }
 
-        if ([AzSKRoot]::IsDetailedScanRequired -eq $true -and [Helpers]::CheckMember($this.ControlSettings, "Organization"))
-        {
-            if([Helpers]::CheckMember($this.ControlSettings.Organization, "KnownExtensionPublishers"))
-            {
-                $this.extensionDetailsFromOrgPolicy.knownExtPublishers = $this.ControlSettings.Organization.KnownExtensionPublishers;
-                $this.extensionDetailsFromOrgPolicy.isKnownPublishersPropertyPresent = $true
-            }
-
-            if([Helpers]::CheckMember($this.ControlSettings.Organization, "ExtensionsLastUpdatedInYears"))
-            {
-                $this.extensionDetailsFromOrgPolicy.extensionsLastUpdatedInYears = $this.ControlSettings.Organization.ExtensionsLastUpdatedInYears
-                $this.extensionDetailsFromOrgPolicy.islastUpdatedPropertyPresent = $true
-            }
-
-            if([Helpers]::CheckMember($this.ControlSettings.Organization, "ExtensionCriticalScopes") )
-            {
-                $this.extensionDetailsFromOrgPolicy.extensionCriticalScopes=$this.ControlSettings.Organization.ExtensionCriticalScopes;
-                $this.extensionDetailsFromOrgPolicy.isCriticalScopesPropertyPresent = $true
-            }
-
-            if([Helpers]::CheckMember($this.ControlSettings.Organization, "NonProductionExtensionIndicators"))
-            {
-                $this.extensionDetailsFromOrgPolicy.nonProductionExtensionIndicators =$this.ControlSettings.Organization.NonProductionExtensionIndicators;
-                $this.extensionDetailsFromOrgPolicy.isNonProdIndicatorsPropertyPresent = $true
-            }
-
-            if([Helpers]::CheckMember($this.ControlSettings.Organization, "ExemptedExtensionNames"))
-            {
-                $this.extensionDetailsFromOrgPolicy.ExemptedExtensionNames += $this.ControlSettings.Organization.ExemptedExtensionNames;
-            }
-        }
     }
 
     GetOrgPolicyObject()
@@ -1293,17 +1262,17 @@ class Organization: ADOSVTBase
 
             if ($autoInjExt.Count -gt 0)
             {
-                $extensionList = $autoInjExt | Select-Object extensionName,publisherId,publisherName,version,flags,lastPublished,scopes,extensionId # 'flags' is not available in every extension. It is visible only for built in extensions. Hence this appends 'flags' to trimmed objects.
-                $extensionList = @($extensionList | Where-Object {$_.flags -notlike "*builtin*" }) # to filter out extensions that are built in and are not visible on portal.
+                $autoInjExt = $autoInjExt | Select-Object extensionName,publisherId,publisherName,version,flags,lastPublished,scopes,extensionId # 'flags' is not available in every extension. It is visible only for built in extensions. Hence this appends 'flags' to trimmed objects.
+                $autoInjExt = @($autoInjExt | Where-Object {$_.flags -notlike "*builtin*" }) # to filter out extensions that are built in and are not visible on portal.
                 $ftWidth = 512 #Used for table output width to avoid "..." truncation
-                $extCount = $extensionList.Count;
+                $extCount = $autoInjExt.Count;
 
                 if($extCount -gt 0)
                 {
                     $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the list of auto-injected extensions for your organization: ");
                     $controlResult.AddMessage("Count of auto-injected extensions: " + $extCount);
                     $controlResult.AdditionalInfo += "Count of auto-injected extensions: " + $extCount;
-                    $this.ExtensionControlHelper($controlResult, $extensionList, 'AutoInjected')
+                    $this.ExtensionControlHelper($controlResult, $autoInjExt, 'AutoInjected')
                 }
                 else
                 {
@@ -1514,7 +1483,7 @@ class Organization: ADOSVTBase
                         $controlResult.SetStateData("List of pending requested extensions: ", $extensionList);
                         $controlResult.AdditionalInfo += "List of requested extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($extensionList);
 
-                        <#
+                        <# Not displaying approved and rejected extension details as these details are not required.
                             $ApprovedExtensions = @($requestedExtensions | Where-Object { $_.requestState -eq "1" })
                             if($ApprovedExtensions.Count -gt 0)
                             {
@@ -1949,7 +1918,44 @@ class Organization: ADOSVTBase
         return $controlResult;
     }
 
-    hidden [psobject] GetExtensionDetails($extensionListObj, $scanType)
+    hidden [void] GetExtensionPropertiesFromControlSetting()
+    {
+        if ([AzSKRoot]::IsDetailedScanRequired -eq $true -and [Helpers]::CheckMember($this.ControlSettings, "Organization"))
+        {
+            if([Helpers]::CheckMember($this.ControlSettings.Organization, "KnownExtensionPublishers"))
+            {
+                $this.extensionDetailsFromOrgPolicy.knownExtPublishers = $this.ControlSettings.Organization.KnownExtensionPublishers;
+                $this.extensionDetailsFromOrgPolicy.isKnownPublishersPropertyPresent = $true
+            }
+
+            if([Helpers]::CheckMember($this.ControlSettings.Organization, "ExtensionsLastUpdatedInYears"))
+            {
+                $this.extensionDetailsFromOrgPolicy.extensionsLastUpdatedInYears = $this.ControlSettings.Organization.ExtensionsLastUpdatedInYears
+                $this.extensionDetailsFromOrgPolicy.islastUpdatedPropertyPresent = $true
+            }
+
+            if([Helpers]::CheckMember($this.ControlSettings.Organization, "ExtensionCriticalScopes") )
+            {
+                $this.extensionDetailsFromOrgPolicy.extensionCriticalScopes=$this.ControlSettings.Organization.ExtensionCriticalScopes;
+                $this.extensionDetailsFromOrgPolicy.isCriticalScopesPropertyPresent = $true
+            }
+
+            if([Helpers]::CheckMember($this.ControlSettings.Organization, "NonProductionExtensionIndicators"))
+            {
+                $this.extensionDetailsFromOrgPolicy.nonProductionExtensionIndicators =$this.ControlSettings.Organization.NonProductionExtensionIndicators;
+                $this.extensionDetailsFromOrgPolicy.isNonProdIndicatorsPropertyPresent = $true
+            }
+
+            if([Helpers]::CheckMember($this.ControlSettings.Organization, "ExemptedExtensionNames"))
+            {
+                $this.extensionDetailsFromOrgPolicy.ExemptedExtensionNames += $this.ControlSettings.Organization.ExemptedExtensionNames;
+            }
+
+            $this.extensionDetailsFromOrgPolicy.isComputed = $true
+        }
+    }
+
+    hidden [psobject] ComputeExtensionDetails($extensionListObj, $scanType)
     {
         $this.ComputedExtensionDetails = @{knownExtensions = @(); unknownExtensions = @(); staleExtensionList = @(); extensionListWithCriticalScopes = @(); extensionListWithNonProductionExtensionIndicators = @(); nonProdExtensions = @(); topPublisherExtensions=@(); privateExtensions=@()}; 
         $date = Get-Date
@@ -2201,6 +2207,10 @@ class Organization: ADOSVTBase
     hidden ExtensionControlHelper($controlResult, $extensionList, $scanType)
     {
         $ftWidth = 512
+        if (-not $this.extensionDetailsFromOrgPolicy.isComputed) {
+            $this.GetExtensionPropertiesFromControlSetting()
+        }
+
         if ([AzSKRoot]::IsDetailedScanRequired -eq $false) 
         {
             if (([Helpers]::CheckMember($this.ControlSettings ,"Organization.KnownExtensionPublishers")))
@@ -2284,7 +2294,7 @@ class Organization: ADOSVTBase
             $controlResult.AddMessage("`nThe following scheme is used for assigning secure score: ")
             $controlResult.AddMessage($scoretable)
             
-            $combinedTable = @($this.GetExtensionDetails($extensionList, $scanType))
+            $combinedTable = @($this.ComputeExtensionDetails($extensionList, $scanType))
             $MaxScore = $combinedTable[0].MaxScore
             $controlResult.AddMessage("Note: Using this scheme an extension can get a maximum secure score of [$MaxScore].`n")
             $controlResult.AddMessage([Constants]::HashLine)
