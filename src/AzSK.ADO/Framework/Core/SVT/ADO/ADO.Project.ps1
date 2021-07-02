@@ -376,8 +376,11 @@ class Project: ADOSVTBase
         if ($this.PAMembers.Count -eq 0) {
             $this.PAMembers += @([AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName))
         }
-        $this.PAMembers = @($this.PAMembers |  ? { $_ } | sort -uniq)
-        $TotalPAMembers = $this.PAMembers.Count
+        if([Helpers]::CheckMember($this.PAMembers[0],"mailAddress"))
+        {
+            $TotalPAMembers = $this.PAMembers.Count
+        }
+        
         $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
         if ($TotalPAMembers -gt 0) {
             if ($this.graphPermissions.hasGraphAccess)
@@ -417,10 +420,10 @@ class Project: ADOSVTBase
                 ## TODO: Add warning that control was evaluated without graph access
                 $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
                 if($TotalPAMembers -lt $this.ControlSettings.Project.MinPAMembersPermissible){
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
                 }
                 if($TotalPAMembers -gt 0){
                     $controlResult.AddMessage("Current set of Project Administrators: ")
