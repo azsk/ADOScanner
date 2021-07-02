@@ -150,7 +150,6 @@ class AutoCloseBugManager {
                         if ($QueryKeyWordCount -eq $MaxKeyWordsToQuery) {
                             #query for all these tags and their bugs
                             $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
-                            $response = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword);
                             $closedBugsResponse = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword);
 
                             if ($closedBugsResponse){
@@ -197,7 +196,7 @@ class AutoCloseBugManager {
                 
             }
         $hashToControlIDMap.Clear();
-        Remove-Variable $hashToControlIDMap;    
+        # Remove-Variable $hashToControlIDMap;    
     }
 
     #function to close an active bug
