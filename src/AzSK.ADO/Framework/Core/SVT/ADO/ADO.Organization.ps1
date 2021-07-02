@@ -1477,19 +1477,19 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckSettableQueueTime([ControlResult] $controlResult)
     {
-       if($this.PipelineSettingsObj)
-       {
-
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        if($this.PipelineSettingsObj)
+        {
             if($this.PipelineSettingsObj.enforceSettableVar -eq $true )
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Only limited variables can be set at queue time.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Only explicitly marked 'settable at queue time' variables can be set at queue time.");
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "All variables can be set at queue time.");
             }
-       }
-       else{
-            $controlResult.AddMessage([VerificationResult]::Manual, "Pipeline settings could not be fetched due to insufficient permissions at organization scope.");
+        }
+        else{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
         }
         return $controlResult
     }

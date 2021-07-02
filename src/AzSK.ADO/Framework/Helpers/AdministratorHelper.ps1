@@ -293,7 +293,7 @@ class AdministratorHelper{
         [AdministratorHelper]::GetPCADescriptorAndMembers($OrgName)
 
         #get unique pca based on display name and mail address
-        [AdministratorHelper]::AllPCAMembers = [AdministratorHelper]::AllPCAMembers | Sort-Object 'displayName','mailAddress' | Get-Unique -AsString
+        [AdministratorHelper]::AllPCAMembers = [AdministratorHelper]::AllPCAMembers | Sort-Object -Unique 'mailAddress'
         return [AdministratorHelper]::AllPCAMembers
     }
     static [object] GetTotalPAMembers([string] $OrgName,[string] $projName){
@@ -303,7 +303,7 @@ class AdministratorHelper{
         [AdministratorHelper]::GetPADescriptorAndMembers($OrgName,$projName)
 
         #get unique pa based on display name and mail address
-        [AdministratorHelper]::AllPAMembers = [AdministratorHelper]::AllPAMembers | Sort-Object 'displayName','mailAddress' | Get-Unique -AsString
+        [AdministratorHelper]::AllPAMembers = [AdministratorHelper]::AllPAMembers | Sort-Object -Unique 'mailAddress'
         return [AdministratorHelper]::AllPAMembers
     }
     static [bool] GetIsCurrentUserPCA([string] $descriptor,[string] $OrgName){

@@ -66,10 +66,11 @@ class Project: ADOSVTBase
         }
     }
 
-    hidden [ControlResult] CheckPublicProjects([ControlResult] $controlResult)
+    hidden [ControlResult] CheckProjectVisibility([ControlResult] $controlResult)
 	{
         try
         {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
             if([Helpers]::CheckMember($this.ResourceContext.ResourceDetails,"visibility"))
             {
                 $visibility = $this.ResourceContext.ResourceDetails.visibility;
@@ -80,7 +81,7 @@ class Project: ADOSVTBase
                 }
                 else # For orgs with public projects allowed, this control needs to be attested by the project admins.
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Project visibility is set to '$visibility'.");
+                    $controlResult.AddMessage("Project visibility is set to '$visibility'.");
                 }
                 $controlResult.AdditionalInfo += "Project visibility is set to: " + $visibility;
             }
@@ -118,20 +119,20 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckSettableQueueTime([ControlResult] $controlResult)
     {
-       if($this.PipelineSettingsObj)
-       {
-
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        if($this.PipelineSettingsObj)
+        {            
             if($this.PipelineSettingsObj.enforceSettableVar.enabled -eq $true )
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Only limited variables can be set at queue time. It is set as '$($this.PipelineSettingsObj.enforceSettableVar.orgEnabled)' at organization scope.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Only explicitly marked 'settable at queue time' variables can be set at queue time. It is set as '$($this.PipelineSettingsObj.enforceSettableVar.orgEnabled)' at organization scope.");
             }
             else{
-                $controlResult.AddMessage([VerificationResult]::Failed, "All variables can be set at queue time. It is set as '$($this.PipelineSettingsObj.enforceSettableVar.orgEnabled)' at organization scope.");
+                $controlResult.AddMessage("All variables can be set at queue time. It is set as '$($this.PipelineSettingsObj.enforceSettableVar.orgEnabled)' at organization scope.");
             }
-       }
-       else{
-            $controlResult.AddMessage([VerificationResult]::Manual, "Pipeline settings could not be fetched due to insufficient permissions at project scope.");
-       }
+        }
+        else{
+            $controlResult.AddMessage([VerificationResult]::Error, "Pipeline settings could not be fetched for the project.");
+        }
         return $controlResult
     }
 
@@ -370,53 +371,63 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckMinPACount([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         $TotalPAMembers = 0;
-        if (($this.PAMembers | Measure-Object).Count -eq 0) {
-            $this.PAMembers += [AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
+        if ($this.PAMembers.Count -eq 0) {
+            $this.PAMembers += @([AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName))
         }
-        $TotalPAMembers = ($this.PAMembers | Measure-Object).Count
+        $this.PAMembers = @($this.PAMembers |  ? { $_ } | sort -uniq)
+        $TotalPAMembers = $this.PAMembers.Count
         $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
         if ($TotalPAMembers -gt 0) {
             if ($this.graphPermissions.hasGraphAccess)
             {
                 $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
-                $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
-                if($HumanAcccountCount -lt $this.ControlSettings.Project.MinPAMembersPermissible){
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                $humanAccounts = @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress)
+                $svcAccounts = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress)
+                
+                # In case of graph access we will only evaluate the control on the basis of human accounts
+                if($humanAccounts.count -lt $this.ControlSettings.Project.MinPAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured meet the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
                 }
                 if($TotalPAMembers -gt 0){
-                    $controlResult.AddMessage("Verify the following Project Administrators: ")
-                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AddMessage("Current set of Project Administrators: ")
+                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
                 }
 
-                if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
-                    $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
-                    $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
+                if ($humanAccounts.count -gt 0) {                   
+                    $controlResult.AddMessage("`nHuman administrators: $($humanAccounts.Count)")
+                    $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
                 }
 
-                if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
-                    $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
-                    $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
+                if ($svcAccounts.count -gt 0) {                   
+                    $controlResult.AddMessage("`nService accounts: $($svcAccounts.Count)")
+                    $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of service account Project Administrators: ",$svcAccounts)
                 }
             }
             else
             {
+                ## TODO: Add warning that control was evaluated without graph access
                 $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
                 if($TotalPAMembers -lt $this.ControlSettings.Project.MinPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
                 }
                 if($TotalPAMembers -gt 0){
-                    $controlResult.AddMessage("Verify the following Project Administrators: ",$this.PAMembers)
+                    $controlResult.AddMessage("Current set of Project Administrators: ")
+                    $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
-                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
                 }
             }
         }
