@@ -165,7 +165,8 @@
     "VariableGroup",
     "Repository",
     "Feed",
-    "SecureFile"
+    "SecureFile",
+    "Environment"
   ],
   "AttestationExpiryPeriodInDays": {
     "Default": 90,
@@ -406,6 +407,22 @@
     "Project Valid Users"
     ]
   },
+  "SecureFile":{
+    "RestrictedBroaderGroupsForSecureFile": [
+      "Project Collection Valid Users",
+      "Contributors",
+      "Readers",
+      "Project Valid Users"
+      ]
+  },
+  "Environment":{
+    "RestrictedBroaderGroupsForEnvironment": [
+      "Project Collection Valid Users",
+      "Contributors",
+      "Readers",
+      "Project Valid Users"
+      ]
+  },
   "Repo": {
     "RepoHistoryPeriodInDays": 180,
     "AuthorEmailValidationPolicyID": "77ed4bd3-b063-4689-934a-175e4d0a78d7",
@@ -515,6 +532,7 @@
   "ResourceTypesForCommonSVT": [
     "Repository",
     "SecureFile",
-    "Feed"
+    "Feed",
+    "Environment"
   ]
 }

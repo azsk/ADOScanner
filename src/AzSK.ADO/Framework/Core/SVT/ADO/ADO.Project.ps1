@@ -762,6 +762,26 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckEnviornmentAccess([ControlResult] $controlResult)
     {
+        <#
+        {
+          "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Environment",
+          "Description": "Do not make environment accessible to all pipelines.",
+          "Id": "Project240",
+          "ControlSeverity": "High",
+          "Automated": "Yes",
+          "MethodName": "CheckEnviornmentAccess",
+          "Rationale": "To support security of the pipeline operations, environments must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
+          "Recommendation": "To remediate this, go to Project -> Pipelines -> Environments -> select your environment from the list -> click Security -> Under 'Pipeline Permissions', remove pipelines that environment no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+          "Tags": [
+            "SDL",
+            "TCP",
+            "Automated",
+            "AuthZ"
+          ],
+          "Enabled": true
+        },
+        #>
+
         try
         {
             $apiURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceName);

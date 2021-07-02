@@ -49,8 +49,9 @@ class SVTResourceResolver: AzSKRoot {
     hidden [string[]] $RepoNames = @();
     hidden [string[]] $SecureFileNames = @();
     hidden [string[]] $FeedNames = @();
+    hidden [string[]] $EnvironmentNames = @();
 
-    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames): Base($organizationName, $PATToken) {
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames): Base($organizationName, $PATToken) {
 
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
         $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls);
@@ -59,6 +60,7 @@ class SVTResourceResolver: AzSKRoot {
         $this.RepoNames += $this.ConvertToStringArray($RepoNames);
         $this.SecureFileNames += $this.ConvertToStringArray($SecureFileNames);
         $this.FeedNames += $this.ConvertToStringArray($FeedNames);
+        $this.EnvironmentNames += $this.ConvertToStringArray($EnvironmentNames);
     }
 
     [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls) {
@@ -155,6 +157,7 @@ class SVTResourceResolver: AzSKRoot {
             $this.RepoNames = "*"
             $this.SecureFileNames = "*"
             $this.FeedNames = "*"
+            $this.EnvironmentNames = "*"
         }
 
         if (( $this.MaxObjectsToScan -eq 0 -or $this.MaxObjectsToScan -gt $this.longRunningScanCheckPoint) -and ($this.ProjectNames -eq "*" -or $this.BuildNames -eq "*" -or $this.ReleaseNames -eq "*" -or $this.ServiceConnections -eq "*" -or $this.AgentPools -eq "*" -or $this.VariableGroups -eq "*")) {
@@ -634,9 +637,9 @@ class SVTResourceResolver: AzSKRoot {
                     }
 
                     #Ceating resource in common resource resolver
-                    if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -ge 0 -or $this.FeedNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed))) {
-                        $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName);
-                        $this.SVTResources += $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.ResourceTypeName, $this.MaxObjectsToScan);
+                    if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -ge 0 -or $this.FeedNames.count -gt 0 -or $this.EnvironmentNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed, [ResourceTypeName]::Environment))) {
+                        $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName, $projectId);
+                        $this.SVTResources += $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.EnvironmentNames, $this.ResourceTypeName, $this.MaxObjectsToScan);
                     }
 
                     # getting all the resources count

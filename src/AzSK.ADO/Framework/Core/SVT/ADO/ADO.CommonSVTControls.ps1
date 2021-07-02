@@ -2,7 +2,7 @@ Set-StrictMode -Version Latest
 class CommonSVTControls: ADOSVTBase {
 
     hidden [PSObject] $Repos; # This is used for fetching repo details
-    hidden [PSObject] $ProjectId;
+    #hidden [PSObject] $ProjectId;
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
@@ -47,6 +47,32 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.LogException($_)
         }
         return $controlResult
+    }
+
+    hidden [ControlResult] CheckRepositoryPipelinePermission([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/repository/{2}.{3}" -f $this.OrganizationContext.OrganizationName, $projectId, $projectId, $this.ResourceContext.ResourceDetails.Id;
+            $repoPipelinePermissionObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+            if (($repoPipelinePermissionObj.Count -gt 0) -and ([Helpers]::CheckMember($repoPipelinePermissionObj[0], "allPipelines")) -and ($repoPipelinePermissionObj[0].allPipelines.authorized -eq $true))
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed, "Repository is accessible to all pipelines.");
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "Repository is not accessible to all pipelines.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository pipeline permission.");
+            $controlResult.LogException($_)
+        }
+       return $controlResult
     }
 
     hidden [ControlResult] CheckRepoRBACAccess([ControlResult] $controlResult) {
@@ -209,6 +235,117 @@ class CommonSVTControls: ADOSVTBase {
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch authorization details of secure file.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckBroaderGroupAccessOnSecureFile([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $restrictedBroaderGroupsForSecureFile = $null;
+            if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedBroaderGroupsForSecureFile")) {
+                $restrictedBroaderGroupsForSecureFile = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile
+
+                $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.securefile/roleassignments/resources/{1}%24{2}' -f $this.OrganizationContext.OrganizationName, $projectId, $this.ResourceContext.ResourceDetails.Id;
+                $secureFilePermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                
+                $excesiveSecureFilePermissions = @(($secureFilePermissionList | Where-Object {$_.role.name -eq "administrator" -or $_.role.name -eq "user"}) | Select-Object -Property @{Name="SecureFileName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role.name}},@{Name="DisplayName"; Expression = {$_.identity.displayName}}) ;
+                $secureFileWithBroaderGroup = @($excesiveSecureFilePermissions | Where-Object { $restrictedBroaderGroupsForSecureFile -contains $_.DisplayName.split('\')[-1] })
+                $secureFileWithBroaderGroupCount = $secureFileWithBroaderGroup.count;
+
+                if ($secureFileWithBroaderGroupCount -gt 0)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have user/administrator access to secure file: $($secureFileWithBroaderGroupCount)")
+
+                    $display = ($secureFileWithBroaderGroup |  FT SecureFileName, Role, DisplayName -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage("`nList of groups: ", $display)
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,  "Secure file is not granted with user/administrator permission to broad groups.");
+                }
+                $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($restrictedBroaderGroupsForSecureFile | FT | out-string)");
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error,  "List of broader groups for secure file is not defined in control settings for your organization.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not fetch secure file permissions.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckEnviornmentAccess([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/environment/{2}" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            $envPipelinePermissionObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+            if (($envPipelinePermissionObj.Count -gt 0) -and ([Helpers]::CheckMember($envPipelinePermissionObj[0],"allPipelines")) -and ($envPipelinePermissionObj[0].allPipelines.authorized -eq $true))
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed, "Environment is accessible to all pipelines.");
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "Environment is not accessible to all pipelines.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch environments pipeline permission.");
+            $controlResult.LogException($_)
+        }
+       return $controlResult
+    }
+
+    hidden [ControlResult] CheckBroaderGroupAccessOnEnvironment([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $restrictedBroaderGroupsForEnvironment = $null;
+            if ([Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedBroaderGroupsForEnvironment")) {
+                $restrictedBroaderGroupsForEnvironment = $this.ControlSettings.Environment.RestrictedBroaderGroupsForEnvironment
+
+                $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.environmentreferencerole/roleassignments/resources/{1}_{2}' -f $this.OrganizationContext.OrganizationName, $projectId, $this.ResourceContext.ResourceDetails.Id;
+                $environmentPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                
+                $excesiveEnvironmentPermissions = @(($environmentPermissionList | Where-Object {$_.role.name -eq "administrator" -or $_.role.name -eq "user"}) | Select-Object -Property @{Name="EnvironmentName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role.name}},@{Name="DisplayName"; Expression = {$_.identity.displayName}}) ;
+                $environmentWithBroaderGroup = @($excesiveEnvironmentPermissions | Where-Object { $restrictedBroaderGroupsForEnvironment -contains $_.DisplayName.split('\')[-1] })
+                $environmentWithBroaderGroupCount = $environmentWithBroaderGroup.count;
+
+                if ($environmentWithBroaderGroupCount -gt 0)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have user/administrator access to environment: $($environmentWithBroaderGroupCount)")
+
+                    $display = ($environmentWithBroaderGroup |  FT EnvironmentName, Role, DisplayName -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage("`nList of groups: ", $display)
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,  "Environment is not granted with user/administrator permission to broad groups.");
+                }
+                $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($restrictedBroaderGroupsForEnvironment | FT | out-string)");
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error,  "List of broader groups for environment is not defined in control settings for your organization.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not fetch environment permissions.");
             $controlResult.LogException($_)
         }
         return $controlResult

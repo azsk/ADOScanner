@@ -100,6 +100,12 @@ function Get-AzSKADOSecurityStatus
 		[Alias("fd", "FeedName","fdn")]
 		$FeedNames,
 
+		[string]
+		[Parameter(HelpMessage="Environment name for which the security evaluation has to be perform.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("en", "EnvironmentName","env")]
+		$EnvironmentNames,
+
 		[switch]
 		[Parameter(HelpMessage="Scan all supported resource types present under organization like build, release, projects etc.")]
 		[Alias("sar", "saa" , "ScanAllArtifacts", "sat", "ScanAllResourceTypes")]
@@ -370,7 +376,7 @@ function Get-AzSKADOSecurityStatus
 				}
 			}
 
-			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames);
+			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames);
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus)
 			{
