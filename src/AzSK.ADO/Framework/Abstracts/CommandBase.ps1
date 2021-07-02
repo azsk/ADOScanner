@@ -172,8 +172,9 @@ class CommandBase: AzSKRoot {
 			$AutoClose.AutoCloseBug($methodResult)
 		}
 		#SARIF Logs generation.Note if upc with Auto Bug Log we have controls available in ControlResultsWithBugSummary static variable.
-        $sarifMethodResults=$methodResult
+        
 		if($this.InvocationContext.BoundParameters["GenerateSarifLogs"]){
+			$sarifMethodResults=$methodResult
 			if(!$sarifMethodResults){
                 if(([PartialScanManager]::ControlResultsWithBugSummary| Measure-Object).Count -gt 0){
                     $sarifMethodResults=[PartialScanManager]::ControlResultsWithBugSummary
