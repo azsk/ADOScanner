@@ -275,7 +275,8 @@
       "Destroy builds",
       "Edit build pipeline"
     ],
-    "CheckForInheritedPermissions" : false
+    "CheckForInheritedPermissions" : false,
+    "RegexForOAuthTokenInYAMLScript" : "\\s*SYSTEM_ACCESSTOKEN\\s*:\\s*\\$\\s*\\(\\s*System\\.AccessToken\\s*\\)"
   },
   "Release": {
     "ReleaseHistoryPeriodInDays": 180,
