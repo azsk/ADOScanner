@@ -326,19 +326,19 @@ class AdministratorHelper{
     static [void] PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult){
         $TotalPCAMembers=$humanAccounts.Count + $svcAccounts.Count
         if($TotalPCAMembers -gt 0){
-            $controlResult.AddMessage("Review the following Project Collection Administrators: ")
+            $controlResult.AddMessage("Current set of Project Collection Administrators: ")
             $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;
         }
 
         if ($humanAccounts.Count -gt 0) {
             $display=($humanAccounts |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
-            $controlResult.AddMessage("`nHuman Administrators: $($humanAccounts.Count) `n", $display)
+            $controlResult.AddMessage("`nHuman administrators: $($humanAccounts.Count) `n", $display)
             $controlResult.SetStateData("List of human Project Collection Administrators: ",$humanAccounts)
         }
 
         if ($svcAccounts.Count -gt 0) {
             $display=($svcAccounts |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
-            $controlResult.AddMessage("`nService Account Administrators: $($svcAccounts.Count) `n", $display)
+            $controlResult.AddMessage("`nService accounts: $($svcAccounts.Count) `n", $display)
             $controlResult.SetStateData("List of service account Project Collection Administrators: ",$svcAccounts)
         }
         return ;
