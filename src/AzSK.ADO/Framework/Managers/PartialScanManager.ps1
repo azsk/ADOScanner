@@ -24,9 +24,8 @@ class PartialScanManager
 	hidden static $ControlResultsWithBugSummary = @();
     hidden [string] $SummaryMarkerText = "------";
     hidden [string] $BackupControlStatePath = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState" | Join-Path -ChildPath "BackupControlState");
-	hidden [string] $OrgBackupControlStateFilePath;
-	hidden [PSObject] $StateOfNonOrgControlsToBeFixed = $null;
-	hidden [PSObject] $StateOfOrgControlsToBeFixed = $null;
+	hidden [string] $BackupControlStateFilePath;
+	hidden [PSObject] $StateOfControlsToBeFixed = $null;
 	hidden [bool] $IsControlStateBackupFetched = $false;
 
 
@@ -789,21 +788,33 @@ class PartialScanManager
     }	
     
     
-    [void] FetchControlStateBackup()
+    [void] FetchControlStateBackup($InternalId)
     {
-        if ($this.ScanSource -eq "SDL" -or $this.ScanSource -eq "")
+        $this.BackupControlStateFilePath = (Join-Path $this.BackupControlStatePath $this.OrgName)
+        if($InternalId -match "Organization")
         {
-            $this.OrgBackupControlStateFilePath = (Join-Path $this.BackupControlStatePath $this.OrgName)
-            if(-not (Test-Path $this.OrgBackupControlStateFilePath))
+            if(-not (Test-Path $this.BackupControlStateFilePath))
             {
-                New-Item -ItemType Directory -Path $this.OrgBackupControlStateFilePath -ErrorAction Stop | Out-Null
+                New-Item -ItemType Directory -Path $this.BackupControlStateFilePath -ErrorAction Stop | Out-Null
             }
             else {
-                $this.StateOfOrgControlsToBeFixed += Get-Content (Join-Path $this.OrgBackupControlStateFilePath "Organization.Json") -Raw | ConvertFrom-Json
-                if (-not [string]::IsNullOrEmpty($this.projectName)) {
-                    $this.StateOfNonOrgControlsToBeFixed += Get-Content (Join-Path $this.OrgBackupControlStateFilePath "$($this.ProjectName + '.Json')") -Raw | ConvertFrom-Json
-                    #Todo: If any data object is older than x days delete it
-                }
+                $this.StateOfControlsToBeFixed += Get-Content (Join-Path $this.BackupControlStateFilePath "$InternalId + '.Json'") -Raw | ConvertFrom-Json
+            }
+        }
+        else {
+            # validate org level folder exists
+            if(-not (Test-Path $this.BackupControlStateFilePath))
+            {
+                New-Item -ItemType Directory -Path $this.BackupControlStateFilePath -ErrorAction Stop | Out-Null
+            }
+
+            $this.BackupControlStateFilePath = (Join-Path $this.BackupControlStateFilePath $this.ProjectName)
+            if(-not (Test-Path $this.BackupControlStateFilePath))
+            {
+                New-Item -ItemType Directory -Path $this.BackupControlStateFilePath -ErrorAction Stop | Out-Null
+            }
+            else {
+                $this.StateOfControlsToBeFixed += Get-Content (Join-Path $this.BackupControlStateFilePath "$($InternalId + '.Json')") -Raw | ConvertFrom-Json
             }
         }
         $this.IsControlStateBackupFetched = $true
@@ -816,8 +827,7 @@ class PartialScanManager
         {
             $scannedby = [ContextHelper]::GetCurrentSessionUser();
             $date = [DateTime]::UtcNow;
-            $applicableOrgControls = @()
-            $applicableNonOrgControls = @()
+            $applicableControls = @()
 
             $controlsDataObject = @($results  | Where-Object {$_.ControlItem.Tags -contains 'AutomatedFix' -and $_.ControlResults.VerificationResult -eq 'Failed' -and $null -ne $_.ControlResults.stateManagement.CurrentStateData.DataObject} `
                                             | Select-Object @{Name="ProjectName"; Expression={$_.ResourceContext.ResourceGroupName}}, @{Name="ResourceId"; Expression={$_.ResourceContext.ResourceId}}, @{Name="InternalId"; Expression={$_.ControlItem.id}}, @{Name="DataObject"; Expression={$_.ControlResults.stateManagement.CurrentStateData.DataObject}}); 
@@ -831,45 +841,27 @@ class PartialScanManager
                 {
                     $this.ProjectName = ($controlsDataObject | Select-Object -Property ProjectName -Unique).ProjectName
                     $this.ProjectName = $this.ProjectName.Trim()
-                    $this.FetchControlStateBackup();
+                    $this.FetchControlStateBackup($controlsDataObject[0].InternalId);
                 }
 
-                $orgControls = @($controlsDataObject | where-object {$_.InternalId -match "Organization"})
-                $nonOrgControls = @($controlsDataObject | where-object {$_.InternalId -notmatch "Organization"})
+                $controlsDataObject = @($controlsDataObject)
 
-                if($orgControls.Count -gt 0)
+                if($controlsDataObject.Count -gt 0)
                 {
-                    if($null -ne $this.StateOfOrgControlsToBeFixed )
+                    $fileName =  $controlsDataObject[0].InternalId + ".json"
+
+                    if($null -ne $this.StateOfControlsToBeFixed)
                     {
-                        $existingDataObj = $this.StateOfOrgControlsToBeFixed | where-Object {$_.ResourceId -in $orgControls.ResourceId  -and $_.InternalId -in  $orgControls.InternalId}
-                        if ($null -ne $existingDataObj)
-                        {
-                            $this.StateOfOrgControlsToBeFixed = @($this.StateOfOrgControlsToBeFixed | where-Object {$_ -notin $existingDataObj})
-                        }
-                        $this.StateOfOrgControlsToBeFixed = @($this.StateOfOrgControlsToBeFixed)
-                    }
-
-                    $applicableOrgControls += ($orgControls | Select-Object -Property Date,InternalId,ResourceId,DataObject,ScannedBy)
-                    $this.StateOfOrgControlsToBeFixed += $applicableOrgControls
-                    [JsonHelper]::ConvertToJsonCustom($this.StateOfOrgControlsToBeFixed) | Out-File (Join-Path $this.OrgBackupControlStateFilePath "Organization.json") -Force
-                }
-
-                if($nonOrgControls.Count -gt 0)
-                {
-                    $fileName = $this.projectName + ".json"
-
-                    if($null -ne $this.StateOfNonOrgControlsToBeFixed)
-                    {
-                        $existingDataObj = $this.StateOfNonOrgControlsToBeFixed | where-Object {$_.ResourceId -in $nonOrgControls.ResourceId  -and $_.InternalId -in  $nonOrgControls.InternalId}
+                        $existingDataObj = $this.StateOfControlsToBeFixed | where-Object {$_.ResourceId -in $controlsDataObject.ResourceId}
                         if (($existingDataObj | Measure-Object).Count -gt 0)
                         {
-                            $this.StateOfNonOrgControlsToBeFixed = @($this.StateOfNonOrgControlsToBeFixed | where-Object {$_ -notin $existingDataObj})
+                            $this.StateOfControlsToBeFixed = @($this.StateOfControlsToBeFixed | where-Object {$_ -notin $existingDataObj})
                         }
                     }
 
-                    $applicableNonOrgControls += $nonOrgControls |  select-object -property Date,InternalId,ResourceId,DataObject,ScannedBy
-                    $this.StateOfNonOrgControlsToBeFixed += $applicableNonOrgControls
-                    [JsonHelper]::ConvertToJsonCustom($this.StateOfNonOrgControlsToBeFixed) | Out-File (Join-Path $this.OrgBackupControlStateFilePath $fileName) -Force
+                    $applicableControls += $controlsDataObject |  select-object -property Date,ResourceId,DataObject,ScannedBy
+                    $this.StateOfControlsToBeFixed += $applicableControls
+                    [JsonHelper]::ConvertToJsonCustom($this.StateOfControlsToBeFixed) | Out-File (Join-Path $this.BackupControlStateFilePath $fileName) -Force
                 }
             }
         }

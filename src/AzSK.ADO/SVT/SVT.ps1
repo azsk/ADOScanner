@@ -317,7 +317,19 @@ function Get-AzSKADOSecurityStatus
 			[AzSKConfig]::Instance = $null
 			[ConfigurationHelper]::ServerConfigMetadata = $null
 			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
-			[AutoBugLog]::AutoBugInstance = $null
+            [AutoBugLog]::AutoBugInstance = $null
+            
+            if ($PrepareForControlFix -eq $true)  {
+                if ($UsePartialCommits -ne $true)  {
+                    Write-Host "PrepareForControlFix switch requires -UsePartialCommits switch." -ForegroundColor Red
+                    return;
+                }
+                elseif ([String]::IsNullOrEmpty($ControlIds) -or $ControlIds -match ','){
+                    Write-Host "PrepareForControlFix switch requires one controlid. Use -ControlIds parameter to provide it." -ForegroundColor Red
+                    return;
+                }
+            }
+
 			if($PromptForPAT -eq $true)
 			{
 				if($null -ne $PATToken)
