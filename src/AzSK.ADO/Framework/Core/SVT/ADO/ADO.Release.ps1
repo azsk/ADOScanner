@@ -1515,23 +1515,61 @@ class Release: ADOSVTBase
 
     hidden [ControlResult] CheckAccessToOAuthToken([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         if(($this.ReleaseObj | Measure-Object).Count -gt 0)
         {
-            $controlResult.VerificationResult = [VerificationResult]::Failed
-            if([Helpers]::CheckMember($this.ReleaseObj,"process.phases.target") -and [Helpers]::CheckMember($this.BuildObj.process.phases.target,"allowScriptsAuthAccessOption",$false))
+            if([Helpers]::CheckMember($this.ReleaseObj,"environments"))
             {
-                if($this.BuildObj.process.phases.target.allowScriptsAuthAccessOption -eq $true)
+                $stages = @($this.ReleaseObj.environments)
+                if($stages.Count -gt 0)
                 {
-                    $controlResult.AddMessage("OAuth token is accessible to tasks");
+                    $stagesWithOAuthAccessTokenEnabled = @()
+                    $stages | Where-Object {
+                        if([Helpers]::CheckMember($_,"deployPhases"))
+                        {
+                            $currentStage = $_
+                            $jobs = @($_.deployPhases)
+                            $jobs | Where-Object {
+                                if([Helpers]::CheckMember($_,"phaseType") -and (($_.phaseType -eq "agentBasedDeployment") -or ($_.phaseType -eq "machineGroupBasedDeployment")))
+                                {
+                                    if([Helpers]::CheckMember($_,"deploymentInput") -and [Helpers]::CheckMember($_.deploymentInput,"enableAccessToken",$false))
+                                    {
+                                        if($_.deploymentInput.enableAccessToken-eq $true)
+                                        {
+                                            $stagesWithOAuthAccessTokenEnabled += $currentStage.name
+                                        }
+                                    }
+                                    else {
+                                        $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch OAuth Access token details for stage: $($currentStage.name)");
+                                    }
+                                } ## No else part as it will be the case of "Agentless job" where this control is not applicable
+                            }
+                        }
+                        else {
+                            $controlResult.AddMessage([VerificationResult]::Passed,"No job found in release");
+                            
+                        }                
+                    }
+                    if($stagesWithOAuthAccessTokenEnabled.count -gt 0)
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Accessing OAuth token is enabled for stage(s): $($stagesWithOAuthAccessTokenEnabled -join ",")");
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Passed,"OAuth token access is restricted.");
+                    }
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"OAuth token access is restricted.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No stage found in release.");
                 }
+                
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch build details");
+                $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch release environment details");
             }
             
+        }
+        else {
+            $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch release details");
         }
 
         return $controlResult;
