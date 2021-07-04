@@ -3,9 +3,18 @@ class CommonSVTControls: ADOSVTBase {
 
     hidden [PSObject] $Repos; # This is used for fetching repo details
     #hidden [PSObject] $ProjectId;
+    hidden [string] $checkInheritedPermissionsSecureFile = $false
+    hidden [string] $checkInheritedPermissionsEnvironment = $false
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
+        if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.CheckForInheritedPermissions") -and $this.ControlSettings.SecureFile.CheckForInheritedPermissions) {
+            $this.checkInheritedPermissionsSecureFile = $true
+        }
+
+        if ([Helpers]::CheckMember($this.ControlSettings, "Environment.CheckForInheritedPermissions") -and $this.ControlSettings.Environment.CheckForInheritedPermissions) {
+            $this.checkInheritedPermissionsEnvironment = $true
+        }
     }
 
     hidden [ControlResult] CheckInactiveRepo([ControlResult] $controlResult)
@@ -252,8 +261,13 @@ class CommonSVTControls: ADOSVTBase {
                 $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                 $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.securefile/roleassignments/resources/{1}%24{2}' -f $this.OrganizationContext.OrganizationName, $projectId, $this.ResourceContext.ResourceDetails.Id;
                 $secureFilePermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+                $roleAssignmentsToCheck = $secureFilePermissionList;
+                if ($this.checkInheritedPermissionsSecureFile -eq $false) {
+                    $roleAssignmentsToCheck = $secureFilePermissionList | where-object { $_.access -ne "inherited" }
+                }
                 
-                $excesiveSecureFilePermissions = @(($secureFilePermissionList | Where-Object {$_.role.name -eq "administrator" -or $_.role.name -eq "user"}) | Select-Object -Property @{Name="SecureFileName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role.name}},@{Name="DisplayName"; Expression = {$_.identity.displayName}}) ;
+                $excesiveSecureFilePermissions = @(($roleAssignmentsToCheck | Where-Object {$_.role.name -eq "administrator" -or $_.role.name -eq "user"}) | Select-Object -Property @{Name="SecureFileName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role.name}},@{Name="DisplayName"; Expression = {$_.identity.displayName}}) ;
                 $secureFileWithBroaderGroup = @($excesiveSecureFilePermissions | Where-Object { $restrictedBroaderGroupsForSecureFile -contains $_.DisplayName.split('\')[-1] })
                 $secureFileWithBroaderGroupCount = $secureFileWithBroaderGroup.count;
 
@@ -302,7 +316,7 @@ class CommonSVTControls: ADOSVTBase {
         }
         catch
         {
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch environments pipeline permission.");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch environment's pipeline permission setting.");
             $controlResult.LogException($_)
         }
        return $controlResult
@@ -320,8 +334,13 @@ class CommonSVTControls: ADOSVTBase {
                 $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                 $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.environmentreferencerole/roleassignments/resources/{1}_{2}' -f $this.OrganizationContext.OrganizationName, $projectId, $this.ResourceContext.ResourceDetails.Id;
                 $environmentPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+                $roleAssignmentsToCheck = $environmentPermissionList;
+                if ($this.checkInheritedPermissionsEnvironment -eq $false) {
+                    $roleAssignmentsToCheck = $environmentPermissionList | where-object { $_.access -ne "inherited" }
+                }
                 
-                $excesiveEnvironmentPermissions = @(($environmentPermissionList | Where-Object {$_.role.name -eq "administrator" -or $_.role.name -eq "user"}) | Select-Object -Property @{Name="EnvironmentName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role.name}},@{Name="DisplayName"; Expression = {$_.identity.displayName}}) ;
+                $excesiveEnvironmentPermissions = @(($roleAssignmentsToCheck | Where-Object {$_.role.name -eq "administrator" -or $_.role.name -eq "user"}) | Select-Object -Property @{Name="EnvironmentName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role.name}},@{Name="DisplayName"; Expression = {$_.identity.displayName}}) ;
                 $environmentWithBroaderGroup = @($excesiveEnvironmentPermissions | Where-Object { $restrictedBroaderGroupsForEnvironment -contains $_.DisplayName.split('\')[-1] })
                 $environmentWithBroaderGroupCount = $environmentWithBroaderGroup.count;
 

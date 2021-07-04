@@ -413,7 +413,8 @@
       "Contributors",
       "Readers",
       "Project Valid Users"
-      ]
+      ],
+      "CheckForInheritedPermissions": false
   },
   "Environment":{
     "RestrictedBroaderGroupsForEnvironment": [
@@ -421,7 +422,8 @@
       "Contributors",
       "Readers",
       "Project Valid Users"
-      ]
+      ],
+      "CheckForInheritedPermissions": false
   },
   "Repo": {
     "RepoHistoryPeriodInDays": 180,
