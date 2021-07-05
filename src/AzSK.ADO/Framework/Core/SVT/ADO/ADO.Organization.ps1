@@ -1785,7 +1785,7 @@ class Organization: ADOSVTBase
                 }
                 [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
             }
-            #ToDo Add warning that control was evaluated without graph access
+            ## TODO: Add warning that control was evaluated without graph access ( Once Sourabh is done with its Graph access task)
             else
             {
                 $PCAMembers = @($PCAMembers | Select-Object displayName,mailAddress)
@@ -1836,7 +1836,7 @@ class Organization: ADOSVTBase
                 }
                 [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
             }
-            #ToDo Add warning that control was evaluated without graph access
+            ## TODO: Add warning that control was evaluated without graph access ( Once Sourabh is done with its Graph access task)
             else
             {
                 $PCAMembers = @($PCAMembers | Select-Object displayName,mailAddress)
