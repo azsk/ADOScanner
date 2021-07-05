@@ -418,7 +418,7 @@ class Project: ADOSVTBase
             else
             {
                 ## TODO: Add warning that control was evaluated without graph access
-                $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
+                $this.PAMembers = @($this.PAMembers | Select-Object displayName,mailAddress)
                 if($TotalPAMembers -lt $this.ControlSettings.Project.MinPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
                 }
