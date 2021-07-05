@@ -2117,17 +2117,18 @@ class Project: ADOSVTBase
         try {
             $controlResult.VerificationResult = [VerificationResult]::Failed
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool")) {
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool") -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedRolesForBroaderGroupsInAgentPool")) {
                 $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                 $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($projectId)";
                 $agentPoolPermObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
                 $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
+                $restrictedRolesForBroaderGroupsInAgentPool = $this.ControlSettings.AgentPool.RestrictedRolesForBroaderGroupsInAgentPool;
 
                 if (($agentPoolPermObj.Count -gt 0) -and [Helpers]::CheckMember($agentPoolPermObj, "identity")) {
                     # match all the identities added on agentpool with defined restricted list
                     $roleAssignments = @($agentPoolPermObj | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
                     # Checking whether the broader groups have User/Admin permissions
-                    $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+                    $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.Name.split('\')[-1] -and ($restrictedRolesForBroaderGroupsInAgentPool -Contains $_.Role) })
 
                     $restrictedGroupsCount = $restrictedGroups.Count
                     # fail the control if restricted group found on agentpool
@@ -2150,7 +2151,7 @@ class Project: ADOSVTBase
                 $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForAgentPool | FT | out-string )`n");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups for agent pool is not defined in control settings for your organization.");
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for agent pools is not defined in the control settings for your organization policy.");
             }
         }
         catch {
