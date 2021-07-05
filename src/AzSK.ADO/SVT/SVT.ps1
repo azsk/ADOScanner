@@ -294,7 +294,13 @@ function Get-AzSKADOSecurityStatus
 		[ValidateSet("Graph", "RegEx", "GraphThenRegEx")]
         [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
 		[Alias("acem")]
-		[string] $ALTControlEvaluationMethod
+		[string] $ALTControlEvaluationMethod,
+        
+		[switch]
+		[Parameter(HelpMessage="Switch to reset default logged in user.")]
+		[Alias("rc")]
+		$ResetCredentials
+
 
 	)
 	Begin
@@ -368,6 +374,15 @@ function Get-AzSKADOSecurityStatus
 					Write-Host "Could not extract PATToken from the given key vault URL.`r`nStopping scan command." -ForegroundColor Red
 					return;
 				}
+			}
+			
+			if ($ResetCredentials)
+			{
+				[ContextHelper]::PromptForLogin = $true
+			}
+			else
+			{
+				[ContextHelper]::PromptForLogin =$false
 			}
 
 			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames);

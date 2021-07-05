@@ -205,7 +205,8 @@ class SVTResourceResolver: AzSKRoot {
             }
         }
         catch {
-            Write-Host 'Organization not found: Incorrect organization name or you do not have necessary permission to access the organization.' -ForegroundColor Red
+            $user = [ContextHelper]::GetCurrentSessionUser();
+            $this.PublishCustomMessage("Organization not found: Incorrect organization name or '$($user)' account does not have necessary permission to access the organization. Use -ResetCredentials parameter in command to login with another account. `n", [MessageType]::Warning);
             throw;
         }
         if ($this.ResourceTypeName -in ([ResourceTypeName]::Organization, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User) -and ([string]::IsNullOrEmpty($this.serviceId)) )
