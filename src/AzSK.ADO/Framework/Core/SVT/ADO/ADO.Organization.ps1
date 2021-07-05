@@ -10,6 +10,8 @@ class Organization: ADOSVTBase
     hidden $GuestMembers = @()
     hidden $AllUsersInOrg = @()
     hidden $PCAMembersList = @()
+    hidden $svcAccountsList = @()
+    hidden $humanAccountsList = @()
     #TODO: testing below line
     hidden [string] $SecurityNamespaceId;
     Organization([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
@@ -1774,9 +1776,13 @@ class Organization: ADOSVTBase
             $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
             if ($this.graphPermissions.hasGraphAccess)
             {
-                $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
-                $svcAccounts = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress);
-                $humanAccounts= @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress);
+                if($this.svcAccountsList.Count -eq 0 -and $this.humanAccountsList.Count -eq 0){
+                    $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
+                    $this.svcAccountsList = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress);
+                    $this.humanAccountsList= @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress);
+                }
+                $svcAccounts=$this.svcAccountsList
+                $humanAccounts=$this.humanAccountsList
                 if($humanAccounts.Count -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
                 }
@@ -1825,9 +1831,14 @@ class Organization: ADOSVTBase
             $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
             if ($this.graphPermissions.hasGraphAccess)
             {  
-                $SvcAndHumanAccounts = @([IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName))
-                $humanAccounts= @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress)
-                $svcAccounts= @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress)
+                if($this.svcAccountsList.Count -eq 0 -and $this.humanAccountsList.Count -eq 0){
+                    $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
+                    $this.svcAccountsList = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress);
+                    $this.humanAccountsList= @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress);
+                }
+                $svcAccounts=$this.svcAccountsList
+                $humanAccounts=$this.humanAccountsList
+                
                 if($humanAccounts.Count -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
                 }
