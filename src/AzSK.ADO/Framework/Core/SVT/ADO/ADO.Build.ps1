@@ -1591,19 +1591,44 @@ class Build: ADOSVTBase
                       
             }
             else {
-                if([Helpers]::CheckMember($this.BuildObj,"process.phases.target") -and [Helpers]::CheckMember($this.BuildObj.process.phases.target,"allowScriptsAuthAccessOption",$false))
+                if([Helpers]::CheckMember($this.BuildObj,"process.phases"))
                 {
                     # In case it is classic build
-                    if($this.BuildObj.process.phases.target.allowScriptsAuthAccessOption -eq $true)
+                    $jobs = @($this.BuildObj.process.phases)
+                    $agentlessjobs = @()
+                    $AgentjobsWithOAuthAccessTokenEnabled = @()
+                    $AgentjobsWithOAuthAccessTokenDisabled = @()
+                    $jobs | Where-Object {
+                        if([Helpers]::CheckMember($_,"target") -and [Helpers]::CheckMember($_.target,"allowScriptsAuthAccessOption",$false))
+                        {
+                            if($_.target.allowScriptsAuthAccessOption -eq $true)
+                            {
+                                $AgentjobsWithOAuthAccessTokenEnabled += $_
+                            }
+                            else {
+                                $AgentjobsWithOAuthAccessTokenDisabled += $_
+                            }
+                        }
+                        else {
+                            # it will be the case of "AgentLess" job
+                            $agentlessjobs += $_
+                        }
+                    }
+                    if($jobs.Count -eq $agentlessjobs.count)  # All jobs are agentless jobs
                     {
-                        $controlResult.AddMessage("OAuth token is accessible to tasks");
+                        $controlResult.AddMessage([VerificationResult]::Passed,"No agent job(s) found in build.");
                     }
-                    else {
-                        $controlResult.AddMessage([VerificationResult]::Passed,"OAuth token access is restricted.");
+                    elseif ($AgentjobsWithOAuthAccessTokenEnabled.count -gt 0) {
+                        # Accessing OAuth token is enabled for one or more agent jobs 
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Accessing OAuth token is enabled for agent job(s): $($AgentjobsWithOAuthAccessTokenEnabled.name -join ",")");
                     }
+                    elseif($AgentjobsWithOAuthAccessTokenDisabled.count -gt 0) {
+                        # ACcessing OAuth token is not enabled for agent jobs
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Accessing OAuth token is not enabled for agent job(s)");
+                    }                    
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch build details");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No job found in build");
                 }
             }     
         }

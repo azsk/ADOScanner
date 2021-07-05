@@ -1524,11 +1524,16 @@ class Release: ADOSVTBase
                 if($stages.Count -gt 0)
                 {
                     $stagesWithOAuthAccessTokenEnabled = @()
+                    $resultObj = @()
                     $stages | Where-Object {
+                        $stageWithJobDetails = "" | Select-Object StageName,JobName
                         if([Helpers]::CheckMember($_,"deployPhases"))
                         {
                             $currentStage = $_
+                            $agentlessjobs = @()
+                            $AgentjobsOAuthAccessTokenDisabled = @()
                             $jobs = @($_.deployPhases)
+                            $stageWithJobDetails.JobName = @()
                             $jobs | Where-Object {
                                 if([Helpers]::CheckMember($_,"phaseType") -and (($_.phaseType -eq "agentBasedDeployment") -or ($_.phaseType -eq "machineGroupBasedDeployment")))
                                 {
@@ -1536,26 +1541,40 @@ class Release: ADOSVTBase
                                     {
                                         if($_.deploymentInput.enableAccessToken-eq $true)
                                         {
-                                            $stagesWithOAuthAccessTokenEnabled += $currentStage.name
+                                            $stageWithJobDetails.StageName = $currentStage.name
+                                            $stageWithJobDetails.JobName += $_.name
+                                        }
+                                        else {
+                                            $AgentjobsOAuthAccessTokenDisabled += $_ 
                                         }
                                     }
                                     else {
                                         $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch OAuth Access token details for stage: $($currentStage.name)");
                                     }
-                                } ## No else part as it will be the case of "Agentless job" where this control is not applicable
+                                }
+                                else {
+                                    ## it will be the case of "Agentless job"
+                                    $agentlessjobs += $_                                  
+                                }
                             }
                         }
                         else {
-                            $controlResult.AddMessage([VerificationResult]::Passed,"No job found in release");
-                            
-                        }                
+                            $controlResult.AddMessage([VerificationResult]::Passed,"No job found in release");                            
+                        }
+                        if( -not ([string]::IsNullOrWhiteSpace($stageWithJobDetails.StageName) -and [string]::IsNullOrWhiteSpace($stageWithJobDetails.JobName)))
+                        {
+                            $resultObj += $stageWithJobDetails
+                        }                                        
                     }
-                    if($stagesWithOAuthAccessTokenEnabled.count -gt 0)
+
+                    if($resultObj.count -gt 0)
                     {
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Accessing OAuth token is enabled for stage(s): $($stagesWithOAuthAccessTokenEnabled -join ",")");
+                        $display = $resultObj | FT -AutoSize | Out-String -Width 512
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Accessing OAuth token is enabled:");
+                        $controlResult.AddMessage($display)
                     }
                     else {
-                        $controlResult.AddMessage([VerificationResult]::Passed,"OAuth token access is restricted.");
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Accessing OAuth token is disabled.");
                     }
                 }
                 else {
