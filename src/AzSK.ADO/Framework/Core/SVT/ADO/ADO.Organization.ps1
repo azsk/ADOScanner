@@ -122,8 +122,6 @@ class Organization: ADOSVTBase
                 {
                     [ControlHelper]::FindGroupMembers($prcollobj.descriptor, $this.OrganizationContext.OrganizationName,"")
                     $groupMembers += [ControlHelper]::PresentMembersResolutionObj
-                    [ControlHelper]::PresentMembersResolutionObj = @()
-                    [ControlHelper]::groupMembersResolutionObj[$prcollobj.descriptor] = $groupMembers
                 }
 
                 $memberCount = $groupMembers.Count
@@ -197,8 +195,6 @@ class Organization: ADOSVTBase
                             {
                                 [ControlHelper]::FindGroupMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName,"")
                                 $groupMembers += [ControlHelper]::PresentMembersResolutionObj
-                                [ControlHelper]::PresentMembersResolutionObj = @()
-                                [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor] = $groupMembers
                             }
                             # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
                             $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )}
@@ -214,8 +210,6 @@ class Organization: ADOSVTBase
                             {
                                 [ControlHelper]::FindGroupMembers($PCSAGroup.descriptor, $this.OrganizationContext.OrganizationName,"")
                                 $groupMembers += [ControlHelper]::PresentMembersResolutionObj
-                                [ControlHelper]::PresentMembersResolutionObj = @()
-                                [ControlHelper]::groupMembersResolutionObj[$PCSAGroup.descriptor] = $groupMembers
                             }
 
                             # Preparing the list of members of PCSA which needs to be subtracted from $allAdminMembers
@@ -2290,15 +2284,16 @@ class Organization: ADOSVTBase
                     $ReqdAdminGroups | ForEach-Object{
                         $currentGroup = $_
 
-                        # [AdministratorHelper]::AllPCAMembers is a static variable. Always needs to be initialized. At the end of each iteration, it will be populated with members of that particular admin group.
-                        [AdministratorHelper]::AllPCAMembers = @();
-                        # Helper function to fetch flattened out list of group members.
-                        [AdministratorHelper]::FindPCAMembers($currentGroup.descriptor, $this.OrganizationContext.OrganizationName)
-
                         $groupMembers = @();
 
-                        # Add the members of current group to this temp variable.
-                        $groupMembers += [AdministratorHelper]::AllPCAMembers
+                        if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($currentGroup.descriptor) -and [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor].count -gt 0) {
+                            $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                        }
+                        else
+                        {
+                            [ControlHelper]::FindGroupMembers($currentGroup.descriptor, $this.OrganizationContext.OrganizationName,"")
+                            $groupMembers += [ControlHelper]::PresentMembersResolutionObj
+                        }
                         # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
                         if($groupMembers.count -gt 0)
                         {

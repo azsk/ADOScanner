@@ -143,7 +143,10 @@ class AdministratorHelper{
     static [void] FindPCAMembers([string]$descriptor,[string] $orgName)
     {
         try {
-            [AdministratorHelper]::AllPCAMembers = [ControlHelper]::FindGroupMembers($descriptor,$orgName,"")
+            if ($null -eq [AdministratorHelper]::AllPCAMembers -or [AdministratorHelper]::AllPCAMembers.Count -eq 0) 
+            {
+                [AdministratorHelper]::AllPCAMembers = [ControlHelper]::FindGroupMembers($descriptor,$orgName,"")
+            }
             $currentUser = [ContextHelper]::GetCurrentSessionUser();
 
             if([AdministratorHelper]::isCurrentUserPCA -eq $false -and $currentUser -in [AdministratorHelper]::AllPCAMembers.mailAddress){
@@ -157,7 +160,10 @@ class AdministratorHelper{
 
     static [void] FindPAMembers([string]$descriptor,[string] $OrgName,[string] $projName){
         try {
-            [AdministratorHelper]::AllPAMembers = [ControlHelper]::FindGroupMembers($descriptor,$orgName,$projName)
+            if ($null -eq [AdministratorHelper]::AllPAMembers -or [AdministratorHelper]::AllPAMembers.Count -eq 0) 
+            {
+                [AdministratorHelper]::AllPAMembers = [ControlHelper]::FindGroupMembers($descriptor,$orgName,$projName)
+            }
             $currentUser = [ContextHelper]::GetCurrentSessionUser();
 
             if([AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -in [AdministratorHelper]::AllPCAMembers.mailAddress){

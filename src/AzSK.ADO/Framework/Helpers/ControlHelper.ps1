@@ -1,8 +1,8 @@
 # This class should contains method that would be required to filter/targer controls
 class ControlHelper: EventBase{
 
-    static $GroupMembersResolutionObj = @{}
-    static $PresentMembersResolutionObj = @()
+    static $GroupMembersResolutionObj = @{} #Caching group resolution
+    static $PresentMembersResolutionObj = @() #Members resolution result of latest descriptor which called FindGroupMembers method
 
 
     #Checks if the severities passed by user are valid and filter out invalid ones
@@ -69,67 +69,75 @@ class ControlHelper: EventBase{
 
 
 
-    static [void] FindGroupMembers([string]$descriptor,[string] $orgName,[string] $projName){
-        if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($descriptor) -and [ControlHelper]::groupMembersResolutionObj[$descriptor].count -gt 0) {
-            [ControlHelper]::PresentMembersResolutionObj += [ControlHelper]::groupMembersResolutionObj[$descriptor]
+    static [void] ResolveNestedGroupMembers([string]$descriptor,[string] $orgName,[string] $projName){
+    
+        [ControlHelper]::groupMembersResolutionObj[$descriptor] = @()
+        $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($orgName);
+        if ([string]::IsNullOrEmpty($projName)){
+            $postbody=@'
+            {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/_settings/groups?subjectDescriptor={1}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
+'@
+            $postbody=$postbody.Replace("{0}",$descriptor)
+            $postbody=$postbody.Replace("{1}",$orgName)
         }
         else {
-            [ControlHelper]::groupMembersResolutionObj[$descriptor] = @()
-            $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($orgName);
-            if ([string]::IsNullOrEmpty($projName)){
-                $postbody=@'
-                {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/_settings/groups?subjectDescriptor={1}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
+            $postbody=@'
+            {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{1}/{2}/_settings/permissions?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
 '@
-                $postbody=$postbody.Replace("{0}",$descriptor)
-                $postbody=$postbody.Replace("{1}",$orgName)
-            }
-            else {
-                $postbody=@'
-                {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{1}/{2}/_settings/permissions?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
-'@
-                $postbody=$postbody.Replace("{0}",$descriptor)
-                $postbody=$postbody.Replace("{1}",$orgName)
-                $postbody=$postbody.Replace("{2}",$projName)
-            }
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $currentUser = [ContextHelper]::GetCurrentSessionUser();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
-            try
+            $postbody=$postbody.Replace("{0}",$descriptor)
+            $postbody=$postbody.Replace("{1}",$orgName)
+            $postbody=$postbody.Replace("{2}",$projName)
+        }
+        $rmContext = [ContextHelper]::GetCurrentContext();
+        $currentUser = [ContextHelper]::GetCurrentSessionUser();
+        $user = "";
+        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+        try
+        {
+            $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
+            if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
             {
-                $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
-                if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
-                {
-                    $data=$response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
-                    $data | ForEach-Object{
-                        if($_.subjectKind -eq "group")
+                $data=$response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
+                $data | ForEach-Object{
+                    if($_.subjectKind -eq "group")
+                    {
+                        if ([string]::IsNullOrWhiteSpace($_.descriptor) -and (-not [string]::IsNullOrWhiteSpace($_.entityId)))
                         {
-                            if ([string]::IsNullOrWhiteSpace($_.descriptor) -and (-not [string]::IsNullOrWhiteSpace($_.entityId)))
+                            $identities = @([ControlHelper]::GetIdentitiesFromAADGroup($orgName, $_.entityId, $_.displayName))
+                            if ($identities.Count -gt 0)
                             {
-                                $identities = @([ControlHelper]::GetIdentitiesFromAADGroup($orgName, $_.entityId, $_.displayName))
-                                if ($identities.Count -gt 0)
-                                {
-                                    [ControlHelper]::groupMembersResolutionObj[$descriptor] += $identities
-                                    [ControlHelper]::PresentMembersResolutionObj += $identities
+                                [ControlHelper]::groupMembersResolutionObj[$descriptor] += $identities
+                                [ControlHelper]::PresentMembersResolutionObj += $identities
 
-                                }
-                            }
-                            else
-                            {
-                                return [ControlHelper]::FindGroupMembers($_.descriptor,$orgName,$projName)
                             }
                         }
                         else
                         {
-                            [ControlHelper]::groupMembersResolutionObj[$descriptor] += $_
-                            [ControlHelper]::PresentMembersResolutionObj += $_
+                            return [ControlHelper]::FindGroupMembers($_.descriptor,$orgName,$projName)
                         }
+                    }
+                    else
+                    {
+                        [ControlHelper]::groupMembersResolutionObj[$descriptor] += $_
+                        [ControlHelper]::PresentMembersResolutionObj += $_
                     }
                 }
             }
-            catch {
-                Write-Host $_
-            }
+        }
+        catch {
+            Write-Host $_
+        }
+    }
+
+
+    static [void] FindGroupMembers([string]$descriptor,[string] $orgName,[string] $projName){
+        [ControlHelper]::PresentMembersResolutionObj = @() # remove static, just return this object
+
+        [ControlHelper]::ResolveNestedGroupMembers($descriptor, $orgName, $projName)
+        if ([ControlHelper]::PresentMembersResolutionObj.Count -gt 0 -and [ControlHelper]::groupMembersResolutionObj.ContainsKey($descriptor) )
+        {
+            [ControlHelper]::groupMembersResolutionObj.Remove($descriptor)
+            [ControlHelper]::groupMembersResolutionObj[$descriptor] += [ControlHelper]::PresentMembersResolutionObj
         }
     }
 }
