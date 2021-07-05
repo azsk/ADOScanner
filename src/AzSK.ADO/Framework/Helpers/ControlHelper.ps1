@@ -134,6 +134,11 @@ class ControlHelper: EventBase{
         [ControlHelper]::PresentMembersResolutionObj = @() # remove static, just return this object
 
         [ControlHelper]::ResolveNestedGroupMembers($descriptor, $orgName, $projName)
+
+        #After ResolveNestedGroupMembers is called groupMembersResolutionObj will have only root level users for this descriptor. 
+        #This is because members of individual ado groups get mapped against its descriptor and not the parent group
+        #Therefore we will re assign the members from PresentMembersResolutionObj in below block
+
         if ([ControlHelper]::PresentMembersResolutionObj.Count -gt 0 -and [ControlHelper]::groupMembersResolutionObj.ContainsKey($descriptor) )
         {
             [ControlHelper]::groupMembersResolutionObj.Remove($descriptor)

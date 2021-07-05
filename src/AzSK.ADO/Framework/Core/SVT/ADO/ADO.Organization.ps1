@@ -9,7 +9,7 @@ class Organization: ADOSVTBase
     hidden [PSObject] $graphPermissions = @{hasGraphAccess = $false; graphAccessToken = $null}; # This is used to check user has graph permissions to compute the graph api operations.
     hidden $GuestMembers = @()
     hidden $AllUsersInOrg = @()
-    hidden $ADOGrpDescriptor = @()
+    hidden $ADOGrpDescriptor = @() #cache groups descriptor
 
     #TODO: testing below line
     hidden [string] $SecurityNamespaceId;
