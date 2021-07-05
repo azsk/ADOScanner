@@ -152,7 +152,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "MSW"
       ],
       "Enabled": true
     },
