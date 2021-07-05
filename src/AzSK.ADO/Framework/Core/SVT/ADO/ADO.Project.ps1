@@ -1161,6 +1161,26 @@ class Project: ADOSVTBase
     }
 
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult) {
+        <#
+        {
+        "ControlID": "ADO_Project_AuthZ_Disable_Repo_Inherited_Permissions",
+        "Description": "Do not allow inherited permission on repositories.",
+        "Id": "Project300",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckInheritedPermissions",
+        "Rationale": "Disabling inherited permissions lets you finely control access to various operations at the repository level for different stakeholders. This ensures that you follow the principle of least privilege and provide access only to the persons that require it.",
+        "Recommendation": "Go to Project Settings --> Repositories --> Select a repository --> Permissions --> Disable 'Inheritance'.",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ"
+        ],
+        "Enabled": true
+        },
+        #>
+
         $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
         #permissionSetId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
         $repoNamespaceId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87'

@@ -5,6 +5,7 @@ class CommonSVTControls: ADOSVTBase {
     #hidden [PSObject] $ProjectId;
     hidden [string] $checkInheritedPermissionsSecureFile = $false
     hidden [string] $checkInheritedPermissionsEnvironment = $false
+    hidden [object] $repoInheritePermissions = $null;
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
@@ -169,6 +170,46 @@ class CommonSVTControls: ADOSVTBase {
 
         return $controlResult
     }
+
+    hidden [ControlResult] CheckInheritedPermissionsOnRepository([ControlResult] $controlResult) {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+        #permissionSetId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
+        try
+        {
+            # Fetch the repo permissions only if not already fetch, for all the repositories in the organization
+            if (!$this.repoInheritePermissions) {
+                $repoPermissionUrl = 'https://dev.azure.com/{0}/_apis/accesscontrollists/2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87?api-version=6.0' -f $this.OrganizationContext.OrganizationName;
+                $this.repoInheritePermissions = @([WebRequestHelper]::InvokeGetWebRequest($repoPermissionUrl));
+            }
+            
+            if ($this.repoInheritePermissions.Count -gt 0)
+            {
+                # Filter the inherited permissions specific to the given project
+                $repoPermission = @($this.repoInheritePermissions | where-object { ($_.token -eq "repoV2/$projectId/$($this.ResourceContext.ResourceDetails.Id)") -and ($_.inheritPermissions -eq $true) });
+                
+                if($repoPermission.Count -gt 0)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Inherited permission is enabled on the repository.");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Inherited permission is disabled on the repository.");
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the permission details for repositories.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch permission details for repositories. $($_).");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
 
     hidden [PSObject] FetchRepositoriesList() {
         if($null -eq $this.Repos) {

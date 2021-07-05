@@ -39,6 +39,23 @@
       "Enabled": true
     },
     {
+      "ControlID": "ADO_Repository_AuthZ_Disable_Inherited_Permissions",
+      "Description": "Do not allow inherited permission on repository.",
+      "Id": "Repository120",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckInheritedPermissionsOnRepository",
+      "Rationale": "Disabling inherited permissions lets you finely control access to various operations at the repository level for different stakeholders. This ensures that you follow the principle of least privilege and provide access only to the persons that require it.",
+      "Recommendation": "1. Go to Project Settings --> 2. Repositories --> 3. Select a Repository --> 4. Permissions --> 5. Disable 'Inheritance'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
       "ControlID": "ADO_Feed_AuthZ_Restrict_Permissions",
       "Description": "Do not allow a broad group of users to upload packages to feed.",
       "Id": "Feed100",
@@ -81,7 +98,7 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupAccessOnSecureFile",
-      "Rationale": "If a broad group of users (e.g. Contributors) have excessive permissions on a secure file. A malicious user may gain access of stored secret/certificate and these compromised secrets and certificates may open the door to malicious attack (e.g. Accessing to the machine/server using these secret/certifcate).",
+      "Rationale": "If a broad group of users (e.g. Contributors) have excessive permissions on a secure file, A malicious user may gain access of stored secret/certificate which may open the door to malicious attack (e.g. SSH for accessing machine/server using these secret/certifcate).",
       "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. Select your secure file from the list --> 6. Click 'Security' --> 7. Review users/groups which have administrator and user roles. Ensure broader groups have read-only access. Refer to detailed scan log (SecureFile.LOG) for broader group list.",
       "Tags": [
         "SDL",
