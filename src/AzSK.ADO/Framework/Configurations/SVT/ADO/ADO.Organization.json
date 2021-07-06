@@ -386,7 +386,7 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckAuthZRepoScope",
-      "Rationale": "If this setting is disabled, a hacker can build a pipeline in any misconfigured project to gain access to most resources in an organization. This is also in keeping with the principle of least privilege.",
+      "Rationale": "If the authorization scope of pipelines is not limited to referenced repos, an attacker can create a pipeline that can access sensitive repos within the project. This also in keeping with the principle of least privilege.",
       "Recommendation": "1. Go to Organization Settings -->2. Settings -->3. Enable 'Limit job authorization scope to referenced Azure DevOps repositories'.",
       "Tags": [
         "SDL",
