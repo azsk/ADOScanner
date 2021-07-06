@@ -294,7 +294,12 @@ function Get-AzSKADOSecurityStatus
 		[ValidateSet("Graph", "RegEx", "GraphThenRegEx")]
         [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
 		[Alias("acem")]
-        [string] $ALTControlEvaluationMethod,
+		[string] $ALTControlEvaluationMethod,
+
+		[switch]
+		[Parameter(HelpMessage="Switch to reset default logged in user.")]
+		[Alias("rc")]
+		$ResetCredentials,
         
         [switch]
 		[Parameter(HelpMessage="Switch to copy current data object in local folder to facilitate control fix.")]
