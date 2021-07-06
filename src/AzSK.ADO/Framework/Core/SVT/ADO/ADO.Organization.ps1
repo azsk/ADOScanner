@@ -8,7 +8,7 @@ class Organization: ADOSVTBase
     static $SharedExtensionInfo
     static $AutoInjectedExtensionInfo
     hidden [PSObject] $allExtensionsObj; # This is used to fetch all extensions (shared+installed+requested) object so that it can be used in installed extension control where top publisher could not be computed.
-    hidden [PSObject] $installedExtensionObj # This is used to store install extensions details, that we fetch using documented API.
+    hidden [PSObject] $installedExtensionObj # This is used to store install extensions details, that we fetch using documented API. This object contains some additional properties for installed extensions (e.g. Scopes), that are missing in portal API.
     hidden [PSObject] $graphPermissions = @{hasGraphAccess = $false; graphAccessToken = $null}; # This is used to check user has graph permissions to compute the graph api operations.
     hidden $GuestMembers = @()
     hidden $AllUsersInOrg = @()
@@ -1480,7 +1480,7 @@ class Organization: ADOSVTBase
                 if($requestedExtensions.Count -gt 0)
                 {
                     $PendingExtensionsForApproval = @($requestedExtensions | Where-Object { $_.requestState -eq "0" })
-                    $extensionList =  @($PendingExtensionsForApproval | Select-Object extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}})
+                    $PendingExtensionsForApproval =  @($PendingExtensionsForApproval | Select-Object extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}})
                     $ftWidth = 512 #To avoid "..." truncation
                     $pendingExtCount = $PendingExtensionsForApproval.Count
 
@@ -1489,10 +1489,10 @@ class Organization: ADOSVTBase
                         $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the list of requested extensions for your organization that are pending for approval: ");
                         $controlResult.AddMessage("Count of requested extensions that are pending for approval: $($pendingExtCount)")
                         $controlResult.AdditionalInfo += "Count of requested extensions that are pending for approval: " + $pendingExtCount;
-                        $display = ($PendingExtensionsForApproval |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)
+                        $display = ($PendingExtensionsForApproval |  FT -AutoSize | Out-String -Width $ftWidth)
                         $controlResult.AddMessage($display)
-                        $controlResult.SetStateData("List of pending requested extensions: ", $extensionList);
-                        $controlResult.AdditionalInfo += "List of requested extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($extensionList);
+                        $controlResult.SetStateData("List of pending requested extensions: ", $PendingExtensionsForApproval);
+                        $controlResult.AdditionalInfo += "List of requested extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($PendingExtensionsForApproval);
 
                         <# Not displaying approved and rejected extension details as these details are not required.
                             $ApprovedExtensions = @($requestedExtensions | Where-Object { $_.requestState -eq "1" })
