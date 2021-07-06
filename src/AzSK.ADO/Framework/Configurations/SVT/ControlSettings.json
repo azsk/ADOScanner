@@ -37,7 +37,6 @@
           "ADO_Project_AuthZ_Limit_Release_Pipeline_Access",
           "ADO_Project_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
           "ADO_Project_AuthN_Use_ALT_Accounts_For_Admin",
-          "ADO_Project_AuthZ_Disable_Repo_Inherited_Permissions",
           "ADO_Project_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
           "ADO_Project_AuthZ_Revoke_Admin_Access_for_Guest_Users",
           "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Builds",

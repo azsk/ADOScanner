@@ -5,7 +5,7 @@ class CommonSVTControls: ADOSVTBase {
     #hidden [PSObject] $ProjectId;
     hidden [string] $checkInheritedPermissionsSecureFile = $false
     hidden [string] $checkInheritedPermissionsEnvironment = $false
-    hidden [object] $repoInheritePermissions = $null;
+    hidden [object] $repoInheritePermissions = @{};
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
@@ -172,21 +172,50 @@ class CommonSVTControls: ADOSVTBase {
     }
 
     hidden [ControlResult] CheckInheritedPermissionsOnRepository([ControlResult] $controlResult) {
+
+        <#
+        {
+        "ControlID": "ADO_Repository_AuthZ_Disable_Inherited_Permissions",
+        "Description": "Do not allow inherited permission on repository.",
+        "Id": "Repository120",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckInheritedPermissionsOnRepository",
+        "Rationale": "Disabling inherited permissions lets you finely control access to various operations at the repository level for different stakeholders. This ensures that you follow the principle of least privilege and provide access only to the persons that require it.",
+        "Recommendation": "1. Go to Project Settings --> 2. Repositories --> 3. Select a Repository --> 4. Permissions --> 5. Disable 'Inheritance'.",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ"
+        ],
+        "Enabled": true
+        },
+        #>
+
         $controlResult.VerificationResult = [VerificationResult]::Failed
         $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+        $projectName = $this.ResourceContext.ResourceGroupName;
         #permissionSetId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
+
         try
         {
             # Fetch the repo permissions only if not already fetch, for all the repositories in the organization
-            if (!$this.repoInheritePermissions) {
+            if (!$this.repoInheritePermissions.ContainsKey($projectName)) {
                 $repoPermissionUrl = 'https://dev.azure.com/{0}/_apis/accesscontrollists/2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87?api-version=6.0' -f $this.OrganizationContext.OrganizationName;
-                $this.repoInheritePermissions = @([WebRequestHelper]::InvokeGetWebRequest($repoPermissionUrl));
+                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($repoPermissionUrl));
+                $respoPermissionResponseObj = $responseObj | where-object {($_.token -match "^repoV2/$projectId\/.{36}$") -and $_.inheritPermissions -eq $true}
+                
+                $this.repoInheritePermissions.Add($projectName, $respoPermissionResponseObj);
+                #Clearing local variable
+                $responseObj = $null;
+                $respoPermissionResponseObj = $null;
             }
             
-            if ($this.repoInheritePermissions.Count -gt 0)
+            if ($this.repoInheritePermissions.ContainsKey($projectName))
             {
                 # Filter the inherited permissions specific to the given project
-                $repoPermission = @($this.repoInheritePermissions | where-object { ($_.token -eq "repoV2/$projectId/$($this.ResourceContext.ResourceDetails.Id)") -and ($_.inheritPermissions -eq $true) });
+                $repoPermission = @($this.repoInheritePermissions."$projectName" | where-object { $_.token -eq "repoV2/$projectId/$($this.ResourceContext.ResourceDetails.Id)" });
                 
                 if($repoPermission.Count -gt 0)
                 {

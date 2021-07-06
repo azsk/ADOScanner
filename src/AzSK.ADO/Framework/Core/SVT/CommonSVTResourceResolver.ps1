@@ -84,7 +84,7 @@ class CommonSVTResourceResolver {
             }
 
             $environmentObjList = @();
-            $environmentObjList += $this.FetchEnvironments($projectName, $environmentNames);
+            $environmentObjList += $this.FetchEnvironments($projectName, $environmentNames, $MaxObjectsToScan);
             if ($environmentObjList.count -gt 0 -and [Helpers]::CheckMember($environmentObjList[0], "Id")) {
                 $maxObjScan = $MaxObjectsToScan
                 foreach ($environment in $environmentObjList) {
@@ -150,10 +150,16 @@ class CommonSVTResourceResolver {
         }
     }
 
-    hidden [PSObject] FetchEnvironments($projectName, $environmentNames) {
+    hidden [PSObject] FetchEnvironments($projectName, $environmentNames, $MaxObjectsToScan) {
         try {
+            if ($MaxObjectsToScan -eq 0) {
+                $topNQueryString = '&$top=10000'
+            }
+            else {
+                $topNQueryString = '&$top={0}' -f $MaxObjectsToScan
+            }
             # Here we are fetching all the environments in the project.
-            $environmentDefnURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1" -f $this.organizationName, $projectName;
+            $environmentDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1" + $topNQueryString) -f $this.organizationName, $projectName;
             $environmentDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($environmentDefnURL);
 
             if ($environmentNames -ne "*") {
