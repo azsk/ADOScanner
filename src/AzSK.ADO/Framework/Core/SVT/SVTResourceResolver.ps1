@@ -596,25 +596,25 @@ class SVTResourceResolver: AzSKRoot {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting variable group configurations...");
                         }
+                        try
+                        {
+                            if ($this.VariableGroups -eq "*") {
+                                $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?api-version=6.1-preview.2" +$topNQueryString) -f $($this.organizationName), $projectId;
+                                $variableGroupObj = [WebRequestHelper]::InvokeGetWebRequest($variableGroupURL)
 
-                        if ($this.VariableGroups -eq "*") {
-                            $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?api-version=6.1-preview.2" +$topNQueryString) -f $($this.organizationName), $projectId;
-                            $variableGroupObj = [WebRequestHelper]::InvokeGetWebRequest($variableGroupURL)
-
-                            if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) 
-                            {
-                                foreach ($group in $variableGroupObj) {
-                                    $resourceId = "organization/$organizationId/project/$projectId/variablegroup/$($group.Id)";
-                                    $link = ("https://dev.azure.com/{0}/{1}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId={2}") -f $($this.organizationName), $projectName, $($group.Id);
-                                    $this.AddSVTResource($group.name, $projectName, "ADO.VariableGroup", $resourceId, $group, $link);
+                                if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) 
+                                {
+                                    foreach ($group in $variableGroupObj) {
+                                        $resourceId = "organization/$organizationId/project/$projectId/variablegroup/$($group.Id)";
+                                        $link = ("https://dev.azure.com/{0}/{1}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId={2}") -f $($this.organizationName), $projectName, $($group.Id);
+                                        $this.AddSVTResource($group.name, $projectName, "ADO.VariableGroup", $resourceId, $group, $link);
+                                    }
+                                    $variableGroupObj = $null
                                 }
-                                $variableGroupObj = $null
                             }
-                        }
-                        else {
-                            try {
+                            else {
                                 for ($i = 0; $i -lt $this.VariableGroups.Count; $i++) {
-                                    # This API does not support multiple varibale group names at one go.
+                                    # This API does not support multiple variable group names at one go.
                                     $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupName={2}&api-version=6.0-preview.2") -f $($this.organizationName), $projectId, $this.VariableGroups[$i];
                                     $variableGroupObj = [WebRequestHelper]::InvokeGetWebRequest($variableGroupURL)
 
@@ -636,15 +636,14 @@ class SVTResourceResolver: AzSKRoot {
                                     }
                                 }
                             }
-                            catch {
-                                Write-Warning "Variable groups for the project [$($projectName)] could not be fetched.";
-                            }
                         }
-
+                        catch {
+                            Write-Warning "Variable groups for the project [$($projectName)] could not be fetched.";
+                        }
                         
                     }
 
-                    #Ceating resource in common resource resolver
+                    #Creating resource in common resource resolver
                     if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -gt 0 -or $this.FeedNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed))) {
                         $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName);
                         $this.SVTResources += $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.ResourceTypeName, $this.MaxObjectsToScan);
