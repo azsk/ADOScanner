@@ -352,7 +352,7 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckJobAuthZScope",
-      "Rationale": "If this setting is disabled, a hacker can build a pipeline in any misconfigured project to gain access to most resources in an organization.This is also in keeping with the principle of least privilege.",
+      "Rationale": "If the authorization scope of non-release pipelines is not limited to current project, an attacker can build a pipeline from a different (less sensitive project) to access resources in a target (more sensitive) project. This also in keeping with the principle of least privilege.",
       "Recommendation": "1. Go to Organization Settings -->2. Pipelines -->3. Settings -->4. Enable 'Limit job authorization scope to current project for non-release pipelines'.",
       "Tags": [
         "SDL",
@@ -369,7 +369,7 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckJobAuthZReleaseScope",
-      "Rationale": "If this setting is disabled, a hacker can build a pipeline in any misconfigured project to gain access to most resources in an organization. This is also in keeping with the principle of least privilege.",
+      "Rationale": "If the authorization scope of release pipelines is not limited to current project, an attacker can build a pipeline from a different (less sensitive project) to access resources in a target (more sensitive) project. This also in keeping with the principle of least privilege.",
       "Recommendation": "1. Go to Organization Settings -->2. Pipelines -->3. Settings -->4. Enable 'Limit job authorization scope to current project for release pipelines'.",
       "Tags": [
         "SDL",
