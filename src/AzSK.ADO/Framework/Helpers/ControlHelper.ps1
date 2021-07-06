@@ -8,34 +8,34 @@ class ControlHelper: EventBase{
     #Checks if the severities passed by user are valid and filter out invalid ones
    hidden static [string []] CheckValidSeverities([string []] $ParamSeverities)
    {
-       $ValidSeverities = @();		
-       $ValidSeverityValues = @();	
-       $InvalidSeverities = @();		
+       $ValidSeverities = @();
+       $ValidSeverityValues = @();
+       $InvalidSeverities = @();
        $ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
        if([Helpers]::CheckMember($ControlSettings, 'ControlSeverity'))
        {
                    $severityMapping = $ControlSettings.ControlSeverity
                    #Discard the severity values passed in parameter that do not have mapping in Org settings.
                    foreach($sev in $severityMapping.psobject.properties)
-                   {                         
-                       $ValidSeverities +=  $sev.value       
+                   {
+                       $ValidSeverities +=  $sev.value
                    }
                    $ValidSeverityValues += $ParamSeverities | Where-Object { $_ -in $ValidSeverities}
-                   $InvalidSeverities += $ParamSeverities | Where-Object { $_ -notin $ValidSeverities }		
+                   $InvalidSeverities += $ParamSeverities | Where-Object { $_ -notin $ValidSeverities }
        }
-       else 
+       else
        {
            $ValidEnumSeverities = [Enum]::GetNames('ControlSeverity')
            $ValidSeverityValues += $ParamSeverities | Where-Object { $_ -in $ValidEnumSeverities}
-           $InvalidSeverities += $ParamSeverities | Where-Object { $_ -notin $ValidEnumSeverities }	
-          
+           $InvalidSeverities += $ParamSeverities | Where-Object { $_ -notin $ValidEnumSeverities }
+
        }
-     
+
        if($InvalidSeverities)
        {
           [EventBase]:: PublishGenericCustomMessage("WARNING: No control severity corresponds to `"$($InvalidSeverities -join ', ')`" for your org.",[MessageType]::Warning)
        }
-       
+
        return $ValidSeverityValues
    }
 
@@ -70,7 +70,7 @@ class ControlHelper: EventBase{
 
 
     static [void] ResolveNestedGroupMembers([string]$descriptor,[string] $orgName,[string] $projName){
-    
+
         [ControlHelper]::groupMembersResolutionObj[$descriptor] = @()
         $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($orgName);
         if ([string]::IsNullOrEmpty($projName)){
@@ -131,11 +131,14 @@ class ControlHelper: EventBase{
 
 
     static [void] FindGroupMembers([string]$descriptor,[string] $orgName,[string] $projName){
+        if (-not [ControlHelper]::GroupMembersResolutionObj.ContainsKey("OrgName")) {
+            [ControlHelper]::GroupMembersResolutionObj["OrgName"] = $orgName
+        }
         [ControlHelper]::PresentMembersResolutionObj = @() # remove static, just return this object
 
         [ControlHelper]::ResolveNestedGroupMembers($descriptor, $orgName, $projName)
 
-        #After ResolveNestedGroupMembers is called groupMembersResolutionObj will have only root level users for this descriptor. 
+        #After ResolveNestedGroupMembers is called groupMembersResolutionObj will have only root level users for this descriptor.
         #This is because members of individual ado groups get mapped against its descriptor and not the parent group
         #Therefore we will re assign the members from PresentMembersResolutionObj in below block
 

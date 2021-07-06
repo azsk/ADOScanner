@@ -18,7 +18,7 @@ class AdministratorHelper{
             $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview.1" -f $($organizationName);
             $body=@'
             {"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
-'@ 
+'@
             $body = $body.Replace("{0}",$organizationName)
             $groupsOrgObj = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body
 
@@ -143,9 +143,10 @@ class AdministratorHelper{
     static [void] FindPCAMembers([string]$descriptor,[string] $orgName)
     {
         try {
-            if ($null -eq [AdministratorHelper]::AllPCAMembers -or [AdministratorHelper]::AllPCAMembers.Count -eq 0) 
+            if ($null -eq [AdministratorHelper]::AllPCAMembers -or [AdministratorHelper]::AllPCAMembers.Count -eq 0)
             {
-                [AdministratorHelper]::AllPCAMembers = [ControlHelper]::FindGroupMembers($descriptor,$orgName,"")
+                [ControlHelper]::FindGroupMembers($descriptor,$orgName,"")
+                [AdministratorHelper]::AllPCAMembers = [ControlHelper]::groupMembersResolutionObj[$descriptor]
             }
             $currentUser = [ContextHelper]::GetCurrentSessionUser();
 
@@ -160,16 +161,16 @@ class AdministratorHelper{
 
     static [void] FindPAMembers([string]$descriptor,[string] $OrgName,[string] $projName){
         try {
-            if ($null -eq [AdministratorHelper]::AllPAMembers -or [AdministratorHelper]::AllPAMembers.Count -eq 0) 
+            if ($null -eq [AdministratorHelper]::AllPAMembers -or [AdministratorHelper]::AllPAMembers.Count -eq 0)
             {
-                [AdministratorHelper]::AllPAMembers = [ControlHelper]::FindGroupMembers($descriptor,$orgName,$projName)
+                [ControlHelper]::FindGroupMembers($descriptor,$orgName,$projName)
+                [AdministratorHelper]::AllPAMembers = [ControlHelper]::groupMembersResolutionObj[$descriptor]
             }
             $currentUser = [ContextHelper]::GetCurrentSessionUser();
 
             if([AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -in [AdministratorHelper]::AllPCAMembers.mailAddress){
                 [AdministratorHelper]::isCurrentUserPA=$true;
                 [AdministratorHelper]::projectAdminObject[$projName] = $true
-
             }
         }
         catch {
