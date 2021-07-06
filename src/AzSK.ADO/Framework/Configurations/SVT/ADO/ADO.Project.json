@@ -9,9 +9,9 @@
       "Id": "Project110",
       "ControlSeverity": "High",
       "Automated": "Yes",
-      "MethodName": "CheckPublicProjects",
-      "Rationale": "Data/content in projects that have public visibility can be downloaded by anyone on the internet without authentication. This can lead to a compromise of corporate data.",
-      "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/public/make-project-public?view=vsts&tabs=new-nav",
+      "MethodName": "CheckProjectVisibility",
+      "Rationale": "Data/content in projects that have public visibility can be downloaded by anyone on the internet without authentication. This can lead to a compromise of corporate data/assets.",
+      "Recommendation": "1. Go to Project settings. --> 2. In Overview, under Visibility, select 'Private' or 'Enterprise'. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/public/make-project-public?view=vsts&tabs=new-nav",
       "Tags": [
         "SDL",
         "TCP",
@@ -57,13 +57,13 @@
     },
     {
       "ControlID": "ADO_Project_SI_Limit_Variables_Settable_At_Queue_Time",
-      "Description": "Limit pipeline variables marked settable at queue time.",
+      "Description": "Allow queue time changes only to pipeline variables explicitly marked as settable.",
       "Id": "Project150",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckSettableQueueTime",
-      "Rationale": "Pipeline variables not marked settable at queue time can only be changed by someone with elevated permissions. These variables (reasonably) can be used in ways that make code injection possible.",
-      "Recommendation": "Go to Project Settings --> Pipelines --> Settings --> Enable 'Limit variables that can be set at queue time'.",
+      "Rationale": "By default a pipeline user can set any variables at queue time unless this option is enabled. Enabling this setting enforces that variables must be explicitly marked settable at queue-time as needed.",
+      "Recommendation": "1. Go to Project Settings --> 2. Pipelines --> 3. Settings --> 4. Enable 'Limit variables that can be set at queue time'.",
       "Tags": [
         "SDL",
         "TCP",
@@ -164,8 +164,8 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckMinPACount",
-      "Rationale": "Having the minimum required number of administrators reduces the risk of losing admin access. This is useful in case of breakglass account scenarios.",
-      "Recommendation": "Go to Project settings --> General --> Permissions --> Groups --> Select the group : Project Administrators --> Review the members of this group",
+      "Rationale": "Having the minimum required number of administrators reduces the risk of losing admin access. This is useful in case of breakglass scenarios.",
+      "Recommendation": "1. Go to Project settings --> 2. General --> 3. Permissions --> 4.Groups --> 5. Select the group: Project Administrators --> 6. Add additional members of this group",
       "Tags": [
         "SDL",
         "BCDR",
@@ -189,23 +189,6 @@
         "Automated",
         "Best Practice",
         "MSW"
-      ],
-      "Enabled": true
-    },
-    {
-      "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Environment",
-      "Description": "Do not make environment accessible to all pipelines.",
-      "Id": "Project240",
-      "ControlSeverity": "High",
-      "Automated": "Yes",
-      "MethodName": "CheckEnviornmentAccess",
-      "Rationale": "To support security of the pipeline operations, environments must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
-      "Recommendation": "To remediate this, go to Project -> Pipelines -> Environments -> select your environment from the list -> click Security -> Under 'Pipeline Permissions', remove pipelines that environment no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
-      "Tags": [
-        "SDL",
-        "TCP",
-        "Automated",
-        "AuthZ"
       ],
       "Enabled": true
     },
@@ -242,23 +225,6 @@
         "Best Practice"
       ],
       "Enabled": false
-    },
-    {
-      "ControlID": "ADO_Project_AuthZ_Disable_Repo_Inherited_Permissions",
-      "Description": "Do not allow inherited permission on repositories.",
-      "Id": "Project300",
-      "ControlSeverity": "High",
-      "Automated": "Yes",
-      "MethodName": "CheckInheritedPermissions",
-      "Rationale": "Disabling inherited permissions lets you finely control access to various operations at the repository level for different stakeholders. This ensures that you follow the principle of least privilege and provide access only to the persons that require it.",
-      "Recommendation": "Go to Project Settings --> Repositories --> Select a repository --> Permissions --> Disable 'Inheritance'.",
-      "Tags": [
-        "SDL",
-        "TCP",
-        "Automated",
-        "AuthZ"
-      ],
-      "Enabled": true
     },
     {
       "ControlID": "ADO_Project_Check_Inactive_Project",

@@ -100,6 +100,12 @@ function Get-AzSKADOSecurityStatus
 		[Alias("fd", "FeedName","fdn")]
 		$FeedNames,
 
+		[string]
+		[Parameter(HelpMessage="Environment name for which the security evaluation has to be perform.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("en", "EnvironmentName","env")]
+		$EnvironmentNames,
+
 		[switch]
 		[Parameter(HelpMessage="Scan all supported resource types present under organization like build, release, projects etc.")]
 		[Alias("sar", "saa" , "ScanAllArtifacts", "sat", "ScanAllResourceTypes")]
@@ -292,7 +298,7 @@ function Get-AzSKADOSecurityStatus
 		$UseGraphAccess,
 
 		[ValidateSet("Graph", "RegEx", "GraphThenRegEx")]
-        [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
+    [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
 		[Alias("acem")]
 		[string] $ALTControlEvaluationMethod,
 
@@ -301,7 +307,7 @@ function Get-AzSKADOSecurityStatus
 		[Alias("rc")]
 		$ResetCredentials,
         
-        [switch]
+    [switch]
 		[Parameter(HelpMessage="Switch to copy current data object in local folder to facilitate control fix.")]
 		[Alias("pcf")]
 		$PrepareForControlFix
@@ -391,8 +397,17 @@ function Get-AzSKADOSecurityStatus
 					return;
 				}
 			}
+			
+			if ($ResetCredentials)
+			{
+				[ContextHelper]::PromptForLogin = $true
+			}
+			else
+			{
+				[ContextHelper]::PromptForLogin =$false
+			}
 
-			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames);
+			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames);
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus)
 			{
