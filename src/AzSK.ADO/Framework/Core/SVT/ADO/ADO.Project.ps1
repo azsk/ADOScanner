@@ -444,43 +444,54 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckMaxPACount([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [verificationResult]::Failed;
         $TotalPAMembers = 0;
-        if (($this.PAMembers | Measure-Object).Count -eq 0) {
-            $this.PAMembers += [AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
+        if ($this.PAMembers.Count -eq 0) {
+            $this.PAMembers += @([AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName))
         }
-        $TotalPAMembers = ($this.PAMembers | Measure-Object).Count
+        
+        $TotalPAMembers = $this.PAMembers.Count
+    
         $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
         if ($TotalPAMembers -gt 0)
         {
             if ($this.graphPermissions.hasGraphAccess)
             {
                 $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
-                $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
-                if($HumanAcccountCount -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible)");
+                $humanAccounts = @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress)
+                $svcAccounts = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress)
+                
+                #In case of graph access we will only evaluate the control on the basis of human accounts
+                if($humanAccounts.count -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible)");
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible)");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible)");
                 }
+                
                 if($TotalPAMembers -gt 0){
-                    $controlResult.AddMessage("Verify the following Project Administrators: ")
-                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                $controlResult.AddMessage("Current set of Project Administrators: ")
+                $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
                 }
 
-                if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
-                    $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
-                    $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
+                if ($humanAccounts.Count -gt 0) {
+                    $controlResult.AddMessage("`nHuman Administrators: $($humanAccounts.Count)")
+                    $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
                 }
 
-                if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
-                    $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
-                    $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
+                if ($svcAccounts.Count -gt 0) {
+                    $controlResult.AddMessage("`nService Accounts: $($svcAccounts.Count)")
+                    $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of service account Project Administrators: ",$svcAccounts)
                 }
             }
             else
             {
+                ## TODO: Add warning that control was evaluated without graph access (Once Sourabh is done with its Graph access task)
+
                 $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
                 if($TotalPAMembers -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
@@ -488,16 +499,19 @@ class Project: ADOSVTBase
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
                 }
+                
                 if($TotalPAMembers -gt 0){
-                    $controlResult.AddMessage("Verify the following Project Administrators: ",$this.PAMembers)
-                    $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
-                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                $controlResult.AddMessage("Current set of Project Administrators: ")
+                $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
+                $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
+                $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
                 }
             }
         }
         else
         {
-            $controlResult.AddMessage([VerificationResult]::Failed,"No Project Administrators are configured in the project.");
+            $controlResult.AddMessage([VerificationResult]::Verify,"No Project Administrators are configured in the project.");
         }
 
         return $controlResult
@@ -776,10 +790,11 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckEnviornmentAccess([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed;
         try
         {
             $apiURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceName);
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
 
             # TODO: When there are no environments configured, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false. Need to revisit.
             if(([Helpers]::CheckMember($responseObj[0],"count",$false)) -and ($responseObj[0].count -eq 0))
@@ -793,13 +808,13 @@ class Project: ADOSVTBase
                 foreach ($item in $responseObj)
                 {
                     $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/environment/{2}" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceDetails.id), $($item.id);
-                    $apiResponse = [WebRequestHelper]::InvokeGetWebRequest($url);
+                    $apiResponse = @([WebRequestHelper]::InvokeGetWebRequest($url));
                     if (([Helpers]::CheckMember($apiResponse,"allPipelines")) -and ($apiResponse.allPipelines.authorized -eq $true))
                     {
                         $environmentsWithOpenAccess += $item | Select-Object id, name;
                     }
                 }
-                $environmentsWithOpenAccessCount = ($environmentsWithOpenAccess | Measure-Object).Count;
+                $environmentsWithOpenAccessCount = $environmentsWithOpenAccess.Count;
                 if($environmentsWithOpenAccessCount -gt 0)
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Total number of environments in the project that are accessible to all pipelines: $($environmentsWithOpenAccessCount)");

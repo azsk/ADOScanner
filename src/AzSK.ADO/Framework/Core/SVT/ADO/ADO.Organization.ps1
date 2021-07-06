@@ -1542,10 +1542,11 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckAuthZRepoScope([ControlResult] $controlResult)
     {
-       if($this.PipelineSettingsObj)
-       {
+        $controlResult.VerificationResult = [VerificationResult]::Failed;
+        if($this.PipelineSettingsObj)
+        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceReferencedRepoScopedToken
-
+ 
             if($orgLevelScope -eq $true )
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Job authorization scope of pipelines is limited to explicitly referenced Azure DevOps repositories at organization level.");
@@ -1553,10 +1554,10 @@ class Organization: ADOSVTBase
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope of pipelines is set to all Azure DevOps repositories in the authorized projects at organization level.");
             }
-       }
-       else{
-             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
-       }
+        }
+        else{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
+        }
         return $controlResult
     }
 
