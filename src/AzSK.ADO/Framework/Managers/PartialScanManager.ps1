@@ -766,8 +766,8 @@ class PartialScanManager
 					else 
 					{
 						$csvItem.IsControlInGrace = "No"
-					}					
-                    $csvItems += $csvItem;#>
+					}#>					
+                    $csvItems += $csvItem;
                 }                                
             }
         } 
