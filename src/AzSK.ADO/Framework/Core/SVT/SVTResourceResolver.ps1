@@ -638,7 +638,7 @@ class SVTResourceResolver: AzSKRoot {
 
                     #Ceating resource in common resource resolver
                     if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -ge 0 -or $this.FeedNames.count -gt 0 -or $this.EnvironmentNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed, [ResourceTypeName]::Environment))) {
-                        $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName, $projectId);
+                        $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName, $organizationId, $projectId);
                         $this.SVTResources += $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.EnvironmentNames, $this.ResourceTypeName, $this.MaxObjectsToScan);
                     }
 
