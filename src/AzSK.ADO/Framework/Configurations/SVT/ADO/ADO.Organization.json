@@ -455,8 +455,8 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckMaxPCACount",
-      "Rationale": "Each additional person in the administrator role increases the attack surface for the entire organization. The number of members in these roles should be kept to as low as possible.",
-      "Recommendation": "Go to Organization settings --> Security --> Permissions --> Groups --> Select the group : Project Collection Administrators --> Review the members of this group.",
+      "Rationale": "Each additional person in the administrator role increases the attack surface for the entire organization (if an admin's account is compromised via phishing attack). The number of members in these roles should be kept to as low as possible.",
+      "Recommendation": "1. Go to Organization settings --> 2. Security --> 3. Permissions --> 4. Groups --> 5. Select the group : Project Collection Administrators --> 6. Remove redundant members from the group.",
       "Tags": [
         "SDL",
         "AuthZ",
@@ -472,8 +472,8 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckMinPCACount",
-      "Rationale": "Having the minimum required number of administrators reduces the risk of losing admin access. This is useful in case of break-glass account scenarios.",
-      "Recommendation": "Go to Organization settings --> Security --> Permissions --> Groups --> Select the group : Project Collection Administrators --> Review the members of this group",
+      "Rationale": "Having at least the minimum required number of administrators reduces the risk of losing admin access. This is useful in case of breakglass scenarios.",
+      "Recommendation": "1. Go to Organization settings --> 2. Security --> 3. Permissions --> 4. Groups --> 5. Select the group : Project Collection Administrators --> 6. Add additional members to this group",
       "Tags": [
         "SDL",
         "BCDR",

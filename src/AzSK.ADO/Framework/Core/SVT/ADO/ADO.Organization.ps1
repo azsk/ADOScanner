@@ -9,7 +9,9 @@ class Organization: ADOSVTBase
     hidden [PSObject] $graphPermissions = @{hasGraphAccess = $false; graphAccessToken = $null}; # This is used to check user has graph permissions to compute the graph api operations.
     hidden $GuestMembers = @()
     hidden $AllUsersInOrg = @()
-
+    hidden $PCAMembersList = @()
+    hidden $svcAccountsList = @()
+    hidden $humanAccountsList = @()
     #TODO: testing below line
     hidden [string] $SecurityNamespaceId;
     Organization([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
@@ -1767,52 +1769,53 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckMinPCACount([ControlResult] $controlResult)
     {
-        $TotalPCAMembers=0
-        $PCAMembers = @()
-        $PCAMembers += [AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName)
-        $TotalPCAMembers = ($PCAMembers| Measure-Object).Count
-        $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
-        if ($this.graphPermissions.hasGraphAccess)
-        {
-            $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
-            $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
-            if($HumanAcccountCount -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
-                $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try{
+            $TotalPCAMembers=0
+            if ($this.PCAMembersList.Count -eq 0) {
+                $this.PCAMembersList =@([AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName))
             }
-            else{
-                $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+            $PCAMembers = $this.PCAMembersList
+            $TotalPCAMembers = $PCAMembers.Count
+            $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
+            if ($this.graphPermissions.hasGraphAccess)
+            {
+                if($this.svcAccountsList.Count -eq 0 -and $this.humanAccountsList.Count -eq 0){
+                    $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
+                    $this.svcAccountsList = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress);
+                    $this.humanAccountsList= @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress);
+                }
+                $svcAccounts=$this.svcAccountsList
+                $humanAccounts=$this.humanAccountsList
+                if($humanAccounts.Count -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured meet the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+                }
+                [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
             }
-            if($TotalPCAMembers -gt 0){
-                $controlResult.AddMessage("Verify the following Project Collection Administrators: ")
-                $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
-            }
-
-            if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
-                $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
-                $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
-                $controlResult.SetStateData("List of human Project Collection Administrators: ",$humanAccounts)
-            }
-
-            if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
-                $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
-                $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
-                $controlResult.SetStateData("List of service account Project Collection Administrators: ",$svcAccounts)
+            ## TODO: Add warning that control was evaluated without graph access ( Once Sourabh is done with its Graph access task)
+            else
+            {
+                $PCAMembers = @($PCAMembers | Select-Object displayName,mailAddress)
+                if($TotalPCAMembers -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+                }
+                if($TotalPCAMembers -gt 0){
+                    $display=($PCAMembers |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage("Current set of Project Collection Administrators: `n",$display)
+                    $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
+                    $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;
+                }
             }
         }
-        else
-        {
-            $PCAMembers = $PCAMembers | Select-Object displayName,mailAddress
-            if($TotalPCAMembers -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
-                $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
-            }
-            else{
-                $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
-            }
-            if($TotalPCAMembers -gt 0){
-                $controlResult.AddMessage("Verify the following Project Collection Administrators: ",$PCAMembers)
-                $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
-                $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
-            }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,"Couldn't fetch the list of Project Collection Administrators.");
+            $controlResult.LogException($_)
         }
 
         return $controlResult
@@ -1820,53 +1823,56 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckMaxPCACount([ControlResult] $controlResult)
     {
-
-        $TotalPCAMembers=0
-        $PCAMembers = @()
-        $PCAMembers += [AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName)
-        $TotalPCAMembers = ($PCAMembers| Measure-Object).Count
-        $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
-        if ($this.graphPermissions.hasGraphAccess)
-        {
-            $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
-            $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
-            if($HumanAcccountCount -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
-                $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try{
+            $TotalPCAMembers=0
+            
+            if ($this.PCAMembersList.Count -eq 0) {
+                $this.PCAMembersList =@([AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName))
             }
-            else{
-                $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are within than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+            $PCAMembers = $this.PCAMembersList
+            $TotalPCAMembers = $PCAMembers.Count
+            $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
+            if ($this.graphPermissions.hasGraphAccess)
+            {  
+                if($this.svcAccountsList.Count -eq 0 -and $this.humanAccountsList.Count -eq 0){
+                    $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
+                    $this.svcAccountsList = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress);
+                    $this.humanAccountsList= @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress);
+                }
+                $svcAccounts=$this.svcAccountsList
+                $humanAccounts=$this.humanAccountsList
+                
+                if($humanAccounts.Count -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are within the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+                }
+                [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
             }
-            if($TotalPCAMembers -gt 0){
-                $controlResult.AddMessage("Verify the following Project Collection Administrators: ")
-                $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
-            }
-
-            if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
-                $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
-                $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
-                $controlResult.SetStateData("List of human Project Collection Administrators: ",$humanAccounts)
-            }
-
-            if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
-                $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
-                $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
-                $controlResult.SetStateData("List of service account Project Collection Administrators: ",$svcAccounts)
+            ## TODO: Add warning that control was evaluated without graph access ( Once Sourabh is done with its Graph access task)
+            else
+            {
+                $PCAMembers = @($PCAMembers | Select-Object displayName,mailAddress)
+                if($TotalPCAMembers -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+                }
+                 
+                if($TotalPCAMembers -gt 0){
+                    $display=($PCAMembers |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage("Current set of Project Collection Administrators: `n",$display)
+                    $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
+                    $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;
+                }
             }
         }
-        else
-        {
-            $PCAMembers = $PCAMembers | Select-Object displayName,mailAddress
-            if($TotalPCAMembers -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
-                $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
-            }
-            else{
-                $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
-            }
-            if($TotalPCAMembers -gt 0){
-                $controlResult.AddMessage("Verify the following Project Collection Administrators: ",$PCAMembers)
-                $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
-                $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
-            }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,"Couldn't fetch the list of Project Collection Administrators.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
