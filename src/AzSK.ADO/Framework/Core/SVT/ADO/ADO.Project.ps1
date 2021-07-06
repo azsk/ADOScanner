@@ -470,8 +470,8 @@ class Project: ADOSVTBase
                 }
                 
                 if($TotalPAMembers -gt 0){
-                $controlResult.AddMessage("Current set of Project Administrators: ")
-                $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AddMessage("Current set of Project Administrators: ")
+                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
                 }
 
                 if ($humanAccounts.Count -gt 0) {
@@ -501,11 +501,11 @@ class Project: ADOSVTBase
                 }
                 
                 if($TotalPAMembers -gt 0){
-                $controlResult.AddMessage("Current set of Project Administrators: ")
-                $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
-                $controlResult.AddMessage($display)
-                $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
-                $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AddMessage("Current set of Project Administrators: ")
+                    $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                    $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
+                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
                 }
             }
         }
