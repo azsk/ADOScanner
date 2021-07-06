@@ -68,7 +68,7 @@ class CommonSVTControls: ADOSVTBase {
             $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/repository/{2}.{3}" -f $this.OrganizationContext.OrganizationName, $projectId, $projectId, $this.ResourceContext.ResourceDetails.Id;
             $repoPipelinePermissionObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
 
-            if (($repoPipelinePermissionObj.Count -gt 0) -and ([Helpers]::CheckMember($repoPipelinePermissionObj[0], "allPipelines")) -and ($repoPipelinePermissionObj[0].allPipelines.authorized -eq $true))
+            if (([Helpers]::CheckMember($repoPipelinePermissionObj[0], "allPipelines")) -and ($repoPipelinePermissionObj[0].allPipelines.authorized -eq $true))
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Repository is accessible to all pipelines.");
             }
