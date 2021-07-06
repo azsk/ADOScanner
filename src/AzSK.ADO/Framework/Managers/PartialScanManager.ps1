@@ -759,7 +759,7 @@ class PartialScanManager
 							}
 						}
 					}
-					if($_.IsControlInGrace -eq $true)
+					<#if($_.IsControlInGrace -eq $true)
 					{
 						$csvItem.IsControlInGrace = "Yes"
 					}
@@ -767,7 +767,7 @@ class PartialScanManager
 					{
 						$csvItem.IsControlInGrace = "No"
 					}					
-                    $csvItems += $csvItem;
+                    $csvItems += $csvItem;#>
                 }                                
             }
         } 
