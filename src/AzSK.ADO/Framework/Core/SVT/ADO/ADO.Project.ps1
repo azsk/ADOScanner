@@ -776,6 +776,26 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckEnviornmentAccess([ControlResult] $controlResult)
     {
+        <#
+        {
+          "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Environment",
+          "Description": "Do not make environment accessible to all pipelines.",
+          "Id": "Project240",
+          "ControlSeverity": "High",
+          "Automated": "Yes",
+          "MethodName": "CheckEnviornmentAccess",
+          "Rationale": "To support security of the pipeline operations, environments must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
+          "Recommendation": "To remediate this, go to Project -> Pipelines -> Environments -> select your environment from the list -> click Security -> Under 'Pipeline Permissions', remove pipelines that environment no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+          "Tags": [
+            "SDL",
+            "TCP",
+            "Automated",
+            "AuthZ"
+          ],
+          "Enabled": true
+        },
+        #>
+
         try
         {
             $apiURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceName);
@@ -1155,6 +1175,26 @@ class Project: ADOSVTBase
     }
 
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult) {
+        <#
+        {
+        "ControlID": "ADO_Project_AuthZ_Disable_Repo_Inherited_Permissions",
+        "Description": "Do not allow inherited permission on repositories.",
+        "Id": "Project300",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckInheritedPermissions",
+        "Rationale": "Disabling inherited permissions lets you finely control access to various operations at the repository level for different stakeholders. This ensures that you follow the principle of least privilege and provide access only to the persons that require it.",
+        "Recommendation": "Go to Project Settings --> Repositories --> Select a repository --> Permissions --> Disable 'Inheritance'.",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ"
+        ],
+        "Enabled": true
+        },
+        #>
+
         $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
         #permissionSetId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
         $repoNamespaceId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87'
