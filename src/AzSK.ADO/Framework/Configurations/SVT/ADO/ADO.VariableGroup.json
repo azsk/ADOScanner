@@ -92,12 +92,12 @@
           },
           {
             "ControlID": "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access_On_VG_With_Secrets",
-            "Description": "Broader groups (contributors, project valid users, etc.) should not have user/administrator privileges on variable group contains secrets.",
+            "Description": "Broader groups (contributors, project valid users, etc.) should not have user/administrator privileges on variable group which contains secrets.",
             "Id": "VariableGroup170",
             "ControlSeverity": "High",
             "Automated": "Yes",
             "MethodName": "CheckBroaderGroupAccessForVarGrpWithSecrets",
-            "Rationale": "If the broader groups (e.g., Contributors) have excessive permissions (user/admin) on variable group, then integrity of your variable group can be compromised by a malicious user. Removing access/privileges that are not required minimizes exposure of the resources in case of user account/variable group compromise.",
+            "Rationale": "If a broad group of users (e.g., Contributors) have excessive permissions on variable group, a malicious user can abuse these permissions to compromise security of the variable group as well as the assets involving the secret variables.",
             "Recommendation": "1. Navigate to the variable group. --> 2. Select Security. --> 3. Ensure broader groups have read-only access. Refer to detailed scan log (VariableGroup.LOG) for broader group list.",
             "Tags": [
               "SDL",
