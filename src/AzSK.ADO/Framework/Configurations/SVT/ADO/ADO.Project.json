@@ -113,7 +113,7 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckAuthZRepoScope",
-      "Rationale": "If the authorization scope of pipelines is not limited to current repos, an attacker can build a pipeline from a different (less sensitive repos) to access resources in a target (more sensitive) repos. This also in keeping with the principle of least privilege.",
+      "Rationale": "If the authorization scope of pipelines is not limited to referenced repos, an attacker can create a pipeline that can access sensitive repos within the project. This also in keeping with the principle of least privilege.",
       "Recommendation": "1. Go to Project Settings -->2. Pipelines -->3. Settings -->4. Enable 'Limit job authorization scope to referenced Azure DevOps repositories'.",
       "Tags": [
         "SDL",
