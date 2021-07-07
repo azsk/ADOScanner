@@ -449,12 +449,13 @@ class Project: ADOSVTBase
         if ($this.PAMembers.Count -eq 0) {
             $this.PAMembers += @([AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName))
         }
-        if([Helpers]::CheckMember($this.PAMembers[0],"mailAddress"))
+        if((-not [string]::IsNullOrEmpty($this.PAMembers)) -and [Helpers]::CheckMember($this.PAMembers[0],"mailAddress"))
         {
             $TotalPAMembers = $this.PAMembers.Count
+            $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
         }        
     
-        $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
+        
         if ($TotalPAMembers -gt 0)
         {
             if ($this.graphPermissions.hasGraphAccess)
@@ -792,6 +793,24 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckEnviornmentAccess([ControlResult] $controlResult)
     {
+        <#
+         {
+      "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Environment",
+      "Description": "Do not make environment accessible to all pipelines.",
+      "Id": "Project240",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckEnviornmentAccess",
+      "Rationale": "To support security of the pipeline operations, environments must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
+      "Recommendation": "To remediate this, go to Project -> Pipelines -> Environments -> select your environment from the list -> click Security -> Under 'Pipeline Permissions', remove pipelines that environment no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+        },#>
         $controlResult.VerificationResult = [VerificationResult]::Failed;
         try
         {
