@@ -1508,6 +1508,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckJobAuthZScope([ControlResult] $controlResult)
     {
+       $controlResult.VerificationResult = [VerificationResult]::Failed
        if($this.PipelineSettingsObj)
        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceJobAuthScope
@@ -1528,6 +1529,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckJobAuthZReleaseScope([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
        if($this.PipelineSettingsObj)
        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceJobAuthScopeForReleases
@@ -1548,6 +1550,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckAuthZRepoScope([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
        if($this.PipelineSettingsObj)
        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceReferencedRepoScopedToken
