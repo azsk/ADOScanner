@@ -26,6 +26,7 @@ class OrganizationInfo: CommandBase {
             $projectsList = $projectsList | Out-String
             $this.PublishCustomMessage("Fetching resource inventory for below projects : $($projectsList)`n")
             $returnMsgs += [MessageData]::new("Fetching resource inventory for below projects: $($projectsList)`n")
+            $outputFolder = ([WriteFolderPath]::GetInstance().FolderPath)
             foreach ($project in $this.projects) {
                 $projectId = $project.id
                 $projectName = $project.name
