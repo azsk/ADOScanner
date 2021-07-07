@@ -328,50 +328,40 @@ class SVTResourceResolver: AzSKRoot {
                             $this.BuildsFolderPath = $this.BuildsFolderPath.Replace(' ','%20').Replace('\','%5C')
                             $buildFoldersURL = "https://dev.azure.com/{0}/{1}/_apis/build/folders/{2}?api-version=6.1-preview.2"  -f $($this.OrganizationContext.OrganizationName), $thisProj.name, $this.BuildsFolderPath
                             $buildFoldersObj = [WebRequestHelper]::InvokeGetWebRequest($buildFoldersURL)
-                            if ($null -eq $buildFoldersObj -or $buildFoldersObj.Count -eq 0)
-                            {
+                            if($null -eq $buildFoldersObj -or $buildFoldersObj.Count -eq 0){
                                 $this.PublishCustomMessage("Folder path not found. Please validate the -BuildsFolderPath provided in the command. `n", [MessageType]::Warning);
                             }
                             else {
                                 #Iterate on each folder to get applicale build definition if folders count is le 100
+                                if ([string]::IsNullOrEmpty($topNQueryString)) {
+                                    $topNQueryString = '&$top=10000'
+                                }
                                 if($buildFoldersObj.Count -le 100)
                                 {
+                                    $folderCount=1
+                                    
                                     foreach($path in $buildFoldersObj.Path)
                                     {
-                                        $buildDefByFolderObj = $null
+                                        
                                         $formattedPath = $path.Replace(' ','%20').Replace('\','%5C')
-                                        $buildDefByFolderURL = 'https://dev.azure.com/{0}/{1}/_apis/build/definitions?path={2}' -f $($this.OrganizationContext.OrganizationName), $thisProj.name, $formattedPath
-                                        $buildDefByFolderObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefByFolderURL)
+                                        $buildDefByFolderURL = ('https://dev.azure.com/{0}/{1}/_apis/build/definitions?path={2}&queryOrder=lastModifiedDescending'+$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name, $formattedPath
+                                        #$buildDefByFolderObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefByFolderURL)
 
                                         #api return element 0 even when no build is there in the folder
-                                        if ([Helpers]::CheckMember($buildDefByFolderObj[0], "name"))
-                                        {
-                                            $applicableBuilds += $buildDefByFolderObj
-                                        }
+                                        #if ([Helpers]::CheckMember($buildDefByFolderObj[0], "name"))
+                                        #{
+                                        #    $applicableBuilds += $buildDefByFolderObj
+                                        #}
+                                        Write-Progress -Activity "Searching in folder $($folderCount) of $($buildFoldersObj.Count) : $($path) " -Status "Progress: " -PercentComplete ($folderCount/ $buildFoldersObj.Count * 100)
+                                        $this.addBuildsToSVT($buildDefByFolderURL,$organizationId,$projectId,$true,$false,$null)
+                                        $folderCount++;
                                     }
+                                    Write-Progress -Activity "All builds fetched" -Status "Ready" -Completed
                                 }
-                                else {
-                                    #$buildDefURL = ('https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0'+$topNQueryString) -f  $($this.OrganizationContext.OrganizationName), $thisProj.name
-                                    $buildDefURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
-
-                                    $buildDefObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefURL)
-                                    $applicableBuilds = $buildDefObj | Where-Object {$_.path -eq "\$($path)" -or $_.path -match "^\\$($path)\\"}
+                                else {                                 
+                                    $buildDefURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" + $topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
+                                    $this.addBuildsToSVT($buildDefURL, $organizationId, $projectId, $true, $true, $path)                                  
                                 }
-
-                                
-                                if (([Helpers]::CheckMember($applicableBuilds, "count") -and $applicableBuilds[0].count -gt 0) -or (($applicableBuilds | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($applicableBuilds[0], "name"))) {
-                                    $nObj = $this.MaxObjectsToScan
-                                    foreach ($bldDef in $applicableBuilds) {
-                                        $link = $bldDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
-                                        $buildResourceId = "organization/$organizationId/project/$projectId/build/$($bldDef.id)";
-                                        $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
-    
-                                        if (--$nObj -eq 0) { break; }
-                                    }
-                                    $applicableBuilds = $null;
-                                    Remove-Variable applicableBuilds;
-                                }
-                                
 
                             }
                         }
@@ -383,20 +373,9 @@ class SVTResourceResolver: AzSKRoot {
                             else {
                                 $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
                             }
-                            $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL)
-                            if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
-                                $nObj = $this.MaxObjectsToScan
-                                foreach ($bldDef in $buildDefnsObj) {
-                                    $link = $bldDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
-                                    $buildResourceId = "organization/$organizationId/project/$projectId/build/$($bldDef.id)";
-                                    $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
-
-                                    if (--$nObj -eq 0) { break; }
-                                }
-                                $buildDefnsObj = $null;
-                                Remove-Variable buildDefnsObj;
+                            $this.addBuildsToSVT($buildDefnURL,$organizationId,$projectId,$false,$false,$null);
                             }
-                        }
+                        
                         else {
 
                             $buildDefnURL = "";
@@ -907,4 +886,59 @@ class SVTResourceResolver: AzSKRoot {
         catch {}
         [AIOrgTelemetryHelper]::PublishEvent("Projects resources count", $projectData, @{})
     }
+
+    [void] addBuildsToSVT([string] $buildDefnURL, [string] $organizationId, [string]$projectId,  [bool]  $isFolderPathGiven, [bool] $isFolderSizegt100,[string] $path){
+        [System.Uri] $validatedUri = $null;
+        $orginalUri = "";
+        $continuationToken = $null;
+        $skipCount = 0
+        $batchCount = 1;
+        $nObj = $this.MaxObjectsToScan
+     
+        while ([System.Uri]::TryCreate($buildDefnURL, [System.UriKind]::Absolute, [ref] $validatedUri)) {
+            if ([string]::IsNullOrWhiteSpace($orginalUri)) {
+                $orginalUri = $validatedUri.AbsoluteUri;   
+            }
+            $progressCount = 0;
+            $applicableBuilds=@();
+            $skipCount += 10000;
+            $response = [WebRequestHelper]::InvokeWebRequestForBuildsInBatch($validatedUri, $orginalUri, $skipCount);
+            $buildDefnsObj = $response[0];
+            $buildDefnURL = $response[1];
+
+            if($isFolderPathGiven -and $isFolderSizegt100){
+              
+                    $applicableBuilds = $buildDefnsObj | Where-Object {$_.path -eq "\$($path)" -or $_.path -match "^\\$($path)\\"}
+            }
+            else {
+                $applicableBuilds=$buildDefnsObj;
+            }
+            
+                                
+            if ( (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name")) -or ([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0)) {
+                $temp_link=($buildDefnsObj[0].url -split('Definitions/'))[0].replace('_apis/build/', '_build?definitionId=');
+                foreach ($buildDef in $applicableBuilds) {
+                    #$link = $buildDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
+                    $link=$temp_link+$buildDef.id
+                    $buildResourceId = "organization/$organizationId/project/$projectId/build/$($buildDef.id)";
+                    $this.AddSVTResource($buildDef.name, $buildDef.project.name, "ADO.Build", $buildResourceId, $buildDef, $link);
+                    $progressCount = $progressCount + 1;
+                    Write-Progress -Activity "Fetching $($progressCount) of $($buildDefnsObj.Length) builds of batch $($batchCount) " -Status "Progress: " -PercentComplete ($progressCount / $buildDefnsObj.Length * 100)
+                    if (--$nObj -eq 0) { break; }
+                }
+                $batchCount = $batchCount + 1;                             
+
+            }
+            else {
+                break;
+            }
+            if ($nObj -eq 0) { break; }
+        }
+        Write-Progress -Activity "All builds fetched" -Status "Ready" -Completed
+        $buildDefnsObj = $null;
+        $applicableBuilds=$null;
+        Remove-Variable buildDefnsObj;
+        Remove-Variable applicableBuilds;
+    }
+
 }
