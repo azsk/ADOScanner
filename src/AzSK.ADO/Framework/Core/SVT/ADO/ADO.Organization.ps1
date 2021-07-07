@@ -2270,7 +2270,7 @@ class Organization: ADOSVTBase
             {
                 $controlResult.AddMessage("*** Note: Some settings are not present in the policy configuration. ***")
             }
-            $controlResult.AddMessage("`nNote: Apart from this LOG, a combined listing of all extensions and their security sensitive attributes has been output to the '$($this.ResourceContext.ResourceName)"+"_"+"$($scanType)"+"ExtensionInfo.CSV' file in the current folder. Columns with value as 'Unavailable' indicate that data was not available.")
+            $controlResult.AddMessage("`nNote: Apart from this LOG, a combined listing of all extensions and their security sensitive attributes published to the '$($this.ResourceContext.ResourceName)"+"_"+"$($scanType)"+"ExtensionInfo.CSV' file in the current folder. Columns with value as 'Unavailable' indicate that data was not available.")
 
             $infotable = [ordered] @{
                 "KnownPublisher" = "Yes/No [if extension is from [$($this.extensionDetailsFromOrgPolicy.knownExtPublishers -join ', ')]]";
