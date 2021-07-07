@@ -107,6 +107,7 @@ class AdministratorHelper{
         }
     }
     catch {
+        Write-Host $_
 
     }
     }
@@ -196,8 +197,7 @@ class AdministratorHelper{
         [AdministratorHelper]::AllPAMembers = @();
         [AdministratorHelper]::GetPADescriptorAndMembers($OrgName,$projName)
 
-        #get unique pa based on display name and mail address
-        [AdministratorHelper]::AllPCAMembers = [AdministratorHelper]::AllPCAMembers | Sort-Object -Unique 'mailAddress'
+        [AdministratorHelper]::AllPAMembers = [AdministratorHelper]::AllPAMembers | Sort-Object -Unique 'mailAddress'
         return [AdministratorHelper]::AllPAMembers
     }
     static [bool] GetIsCurrentUserPCA([string] $descriptor,[string] $OrgName){
@@ -211,5 +211,26 @@ class AdministratorHelper{
         [AdministratorHelper]::isCurrentUserPA = $false;
         [AdministratorHelper]::FindPAMembers($descriptor,$OrgName,$projName)
         return [AdministratorHelper]::isCurrentUserPA
+    }
+
+    static [void] PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult){
+        $TotalPCAMembers=$humanAccounts.Count + $svcAccounts.Count
+        if($TotalPCAMembers -gt 0){
+            $controlResult.AddMessage("Current set of Project Collection Administrators: ")
+            $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;
+        }
+
+        if ($humanAccounts.Count -gt 0) {
+            $display=($humanAccounts |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
+            $controlResult.AddMessage("`nHuman administrators: $($humanAccounts.Count) `n", $display)
+            $controlResult.SetStateData("List of human Project Collection Administrators: ",$humanAccounts)
+        }
+
+        if ($svcAccounts.Count -gt 0) {
+            $display=($svcAccounts |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
+            $controlResult.AddMessage("`nService accounts: $($svcAccounts.Count) `n", $display)
+            $controlResult.SetStateData("List of service account Project Collection Administrators: ",$svcAccounts)
+        }
+        return ;
     }
 }
