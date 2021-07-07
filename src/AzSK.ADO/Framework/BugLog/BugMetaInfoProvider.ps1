@@ -152,11 +152,15 @@ class BugMetaInfoProvider {
                 }
             }
             'Repository' {
-                $url = 'https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/commits?searchCriteria.showOldestCommitsFirst=true&searchCriteria.$top=1&api-version=6.0' -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceDetails.Id;
-                $repoFirstCommit = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                if ($repoFirstCommit.count -gt 0) {
-                    return $repoFirstCommit[0].author.email;
-                    
+                try {
+                    $url = 'https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/commits?searchCriteria.showOldestCommitsFirst=true&searchCriteria.$top=1&api-version=6.0' -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceDetails.Id;
+                    $repoFirstCommit = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                    if ($repoFirstCommit.count -gt 0 -and [Helpers]::CheckMember($repoFirstCommit[0],"author")) {
+                        return $repoFirstCommit[0].author.email;
+                    }
+                }
+                catch {
+                    return "";
                 }
             }
             'SecureFile' {
@@ -165,7 +169,15 @@ class BugMetaInfoProvider {
             'Feed' {
                 $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=true' -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceDetails.Id;
                 $feedPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                return $feedPermissionList[0].identityDescriptor.Split('\')[-1];
+                if ($feedPermissionList.count -gt 0 -and [Helpers]::CheckMember($feedPermissionList[0],"identityDescriptor")) {
+                    $resourceOwnerWithDescriptor = $feedPermissionList[0].identityDescriptor.Split('\');
+                    if ($resourceOwnerWithDescriptor.count -ge 1) {
+                        return $resourceOwnerWithDescriptor[1];
+                    }
+                }
+            }
+            'Environment' {
+                return $ControlResult.ResourceContext.ResourceDetails.createdBy.uniqueName
             }  
             #assign to the person running the scan, as to reach at this point of code, it is ensured the user is PCA/PA and only they or other PCA
             #PA members can fix the control
