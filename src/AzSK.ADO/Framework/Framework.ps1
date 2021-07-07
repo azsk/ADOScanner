@@ -21,7 +21,6 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Helpers\JsonHelper.ps1
 . $FrameworkPath\Helpers\Helpers.ps1
 . $PSScriptRoot\Helpers\ContextHelper.ps1
-. $PSScriptRoot\Helpers\AdministratorHelper.ps1
 #Helpers (independent of models)
 
 . $FrameworkPath\Helpers\ConfigurationHelper.ps1
@@ -51,6 +50,7 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Helpers\IdentityHelpers.ps1
 . $FrameworkPath\Helpers\ConfigOverride.ps1
 . $FrameworkPath\Helpers\ControlHelper.ps1
+. $PSScriptRoot\Helpers\AdministratorHelper.ps1
 
 . $FrameworkPath\Models\Common\ResourceInventory.ps1
 
