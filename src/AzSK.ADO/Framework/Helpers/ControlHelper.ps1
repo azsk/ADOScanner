@@ -127,7 +127,6 @@ class ControlHelper: EventBase{
         }
     }
 
-    a a1,a2  b b1,b2,c1,c2,c3  c - c1,c2,c3
 
 
     static [void] FindGroupMembers([string]$descriptor,[string] $orgName,[string] $projName){
