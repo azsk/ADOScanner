@@ -336,12 +336,12 @@ class VariableGroup: ADOSVTBase
             {
                 $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup;
                 $restrictedRolesForBroaderGroupsInvarGrp = $this.ControlSettings.VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroupContainingSecrets;
-                $patterns = @($this.ControlSettings.Patterns | Where-Object {$_.RegexCode -eq "SecretsInVariables"} | Select-Object -Property RegexList);
 
                 if([Helpers]::CheckMember($this.VarGrp[0],"variables"))
                 {
                     $secretVarList = @();
                     $VGMembers = @(Get-Member -InputObject $this.VarGrp[0].variables -MemberType Properties)
+                    $patterns = @($this.ControlSettings.Patterns | Where-Object {$_.RegexCode -eq "SecretsInVariables"} | Select-Object -Property RegexList);
                     $VGMembers | ForEach-Object {
                         $varName = $_.Name
                         if([Helpers]::CheckMember($this.VarGrp[0].variables.$varName,"value"))
