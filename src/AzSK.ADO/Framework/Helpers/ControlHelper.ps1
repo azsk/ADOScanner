@@ -2,7 +2,6 @@
 class ControlHelper: EventBase{
 
     static $GroupMembersResolutionObj = @{} #Caching group resolution
-    static $PresentMembersResolutionObj = @() #Members resolution result of latest descriptor which called FindGroupMembers method
 
 
     #Checks if the severities passed by user are valid and filter out invalid ones
@@ -107,19 +106,18 @@ class ControlHelper: EventBase{
                             if ($identities.Count -gt 0)
                             {
                                 [ControlHelper]::groupMembersResolutionObj[$descriptor] += $identities
-                                [ControlHelper]::PresentMembersResolutionObj += $identities
 
                             }
                         }
                         else
                         {
-                            return [ControlHelper]::ResolveNestedGroupMembers($_.descriptor,$orgName,$projName)
+                           [ControlHelper]::ResolveNestedGroupMembers($_.descriptor,$orgName,$projName)
+                           [ControlHelper]::groupMembersResolutionObj[$descriptor] += [ControlHelper]::groupMembersResolutionObj[$_.descriptor]
                         }
                     }
                     else
                     {
                         [ControlHelper]::groupMembersResolutionObj[$descriptor] += $_
-                        [ControlHelper]::PresentMembersResolutionObj += $_
                     }
                 }
             }
@@ -129,23 +127,14 @@ class ControlHelper: EventBase{
         }
     }
 
+    a a1,a2  b b1,b2,c1,c2,c3  c - c1,c2,c3
+
 
     static [void] FindGroupMembers([string]$descriptor,[string] $orgName,[string] $projName){
         if (-not [ControlHelper]::GroupMembersResolutionObj.ContainsKey("OrgName")) {
             [ControlHelper]::GroupMembersResolutionObj["OrgName"] = $orgName
         }
-        [ControlHelper]::PresentMembersResolutionObj = @() # remove static, just return this object
 
         [ControlHelper]::ResolveNestedGroupMembers($descriptor, $orgName, $projName)
-
-        #After ResolveNestedGroupMembers is called groupMembersResolutionObj will have only root level users for this descriptor.
-        #This is because members of individual ado groups get mapped against its descriptor and not the parent group
-        #Therefore we will re assign the members from PresentMembersResolutionObj in below block
-
-        if ([ControlHelper]::PresentMembersResolutionObj.Count -gt 0 -and [ControlHelper]::groupMembersResolutionObj.ContainsKey($descriptor) )
-        {
-            [ControlHelper]::groupMembersResolutionObj.Remove($descriptor)
-            [ControlHelper]::groupMembersResolutionObj[$descriptor] += [ControlHelper]::PresentMembersResolutionObj
-        }
     }
 }

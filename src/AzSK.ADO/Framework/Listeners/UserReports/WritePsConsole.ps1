@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest 
+Set-StrictMode -Version Latest
 class WritePsConsole: FileOutputBase
 {
     hidden static [WritePsConsole] $Instance = $null;
@@ -14,26 +14,26 @@ class WritePsConsole: FileOutputBase
     }
 
     [void] RegisterEvents()
-    {        
+    {
         $this.UnregisterEvents();
 
 		# Mandatory: Generate Run Identifier Event
         $this.RegisterEvent([AzSKRootEvent]::GenerateRunIdentifier, {
             $currentInstance = [WritePsConsole]::GetInstance();
-            try 
+            try
             {
-                $currentInstance.SetRunIdentifier([AzSKRootEventArgument] ($Event.SourceArgs | Select-Object -First 1));                         
+                $currentInstance.SetRunIdentifier([AzSKRootEventArgument] ($Event.SourceArgs | Select-Object -First 1));
             }
-            catch 
+            catch
             {
                 $currentInstance.PublishException($_);
             }
         });
-			
-		
+
+
 		$this.RegisterEvent([AzSKGenericEvent]::CustomMessage, {
             $currentInstance = [WritePsConsole]::GetInstance();
-            try 
+            try
             {
 				if($Event.SourceArgs)
 				{
@@ -44,7 +44,7 @@ class WritePsConsole: FileOutputBase
 					}
 				}
             }
-            catch 
+            catch
             {
                 $currentInstance.PublishException($_);
             }
@@ -52,7 +52,7 @@ class WritePsConsole: FileOutputBase
 
 		$this.RegisterEvent([AzSKGenericEvent]::Exception, {
             $currentInstance = [WritePsConsole]::GetInstance();
-            try 
+            try
             {
 				$exceptionObj = $Event.SourceArgs | Select-Object -First 1
 				#if(($null -ne $exceptionObj) -and  ($null -ne $exceptionObj.Exception) -and (-not [String]::IsNullOrEmpty($exceptionObj.Exception.Message)))
@@ -62,20 +62,20 @@ class WritePsConsole: FileOutputBase
 				#}
 				#else
 				#{
-					$currentInstance.WriteMessage($exceptionObj, [MessageType]::Error);                       
+					$currentInstance.WriteMessage($exceptionObj, [MessageType]::Error);
 				#}
             }
-            catch 
+            catch
             {
 				#Consuming the exception intentionally to prevent infinite loop of errors
                 #$currentInstance.PublishException($_);
             }
         });
-		
+
 
 		$this.RegisterEvent([AzSKRootEvent]::CustomMessage, {
             $currentInstance = [WritePsConsole]::GetInstance();
-            try 
+            try
             {
 				if($Event.SourceArgs -and $Event.SourceArgs.Messages)
 				{
@@ -84,19 +84,19 @@ class WritePsConsole: FileOutputBase
 					}
 				}
             }
-            catch 
+            catch
             {
                 $currentInstance.PublishException($_);
             }
         });
-		
+
 		$this.RegisterEvent([AzSKRootEvent]::CommandStarted, {
             $currentInstance = [WritePsConsole]::GetInstance();
-            try 
+            try
             {
 				$currentInstance.CommandStartedAction($Event);
             }
-            catch 
+            catch
             {
                 $currentInstance.PublishException($_);
             }
@@ -104,19 +104,19 @@ class WritePsConsole: FileOutputBase
 
 		$this.RegisterEvent([AzSKRootEvent]::CommandError, {
             $currentInstance = [WritePsConsole]::GetInstance();
-            try 
+            try
             {
-				$currentInstance.WriteMessage($Event.SourceArgs.ExceptionMessage, [MessageType]::Error);  
+				$currentInstance.WriteMessage($Event.SourceArgs.ExceptionMessage, [MessageType]::Error);
             }
-            catch 
+            catch
             {
                 $currentInstance.PublishException($_);
             }
         });
-		        
+
         $this.RegisterEvent([AzSKRootEvent]::CommandCompleted, {
             $currentInstance = [WritePsConsole]::GetInstance();
-            try 
+            try
             {
 				$messages = $Event.SourceArgs.Messages;
 				if(($messages | Measure-Object).Count -gt 0 -and $Event.SourceArgs.Messages[0].Message -eq "RecommendationData")
@@ -127,7 +127,7 @@ class WritePsConsole: FileOutputBase
 					$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)
 					if([string]::IsNullOrWhiteSpace($reportObject.ResourceGroupName))
 					{
-						$currentInstance.WriteMessage("ResourceGroup Name: Not Specified", [MessageType]::Default);	
+						$currentInstance.WriteMessage("ResourceGroup Name: Not Specified", [MessageType]::Default);
 					}
 					else {
 						$currentInstance.WriteMessage("ResourceGroup Name: [$($reportObject.ResourceGroupName)]", [MessageType]::Default);
@@ -150,7 +150,7 @@ class WritePsConsole: FileOutputBase
 						$categoriesString = [String]::Join(",", $reportObject.Input.Categories);
 						$currentInstance.WriteMessage("Categories: [$categoriesString]", [MessageType]::Default);
 					}
-					$currentInstance.WriteMessage([Constants]::UnderScoreLineLine, [MessageType]::Info)					
+					$currentInstance.WriteMessage([Constants]::UnderScoreLineLine, [MessageType]::Info)
 					$currentInstance.WriteMessage("Analysis & Recommendations:", [MessageType]::Info);
 					$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info);
 					$currentInstance.WriteMessage("Analysis of current feature group:", [MessageType]::Info);
@@ -162,7 +162,7 @@ class WritePsConsole: FileOutputBase
 						$currentInstance.WriteMessage("Current Combination Features: $featuresString", [MessageType]::Default);
 						$categoriesString = [String]::Join(",", $reportObject.Recommendations.CurrentFeatureGroup.Categories);
 						$currentInstance.WriteMessage("Current Combination Categories: $categoriesString", [MessageType]::Default);
-						$currentInstance.WriteMessage("Measures: [Total Pass#: $($reportObject.Recommendations.CurrentFeatureGroup.TotalSuccessCount)] [Total Fail#: $($reportObject.Recommendations.CurrentFeatureGroup.TotalFailCount)] ", [MessageType]::Default);																		
+						$currentInstance.WriteMessage("Measures: [Total Pass#: $($reportObject.Recommendations.CurrentFeatureGroup.TotalSuccessCount)] [Total Fail#: $($reportObject.Recommendations.CurrentFeatureGroup.TotalFailCount)] ", [MessageType]::Default);
 					}
 					else {
 						$currentInstance.WriteMessage("Cannot find exact matching combination for the current user input.", [MessageType]::Default);
@@ -180,7 +180,7 @@ class WritePsConsole: FileOutputBase
 							$currentInstance.WriteMessage("Feature 	combination: $featuresString", [MessageType]::Default);
 							$categoriesString = [String]::Join(",", $recommendation.Categories);
 							$currentInstance.WriteMessage("Category Combination: $categoriesString", [MessageType]::Default);
-							$currentInstance.WriteMessage("Measures: [Total Pass#: $($recommendation.TotalSuccessCount)] [Total Fail#: $($recommendation.TotalFailCount)] ", [MessageType]::Default);																		
+							$currentInstance.WriteMessage("Measures: [Total Pass#: $($recommendation.TotalSuccessCount)] [Total Fail#: $($recommendation.TotalFailCount)] ", [MessageType]::Default);
 							$currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Info);
 						}
 					}
@@ -190,12 +190,12 @@ class WritePsConsole: FileOutputBase
 				else {
 					$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)
 					$currentInstance.WriteMessage("Logs have been exported to: '$([WriteFolderPath]::GetInstance().FolderPath)'", [MessageType]::Info)
-					$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)	
-				}								
+					$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)
+				}
 				$currentInstance.FilePath = "";
 				##Print Error##
 			}
-            catch 
+            catch
             {
                 $currentInstance.PublishException($_);
             }
@@ -204,23 +204,23 @@ class WritePsConsole: FileOutputBase
 		# SVT events
 		$this.RegisterEvent([SVTEvent]::CommandStarted, {
             $currentInstance = [WritePsConsole]::GetInstance();
-            try 
+            try
             {
 				$currentInstance.CommandStartedAction($Event);
             }
-            catch 
+            catch
             {
                 $currentInstance.PublishException($_);
             }
         });
-		
+
 		$this.RegisterEvent([SVTEvent]::CommandError, {
             $currentInstance = [WritePsConsole]::GetInstance();
-            try 
+            try
             {
-				$currentInstance.WriteMessage($Event.SourceArgs.ExceptionMessage, [MessageType]::Error);  
+				$currentInstance.WriteMessage($Event.SourceArgs.ExceptionMessage, [MessageType]::Error);
             }
-            catch 
+            catch
             {
                 $currentInstance.PublishException($_);
             }
@@ -228,21 +228,21 @@ class WritePsConsole: FileOutputBase
 
         $this.RegisterEvent([SVTEvent]::CommandCompleted, {
 			$currentInstance = [WritePsConsole]::GetInstance();
-			$currentInstance.PushAIEventsfromHandler("WritePsConsole CommandCompleted"); 
-            try 
+			$currentInstance.PushAIEventsfromHandler("WritePsConsole CommandCompleted");
+            try
             {
                 if(($Event.SourceArgs | Measure-Object).Count -gt 0 -or $null -ne [PartialScanManager]::CollatedSummaryCount)
                 {
                     # Print summary
                     $currentInstance.PrintSummaryData($Event);
-					
+
                     $AttestControlParamFound = $currentInstance.InvocationContext.BoundParameters["AttestControls"];
                     if($null -eq $AttestControlParamFound)
                     {
                         $currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)
                         $currentInstance.WriteMessage([Constants]::RemediationMsg, [MessageType]::Info)
                         #$currentInstance.WriteMessage([Constants]::AttestationReadMsg + [ConfigurationManager]::GetAzSKConfigData().AzSKRGName, [MessageType]::Info)
-						
+
                     }
 
                     #if bug logging is enabled and the path is valid, print a summary all all bugs encountered
@@ -255,10 +255,10 @@ class WritePsConsole: FileOutputBase
 
                 $currentInstance.WriteMessage("Status and detailed logs have been exported to path - $([WriteFolderPath]::GetInstance().FolderPath)", [MessageType]::Info)
                 $currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)
-				
+
                 $currentInstance.FilePath = "";
             }
-            catch 
+            catch
             {
                 $currentInstance.PublishException($_);
             }
@@ -266,7 +266,7 @@ class WritePsConsole: FileOutputBase
 
 		$this.RegisterEvent([SVTEvent]::EvaluationStarted, {
             $currentInstance = [WritePsConsole]::GetInstance();
-            try 
+            try
             {
                 if($Event.SourceArgs.IsResource())
 				{
@@ -274,11 +274,11 @@ class WritePsConsole: FileOutputBase
 				}
 				else
 				{
-					$startHeading = ([Constants]::ModuleStartHeadingSub -f $Event.SourceArgs.FeatureName, $Event.SourceArgs.OrganizationContext.OrganizationName, $Event.SourceArgs.OrganizationContext.OrganizationId);					
+					$startHeading = ([Constants]::ModuleStartHeadingSub -f $Event.SourceArgs.FeatureName, $Event.SourceArgs.OrganizationContext.OrganizationName, $Event.SourceArgs.OrganizationContext.OrganizationId);
 				}
                 $currentInstance.WriteMessage($startHeading, [MessageType]::Info);
             }
-            catch 
+            catch
             {
                 $currentInstance.PublishException($_);
             }
@@ -286,7 +286,7 @@ class WritePsConsole: FileOutputBase
 
         $this.RegisterEvent([SVTEvent]::EvaluationCompleted, {
             $currentInstance = [WritePsConsole]::GetInstance();
-            try 
+            try
             {
 				if($Event.SourceArgs -and $Event.SourceArgs.Count -ne 0)
 				{
@@ -301,7 +301,7 @@ class WritePsConsole: FileOutputBase
 					}
 				}
             }
-            catch 
+            catch
             {
                 $currentInstance.PublishException($_);
             }
@@ -309,11 +309,11 @@ class WritePsConsole: FileOutputBase
 
 		$this.RegisterEvent([SVTEvent]::EvaluationError, {
             $currentInstance = [WritePsConsole]::GetInstance();
-            try 
+            try
             {
-				$currentInstance.WriteMessage($Event.SourceArgs.ExceptionMessage, [MessageType]::Error);  
+				$currentInstance.WriteMessage($Event.SourceArgs.ExceptionMessage, [MessageType]::Error);
             }
-            catch 
+            catch
             {
                 $currentInstance.PublishException($_);
             }
@@ -321,7 +321,7 @@ class WritePsConsole: FileOutputBase
 
       	$this.RegisterEvent([SVTEvent]::ControlStarted, {
             $currentInstance = [WritePsConsole]::GetInstance();
-            try 
+            try
             {
 				if($Event.SourceArgs.IsResource())
 				{
@@ -331,23 +331,23 @@ class WritePsConsole: FileOutputBase
 				{
 					$AnalysingControlHeadingMsg =([Constants]::AnalysingControlHeadingSub  -f $Event.SourceArgs.FeatureName, $Event.SourceArgs.ControlItem.Description,$Event.SourceArgs.OrganizationContext.OrganizationName)
 				}
-				$currentInstance.WriteMessage($AnalysingControlHeadingMsg, [MessageType]::Info)                             
+				$currentInstance.WriteMessage($AnalysingControlHeadingMsg, [MessageType]::Info)
             }
-            catch 
+            catch
             {
                 $currentInstance.PublishException($_);
             }
         });
-		
+
 		$this.RegisterEvent([SVTEvent]::ControlDisabled, {
             $currentInstance = [WritePsConsole]::GetInstance();
-            try 
+            try
             {
-                $currentInstance.WriteMessage(("**Disabled**: [{0}]-[{1}]" -f 
-                        $Event.SourceArgs.FeatureName, 
-                        $Event.SourceArgs.ControlItem.Description), [MessageType]::Warning);    
+                $currentInstance.WriteMessage(("**Disabled**: [{0}]-[{1}]" -f
+                        $Event.SourceArgs.FeatureName,
+                        $Event.SourceArgs.ControlItem.Description), [MessageType]::Warning);
             }
-            catch 
+            catch
             {
                 $currentInstance.PublishException($_);
             }
@@ -361,23 +361,23 @@ class WritePsConsole: FileOutputBase
         {
             return;
         }
-        
+
         $colorCode = [System.ConsoleColor]::White
 
         switch($messageType)
         {
-            ([MessageType]::Critical) {  
-                $colorCode = [System.ConsoleColor]::Red              
+            ([MessageType]::Critical) {
+                $colorCode = [System.ConsoleColor]::Red
             }
             ([MessageType]::Error) {
-                $colorCode = [System.ConsoleColor]::Red             
+                $colorCode = [System.ConsoleColor]::Red
             }
             ([MessageType]::Warning) {
-                $colorCode = [System.ConsoleColor]::Yellow              
+                $colorCode = [System.ConsoleColor]::Yellow
             }
             ([MessageType]::Info) {
                 $colorCode = [System.ConsoleColor]::Cyan
-            }  
+            }
             ([MessageType]::Update) {
                 $colorCode = [System.ConsoleColor]::Green
             }
@@ -386,11 +386,11 @@ class WritePsConsole: FileOutputBase
             }
 			([MessageType]::Default) {
                 $colorCode = [System.ConsoleColor]::White
-            }           
-        }   
+            }
+        }
 
 		# FilePath check ensures to print detailed error objects on PS host
-		$formattedMessage = [Helpers]::ConvertObjectToString($message, (-not [string]::IsNullOrEmpty($this.FilePath)));		
+		$formattedMessage = [Helpers]::ConvertObjectToString($message, (-not [string]::IsNullOrEmpty($this.FilePath)));
         Write-Host $formattedMessage -ForegroundColor $colorCode
 		#if($message.GetType().FullName -eq "System.Management.Automation.ErrorRecord")
 		#{
@@ -401,7 +401,7 @@ class WritePsConsole: FileOutputBase
 		#	$this.AddOutputLog($message);
 		#}
     }
-	
+
 	hidden [void] WriteMessage([PSObject] $message)
     {
 		$this.WriteMessage($message, [MessageType]::Info);
@@ -411,38 +411,38 @@ class WritePsConsole: FileOutputBase
 	{
 		if($messageData)
 		{
-			$this.WriteMessage(("`r`n" + $messageData.Message), $messageData.MessageType);       
+			$this.WriteMessage(("`r`n" + $messageData.Message), $messageData.MessageType);
 			if($messageData.DataObject)
 			{
-				#if (-not [string]::IsNullOrEmpty($messageData.Message)) 
+				#if (-not [string]::IsNullOrEmpty($messageData.Message))
 				#{
 				#	$this.WriteMessage("`r`n");
 				#}
 
-				$this.WriteMessage($messageData.DataObject, $messageData.MessageType);       
+				$this.WriteMessage($messageData.DataObject, $messageData.MessageType);
 			}
 		}
 	}
 
-	hidden [void] AddOutputLog([string] $message, [bool] $includeTimeStamp)   
+	hidden [void] AddOutputLog([string] $message, [bool] $includeTimeStamp)
     {
         if([string]::IsNullOrEmpty($message) -or [string]::IsNullOrEmpty($this.FilePath))
         {
             return;
         }
-             
+
         if($includeTimeStamp)
         {
             $message = (Get-Date -format "MM\/dd\/yyyy HH:mm:ss") + "-" + $message
         }
 
-        Add-Content -Value $message -Path $this.FilePath        
-    } 
-	    
-	hidden [void] AddOutputLog([string] $message)   
+        Add-Content -Value $message -Path $this.FilePath
+    }
+
+	hidden [void] AddOutputLog([string] $message)
     {
-       $this.AddOutputLog($message, $false);  
-    } 
+       $this.AddOutputLog($message, $false);
+    }
 
 	hidden [void] PrintSummaryData($event)
 	{
@@ -504,16 +504,16 @@ class WritePsConsole: FileOutputBase
 							};
 						}
 					};
-					$markerRows = $summaryResult | Where-Object { $_.Summary -eq $MarkerText } 
-					$markerRows | ForEach-Object { 
+					$markerRows = $summaryResult | Where-Object { $_.Summary -eq $MarkerText }
+					$markerRows | ForEach-Object {
 						$markerRow = $_
 						Get-Member -InputObject $markerRow -MemberType NoteProperty | ForEach-Object {
 								$propName = $_.Name;
-								$markerRow.$propName = $this.SummaryMarkerText;				
+								$markerRow.$propName = $this.SummaryMarkerText;
 							}
 						};
 					if($summaryResult.Count -ne 0)
-					{		
+					{
 						$this.WriteMessage(($summaryResult | Format-Table | Out-String), [MessageType]::Info)
 					}
 				}
@@ -522,13 +522,13 @@ class WritePsConsole: FileOutputBase
 		else
 		{
 			if([PartialScanManager]::CollatedSummaryCount.Count -ne 0)
-			{	
+			{
 				$nonNullProps = @();
 
 				#get all verificationResults that are not 0 so that summary does not include null values
 				[PartialScanManager]::CollatedSummaryCount | foreach-object {
 					$nonNullProps += $_.PSObject.Properties | Where-Object {$_.Value -ne 0 -and $_.Value -ne $this.SummaryMarkerText} | Select-Object -ExpandProperty Name
-				} 	
+				}
 				$nonNullProps = $nonNullProps | Select -Unique
 				$this.WriteMessage(([PartialScanManager]::CollatedSummaryCount | Format-Table -Property $nonNullProps | Out-String), [MessageType]::Info)
 				[PartialScanManager]::CollatedSummaryCount = @()
@@ -555,7 +555,7 @@ class WritePsConsole: FileOutputBase
 						$summary += [PSCustomObject]@{
 							BugStatus=$_.Message
 							ControlSeverity = $item.ControlItem.ControlSeverity;
-							
+
 						};
 					}
 					};
@@ -588,7 +588,7 @@ class WritePsConsole: FileOutputBase
 				$result = [PSObject]::new();
 				Add-Member -InputObject $result -Name "Summary" -MemberType NoteProperty -Value $_.ToString()
 				Add-Member -InputObject $result -Name $totalText -MemberType NoteProperty -Value 0
-				
+
 				$bugStatusResult |
 				ForEach-Object {
 					Add-Member -InputObject $result -Name $_.ToString() -MemberType NoteProperty -Value 0
@@ -617,16 +617,16 @@ class WritePsConsole: FileOutputBase
 					};
 				}
 			};
-			$markerRows = $summaryResult | Where-Object { $_.Summary -eq $MarkerText } 
-				$markerRows | ForEach-Object { 
+			$markerRows = $summaryResult | Where-Object { $_.Summary -eq $MarkerText }
+				$markerRows | ForEach-Object {
 					$markerRow = $_
 					Get-Member -InputObject $markerRow -MemberType NoteProperty | ForEach-Object {
 							$propName = $_.Name;
-							$markerRow.$propName = $this.SummaryMarkerText;				
+							$markerRow.$propName = $this.SummaryMarkerText;
 						}
 					};
 				if($summaryResult.Count -ne 0)
-				{		
+				{
 					$this.WriteMessage(($summaryResult | Format-Table | Out-String), [MessageType]::Info)
 				}
 				$currentInstance = [WritePsConsole]::GetInstance();
@@ -634,13 +634,11 @@ class WritePsConsole: FileOutputBase
 				$currentInstance.WriteMessage([Constants]::BugLogMsg, [MessageType]::Info)
 				$currentInstance.WriteMessage("A summary of the bugs logged has been written to the following file: $([WriteFolderPath]::GetInstance().FolderPath)\BugSummary.Json", [MessageType]::Info)
 
-			
+
 		}
 		#Clearing the static variables
 		[PartialScanManager]::ControlResultsWithBugSummary = @();
         [PartialScanManager]::CollatedBugSummaryCount = @();
-        [ControlHelper]::groupMembersResolutionObj = @{}
-        [ControlHelper]::PresentMembersResolutionObj = @()
 
 	}
 
@@ -649,16 +647,16 @@ class WritePsConsole: FileOutputBase
 	hidden [void] CommandStartedAction($event)
 	{
 		$arg = $event.SourceArgs | Select-Object -First 1;
-	
-		$this.SetFilePath($arg.OrganizationContext, [FileOutputBase]::ETCFolderPath, "PowerShellOutput.LOG");  	
-		
+
+		$this.SetFilePath($arg.OrganizationContext, [FileOutputBase]::ETCFolderPath, "PowerShellOutput.LOG");
+
 		$currentVersion = $this.GetCurrentModuleVersion();
 		$moduleName = $this.GetModuleName();
 		$methodName = $this.InvocationContext.InvocationName;
         $verbndnoun = $methodName.Split('-')
 	    $aliasName = [CommandHelper]::Mapping | Where {$_.Verb -eq $verbndnoun[0] -and $_.Noun -eq $verbndnoun[1] }
 
-		$this.WriteMessage([Constants]::DoubleDashLine + "`r`n$moduleName Version: $currentVersion `r`n" + [Constants]::DoubleDashLine , [MessageType]::Info);      
+		$this.WriteMessage([Constants]::DoubleDashLine + "`r`n$moduleName Version: $currentVersion `r`n" + [Constants]::DoubleDashLine , [MessageType]::Info);
 		# Version check message
 		if($arg.Messages)
 		{
@@ -666,15 +664,15 @@ class WritePsConsole: FileOutputBase
 				$this.WriteMessageData($_);
 			}
 		}
-        
+
         if($aliasName)
         {
-            $aliasName = $aliasName.ShortName 
-            
+            $aliasName = $aliasName.ShortName
+
             #Get List of parameters used with short alias
 			$paramlist = @()
 			$paramlist = $this.GetParamList()
-            
+
             #Get command with short alias
             $cmID = $this.GetShortCommand($aliasName,$paramlist);
 
@@ -682,12 +680,12 @@ class WritePsConsole: FileOutputBase
         }
         else
         {
-            $this.WriteMessage("Method Name: $methodName `r`nInput Parameters: $(($this.InvocationContext.BoundParameters | Out-String).TrimEnd()) `r`n" + [Constants]::DoubleDashLine , [MessageType]::Info);                           
+            $this.WriteMessage("Method Name: $methodName `r`nInput Parameters: $(($this.InvocationContext.BoundParameters | Out-String).TrimEnd()) `r`n" + [Constants]::DoubleDashLine , [MessageType]::Info);
         }
-		
+
 		$user = [ContextHelper]::GetCurrentSessionUser();
 		$this.WriteMessage([ConfigurationManager]::GetAzSKConfigData().PolicyMessage + "`r`nUsing identity: " + $user,[MessageType]::Warning)
-		
+
 	}
 
 	hidden [string] GetShortCommand($aliasName,$paramlist)
