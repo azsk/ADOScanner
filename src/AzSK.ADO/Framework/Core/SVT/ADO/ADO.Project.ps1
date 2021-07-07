@@ -528,7 +528,7 @@ class Project: ADOSVTBase
                                 else
                                 {
                                     [ControlHelper]::FindGroupMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
-                                    $groupMembers += [ControlHelper]::PresentMembersResolutionObj
+                                    $groupMembers += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
                                 }
 
                                 # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
@@ -1657,7 +1657,7 @@ class Project: ADOSVTBase
             {
                 $controlResult.VerificationResult = [VerificationResult]::Failed
                 $AdminGroupsToCheckForInactiveUser = @($this.ControlSettings.Project.AdminGroupsToCheckForInactiveUser)
-       
+
                 $inactiveUsersWithAdminAccess = @()
                 $inactivityPeriodInDays = 90
                 if([Helpers]::CheckMember($this.ControlSettings,"Project.AdminInactivityThresholdInDays"))
@@ -1670,14 +1670,14 @@ class Project: ADOSVTBase
                 $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
                 $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
                 $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
-    
+
                 $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
 
                 if([Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider")
                 {
                     $ReqdAdminGroups = @();
                     $ReqdAdminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $AdminGroupsToCheckForInactiveUser }
-                    
+
                     $allAdminMembers =@();
 
                     $ReqdAdminGroups | ForEach-Object{
@@ -1690,23 +1690,23 @@ class Project: ADOSVTBase
                         else
                         {
                             [ControlHelper]::FindGroupMembers($currentGroup.descriptor, $this.OrganizationContext.OrganizationName,"")
-                            $groupMembers += [ControlHelper]::PresentMembersResolutionObj
+                            $groupMembers += [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
                         }
 
                         # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
                         if($groupMembers.count -gt 0)
                         {
-                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor } )} 
+                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor } )}
                         }
                     }
-                
+
                     $AdminUsersMasterList = @()
                     $AdminUsersFailureCases = @()
 
                     if($allAdminMembers.count -gt 0)
                     {
                         $groups = $allAdminMembers | Group-Object "mailAddress"
-                        $AdminUsersMasterList += foreach( $grpobj in $groups ){                                      
+                        $AdminUsersMasterList += foreach( $grpobj in $groups ){
                                                   $PrincipalName = $grpobj.name
                                                   $OrgGroup = ($grpobj.group.groupName  | select -Unique)-join ','
                                                   $DisplayName = $grpobj.group.name | select -Unique
@@ -1714,8 +1714,8 @@ class Project: ADOSVTBase
                                                   $descriptor = $grpobj.group.descriptor | select -Unique
                                                   [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date ; Descriptor = $descriptor}
                                                 }
-                                            
-                        $inactiveUsersWithAdminAccess =@()                        
+
+                        $inactiveUsersWithAdminAccess =@()
 
                         if($AdminUsersMasterList.count -gt 0)
                         {
@@ -1723,7 +1723,7 @@ class Project: ADOSVTBase
                             $controlResult.AddMessage("`nLooking for admin users who have not been active for $($inactivityPeriodInDays) days.")
                             $currentObj = $null
                             $AdminUsersMasterList | ForEach-Object{
-                                try 
+                                try
                                 {
                                     if([Helpers]::CheckMember($_,"PrincipalName"))
                                     {
@@ -1749,26 +1749,26 @@ class Project: ADOSVTBase
                                                     $_.LastAccessedDate = $dateobj.ToString("MM-dd-yyyy")
                                                 }
                                                 $inactiveUsersWithAdminAccess += $_
-                                            }                        
+                                            }
                                         }
                                     }
                                 }
-                                catch 
+                                catch
                                 {
                                     $controlResult.LogException($_)
                                     $AdminUsersFailureCases += $currentObj
                                 }
                             }
-                        }                        
+                        }
                     }
                     else {
                        $controlResult.AddMessage([VerificationResult]::Passed, "No user found with admin roles in the project.")
-                    }                       
-                    
+                    }
+
                     if($null -eq (Compare-Object -ReferenceObject $AdminUsersMasterList -DifferenceObject $AdminUsersFailureCases))
                     {
                         $controlResult.AddMessage([VerificationResult]::Error, "Unable to fetch details of inactive users in admin role. Please run the scan with admin priveleges.")
-                    }                    
+                    }
                     elseif($inactiveUsersWithAdminAccess.count -gt 0)
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive users in admin roles: $($inactiveUsersWithAdminAccess.count) ");
@@ -1784,17 +1784,17 @@ class Project: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of groups in the project.")
                 }
-                $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForInactiveUser|FT|Out-String)");        
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForInactiveUser|FT|Out-String)");
             }
             catch
             {
                 $controlResult.AddMessage([VerificationResult]::Error, "Not able to fetch project level groups")
                 $controlResult.LogException($_)
-            }         
+            }
         }
         else{
             $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting inactive accounts is not defined in control setting of your organization.");
-        }        
+        }
         return $controlResult;
     }
 

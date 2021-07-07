@@ -121,15 +121,14 @@ class Organization: ADOSVTBase
                 else
                 {
                     [ControlHelper]::FindGroupMembers($prcollobj.descriptor, $this.OrganizationContext.OrganizationName,"")
-                    $groupMembers += [ControlHelper]::PresentMembersResolutionObj
+                    $groupMembers += [ControlHelper]::groupMembersResolutionObj[$prcollobj.descriptor]
                 }
 
-                $memberCount = $groupMembers.Count
-
-                if($memberCount -gt 0){
+                if($groupMembers.Count -gt 0){
                     $responsePrCollData = $groupMembers | Select-Object DisplayName,MailAddress,SubjectKind
                     $stateData = @();
                     $stateData += $responsePrCollData | Sort-Object -Property MailAddress -Unique
+                    $memberCount = $stateData.Count
                     $controlResult.AddMessage("Count of Project Collection Service Accounts: $($memberCount)");
                     $controlResult.AdditionalInfo += "Count of Project Collection Service Accounts: " + $memberCount;
                     $controlResult.SetStateData("Members of the Project Collection Service Accounts group: ", $stateData);
@@ -194,7 +193,7 @@ class Organization: ADOSVTBase
                             else
                             {
                                 [ControlHelper]::FindGroupMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName,"")
-                                $groupMembers += [ControlHelper]::PresentMembersResolutionObj
+                                $groupMembers += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
                             }
                             # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
                             $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )}
@@ -209,7 +208,7 @@ class Organization: ADOSVTBase
                             else
                             {
                                 [ControlHelper]::FindGroupMembers($PCSAGroup.descriptor, $this.OrganizationContext.OrganizationName,"")
-                                $groupMembers += [ControlHelper]::PresentMembersResolutionObj
+                                $groupMembers += [ControlHelper]::groupMembersResolutionObj[$PCSAGroup.descriptor]
                             }
 
                             # Preparing the list of members of PCSA which needs to be subtracted from $allAdminMembers

@@ -113,7 +113,7 @@ class ControlHelper: EventBase{
                         }
                         else
                         {
-                            return [ControlHelper]::FindGroupMembers($_.descriptor,$orgName,$projName)
+                            return [ControlHelper]::ResolveNestedGroupMembers($_.descriptor,$orgName,$projName)
                         }
                     }
                     else
