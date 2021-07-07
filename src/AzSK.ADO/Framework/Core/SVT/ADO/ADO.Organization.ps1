@@ -1220,6 +1220,9 @@ class Organization: ADOSVTBase
                     if ($neverActiveUsersCount -gt 0) {
                         $controlResult.AddMessage("`nTotal number of users who were never active: $($neverActiveUsersCount)");
                         $controlResult.AddMessage("Review users present in the organization who were never active: ",$neverActiveUsers);
+                        $ftWidth = 512 #To avoid "..." truncation
+                        $display = ($neverActiveUsers |  FT mailAddress, Name, InactiveFromDays -AutoSize | Out-String -Width $ftWidth)
+                        $controlResult.AddMessage("Review users present in the organization who were never active: ",$display);
                         $controlResult.AdditionalInfo += "Total number of users who were never active: " + $neverActiveUsersCount;
                         $controlResult.AdditionalInfo += "List of users who were never active: " + [JsonHelper]::ConvertToJsonCustomCompressed($neverActiveUsers);
                     }
@@ -1228,6 +1231,9 @@ class Organization: ADOSVTBase
                     if($inactiveUsersWithDaysCount -gt 0) {
                         $controlResult.AddMessage("`nTotal number of users who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: $($inactiveUsersWithDaysCount)");
                         $controlResult.AddMessage("Review users present in the organization who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: ",$inactiveUsersWithDays);
+                        $ftWidth = 512 #To avoid "..." truncation
+                        $display = ($inactiveUsersWithDays |  FT mailAddress, Name, InactiveFromDays -AutoSize | Out-String -Width $ftWidth)
+                        $controlResult.AddMessage("Review users present in the organization who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: ",$display);
                         $controlResult.AdditionalInfo += "Total number of users who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: " + $inactiveUsersWithDaysCount;
                     }
                 }
@@ -1502,6 +1508,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckJobAuthZScope([ControlResult] $controlResult)
     {
+       $controlResult.VerificationResult = [VerificationResult]::Failed
        if($this.PipelineSettingsObj)
        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceJobAuthScope
@@ -1522,6 +1529,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckJobAuthZReleaseScope([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
        if($this.PipelineSettingsObj)
        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceJobAuthScopeForReleases
