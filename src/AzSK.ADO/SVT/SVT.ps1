@@ -123,6 +123,13 @@ function Get-AzSKADOSecurityStatus
 		[Alias("xt")]
 		$ExcludeTags,
 
+
+		[string]
+		[Parameter(Mandatory = $false)]
+		[Alias("xcids")]
+		[AllowEmptyString()]
+		$ExcludeControlIds,
+
 		[switch]
 		[Parameter(Mandatory = $false)]
 		[Alias("ubc")]
@@ -383,7 +390,7 @@ function Get-AzSKADOSecurityStatus
 
 					$secStatus.FilterTags = $FilterTags;
 					$secStatus.ExcludeTags = $ExcludeTags;
-
+					$secStatus.ExcludeControlIdString = $ExcludeControlIds
 					#build the attestation options object
 					[AttestationOptions] $attestationOptions = [AttestationOptions]::new();
 					$attestationOptions.AttestControls = $ControlsToAttest
