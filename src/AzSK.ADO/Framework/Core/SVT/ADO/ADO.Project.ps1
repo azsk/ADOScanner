@@ -449,8 +449,10 @@ class Project: ADOSVTBase
         if ($this.PAMembers.Count -eq 0) {
             $this.PAMembers += @([AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName))
         }
-        
-        $TotalPAMembers = $this.PAMembers.Count
+        if([Helpers]::CheckMember($this.PAMembers[0],"mailAddress"))
+        {
+            $TotalPAMembers = $this.PAMembers.Count
+        }        
     
         $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
         if ($TotalPAMembers -gt 0)
@@ -492,7 +494,7 @@ class Project: ADOSVTBase
             {
                 ## TODO: Add warning that control was evaluated without graph access (Once Sourabh is done with its Graph access task)
 
-                $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
+                $this.PAMembers = @($this.PAMembers | Select-Object displayName,mailAddress)
                 if($TotalPAMembers -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
                 }
