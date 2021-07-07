@@ -537,20 +537,19 @@ class Project: ADOSVTBase
 
                             for ($i = 0; $i -lt $adminGroups.Count; $i++)
                             {
-                                # [AdministratorHelper]::AllPAMembers is a static variable. Always needs ro be initialized. At the end of each iteration, it will be populated with members of that particular admin group.
-                                [AdministratorHelper]::AllPAMembers = @();
-                                # Helper function to fetch flattened out list of group members.
-                                [AdministratorHelper]::FindPAMembers($adminGroups[$i].descriptor,  $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceName)
-
                                 $groupMembers = @();
-                                # Add the members of current group to this temp variable.
-                                $groupMembers += [AdministratorHelper]::AllPAMembers
+                                if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($adminGroups[$i].descriptor) -and [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor].count -gt 0) {
+                                    $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
+                                }
+                                else
+                                {
+                                    [ControlHelper]::FindGroupMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
+                                    $groupMembers += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
+                                }
                                 # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
                                 $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )}
                             }
 
-                            # clearing cached value in [AdministratorHelper]::AllPAMembers as it can be used in attestation later and might have incorrect group loaded.
-                            [AdministratorHelper]::AllPAMembers = @();
                             # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
                             $allAdminMembers = @($allAdminMembers| Sort-Object -Property id -Unique)
 
@@ -1705,11 +1704,12 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckInactiveUsersInAdminRoles([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+
         if($this.ControlSettings -and  [Helpers]::CheckMember($this.ControlSettings,"Project.AdminGroupsToCheckForInactiveUser"))
         {
             try
             {
-                $controlResult.VerificationResult = [VerificationResult]::Failed
                 $AdminGroupsToCheckForInactiveUser = @($this.ControlSettings.Project.AdminGroupsToCheckForInactiveUser)
        
                 $inactiveUsersWithAdminAccess = @()
@@ -1737,16 +1737,17 @@ class Project: ADOSVTBase
                     $ReqdAdminGroups | ForEach-Object{
                         $currentGroup = $_
 
-                        # [AdministratorHelper]::AllPCAMembers is a static variable. Always needs to be initialized. At the end of each iteration, it will be populated with members of that particular admin group.
-                        [AdministratorHelper]::AllPCAMembers = @();
-                        # Helper function to fetch flattened out list of group members.
-                        [AdministratorHelper]::FindPCAMembers($currentGroup.descriptor, $this.OrganizationContext.OrganizationName)
-
                         $groupMembers = @();
 
-                        # Add the members of current group to this temp variable.
-                        $groupMembers += [AdministratorHelper]::AllPCAMembers
-                        # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
+                        if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($currentGroup.descriptor) -and [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor].count -gt 0) {
+                            $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                        }
+                        else
+                        {
+                            [ControlHelper]::FindGroupMembers($currentGroup.descriptor, $this.OrganizationContext.OrganizationName,"")
+                            $groupMembers += [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                        }
+
                         if($groupMembers.count -gt 0)
                         {
                             $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor } )} 

@@ -12,8 +12,8 @@ class Organization: ADOSVTBase
     hidden $PCAMembersList = @()
     hidden $svcAccountsList = @()
     hidden $humanAccountsList = @()
-    #TODO: testing below line
-    hidden [string] $SecurityNamespaceId;
+    hidden $ADOGrpDescriptor = @() #cache groups descriptor
+
     Organization([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         $this.GetOrgPolicyObject()
@@ -97,50 +97,52 @@ class Organization: ADOSVTBase
         }
     }
 
-    hidden [ControlResult] CheckProCollSerAcc([ControlResult] $controlResult)
+    hidden [ControlResult] CheckPrjCollSvcAcc([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Verify
+
         try
         {
-            #api call to get PCSA descriptor which used to get PCSA members api call.
-            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-            $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'
-            $body = ($body.Replace("{0}", $this.OrganizationContext.OrganizationName)) | ConvertFrom-Json
-            $response = [WebRequestHelper]::InvokePostWebRequest($url,$body);
+            if($this.ADOGrpDescriptor.Count -eq 0)
+            {
+                $this.FetchOrgLevelADOGroupDescriptor() #todo update in CheckSCALTForAdminMembers method also
+            }
 
             $accname = "Project Collection Service Accounts"; #Enterprise Service Accounts
-            if ($response -and [Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider") {
+            $prcollobj = $this.ADOGrpDescriptor | where {$_.displayName -eq $accname}
 
-                $prcollobj = $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where {$_.displayName -eq $accname}
-                #$prcollobj = $responseObj | where {$_.displayName -eq $accname}
+            if($null -ne $prcollobj )
+            {
+                $groupMembers = @();
 
-                if(($prcollobj | Measure-Object).Count -gt 0)
-                {
-                    #pai call to get PCSA members
-                    $prmemberurl = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-                    $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{1}/_settings/groups?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'
-                    $inputbody = $inputbody.Replace("{0}",$prcollobj.descriptor)
-                    $inputbody = $inputbody.Replace("{1}",$this.OrganizationContext.OrganizationName) | ConvertFrom-Json
-
-                    $responsePrCollObj = [WebRequestHelper]::InvokePostWebRequest($prmemberurl,$inputbody);
-                    $responsePrCollData = $responsePrCollObj.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
-                    $memberCount = ($responsePrCollData | Measure-Object).Count
-                    if($memberCount -gt 0){
-                        $responsePrCollData = $responsePrCollData | Select-Object displayName,mailAddress,subjectKind
-                        $stateData = @();
-                        $stateData += $responsePrCollData
-                        $controlResult.AddMessage("Total number of Project Collection Service Accounts: $($memberCount)");
-                        $controlResult.AdditionalInfo += "Total number of Project Collection Service Accounts: " + $memberCount;
-                        $controlResult.AddMessage([VerificationResult]::Verify, "Review the members of the group Project Collection Service Accounts: ", $stateData);
-                        $controlResult.SetStateData("Members of the Project Collection Service Accounts group: ", $stateData);
-                    }
-                    else
-                    { #count is 0 then there is no member in the prj coll ser acc group
-                        $controlResult.AddMessage([VerificationResult]::Passed, "Project Collection Service Accounts group does not have any member.");
-                    }
+                # Helper function to fetch flattened out list of group members.
+                if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($prcollobj.descriptor) -and [ControlHelper]::groupMembersResolutionObj[$prcollobj.descriptor].count -gt 0) {
+                    $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$prcollobj.descriptor]
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Project Collection Service Accounts group could not be fetched.");
+                    [ControlHelper]::FindGroupMembers($prcollobj.descriptor, $this.OrganizationContext.OrganizationName,"")
+                    $groupMembers += [ControlHelper]::groupMembersResolutionObj[$prcollobj.descriptor]
+                }
+
+                if($groupMembers.Count -gt 0){
+                    $responsePrCollData = $groupMembers | Select-Object DisplayName,MailAddress,SubjectKind
+                    $stateData = @();
+                    $stateData += $responsePrCollData | Sort-Object -Property MailAddress -Unique
+                    $memberCount = $stateData.Count
+                    $controlResult.AddMessage("Count of Project Collection Service Accounts: $($memberCount)");
+                    $controlResult.AdditionalInfo += "Count of Project Collection Service Accounts: " + $memberCount;
+                    $controlResult.SetStateData("Members of the Project Collection Service Accounts group: ", $stateData);
+
+
+                    $display = ($stateData |FT | Out-String -Width 512)
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Review the members of the group Project Collection Service Accounts: ");
+                    $controlResult.AddMessage($display)
+
+                }
+                else
+                { #count is 0 then there is no member in the prj coll ser acc group
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Project Collection Service Accounts group does not have any member.");
                 }
             }
             else
@@ -167,89 +169,135 @@ class Organization: ADOSVTBase
                 $adminGroupNames = @($this.ControlSettings.Organization.GroupsToCheckForSCAltMembers);
                 if ($adminGroupNames.Count -gt 0)
                 {
-                    #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
-                    $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-                    $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'
-                    $body = ($body.Replace("{0}", $this.OrganizationContext.OrganizationName)) | ConvertFrom-Json
-                    $response = [WebRequestHelper]::InvokePostWebRequest($url,$body);
-
-                    if ($response -and [Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider")
+                    if($this.ADOGrpDescriptor.Count -eq 0)
                     {
-                        $adminGroups = @();
-                        $adminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $adminGroupNames }
-                        $PCSAGroup = @($response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -eq "Project Collection Service Accounts"})
-                        if(($adminGroups | Measure-Object).Count -gt 0)
+                        $this.FetchOrgLevelADOGroupDescriptor()
+                    }
+                    $adminGroups = @();
+                    $adminGroups += $this.ADOGrpDescriptor | where { $_.displayName -in $adminGroupNames }
+                    $PCSAGroup = @($this.ADOGrpDescriptor | where { $_.displayName -eq "Project Collection Service Accounts"})
+
+                    if(($adminGroups | Measure-Object).Count -gt 0)
+                    {
+                        #global variable to track admin members across all admin groups
+                        $allAdminMembers = @();
+                        $allPCSAMembers = @();
+
+                        for ($i = 0; $i -lt $adminGroups.Count; $i++)
                         {
-                            #global variable to track admin members across all admin groups
-                            $allAdminMembers = @();
-                            $allPCSAMembers = @();
+                            $groupMembers = @();
 
-                            for ($i = 0; $i -lt $adminGroups.Count; $i++)
-                            {
-                                # [AdministratorHelper]::AllPCAMembers is a static variable. Always needs to be initialized. At the end of each iteration, it will be populated with members of that particular admin group.
-                                [AdministratorHelper]::AllPCAMembers = @();
-                                # Helper function to fetch flattened out list of group members.
-                                [AdministratorHelper]::FindPCAMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName)
-
-                                $groupMembers = @();
-                                # Add the members of current group to this temp variable.
-                                $groupMembers += [AdministratorHelper]::AllPCAMembers
-                                # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
-                                $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )}
+                            # Helper function to fetch flattened out list of group members.
+                            if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($adminGroups[$i].descriptor) -and [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor].count -gt 0) {
+                                $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
                             }
-                            if($PCSAGroup.Count -gt 0)
+                            else
                             {
-
-                                # [AdministratorHelper]::AllPCAMembers is a static variable. Needs to be reinitialized as it might contain group info from the previous for loop.
-                                [AdministratorHelper]::AllPCAMembers = @();
-                                # Helper function to fetch flattened out list of group members.
-                                [AdministratorHelper]::FindPCAMembers($PCSAGroup.descriptor, $this.OrganizationContext.OrganizationName)
-
-                                $groupMembers = @();
-                                # Add the members of current group to this temp variable.
-                                $groupMembers += [AdministratorHelper]::AllPCAMembers
-
-                                # Preparing the list of members of PCSA which needs to be subtracted from $allAdminMembers
-                                #USE IDENTITY ID
-                                $groupMembers | ForEach-Object {$allPCSAMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = "Project Collection Administrators" } )}
-
+                                [ControlHelper]::FindGroupMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName,"")
+                                $groupMembers += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
                             }
 
-                            #Removing PCSA members from PCA members using id.
-                            #TODO: HAVE ANOTHER CONTROL TO CHECK FOR PCA because some service accounts might be added directly as PCA and as well as part of PCSA. This new control will serve as a hygiene control.
-                            if($allPCSAMembers.Count -gt 0)
+                            # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
+                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )}
+                        }
+
+                        if($PCSAGroup.Count -gt 0)
+                        {
+                            $groupMembers = @();
+
+                            if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($PCSAGroup.descriptor) -and [ControlHelper]::groupMembersResolutionObj[$PCSAGroup.descriptor].count -gt 0) {
+                                $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$PCSAGroup.descriptor]
+                            }
+                            else
                             {
-                                $allAdminMembers = $allAdminMembers | ? {$_.id -notin $allPCSAMembers.id}
+                                [ControlHelper]::FindGroupMembers($PCSAGroup.descriptor, $this.OrganizationContext.OrganizationName,"")
+                                $groupMembers += [ControlHelper]::groupMembersResolutionObj[$PCSAGroup.descriptor]
                             }
 
-                            # clearing cached value in [AdministratorHelper]::AllPCAMembers as it can be used in attestation later and might have incorrect group loaded.
-                            [AdministratorHelper]::AllPCAMembers = @();
+                            # Preparing the list of members of PCSA which needs to be subtracted from $allAdminMembers
+                            #USE IDENTITY ID
+                            $groupMembers | ForEach-Object {$allPCSAMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = "Project Collection Administrators" } )}
 
-                            # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
-                            $allAdminMembers = @($allAdminMembers| Sort-Object -Property id -Unique)
+                        }
 
-                            if($allAdminMembers.Count -gt 0)
+                        #Removing PCSA members from PCA members using id.
+                        #TODO: HAVE ANOTHER CONTROL TO CHECK FOR PCA because some service accounts might be added directly as PCA and as well as part of PCSA. This new control will serve as a hygiene control.
+                        if($allPCSAMembers.Count -gt 0)
+                        {
+                            $allAdminMembers = $allAdminMembers | ? {$_.id -notin $allPCSAMembers.id}
+                        }
+
+                        # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
+                        $allAdminMembers = @($allAdminMembers| Sort-Object -Property id -Unique)
+
+                        if($allAdminMembers.Count -gt 0)
+                        {
+                            $useGraphEvaluation = $false
+                            $useRegExEvaluation = $false
+                            if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
+                                if ($this.graphPermissions.hasGraphAccess){
+                                    $useGraphEvaluation = $true
+                                }
+                                else {
+                                    $useRegExEvaluation = $true
+                                }
+                            }
+
+                            if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
                             {
-                                $useGraphEvaluation = $false
-                                $useRegExEvaluation = $false
-                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
-                                    if ($this.graphPermissions.hasGraphAccess){
-                                        $useGraphEvaluation = $true
+                                if ($this.graphPermissions.hasGraphAccess)
+                                {
+                                    $allAdmins = [IdentityHelpers]::DistinguishAltAndNonAltAccount($allAdminMembers)
+                                    $SCMembers = $allAdmins.altAccount
+                                    $nonSCMembers = $allAdmins.nonAltAccount
+
+                                    $nonSCCount = $nonSCMembers.Count
+                                    $SCCount = $SCMembers.Count
+
+                                    if ($nonSCCount -gt 0)
+                                    {
+                                        $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
+                                        $stateData = @();
+                                        $stateData += $nonSCMembers
+                                        $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount");
+                                        $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
+                                        $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
+                                        $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
                                     }
-                                    else {
-                                        $useRegExEvaluation = $true
+                                    else
+                                    {
+                                        $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                    }
+                                    if ($SCCount -gt 0)
+                                    {
+                                        $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
+                                        $SCData = @();
+                                        $SCData += $SCMembers
+                                        $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
+                                        $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
+                                        $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
                                     }
                                 }
-
-                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
+                                else
                                 {
-                                    if ($this.graphPermissions.hasGraphAccess)
-                                    {
-                                        $allAdmins = [IdentityHelpers]::DistinguishAltAndNonAltAccount($allAdminMembers)
-                                        $SCMembers = $allAdmins.altAccount
-                                        $nonSCMembers = $allAdmins.nonAltAccount
+                                    $controlResult.AddMessage([VerificationResult]::Error, "The signed-in user identity does not have graph permission.");
+                                }
+                            }
 
+                            if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
+                            {
+                                if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg"))
+                                {
+                                    $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
+                                    #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
+                                    if (-not [string]::IsNullOrEmpty($matchToSCAlt))
+                                    {
+                                        $nonSCMembers = @();
+                                        $nonSCMembers += $allAdminMembers | Where-Object { $_.mailAddress -notmatch $matchToSCAlt }
                                         $nonSCCount = $nonSCMembers.Count
+
+                                        $SCMembers = @();
+                                        $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }
                                         $SCCount = $SCMembers.Count
 
                                         if ($nonSCCount -gt 0)
@@ -258,9 +306,9 @@ class Organization: ADOSVTBase
                                             $stateData = @();
                                             $stateData += $nonSCMembers
                                             $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount");
-                                            $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
-                                            $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
-                                            $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
+                                            $controlResult.AddMessage("List of non SC-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
+                                            $controlResult.SetStateData("List of non SC-ALT accounts: ", $stateData);
+                                            $controlResult.AdditionalInfo += "Count of non SC-ALT accounts with admin privileges: " + $nonSCCount;
                                         }
                                         else
                                         {
@@ -276,76 +324,26 @@ class Organization: ADOSVTBase
                                             $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
                                         }
                                     }
-                                    else
-                                    {
-                                        $controlResult.AddMessage([VerificationResult]::Error, "The signed-in user identity does not have graph permission.");
+                                    else {
+                                        $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting SC-ALT account is not defined in the organization.");
                                     }
                                 }
-
-                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
+                                else
                                 {
-                                    if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg"))
-                                    {
-                                        $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
-                                        #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
-                                        if (-not [string]::IsNullOrEmpty($matchToSCAlt))
-                                        {
-                                            $nonSCMembers = @();
-                                            $nonSCMembers += $allAdminMembers | Where-Object { $_.mailAddress -notmatch $matchToSCAlt }
-                                            $nonSCCount = $nonSCMembers.Count
-
-                                            $SCMembers = @();
-                                            $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }
-                                            $SCCount = $SCMembers.Count
-
-                                            if ($nonSCCount -gt 0)
-                                            {
-                                                $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
-                                                $stateData = @();
-                                                $stateData += $nonSCMembers
-                                                $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount");
-                                                $controlResult.AddMessage("List of non SC-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
-                                                $controlResult.SetStateData("List of non SC-ALT accounts: ", $stateData);
-                                                $controlResult.AdditionalInfo += "Count of non SC-ALT accounts with admin privileges: " + $nonSCCount;
-                                            }
-                                            else
-                                            {
-                                                $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
-                                            }
-                                            if ($SCCount -gt 0)
-                                            {
-                                                $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
-                                                $SCData = @();
-                                                $SCData += $SCMembers
-                                                $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
-                                                $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
-                                                $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
-                                            }
-                                        }
-                                        else {
-                                            $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting SC-ALT account is not defined in the organization.");
-                                        }
-                                    }
-                                    else
-                                    {
-                                        $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting SC-ALT account is not defined in the organization. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
-                                    }
+                                    $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting SC-ALT account is not defined in the organization. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
                                 }
-                            }
-                            else
-                            { #count is 0 then there is no members added in the admin groups
-                                $controlResult.AddMessage([VerificationResult]::Passed, "Admin groups does not have any members.");
                             }
                         }
                         else
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of administrator groups in the organization.");
+                        { #count is 0 then there is no members added in the admin groups
+                            $controlResult.AddMessage([VerificationResult]::Passed, "Admin groups does not have any members.");
                         }
                     }
                     else
                     {
-                        $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of groups in the organization.");
+                        $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of administrator groups in the organization.");
                     }
+                    
                 }
                 else
                 {
@@ -1067,6 +1065,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckGuestIdentities([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Verify
         try
         {
             if($this.GuestMembers.Count -eq 0)
@@ -1097,28 +1096,48 @@ class Organization: ADOSVTBase
                             $userProjectEntitlements = "Could not fetch project entitlement details of the user."
                             $controlResult.LogException($_)
                         }
-                        return @{Id = $guestUser.Id; IdentityType = $guestUser.IdentityType; DisplayName = $guestUser.IdentityType; MailAddress = $guestUser.MailAddress; AccessLevel = $guestUser.AccessLevel; LastAccessedDate = $guestUser.LastAccessedDate; InactiveFromDays = $guestUser.InactiveFromDays; ProjectEntitlements = $userProjectEntitlements}
+                        return @{Id = $guestUser.Id; IdentityType = $guestUser.IdentityType; DisplayName = $guestUser.DisplayName; MailAddress = $guestUser.MailAddress; AccessLevel = $guestUser.AccessLevel; LastAccessedDate = $guestUser.LastAccessedDate; InactiveFromDays = $guestUser.InactiveFromDays; ProjectEntitlements = $userProjectEntitlements}
                     }
                 }
 
                 $totalGuestCount = ($guestListDetailed | Measure-Object).Count
                 $controlResult.AddMessage("Displaying all guest users in the organization...");
-                $controlResult.AddMessage([VerificationResult]::Verify,"Total number of guest users in the organization: $($totalGuestCount)");
-                $controlResult.AdditionalInfo += "Total number of guest users in the organization: " + $totalGuestCount;
-                $inactiveGuestUsers = $guestListDetailed | Where-Object { $_.InactiveFromDays -eq "User was never active." }
-                $inactiveCount = ($inactiveGuestUsers | Measure-Object).Count
-                if($inactiveCount) {
-                    $controlResult.AddMessage("`nTotal number of guest users who were never active: $($inactiveCount)");
-                    $controlResult.AdditionalInfo += "Total number of inactive guest users in the organization: " + $inactiveCount;
-                    $controlResult.AddMessage("List of guest users who were never active: ",$inactiveGuestUsers);
+                $controlResult.AddMessage([VerificationResult]::Verify,"Count of guest users in the organization: $($totalGuestCount)");
+                $controlResult.AdditionalInfo += "Count of guest users in the organization: " + $totalGuestCount;
+
+                $inactiveGuestUsers = @($guestListDetailed | Where-Object { $_.InactiveFromDays -eq "User was never active." })
+                $inactiveCount = $inactiveGuestUsers.Count
+                if($inactiveCount -gt 0) {
+                    $controlResult.AddMessage("`nCount of guest users who were never active: $($inactiveCount)");
+                    $controlResult.AdditionalInfo += "Count of guest users who were never active: " + $inactiveCount;
+                    $controlResult.AddMessage("List of users: ",$inactiveGuestUsers);
+                    if([AzSKRoot]::IsDetailedScanRequired -eq $true)
+                    {
+                        $inactiveGuestUsers= $inactiveGuestUsers | Select-Object @{Name="DisplayName"; Expression = {$_.DisplayName}},@{Name="MailAddress"; Expression = {$_.MailAddress}}, @{Name="InactiveFromDays"; Expression = {$_.InactiveFromDays}}, @{Name="ProjectReference"; Expression = {$_.ProjectEntitlements.projectref.name}}, @{Name="ProjectPermission"; Expression = {$_.ProjectEntitlements.group.displayName}}, @{Name="AccessLevel"; Expression = {$_.AccessLevel}}
+                        $display = ($inactiveGuestUsers |FT | Out-String -Width 512)
+                    }
+                    else {
+                        $display = ($inactiveGuestUsers |FT DisplayName,MailAddress,InactiveFromDays -AutoSize | Out-String -Width 512)
+                    }
+                    $controlResult.AddMessage($display)
                 }
 
-                $activeGuestUsers = $guestListDetailed | Where-Object { $_.InactiveFromDays -ne "User was never active." }
-                $activeCount = ($activeGuestUsers | Measure-Object).Count
-                if($activeCount) {
-                    $controlResult.AddMessage("`nTotal number of guest users who are active: $($activeCount)");
-                    $controlResult.AdditionalInfo += "Total number of active guest users in the organization: " + $activeCount;
-                    $controlResult.AddMessage("List of guest users who are active: ",$activeGuestUsers);
+                $activeGuestUsers = @($guestListDetailed | Where-Object { $_.InactiveFromDays -ne "User was never active." })
+                $activeCount = $activeGuestUsers.Count
+                if($activeCount -gt 0) {
+                    $controlResult.AddMessage("`nCount of guest users who are active: $($activeCount)");
+                    $controlResult.AdditionalInfo += "Count of active guest users in the organization: " + $activeCount;
+                    $controlResult.AddMessage("List of users: ");
+                    if([AzSKRoot]::IsDetailedScanRequired -eq $true)
+                    {
+                        $activeGuestUsers= $activeGuestUsers | Select-Object @{Name="DisplayName"; Expression = {$_.DisplayName}},@{Name="MailAddress"; Expression = {$_.MailAddress}}, @{Name="InactiveFromDays"; Expression = {$_.InactiveFromDays}}, @{Name="ProjectReference"; Expression = {$_.ProjectEntitlements.projectref.name}}, @{Name="ProjectPermission"; Expression = {$_.ProjectEntitlements.group.displayName}}, @{Name="AccessLevel"; Expression = {$_.AccessLevel}}
+                        $display = ($activeGuestUsers |FT | Out-String -Width 512)
+                    }
+                    else
+                    {
+                        $display = ($activeGuestUsers |FT DisplayName,MailAddress,InactiveFromDays -AutoSize | Out-String -Width 512)
+                    }
+                    $controlResult.AddMessage($display)
                 }
                 $controlResult.SetStateData("Guest users list: ", $stateData);
             }
@@ -2284,16 +2303,17 @@ class Organization: ADOSVTBase
 
                     $ReqdAdminGroups | ForEach-Object{
                         $currentGroup = $_
-
-                        # [AdministratorHelper]::AllPCAMembers is a static variable. Always needs to be initialized. At the end of each iteration, it will be populated with members of that particular admin group.
-                        [AdministratorHelper]::AllPCAMembers = @();
-                        # Helper function to fetch flattened out list of group members.
-                        [AdministratorHelper]::FindPCAMembers($currentGroup.descriptor, $this.OrganizationContext.OrganizationName)
-
                         $groupMembers = @();
 
-                        # Add the members of current group to this temp variable.
-                        $groupMembers += [AdministratorHelper]::AllPCAMembers
+                        if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($currentGroup.descriptor) -and [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor].count -gt 0) {
+                            $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                        }
+                        else
+                        {
+                            [ControlHelper]::FindGroupMembers($currentGroup.descriptor, $this.OrganizationContext.OrganizationName,"")
+                            $groupMembers +=  [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                        }
+
                         # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
                         if($groupMembers.count -gt 0)
                         {
@@ -2395,5 +2415,22 @@ class Organization: ADOSVTBase
             $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting inactive accounts is not defined in control setting of your organization.");
         }
         return $controlResult;
+    }
+
+    hidden [void] FetchOrgLevelADOGroupDescriptor()
+    {
+        try {
+            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
+            $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'
+            $body = ($body.Replace("{0}", $this.OrganizationContext.OrganizationName)) | ConvertFrom-Json
+            $response = @([WebRequestHelper]::InvokePostWebRequest($url,$body));
+
+            if ([Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider") {
+                $this.ADOGrpDescriptor = $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities
+            }
+        }
+        catch{
+            throw
+        }
     }
 }
