@@ -94,6 +94,12 @@ class SVTMapping
 			ClassName = "CommonSVTControls";
 			JsonFileName = "ADO.CommonSVTControls.json";
 			ResourceTypeName = "Feed";
+        },
+		[ResourceTypeMapping]@{
+            ResourceType = "ADO.Environment";
+			ClassName = "CommonSVTControls";
+			JsonFileName = "ADO.CommonSVTControls.json";
+			ResourceTypeName = "Environment";
         }
 	)
 }

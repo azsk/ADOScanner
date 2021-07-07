@@ -13,9 +13,9 @@
           "ADO_Organization_AuthZ_Review_Project_Collection_Service_Accounts",
           "ADO_Organization_SI_Review_Auto_Injected_Extensions",
           "ADO_Organization_SI_Limit_Variables_Settable_At_Queue_Time",
-          "ADO_Organization_AuthZ_Limit_Non_Release_Pipeline_Access",
-          "ADO_Organization_AuthZ_Limit_Release_Pipeline_Access",
-          "ADO_Organization_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
+          "ADO_Organization_AuthZ_Limit_Non_Release_Pipeline_Scope",
+          "ADO_Organization_AuthZ_Limit_Release_Pipeline_Scope",
+          "ADO_Organization_AuthZ_Limit_Pipeline_Scope_To_Referenced_Repos",
           "ADO_Organization_DP_Dont_Allow_Public_Projects",
           "ADO_Organization_Enable_Audit_Stream",
           "ADO_Organization_BCDR_Min_Admin_Count",
@@ -33,11 +33,10 @@
           "ADO_Project_AuthZ_Set_Visibility_Private_Or_Enterprise",
           "ADO_Project_SI_Limit_Variables_Settable_At_Queue_Time",
           "ADO_Project_BCDR_Min_Admin_Count",
-          "ADO_Project_AuthZ_Limit_Non_Release_Pipeline_Access",
-          "ADO_Project_AuthZ_Limit_Release_Pipeline_Access",
-          "ADO_Project_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
+          "ADO_Project_AuthZ_Limit_Non_Release_Pipeline_Scope",
+          "ADO_Project_AuthZ_Limit_Release_Pipeline_Scope",
+          "ADO_Project_AuthZ_Limit_Pipeline_Scope_To_Referenced_Repos",
           "ADO_Project_AuthN_Use_ALT_Accounts_For_Admin",
-          "ADO_Project_AuthZ_Disable_Repo_Inherited_Permissions",
           "ADO_Project_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
           "ADO_Project_AuthZ_Revoke_Admin_Access_for_Guest_Users",
           "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Builds",
@@ -165,7 +164,8 @@
     "VariableGroup",
     "Repository",
     "Feed",
-    "SecureFile"
+    "SecureFile",
+    "Environment"
   ],
   "AttestationExpiryPeriodInDays": {
     "Default": 90,
@@ -327,6 +327,10 @@
         "Readers",
         "Project Valid Users"
     ],
+    "RestrictedRolesForBroaderGroupsInAgentPool": [
+      "Administrator",
+      "User"
+    ],
     "CheckForInheritedPermissions": false
   },
   "VariableGroup": {
@@ -365,7 +369,7 @@
                       "vso.dashboards_manage","vso.test_write","vso.tokenadministration","vso.profile_write",
                       "vso.variablegroups_write","vso.variablegroups_manage","vso.wiki_write","vso.work_write","vso.work_full"],
     "ExemptedExtensionNames":["Azure DevTest Labs Tasks"],
-    "MaxPCAMembersPermissible": 5,
+    "MaxPCAMembersPermissible": 6,
     "MinPCAMembersPermissible": 2,
     "GroupsToCheckForSCAltMembers": [
       "Project Collection Administrators"
@@ -405,6 +409,24 @@
     "Readers",
     "Project Valid Users"
     ]
+  },
+  "SecureFile":{
+    "RestrictedBroaderGroupsForSecureFile": [
+      "Project Collection Valid Users",
+      "Contributors",
+      "Readers",
+      "Project Valid Users"
+      ],
+      "CheckForInheritedPermissions": false
+  },
+  "Environment":{
+    "RestrictedBroaderGroupsForEnvironment": [
+      "Project Collection Valid Users",
+      "Contributors",
+      "Readers",
+      "Project Valid Users"
+      ],
+      "CheckForInheritedPermissions": false
   },
   "Repo": {
     "RepoHistoryPeriodInDays": 180,
@@ -515,6 +537,7 @@
   "ResourceTypesForCommonSVT": [
     "Repository",
     "SecureFile",
-    "Feed"
+    "Feed",
+    "Environment"
   ]
 }

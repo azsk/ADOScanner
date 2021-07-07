@@ -44,8 +44,8 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckPublicProjectPolicy",
-      "Rationale": "Data/content in projects that have anonymous access can be downloaded by anyone on the internet without authentication. This can lead to a compromise of corporate data. ",
-      "Recommendation": "Go to Organization Settings --> Security --> Policies --> Security Policies --> Turn 'Off' allow public projects",
+      "Rationale": "Data/content in projects that have anonymous access can be downloaded by anyone on the internet without authentication. This can lead to a compromise of corporate data/assets.",
+      "Recommendation": "1. Go to Organization Settings --> 2. Security --> 3. Policies --> 4. Security Policies --> 5. Turn 'Off' allow public projects",
       "Tags": [
         "SDL",
         "TCP",
@@ -141,18 +141,19 @@
     },
     {
       "ControlID": "ADO_Organization_AuthZ_Remove_Disconnected_Accounts",
-      "Description": "Remove access entries for users whose accounts have been deleted/disconnected from Azure Active Directory.",
+      "Description": "Remove access for users whose accounts have been deleted/disconnected from Azure Active Directory.",
       "Id": "Organization190",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckDisconnectedIdentities",
-      "Rationale": "AD disconnected accounts present at any scope within a Organization are unknown guid access.",
-      "Recommendation": "Go to Organization Settings --> Azure Active Directory --> It will have notification for disconnected users on AD --> Click on Resolve",
+      "Rationale": "Cleaning up/removing RBAC entries for users who have left the organization is a good security hygiene practice.",
+      "Recommendation": "1. Go to Organization Settings --> 2. Azure Active Directory --> 3. If you are an org admin, you will see a notification for disconnected users on AD --> 4. Click on 'Resolve'",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "MSW"
       ],
       "Enabled": true
     },
@@ -330,13 +331,13 @@
     },
     {
       "ControlID": "ADO_Organization_SI_Limit_Variables_Settable_At_Queue_Time",
-      "Description": "Limit pipeline variables marked settable at queue time.",
+      "Description": "Allow queue time changes only to pipeline variables explicitly marked as settable.",
       "Id": "Organization310",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckSettableQueueTime",
-      "Rationale": "Pipeline variables not marked settable at queue time can only be changed by someone with elevated permissions. These variables (reasonably) can be used in ways that make code injection possible.",
-      "Recommendation": "Go to Organization Settings --> Pipelines --> Settings --> Enable 'Limit variables that can be set at queue time'.",
+      "Rationale": "By default a pipeline user can set any variables at queue time unless this option is enabled. Enabling this setting enforces that variables must be explicitly marked settable at queue-time as needed.",
+      "Recommendation": "1. Go to Organization Settings --> 2. Pipelines --> 3. Settings --> 4. Enable 'Limit variables that can be set at queue time'.",
       "Tags": [
         "SDL",
         "TCP",
@@ -346,14 +347,14 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Organization_AuthZ_Limit_Non_Release_Pipeline_Access",
+      "ControlID": "ADO_Organization_AuthZ_Limit_Non_Release_Pipeline_Scope",
       "Description": "Limit scope of access for non-release pipelines to the current project.",
       "Id": "Organization320",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckJobAuthZScope",
-      "Rationale": "If pipelines use project collection level tokens, a vulnerability in components used by one project can be leveraged by an attacker to attack all other projects. This is also in keeping with the principle of least privilege.",
-      "Recommendation": "Go to Organization Settings --> Pipelines --> Settings --> Enable 'Limit job authorization scope to current project for non-release pipelines'.",
+      "Rationale": "If the authorization scope of non-release pipelines is not limited to current project, an attacker can build a pipeline from a different (less sensitive project) to access resources in a target (more sensitive) project. This also in keeping with the principle of least privilege.",
+      "Recommendation": "1. Go to Organization Settings -->2. Pipelines -->3. Settings -->4. Enable 'Limit job authorization scope to current project for non-release pipelines'.",
       "Tags": [
         "SDL",
         "TCP",
@@ -363,14 +364,14 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Organization_AuthZ_Limit_Release_Pipeline_Access",
+      "ControlID": "ADO_Organization_AuthZ_Limit_Release_Pipeline_Scope",
       "Description": "Limit scope of access for release pipelines to the current project.",
       "Id": "Organization330",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckJobAuthZReleaseScope",
-      "Rationale": "If pipelines use project collection level tokens, a vulnerability in components used by one project can be leveraged by an attacker to attack all other projects. This is also in keeping with the principle of least privilege.",
-      "Recommendation": "Go to Organization Settings --> Pipelines --> Settings --> Enable 'Limit job authorization scope to current project for release pipelines'.",
+      "Rationale": "If the authorization scope of release pipelines is not limited to current project, an attacker can build a pipeline from a different (less sensitive project) to access resources in a target (more sensitive) project. This also in keeping with the principle of least privilege.",
+      "Recommendation": "1. Go to Organization Settings -->2. Pipelines -->3. Settings -->4. Enable 'Limit job authorization scope to current project for release pipelines'.",
       "Tags": [
         "SDL",
         "TCP",
@@ -380,14 +381,14 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Organization_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
+      "ControlID": "ADO_Organization_AuthZ_Limit_Pipeline_Scope_To_Referenced_Repos",
       "Description": "Limit scope of access for pipelines to explicitly referenced Azure DevOps repositories.",
       "Id": "Organization340",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckAuthZRepoScope",
-      "Rationale": "If pipelines use tokens having access to all Azure DevOps repositories in authorized projects, a vulnerability in components linked to one repo can be leveraged by an attacker to attack all other repos. This is also in keeping with the principle of least privilege.",
-      "Recommendation": "Go to Organization Settings --> Settings --> Enable 'Limit job authorization scope to referenced Azure DevOps repositories'.",
+      "Rationale": "If the authorization scope of pipelines is not limited to referenced repos, an attacker can create a pipeline that can access sensitive repos within the project. This also in keeping with the principle of least privilege.",
+      "Recommendation": "1. Go to Organization Settings -->2. Settings -->3. Enable 'Limit job authorization scope to referenced Azure DevOps repositories'.",
       "Tags": [
         "SDL",
         "TCP",
@@ -437,8 +438,8 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckAuditStream",
-      "Rationale": "Enabling audit streaming sends data to other locations for further processing. Sending auditing data to other Security Incident and Event Management (SIEM) tools opens possibilities, such as alerting on specific auditing events, creating views on auditing data, and performing anomaly detection. It also allows you to store more than the 90-days worth of auditing data, which Azure DevOps keeps.",
-      "Recommendation": "Go to Organization Settings --> Auditing --> Streams -> New Stream -> Configure at least one of the streaming service. If at least one stream is already configured, ensure it is enabled.",
+      "Rationale": "Enabling audit streaming sends data to other locations for further processing. Sending auditing data to other Security Incident and Event Management (SIEM) tools opens possibilities, such as alerting on specific auditing events, creating views on auditing data, and performing anomaly detection. It also allows you to store more than 90 days of auditing data.",
+      "Recommendation": "1. Go to Organization Settings --> 2. Auditing --> 3. Streams -> 4. New Stream -> 5. Configure at least one of the streaming service. (If at least one stream is already configured, ensure it is enabled.)",
       "Tags": [
         "SDL",
         "TCP",
@@ -454,8 +455,8 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckMaxPCACount",
-      "Rationale": "Each additional person in the administrator role increases the attack surface for the entire organization. The number of members in these roles should be kept to as low as possible.",
-      "Recommendation": "Go to Organization settings --> Security --> Permissions --> Groups --> Select the group : Project Collection Administrators --> Review the members of this group.",
+      "Rationale": "Each additional person in the administrator role increases the attack surface for the entire organization (if an admin's account is compromised via phishing attack). The number of members in these roles should be kept to as low as possible.",
+      "Recommendation": "1. Go to Organization settings --> 2. Security --> 3. Permissions --> 4. Groups --> 5. Select the group : Project Collection Administrators --> 6. Remove redundant members from the group.",
       "Tags": [
         "SDL",
         "AuthZ",
@@ -471,8 +472,8 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckMinPCACount",
-      "Rationale": "Having the minimum required number of administrators reduces the risk of losing admin access. This is useful in case of break-glass account scenarios.",
-      "Recommendation": "Go to Organization settings --> Security --> Permissions --> Groups --> Select the group : Project Collection Administrators --> Review the members of this group",
+      "Rationale": "Having at least the minimum required number of administrators reduces the risk of losing admin access. This is useful in case of breakglass scenarios.",
+      "Recommendation": "1. Go to Organization settings --> 2. Security --> 3. Permissions --> 4. Groups --> 5. Select the group : Project Collection Administrators --> 6. Add additional members to this group",
       "Tags": [
         "SDL",
         "BCDR",
@@ -556,7 +557,7 @@
         "Id": "Organization440",
         "ControlSeverity": "High",
         "Automated": "Yes",
-        "MethodName": "CheckGuestUsersAccessInAdminRoles", 
+        "MethodName": "CheckGuestUsersAccessInAdminRoles",
         "Rationale": "Guest user accounts are not carefully managed and governed. If these accounts have admin access then a compromised account can be easily leveraged to access arbitrary resources in the organization.",
         "Recommendation": "1. Go to Organization Settings --> 2. Permissions --> 3. Search for Collection group of the guest user --> 4. Go to members tab --> 5. Remove its access by clicking on three dots against its row.",
          "Tags": [

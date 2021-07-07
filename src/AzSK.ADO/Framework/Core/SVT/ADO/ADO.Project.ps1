@@ -66,10 +66,11 @@ class Project: ADOSVTBase
         }
     }
 
-    hidden [ControlResult] CheckPublicProjects([ControlResult] $controlResult)
+    hidden [ControlResult] CheckProjectVisibility([ControlResult] $controlResult)
 	{
         try
         {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
             if([Helpers]::CheckMember($this.ResourceContext.ResourceDetails,"visibility"))
             {
                 $visibility = $this.ResourceContext.ResourceDetails.visibility;
@@ -80,7 +81,7 @@ class Project: ADOSVTBase
                 }
                 else # For orgs with public projects allowed, this control needs to be attested by the project admins.
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Project visibility is set to '$visibility'.");
+                    $controlResult.AddMessage("Project visibility is set to '$visibility'.");
                 }
                 $controlResult.AdditionalInfo += "Project visibility is set to: " + $visibility;
             }
@@ -118,25 +119,26 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckSettableQueueTime([ControlResult] $controlResult)
     {
-       if($this.PipelineSettingsObj)
-       {
-
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        if($this.PipelineSettingsObj)
+        {            
             if($this.PipelineSettingsObj.enforceSettableVar.enabled -eq $true )
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Only limited variables can be set at queue time. It is set as '$($this.PipelineSettingsObj.enforceSettableVar.orgEnabled)' at organization scope.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Only explicitly marked 'settable at queue time' variables can be set at queue time. It is set as '$($this.PipelineSettingsObj.enforceSettableVar.orgEnabled)' at organization scope.");
             }
             else{
-                $controlResult.AddMessage([VerificationResult]::Failed, "All variables can be set at queue time. It is set as '$($this.PipelineSettingsObj.enforceSettableVar.orgEnabled)' at organization scope.");
+                $controlResult.AddMessage("All variables can be set at queue time. It is set as '$($this.PipelineSettingsObj.enforceSettableVar.orgEnabled)' at organization scope.");
             }
-       }
-       else{
-            $controlResult.AddMessage([VerificationResult]::Manual, "Pipeline settings could not be fetched due to insufficient permissions at project scope.");
-       }
+        }
+        else{
+            $controlResult.AddMessage([VerificationResult]::Error, "Pipeline settings could not be fetched for the project.");
+        }
         return $controlResult
     }
 
     hidden [ControlResult] CheckJobAuthZScope([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         if($this.PipelineSettingsObj)
         {
             $orgLevelScope = $this.PipelineSettingsObj.enforceJobAuthScope.orgEnabled;
@@ -169,6 +171,7 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckJobAuthZReleaseScope([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         if($this.PipelineSettingsObj)
         {
             $orgLevelScope = $this.PipelineSettingsObj.enforceJobAuthScopeForReleases.orgEnabled;
@@ -201,6 +204,7 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckAuthZRepoScope([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         if($this.PipelineSettingsObj)
         {
             $orgLevelScope = $this.PipelineSettingsObj.enforceReferencedRepoScopedToken.orgEnabled;
@@ -370,53 +374,66 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckMinPACount([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         $TotalPAMembers = 0;
-        if (($this.PAMembers | Measure-Object).Count -eq 0) {
-            $this.PAMembers += [AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
+        if ($this.PAMembers.Count -eq 0) {
+            $this.PAMembers += @([AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName))
         }
-        $TotalPAMembers = ($this.PAMembers | Measure-Object).Count
+        if([Helpers]::CheckMember($this.PAMembers[0],"mailAddress"))
+        {
+            $TotalPAMembers = $this.PAMembers.Count
+        }
+        
         $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
         if ($TotalPAMembers -gt 0) {
             if ($this.graphPermissions.hasGraphAccess)
             {
                 $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
-                $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
-                if($HumanAcccountCount -lt $this.ControlSettings.Project.MinPAMembersPermissible){
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                $humanAccounts = @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress)
+                $svcAccounts = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress)
+                
+                # In case of graph access we will only evaluate the control on the basis of human accounts
+                if($humanAccounts.count -lt $this.ControlSettings.Project.MinPAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured meet the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
                 }
                 if($TotalPAMembers -gt 0){
-                    $controlResult.AddMessage("Verify the following Project Administrators: ")
-                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AddMessage("Current set of Project Administrators: ")
+                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
                 }
 
-                if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
-                    $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
-                    $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
+                if ($humanAccounts.count -gt 0) {                   
+                    $controlResult.AddMessage("`nHuman administrators: $($humanAccounts.Count)")
+                    $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
                 }
 
-                if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
-                    $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
-                    $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
+                if ($svcAccounts.count -gt 0) {                   
+                    $controlResult.AddMessage("`nService accounts: $($svcAccounts.Count)")
+                    $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of service account Project Administrators: ",$svcAccounts)
                 }
             }
             else
             {
-                $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
+                ## TODO: Add warning that control was evaluated without graph access ( Once Sourabh is done with its Graph access task)
+                $this.PAMembers = @($this.PAMembers | Select-Object displayName,mailAddress)
                 if($TotalPAMembers -lt $this.ControlSettings.Project.MinPAMembersPermissible){
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible).");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
                 }
                 if($TotalPAMembers -gt 0){
-                    $controlResult.AddMessage("Verify the following Project Administrators: ",$this.PAMembers)
+                    $controlResult.AddMessage("Current set of Project Administrators: ")
+                    $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
-                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
                 }
             }
         }
@@ -765,6 +782,26 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckEnviornmentAccess([ControlResult] $controlResult)
     {
+        <#
+        {
+          "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Environment",
+          "Description": "Do not make environment accessible to all pipelines.",
+          "Id": "Project240",
+          "ControlSeverity": "High",
+          "Automated": "Yes",
+          "MethodName": "CheckEnviornmentAccess",
+          "Rationale": "To support security of the pipeline operations, environments must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
+          "Recommendation": "To remediate this, go to Project -> Pipelines -> Environments -> select your environment from the list -> click Security -> Under 'Pipeline Permissions', remove pipelines that environment no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+          "Tags": [
+            "SDL",
+            "TCP",
+            "Automated",
+            "AuthZ"
+          ],
+          "Enabled": true
+        },
+        #>
+
         try
         {
             $apiURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceName);
@@ -1144,6 +1181,26 @@ class Project: ADOSVTBase
     }
 
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult) {
+        <#
+        {
+        "ControlID": "ADO_Project_AuthZ_Disable_Repo_Inherited_Permissions",
+        "Description": "Do not allow inherited permission on repositories.",
+        "Id": "Project300",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckInheritedPermissions",
+        "Rationale": "Disabling inherited permissions lets you finely control access to various operations at the repository level for different stakeholders. This ensures that you follow the principle of least privilege and provide access only to the persons that require it.",
+        "Recommendation": "Go to Project Settings --> Repositories --> Select a repository --> Permissions --> Disable 'Inheritance'.",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ"
+        ],
+        "Enabled": true
+        },
+        #>
+
         $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
         #permissionSetId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
         $repoNamespaceId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87'
@@ -2107,17 +2164,18 @@ class Project: ADOSVTBase
         try {
             $controlResult.VerificationResult = [VerificationResult]::Failed
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool")) {
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool") -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedRolesForBroaderGroupsInAgentPool")) {
                 $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                 $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($projectId)";
                 $agentPoolPermObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
                 $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
+                $restrictedRolesForBroaderGroupsInAgentPool = $this.ControlSettings.AgentPool.RestrictedRolesForBroaderGroupsInAgentPool;
 
                 if (($agentPoolPermObj.Count -gt 0) -and [Helpers]::CheckMember($agentPoolPermObj, "identity")) {
                     # match all the identities added on agentpool with defined restricted list
                     $roleAssignments = @($agentPoolPermObj | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
                     # Checking whether the broader groups have User/Admin permissions
-                    $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+                    $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.Name.split('\')[-1] -and ($restrictedRolesForBroaderGroupsInAgentPool -Contains $_.Role) })
 
                     $restrictedGroupsCount = $restrictedGroups.Count
                     # fail the control if restricted group found on agentpool
@@ -2140,7 +2198,7 @@ class Project: ADOSVTBase
                 $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForAgentPool | FT | out-string )`n");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups for agent pool is not defined in control settings for your organization.");
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for agent pools is not defined in the control settings for your organization policy.");
             }
         }
         catch {
