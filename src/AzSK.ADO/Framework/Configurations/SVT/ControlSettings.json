@@ -345,7 +345,7 @@
     ],
     "CheckForInheritedPermissions": false
   },
-  "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
+  "AlernateAccountRegularExpressionForOrg": "^sc-\\w+@(?:\\w+\\.)*microsoft\\.com$|^\\w+.*@gme\\.gbl$",
   "ALTControlEvaluationMethod": "GraphThenRegEx",
   "Organization": {
     "DisallowedEnvironments" : [],
@@ -387,7 +387,7 @@
     "AdminInactivityThresholdInDays": 90
   },
   "Project": {
-    "MaxPAMembersPermissible": 5,
+    "MaxPAMembersPermissible": 6,
     "MinPAMembersPermissible": 2,
     "GroupsToCheckForSCAltMembers": [
       "Project Administrators"
