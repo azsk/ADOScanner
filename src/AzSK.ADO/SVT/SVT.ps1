@@ -309,10 +309,14 @@ function Get-AzSKADOSecurityStatus
 		[string] $ALTControlEvaluationMethod,
 
 		[switch]
+    [Parameter(HelpMessage="Print SARIF logs for the scan.")]
+    [Alias("gsl")]
+    $GenerateSarifLogs,
+    
+		[switch]
 		[Parameter(HelpMessage="Switch to reset default logged in user.")]
 		[Alias("rc")]
 		$ResetCredentials
-
 
 	)
 	Begin

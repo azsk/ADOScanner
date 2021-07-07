@@ -157,26 +157,37 @@ class CommandBase: AzSKRoot {
 		#the next two bug log classes have been called here as we need all the control results at one place for
 		#dumping them in json file and auto closing them(to minimize api calls and auto close them in batches)
 		#if bug logging is enabled and path is valid, create the JSON file for bugs
-		if($this.InvocationContext.BoundParameters["AutoBugLog"] -and [BugLogPathManager]::GetIsPathValid()){
-			if (([PartialScanManager]::ControlResultsWithBugSummary| Measure-Object).Count -gt 0)
-			{
-				$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
-			}
-			[PublishToJSON]::new($methodResult,$folderPath)
-		}
+		#AutoBugLog and AutoCloseBug Conditions
+		# $isPartialScan=$false
+		# $bugsClosed=$null
 
-		#auto close passed bugs
-			if ($this.InvocationContext.BoundParameters["AutoBugLog"] -or $this.InvocationContext.BoundParameters["AutoCloseBugs"]) {
-			#call the AutoCloseBugManager
-			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
-			$AutoClose.AutoCloseBug($methodResult)
+		if($this.InvocationContext.BoundParameters["AutoBugLog"] -or $this.InvocationContext.BoundParameters["AutoCloseBugs"]){
+			$this.sendBugInfo($methodResult,$folderPath) #sendBugInfo
 		}
+		#SARIF Logs generation.Note if upc with Auto Bug Log we have controls available in ControlResultsWithBugSummary static variable.
+        
+		if($this.InvocationContext.BoundParameters["GenerateSarifLogs"]){
+			$sarifMethodResults=$methodResult
+			if(!$sarifMethodResults){
+                if(([PartialScanManager]::ControlResultsWithBugSummary| Measure-Object).Count -gt 0){
+                    $sarifMethodResults=[PartialScanManager]::ControlResultsWithBugSummary
+                }
+                else{
+				    $sarifMethodResults=[PartialScanManager]::ControlResultsWithSARIFSummary
+                }
+			}
+			if($sarifMethodResults){
+		    	[SARIFLogsGenerator]::new($sarifMethodResults,$folderPath,$this.RunIdentifier)
+			}
+			[PartialScanManager]::ControlResultsWithSARIFSummary=@()
+        }
 		# Publish command complete events
         $this.CommandCompleted($methodResult);
 		[AIOrgTelemetryHelper]::TrackCommandExecution("Command Completed",
 			@{"RunIdentifier" = $this.RunIdentifier},
 			@{"TimeTakenInMs" = $sw.ElapsedMilliseconds; "SuccessCount" = 1},
 			$this.InvocationContext)
+		
         $this.PostCommandCompletedAction($methodResult);
 
 
@@ -245,6 +256,38 @@ class CommandBase: AzSKRoot {
     [string] GetOutputFolderPath() {
         return [WriteFolderPath]::GetInstance().FolderPath;
     }
+
+	#Sends bug information to Json and CSV. In non upc scan closes bugs and sends info to LA as well.
+	[void] sendBugInfo([SVTEventContext[]] $methodResult, [string] $folderPath){
+		[SVTEventContext[]] $bugsClosed=$null
+		if ($this.InvocationContext.BoundParameters["UsePartialCommits"])
+		{
+				$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
+				$bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
+		}
+		else
+		{
+			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
+			$AutoClose.AutoCloseBug($methodResult)
+			$bugsClosed=[AutoCloseBugManager]::ClosedBugs
+            if($bugsClosed){
+			    $laInstance= [LogAnalyticsOutput]::Instance
+			    $laInstance.WriteControlResult($bugsClosed)
+            }
+		}
+		#If condition publishes information about New, Active and Closed bugs 
+		if($this.InvocationContext.BoundParameters["AutoBugLog"]){
+			if([BugLogPathManager]::GetIsPathValid()){
+				[PublishToJSONAndCSV]::new($methodResult,$folderPath,$bugsClosed)
+			}
+		}
+		#condition publishes only closed bugs. $null is passed instead of $methodResult to avoid performance slow down in PublishToJSONAndCSV
+		else{
+			if($bugsClosed){
+				[PublishToJSONAndCSV]::new($null,$folderPath,$bugsClosed)
+			}
+		}
+	}
 
 	# <TODO Framework: Move to module helper class>
 	# Function to validate module version based on Org policy and showcase warning for update or block commands if version is less than last two minor version
