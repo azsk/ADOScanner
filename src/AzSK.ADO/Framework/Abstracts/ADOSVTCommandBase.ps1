@@ -45,6 +45,13 @@ class ADOSVTCommandBase: SVTCommandBase {
         if ([ContextHelper]::IsOAuthScan) {
             $this.PublishCustomMessage("The OAuth-based scan feature is in preview. Results for some controls may not match the regular scan results.", [MessageType]::Warning);
         }
+        try {
+            $this.PublishCustomMessage("Graph access is required to evaluate some controls. Attempting to acquire Graph token.`n");
+            [IdentityHelpers]::CheckGraphAccess();
+        }
+        catch {
+           #eat exception 
+        }
 	}
     [void] PostPolicyComplianceTelemetry()
 	{

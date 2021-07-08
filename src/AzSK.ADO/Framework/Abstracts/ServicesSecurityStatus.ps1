@@ -38,9 +38,6 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if($invocationContext.BoundParameters["AutoBugLog"] -or $invocationContext.BoundParameters["AutoCloseBugs"]){
 			$this.IsBugLoggingEnabled = $true; 
 		}
-		if($invocationContext.BoundParameters["UseGraphAccess"]){
-			[IdentityHelpers]::useGraphAccess = $true; 
-		}
 		if($invocationContext.BoundParameters["ALTControlEvaluationMethod"])
 		{
 			[IdentityHelpers]::ALTControlEvaluationMethod = $invocationContext.BoundParameters["ALTControlEvaluationMethod"]

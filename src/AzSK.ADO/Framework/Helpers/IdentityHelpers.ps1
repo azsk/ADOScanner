@@ -2,7 +2,7 @@
 
 class IdentityHelpers
 {
-	static hidden [bool] $useGraphAccess = $false
+	static hidden [bool] $hasGraphAccess = $false
 	static hidden [string] $graphAccessToken = $null
 	static hidden [string] $ALTControlEvaluationMethod
 
@@ -101,40 +101,27 @@ class IdentityHelpers
 		return $true
 	}
 
-	hidden static [bool] HasGraphAccess()
+	static CheckGraphAccess()
 	{
-		$hasAccess = $false;
-		$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
-		# if '-UseGraphAccess' is passed in the command then only scan for graph controls.
-		if (![IdentityHelpers]::useGraphAccess) {
-			return $false
-		}
-		if ($scanSource -eq 'CICD') {
-			return $false
-		}
-		else
+		$graphUri = [WebRequestHelper]::GetGraphUrl()
+		$uri = $GraphUri + "/v1.0/users?`$top=1"
+		[IdentityHelpers]::graphAccessToken = [ContextHelper]::GetGraphAccessToken()
+		if (-not [string]::IsNullOrWhiteSpace([IdentityHelpers]::graphAccessToken))
 		{
-			$graphUri = [WebRequestHelper]::GetGraphUrl()
-			$uri = $GraphUri + "/v1.0/users?`$top=1"
-			[IdentityHelpers]::graphAccessToken = [ContextHelper]::GetGraphAccessToken()
-			if (-not [string]::IsNullOrWhiteSpace([IdentityHelpers]::graphAccessToken))
+			$header = @{
+				"Authorization"= ("Bearer " + [IdentityHelpers]::graphAccessToken); 
+				"Content-Type"="application/json"
+			};
+			try
 			{
-				$header = @{
-					"Authorization"= ("Bearer " + [IdentityHelpers]::graphAccessToken); 
-					"Content-Type"="application/json"
-				};
-				try
-				{
-					$webResponse = [WebRequestHelper]::InvokeGetWebRequest($uri, $header);
-					$hasAccess = $true;
-				}
-				catch
-				{
-					$hasAccess = $false;
-				}
+				$webResponse = [WebRequestHelper]::InvokeGetWebRequest($uri, $header);
+				[IdentityHelpers]::hasGraphAccess = $true;
+			}
+			catch
+			{
+				[IdentityHelpers]::hasGraphAccess = $false;
 			}
 		}
-		return $hasAccess;
 	}
 
 	#This method differentiate human accounts and service account from the list.
@@ -145,7 +132,7 @@ class IdentityHelpers
 		$defaultSvcAcc = "Account Service ($orgName)" # This is default service account automatically added by ADO.
 		$allMembers = $allMembers | Where-Object {$_.displayName -ne $defaultSvcAcc}
 		$allMembers | ForEach-Object{
-			$isServiceAccount = [IdentityHelpers]::IsServiceAccount($_.mailAddress, $_.subjectKind, $this.graphPermissions.graphAccessToken)
+			$isServiceAccount = [IdentityHelpers]::IsServiceAccount($_.mailAddress, $_.subjectKind, [IdentityHelpers]::graphAccessToken)
 			if ($isServiceAccount)
 			{
 				$serviceAccount += $_
@@ -165,7 +152,7 @@ class IdentityHelpers
 		$altAccount = @(); 
 		$nonAltAccount = @();
 		$allMembers | ForEach-Object{
-			$isAltAccount = [IdentityHelpers]::IsAltAccount($_.mailAddress, $this.graphPermissions.graphAccessToken)
+			$isAltAccount = [IdentityHelpers]::IsAltAccount($_.mailAddress, [IdentityHelpers]::graphAccessToken)
 			if ($isAltAccount)
 			{
 				$altAccount += $_
