@@ -3,6 +3,7 @@ class AdministratorHelper{
     static [bool] $isCurrentUserPA=$false;
     static $AllPCAMembers = @()
     static $AllPAMembers = @()
+    static $ProjectAdminObject = @{}
 
 
     #Check whether uesr is PCA and subgroups member
@@ -141,117 +142,40 @@ class AdministratorHelper{
 
 
     static [void] FindPCAMembers([string]$descriptor,[string] $OrgName){
-        $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($OrgName);
-        $postbody=@'
-        {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/_settings/groups?subjectDescriptor={1}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
-'@
-        $postbody=$postbody.Replace("{0}",$descriptor)
-        $postbody=$postbody.Replace("{1}",$OrgName)
-        $rmContext = [ContextHelper]::GetCurrentContext();
-        $currentUser = [ContextHelper]::GetCurrentSessionUser();
-		$user = "";
-        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
         try {
-            $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
-            if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
+            if ($null -eq [AdministratorHelper]::AllPCAMembers -or [AdministratorHelper]::AllPCAMembers.Count -eq 0)
             {
-                $data=$response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
-                $data | ForEach-Object{
-        
-                    if($_.subjectKind -eq "group"){
-                        if ([string]::IsNullOrWhiteSpace($_.descriptor) -and (-not [string]::IsNullOrWhiteSpace($_.entityId)))
-                        {
-                            $identities = @([AdministratorHelper]::GetIdentitiesFromAADGroup($OrgName, $_.entityId, $_.displayName))
-                            if ($identities.Count -gt 0)
-                            {
-                                $identities | ForEach-Object{
-                                    if([AdministratorHelper]::isCurrentUserPCA -eq $false -and $currentUser -eq $_.mailAddress)
-                                    {
-                                        [AdministratorHelper]::isCurrentUserPCA=$true;
-                                    }
-                                    
-                                }
-                                [AdministratorHelper]::AllPCAMembers += $identities 
-                            }  
-                            
-                        }
-                        else
-                        {
-                            return [AdministratorHelper]::FindPCAMembers($_.descriptor,$OrgName)
-                        }
-                    }
-                    else{
-                        if([AdministratorHelper]::isCurrentUserPCA -eq $false -and $currentUser -eq $_.mailAddress){
-                            [AdministratorHelper]::isCurrentUserPCA=$true;
-                        }
-                        [AdministratorHelper]::AllPCAMembers += $_
-                    }
-                }
+                [ControlHelper]::FindGroupMembers($descriptor,$orgName,"")
+                [AdministratorHelper]::AllPCAMembers = [ControlHelper]::groupMembersResolutionObj[$descriptor]
+            }
+            $currentUser = [ContextHelper]::GetCurrentSessionUser();
+
+            if([AdministratorHelper]::isCurrentUserPCA -eq $false -and $currentUser -in [AdministratorHelper]::AllPCAMembers.mailAddress){
+                [AdministratorHelper]::isCurrentUserPCA=$true;
             }
         }
         catch {
             Write-Host $_
         }
-		
-
     }
 
     static [void] FindPAMembers([string]$descriptor,[string] $OrgName,[string] $projName){
-        $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($OrgName);
-        $postbody=@'
-        {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/{1}/_settings/permissions?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
-'@
-        $postbody=$postbody.Replace("{0}",$descriptor)
-        $postbody=$postbody.Replace("{2}",$OrgName)
-        $postbody=$postbody.Replace("{1}",$projName)
-        $rmContext = [ContextHelper]::GetCurrentContext();
-        $currentUser = [ContextHelper]::GetCurrentSessionUser();
-		$user = "";
-        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
-        try
-        {
-            $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
-            if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
+        try {
+            if ($null -eq [AdministratorHelper]::AllPAMembers -or [AdministratorHelper]::AllPAMembers.Count -eq 0)
             {
-                $data=$response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
-                $data | ForEach-Object{
-                    if($_.subjectKind -eq "group")
-                    {
-                        if ([string]::IsNullOrWhiteSpace($_.descriptor) -and (-not [string]::IsNullOrWhiteSpace($_.entityId)))
-                        {
-                            $identities = @([AdministratorHelper]::GetIdentitiesFromAADGroup($OrgName, $_.entityId, $_.displayName))
-                            if ($identities.Count -gt 0)
-                            {
-                                $identities | ForEach-Object{
-                                    if([AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -eq $_.mailAddress)
-                                    {
-                                        [AdministratorHelper]::isCurrentUserPA=$true;
-                                    }
-                                }
-                                [AdministratorHelper]::AllPAMembers += $identities
-                            }   
-                        }
-                        else
-                        {
-                            return [AdministratorHelper]::FindPAMembers($_.descriptor,$OrgName,$projName)
-                        }
-                    }
-                    else
-                    {
-                        if([AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -eq $_.mailAddress)
-                        {
-                            [AdministratorHelper]::isCurrentUserPA=$true;
-                        }
-                        [AdministratorHelper]::AllPAMembers += $_
-                    }
-                }
+                [ControlHelper]::FindGroupMembers($descriptor,$orgName,$projName)
+                [AdministratorHelper]::AllPAMembers = [ControlHelper]::groupMembersResolutionObj[$descriptor]
+            }
+            $currentUser = [ContextHelper]::GetCurrentSessionUser();
+
+            if([AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -in [AdministratorHelper]::AllPAMembers.mailAddress){
+                [AdministratorHelper]::isCurrentUserPA=$true;
+                [AdministratorHelper]::ProjectAdminObject[$projName] = $true
             }
         }
         catch {
             Write-Host $_
         }
-		
-
     }
 
     static [object] GetIdentitiesFromAADGroup([string] $OrgName, [String] $EntityId, [String] $groupName)
@@ -294,7 +218,7 @@ class AdministratorHelper{
         [AdministratorHelper]::GetPCADescriptorAndMembers($OrgName)
 
         #get unique pca based on display name and mail address
-        [AdministratorHelper]::AllPCAMembers = [AdministratorHelper]::AllPCAMembers | Sort-Object -Unique 'mailAddress'
+        [AdministratorHelper]::AllPCAMembers = @([AdministratorHelper]::AllPCAMembers | Sort-Object -Unique 'mailAddress')
         return [AdministratorHelper]::AllPCAMembers
     }
     static [object] GetTotalPAMembers([string] $OrgName,[string] $projName){
@@ -303,21 +227,17 @@ class AdministratorHelper{
         [AdministratorHelper]::AllPAMembers = @();
         [AdministratorHelper]::GetPADescriptorAndMembers($OrgName,$projName)
 
-        #get unique pa based on display name and mail address
-        [AdministratorHelper]::AllPAMembers = [AdministratorHelper]::AllPAMembers | Sort-Object -Unique 'mailAddress'
+        [AdministratorHelper]::AllPAMembers = @([AdministratorHelper]::AllPAMembers | Sort-Object -Unique 'mailAddress')
         return [AdministratorHelper]::AllPAMembers
     }
     static [bool] GetIsCurrentUserPCA([string] $descriptor,[string] $OrgName){
         #TODO: Need to reinitialize as PS ISE caches this list. It will be inappropriate if you switch org names from one scan to another in the same session.
-        [AdministratorHelper]::AllPCAMembers = @();
-        [AdministratorHelper]::isCurrentUserPCA = $false;
 
         [AdministratorHelper]::FindPCAMembers($descriptor,$OrgName)
         return [AdministratorHelper]::isCurrentUserPCA
     }
     static [bool] GetIsCurrentUserPA([string] $descriptor,[string] $OrgName,[string] $projName){
         #Always reinitialize PA member list and its count. Needed when trying to scan multiple projects
-        [AdministratorHelper]::AllPAMembers = @();
         [AdministratorHelper]::isCurrentUserPA = $false;
         [AdministratorHelper]::FindPAMembers($descriptor,$OrgName,$projName)
         return [AdministratorHelper]::isCurrentUserPA

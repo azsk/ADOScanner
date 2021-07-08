@@ -21,7 +21,6 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Helpers\JsonHelper.ps1
 . $FrameworkPath\Helpers\Helpers.ps1
 . $PSScriptRoot\Helpers\ContextHelper.ps1
-. $PSScriptRoot\Helpers\AdministratorHelper.ps1
 #Helpers (independent of models)
 
 . $FrameworkPath\Helpers\ConfigurationHelper.ps1
@@ -51,6 +50,7 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Helpers\IdentityHelpers.ps1
 . $FrameworkPath\Helpers\ConfigOverride.ps1
 . $FrameworkPath\Helpers\ControlHelper.ps1
+. $PSScriptRoot\Helpers\AdministratorHelper.ps1
 
 . $FrameworkPath\Models\Common\ResourceInventory.ps1
 
@@ -72,7 +72,7 @@ $FrameworkPath = $PSScriptRoot
 . $PSScriptRoot\BugLog\BugMetaInfoProvider.ps1
 . $PSScriptRoot\BugLog\BugLogHelper.ps1
 . $PSScriptRoot\BugLog\AutoBugLog.ps1
-. $PSScriptRoot\BugLog\PublishToJSON.ps1
+. $PSScriptRoot\BugLog\PublishToJSONAndCSV.ps1
 . $PSScriptRoot\BugLog\AutoCloseBugManager.ps1
 
 
@@ -109,6 +109,18 @@ $FrameworkPath = $PSScriptRoot
 . $PSScriptRoot\Listeners\PartialScanHandler\PartialScanHandler.ps1
 . $FrameworkPath\Listeners\GenericListener\GenericListener.ps1
 . $PSScriptRoot\Listeners\ListenerHelper.ps1
+
+
+#SARIF Feature
+. $PSScriptRoot\SARIF\SARIFLocation.ps1
+. $PSScriptRoot\SARIF\SARIFRuleDescriptor.ps1
+. $PSScriptRoot\SARIF\SARIFResult.ps1
+. $PSScriptRoot\SARIF\SARIFDriver.ps1
+. $PSScriptRoot\SARIF\SARIFTool.ps1
+. $PSScriptRoot\SARIF\SARIFRun.ps1
+. $PSScriptRoot\SARIF\SARIFLogs.ps1
+. $PSScriptRoot\SARIF\SARIFLogsGenerator.ps1
+
 
 #Remaining Abstracts
 . $PSScriptRoot\Core\SVT\SVTControlAttestation.ps1

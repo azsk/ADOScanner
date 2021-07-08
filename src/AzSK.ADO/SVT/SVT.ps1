@@ -129,6 +129,12 @@ function Get-AzSKADOSecurityStatus
 		[Alias("xt")]
 		$ExcludeTags,
 
+		[string]
+		[Parameter(Mandatory = $false)]
+		[Alias("xcids")]
+		[AllowEmptyString()]
+		$ExcludeControlIds,
+
 		[switch]
 		[Parameter(Mandatory = $false)]
 		[Alias("ubc")]
@@ -296,12 +302,16 @@ function Get-AzSKADOSecurityStatus
         [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
 		[Alias("acem")]
 		[string] $ALTControlEvaluationMethod,
-        
+
+		[switch]
+    [Parameter(HelpMessage="Print SARIF logs for the scan.")]
+    [Alias("gsl")]
+    $GenerateSarifLogs,
+    
 		[switch]
 		[Parameter(HelpMessage="Switch to reset default logged in user.")]
 		[Alias("rc")]
 		$ResetCredentials
-
 
 	)
 	Begin
@@ -319,7 +329,12 @@ function Get-AzSKADOSecurityStatus
 			[AzSKConfig]::Instance = $null
 			[ConfigurationHelper]::ServerConfigMetadata = $null
 			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
-			[AutoBugLog]::AutoBugInstance = $null
+            [AutoBugLog]::AutoBugInstance = $null
+            #Clear the cache of nested groups if the org name is not matching from previous scan in same session
+			if ([ControlHelper]::GroupMembersResolutionObj.ContainsKey("OrgName") -and [ControlHelper]::GroupMembersResolutionObj["OrgName"] -ne $OrganizationName) {
+				[ControlHelper]::GroupMembersResolutionObj = @{}
+			}
+
 			if($PromptForPAT -eq $true)
 			{
 				if($null -ne $PATToken)
@@ -376,7 +391,7 @@ function Get-AzSKADOSecurityStatus
 					return;
 				}
 			}
-			
+
 			if ($ResetCredentials)
 			{
 				[ContextHelper]::PromptForLogin = $true
@@ -399,6 +414,8 @@ function Get-AzSKADOSecurityStatus
 
 					$secStatus.FilterTags = $FilterTags;
 					$secStatus.ExcludeTags = $ExcludeTags;
+
+					$secStatus.ExcludeControlIdString = $ExcludeControlIds
 
 					#build the attestation options object
 					[AttestationOptions] $attestationOptions = [AttestationOptions]::new();
