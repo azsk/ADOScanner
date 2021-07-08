@@ -1523,29 +1523,29 @@ class Release: ADOSVTBase
                 $stages = @($this.ReleaseObj.environments)
                 if($stages.Count -gt 0)
                 {
-                    $stagesWithOAuthAccessTokenEnabled = @()
                     $resultObj = @()
                     $stages | Where-Object {
+                        $currentStage = $_
                         $stageWithJobDetails = "" | Select-Object StageName,JobName
-                        if([Helpers]::CheckMember($_,"deployPhases"))
-                        {
-                            $currentStage = $_
+                        if([Helpers]::CheckMember($currentStage,"deployPhases"))
+                        {                            
                             $agentlessjobs = @()
                             $AgentjobsOAuthAccessTokenDisabled = @()
-                            $jobs = @($_.deployPhases)
+                            $jobs = @($currentStage.deployPhases)
                             $stageWithJobDetails.JobName = @()
                             $jobs | Where-Object {
-                                if([Helpers]::CheckMember($_,"phaseType") -and (($_.phaseType -eq "agentBasedDeployment") -or ($_.phaseType -eq "machineGroupBasedDeployment")))
+                                $currentJob = $_
+                                if([Helpers]::CheckMember($currentJob,"phaseType") -and (($currentJob.phaseType -eq "agentBasedDeployment") -or ($currentJob.phaseType -eq "machineGroupBasedDeployment")))
                                 {
-                                    if([Helpers]::CheckMember($_,"deploymentInput") -and [Helpers]::CheckMember($_.deploymentInput,"enableAccessToken",$false))
+                                    if([Helpers]::CheckMember($currentJob,"deploymentInput") -and [Helpers]::CheckMember($currentJob.deploymentInput,"enableAccessToken",$false))
                                     {
-                                        if($_.deploymentInput.enableAccessToken-eq $true)
+                                        if($currentJob.deploymentInput.enableAccessToken-eq $true)
                                         {
                                             $stageWithJobDetails.StageName = $currentStage.name
-                                            $stageWithJobDetails.JobName += $_.name
+                                            $stageWithJobDetails.JobName += $currentJob.name
                                         }
                                         else {
-                                            $AgentjobsOAuthAccessTokenDisabled += $_ 
+                                            $AgentjobsOAuthAccessTokenDisabled += $currentJob 
                                         }
                                     }
                                     else {
@@ -1559,7 +1559,7 @@ class Release: ADOSVTBase
                             }
                         }
                         else {
-                            $controlResult.AddMessage([VerificationResult]::Passed,"No job found in release");                            
+                            $controlResult.AddMessage([VerificationResult]::Passed,"No job found in release.");                            
                         }
                         if( -not ([string]::IsNullOrWhiteSpace($stageWithJobDetails.StageName) -and [string]::IsNullOrWhiteSpace($stageWithJobDetails.JobName)))
                         {
@@ -1570,11 +1570,11 @@ class Release: ADOSVTBase
                     if($resultObj.count -gt 0)
                     {
                         $display = $resultObj | FT -AutoSize | Out-String -Width 512
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Accessing OAuth token is enabled:");
+                        $controlResult.AddMessage([VerificationResult]::Verify,"Accessing OAuth token is enabled for the following stages and jobs:");
                         $controlResult.AddMessage($display)
                     }
                     else {
-                        $controlResult.AddMessage([VerificationResult]::Passed,"Accessing OAuth token is disabled.");
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Accessing OAuth token is not enabled for agent job(s) in any stage.");
                     }
                 }
                 else {
@@ -1583,12 +1583,12 @@ class Release: ADOSVTBase
                 
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch release environment details");
+                $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch release environment details.");
             }
             
         }
         else {
-            $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch release details");
+            $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch release details.");
         }
 
         return $controlResult;

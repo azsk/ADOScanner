@@ -1539,8 +1539,9 @@ class Build: ADOSVTBase
                         if($branches.count -gt 0)
                         {
                             $branches | where-object {
-                                $currentBranch = $_
+                                $currentBranch = $_    
                                 $refobj = "" | Select-Object branch,fileName
+                                $refobj.branch = $currentBranch
                                 try{
                                     $url = 'https://dev.azure.com/{0}/{1}/_apps/hub/ms.vss-build-web.ci-designer-hub?pipelineId={2}&branch={3}&__rt=fps&__ver=2' -f $orgName, $projectId , $buildId, $currentBranch;
                                     $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url);)
@@ -1550,13 +1551,9 @@ class Build: ADOSVTBase
                                         $yamlFileContent = $dataprovider.content
                                         if($yamlFileContent -match $regex)
                                         {
-                                            $refobj.branch = $_
                                             $refobj.fileName = $dataprovider.definition.process.yamlFilename
                                             $resultObj += $refobj
                                         }
-                                    }
-                                    else {
-                                        $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch YAML file content for the branch: $($currentBranch)");                                    
                                     }
                                 }
                                 catch
@@ -1567,16 +1564,16 @@ class Build: ADOSVTBase
                             }
                             if($resultObj.Count -gt 0)
                             {
-                                $controlResult.AddMessage([VerificationResult]::Failed,"OAuth token is used in Yaml file")
+                                $controlResult.AddMessage([VerificationResult]::Verify,"OAuth token is used in YAML file for the following repo: $($this.BuildObj.repository.name)")
                                 $display = $resultObj | FT -AutoSize | Out-String -Width 512
                                 $controlResult.AddMessage($display)
                             }
                             else {
-                                $controlResult.AddMessage([VerificationResult]::Passed,"OAuth token access is restricted.");
+                                $controlResult.AddMessage([VerificationResult]::Passed,"OAuth token is not being accessed in YAML file.");
                             }
                         }
                         else {
-                            $controlResult.AddMessage([VerificationResult]::Passed,"YAML Build pipeline is not assoaciated with yaml file of any branch,");
+                            $controlResult.AddMessage([VerificationResult]::Passed,"The pipeline is not assoaciated with a YAML file of any branch.");
                         }                    
                     }
                     catch
@@ -1620,20 +1617,20 @@ class Build: ADOSVTBase
                     }
                     elseif ($AgentjobsWithOAuthAccessTokenEnabled.count -gt 0) {
                         # Accessing OAuth token is enabled for one or more agent jobs 
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Accessing OAuth token is enabled for agent job(s): $($AgentjobsWithOAuthAccessTokenEnabled.name -join ",")");
+                        $controlResult.AddMessage([VerificationResult]::Verify,"Accessing OAuth token is enabled for agent job(s): `n`t $($AgentjobsWithOAuthAccessTokenEnabled.name -join ", ")");
                     }
                     elseif($AgentjobsWithOAuthAccessTokenDisabled.count -gt 0) {
                         # ACcessing OAuth token is not enabled for agent jobs
-                        $controlResult.AddMessage([VerificationResult]::Passed,"Accessing OAuth token is not enabled for agent job(s)");
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Accessing OAuth token is not enabled for agent job(s).");
                     }                    
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"No job found in build");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No job found in build.");
                 }
             }     
         }
         else {
-            $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch build details");
+            $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch build details.");
         }
         return $controlResult;
     }
