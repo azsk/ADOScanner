@@ -36,7 +36,7 @@ class InventoryHelper {
             }
 
             # fetch the release count
-            $resourceURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0&`$top=10000") -f $($organizationName), $projectName;
+            $resourceURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0") -f $($organizationName), $projectName;
             $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL);
             if (([Helpers]::CheckMember($responseList, "count") -and $responseList[0].count -gt 0) -or (($responseList | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($responseList[0], "name"))) {
                 $projectData['Release'] = ($responseList | Measure-Object).Count

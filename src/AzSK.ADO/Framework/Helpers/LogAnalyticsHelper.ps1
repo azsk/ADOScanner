@@ -157,6 +157,9 @@ Class LogAnalyticsHelper{
 			{
                 $out.Exception += $ControlResult.Exception;
             }
+			#Reinitialise because of caching
+			$out.bugURL=$null
+			#send bug status and url information to LA
 			if($ControlResult.VerificationResult -eq "Failed" -or $ControlResult.VerificationResult -eq "Verify"){
 				$ControlResult.Messages| ForEach-Object{
 					if($_.Message -eq "Active Bug" -or $_.Message -eq "Resolved Bug" -or $_.Message -eq "New Bug"){
@@ -166,6 +169,21 @@ Class LogAnalyticsHelper{
 
 				}
 			}
+			if($ControlResult.VerificationResult -eq "Passed"){
+				$ControlResult.Messages| ForEach-Object{
+					if($_.Message -eq "Closed Bug"){
+						$out.bugStatus=$_.Message
+						if($out.bugURL -eq ""){
+							$out.bugUrl=$_.DataObject
+						}
+						else{
+							$out.bugURL=$out.bugURL + "," + $_.DataObject;
+						}
+						
+					}
+				}
+			}
+
 			$output += $out
 		}
 		return $output	
