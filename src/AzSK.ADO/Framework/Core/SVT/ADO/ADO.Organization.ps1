@@ -105,7 +105,7 @@ class Organization: ADOSVTBase
         {
             if($this.ADOGrpDescriptor.Count -eq 0)
             {
-                $this.FetchOrgLevelADOGroupDescriptor() #todo update in CheckSCALTForAdminMembers method also
+                $this.FetchOrgLevelADOGroupDescriptor() 
             }
 
             $accname = "Project Collection Service Accounts"; #Enterprise Service Accounts
@@ -126,7 +126,7 @@ class Organization: ADOSVTBase
                 }
 
                 if($groupMembers.Count -gt 0){
-                    $responsePrCollData = $groupMembers | Select-Object DisplayName,MailAddress,SubjectKind
+                    $responsePrCollData = @($groupMembers | Select-Object DisplayName,MailAddress,SubjectKind)
                     $stateData = @();
                     $stateData += $responsePrCollData | Sort-Object -Property MailAddress -Unique
                     $memberCount = $stateData.Count
@@ -135,7 +135,7 @@ class Organization: ADOSVTBase
                     $controlResult.SetStateData("Members of the Project Collection Service Accounts group: ", $stateData);
 
 
-                    $display = ($stateData |FT | Out-String -Width 512)
+                    $display = $stateData |FT -AutoSize | Out-String -Width 512
                     $controlResult.AddMessage([VerificationResult]::Verify, "Review the members of the group Project Collection Service Accounts: ");
                     $controlResult.AddMessage($display)
 
@@ -1076,9 +1076,9 @@ class Organization: ADOSVTBase
             if($guestUsers.Count -gt 0)
             {
                 $guestList = @();
-                $guestList +=  ($guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}},@{Name="AccessLevel"; Expression = {$_.accessLevel.licenseDisplayName}},@{Name="LastAccessedDate"; Expression = {$_.lastAccessedDate}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
+                $guestList += $guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}},@{Name="AccessLevel"; Expression = {$_.accessLevel.licenseDisplayName}},@{Name="LastAccessedDate"; Expression = {$_.lastAccessedDate}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }}
                 $stateData = @();
-                $stateData += ($guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}})
+                $stateData += $guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}}
                 # $guestListDetailed would be same if DetailedScan is not enabled.
                 $guestListDetailed = $guestList
 
@@ -1089,7 +1089,7 @@ class Organization: ADOSVTBase
                         try{
                             $guestUser = $_
                             $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/userentitlements/{1}?api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName), $($guestUser.Id);
-                            $projectEntitlements = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                            $projectEntitlements = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
                             $userProjectEntitlements = $projectEntitlements[0].projectEntitlements
                         }
                         catch {
@@ -1114,10 +1114,10 @@ class Organization: ADOSVTBase
                     if([AzSKRoot]::IsDetailedScanRequired -eq $true)
                     {
                         $inactiveGuestUsers= $inactiveGuestUsers | Select-Object @{Name="DisplayName"; Expression = {$_.DisplayName}},@{Name="MailAddress"; Expression = {$_.MailAddress}}, @{Name="InactiveFromDays"; Expression = {$_.InactiveFromDays}}, @{Name="ProjectReference"; Expression = {$_.ProjectEntitlements.projectref.name}}, @{Name="ProjectPermission"; Expression = {$_.ProjectEntitlements.group.displayName}}, @{Name="AccessLevel"; Expression = {$_.AccessLevel}}
-                        $display = ($inactiveGuestUsers |FT | Out-String -Width 512)
+                        $display = $inactiveGuestUsers |FT -AutoSize | Out-String -Width 512 
                     }
                     else {
-                        $display = ($inactiveGuestUsers |FT DisplayName,MailAddress,InactiveFromDays -AutoSize | Out-String -Width 512)
+                        $display = $inactiveGuestUsers |FT DisplayName,MailAddress,InactiveFromDays -AutoSize | Out-String -Width 512
                     }
                     $controlResult.AddMessage($display)
                 }
@@ -1131,7 +1131,7 @@ class Organization: ADOSVTBase
                     if([AzSKRoot]::IsDetailedScanRequired -eq $true)
                     {
                         $activeGuestUsers= $activeGuestUsers | Select-Object @{Name="DisplayName"; Expression = {$_.DisplayName}},@{Name="MailAddress"; Expression = {$_.MailAddress}}, @{Name="InactiveFromDays"; Expression = {$_.InactiveFromDays}}, @{Name="ProjectReference"; Expression = {$_.ProjectEntitlements.projectref.name}}, @{Name="ProjectPermission"; Expression = {$_.ProjectEntitlements.group.displayName}}, @{Name="AccessLevel"; Expression = {$_.AccessLevel}}
-                        $display = ($activeGuestUsers |FT | Out-String -Width 512)
+                        $display = ($activeGuestUsers |FT -AutoSize | Out-String -Width 512)
                     }
                     else
                     {
