@@ -335,7 +335,7 @@ class AzSKADOServiceMapping: CommandBase
                         try {
                             if(($secureFiles | Measure-Object).Count -gt 0)
                             {
-                                $secureFiles | Foreach-ObjectFast ForEach-Object{
+                                $secureFiles | ForEach-Object{
                                 if ($secureFileDetails.count -eq 0) {
                                     $secureFilesURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/securefiles?api-version=6.1-preview.1" -f $this.OrgName, $this.projectId;
                                     $secureFileDetails = [WebRequestHelper]::InvokeGetWebRequest($secureFilesURL);
@@ -422,7 +422,7 @@ class AzSKADOServiceMapping: CommandBase
                         try {
                             if(($secureFiles | Measure-Object).Count -gt 0)
                             {
-                            $secureFiles | Foreach-ObjectFast ForEach-Object{
+                            $secureFiles | ForEach-Object{
                                 if ($secureFileDetails.count -eq 0) {
                                     $secureFilesURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/securefiles?api-version=6.1-preview.1" -f $this.OrgName, $this.projectId;
                                     $secureFileDetails = [WebRequestHelper]::InvokeGetWebRequest($secureFilesURL);
@@ -464,7 +464,7 @@ class AzSKADOServiceMapping: CommandBase
         }
         #Removing duplicate entries of the tuple (securefile,serviceId)
         if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
-            $secureFileSTMapping.data = $secureFileSTMapping.data | Sort-Object -Unique variableGroupID,serviceID
+            $secureFileSTMapping.data = $secureFileSTMapping.data | Sort-Object -Unique secureFileID,serviceID
 
             $this.PublishCustomMessage("Service mapping found:  $(($secureFileSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
 
