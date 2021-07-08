@@ -455,7 +455,7 @@ class AzSKADOServiceMapping: CommandBase
         }
 
         #Removing duplicate entries of the tuple (variableGroupId,serviceId)
-        if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
+        if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
             $variableGroupSTMapping.data = $variableGroupSTMapping.data | Sort-Object -Unique variableGroupID,serviceID
 
             $this.PublishCustomMessage("Service mapping found:  $(($variableGroupSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
