@@ -168,7 +168,7 @@ class AdministratorHelper{
             }
             $currentUser = [ContextHelper]::GetCurrentSessionUser();
 
-            if([AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -in [AdministratorHelper]::AllPCAMembers.mailAddress){
+            if([AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -in [AdministratorHelper]::AllPAMembers.mailAddress){
                 [AdministratorHelper]::isCurrentUserPA=$true;
                 [AdministratorHelper]::ProjectAdminObject[$projName] = $true
             }
@@ -218,7 +218,7 @@ class AdministratorHelper{
         [AdministratorHelper]::GetPCADescriptorAndMembers($OrgName)
 
         #get unique pca based on display name and mail address
-        [AdministratorHelper]::AllPCAMembers = [AdministratorHelper]::AllPCAMembers | Sort-Object -Unique 'mailAddress'
+        [AdministratorHelper]::AllPCAMembers = @([AdministratorHelper]::AllPCAMembers | Sort-Object -Unique 'mailAddress')
         return [AdministratorHelper]::AllPCAMembers
     }
     static [object] GetTotalPAMembers([string] $OrgName,[string] $projName){
@@ -227,7 +227,7 @@ class AdministratorHelper{
         [AdministratorHelper]::AllPAMembers = @();
         [AdministratorHelper]::GetPADescriptorAndMembers($OrgName,$projName)
 
-        [AdministratorHelper]::AllPAMembers = [AdministratorHelper]::AllPAMembers | Sort-Object -Unique 'mailAddress'
+        [AdministratorHelper]::AllPAMembers = @([AdministratorHelper]::AllPAMembers | Sort-Object -Unique 'mailAddress')
         return [AdministratorHelper]::AllPAMembers
     }
     static [bool] GetIsCurrentUserPCA([string] $descriptor,[string] $OrgName){
