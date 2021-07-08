@@ -129,6 +129,12 @@ function Get-AzSKADOSecurityStatus
 		[Alias("xt")]
 		$ExcludeTags,
 
+		[string]
+		[Parameter(Mandatory = $false)]
+		[Alias("xcids")]
+		[AllowEmptyString()]
+		$ExcludeControlIds,
+
 		[switch]
 		[Parameter(Mandatory = $false)]
 		[Alias("ubc")]
@@ -301,7 +307,7 @@ function Get-AzSKADOSecurityStatus
         [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
 		[Alias("acem")]
 		[string] $ALTControlEvaluationMethod,
-        
+
 		[switch]
 		[Parameter(HelpMessage="Switch to reset default logged in user.")]
 		[Alias("rc")]
@@ -386,7 +392,7 @@ function Get-AzSKADOSecurityStatus
 					return;
 				}
 			}
-			
+
 			if ($ResetCredentials)
 			{
 				[ContextHelper]::PromptForLogin = $true
@@ -409,6 +415,8 @@ function Get-AzSKADOSecurityStatus
 
 					$secStatus.FilterTags = $FilterTags;
 					$secStatus.ExcludeTags = $ExcludeTags;
+
+					$secStatus.ExcludeControlIdString = $ExcludeControlIds
 
 					#build the attestation options object
 					[AttestationOptions] $attestationOptions = [AttestationOptions]::new();

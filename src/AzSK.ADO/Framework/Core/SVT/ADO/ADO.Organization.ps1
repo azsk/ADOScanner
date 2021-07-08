@@ -19,6 +19,7 @@ class Organization: ADOSVTBase
     hidden [PSObject] $ComputedExtensionDetails = @{}; 
     hidden $ADOGrpDescriptor = @() #cache groups descriptor
 
+
     #TODO: testing below line
     hidden [string] $SecurityNamespaceId;
     Organization([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
@@ -193,7 +194,6 @@ class Organization: ADOSVTBase
                         for ($i = 0; $i -lt $adminGroups.Count; $i++)
                         {
                             $groupMembers = @();
-
                             # Helper function to fetch flattened out list of group members.
                             if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($adminGroups[$i].descriptor) -and [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor].count -gt 0) {
                                 $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
@@ -312,10 +312,10 @@ class Organization: ADOSVTBase
                                             $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
                                             $stateData = @();
                                             $stateData += $nonSCMembers
-                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount");
-                                            $controlResult.AddMessage("List of non SC-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
-                                            $controlResult.SetStateData("List of non SC-ALT accounts: ", $stateData);
-                                            $controlResult.AdditionalInfo += "Count of non SC-ALT accounts with admin privileges: " + $nonSCCount;
+                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount"); 
+                                            $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));  
+                                            $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
+                                            $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
                                         }
                                         else 
                                         {
@@ -2474,4 +2474,5 @@ class Organization: ADOSVTBase
             throw
         }
     }
+
 }

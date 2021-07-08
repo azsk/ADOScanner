@@ -334,13 +334,10 @@ class SVTResourceResolver: AzSKRoot {
                             }
                             $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL)
                             if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
-                                $nObj = $this.MaxObjectsToScan
                                 foreach ($bldDef in $buildDefnsObj) {
                                     $link = $bldDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
                                     $buildResourceId = "organization/$organizationId/project/$projectId/build/$($bldDef.id)";
                                     $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
-
-                                    if (--$nObj -eq 0) { break; }
                                 }
                                 $buildDefnsObj = $null;
                                 Remove-Variable buildDefnsObj;
@@ -395,13 +392,10 @@ class SVTResourceResolver: AzSKRoot {
                             $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $projectName;
                             $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);
                             if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
-                                $nObj = $this.MaxObjectsToScan
                                 foreach ($relDef in $releaseDefnsObj) {
                                     $link = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId={2}" -f $this.OrganizationContext.OrganizationName, $projectName, $relDef.url.split('/')[-1];
                                     $releaseResourceId = "organization/$organizationId/project/$projectId/release/$($relDef.id)";
                                     $this.AddSVTResource($relDef.name, $projectName, "ADO.Release", $releaseResourceId, $null, $link);
-
-                                    if (--$nObj -eq 0) { break; }
                                 }
                                 $releaseDefnsObj = $null;
                             }
@@ -605,40 +599,55 @@ class SVTResourceResolver: AzSKRoot {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting variable group configurations...");
                         }
-
-                        # Here we are fetching all the var grps in the project and then filtering out. But in build & release we fetch them individually unless '*' is used for fetching all of them.
-                        $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?api-version=6.1-preview.2") -f $($this.organizationName), $projectId;
-                        $variableGroupObj = [WebRequestHelper]::InvokeGetWebRequest($variableGroupURL)
-
-                        if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) {
-
-                            $varGroups = $null;
-                            $projectData["variableGroups"] = ($variableGroupObj | Measure-Object).Count
+                        try
+                        {
                             if ($this.VariableGroups -eq "*") {
-                                $varGroups = $variableGroupObj
+                                $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?api-version=6.1-preview.2" +$topNQueryString) -f $($this.organizationName), $projectId;
+                                $variableGroupObj = [WebRequestHelper]::InvokeGetWebRequest($variableGroupURL)
+
+                                if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) 
+                                {
+                                    foreach ($group in $variableGroupObj) {
+                                        $resourceId = "organization/$organizationId/project/$projectId/variablegroup/$($group.Id)";
+                                        $link = ("https://dev.azure.com/{0}/{1}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId={2}") -f $($this.organizationName), $projectName, $($group.Id);
+                                        $this.AddSVTResource($group.name, $projectName, "ADO.VariableGroup", $resourceId, $group, $link);
+                                    }
+                                    $variableGroupObj = $null
+                                }
                             }
                             else {
-                                #If service id based scan then filter with variablegroup ids
-                                if ($this.isServiceIdBasedScan -eq $true) {
-                                    $varGroups = $variableGroupObj | Where-Object { $this.VariableGroupIds -eq $_.Id }
-                                }
-                                else {
-                                    $varGroups = $variableGroupObj | Where-Object { $this.VariableGroups -eq $_.name }
-                                }
-                            }
-                            $nObj = $this.MaxObjectsToScan
-                            foreach ($group in $varGroups) {
-                                $resourceId = "organization/$organizationId/project/$projectId/variablegroup/$($group.Id)";
-                                $link = ("https://dev.azure.com/{0}/{1}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId={2}") -f $($this.organizationName), $projectName, $($group.Id);
-                                $this.AddSVTResource($group.name, $projectName, "ADO.VariableGroup", $resourceId, $group, $link);
+                                for ($i = 0; $i -lt $this.VariableGroups.Count; $i++) {
+                                    # This API does not support multiple variable group names at one go.
+                                    $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupName={2}&api-version=6.0-preview.2") -f $($this.organizationName), $projectId, $this.VariableGroups[$i];
+                                    $variableGroupObj = [WebRequestHelper]::InvokeGetWebRequest($variableGroupURL)
 
-                                if (--$nObj -eq 0) { break; }
+                                    if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) 
+                                    {
+                                        $varGroup = $null;
+                                        #If service id based scan then filter with variablegroup ids
+                                        if ($this.isServiceIdBasedScan -eq $true) {
+                                            $varGroup = $variableGroupObj | Where-Object { $this.VariableGroupIds -eq $_.Id }
+                                        }
+                                        else {
+                                            $varGroup = $variableGroupObj | Where-Object { $this.VariableGroups -eq $_.name }
+                                        }
+                                        foreach ($group in $varGroup) {
+                                            $resourceId = "organization/$organizationId/project/$projectId/variablegroup/$($group.Id)";
+                                            $link = ("https://dev.azure.com/{0}/{1}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId={2}") -f $($this.organizationName), $projectName, $($group.Id);
+                                            $this.AddSVTResource($group.name, $projectName, "ADO.VariableGroup", $resourceId, $group, $link);
+                                        }
+                                    }
+                                }
                             }
                         }
+                        catch {
+                            Write-Warning "Variable groups for the project [$($projectName)] could not be fetched.";
+                        }
+                        
                     }
 
-                    #Ceating resource in common resource resolver
-                    if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -ge 0 -or $this.FeedNames.count -gt 0 -or $this.EnvironmentNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed, [ResourceTypeName]::Environment))) {
+                    #Creating resource in common resource resolver
+                    if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -gt 0 -or $this.FeedNames.count -gt 0 -or $this.EnvironmentNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed, [ResourceTypeName]::Environment))) {
                         $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName, $organizationId, $projectId);
                         $this.SVTResources += $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.EnvironmentNames, $this.ResourceTypeName, $this.MaxObjectsToScan);
                     }

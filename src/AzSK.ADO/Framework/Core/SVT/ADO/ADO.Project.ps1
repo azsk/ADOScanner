@@ -121,7 +121,7 @@ class Project: ADOSVTBase
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         if($this.PipelineSettingsObj)
-        {            
+        {
             if($this.PipelineSettingsObj.enforceSettableVar.enabled -eq $true )
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Only explicitly marked 'settable at queue time' variables can be set at queue time. It is set as '$($this.PipelineSettingsObj.enforceSettableVar.orgEnabled)' at organization scope.");
@@ -383,7 +383,7 @@ class Project: ADOSVTBase
         {
             $TotalPAMembers = $this.PAMembers.Count
         }
-        
+
         $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
         if ($TotalPAMembers -gt 0) {
             if ($this.graphPermissions.hasGraphAccess)
@@ -391,7 +391,7 @@ class Project: ADOSVTBase
                 $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
                 $humanAccounts = @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress)
                 $svcAccounts = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress)
-                
+
                 # In case of graph access we will only evaluate the control on the basis of human accounts
                 if($humanAccounts.count -lt $this.ControlSettings.Project.MinPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
@@ -404,14 +404,14 @@ class Project: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
                 }
 
-                if ($humanAccounts.count -gt 0) {                   
+                if ($humanAccounts.count -gt 0) {
                     $controlResult.AddMessage("`nHuman administrators: $($humanAccounts.Count)")
                     $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
                 }
 
-                if ($svcAccounts.count -gt 0) {                   
+                if ($svcAccounts.count -gt 0) {
                     $controlResult.AddMessage("`nService accounts: $($svcAccounts.Count)")
                     $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
@@ -447,60 +447,80 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckMaxPACount([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [verificationResult]::Failed;
         $TotalPAMembers = 0;
-        if (($this.PAMembers | Measure-Object).Count -eq 0) {
-            $this.PAMembers += [AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
+        if ($this.PAMembers.Count -eq 0) {
+            $this.PAMembers += @([AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName))
         }
-        $TotalPAMembers = ($this.PAMembers | Measure-Object).Count
-        $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
+        if((-not [string]::IsNullOrEmpty($this.PAMembers)) -and [Helpers]::CheckMember($this.PAMembers[0],"mailAddress"))
+        {
+            $TotalPAMembers = $this.PAMembers.Count
+            $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
+        }
+
+
         if ($TotalPAMembers -gt 0)
         {
             if ($this.graphPermissions.hasGraphAccess)
             {
                 $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
-                $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
-                if($HumanAcccountCount -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible)");
+                $humanAccounts = @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress)
+                $svcAccounts = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress)
+
+                $humanAccountsCount = $humanAccounts.Count
+                $svcAccountsCount = $svcAccounts.Count
+                #In case of graph access we will only evaluate the control on the basis of human accounts
+                if($humanAccountsCount -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible)");
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible)");
-                }
-                if($TotalPAMembers -gt 0){
-                    $controlResult.AddMessage("Verify the following Project Administrators: ")
-                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible)");
                 }
 
-                if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
-                    $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
-                    $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
+                if($TotalPAMembers -gt 0){
+                    $controlResult.AddMessage("Current set of Project Administrators: ")
+                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
+                }
+
+                if ($humanAccountsCount -gt 0) {
+                    $controlResult.AddMessage("`nCount of Human Administrators: $($humanAccountsCount)")
+                    $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
                 }
 
-                if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
-                    $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
-                    $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
+                if ($svcAccountsCount -gt 0) {
+                    $controlResult.AddMessage("`nCount of Service Accounts: $($svcAccountsCount)")
+                    $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of service account Project Administrators: ",$svcAccounts)
                 }
             }
             else
             {
-                $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
+                ## TODO: Add warning that control was evaluated without graph access (Once Sourabh is done with its Graph access task)
+
+                $this.PAMembers = @($this.PAMembers | Select-Object displayName,mailAddress)
                 if($TotalPAMembers -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
                 }
+
                 if($TotalPAMembers -gt 0){
-                    $controlResult.AddMessage("Verify the following Project Administrators: ",$this.PAMembers)
+                    $controlResult.AddMessage("Count of Project Administrators: $($TotalPAMembers)")
+                    $controlResult.AddMessage("Current set of Project Administrators: ")
+                    $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
-                    $controlResult.AdditionalInfo += "Total number of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
                 }
             }
         }
         else
         {
-            $controlResult.AddMessage([VerificationResult]::Failed,"No Project Administrators are configured in the project.");
+            $controlResult.AddMessage([VerificationResult]::Verify,"No Project Administrators are configured in the project.");
         }
 
         return $controlResult
@@ -779,29 +799,28 @@ class Project: ADOSVTBase
     hidden [ControlResult] CheckEnviornmentAccess([ControlResult] $controlResult)
     {
         <#
-        {
-          "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Environment",
-          "Description": "Do not make environment accessible to all pipelines.",
-          "Id": "Project240",
-          "ControlSeverity": "High",
-          "Automated": "Yes",
-          "MethodName": "CheckEnviornmentAccess",
-          "Rationale": "To support security of the pipeline operations, environments must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
-          "Recommendation": "To remediate this, go to Project -> Pipelines -> Environments -> select your environment from the list -> click Security -> Under 'Pipeline Permissions', remove pipelines that environment no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
-          "Tags": [
-            "SDL",
-            "TCP",
-            "Automated",
-            "AuthZ"
-          ],
-          "Enabled": true
-        },
-        #>
-
+         {
+      "ControlID": "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Environment",
+      "Description": "Do not make environment accessible to all pipelines.",
+      "Id": "Project240",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckEnviornmentAccess",
+      "Rationale": "To support security of the pipeline operations, environments must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
+      "Recommendation": "To remediate this, go to Project -> Pipelines -> Environments -> select your environment from the list -> click Security -> Under 'Pipeline Permissions', remove pipelines that environment no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+        },#>
+        $controlResult.VerificationResult = [VerificationResult]::Failed;
         try
         {
             $apiURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceName);
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
 
             # TODO: When there are no environments configured, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false. Need to revisit.
             if(([Helpers]::CheckMember($responseObj[0],"count",$false)) -and ($responseObj[0].count -eq 0))
@@ -815,13 +834,13 @@ class Project: ADOSVTBase
                 foreach ($item in $responseObj)
                 {
                     $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/environment/{2}" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceDetails.id), $($item.id);
-                    $apiResponse = [WebRequestHelper]::InvokeGetWebRequest($url);
+                    $apiResponse = @([WebRequestHelper]::InvokeGetWebRequest($url));
                     if (([Helpers]::CheckMember($apiResponse,"allPipelines")) -and ($apiResponse.allPipelines.authorized -eq $true))
                     {
                         $environmentsWithOpenAccess += $item | Select-Object id, name;
                     }
                 }
-                $environmentsWithOpenAccessCount = ($environmentsWithOpenAccess | Measure-Object).Count;
+                $environmentsWithOpenAccessCount = $environmentsWithOpenAccess.Count;
                 if($environmentsWithOpenAccessCount -gt 0)
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Total number of environments in the project that are accessible to all pipelines: $($environmentsWithOpenAccessCount)");
@@ -1711,7 +1730,7 @@ class Project: ADOSVTBase
             try
             {
                 $AdminGroupsToCheckForInactiveUser = @($this.ControlSettings.Project.AdminGroupsToCheckForInactiveUser)
-       
+
                 $inactiveUsersWithAdminAccess = @()
                 $inactivityPeriodInDays = 90
                 if([Helpers]::CheckMember($this.ControlSettings,"Project.AdminInactivityThresholdInDays"))
@@ -1724,14 +1743,14 @@ class Project: ADOSVTBase
                 $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
                 $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
                 $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
-    
+
                 $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
 
                 if([Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider")
                 {
                     $ReqdAdminGroups = @();
                     $ReqdAdminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $AdminGroupsToCheckForInactiveUser }
-                    
+
                     $allAdminMembers =@();
 
                     $ReqdAdminGroups | ForEach-Object{
@@ -1750,17 +1769,17 @@ class Project: ADOSVTBase
 
                         if($groupMembers.count -gt 0)
                         {
-                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor } )} 
+                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor } )}
                         }
                     }
-                
+
                     $AdminUsersMasterList = @()
                     $AdminUsersFailureCases = @()
 
                     if($allAdminMembers.count -gt 0)
                     {
                         $groups = $allAdminMembers | Group-Object "mailAddress"
-                        $AdminUsersMasterList += foreach( $grpobj in $groups ){                                      
+                        $AdminUsersMasterList += foreach( $grpobj in $groups ){
                                                   $PrincipalName = $grpobj.name
                                                   $OrgGroup = ($grpobj.group.groupName  | select -Unique)-join ','
                                                   $DisplayName = $grpobj.group.name | select -Unique
@@ -1768,8 +1787,8 @@ class Project: ADOSVTBase
                                                   $descriptor = $grpobj.group.descriptor | select -Unique
                                                   [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date ; Descriptor = $descriptor}
                                                 }
-                                            
-                        $inactiveUsersWithAdminAccess =@()                        
+
+                        $inactiveUsersWithAdminAccess =@()
 
                         if($AdminUsersMasterList.count -gt 0)
                         {
@@ -1777,7 +1796,7 @@ class Project: ADOSVTBase
                             $controlResult.AddMessage("`nLooking for admin users who have not been active for $($inactivityPeriodInDays) days.")
                             $currentObj = $null
                             $AdminUsersMasterList | ForEach-Object{
-                                try 
+                                try
                                 {
                                     if([Helpers]::CheckMember($_,"PrincipalName"))
                                     {
@@ -1803,26 +1822,26 @@ class Project: ADOSVTBase
                                                     $_.LastAccessedDate = $dateobj.ToString("MM-dd-yyyy")
                                                 }
                                                 $inactiveUsersWithAdminAccess += $_
-                                            }                        
+                                            }
                                         }
                                     }
                                 }
-                                catch 
+                                catch
                                 {
                                     $controlResult.LogException($_)
                                     $AdminUsersFailureCases += $currentObj
                                 }
                             }
-                        }                        
+                        }
                     }
                     else {
                        $controlResult.AddMessage([VerificationResult]::Passed, "No user found with admin roles in the project.")
-                    }                       
-                    
+                    }
+
                     if($null -eq (Compare-Object -ReferenceObject $AdminUsersMasterList -DifferenceObject $AdminUsersFailureCases))
                     {
                         $controlResult.AddMessage([VerificationResult]::Error, "Unable to fetch details of inactive users in admin role. Please run the scan with admin priveleges.")
-                    }                    
+                    }
                     elseif($inactiveUsersWithAdminAccess.count -gt 0)
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive users in admin roles: $($inactiveUsersWithAdminAccess.count) ");
@@ -1838,17 +1857,17 @@ class Project: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of groups in the project.")
                 }
-                $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForInactiveUser|FT|Out-String)");        
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForInactiveUser|FT|Out-String)");
             }
             catch
             {
                 $controlResult.AddMessage([VerificationResult]::Error, "Not able to fetch project level groups")
                 $controlResult.LogException($_)
-            }         
+            }
         }
         else{
             $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting inactive accounts is not defined in control setting of your organization.");
-        }        
+        }
         return $controlResult;
     }
 
