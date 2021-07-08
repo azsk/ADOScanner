@@ -531,8 +531,7 @@ class SVTBase: AzSKRoot
 					$filteredControls = $filteredControlsFinal                
                 } 
             }
-			#TODO:Add filter condiiton here (removed same condition form line no 596)
-			$this.ApplicableControls = $filteredControls | Where {$_.Automated -ne "No" -and (-not [string]::IsNullOrEmpty($_.MethodName))} ;
+			$this.ApplicableControls = $filteredControls;
 			#this filtering has been done as the first step it self;
 			#$this.ApplicableControls += $this.ApplyServiceFilters($filteredControls);
 			
@@ -597,7 +596,7 @@ class SVTBase: AzSKRoot
             ForEach-Object {
 				$evaluateControl = $true; 
 				# if control is disabled and warning message is also disabled in org policy than do not evaluate the control.
-				if ([Helpers]::CheckMember($this.ControlSettings, "DisableWarningMessage") -and $this.ControlSettings.DisableWarningMessage -eq $true -and $_.Enabled -eq $false) {
+				if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "DisableWarningMessage") -and $this.ControlSettings.DisableWarningMessage -eq $true -and $_.Enabled -eq $false) {
 						$evaluateControl = $false;
 				}
 				if ($evaluateControl)
@@ -652,7 +651,7 @@ class SVTBase: AzSKRoot
         $singleControlResult.ControlItem = $controlItem;
 
         $this.ControlStarted($singleControlResult);
-		if($controlItem.Enabled -eq $false) #TODO: checke whether this already check or not
+		if($controlItem.Enabled -eq $false)
         {
             $this.ControlDisabled($singleControlResult);
         }
