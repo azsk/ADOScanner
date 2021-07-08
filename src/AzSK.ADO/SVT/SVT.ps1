@@ -286,11 +286,6 @@ function Get-AzSKADOSecurityStatus
 		[Alias("prn")]
 		$PolicyRepoName,
 
-		[switch]
-		[Parameter(HelpMessage="Scan control which require graph permission for evaluation.")]
-		[Alias("uga")]
-		$UseGraphAccess,
-
 		[ValidateSet("Graph", "RegEx", "GraphThenRegEx")]
         [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
 		[Alias("acem")]

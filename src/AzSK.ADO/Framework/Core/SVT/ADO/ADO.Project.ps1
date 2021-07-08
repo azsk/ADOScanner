@@ -4,7 +4,6 @@ class Project: ADOSVTBase
     [PSObject] $PipelineSettingsObj = $null
     hidden $PAMembers = @()
     hidden $Repos = $null
-    hidden [PSObject] $graphPermissions = @{hasGraphAccess = $false; graphAccessToken = $null}; # This is used to check user has graph permissions to compute the graph api operations.
     hidden $GuestMembers = @()
     hidden $AllUsersInOrg = @()
 
@@ -12,10 +11,6 @@ class Project: ADOSVTBase
     {
         $this.Repos = $null
         $this.GetPipelineSettingsObj()
-        $this.graphPermissions.hasGraphAccess = [IdentityHelpers]::HasGraphAccess();
-        if ($this.graphPermissions.hasGraphAccess) {
-            $this.graphPermissions.graphAccessToken = [IdentityHelpers]::graphAccessToken
-        }
 
         # If switch ALtControlEvaluationMethod is set as true in org policy, then evaluating control using graph API. If not then fall back to RegEx based evaluation.
         if ([string]::IsNullOrWhiteSpace([IdentityHelpers]::ALTControlEvaluationMethod)) {
@@ -383,7 +378,7 @@ class Project: ADOSVTBase
         
         $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
         if ($TotalPAMembers -gt 0) {
-            if ($this.graphPermissions.hasGraphAccess)
+            if ([IdentityHelpers]::hasGraphAccess)
             {
                 $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
                 $humanAccounts = @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress)
@@ -417,6 +412,7 @@ class Project: ADOSVTBase
             }
             else
             {
+                $controlResult.AddMessage([Constants]::graphWarningMessage);
                 ## TODO: Add warning that control was evaluated without graph access ( Once Sourabh is done with its Graph access task)
                 $this.PAMembers = @($this.PAMembers | Select-Object displayName,mailAddress)
                 if($TotalPAMembers -lt $this.ControlSettings.Project.MinPAMembersPermissible){
@@ -452,7 +448,7 @@ class Project: ADOSVTBase
         $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
         if ($TotalPAMembers -gt 0)
         {
-            if ($this.graphPermissions.hasGraphAccess)
+            if ([IdentityHelpers]::hasGraphAccess)
             {
                 $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($this.PAMembers, $this.OrganizationContext.OrganizationName)
                 $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
@@ -481,6 +477,7 @@ class Project: ADOSVTBase
             }
             else
             {
+                $controlResult.AddMessage([Constants]::graphWarningMessage);
                 $this.PAMembers = $this.PAMembers | Select-Object displayName,mailAddress
                 if($TotalPAMembers -gt $this.ControlSettings.Project.MaxPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
@@ -556,7 +553,7 @@ class Project: ADOSVTBase
                                 $useGraphEvaluation = $false
                                 $useRegExEvaluation = $false
                                 if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
-                                    if ($this.graphPermissions.hasGraphAccess){
+                                    if ([IdentityHelpers]::hasGraphAccess){
                                         $useGraphEvaluation = $true
                                     }
                                     else {
@@ -566,7 +563,7 @@ class Project: ADOSVTBase
 
                                 if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
                                 {
-                                    if ($this.graphPermissions.hasGraphAccess)
+                                    if ([IdentityHelpers]::hasGraphAccess)
                                     {
                                         $allAdmins = [IdentityHelpers]::DistinguishAltAndNonAltAccount($allAdminMembers)
                                         $SCMembers = $allAdmins.altAccount
@@ -606,6 +603,7 @@ class Project: ADOSVTBase
 
                                 if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
                                 {
+                                    $controlResult.AddMessage([Constants]::graphWarningMessage);
                                     if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg")){
                                         $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
                                         #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
