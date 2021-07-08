@@ -103,23 +103,30 @@ class IdentityHelpers
 
 	static CheckGraphAccess()
 	{
-		$graphUri = [WebRequestHelper]::GetGraphUrl()
-		$uri = $GraphUri + "/v1.0/users?`$top=1"
-		[IdentityHelpers]::graphAccessToken = [ContextHelper]::GetGraphAccessToken()
-		if (-not [string]::IsNullOrWhiteSpace([IdentityHelpers]::graphAccessToken))
+		$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
+		if ($scanSource -eq 'CICD') {
+			[IdentityHelpers]::hasGraphAccess = $false;
+		}
+		else 
 		{
-			$header = @{
-				"Authorization"= ("Bearer " + [IdentityHelpers]::graphAccessToken); 
-				"Content-Type"="application/json"
-			};
-			try
+			$graphUri = [WebRequestHelper]::GetGraphUrl()
+			$uri = $GraphUri + "/v1.0/users?`$top=1"
+			[IdentityHelpers]::graphAccessToken = [ContextHelper]::GetGraphAccessToken()
+			if (-not [string]::IsNullOrWhiteSpace([IdentityHelpers]::graphAccessToken))
 			{
-				$webResponse = [WebRequestHelper]::InvokeGetWebRequest($uri, $header);
-				[IdentityHelpers]::hasGraphAccess = $true;
-			}
-			catch
-			{
-				[IdentityHelpers]::hasGraphAccess = $false;
+				$header = @{
+					"Authorization"= ("Bearer " + [IdentityHelpers]::graphAccessToken); 
+					"Content-Type"="application/json"
+				};
+				try
+				{
+					$webResponse = [WebRequestHelper]::InvokeGetWebRequest($uri, $header);
+					[IdentityHelpers]::hasGraphAccess = $true;
+				}
+				catch
+				{
+					[IdentityHelpers]::hasGraphAccess = $false;
+				}
 			}
 		}
 	}
