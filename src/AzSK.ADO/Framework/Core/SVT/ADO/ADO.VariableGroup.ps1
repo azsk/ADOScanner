@@ -327,4 +327,99 @@ class VariableGroup: ADOSVTBase
         return $controlResult;
     }
 
+    hidden [ControlResult] CheckBroaderGroupAccessForVarGrpWithSecrets([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try 
+        {
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedBroaderGroupsForVariableGroup") -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroupContainingSecrets"))
+            {
+                $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup;
+                $restrictedRolesForBroaderGroupsInvarGrp = $this.ControlSettings.VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroupContainingSecrets;
+
+                if([Helpers]::CheckMember($this.VarGrp[0],"variables"))
+                {
+                    $secretVarList = @();
+                    $VGMembers = @(Get-Member -InputObject $this.VarGrp[0].variables -MemberType Properties)
+                    $patterns = @($this.ControlSettings.Patterns | Where-Object {$_.RegexCode -eq "SecretsInVariables"} | Select-Object -Property RegexList);
+                    $VGMembers | ForEach-Object {
+                        $varName = $_.Name
+                        if([Helpers]::CheckMember($this.VarGrp[0].variables.$varName,"value"))
+                        {
+                            $varValue = $this.VarGrp[0].variables.$varName.value
+                            for ($i = 0; $i -lt $patterns.RegexList.Count; $i++)
+                            {
+                                #Note: We are using '-cmatch' here.
+                                #When we compile the regex, we don't specify ignoreCase flag.
+                                #If regex is in text form, the match will be case-sensitive.
+                                if ($varValue -cmatch $patterns.RegexList[$i]) 
+                                {
+                                    $secretVarList += $varName
+                                    break
+                                }
+                            }
+                        }
+                        elseif (([Helpers]::CheckMember($this.VarGrp[0].variables.$($_.Name),"isSecret"))) {
+                            $secretVarList += $varName
+                        }
+                    }
+
+                    if ($secretVarList.Count -gt 0)
+                    {
+                        #Fetch variable group RBAC
+                        $roleAssignments = @();
+
+                        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId);
+                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                        if($responseObj.Count -gt 0)
+                        {
+                            if ($this.checkInheritedPermissionsPerVarGrp -eq $false) {
+                                $responseObj = $responseObj  | where-object { $_.access -ne "inherited" }
+                            }
+                            $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                        }
+
+                        # Checking whether the broader groups have User/Admin permissions
+                        $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                        $restrictedGroupsCount = $restrictedGroups.Count
+
+                        # fail the control if restricted group found on variable group which contains secrets
+                        if ($restrictedGroupsCount -gt 0)
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Broader groups have excessive permissions on the variable group.");
+                            $controlResult.AddMessage("`nCount of broader groups that have excessive permissions on the variable group:  $($restrictedGroupsCount)")
+                            $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions on the variable group:  $($restrictedGroupsCount)";
+                            $controlResult.AddMessage("`nList of broader groups: ",$($restrictedGroups | FT | Out-String))
+                            $controlResult.AddMessage("`nList of variables with secret: ",$secretVarList)
+                            $controlResult.SetStateData("List of broader groups: ", $restrictedGroups)
+                        }
+                        else
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to variable group.");
+                        }
+
+                        $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' and should not have user/administrator privileges: `n$( $restrictedBroaderGroupsForVarGrp| FT | out-string)");
+                    }
+                    else
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No secrets found in variable group.");
+                    }
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No variables found in variable group.");
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions.");
+            $controlResult.LogException($_)
+        }
+
+        return $controlResult;
+    }
 }
