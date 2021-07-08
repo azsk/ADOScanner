@@ -61,7 +61,7 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckGuestIdentities",
-      "Rationale": "Non-AD accounts (such as xyz@hotmail.com, pqr@outlook.com, etc.) present at any scope within a organization subject your cloud assets to undue risk. These accounts are not managed to the same standards as enterprise tenant identities. They don't have multi-factor authentication enabled.",
+      "Rationale": "Guest user accounts are not carefully managed and governed. If these accounts have admin access then a compromised account can be easily leveraged to access arbitrary resources in the organization.",
       "Recommendation": "1. Go to Organization Settings --> 2. Users --> 3. Apply Guest filter under 'AAD User Type' filter --> 4. Validate and remove all unintended guest users present.",
       "Tags": [
         "SDL",
@@ -250,8 +250,8 @@
       "Id": "Organization260",
       "ControlSeverity": "High",
       "Automated": "Yes",
-      "MethodName": "CheckProCollSerAcc",
-      "Rationale": "Any accounts that are members of Project Collection Service Accounts are effectively Project Collection Administrators. An adversary that executes code in a pipeline assigned to one of these build agents can take over the entire ADO organization.",
+      "MethodName": "CheckPrjCollSvcAcc",
+      "Rationale": "Any accounts that are members of Project Collection Service Accounts are effectively Project Collection Administrators. If an adversary compromises one of these accounts they can take over the entire ADO organization.",
       "Recommendation": "1. Go to Organization Settings --> 2. Security --> 3. Permissions --> 4. Project Collection Service Accounts --> 5. Validate all the members.",
       "Tags": [
         "SDL",
