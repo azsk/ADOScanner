@@ -3,7 +3,6 @@ class AdministratorHelper{
     static [bool] $isCurrentUserPA=$false;
     static $AllPCAMembers = @()
     static $AllPAMembers = @()
-    static $ProjectAdminObject = @{}
 
 
     #Check whether uesr is PCA and subgroups member
@@ -170,7 +169,6 @@ class AdministratorHelper{
 
             if([AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -in [AdministratorHelper]::AllPAMembers.mailAddress){
                 [AdministratorHelper]::isCurrentUserPA=$true;
-                [AdministratorHelper]::ProjectAdminObject[$projName] = $true
             }
         }
         catch {
