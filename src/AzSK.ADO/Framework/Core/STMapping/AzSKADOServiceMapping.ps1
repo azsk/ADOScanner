@@ -297,18 +297,23 @@ class AzSKADOServiceMapping: CommandBase
                             }
                         }
 
-                        if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
-                            $workflowtasks = @();
-                            if([Helpers]::CheckMember($env, "deployPhases.workflowtasks") )
-                            {
-                                $workflowtasks += $env.deployPhases.workflowtasks;
-                            }
-                            foreach ($item in $workflowtasks) {
-                                if ([Helpers]::CheckMember($item, "inputs.secureFile")) {
-                                    $secureFiles += $item.inputs.secureFile;
+                        try {
+                            if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
+                                $workflowtasks = @();
+                                if([Helpers]::CheckMember($env, "deployPhases.workflowtasks") )
+                                {
+                                    $workflowtasks += $env.deployPhases.workflowtasks;
+                                }
+                                foreach ($item in $workflowtasks) {
+                                    if ([Helpers]::CheckMember($item, "inputs.secureFile")) {
+                                        $secureFiles += $item.inputs.secureFile;
+                                    }
                                 }
                             }
                         }
+                        catch {
+                            #eat exception
+                        }  
                     }
 
                     if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
@@ -327,9 +332,10 @@ class AzSKADOServiceMapping: CommandBase
                     }
 
                     if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
-                        if(($secureFiles | Measure-Object).Count -gt 0)
-                        {
-                            $secureFiles | Foreach-ObjectFast ForEach-Object{
+                        try {
+                            if(($secureFiles | Measure-Object).Count -gt 0)
+                            {
+                                $secureFiles | Foreach-ObjectFast ForEach-Object{
                                 if ($secureFileDetails.count -eq 0) {
                                     $secureFilesURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/securefiles?api-version=6.1-preview.1" -f $this.OrgName, $this.projectId;
                                     $secureFileDetails = [WebRequestHelper]::InvokeGetWebRequest($secureFilesURL);
@@ -343,7 +349,11 @@ class AzSKADOServiceMapping: CommandBase
                                         $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $secureFilesObj.name; secureFileID = $secureFilesObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
                                     }
                                 }
+                                }
                             }
+                        }
+                        catch {
+                            #eat exception
                         }
                     }
                 }
@@ -373,19 +383,24 @@ class AzSKADOServiceMapping: CommandBase
                     $buildObj = [WebRequestHelper]::InvokeGetWebRequest($bldDef.url.split('?')[0]);
 
                     #getting secure files added in all the tasks.
-                    if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
-                        $tasksSteps =@()
-                        if([Helpers]::CheckMember($buildObj, "process.Phases.steps") )
-                        {
-                            $tasksSteps += $buildObj.process.Phases.steps;
-                        }
-                        foreach ($itemStep in $tasksSteps) {
-                            if ([Helpers]::CheckMember($itemStep, "inputs.secureFile")) {
-                                $secureFiles += $itemStep.inputs.secureFile;
+                    try {
+                        if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
+                            $tasksSteps =@()
+                            if([Helpers]::CheckMember($buildObj, "process.Phases.steps") )
+                            {
+                                $tasksSteps += $buildObj.process.Phases.steps;
+                            }
+                            foreach ($itemStep in $tasksSteps) {
+                                if ([Helpers]::CheckMember($itemStep, "inputs.secureFile")) {
+                                    $secureFiles += $itemStep.inputs.secureFile;
+                                }
                             }
                         }
                     }
-
+                    catch {
+                        #eat exception
+                    }
+                    
                     #Variable to store current build STDAT
                     $buildSTData = $null;
 
@@ -404,8 +419,9 @@ class AzSKADOServiceMapping: CommandBase
                     }
                     if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
                         $secureFiles = @();
-                        if(($secureFiles | Measure-Object).Count -gt 0)
-                        {
+                        try {
+                            if(($secureFiles | Measure-Object).Count -gt 0)
+                            {
                             $secureFiles | Foreach-ObjectFast ForEach-Object{
                                 if ($secureFileDetails.count -eq 0) {
                                     $secureFilesURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/securefiles?api-version=6.1-preview.1" -f $this.OrgName, $this.projectId;
@@ -423,7 +439,12 @@ class AzSKADOServiceMapping: CommandBase
                                     }
                                 }
                             }
+                            }
                         }
+                        catch {
+                            #eat exception
+                        }
+                        
                     }
                 }
                 $buildDefnsObj = $null;
