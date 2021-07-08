@@ -167,13 +167,18 @@ class BugMetaInfoProvider {
                 return $ControlResult.ResourceContext.ResourceDetails.createdBy.uniqueName
             }
             'Feed' {
-                $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=true' -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceDetails.Id;
-                $feedPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                if ($feedPermissionList.count -gt 0 -and [Helpers]::CheckMember($feedPermissionList[0],"identityDescriptor")) {
-                    $resourceOwnerWithDescriptor = $feedPermissionList[0].identityDescriptor.Split('\');
-                    if ($resourceOwnerWithDescriptor.count -ge 1) {
-                        return $resourceOwnerWithDescriptor[1];
+                try {
+                    $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=true' -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceDetails.Id;
+                    $feedPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                    if ($feedPermissionList.count -gt 0 -and [Helpers]::CheckMember($feedPermissionList[0],"identityDescriptor")) {
+                        $resourceOwnerWithDescriptor = $feedPermissionList[0].identityDescriptor.Split('\');
+                        if ($resourceOwnerWithDescriptor.count -ge 1) {
+                            return $resourceOwnerWithDescriptor[1];
+                        }
                     }
+                }
+                catch {
+                    return "";
                 }
             }
             'Environment' {
