@@ -147,8 +147,8 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckMaxPACount",
-      "Rationale": "Each additional person in the administrator role increases the attack surface for the entire project. The number of members in these roles should be kept to as low as possible.",
-      "Recommendation": "Go to Project settings --> General --> Permissions --> Groups --> Select the group : Project Administrators --> Review the members of this group",
+      "Rationale": "Each additional person in the administrator role increases the attack surface for the entire project (if an admin's credentials are compromised via a phishing attack). The number of members in these roles should be kept as low as possible.",
+      "Recommendation": "1. Project settings --> 2. General --> 3. Permissions --> 4. Groups --> 5. Select the group : Project Administrators --> 6. Remove the redundant members of this group",
       "Tags": [
         "SDL",
         "AuthZ",

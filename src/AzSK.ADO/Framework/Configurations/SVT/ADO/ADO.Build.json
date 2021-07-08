@@ -141,7 +141,7 @@
     },
     {
       "ControlID": "ADO_Build_SI_Restrict_Task_Group_Edit_Permission",
-      "Description": "Do not use task groups that are editable by a broad pool of users.",
+      "Description": "Builds should not use task groups that are editable by a broad pool of users.",
       "Id": "Build200",
       "ControlSeverity": "High",
       "Automated": "Yes",

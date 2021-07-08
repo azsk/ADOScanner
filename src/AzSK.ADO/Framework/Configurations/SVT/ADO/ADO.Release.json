@@ -159,7 +159,7 @@
     },
     {
       "ControlID": "ADO_Release_SI_Restrict_Task_Group_Edit_Permission",
-      "Description": "Do not use task groups that are editable by a broad pool of users.",
+      "Description": "Releases should not use task groups that are editable by a broad pool of users.",
       "Id": "Release210",
       "ControlSeverity": "High",
       "Automated": "Yes",
