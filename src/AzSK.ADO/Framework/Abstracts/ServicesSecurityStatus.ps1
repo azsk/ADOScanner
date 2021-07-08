@@ -262,7 +262,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					$result += $currentResourceResults;
 				}
 				
-				if([Organization]::InstalledextensionInfo)
+				if([Organization]::InstalledextensionInfo -or [Organization]::SharedextensionInfo -or [Organization]::AutoInjectedExtensionInfo)
 				{
 					# Default value if property 'ExtensionsLastUpdatedInYears' not exist in ControlSettings
 					$years = 2
@@ -272,12 +272,29 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                     {
                         $years = $svtObject.ControlSettings.Organization.ExtensionsLastUpdatedInYears
 					}
-					$folderpath=([WriteFolderPath]::GetInstance().FolderPath) + "\$($_.ResourceName)"+"_ExtensionInfo.csv";
-					$MaxScore = [Organization]::InstalledextensionInfo[0].MaxScore
-					[Organization]::InstalledextensionInfo | Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old (>$($years)year(s))"; Expression = { $_.TooOld } },@{Name = "LastPublished (MM-dd-yyyy)"; Expression = { $_.lastPublished} },@{Name = "Sensitive Permissions"; Expression = { $_.SensitivePermissions} },@{Name = "NonProd (ExtensionName)"; Expression = { $_.NonProdByName}},@{Name = "NonProd (Galleryflags) "; Expression = { $_.Preview }},TopPublisher,PrivateVisibility,NoOfInstalls,MarketPlaceAverageRating,@{Name = "Score (Out of $($MaxScore))"; Expression = { $_.Score } } | Export-Csv -Path $folderpath -NoTypeInformation #The NoTypeInformation parameter removes the #TYPE information header from the CSV output 
-					[Organization]::InstalledExtensionInfo = @()   # Clearing the static variable value so that extensioninfo.csv file gets generated only once and when computed during the installed extension control
-				}
+					if ([Organization]::InstalledextensionInfo)
+					{
+						$folderpath=([WriteFolderPath]::GetInstance().FolderPath) + "\$($_.ResourceName)"+"_InstalledExtensionInfo.csv";
+						$MaxScore = [Organization]::InstalledextensionInfo[0].MaxScore
+						[Organization]::InstalledextensionInfo | Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old (>$($years)year(s))"; Expression = { $_.TooOld } },@{Name = "LastPublished"; Expression = { $_.lastPublished} },@{Name = "Sensitive Permissions"; Expression = { $_.SensitivePermissions} },@{Name = "NonProd (ExtensionName)"; Expression = { $_.NonProdByName}},@{Name = "NonProd (GalleryFlags) "; Expression = { $_.Preview }},TopPublisher,PrivateVisibility,NoOfInstalls,MarketPlaceAverageRating,@{Name = "Score (Out of $($MaxScore))"; Expression = { $_.Score } } | Export-Csv -Path $folderpath -NoTypeInformation -encoding utf8 #The NoTypeInformation parameter removes the #TYPE information header from the CSV output 
+						[Organization]::InstalledExtensionInfo = @()   # Clearing the static variable value so that extensioninfo.csv file gets generated only once and when computed during the installed extension control
+					}
 
+					if ([Organization]::SharedextensionInfo) {
+						$folderpath=([WriteFolderPath]::GetInstance().FolderPath) + "\$($_.ResourceName)"+"_SharedExtensionInfo.csv";
+						$MaxScore = [Organization]::SharedextensionInfo[0].MaxScore
+						[Organization]::SharedextensionInfo | Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old (>$($years)year(s))"; Expression = { $_.TooOld } },@{Name = "LastPublished"; Expression = { $_.lastPublished} },@{Name = "Sensitive Permissions"; Expression = { $_.SensitivePermissions} },@{Name = "NonProd (ExtensionName)"; Expression = { $_.NonProdByName}},@{Name = "NonProd (GalleryFlags) "; Expression = { $_.Preview }},TopPublisher,PrivateVisibility,NoOfInstalls,MarketPlaceAverageRating,@{Name = "Score (Out of $($MaxScore))"; Expression = { $_.Score } } | Export-Csv -Path $folderpath -NoTypeInformation -encoding utf8 #The NoTypeInformation parameter removes the #TYPE information header from the CSV output 
+						[Organization]::SharedextensionInfo = @()   # Clearing the static variable value so that extensioninfo.csv file gets generated only once and when computed during the installed extension control
+					}
+
+					if ([Organization]::AutoInjectedExtensionInfo)
+					{
+						$folderpath=([WriteFolderPath]::GetInstance().FolderPath) + "\$($_.ResourceName)"+"_AutoInjectedExtensionInfo.csv";
+						$MaxScore = [Organization]::AutoInjectedExtensionInfo[0].MaxScore
+						[Organization]::AutoInjectedExtensionInfo | Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old (>$($years)year(s))"; Expression = { $_.TooOld } },@{Name = "LastPublished"; Expression = { $_.lastPublished} },@{Name = "Sensitive Permissions"; Expression = { $_.SensitivePermissions} },@{Name = "NonProd (ExtensionName)"; Expression = { $_.NonProdByName}},@{Name = "NonProd (GalleryFlags) "; Expression = { $_.Preview }},TopPublisher,PrivateVisibility,NoOfInstalls,MarketPlaceAverageRating,@{Name = "Score (Out of $($MaxScore))"; Expression = { $_.Score } } | Export-Csv -Path $folderpath -NoTypeInformation -encoding utf8 #The NoTypeInformation parameter removes the #TYPE information header from the CSV output 
+						[Organization]::AutoInjectedExtensionInfo = @()   # Clearing the static variable value so that extensioninfo.csv file gets generated only once and when computed during the installed extension control
+					}
+				}
 				$memoryUsage = 0
 				if(($result | Measure-Object).Count -gt 0 -and $this.UsePartialCommits)
 				{
