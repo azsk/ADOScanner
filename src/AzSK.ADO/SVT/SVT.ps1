@@ -163,9 +163,14 @@ function Get-AzSKADOSecurityStatus
 		$ResourceTypeName = [ResourceTypeName]::All,
 
         [switch]
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $false,ParameterSetName="PartialCommit")]
 		[Alias("upc")]
 		$UsePartialCommits,
+
+		[switch]
+        [Parameter(Mandatory = $false,ParameterSetName="PartialCommit")]
+		[Alias("dnrr")]
+		$DoNotRefetchResources,
 
 		[switch]
         [Parameter(Mandatory = $false)]
@@ -376,7 +381,7 @@ function Get-AzSKADOSecurityStatus
 				}
 			}
 
-			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $BuildsFolderPath);
+			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $BuildsFolderPath,$UsePartialCommits,$DoNotRefetchResources);
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus)
 			{
