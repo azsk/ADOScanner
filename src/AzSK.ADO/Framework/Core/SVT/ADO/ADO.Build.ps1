@@ -1534,7 +1534,7 @@ class Build: ADOSVTBase
 
                     try{
                         $url = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=6.0" -f $orgName,$projectName,$repoid
-                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url);)
+                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                         $branches = @($responseObj.name | Foreach-Object { $_.split("/")[-1]})
                         if($branches.count -gt 0)
                         {
@@ -1544,7 +1544,7 @@ class Build: ADOSVTBase
                                 $refobj.branch = $currentBranch
                                 try{
                                     $url = 'https://dev.azure.com/{0}/{1}/_apps/hub/ms.vss-build-web.ci-designer-hub?pipelineId={2}&branch={3}&__rt=fps&__ver=2' -f $orgName, $projectId , $buildId, $currentBranch;
-                                    $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url);)
+                                    $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                                     if([Helpers]::CheckMember($responseObj,"fps.dataProviders.data") -and $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider' -and [Helpers]::CheckMember($responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider',"content") -and  $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'.content)
                                     {
                                         $dataprovider = $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'
@@ -1569,7 +1569,10 @@ class Build: ADOSVTBase
                                 $controlResult.AddMessage($display)
                             }
                             else {
-                                $controlResult.AddMessage([VerificationResult]::Passed,"OAuth token is not being accessed in YAML file.");
+                                if($controlResult.VerificationResult -ne [VerificationResult]::Error)
+                                {
+                                    $controlResult.AddMessage([VerificationResult]::Passed,"OAuth token is not being accessed in YAML file.");
+                                }
                             }
                         }
                         else {
