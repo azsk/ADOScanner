@@ -572,22 +572,32 @@ class AzSKADOServiceMapping: CommandBase
                             $provenanceObj = @([WebRequestHelper]::InvokeGetWebRequest($provenanceURL)); 
 
                             if ($provenanceObj.Count -gt 0 -and [Helpers]::CheckMember($provenanceObj[0],"provenance.provenanceSource") -and [Helpers]::CheckMember($provenanceObj[0],"provenance.data")) {
-                                
-                                $definitionId = $provenanceObj[0].provenance.data."System.DefinitionId";
-                                $buildSTData = $this.BuildSTDetails.Data | Where-Object { $_.buildDefinitionID -eq $definitionId };
-                                if($buildSTData){
-                                    $feedSTMapping.data += @([PSCustomObject] @{ feedName = $feed.Name; feedID = $feed.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
-                                    break;
-                                }
-                                #if no details found in buildST file the try in repoST file
-                                if (!$buildSTData -and $this.RepositorySTDetails -and $this.RepositorySTDetails.count -gt 0) {
-                                    $repoId = $provenanceObj[0].provenance.data."Build.Repository.Id";
-                                    $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoID -eq $repoId)};
-                                    if($repoSTData){
-                                        $feedSTMapping.data += @([PSCustomObject] @{ feedName = $feed.Name; feedID = $feed.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )
+                                if ($provenanceObj[0].provenance.provenanceSource -eq "InternalBuild") {
+                                    
+                                    $definitionId = $provenanceObj[0].provenance.data."System.DefinitionId";
+                                    $buildSTData = $this.BuildSTDetails.Data | Where-Object { $_.buildDefinitionID -eq $definitionId };
+                                    if($buildSTData){
+                                        $feedSTMapping.data += @([PSCustomObject] @{ feedName = $feed.Name; feedID = $feed.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
                                         break;
                                     }
-                                }   
+                                    #if no details found in buildST file the try in repoST file
+                                    if (!$buildSTData -and $this.RepositorySTDetails -and $this.RepositorySTDetails.count -gt 0) {
+                                        $repoId = $provenanceObj[0].provenance.data."Build.Repository.Id";
+                                        $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoID -eq $repoId)};
+                                        if($repoSTData){
+                                            $feedSTMapping.data += @([PSCustomObject] @{ feedName = $feed.Name; feedID = $feed.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )
+                                            break;
+                                        }
+                                    }
+                                } 
+                                elseif ($provenanceObj[0].provenance.provenanceSource -eq "InternalRelease") {
+                                    $definitionId = $provenanceObj[0].provenance.data."Release.DefinitionId";
+                                    $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { $_.releaseDefinitionID -eq $definitionId };
+                                    if($buildSTData){
+                                        $feedSTMapping.data += @([PSCustomObject] @{ feedName = $feed.Name; feedID = $feed.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
+                                        break;
+                                    }
+                                }  
                             }
                             }
                         }
