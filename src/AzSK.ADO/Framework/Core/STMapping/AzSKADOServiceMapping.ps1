@@ -300,12 +300,18 @@ class AzSKADOServiceMapping: CommandBase
                         try {
                             if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
                                 $workflowtasks = @();
-                                if([Helpers]::CheckMember($env, "deployPhases.workflowtasks") )
+                                if([Helpers]::CheckMember($env, "deployPhases") )
                                 {
-                                    $workflowtasks += $env.deployPhases.workflowtasks;
+                                    foreach ($deployPhase in $env.deployPhases) {
+                                        if ([Helpers]::CheckMember($deployPhase,"workflowtasks")) {
+                                            foreach ($workflowtask in $deployPhase.workflowtasks) {
+                                                $workflowtasks += $workflowtask;   
+                                            }
+                                        }
+                                    }
                                 }
                                 foreach ($item in $workflowtasks) {
-                                    if ([Helpers]::CheckMember($item, "inputs.secureFile")) {
+                                    if ([Helpers]::CheckMember($item, "inputs") -and [Helpers]::CheckMember($item.inputs, "secureFile")) {
                                         $secureFiles += $item.inputs.secureFile;
                                     }
                                 }
@@ -386,12 +392,16 @@ class AzSKADOServiceMapping: CommandBase
                     try {
                         if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
                             $tasksSteps =@()
-                            if([Helpers]::CheckMember($buildObj, "process.Phases.steps") )
+                            if([Helpers]::CheckMember($buildObj, "process") -and [Helpers]::CheckMember($buildObj.process, "Phases") )
                             {
-                                $tasksSteps += $buildObj.process.Phases.steps;
+                                foreach ($item in $buildObj.process.Phases) {
+                                    if ([Helpers]::CheckMember($item, "steps")) {
+                                        $tasksSteps += $item.steps;
+                                    }
+                                } 
                             }
                             foreach ($itemStep in $tasksSteps) {
-                                if ([Helpers]::CheckMember($itemStep, "inputs.secureFile")) {
+                                if ([Helpers]::CheckMember($itemStep, "inputs") -and [Helpers]::CheckMember($itemStep.inputs, "secureFile")) {
                                     $secureFiles += $itemStep.inputs.secureFile;
                                 }
                             }
