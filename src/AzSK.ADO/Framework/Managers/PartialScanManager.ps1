@@ -764,14 +764,14 @@ class PartialScanManager
 							}
 						}
 					}
-					if($_.IsControlInGrace -eq $true)
+					<#if($_.IsControlInGrace -eq $true)
 					{
 						$csvItem.IsControlInGrace = "Yes"
 					}
 					else 
 					{
 						$csvItem.IsControlInGrace = "No"
-					}					
+					}#>					
                     $csvItems += $csvItem;
                 }                                
             }

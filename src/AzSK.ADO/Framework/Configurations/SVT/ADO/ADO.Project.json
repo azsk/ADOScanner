@@ -73,14 +73,14 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Project_AuthZ_Limit_Non_Release_Pipeline_Access",
+      "ControlID": "ADO_Project_AuthZ_Limit_Non_Release_Pipeline_Scope",
       "Description": "Limit scope of access for non-release pipelines to the current project.",
       "Id": "Project160",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckJobAuthZScope",
-      "Rationale": "If pipelines use project collection level tokens, a vulnerability in components used by one project can be leveraged by an attacker to attack all other projects. This is also in keeping with the principle of least privilege.",
-      "Recommendation": "Go to Project Settings --> Pipelines --> Settings --> Enable 'Limit job authorization scope to current project for non-release pipelines.'.",
+      "Rationale": "If the authorization scope of non-release pipelines is not limited to current project, an attacker can build a pipeline from a different (less sensitive project) to access resources in a target (more sensitive) project. This also in keeping with the principle of least privilege.",
+      "Recommendation": "1. Go to Project Settings -->2. Pipelines -->3. Settings -->4. Enable 'Limit job authorization scope to current project for non-release pipelines.'.",
       "Tags": [
         "SDL",
         "TCP",
@@ -90,14 +90,14 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Project_AuthZ_Limit_Release_Pipeline_Access",
+      "ControlID": "ADO_Project_AuthZ_Limit_Release_Pipeline_Scope",
       "Description": "Limit scope of access for release pipelines to the current project.",
       "Id": "Project170",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckJobAuthZReleaseScope",
-      "Rationale": "If pipelines use project collection level tokens, a vulnerability in components used by one project can be leveraged by an attacker to attack all other projects. This is also in keeping with the principle of least privilege.",
-      "Recommendation": "Go to Project Settings --> Pipelines --> Settings --> Enable 'Limit job authorization scope to current project for release pipelines.'.",
+      "Rationale": "If the authorization scope of release pipelines is not limited to current project, an attacker can build a pipeline from a different (less sensitive project) to access resources in a target (more sensitive) project. This also in keeping with the principle of least privilege.",
+      "Recommendation": "1. Go to Project Settings -->2. Pipelines -->3. Settings -->4. Enable 'Limit job authorization scope to current project for release pipelines.'.",
       "Tags": [
         "SDL",
         "TCP",
@@ -107,14 +107,14 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Project_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
+      "ControlID": "ADO_Project_AuthZ_Limit_Pipeline_Scope_To_Referenced_Repos",
       "Description": "Limit scope of access for pipelines to explicitly referenced Azure DevOps repositories.",
       "Id": "Project180",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckAuthZRepoScope",
-      "Rationale": "If pipelines use tokens having access to all Azure DevOps repositories in authorized projects, a vulnerability in components linked to one repo can be leveraged by an attacker to attack all other repos. This is also in keeping with the principle of least privilege.",
-      "Recommendation": "Go to Project Settings --> Pipelines --> Settings --> Enable 'Limit job authorization scope to referenced Azure DevOps repositories'.",
+      "Rationale": "If the authorization scope of pipelines is not limited to referenced repos, an attacker can create a pipeline that can access sensitive repos within the project. This also in keeping with the principle of least privilege.",
+      "Recommendation": "1. Go to Project Settings -->2. Pipelines -->3. Settings -->4. Enable 'Limit job authorization scope to referenced Azure DevOps repositories'.",
       "Tags": [
         "SDL",
         "TCP",
@@ -147,8 +147,8 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckMaxPACount",
-      "Rationale": "Each additional person in the administrator role increases the attack surface for the entire project. The number of members in these roles should be kept to as low as possible.",
-      "Recommendation": "Go to Project settings --> General --> Permissions --> Groups --> Select the group : Project Administrators --> Review the members of this group",
+      "Rationale": "Each additional person in the administrator role increases the attack surface for the entire project (if an admin's credentials are compromised via a phishing attack). The number of members in these roles should be kept as low as possible.",
+      "Recommendation": "1. Project settings --> 2. General --> 3. Permissions --> 4. Groups --> 5. Select the group : Project Administrators --> 6. Remove the redundant members of this group",
       "Tags": [
         "SDL",
         "AuthZ",

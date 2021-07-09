@@ -129,6 +129,12 @@ function Get-AzSKADOSecurityStatus
 		[Alias("xt")]
 		$ExcludeTags,
 
+		[string]
+		[Parameter(Mandatory = $false)]
+		[Alias("xcids")]
+		[AllowEmptyString()]
+		$ExcludeControlIds,
+
 		[switch]
 		[Parameter(Mandatory = $false)]
 		[Alias("ubc")]
@@ -328,18 +334,23 @@ function Get-AzSKADOSecurityStatus
 			[AzSKConfig]::Instance = $null
 			[ConfigurationHelper]::ServerConfigMetadata = $null
 			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
-            [AutoBugLog]::AutoBugInstance = $null
-            
-            if ($PrepareForControlFix -eq $true)  {
-                if ($UsePartialCommits -ne $true)  {
-                    Write-Host "PrepareForControlFix switch requires -UsePartialCommits switch." -ForegroundColor Red
-                    return;
-                }
-                elseif ([String]::IsNullOrEmpty($ControlIds) -or $ControlIds -match ','){
-                    Write-Host "PrepareForControlFix switch requires one controlid. Use -ControlIds parameter to provide it." -ForegroundColor Red
-                    return;
-                }
-            }
+      
+      [AutoBugLog]::AutoBugInstance = $null
+      #Clear the cache of nested groups if the org name is not matching from previous scan in same session
+			if ([ControlHelper]::GroupMembersResolutionObj.ContainsKey("OrgName") -and [ControlHelper]::GroupMembersResolutionObj["OrgName"] -ne $OrganizationName) {
+				[ControlHelper]::GroupMembersResolutionObj = @{}
+			}
+      
+      if ($PrepareForControlFix -eq $true)  {
+          if ($UsePartialCommits -ne $true)  {
+              Write-Host "PrepareForControlFix switch requires -UsePartialCommits switch." -ForegroundColor Red
+              return;
+          }
+          elseif ([String]::IsNullOrEmpty($ControlIds) -or $ControlIds -match ','){
+              Write-Host "PrepareForControlFix switch requires one controlid. Use -ControlIds parameter to provide it." -ForegroundColor Red
+              return;
+          }
+      }
 
 			if($PromptForPAT -eq $true)
 			{
@@ -397,7 +408,7 @@ function Get-AzSKADOSecurityStatus
 					return;
 				}
 			}
-			
+
 			if ($ResetCredentials)
 			{
 				[ContextHelper]::PromptForLogin = $true
@@ -420,6 +431,8 @@ function Get-AzSKADOSecurityStatus
 
 					$secStatus.FilterTags = $FilterTags;
 					$secStatus.ExcludeTags = $ExcludeTags;
+
+					$secStatus.ExcludeControlIdString = $ExcludeControlIds
 
 					#build the attestation options object
 					[AttestationOptions] $attestationOptions = [AttestationOptions]::new();

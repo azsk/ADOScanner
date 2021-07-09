@@ -13,9 +13,9 @@
           "ADO_Organization_AuthZ_Review_Project_Collection_Service_Accounts",
           "ADO_Organization_SI_Review_Auto_Injected_Extensions",
           "ADO_Organization_SI_Limit_Variables_Settable_At_Queue_Time",
-          "ADO_Organization_AuthZ_Limit_Non_Release_Pipeline_Access",
-          "ADO_Organization_AuthZ_Limit_Release_Pipeline_Access",
-          "ADO_Organization_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
+          "ADO_Organization_AuthZ_Limit_Non_Release_Pipeline_Scope",
+          "ADO_Organization_AuthZ_Limit_Release_Pipeline_Scope",
+          "ADO_Organization_AuthZ_Limit_Pipeline_Scope_To_Referenced_Repos",
           "ADO_Organization_DP_Dont_Allow_Public_Projects",
           "ADO_Organization_Enable_Audit_Stream",
           "ADO_Organization_BCDR_Min_Admin_Count",
@@ -33,9 +33,9 @@
           "ADO_Project_AuthZ_Set_Visibility_Private_Or_Enterprise",
           "ADO_Project_SI_Limit_Variables_Settable_At_Queue_Time",
           "ADO_Project_BCDR_Min_Admin_Count",
-          "ADO_Project_AuthZ_Limit_Non_Release_Pipeline_Access",
-          "ADO_Project_AuthZ_Limit_Release_Pipeline_Access",
-          "ADO_Project_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
+          "ADO_Project_AuthZ_Limit_Non_Release_Pipeline_Scope",
+          "ADO_Project_AuthZ_Limit_Release_Pipeline_Scope",
+          "ADO_Project_AuthZ_Limit_Pipeline_Scope_To_Referenced_Repos",
           "ADO_Project_AuthN_Use_ALT_Accounts_For_Admin",
           "ADO_Project_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
           "ADO_Project_AuthZ_Revoke_Admin_Access_for_Guest_Users",
@@ -343,6 +343,10 @@
     "RestrictedRolesForBroaderGroupsInVariableGroup": [
         "Administrator"
     ],
+    "RestrictedRolesForBroaderGroupsInVariableGroupContainingSecrets": [
+      "Administrator",
+      "User"
+    ],
     "CheckForInheritedPermissions": false
   },
   "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
@@ -482,6 +486,16 @@
     },
     {
       "RegexCode": "SecretsInRelease",
+      "RegexList": [
+        "(?# To match general passwords.)^(?=\\D*\\d)(?=[^a-z]*[a-z])(?=[^A-Z]*[A-Z])(?=(\\w*\\W|\\w*))[0-9\\Wa-zA-Z]{7,20}$",
+        "(?# To match SQL/MySQL conn strings.)((P|p)assword|pwd)\\s*=\\s*\\w+;?",
+        "(?# To match Azure storage keys.)^[A-Za-z0-9/+]{86}==$",
+        "(?# To match storage SAS.)([^?]*\\?sv=)[^&]+(&s[a-z]=[^&]+){4}",
+        "(?# To match ADO PATs.)^[a-z2-7]{52}$"
+      ]
+    },
+    {
+      "RegexCode": "SecretsInVariables",
       "RegexList": [
         "(?# To match general passwords.)^(?=\\D*\\d)(?=[^a-z]*[a-z])(?=[^A-Z]*[A-Z])(?=(\\w*\\W|\\w*))[0-9\\Wa-zA-Z]{7,20}$",
         "(?# To match SQL/MySQL conn strings.)((P|p)assword|pwd)\\s*=\\s*\\w+;?",
