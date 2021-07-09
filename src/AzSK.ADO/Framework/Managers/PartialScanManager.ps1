@@ -524,7 +524,7 @@ class PartialScanManager
 		$this.GetResourceTrackerFile($orgName);
 		if($null -ne $this.ControlSettings.PartialScan)
 		{
-			$resourceTrackerFileValidforDays = [Int32]::Parse(5);
+			$resourceTrackerFileValidforDays = [Int32]::Parse($this.ControlSettings.PartialScan.ResourceTrackerValidforDays);
 			$this.GetResourceScanTrackerObject();
 			if($null -eq $this.ResourceScanTrackerObj)
 			{
