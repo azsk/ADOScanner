@@ -163,12 +163,12 @@ function Get-AzSKADOSecurityStatus
 		$ResourceTypeName = [ResourceTypeName]::All,
 
         [switch]
-        [Parameter(Mandatory = $false,ParameterSetName="PartialCommit")]
+        [Parameter(Mandatory = $false)]
 		[Alias("upc")]
 		$UsePartialCommits,
 
 		[switch]
-        [Parameter(Mandatory = $false,ParameterSetName="PartialCommit")]
+        [Parameter(Mandatory = $false)]
 		[Alias("dnrr")]
 		$DoNotRefetchResources,
 
