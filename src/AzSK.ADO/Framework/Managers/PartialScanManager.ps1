@@ -685,9 +685,10 @@ class PartialScanManager
 			if ($item -and $item.ControlResults)
 			{
 				$TotalControlsClosedCount+=1;
-
+				# If two bugs are logged against same resource and control in different project, message will contain closed bug twice with different urls
 				$item.ControlResults[0].Messages | ForEach-Object{
 					if($_.Message -eq "Closed Bug"){
+						# CollatedBugSummaryCount is used for PS Console summary printing
 						[PartialScanManager]::CollatedBugSummaryCount += [PSCustomObject]@{
 							BugStatus=$_.Message
 							ControlSeverity = $item.ControlItem.ControlSeverity;

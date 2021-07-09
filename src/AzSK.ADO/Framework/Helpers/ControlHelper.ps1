@@ -86,7 +86,6 @@ class ControlHelper: EventBase{
             $postbody=$postbody.Replace("{2}",$projName)
         }
         $rmContext = [ContextHelper]::GetCurrentContext();
-        $currentUser = [ContextHelper]::GetCurrentSessionUser();
         $user = "";
         $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
         try
