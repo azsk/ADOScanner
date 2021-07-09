@@ -66,7 +66,7 @@
           "ADO_Build_AuthZ_Disable_Inherited_Permissions",
           "ADO_Build_DP_No_PlainText_Secrets_In_Definition",
           "ADO_Build_SI_Review_URL_Variables_Settable_At_Queue_Time",
-          "ADO_Build_SI_Limit_Task_Group_Edit_Permission",
+          "ADO_Build_SI_Restrict_Task_Group_Edit_Permission",
           "ADO_Build_SI_Restrict_Variable_Group_Edit_Permission",
           "ADO_Build_AuthZ_Limit_Pipeline_Access",
           "ADO_Build_AuthZ_Restrict_Broader_Group_Access",
@@ -82,7 +82,7 @@
           "ADO_Release_SI_Review_External_Sources",
           "ADO_Release_DP_No_PlainText_Secrets_In_Definition",
           "ADO_Release_SI_Review_URL_Variables_Settable_At_Release_Time",
-          "ADO_Release_SI_Limit_Task_Group_Edit_Permission",
+          "ADO_Release_SI_Restrict_Task_Group_Edit_Permission",
           "ADO_Release_SI_Restrict_Variable_Group_Edit_Permission",
           "ADO_Release_AuthZ_Restrict_Broader_Group_Access",
           "ADO_Release_DP_Review_Inactive_Release"
@@ -349,7 +349,7 @@
     ],
     "CheckForInheritedPermissions": false
   },
-  "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
+  "AlernateAccountRegularExpressionForOrg": "^sc-\\w+@(?:\\w+\\.)*microsoft\\.com$|^\\w+.*@gme\\.gbl$",
   "ALTControlEvaluationMethod": "GraphThenRegEx",
   "Organization": {
     "DisallowedEnvironments" : [],
@@ -391,7 +391,7 @@
     "AdminInactivityThresholdInDays": 90
   },
   "Project": {
-    "MaxPAMembersPermissible": 5,
+    "MaxPAMembersPermissible": 6,
     "MinPAMembersPermissible": 2,
     "GroupsToCheckForSCAltMembers": [
       "Project Administrators"
