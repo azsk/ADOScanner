@@ -129,6 +129,12 @@ function Get-AzSKADOSecurityStatus
 		[Alias("xt")]
 		$ExcludeTags,
 
+		[string]
+		[Parameter(Mandatory = $false)]
+		[Alias("xcids")]
+		[AllowEmptyString()]
+		$ExcludeControlIds,
+
 		[switch]
 		[Parameter(Mandatory = $false)]
 		[Alias("ubc")]
@@ -300,7 +306,13 @@ function Get-AzSKADOSecurityStatus
 		[ValidateSet("Graph", "RegEx", "GraphThenRegEx")]
         [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
 		[Alias("acem")]
-		[string] $ALTControlEvaluationMethod
+		[string] $ALTControlEvaluationMethod,
+
+		[switch]
+		[Parameter(HelpMessage="Switch to reset default logged in user.")]
+		[Alias("rc")]
+		$ResetCredentials
+
 
 	)
 	Begin
@@ -318,7 +330,12 @@ function Get-AzSKADOSecurityStatus
 			[AzSKConfig]::Instance = $null
 			[ConfigurationHelper]::ServerConfigMetadata = $null
 			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
-			[AutoBugLog]::AutoBugInstance = $null
+            [AutoBugLog]::AutoBugInstance = $null
+            #Clear the cache of nested groups if the org name is not matching from previous scan in same session
+			if ([ControlHelper]::GroupMembersResolutionObj.ContainsKey("OrgName") -and [ControlHelper]::GroupMembersResolutionObj["OrgName"] -ne $OrganizationName) {
+				[ControlHelper]::GroupMembersResolutionObj = @{}
+			}
+
 			if($PromptForPAT -eq $true)
 			{
 				if($null -ne $PATToken)
@@ -376,6 +393,15 @@ function Get-AzSKADOSecurityStatus
 				}
 			}
 
+			if ($ResetCredentials)
+			{
+				[ContextHelper]::PromptForLogin = $true
+			}
+			else
+			{
+				[ContextHelper]::PromptForLogin =$false
+			}
+
 			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames);
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus)
@@ -389,6 +415,8 @@ function Get-AzSKADOSecurityStatus
 
 					$secStatus.FilterTags = $FilterTags;
 					$secStatus.ExcludeTags = $ExcludeTags;
+
+					$secStatus.ExcludeControlIdString = $ExcludeControlIds
 
 					#build the attestation options object
 					[AttestationOptions] $attestationOptions = [AttestationOptions]::new();

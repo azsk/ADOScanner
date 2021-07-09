@@ -9,6 +9,7 @@ class ContextHelper {
     
     static hidden [Context] $currentContext;
     static hidden [bool] $IsOAuthScan;
+    static hidden [bool] $PromptForLogin;
     #This will be used to carry current org under current context.
     static hidden [string] $orgName;
 
@@ -27,7 +28,7 @@ class ContextHelper {
 
     hidden static [PSObject] GetCurrentContext([bool]$authNRefresh)
     {
-        if( (-not [ContextHelper]::currentContext) -or $authNRefresh)
+        if( (-not [ContextHelper]::currentContext) -or $authNRefresh -or [ContextHelper]::PromptForLogin)
         {
             $clientId = [Constants]::DefaultClientId ;          
             $replyUri = [Constants]::DefaultReplyUri; 
@@ -38,17 +39,17 @@ class ContextHelper {
 
             [AuthenticationResult] $result = $null;
 
-            $azSKUI = $null;
             if([ContextHelper]::IsOAuthScan) { # this if block will be executed for OAuth based scan
                 $tokenInfo = [ContextHelper]::GetOAuthAccessToken()
                 [ContextHelper]::ConvertToContextObject($tokenInfo)
             }
             else {
-                if ( !$authNRefresh -and ($azSKUI = Get-Variable 'AzSKADOLoginUI' -Scope Global -ErrorAction 'Ignore')) {
-                    if ($azSKUI.Value -eq 1) {
+                if ( !$authNRefresh -and [ContextHelper]::PromptForLogin) {
+                    if ([ContextHelper]::PromptForLogin) {
                         $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Always
                         $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
                         $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+                        [ContextHelper]::PromptForLogin = $false
                     }
                     else {
                         $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
