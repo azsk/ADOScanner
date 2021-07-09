@@ -412,6 +412,11 @@
     "Contributors",
     "Readers",
     "Project Valid Users"
+    ],
+    "RestrictedRolesForBroaderGroupsInFeeds": [
+        "administrator",
+        "collaborator",
+        "contributor"
     ]
   },
   "SecureFile":{

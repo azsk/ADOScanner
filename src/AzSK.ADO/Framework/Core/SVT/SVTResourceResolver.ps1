@@ -63,6 +63,22 @@ class SVTResourceResolver: AzSKRoot {
         $this.EnvironmentNames += $this.ConvertToStringArray($EnvironmentNames);
     }
 
+    #Constructor for Set-AzSKADOSecurityStatus
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $ResourceNames, $ExcludeResourceNames, $PATToken, $ResourceTypeName): Base($organizationName, $PATToken) {
+
+        $this.organizationName = $organizationName
+        $this.ProjectNames = $ProjectNames
+        $this.ResourceTypeName = $ResourceTypeName
+
+        if (-not [string]::IsNullOrEmpty($ResourceNames)) {
+            $this.ResourceNames += $this.ConvertToStringArray($ResourceNames);
+        }
+        if (-not [string]::IsNullOrEmpty($ExcludeResourceNames)) {
+                $this.ExcludeResourceNames += $this.ConvertToStringArray($ExcludeResourceNames);
+        }
+    }
+
+
     [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls) {
         $this.organizationName = $organizationName
         $this.ResourceTypeName = $ResourceTypeName
@@ -652,6 +668,18 @@ class SVTResourceResolver: AzSKRoot {
                         $this.SVTResources += $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.EnvironmentNames, $this.ResourceTypeName, $this.MaxObjectsToScan);
                     }
 
+                    #Fetch only those resources for which data obj backup is available in local 
+                    if([ControlHelper]::ControlFixBackup.Count -gt 0)
+                    {
+                        $this.SVTResources = @($this.SVTResources | Where-Object {[ControlHelper]::ControlFixBackup.ResourceId -contains $_.ResourceId})
+                        if ($this.ResourceNames.count -gt 0) {
+                            $this.SVTResources = @($this.SVTResources | Where-Object {$this.ResourceNames -contains $_.ResourceName})
+                        }
+                        if ($this.ResourceNames.count -gt 0) {
+                            $this.SVTResources = @($this.SVTResources | Where-Object {$this.ExcludeResourceNames -notcontains $_.ResourceName})
+                        }
+                    }
+
                     # getting all the resources count
                     # and sending them to telemetry as well
                     $scanSource = [AzSKSettings]::GetInstance().GetScanSource(); # Disabling resource telemetry for SDL scan.
@@ -865,4 +893,28 @@ class SVTResourceResolver: AzSKRoot {
         catch {}
         [AIOrgTelemetryHelper]::PublishEvent("Projects resources count", $projectData, @{})
     }
+    
+    [void] FetchControlFixBackupFile($orgName, $projName, $internalId)
+	{
+        [ControlHelper]::ControlFixBackup = @()
+        $BackupControlStateRootFolder = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState" | Join-Path -ChildPath "BackupControlState");
+        if($internalId -match "Organization")
+        {
+            $BackupControlStateControlJson = (Join-Path $BackupControlStateRootFolder $orgName)
+        }
+        else
+        {
+            $BackupControlStateControlJson = (Join-Path (Join-Path $BackupControlStateRootFolder $orgName) $projName)
+        }
+        $fileName = $internalId + ".json"
+        if(Test-Path (Join-Path $BackupControlStateControlJson $fileName))
+        {
+            [ControlHelper]::ControlFixBackup += Get-Content (Join-Path $BackupControlStateControlJson $fileName) -Raw | ConvertFrom-Json
+        }
+        else {
+            $this.PublishCustomMessage("`nBackup of control data object not found. Please run GADS with -PrepareforControlFix param to generate the backup.",[MessageType]::Warning);
+            break;
+        }
+	}
+
 }
