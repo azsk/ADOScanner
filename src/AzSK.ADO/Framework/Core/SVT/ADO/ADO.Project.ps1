@@ -400,14 +400,14 @@ class Project: ADOSVTBase
                 }
 
                 if ($humanAccounts.count -gt 0) {
-                    $controlResult.AddMessage("`nHuman administrators: $($humanAccounts.Count)")
+                    $controlResult.AddMessage("`nCount of Human administrators: $($humanAccounts.Count)")
                     $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
                 }
 
                 if ($svcAccounts.count -gt 0) {
-                    $controlResult.AddMessage("`nService accounts: $($svcAccounts.Count)")
+                    $controlResult.AddMessage("`nCount of Service accounts: $($svcAccounts.Count)")
                     $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of service account Project Administrators: ",$svcAccounts)
@@ -1699,7 +1699,7 @@ class Project: ADOSVTBase
 
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No Guest User found.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in organization.");
                 }
                 $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");
             }

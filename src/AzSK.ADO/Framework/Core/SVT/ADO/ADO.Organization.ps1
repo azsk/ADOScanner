@@ -268,7 +268,7 @@ class Organization: ADOSVTBase
                                     }
                                     else
                                     {
-                                        $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                        $controlResult.AddMessage([VerificationResult]::Passed, "All user accounts with admin privilege are SC-ALT accounts.");
                                     }
                                     if ($SCCount -gt 0)
                                     {
@@ -315,7 +315,7 @@ class Organization: ADOSVTBase
                                         }
                                         else 
                                         {
-                                            $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                            $controlResult.AddMessage([VerificationResult]::Passed, "All user accounts with admin privilege are SC-ALT accounts.");
                                         }
                                         if ($SCCount -gt 0) 
                                         {
@@ -376,7 +376,7 @@ class Organization: ADOSVTBase
 
             if([Helpers]::CheckMember($responseObj[0],"fps.dataProviders.data") -and (-not [string]::IsNullOrWhiteSpace($responseObj[0].fps.dataProviders.data."ms.vss-admin-web.organization-admin-aad-data-provider".orgnizationTenantData.domain)))
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Organization is configured with [$($responseObj[0].fps.dataProviders.data.'ms.vss-admin-web.organization-admin-aad-data-provider'.orgnizationTenantData.displayName)] directory.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Organization is configured to use [$($responseObj[0].fps.dataProviders.data.'ms.vss-admin-web.organization-admin-aad-data-provider'.orgnizationTenantData.displayName)] directory for authentication.");
                 $controlResult.AdditionalInfo += "Organization is configured with [$($responseObj[0].fps.dataProviders.data.'ms.vss-admin-web.organization-admin-aad-data-provider'.orgnizationTenantData.displayName)] directory.";
             }
             else
@@ -433,11 +433,11 @@ class Organization: ADOSVTBase
             {
                 if($guestAuthObj.policy.effectiveValue -eq $false )
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"External guest access is disabled in the organization.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"External guest access is disabled for the organization.");
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "External guest access is enabled in the organization.");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "External guest access is enabled for the organization.");
                     if($this.GuestMembers.Count -eq 0)
                     {
                         $this.FetchGuestMembersInOrg()
@@ -1628,7 +1628,7 @@ class Organization: ADOSVTBase
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in org.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in organization.");
             }
         }
         catch {
@@ -1790,7 +1790,7 @@ class Organization: ADOSVTBase
 
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No Guest User found.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in organization.");
                 }
                 $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");
             }
