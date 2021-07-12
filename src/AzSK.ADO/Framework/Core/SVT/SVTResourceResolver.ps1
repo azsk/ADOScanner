@@ -997,7 +997,7 @@ class SVTResourceResolver: AzSKRoot {
             }
             
                                 
-            if ( (($resourceDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($resourceDefnsObj[0], "name")) -or ([Helpers]::CheckMember($resourceDefnsObj, "count") -and $resourceDefnsObj[0].count -gt 0)) {
+            if ( (($applicableDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($applicableDefnsObj[0], "name")) -or ([Helpers]::CheckMember($applicableDefnsObj, "count") -and $applicableDefnsObj[0].count -gt 0)) {
                 if($resourceType -eq "build"){
                     $temp_link=($applicableDefnsObj[0].url -split('Definitions/'))[0].replace('_apis/build/', '_build?definitionId=');
                 }
@@ -1018,7 +1018,7 @@ class SVTResourceResolver: AzSKRoot {
 
                     }
                                         
-                    Write-Progress -Activity "Fetching $($progressCount) of $($applicableDefnsObj.Length) $($resourceType)s of batch $($batchCount) " -Status "Progress: " -PercentComplete ($progressCount / $applicableDefnsObj.Length * 100)
+                    Write-Progress -Activity "Fetching $($progressCount) of $(($applicableDefnsObj | Measure-Object).Count) $($resourceType)s of batch $($batchCount) " -Status "Progress: " -PercentComplete ($progressCount / ($applicableDefnsObj | Measure-Object).Count * 100)
                     $progressCount = $progressCount + 1;
                     if (--$nObj.Value -eq 0) { break; }
                 }
