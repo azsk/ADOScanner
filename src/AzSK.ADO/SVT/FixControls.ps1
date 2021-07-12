@@ -76,12 +76,17 @@ function Set-AzSKADOSecurityStatus
     {
         try
         {
-            if (-not [string]::IsNullOrEmpty($ResourceNames) -and -not [string]::IsNullOrEmpty($ExcludeResourceNames))
+            if (-not [string]::IsNullOrWhitespace($ResourceNames) -and -not [string]::IsNullOrWhitespace($ExcludeResourceNames))
             {
                 throw [SuppressedException] "'ResourceNames' and 'ExcludeResourceNames' are exclusive parameters. Please use only one of them in the command"   
             }
-            if ($ProjectName -match ','){
-                throw [SuppressedException] "Set-AzSKADOSecurityStatus command supports fix for one project at a time."
+            $projectArray = $ProjectName -Split ','
+            if ($projectArray.Count -gt 1){
+                throw [SuppressedException] "This command supports fix for one project at a time."
+            }
+            $controlArray = $ControlId -Split ','
+            if ($controlArray.Count -gt 1){
+                throw [SuppressedException] "This command supports fix for one control at a time."
             }
             if($PromptForPAT -eq $true)
 			{
@@ -96,7 +101,7 @@ function Set-AzSKADOSecurityStatus
 
 			}
 
-			if (-not [String]::IsNullOrEmpty($PATTokenURL))
+			if (-not [String]::IsNullOrWhitespace($PATTokenURL))
 			{
 				#Parse the key-vault-URL to determine vaultname, secretname, version
 				if ($PATTokenURL -match "^https://(?<kv>[\w]+)(?:[\.\w+]*)/secrets/(?<sn>[\w]+)/?(?<sv>[\w]*)")
@@ -105,7 +110,7 @@ function Set-AzSKADOSecurityStatus
 					$secretName = $Matches["sn"]
 					$secretVersion = $Matches["sv"]
 
-					if (-not [String]::IsNullOrEmpty($secretVersion))
+					if (-not [String]::IsNullOrWhitespace($secretVersion))
 					{
 						$kvSecret = Get-AzKeyVaultSecret -VaultName $kvName -SecretName $secretName -Version $secretVersion
 					}

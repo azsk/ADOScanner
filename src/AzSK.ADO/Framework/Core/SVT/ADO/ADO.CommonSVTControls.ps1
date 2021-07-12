@@ -6,7 +6,6 @@ class CommonSVTControls: ADOSVTBase {
     hidden [string] $checkInheritedPermissionsSecureFile = $false
     hidden [string] $checkInheritedPermissionsEnvironment = $false
     hidden [object] $repoInheritePermissions = @{};
-    hidden [PSObject] $RawDataObjForControlFix = @();
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
@@ -264,13 +263,13 @@ class CommonSVTControls: ADOSVTBase {
             $RestrictedBroaderGroupsForFeeds = $null;
             if ([Helpers]::CheckMember($this.ControlSettings, "Feed.RestrictedBroaderGroupsForFeeds")) {
                 $restrictedBroaderGroupsForFeeds = $this.ControlSettings.Feed.RestrictedBroaderGroupsForFeeds
-                $restrictedRolesForBroaderGroupsInFeeds = $this.ControlSettings.AgentPool.RestrictedRolesForBroaderGroupsInFeeds;
+                $restrictedRolesForBroaderGroupsInFeeds = $this.ControlSettings.Feed.RestrictedRolesForBroaderGroupsInFeeds;
 
                 #GET https://feeds.dev.azure.com/{organization}/{project}/_apis/packaging/Feeds/{feedId}/permissions?api-version=6.0-preview.1
                 #Using visualstudio api because new api (dev.azure.com) is giving null in the displayName property.
                 $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
                 $feedPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                $excesiveFeedsPermissions = @($feedPermissionList | Where-Object {(restrictedRolesForBroaderGroupsInFeeds -contains $_.role) -and ($restrictedBroaderGroupsForFeeds -contains $_.DisplayName.split('\')[-1])}) 
+                $excesiveFeedsPermissions = @($feedPermissionList | Where-Object {($restrictedRolesForBroaderGroupsInFeeds -contains $_.role) -and ($restrictedBroaderGroupsForFeeds -contains $_.DisplayName.split('\')[-1])}) 
                 $feedWithBroaderGroup = @($excesiveFeedsPermissions | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}}) ;
                 $feedWithroaderGroupCount = $feedWithBroaderGroup.count;
 
@@ -304,32 +303,32 @@ class CommonSVTControls: ADOSVTBase {
     hidden [ControlResult] CheckBroaderGroupAccessOnFeedsAutomatedFix([ControlResult] $controlResult)
     {
         try{
-            $this.RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = @();
             $backupDataObj = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            $this.RawDataObjForControlFix = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($backupDataObj))  | ConvertFrom-Json
-            $message = ""
+            $RawDataObjForControlFix = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($backupDataObj))  | ConvertFrom-Json
             $body = "["
 
             if (-not $this.UndoFix)
             {
-                foreach ($identity in $this.RawDataObjForControlFix) 
+                foreach ($identity in $RawDataObjForControlFix) 
                 {
+                    $roleId = [int][FeedPermissions] "Reader"
                     if ($body.length -gt 1) {$body += ","}
                     $body += @"
                         {
                             "displayName": "$($($identity.displayName).Replace('\','\\'))",
                             "identityId": "$($identity.identityId)",
-                            "role": 2,
+                            "role": $roleId,
                             "identityDescriptor": "$($($identity.identityDescriptor).Replace('\','\\'))",
                             "isInheritedRole": false
                         }
 "@;
                 }
-                $this.RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
-                $this.RawDataObjForControlFix = $this.RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}}
+                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
             }
             else {
-                foreach ($identity in $this.RawDataObjForControlFix) 
+                foreach ($identity in $RawDataObjForControlFix) 
                 {
                     $roleId = [int][FeedPermissions] "$($identity.role)"
                     if ($body.length -gt 1) {$body += ","}
@@ -343,8 +342,8 @@ class CommonSVTControls: ADOSVTBase {
                         }
 "@;
                 }
-                $this.RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
-                $this.RawDataObjForControlFix = $this.RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}}
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
             }
 
             #Patch request
@@ -354,10 +353,9 @@ class CommonSVTControls: ADOSVTBase {
             Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body
 
             $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
-            #$display = ($this.RawDataObjForControlFix |  FT Role, DisplayName -AutoSize | Out-String -Width 512)
-            $display = ($this.RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
+            $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
 
-            $controlResult.AddMessage("`n$message`n$($display)");
+            $controlResult.AddMessage("`n$display");
         }
         catch{
             $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");

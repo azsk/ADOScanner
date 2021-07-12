@@ -689,7 +689,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					$controlIdsWithFilterTagList += $controlList | Where-Object{ $tagName -in $_.Tags  } | ForEach-Object{ $_.ControlId}
 				}
 				#Assign filtered control Id with tag name 
-				$this.ControlIds = $controlIdsWithFilterTagList | Select-Object -Unique
+				$this.ControlIds = @($controlIdsWithFilterTagList | Select-Object -Unique)
 
 				#Need Control's internal id in case of Set-AzSKADOSecurityStatus command 
 				if ($this.IsControlFixCommand)

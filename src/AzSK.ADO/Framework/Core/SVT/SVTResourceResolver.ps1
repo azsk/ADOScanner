@@ -675,7 +675,7 @@ class SVTResourceResolver: AzSKRoot {
                         if ($this.ResourceNames.count -gt 0) {
                             $this.SVTResources = @($this.SVTResources | Where-Object {$this.ResourceNames -contains $_.ResourceName})
                         }
-                        if ($this.ResourceNames.count -gt 0) {
+                        if ($this.ExcludeResourceNames.count -gt 0) {
                             $this.SVTResources = @($this.SVTResources | Where-Object {$this.ExcludeResourceNames -notcontains $_.ResourceName})
                         }
                     }
@@ -913,7 +913,6 @@ class SVTResourceResolver: AzSKRoot {
         }
         else {
             $this.PublishCustomMessage("`nBackup of control data object not found. Please run GADS with -PrepareforControlFix param to generate the backup.",[MessageType]::Warning);
-            break;
         }
 	}
 
