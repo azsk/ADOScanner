@@ -2434,7 +2434,7 @@ class Organization: ADOSVTBase
                 $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that have 'private' visibility for the org...`n"+[Constants]::SingleDashLine);
                 $controlResult.AddMessage("`nCount of extensions with 'private' visibility: "+$this.ComputedExtensionDetails.privateExtensions.count);
                 $controlResult.AddMessage("`nExtension details (extensions with 'private' visibility): ")
-                $controlResult.AddMessage(($this.ComputedExtensionDetails.privateExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth));
+                $controlResult.AddMessage(($this.ComputedExtensionDetails.privateExtensions | FT ExtensionName, PublisherId, PublisherName, Version -AutoSize | Out-String -Width $ftWidth));
             }
 
             if ($scanType -eq 'Installed') {
