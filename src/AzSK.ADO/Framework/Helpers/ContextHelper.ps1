@@ -217,6 +217,7 @@ class ContextHelper {
             else 
             {
                 # generating graph access token using default VSTS client.
+                Write-Host "Graph access is required to evaluate some controls. Attempting to acquire Graph token." -ForegroundColor Cyan
                 $clientId = [Constants]::DefaultClientId;          
                 $replyUri = [Constants]::DefaultReplyUri; 
                 $adoResourceId = "https://graph.microsoft.com/";
