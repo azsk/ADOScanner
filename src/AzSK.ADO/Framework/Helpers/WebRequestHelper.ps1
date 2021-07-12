@@ -396,7 +396,7 @@ class WebRequestHelper {
         return $outputValues;
 	}
 
-	static [System.Object[]] InvokeWebRequestForBuildsInBatch([string] $validatedUri,[string]$originalUri,[int] $skipCount){
+	static [System.Object[]] InvokeWebRequestForBuildsInBatch([string] $validatedUri,[string]$originalUri,[int] $skipCount,[string] $resourceType){
 		$outputValues = @();
 		$success = $false;
 		[int] $retryCount=3;
@@ -419,8 +419,15 @@ class WebRequestHelper {
 							$outputValues += $json;
 						}
 						if($requestResult.Headers.ContainsKey('x-ms-continuationtoken')){
-							$nPKey = $requestResult.Headers["x-ms-continuationtoken"]												
-							$originalUri= $originalUri +"&%24skip="+$skipCount+ "&continuationToken="+$nPKey
+							$nPKey = $requestResult.Headers["x-ms-continuationtoken"]
+							if($resourceType -eq "build"){
+								$originalUri= $originalUri +"&%24skip="+$skipCount+ "&continuationToken="+$nPKey
+							}
+							else {
+								$originalUri= $originalUri +"&continuationToken="+$nPKey
+							
+							}												
+							
 						}
 						else {
 							$originalUri = [string]::Empty;

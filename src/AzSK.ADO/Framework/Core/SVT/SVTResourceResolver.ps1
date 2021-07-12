@@ -434,7 +434,7 @@ class SVTResourceResolver: AzSKRoot {
                                     $topNQueryString = '&$top=10000'
                                 }
                                 $nObj=$this.MaxObjectsToScan                                                               
-                                $releaseDefURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?queryOrder=idDescending&api-version=6.0" + $topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
+                                $releaseDefURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
                                 $this.addResourceToSVT($releaseDefURL,"release",$projectName, $organizationId, $projectId, $true, $true, $path,[ref]$nObj)                                  
                                 
 
@@ -446,7 +446,7 @@ class SVTResourceResolver: AzSKRoot {
                         {
                             $nObj=$this.MaxObjectsToScan
                             $topNQueryString='&$top=10000'
-                            $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0&queryOrder=idDescending" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $projectName;
+                            $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0") -f $($this.OrganizationContext.OrganizationName), $projectName;
                             $this.addResourceToSVT($releaseDefnURL,"release",$projectName,$organizationId,$projectId,$false,$false,$null,[ref]$nObj);
                         }
                         else {
@@ -915,7 +915,7 @@ class SVTResourceResolver: AzSKRoot {
             $progressCount = 0;
             $applicableDefnsObj=@();
             $skipCount += 10000;
-            $response = [WebRequestHelper]::InvokeWebRequestForBuildsInBatch($validatedUri, $orginalUri, $skipCount);
+            $response = [WebRequestHelper]::InvokeWebRequestForBuildsInBatch($validatedUri, $orginalUri, $skipCount,$resourceType);
             $resourceDefnsObj = $response[0];
             $resourceDfnUrl = $response[1];
 
