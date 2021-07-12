@@ -39,9 +39,6 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if($invocationContext.BoundParameters["AutoBugLog"] -or $invocationContext.BoundParameters["AutoCloseBugs"]){
 			$this.IsBugLoggingEnabled = $true; 
 		}
-		if($invocationContext.BoundParameters["UseGraphAccess"]){
-			[IdentityHelpers]::useGraphAccess = $true; 
-		}
 		if($invocationContext.BoundParameters["ALTControlEvaluationMethod"])
 		{
 			[IdentityHelpers]::ALTControlEvaluationMethod = $invocationContext.BoundParameters["ALTControlEvaluationMethod"]
@@ -569,6 +566,9 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			$partialScanMngr.WriteToDurableStorage();
 		}
 		else {
+			if($this.invocationContext.BoundParameters["PrepareForControlFix"]){
+				$partialScanMngr.WriteControlFixDataObject($result);
+			}
 			$partialScanMngr.WriteToResourceTrackerFile();
 		}
 		# write to csv after every partial commit
