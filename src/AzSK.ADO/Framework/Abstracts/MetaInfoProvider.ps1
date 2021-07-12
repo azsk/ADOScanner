@@ -13,6 +13,10 @@ class MetaInfoProvider {
     hidden $svcConnSTDetails = @{};
     hidden $agtPoolSTDetails = @{};
     hidden $varGroupSTDetails = @{};
+    hidden $repositorySTDetails = @{};
+    hidden $feedSTDetails = @{};
+    hidden $secureFileSTDetails = @{};
+    hidden $environmentSTDetails = @{};
     hidden $serviceTreeDetails = @{};
     
     #Variable to check whether ST file is present in policy, if ST file is not present then set them to false so for next resource don't call policy server to fetch this file
@@ -95,6 +99,10 @@ class MetaInfoProvider {
             $svcConnList = @();
             $varGroupList = @();
             $agentPoolList = @();
+            $repositoryList = @();
+            $feedList = @();
+            $secureFileList = @();
+            $environmentList = @();
 
             if ($this.buildSTDetails.ContainsKey($projectName)) {
                 $buildList += $this.buildSTDetails."$projectName".Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
@@ -110,6 +118,18 @@ class MetaInfoProvider {
             }
             if ($this.varGroupSTDetails.ContainsKey($projectName)) {
                 $varGroupList += $this.varGroupSTDetails."$projectName".Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
+            }
+            if ($this.repositorySTDetails.ContainsKey($projectName)) {
+                $repositoryList += $this.repositorySTDetails."$projectName".Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
+            }
+            if ($this.feedSTDetails.ContainsKey($projectName)) {
+                $feedList += $this.feedSTDetails."$projectName".Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
+            }
+            if ($this.secureFileSTDetails.ContainsKey($projectName)) {
+                $secureFileList += $this.secureFileSTDetails."$projectName".Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
+            }
+            if ($this.environmentSTDetails.ContainsKey($projectName)) {
+                $environmentList += $this.environmentSTDetails."$projectName".Data | Where-Object { ($_.serviceId -eq $svcId) -and ($_.projectName -eq $projectName) }
             } 
             
             $rsrcList = @{
@@ -118,6 +138,10 @@ class MetaInfoProvider {
                 ServiceConnections = $svcConnList
                 AgentPools = $agentPoolList
                 VariableGroups = $varGroupList
+                Repositories = $repositoryList
+                Feeds = $feedList
+                SecureFiles = $secureFileList
+                Environments = $environmentList
             }
 
         }
@@ -135,7 +159,7 @@ class MetaInfoProvider {
             {
                 $qs = "?ResourceType={0}&ProjectName={1}" -f $resourceTypeName, $projectName
                 #call adoinfoapi only if STDetails files is not already loaded.
-                $isSTDetailsFilesLoaded = (($resourceTypeName -eq "Build" -and !$this.buildSTDetails.ContainsKey($projectName)) -or ($resourceTypeName -eq "Release" -and !$this.releaseSTDetails.ContainsKey($projectName)) -or ($resourceTypeName -eq "ServiceConnection" -and !$this.svcConnSTDetails.ContainsKey($projectName)) -or ($resourceTypeName -eq "AgentPool" -and !$this.agtPoolSTDetails.ContainsKey($projectName))  -or ($resourceTypeName -eq "VariableGroupp" -and !$this.varGroupSTDetails.ContainsKey($projectName)) );
+                $isSTDetailsFilesLoaded = (($resourceTypeName -eq "Build" -and !$this.buildSTDetails.ContainsKey($projectName)) -or ($resourceTypeName -eq "Release" -and !$this.releaseSTDetails.ContainsKey($projectName)) -or ($resourceTypeName -eq "ServiceConnection" -and !$this.svcConnSTDetails.ContainsKey($projectName)) -or ($resourceTypeName -eq "AgentPool" -and !$this.agtPoolSTDetails.ContainsKey($projectName))  -or ($resourceTypeName -eq "VariableGroupp" -and !$this.varGroupSTDetails.ContainsKey($projectName)) -or ($resourceTypeName -eq "Repository" -and !$this.repositorySTDetails.ContainsKey($projectName)) -or ($resourceTypeName -eq "Feed" -and !$this.feedSTDetails.ContainsKey($projectName)) -or ($resourceTypeName -eq "SecureFile" -and !$this.secureFileSTDetails.ContainsKey($projectName)) -or ($resourceTypeName -eq "Environment" -and !$this.environmentSTDetails.ContainsKey($projectName)));
                 if ($isSTDetailsFilesLoaded) {
                     $rsrcList = $this.CallADOInfoAPI($qs);
                     if ($rsrcList -and ( [Helpers]::CheckMember($rsrcList, "Data") -and $rsrcList.Data) ) {
@@ -187,6 +211,18 @@ class MetaInfoProvider {
         elseif ($resourceTypeName -eq "ServiceTree") {
             #$this.serviceTreeDetails = $resourceList;
             $this.serviceTreeDetails.add($projectName, $resourceList);
+        }
+        elseif ($resourceTypeName -eq "Repository") {
+            $this.repositorySTDetails.add($projectName, $resourceList);
+        }
+        elseif ($resourceTypeName -eq "Feed") {
+            $this.feedSTDetails.add($projectName, $resourceList);
+        }
+        elseif ($resourceTypeName -eq "SecureFile") {
+            $this.secureFileSTDetails.add($projectName, $resourceList);
+        }
+        elseif ($resourceTypeName -eq "Environment") {
+            $this.environmentSTDetails.add($projectName, $resourceList);
         }
     }
 
@@ -241,6 +277,38 @@ class MetaInfoProvider {
                 
             }
 		}
+        if ($ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::All))
+		{
+			if (!$this.repositorySTDetails.ContainsKey("$projectName")) {
+                $this.repositorySTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\RepositorySTData.json"));
+                
+            }
+        
+        }
+        if ($ResourceTypeName -in ([ResourceTypeName]::Feed, [ResourceTypeName]::All))
+		{
+			if (!$this.feedSTDetails.ContainsKey("$projectName")) {
+                $this.feedSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\FeedSTData.json"));
+                
+            }
+        
+        }
+        if ($ResourceTypeName -in ([ResourceTypeName]::SecureFile, [ResourceTypeName]::All))
+		{
+			if (!$this.secureFileSTDetails.ContainsKey("$projectName")) {
+                $this.secureFileSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\SecureFileSTData.json"));
+                
+            }
+        
+        }
+        if ($ResourceTypeName -in ([ResourceTypeName]::Environment, [ResourceTypeName]::All))
+		{
+			if (!$this.environmentSTDetails.ContainsKey("$projectName")) {
+                $this.environmentSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\EnvironmentSTData.json"));
+                
+            }
+        
+        }
     }
 
     #Fetching service tree data based on resource id from ST data loaded in class variables
@@ -286,6 +354,38 @@ class MetaInfoProvider {
             if ($varGroupSTData) 
             {
                 $serviceTreeInfo = $this.GetDataFromServiceTree($varGroupSTData.serviceID, $projectName);
+            }
+        }
+        elseif(($resourceTypeName -eq "Repository") -and $this.repositorySTDetails -and $this.repositorySTDetails.ContainsKey("$projectName") -and [Helpers]::CheckMember($this.repositorySTDetails."$projectName", "Data"))
+        {
+            $repositorySTData = $this.repositorySTDetails."$projectName".Data | Where-Object { $_.repoID -eq $rscId -and $_.projectName -eq $projectName}; 
+            if ($repositorySTData) 
+            {
+                $serviceTreeInfo = $this.GetDataFromServiceTree($repositorySTData.serviceID, $projectName);
+            }
+        }
+        elseif(($resourceTypeName -eq "Feed") -and $this.feedSTDetails -and $this.feedSTDetails.ContainsKey("$projectName") -and [Helpers]::CheckMember($this.feedSTDetails."$projectName", "Data"))
+        {
+            $feedSTData = $this.feedSTDetails."$projectName".Data | Where-Object { $_.feedID -eq $rscId -and $_.projectName -eq $projectName}; 
+            if ($feedSTData) 
+            {
+                $serviceTreeInfo = $this.GetDataFromServiceTree($feedSTData.serviceID, $projectName);
+            }
+        }
+        elseif(($resourceTypeName -eq "SecureFile") -and $this.secureFileSTDetails -and $this.secureFileSTDetails.ContainsKey("$projectName") -and [Helpers]::CheckMember($this.secureFileSTDetails."$projectName", "Data"))
+        {
+            $secureFileSTData = $this.secureFileSTDetails."$projectName".Data | Where-Object { $_.secureFileID -eq $rscId -and $_.projectName -eq $projectName}; 
+            if ($secureFileSTData) 
+            {
+                $serviceTreeInfo = $this.GetDataFromServiceTree($secureFileSTData.serviceID, $projectName);
+            }
+        }
+        elseif(($resourceTypeName -eq "Environment") -and $this.environmentSTDetails -and $this.environmentSTDetails.ContainsKey("$projectName") -and [Helpers]::CheckMember($this.environmentSTDetails."$projectName", "Data"))
+        {
+            $environmentSTData = $this.environmentSTDetails."$projectName".Data | Where-Object { $_.environmentID -eq $rscId -and $_.projectName -eq $projectName}; 
+            if ($environmentSTData) 
+            {
+                $serviceTreeInfo = $this.GetDataFromServiceTree($environmentSTData.serviceID, $projectName);
             }
         }
 

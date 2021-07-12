@@ -9,7 +9,6 @@ class Organization: ADOSVTBase
     static $AutoInjectedExtensionInfo
     hidden [PSObject] $allExtensionsObj; # This is used to fetch all extensions (shared+installed+requested) object so that it can be used in installed extension control where top publisher could not be computed.
     hidden [PSObject] $installedExtensionObj # This is used to store install extensions details, that we fetch using documented API. This object contains some additional properties for installed extensions (e.g. Scopes), that are missing in portal API.
-    hidden [PSObject] $graphPermissions = @{hasGraphAccess = $false; graphAccessToken = $null}; # This is used to check user has graph permissions to compute the graph api operations.
     hidden $GuestMembers = @()
     hidden $AllUsersInOrg = @()
     hidden $PCAMembersList = @()
@@ -26,10 +25,6 @@ class Organization: ADOSVTBase
     {
         $this.GetOrgPolicyObject()
         $this.GetPipelineSettingsObj()
-        $this.graphPermissions.hasGraphAccess = [IdentityHelpers]::HasGraphAccess();
-        if ($this.graphPermissions.hasGraphAccess) {
-            $this.graphPermissions.graphAccessToken = [IdentityHelpers]::graphAccessToken
-        }
 
         # If switch ALtControlEvaluationMethod is set as true in org policy, then evaluating control using graph API. If not then fall back to RegEx based evaluation.
         if ([string]::IsNullOrWhiteSpace([IdentityHelpers]::ALTControlEvaluationMethod)) {
@@ -242,7 +237,7 @@ class Organization: ADOSVTBase
                             $useGraphEvaluation = $false
                             $useRegExEvaluation = $false
                             if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
-                                if ($this.graphPermissions.hasGraphAccess){
+                                if ([IdentityHelpers]::hasGraphAccess){
                                     $useGraphEvaluation = $true
                                 }
                                 else {
@@ -252,7 +247,7 @@ class Organization: ADOSVTBase
 
                             if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
                             {
-                                if ($this.graphPermissions.hasGraphAccess)
+                                if ([IdentityHelpers]::hasGraphAccess)
                                 {
                                     $allAdmins = [IdentityHelpers]::DistinguishAltAndNonAltAccount($allAdminMembers)
                                     $SCMembers = $allAdmins.altAccount
@@ -293,6 +288,7 @@ class Organization: ADOSVTBase
 
                             if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
                             {
+                                $controlResult.AddMessage([Constants]::graphWarningMessage);
                                 if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg"))
                                 {
                                     $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
@@ -1339,7 +1335,7 @@ class Organization: ADOSVTBase
             $PCAMembers = $this.PCAMembersList
             $TotalPCAMembers = $PCAMembers.Count
             $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
-            if ($this.graphPermissions.hasGraphAccess)
+            if ([IdentityHelpers]::hasGraphAccess)
             {
                 if($this.svcAccountsList.Count -eq 0 -and $this.humanAccountsList.Count -eq 0){
                     $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
@@ -1356,9 +1352,9 @@ class Organization: ADOSVTBase
                 }
                 [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
             }
-            ## TODO: Add warning that control was evaluated without graph access ( Once Sourabh is done with its Graph access task)
             else
             {
+                $controlResult.AddMessage([Constants]::graphWarningMessage+"`n");
                 $PCAMembers = @($PCAMembers | Select-Object displayName,mailAddress)
                 if($TotalPCAMembers -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
@@ -1394,7 +1390,7 @@ class Organization: ADOSVTBase
             $PCAMembers = $this.PCAMembersList
             $TotalPCAMembers = $PCAMembers.Count
             $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
-            if ($this.graphPermissions.hasGraphAccess)
+            if ([IdentityHelpers]::hasGraphAccess)
             {  
                 if($this.svcAccountsList.Count -eq 0 -and $this.humanAccountsList.Count -eq 0){
                     $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
@@ -1412,9 +1408,9 @@ class Organization: ADOSVTBase
                 }
                 [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
             }
-            ## TODO: Add warning that control was evaluated without graph access ( Once Sourabh is done with its Graph access task)
             else
             {
+                $controlResult.AddMessage([Constants]::graphWarningMessage+"`n");
                 $PCAMembers = @($PCAMembers | Select-Object displayName,mailAddress)
                 if($TotalPCAMembers -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");

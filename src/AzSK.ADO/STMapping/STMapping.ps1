@@ -41,7 +41,12 @@ function Get-AzSKADOServiceMapping
         [Alias("rfp")]
         $ReleaseMappingsFilePath,
 
-        [ValidateSet("All", "VariableGroup", "ServiceConnection","AgentPool")] 
+        [string]
+        [Parameter(Mandatory = $true)]
+        [Alias("rpfp")]
+        $ReposMappingsFilePath,
+
+        [ValidateSet("All", "VariableGroup", "ServiceConnection","AgentPool", "SecureFile", "Feed", "Environment")] 
         [Parameter(Mandatory = $false)]
         [Alias("mt")]
         $MappingType,
@@ -128,7 +133,7 @@ function Get-AzSKADOServiceMapping
             }
 
             $resolver = [Resolver]::new($OrganizationName, $PATToken)
-            $mapping = [AzSKADOServiceMapping]::new($OrganizationName, $ProjectName, $BuildMappingsFilePath, $ReleaseMappingsFilePath, $MappingType, $PSCmdlet.MyInvocation);
+            $mapping = [AzSKADOServiceMapping]::new($OrganizationName, $ProjectName, $BuildMappingsFilePath, $ReleaseMappingsFilePath, $ReposMappingsFilePath, $MappingType, $PSCmdlet.MyInvocation);
 
             return $mapping.InvokeFunction($mapping.GetSTmapping);
         }

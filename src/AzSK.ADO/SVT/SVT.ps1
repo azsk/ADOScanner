@@ -298,13 +298,8 @@ function Get-AzSKADOSecurityStatus
 		[Alias("prn")]
 		$PolicyRepoName,
 
-		[switch]
-		[Parameter(HelpMessage="Scan control which require graph permission for evaluation.")]
-		[Alias("uga")]
-		$UseGraphAccess,
-
 		[ValidateSet("Graph", "RegEx", "GraphThenRegEx")]
-        [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
+    [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
 		[Alias("acem")]
 		[string] $ALTControlEvaluationMethod,
     
@@ -316,7 +311,12 @@ function Get-AzSKADOSecurityStatus
 		[switch]
 		[Parameter(HelpMessage="Switch to reset default logged in user.")]
 		[Alias("rc")]
-		$ResetCredentials
+		$ResetCredentials,
+        
+    [switch]
+		[Parameter(HelpMessage="Switch to copy current data object in local folder to facilitate control fix.")]
+		[Alias("pcf")]
+		$PrepareForControlFix
 
 	)
 	Begin
@@ -334,11 +334,23 @@ function Get-AzSKADOSecurityStatus
 			[AzSKConfig]::Instance = $null
 			[ConfigurationHelper]::ServerConfigMetadata = $null
 			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
-            [AutoBugLog]::AutoBugInstance = $null
-            #Clear the cache of nested groups if the org name is not matching from previous scan in same session
+      
+      [AutoBugLog]::AutoBugInstance = $null
+      #Clear the cache of nested groups if the org name is not matching from previous scan in same session
 			if ([ControlHelper]::GroupMembersResolutionObj.ContainsKey("OrgName") -and [ControlHelper]::GroupMembersResolutionObj["OrgName"] -ne $OrganizationName) {
 				[ControlHelper]::GroupMembersResolutionObj = @{}
 			}
+      
+      if ($PrepareForControlFix -eq $true)  {
+          if ($UsePartialCommits -ne $true)  {
+              Write-Host "PrepareForControlFix switch requires -UsePartialCommits switch." -ForegroundColor Red
+              return;
+          }
+          elseif ([String]::IsNullOrEmpty($ControlIds) -or $ControlIds -match ','){
+              Write-Host "PrepareForControlFix switch requires one controlid. Use -ControlIds parameter to provide it." -ForegroundColor Red
+              return;
+          }
+      }
 
 			if($PromptForPAT -eq $true)
 			{
