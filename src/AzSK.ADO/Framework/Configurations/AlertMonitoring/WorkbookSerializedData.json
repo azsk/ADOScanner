@@ -203,7 +203,7 @@
                 "additionalResourceOptions": [],
                 "showDefault": false
               },
-              "jsonData": "[\r\n    { \"value\":\"MSW\", \"label\":\"MSW\"},\r\n    { \"value\":\"SDL\", \"label\":\"SDL\"},\r\n    { \"value\":\"TCP\", \"label\":\"TCP\"},\r\n    { \"value\":\"Automated\", \"label\":\"Automated\"},\r\n    { \"value\":\"AuthN\", \"label\":\"AuthN\"},\r\n    { \"value\":\"DP\", \"label\":\"DP\"},\r\n    { \"value\":\"AuthZ\", \"label\":\"AuthZ\"},\r\n    { \"value\":\"SI\", \"label\":\"SI\"},\r\n    { \"value\":\"Manual\", \"label\":\"Manual\"},\r\n    { \"value\":\"RBAC\", \"label\":\"RBAC\"},\r\n    { \"value\":\"Audit\", \"label\":\"Audit\"}\r\n]"
+              "jsonData": "[\r\n    { \"value\":\"MSW\", \"label\":\"MSW\"}\r\n]"
             },
             {
               "id": "0575c026-77d7-4578-8154-b7afc56408e8",
@@ -1760,11 +1760,7 @@
         "name": "text-Help"
       }
     ],
-    "fallbackResourceIds": [
-      "/subscriptions/abb5301a-22a4-41f9-9e5f-99badff261f8/resourceGroups/RitikCATest/providers/Microsoft.OperationalInsights/workspaces/SragalaTesting"
-    ],
     "styleSettings": {
       "paddingStyle": "none"
-    },
-    "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+    }
   }
