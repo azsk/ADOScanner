@@ -1902,7 +1902,7 @@ class Organization: ADOSVTBase
                                                     $_.LastAccessedDate = "User was never active"
                                                 }
                                                 else {
-                                                    $_.LastAccessedDate = $dateobj.ToString("MM-dd-yyyy")
+                                                    $_.LastAccessedDate = $dateobj.ToString("d MMM yyyy")
                                                 }
                                                 $inactiveUsersWithAdminAccess += $_
                                             }
