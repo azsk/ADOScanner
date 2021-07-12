@@ -2252,7 +2252,8 @@ class Organization: ADOSVTBase
             if (([Helpers]::CheckMember($this.ControlSettings ,"Organization.KnownExtensionPublishers")))
             {
                 $knownExtPublishers = $this.ControlSettings.Organization.KnownExtensionPublishers;
-
+                $controlResult.AddMessage("`nNote: The following are considered as 'known publishers': `n`t[$($this.ControlSettings.Organization.KnownExtensionPublishers -join ', ')]");
+                
                 $knownExtensions = @($extensionList | Where-Object {$_.publisherName -in $knownExtPublishers})
                 $knownCount = $knownExtensions.Count
 
