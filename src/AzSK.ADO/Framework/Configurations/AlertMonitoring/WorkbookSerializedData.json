@@ -214,7 +214,7 @@
               "multiSelect": true,
               "quote": "'",
               "delimiter": ",",
-              "query": "AzSK_ADO_CL\r\n| where ResourceType == \"ADO.Project\"\r\n| distinct tostring(ResourceName_s)\r\n| where  isnotempty(ResourceName_s)  \r\n| sort by ResourceName_s asc",
+              "query": "AzSK_ADO_CL\r\n| where TimeGenerated > ago(3d)\r\n| extend ProjectName = iff(ResourceType==\"ADO.Project\", ResourceName_s, ResourceGroup)\r\n| where isnotempty(ProjectName)\r\n| distinct  ProjectName",
               "value": [
                 "value::all"
               ],
@@ -533,7 +533,7 @@
       {
         "type": 1,
         "content": {
-          "json": "ðŸ’¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
+          "json": "Ã°Å¸â€™Â¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
         },
         "conditionalVisibilities": [
           {
@@ -616,7 +616,7 @@
       {
         "type": 1,
         "content": {
-          "json": "ðŸ’¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
+          "json": "Ã°Å¸â€™Â¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
         },
         "conditionalVisibilities": [
           {
@@ -791,7 +791,7 @@
       {
         "type": 1,
         "content": {
-          "json": "ðŸ’¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
+          "json": "Ã°Å¸â€™Â¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
         },
         "conditionalVisibilities": [
           {
@@ -878,7 +878,7 @@
       {
         "type": 1,
         "content": {
-          "json": "ðŸ’¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
+          "json": "Ã°Å¸â€™Â¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
         },
         "conditionalVisibilities": [
           {
@@ -1066,7 +1066,7 @@
       {
         "type": 1,
         "content": {
-          "json": "ðŸ’¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
+          "json": "Ã°Å¸â€™Â¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
         },
         "conditionalVisibilities": [
           {
@@ -1153,7 +1153,7 @@
       {
         "type": 1,
         "content": {
-          "json": "ðŸ’¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
+          "json": "Ã°Å¸â€™Â¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
         },
         "conditionalVisibilities": [
           {
@@ -1273,7 +1273,7 @@
       {
         "type": 1,
         "content": {
-          "json": "ðŸ’¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
+          "json": "Ã°Å¸â€™Â¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
         },
         "conditionalVisibilities": [
           {
@@ -1360,7 +1360,7 @@
       {
         "type": 1,
         "content": {
-          "json": "ðŸ’¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
+          "json": "Ã°Å¸â€™Â¡_Click on a row in the table above to see more details_\r\n<br />\r\n<br />"
         },
         "conditionalVisibilities": [
           {
@@ -1513,7 +1513,7 @@
       {
         "type": 1,
         "content": {
-          "json": "ðŸ’¡_Click on a row in the table above to generate organization scanning commands_\r\n<br />\r\n<br />"
+          "json": "Ã°Å¸â€™Â¡_Click on a row in the table above to generate organization scanning commands_\r\n<br />\r\n<br />"
         },
         "conditionalVisibilities": [
           {
@@ -1620,7 +1620,7 @@
       {
         "type": 1,
         "content": {
-          "json": "ðŸ’¡_Click on a row in the table above to generate resource scanning commands_\r\n<br />\r\n<br />"
+          "json": "Ã°Å¸â€™Â¡_Click on a row in the table above to generate resource scanning commands_\r\n<br />\r\n<br />"
         },
         "conditionalVisibilities": [
           {
@@ -1692,7 +1692,7 @@
       {
         "type": 1,
         "content": {
-          "json": "ðŸ’¡_Click on a row in the table above to generate resource scanning commands_\r\n<br />\r\n<br />"
+          "json": "Ã°Å¸â€™Â¡_Click on a row in the table above to generate resource scanning commands_\r\n<br />\r\n<br />"
         },
         "conditionalVisibilities": [
           {
@@ -1750,7 +1750,7 @@
       {
         "type": 1,
         "content": {
-          "json": "# Using this workbook\r\nThis workbook contains multiple tabs to help you discover, troubleshoot and remediate AzSK.ADO controls. Each tab has a particular focus from high-level overview, to detailed control data. Many sections will also generate ready-to-run commands for scanning to quickly target the organizations, resources and controls you need to address.\r\n\r\nEvery tab depicts baseline control events received by your Log Analytics workspace for the last scan done within last 3 days. Typically these would be events generated via Continuous Assurance (CA) scanning. However, manual scan results can also come here if AzSK.ADO is configured to forward local scan events to Log Analytics.\r\n\r\nIt is important to understand that, per the current plan, CA scanning will be turned on for various resource types/controls in waves. At any stage, this view will only show the baseline controls which have been (centrally) enabled for CA scanning. This is to improve our security posture in multiple 'waves'. If you would like to determine and fix controls beyond the ones currently enabled, you can manually run the scan commands and look at the CSV (or this view if you have local Log Analytics forwarding enabled in AzSK.ADO).\r\n\r\nIf multiple organizations have been configured to use this Log Analytics workspace then the view aggregates data from all organizations. (You can use/apply filters to view the data for a specific organization.)\r\n\r\nNote that, although it should serve the needs of a lot of scenarios, this is still just a sample view. There are lots of possible ways other views can be generated by you (or you can integrate one or more blades from this view into your own views).\r\n\r\n## There are 5 tabs in this workbook\r\n\r\n1. **Overview** <br/>\r\nThis tab contains an \"at-a-glance\" summary of the health for AzSK.ADO controls for all organizations sending data to the workspace.\r\n\r\n1. **Organization Security** <br/>\r\nThis tab contains details about organization security controls in your organizations. Control failures in this area will typically need organization owner privilege to fix. Multiple drill downs are available to highlight the most useful information, including ready-to-paste scanning and attestation commands. 7 and 30 day trending charts are also avaialable to help you understand when controls started or stopped failing.\r\n\r\n1. **Project Security** <br/>\r\nThis tab contains details about ptojrct security controls in your organizations. \r\n\r\n1. **Resource Security** <br/>\r\nThis tab contains details about resource security controls in your organizations. Multiple drill downs are available to highlight the most useful information, including ready-to-paste scanning commands. 7 and 30 day trending charts are also avaialable to help you understand when controls started or stopped failing.\r\n\r\n1. **Explore** <br/>\r\nThis tab contains tools to explore you AzSK.ADO log analytics data.\r\n    - **Connected organizations** - Explore what organizations have sent data to your log analytics workspace in the last 30 days. You'll see detailed information like that date of the last Continuous Assurance or user scan and what the username was. Clicking on rows in this table will provide copy/paste organization scanning commands you can use to perform manual scans required by some AzSK.ADO controls.\r\n    - **Resource exploration**  - In this section you can enter the name of a resource to get more details. You'll see detailed information like that date of the last Continuous Assurance or user scan for that resource and what the username was. You'll also see a table outlining the current failed controls for this resource. Clicking on a row from either table will provide additional copy/paste resource scanning commands you can use to perform targetted manual scans or attestations.\r\n\r\n1. **Help** <br/>\r\nThis tab provides details on how to use this workbook. You are on this tab.\r\n\r\n## Filters\r\nYou can apply filters to this view to evaluate all queries with additional conditions. The filters will appear at the top of every tab and will affect every query with a few exceptions (e.g. Connected organizations table on the 'Explore' tab). Filters are applied instantly. Multiple options on a single filter can be selected at once in addition to using multiple filters at once.\r\n\r\n### Available filters:\r\n\r\n1. **Baseline:** Select whether to include baseline controls (Default: True)\r\n1. **Preview Baseline:** Select whether to include preview (extended) baseline controls (Default: False)\r\n1. **Organization Name:** Select which organization(s) to include (Default: All)\r\n1. **Severity:** Select which severities to include. AzSK.ADO controls are classified into categories: Critical, High, Medium, and Low (Default: All)\r\n1. **Resource Type:** Select which resource type to include. e.g. \"AppSerice\", \"Automation\", and more. (Default: All)\r\n1. **Environment:** Select which Environment to include. You can tag your resource groups with \"Env\" tag using which you'll be able to filter results accordingly. For instance, you can Tag multiple resource groups as \"Production\" and view the scan results for production resources only. (Default: All)\r\n1. **Has Required Access?** Select whether to include controls for which the scanner did not have required access to evaluate (Default: True)\r\n\r\n## Additional workbook features\r\n### Drill Downs\r\nMany tables include the ability to click on a row and drill down to gain additional details without being redirected to a log analytics query window. Tables that have this option will have a message noted with the light bulb icon ðŸ’¡. When a row is selected, additional tables and text boxes may become visible or some content may be further filtered. Your selection may be cleared by clicking the 'undo' icon in the top right corner of the table.\r\n\r\n### Resource Links\r\nThis powerful tool let's you investigate your Azure resources without leaving the context of the workbook. Whenever you see a clickable link in a table you can use it to navigate directly to the resource. When done investigating, you can navigate back to the workbook by clicking on the workbook name in the top left corner of the Azure portal. When you return, the workbook is as you left it.\r\n\r\n### Exporting Options\r\nIf you want to export or explore your data further there are two options.\r\n   - **Open query in Log Analytics Log view** - Clicking the Log Analytics icon in the top right corner of a table or chart will open your query in the Log Analytics log view where you can edit it further to get the data you need.\r\n   - **Export to Excel** - Clicking the download icon in the top right corner of a table or chart will download the current query results to an XLSX file.\r\n\r\nHappy Security Monitoring!\r\n\r\n## Support\r\nThis workbook is provided with AzSK.ADO.\r\n"
+          "json": "# Using this workbook\r\nThis workbook contains multiple tabs to help you discover, troubleshoot and remediate AzSK.ADO controls. Each tab has a particular focus from high-level overview, to detailed control data. Many sections will also generate ready-to-run commands for scanning to quickly target the organizations, resources and controls you need to address.\r\n\r\nEvery tab depicts baseline control events received by your Log Analytics workspace for the last scan done within last 3 days. Typically these would be events generated via Continuous Assurance (CA) scanning. However, manual scan results can also come here if AzSK.ADO is configured to forward local scan events to Log Analytics.\r\n\r\nIt is important to understand that, per the current plan, CA scanning will be turned on for various resource types/controls in waves. At any stage, this view will only show the baseline controls which have been (centrally) enabled for CA scanning. This is to improve our security posture in multiple 'waves'. If you would like to determine and fix controls beyond the ones currently enabled, you can manually run the scan commands and look at the CSV (or this view if you have local Log Analytics forwarding enabled in AzSK.ADO).\r\n\r\nIf multiple organizations have been configured to use this Log Analytics workspace then the view aggregates data from all organizations. (You can use/apply filters to view the data for a specific organization.)\r\n\r\nNote that, although it should serve the needs of a lot of scenarios, this is still just a sample view. There are lots of possible ways other views can be generated by you (or you can integrate one or more blades from this view into your own views).\r\n\r\n## There are 5 tabs in this workbook\r\n\r\n1. **Overview** <br/>\r\nThis tab contains an \"at-a-glance\" summary of the health for AzSK.ADO controls for all organizations sending data to the workspace.\r\n\r\n1. **Organization Security** <br/>\r\nThis tab contains details about organization security controls in your organizations. Control failures in this area will typically need organization owner privilege to fix. Multiple drill downs are available to highlight the most useful information, including ready-to-paste scanning and attestation commands. 7 and 30 day trending charts are also avaialable to help you understand when controls started or stopped failing.\r\n\r\n1. **Project Security** <br/>\r\nThis tab contains details about ptojrct security controls in your organizations. \r\n\r\n1. **Resource Security** <br/>\r\nThis tab contains details about resource security controls in your organizations. Multiple drill downs are available to highlight the most useful information, including ready-to-paste scanning commands. 7 and 30 day trending charts are also avaialable to help you understand when controls started or stopped failing.\r\n\r\n1. **Explore** <br/>\r\nThis tab contains tools to explore you AzSK.ADO log analytics data.\r\n    - **Connected organizations** - Explore what organizations have sent data to your log analytics workspace in the last 30 days. You'll see detailed information like that date of the last Continuous Assurance or user scan and what the username was. Clicking on rows in this table will provide copy/paste organization scanning commands you can use to perform manual scans required by some AzSK.ADO controls.\r\n    - **Resource exploration**  - In this section you can enter the name of a resource to get more details. You'll see detailed information like that date of the last Continuous Assurance or user scan for that resource and what the username was. You'll also see a table outlining the current failed controls for this resource. Clicking on a row from either table will provide additional copy/paste resource scanning commands you can use to perform targetted manual scans or attestations.\r\n\r\n1. **Help** <br/>\r\nThis tab provides details on how to use this workbook. You are on this tab.\r\n\r\n## Filters\r\nYou can apply filters to this view to evaluate all queries with additional conditions. The filters will appear at the top of every tab and will affect every query with a few exceptions (e.g. Connected organizations table on the 'Explore' tab). Filters are applied instantly. Multiple options on a single filter can be selected at once in addition to using multiple filters at once.\r\n\r\n### Available filters:\r\n\r\n1. **Baseline:** Select whether to include baseline controls (Default: True)\r\n1. **Preview Baseline:** Select whether to include preview (extended) baseline controls (Default: False)\r\n1. **Organization Name:** Select which organization(s) to include (Default: All)\r\n1. **Severity:** Select which severities to include. AzSK.ADO controls are classified into categories: Critical, High, Medium, and Low (Default: All)\r\n1. **Resource Type:** Select which resource type to include. e.g. \"AppSerice\", \"Automation\", and more. (Default: All)\r\n1. **Environment:** Select which Environment to include. You can tag your resource groups with \"Env\" tag using which you'll be able to filter results accordingly. For instance, you can Tag multiple resource groups as \"Production\" and view the scan results for production resources only. (Default: All)\r\n1. **Has Required Access?** Select whether to include controls for which the scanner did not have required access to evaluate (Default: True)\r\n\r\n## Additional workbook features\r\n### Drill Downs\r\nMany tables include the ability to click on a row and drill down to gain additional details without being redirected to a log analytics query window. Tables that have this option will have a message noted with the light bulb icon Ã°Å¸â€™Â¡. When a row is selected, additional tables and text boxes may become visible or some content may be further filtered. Your selection may be cleared by clicking the 'undo' icon in the top right corner of the table.\r\n\r\n### Resource Links\r\nThis powerful tool let's you investigate your Azure resources without leaving the context of the workbook. Whenever you see a clickable link in a table you can use it to navigate directly to the resource. When done investigating, you can navigate back to the workbook by clicking on the workbook name in the top left corner of the Azure portal. When you return, the workbook is as you left it.\r\n\r\n### Exporting Options\r\nIf you want to export or explore your data further there are two options.\r\n   - **Open query in Log Analytics Log view** - Clicking the Log Analytics icon in the top right corner of a table or chart will open your query in the Log Analytics log view where you can edit it further to get the data you need.\r\n   - **Export to Excel** - Clicking the download icon in the top right corner of a table or chart will download the current query results to an XLSX file.\r\n\r\nHappy Security Monitoring!\r\n\r\n## Support\r\nThis workbook is provided with AzSK.ADO.\r\n"
         },
         "conditionalVisibility": {
           "parameterName": "selectedTab",
