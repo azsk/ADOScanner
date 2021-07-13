@@ -1084,7 +1084,7 @@ class SVTResourceResolver: AzSKRoot {
             else {
                 break;
             }
-            if ($nObj -eq 0) { break; }
+            if ($nObj.Value -eq 0) { break; }
         }
         Write-Progress -Activity "All $($resourceType)s fetched" -Status "Ready" -Completed
         $resourceDefnsObj = $null;
