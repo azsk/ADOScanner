@@ -1,6 +1,7 @@
 # This class should contains method that would be required to filter/targer controls
 class ControlHelper: EventBase{
 
+    static [psobject] $ControlFixBackup = @()
     static $GroupMembersResolutionObj = @{} #Caching group resolution
       
     #Checks if the severities passed by user are valid and filter out invalid ones

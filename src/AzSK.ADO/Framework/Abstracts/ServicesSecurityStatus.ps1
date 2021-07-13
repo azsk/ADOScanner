@@ -9,6 +9,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	[bool] $IsAIEnabled = $false;
 	[bool] $IsBugLoggingEnabled = $false;
 	$ActualResourcesPerRsrcType = @(); # Resources count based on resource type . This count is evaluated before comparison with resource tracker file.
+    [bool] $IsControlFixCommand = $false;
+    [string] $controlInternalId;
 
 	ServicesSecurityStatus([string] $organizationName, [InvocationInfo] $invocationContext, [SVTResourceResolver] $resolver):
         Base($organizationName, $invocationContext)
@@ -44,7 +46,32 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		[PartialScanManager]::ClearInstance();
 		$this.BaselineFilterCheck();
 		$this.UsePartialCommitsCheck();
-	}
+    }
+    
+    #Contructor for Set-AzSKADOSecurityStatus command
+    ServicesSecurityStatus([string] $organizationName, [string] $projectName, [InvocationInfo] $invocationContext, [SVTResourceResolver] $resolver, [string] $ControlId):
+    Base($organizationName, $invocationContext)
+    {
+        $this.IsControlFixCommand = $true
+        $this.FilterTags = "AutomatedFix"
+        $this.MapTagsToControlIds();
+        if ($this.ControlIds -contains $ControlId)
+        {
+            $this.Resolver = $resolver;
+            $this.Resolver.FetchControlFixBackupFile($organizationName, $projectName, $this.controlInternalId);
+            $this.Resolver.LoadResourcesForScan();
+            if (!$this.Resolver.SVTResources) {
+                return;
+            }
+            $this.UsePartialCommits = $invocationContext.BoundParameters["UsePartialCommits"];
+            $this.UsePartialCommitsCheck();
+        }
+        else {
+		    $this.PublishCustomMessage("`nControl $($ControlId) does not support automated fix.",[MessageType]::Warning);
+            break;
+        }
+    }
+
 
 	hidden [SVTEventContext[]] RunForAllResources([string] $methodNameToCall, [bool] $runNonAutomated, [PSObject] $resourcesList)
 	{
@@ -80,7 +107,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		
 		$automatedResources += ($resourcesList | Where-Object { $_.ResourceTypeMapping });
 		
-		# Resources skipped from scan using excludeResourceName parameter
+		<# Resources skipped from scan using excludeResourceName parameter
 		$ExcludedResources=$this.resolver.ExcludedResources ;
 		if(($this.resolver.ExcludeResourceNames| Measure-Object).Count -gt 0)
 		{
@@ -100,6 +127,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			$this.PublishCustomMessage("For a detailed list of excluded resources, see 'ExcludedResources-$($this.RunIdentifier).txt' in the output log folder.")
 			$this.ReportExcludedResources($this.resolver);
 		}
+        #>
+        
 		if($runNonAutomated)
 		{
 			$this.ReportNonAutomatedResources();
@@ -660,7 +689,13 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					$controlIdsWithFilterTagList += $controlList | Where-Object{ $tagName -in $_.Tags  } | ForEach-Object{ $_.ControlId}
 				}
 				#Assign filtered control Id with tag name 
-				$this.ControlIds = $controlIdsWithFilterTagList
+				$this.ControlIds = @($controlIdsWithFilterTagList | Select-Object -Unique)
+
+				#Need Control's internal id in case of Set-AzSKADOSecurityStatus command 
+				if ($this.IsControlFixCommand)
+				{
+					$this.ControlInternalId = ($controlList | Where-Object { $this.ControlIds -contains $_.ControlId }| Select-Object Id -Unique).Id
+				}
 			}
 
 			#********** Commentiing Exclude tags logic as this will not require perf optimization as excludeTags mostly will result in most of the resources
