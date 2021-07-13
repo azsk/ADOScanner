@@ -56,6 +56,12 @@ class CommandHelper
             Noun = "AzSKADOServiceMapping";
             ShortName = "gsm";
 			IsLatestRequired = $false;
+        },
+        [CommandDetails]@{
+            Verb = "Set";
+            Noun = "AzSKADOSecurityStatus";
+            ShortName = "sads";
+			IsLatestRequired = $false;
         }
     );
 

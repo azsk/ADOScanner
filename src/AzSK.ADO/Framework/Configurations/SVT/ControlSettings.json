@@ -13,9 +13,9 @@
           "ADO_Organization_AuthZ_Review_Project_Collection_Service_Accounts",
           "ADO_Organization_SI_Review_Auto_Injected_Extensions",
           "ADO_Organization_SI_Limit_Variables_Settable_At_Queue_Time",
-          "ADO_Organization_AuthZ_Limit_Non_Release_Pipeline_Access",
-          "ADO_Organization_AuthZ_Limit_Release_Pipeline_Access",
-          "ADO_Organization_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
+          "ADO_Organization_AuthZ_Limit_Non_Release_Pipeline_Scope",
+          "ADO_Organization_AuthZ_Limit_Release_Pipeline_Scope",
+          "ADO_Organization_AuthZ_Limit_Pipeline_Scope_To_Referenced_Repos",
           "ADO_Organization_DP_Dont_Allow_Public_Projects",
           "ADO_Organization_Enable_Audit_Stream",
           "ADO_Organization_BCDR_Min_Admin_Count",
@@ -33,11 +33,10 @@
           "ADO_Project_AuthZ_Set_Visibility_Private_Or_Enterprise",
           "ADO_Project_SI_Limit_Variables_Settable_At_Queue_Time",
           "ADO_Project_BCDR_Min_Admin_Count",
-          "ADO_Project_AuthZ_Limit_Non_Release_Pipeline_Access",
-          "ADO_Project_AuthZ_Limit_Release_Pipeline_Access",
-          "ADO_Project_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos",
+          "ADO_Project_AuthZ_Limit_Non_Release_Pipeline_Scope",
+          "ADO_Project_AuthZ_Limit_Release_Pipeline_Scope",
+          "ADO_Project_AuthZ_Limit_Pipeline_Scope_To_Referenced_Repos",
           "ADO_Project_AuthN_Use_ALT_Accounts_For_Admin",
-          "ADO_Project_AuthZ_Disable_Repo_Inherited_Permissions",
           "ADO_Project_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
           "ADO_Project_AuthZ_Revoke_Admin_Access_for_Guest_Users",
           "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Builds",
@@ -67,7 +66,7 @@
           "ADO_Build_AuthZ_Disable_Inherited_Permissions",
           "ADO_Build_DP_No_PlainText_Secrets_In_Definition",
           "ADO_Build_SI_Review_URL_Variables_Settable_At_Queue_Time",
-          "ADO_Build_SI_Limit_Task_Group_Edit_Permission",
+          "ADO_Build_SI_Restrict_Task_Group_Edit_Permission",
           "ADO_Build_SI_Restrict_Variable_Group_Edit_Permission",
           "ADO_Build_AuthZ_Limit_Pipeline_Access",
           "ADO_Build_AuthZ_Restrict_Broader_Group_Access",
@@ -83,7 +82,7 @@
           "ADO_Release_SI_Review_External_Sources",
           "ADO_Release_DP_No_PlainText_Secrets_In_Definition",
           "ADO_Release_SI_Review_URL_Variables_Settable_At_Release_Time",
-          "ADO_Release_SI_Limit_Task_Group_Edit_Permission",
+          "ADO_Release_SI_Restrict_Task_Group_Edit_Permission",
           "ADO_Release_SI_Restrict_Variable_Group_Edit_Permission",
           "ADO_Release_AuthZ_Restrict_Broader_Group_Access",
           "ADO_Release_DP_Review_Inactive_Release"
@@ -165,7 +164,8 @@
     "VariableGroup",
     "Repository",
     "Feed",
-    "SecureFile"
+    "SecureFile",
+    "Environment"
   ],
   "AttestationExpiryPeriodInDays": {
     "Default": 90,
@@ -275,7 +275,8 @@
       "Destroy builds",
       "Edit build pipeline"
     ],
-    "CheckForInheritedPermissions" : false
+    "CheckForInheritedPermissions" : false,
+    "RegexForOAuthTokenInYAMLScript" : "\\s*:\\s*\\$\\s*\\(\\s*System\\.AccessToken\\s*\\)"
   },
   "Release": {
     "ReleaseHistoryPeriodInDays": 180,
@@ -327,6 +328,10 @@
         "Readers",
         "Project Valid Users"
     ],
+    "RestrictedRolesForBroaderGroupsInAgentPool": [
+      "Administrator",
+      "User"
+    ],
     "CheckForInheritedPermissions": false
   },
   "VariableGroup": {
@@ -339,9 +344,13 @@
     "RestrictedRolesForBroaderGroupsInVariableGroup": [
         "Administrator"
     ],
+    "RestrictedRolesForBroaderGroupsInVariableGroupContainingSecrets": [
+      "Administrator",
+      "User"
+    ],
     "CheckForInheritedPermissions": false
   },
-  "AlernateAccountRegularExpressionForOrg": "^SC-.*@.*microsoft.com$",
+  "AlernateAccountRegularExpressionForOrg": "^sc-\\w+@(?:\\w+\\.)*microsoft\\.com$|^\\w+.*@gme\\.gbl$",
   "ALTControlEvaluationMethod": "GraphThenRegEx",
   "Organization": {
     "DisallowedEnvironments" : [],
@@ -365,7 +374,7 @@
                       "vso.dashboards_manage","vso.test_write","vso.tokenadministration","vso.profile_write",
                       "vso.variablegroups_write","vso.variablegroups_manage","vso.wiki_write","vso.work_write","vso.work_full"],
     "ExemptedExtensionNames":["Azure DevTest Labs Tasks"],
-    "MaxPCAMembersPermissible": 5,
+    "MaxPCAMembersPermissible": 6,
     "MinPCAMembersPermissible": 2,
     "GroupsToCheckForSCAltMembers": [
       "Project Collection Administrators"
@@ -383,7 +392,7 @@
     "AdminInactivityThresholdInDays": 90
   },
   "Project": {
-    "MaxPAMembersPermissible": 5,
+    "MaxPAMembersPermissible": 6,
     "MinPAMembersPermissible": 2,
     "GroupsToCheckForSCAltMembers": [
       "Project Administrators"
@@ -404,7 +413,30 @@
     "Contributors",
     "Readers",
     "Project Valid Users"
+    ],
+    "RestrictedRolesForBroaderGroupsInFeeds": [
+        "administrator",
+        "collaborator",
+        "contributor"
     ]
+  },
+  "SecureFile":{
+    "RestrictedBroaderGroupsForSecureFile": [
+      "Project Collection Valid Users",
+      "Contributors",
+      "Readers",
+      "Project Valid Users"
+      ],
+      "CheckForInheritedPermissions": false
+  },
+  "Environment":{
+    "RestrictedBroaderGroupsForEnvironment": [
+      "Project Collection Valid Users",
+      "Contributors",
+      "Readers",
+      "Project Valid Users"
+      ],
+      "CheckForInheritedPermissions": false
   },
   "Repo": {
     "RepoHistoryPeriodInDays": 180,
@@ -469,6 +501,16 @@
       ]
     },
     {
+      "RegexCode": "SecretsInVariables",
+      "RegexList": [
+        "(?# To match general passwords.)^(?=\\D*\\d)(?=[^a-z]*[a-z])(?=[^A-Z]*[A-Z])(?=(\\w*\\W|\\w*))[0-9\\Wa-zA-Z]{7,20}$",
+        "(?# To match SQL/MySQL conn strings.)((P|p)assword|pwd)\\s*=\\s*\\w+;?",
+        "(?# To match Azure storage keys.)^[A-Za-z0-9/+]{86}==$",
+        "(?# To match storage SAS.)([^?]*\\?sv=)[^&]+(&s[a-z]=[^&]+){4}",
+        "(?# To match ADO PATs.)^[a-z2-7]{52}$"
+      ]
+    },
+    {
       "RegexCode": "URLs",
       "RegexList": [
         "(?# To match any URL.)(www.|http:|https:)+[^\\s]+[\\w]"
@@ -515,6 +557,7 @@
   "ResourceTypesForCommonSVT": [
     "Repository",
     "SecureFile",
-    "Feed"
+    "Feed",
+    "Environment"
   ]
 }

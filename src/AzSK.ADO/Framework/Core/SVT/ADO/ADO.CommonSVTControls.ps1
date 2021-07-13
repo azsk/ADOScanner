@@ -2,10 +2,20 @@ Set-StrictMode -Version Latest
 class CommonSVTControls: ADOSVTBase {
 
     hidden [PSObject] $Repos; # This is used for fetching repo details
-    hidden [PSObject] $ProjectId;
+    #hidden [PSObject] $ProjectId;
+    hidden [string] $checkInheritedPermissionsSecureFile = $false
+    hidden [string] $checkInheritedPermissionsEnvironment = $false
+    hidden [object] $repoInheritePermissions = @{};
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
+        if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.CheckForInheritedPermissions") -and $this.ControlSettings.SecureFile.CheckForInheritedPermissions) {
+            $this.checkInheritedPermissionsSecureFile = $true
+        }
+
+        if ([Helpers]::CheckMember($this.ControlSettings, "Environment.CheckForInheritedPermissions") -and $this.ControlSettings.Environment.CheckForInheritedPermissions) {
+            $this.checkInheritedPermissionsEnvironment = $true
+        }
     }
 
     hidden [ControlResult] CheckInactiveRepo([ControlResult] $controlResult)
@@ -47,6 +57,32 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.LogException($_)
         }
         return $controlResult
+    }
+
+    hidden [ControlResult] CheckRepositoryPipelinePermission([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/repository/{2}.{3}" -f $this.OrganizationContext.OrganizationName, $projectId, $projectId, $this.ResourceContext.ResourceDetails.Id;
+            $repoPipelinePermissionObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+            if (([Helpers]::CheckMember($repoPipelinePermissionObj[0], "allPipelines")) -and ($repoPipelinePermissionObj[0].allPipelines.authorized -eq $true))
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed, "Repository is accessible to all pipelines.");
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "Repository is not accessible to all pipelines.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository pipeline permission.");
+            $controlResult.LogException($_)
+        }
+       return $controlResult
     }
 
     hidden [ControlResult] CheckRepoRBACAccess([ControlResult] $controlResult) {
@@ -135,6 +171,75 @@ class CommonSVTControls: ADOSVTBase {
         return $controlResult
     }
 
+    hidden [ControlResult] CheckInheritedPermissionsOnRepository([ControlResult] $controlResult) {
+
+        <#
+        {
+        "ControlID": "ADO_Repository_AuthZ_Disable_Inherited_Permissions",
+        "Description": "Do not allow inherited permission on repository.",
+        "Id": "Repository120",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckInheritedPermissionsOnRepository",
+        "Rationale": "Disabling inherited permissions lets you finely control access to various operations at the repository level for different stakeholders. This ensures that you follow the principle of least privilege and provide access only to the persons that require it.",
+        "Recommendation": "1. Go to Project Settings --> 2. Repositories --> 3. Select a Repository --> 4. Permissions --> 5. Disable 'Inheritance'.",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ"
+        ],
+        "Enabled": true
+        },
+        #>
+
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+        $projectName = $this.ResourceContext.ResourceGroupName;
+        #permissionSetId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
+
+        try
+        {
+            # Fetch the repo permissions only if not already fetch, for all the repositories in the organization
+            if (!$this.repoInheritePermissions.ContainsKey($projectName)) {
+                $repoPermissionUrl = 'https://dev.azure.com/{0}/_apis/accesscontrollists/2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87?api-version=6.0' -f $this.OrganizationContext.OrganizationName;
+                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($repoPermissionUrl));
+                $respoPermissionResponseObj = $responseObj | where-object {($_.token -match "^repoV2/$projectId\/.{36}$") -and $_.inheritPermissions -eq $true}
+                
+                $this.repoInheritePermissions.Add($projectName, $respoPermissionResponseObj);
+                #Clearing local variable
+                $responseObj = $null;
+                $respoPermissionResponseObj = $null;
+            }
+            
+            if ($this.repoInheritePermissions.ContainsKey($projectName))
+            {
+                # Filter the inherited permissions specific to the given project
+                $repoPermission = @($this.repoInheritePermissions."$projectName" | where-object { $_.token -eq "repoV2/$projectId/$($this.ResourceContext.ResourceDetails.Id)" });
+                
+                if($repoPermission.Count -gt 0)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Inherited permission is enabled on the repository.");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Inherited permission is disabled on the repository.");
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the permission details for repositories.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch permission details for repositories. $($_).");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+
     hidden [PSObject] FetchRepositoriesList() {
         if($null -eq $this.Repos) {
             # fetch repositories
@@ -158,13 +263,14 @@ class CommonSVTControls: ADOSVTBase {
             $RestrictedBroaderGroupsForFeeds = $null;
             if ([Helpers]::CheckMember($this.ControlSettings, "Feed.RestrictedBroaderGroupsForFeeds")) {
                 $restrictedBroaderGroupsForFeeds = $this.ControlSettings.Feed.RestrictedBroaderGroupsForFeeds
+                $restrictedRolesForBroaderGroupsInFeeds = $this.ControlSettings.Feed.RestrictedRolesForBroaderGroupsInFeeds;
 
                 #GET https://feeds.dev.azure.com/{organization}/{project}/_apis/packaging/Feeds/{feedId}/permissions?api-version=6.0-preview.1
                 #Using visualstudio api because new api (dev.azure.com) is giving null in the displayName property.
                 $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
                 $feedPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                $excesiveFeedsPermissions = @(($feedPermissionList | Where-Object {$_.role -eq "administrator" -or $_.role -eq "collaborator" -or $_.role -eq "contributor"}) | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}}) ;
-                $feedWithBroaderGroup = @($excesiveFeedsPermissions | Where-Object { $restrictedBroaderGroupsForFeeds -contains $_.DisplayName.split('\')[-1] })
+                $excesiveFeedsPermissions = @($feedPermissionList | Where-Object {($restrictedRolesForBroaderGroupsInFeeds -contains $_.role) -and ($restrictedBroaderGroupsForFeeds -contains $_.DisplayName.split('\')[-1])}) 
+                $feedWithBroaderGroup = @($excesiveFeedsPermissions | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}}) ;
                 $feedWithroaderGroupCount = $feedWithBroaderGroup.count;
 
                 if ($feedWithroaderGroupCount -gt 0)
@@ -173,6 +279,7 @@ class CommonSVTControls: ADOSVTBase {
 
                     $display = ($feedWithBroaderGroup |  FT FeedName, Role, DisplayName -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
+                    $controlResult.SetStateData("List of groups: ", $excesiveFeedsPermissions);
                 }
                 else
                 {
@@ -188,6 +295,70 @@ class CommonSVTControls: ADOSVTBase {
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error,  "Could not fetch feed permissions.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckBroaderGroupAccessOnFeedsAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $backupDataObj = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            $RawDataObjForControlFix = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($backupDataObj))  | ConvertFrom-Json
+            $body = "["
+
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = [int][FeedPermissions] "Reader"
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                        {
+                            "displayName": "$($($identity.displayName).Replace('\','\\'))",
+                            "identityId": "$($identity.identityId)",
+                            "role": $roleId,
+                            "identityDescriptor": "$($($identity.identityDescriptor).Replace('\','\\'))",
+                            "isInheritedRole": false
+                        }
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = [int][FeedPermissions] "$($identity.role)"
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                        {
+                            "displayName": "$($($identity.displayName).Replace('\','\\'))",
+                            "identityId": "$($identity.identityId)",
+                            "role": $roleId,
+                            "identityDescriptor": "$($($identity.identityDescriptor).Replace('\','\\'))",
+                            "isInheritedRole": false
+                        }
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+            }
+
+            #Patch request
+            $body += "]"
+            $url = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/permissions?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body
+
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
+            $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
             $controlResult.LogException($_)
         }
         return $controlResult
@@ -209,6 +380,127 @@ class CommonSVTControls: ADOSVTBase {
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch authorization details of secure file.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckBroaderGroupAccessOnSecureFile([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $restrictedBroaderGroupsForSecureFile = $null;
+            if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedBroaderGroupsForSecureFile")) {
+                $restrictedBroaderGroupsForSecureFile = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile
+
+                $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.securefile/roleassignments/resources/{1}%24{2}' -f $this.OrganizationContext.OrganizationName, $projectId, $this.ResourceContext.ResourceDetails.Id;
+                $secureFilePermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+                $roleAssignmentsToCheck = $secureFilePermissionList;
+                if ($this.checkInheritedPermissionsSecureFile -eq $false) {
+                    $roleAssignmentsToCheck = $secureFilePermissionList | where-object { $_.access -ne "inherited" }
+                }
+                
+                $excesiveSecureFilePermissions = @(($roleAssignmentsToCheck | Where-Object {$_.role.name -eq "administrator" -or $_.role.name -eq "user"}) | Select-Object -Property @{Name="SecureFileName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role.name}},@{Name="DisplayName"; Expression = {$_.identity.displayName}}) ;
+                $secureFileWithBroaderGroup = @($excesiveSecureFilePermissions | Where-Object { $restrictedBroaderGroupsForSecureFile -contains $_.DisplayName.split('\')[-1] })
+                $secureFileWithBroaderGroupCount = $secureFileWithBroaderGroup.count;
+
+                if ($secureFileWithBroaderGroupCount -gt 0)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have user/administrator access to secure file: $($secureFileWithBroaderGroupCount)")
+
+                    $display = ($secureFileWithBroaderGroup |  FT SecureFileName, Role, DisplayName -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage("`nList of groups: ", $display)
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,  "Secure file is not granted with user/administrator permission to broad groups.");
+                }
+                $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($restrictedBroaderGroupsForSecureFile | FT | out-string)");
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error,  "List of broader groups for secure file is not defined in control settings for your organization.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not fetch secure file permissions.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckEnviornmentAccess([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/environment/{2}" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            $envPipelinePermissionObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+            if (($envPipelinePermissionObj.Count -gt 0) -and ([Helpers]::CheckMember($envPipelinePermissionObj[0],"allPipelines")) -and ($envPipelinePermissionObj[0].allPipelines.authorized -eq $true))
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed, "Environment is accessible to all pipelines.");
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "Environment is not accessible to all pipelines.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch environment's pipeline permission setting.");
+            $controlResult.LogException($_)
+        }
+       return $controlResult
+    }
+
+    hidden [ControlResult] CheckBroaderGroupAccessOnEnvironment([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $restrictedBroaderGroupsForEnvironment = $null;
+            if ([Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedBroaderGroupsForEnvironment")) {
+                $restrictedBroaderGroupsForEnvironment = $this.ControlSettings.Environment.RestrictedBroaderGroupsForEnvironment
+
+                $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.environmentreferencerole/roleassignments/resources/{1}_{2}' -f $this.OrganizationContext.OrganizationName, $projectId, $this.ResourceContext.ResourceDetails.Id;
+                $environmentPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+                $roleAssignmentsToCheck = $environmentPermissionList;
+                if ($this.checkInheritedPermissionsEnvironment -eq $false) {
+                    $roleAssignmentsToCheck = $environmentPermissionList | where-object { $_.access -ne "inherited" }
+                }
+                
+                $excesiveEnvironmentPermissions = @(($roleAssignmentsToCheck | Where-Object {$_.role.name -eq "administrator" -or $_.role.name -eq "user"}) | Select-Object -Property @{Name="EnvironmentName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role.name}},@{Name="DisplayName"; Expression = {$_.identity.displayName}}) ;
+                $environmentWithBroaderGroup = @($excesiveEnvironmentPermissions | Where-Object { $restrictedBroaderGroupsForEnvironment -contains $_.DisplayName.split('\')[-1] })
+                $environmentWithBroaderGroupCount = $environmentWithBroaderGroup.count;
+
+                if ($environmentWithBroaderGroupCount -gt 0)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have user/administrator access to environment: $($environmentWithBroaderGroupCount)")
+
+                    $display = ($environmentWithBroaderGroup |  FT EnvironmentName, Role, DisplayName -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage("`nList of groups: ", $display)
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,  "Environment is not granted with user/administrator permission to broad groups.");
+                }
+                $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($restrictedBroaderGroupsForEnvironment | FT | out-string)");
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error,  "List of broader groups for environment is not defined in control settings for your organization.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not fetch environment permissions.");
             $controlResult.LogException($_)
         }
         return $controlResult

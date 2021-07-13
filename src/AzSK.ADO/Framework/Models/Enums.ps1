@@ -12,6 +12,7 @@ enum VerificationResult
 	Remediate
 	Skipped
 	NotScanned
+	Fixed
 }
 
 enum AttestationStatus
@@ -186,4 +187,11 @@ enum SecuritySeverity
 	Moderate
 	Medium
 	Low
+}
+
+enum FeedPermissions {
+	Reader = 2
+	Contributor = 3
+	administrator = 4 
+	collaborator = 5
 }

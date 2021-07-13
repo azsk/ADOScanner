@@ -56,8 +56,11 @@ class SVTResourceResolver: AzSKRoot {
     hidden [string[]] $RepoNames = @();
     hidden [string[]] $SecureFileNames = @();
     hidden [string[]] $FeedNames = @();
+    hidden [string[]] $EnvironmentNames = @();
 
-    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources): Base($organizationName, $PATToken) {
+
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources): Base($organizationName, $PATToken) {
+
 
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
         $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources);
@@ -66,10 +69,31 @@ class SVTResourceResolver: AzSKRoot {
         $this.RepoNames += $this.ConvertToStringArray($RepoNames);
         $this.SecureFileNames += $this.ConvertToStringArray($SecureFileNames);
         $this.FeedNames += $this.ConvertToStringArray($FeedNames);
+
         [PartialScanManager]::ClearInstance();
+    
+
+        $this.EnvironmentNames += $this.ConvertToStringArray($EnvironmentNames);
     }
 
-    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources) {
+    #Constructor for Set-AzSKADOSecurityStatus
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $ResourceNames, $ExcludeResourceNames, $PATToken, $ResourceTypeName): Base($organizationName, $PATToken) {
+
+        $this.organizationName = $organizationName
+        $this.ProjectNames = $ProjectNames
+        $this.ResourceTypeName = $ResourceTypeName
+
+        if (-not [string]::IsNullOrEmpty($ResourceNames)) {
+            $this.ResourceNames += $this.ConvertToStringArray($ResourceNames);
+        }
+        if (-not [string]::IsNullOrEmpty($ExcludeResourceNames)) {
+                $this.ExcludeResourceNames += $this.ConvertToStringArray($ExcludeResourceNames);
+        }
+    }
+
+
+    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources) {
+
         $this.organizationName = $organizationName
         $this.ResourceTypeName = $ResourceTypeName
         $this.allowLongRunningScan = $AllowLongRunningScan
@@ -167,6 +191,7 @@ class SVTResourceResolver: AzSKRoot {
             $this.RepoNames = "*"
             $this.SecureFileNames = "*"
             $this.FeedNames = "*"
+            $this.EnvironmentNames = "*"
         }
 
         if (( $this.MaxObjectsToScan -eq 0 -or $this.MaxObjectsToScan -gt $this.longRunningScanCheckPoint) -and ($this.ProjectNames -eq "*" -or $this.BuildNames -eq "*" -or $this.ReleaseNames -eq "*" -or $this.ServiceConnections -eq "*" -or $this.AgentPools -eq "*" -or $this.VariableGroups -eq "*")) {
@@ -217,7 +242,8 @@ class SVTResourceResolver: AzSKRoot {
             }
         }
         catch {
-            Write-Host 'Organization not found: Incorrect organization name or you do not have necessary permission to access the organization.' -ForegroundColor Red
+            $user = [ContextHelper]::GetCurrentSessionUser();
+            $this.PublishCustomMessage("Organization not found: Incorrect organization name or '$($user)' account does not have necessary permission to access the organization. Use -ResetCredentials parameter in command to login with another account. `n", [MessageType]::Warning);
             throw;
         }
         if ($this.ResourceTypeName -in ([ResourceTypeName]::Organization, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User) -and ([string]::IsNullOrEmpty($this.serviceId)) )
@@ -428,8 +454,11 @@ class SVTResourceResolver: AzSKRoot {
                             else {
                                 $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
                             }
+
                             $nObj=$this.MaxObjectsToScan
                             $this.addResourceToSVT($buildDefnURL,"build",$projectName,$organizationId,$projectId,$false,$false,$null,[ref]$nObj);
+
+
                             }
                         
                         else {
@@ -477,6 +506,7 @@ class SVTResourceResolver: AzSKRoot {
                             $this.PublishCustomMessage("Getting release configurations...");
                         }
 
+
                         if(-not [string]::IsNullOrEmpty($this.ReleasesFolderPath)){
                             # Validate folder path is valid
                             $path = $this.ReleasesFolderPath;
@@ -494,9 +524,7 @@ class SVTResourceResolver: AzSKRoot {
                                 
 
                             }
-                            Write-Progress -Activity "All releases fetched" -Status "Ready" -Completed
-                            $releaseDefnsObj = $null;
-                            Remove-Variable releaseDefnsObj;
+                           
                             
                             
                             
@@ -708,42 +736,69 @@ class SVTResourceResolver: AzSKRoot {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting variable group configurations...");
                         }
-
-                        # Here we are fetching all the var grps in the project and then filtering out. But in build & release we fetch them individually unless '*' is used for fetching all of them.
-                        $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?api-version=6.1-preview.2") -f $($this.organizationName), $projectId;
-                        $variableGroupObj = [WebRequestHelper]::InvokeGetWebRequest($variableGroupURL)
-
-                        if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) {
-
-                            $varGroups = $null;
-                            $projectData["variableGroups"] = ($variableGroupObj | Measure-Object).Count
+                        try
+                        {
                             if ($this.VariableGroups -eq "*") {
-                                $varGroups = $variableGroupObj
+                                $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?api-version=6.1-preview.2" +$topNQueryString) -f $($this.organizationName), $projectId;
+                                $variableGroupObj = [WebRequestHelper]::InvokeGetWebRequest($variableGroupURL)
+
+                                if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) 
+                                {
+                                    foreach ($group in $variableGroupObj) {
+                                        $resourceId = "organization/$organizationId/project/$projectId/variablegroup/$($group.Id)";
+                                        $link = ("https://dev.azure.com/{0}/{1}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId={2}") -f $($this.organizationName), $projectName, $($group.Id);
+                                        $this.AddSVTResource($group.name, $projectName, "ADO.VariableGroup", $resourceId, $group, $link);
+                                    }
+                                    $variableGroupObj = $null
+                                }
                             }
                             else {
-                                #If service id based scan then filter with variablegroup ids
-                                if ($this.isServiceIdBasedScan -eq $true) {
-                                    $varGroups = $variableGroupObj | Where-Object { $this.VariableGroupIds -eq $_.Id }
-                                }
-                                else {
-                                    $varGroups = $variableGroupObj | Where-Object { $this.VariableGroups -eq $_.name }
-                                }
-                            }
-                            $nObj = $this.MaxObjectsToScan
-                            foreach ($group in $varGroups) {
-                                $resourceId = "organization/$organizationId/project/$projectId/variablegroup/$($group.Id)";
-                                $link = ("https://dev.azure.com/{0}/{1}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId={2}") -f $($this.organizationName), $projectName, $($group.Id);
-                                $this.AddSVTResource($group.name, $projectName, "ADO.VariableGroup", $resourceId, $group, $link);
+                                for ($i = 0; $i -lt $this.VariableGroups.Count; $i++) {
+                                    # This API does not support multiple variable group names at one go.
+                                    $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupName={2}&api-version=6.0-preview.2") -f $($this.organizationName), $projectId, $this.VariableGroups[$i];
+                                    $variableGroupObj = [WebRequestHelper]::InvokeGetWebRequest($variableGroupURL)
 
-                                if (--$nObj -eq 0) { break; }
+                                    if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) 
+                                    {
+                                        $varGroup = $null;
+                                        #If service id based scan then filter with variablegroup ids
+                                        if ($this.isServiceIdBasedScan -eq $true) {
+                                            $varGroup = $variableGroupObj | Where-Object { $this.VariableGroupIds -eq $_.Id }
+                                        }
+                                        else {
+                                            $varGroup = $variableGroupObj | Where-Object { $this.VariableGroups -eq $_.name }
+                                        }
+                                        foreach ($group in $varGroup) {
+                                            $resourceId = "organization/$organizationId/project/$projectId/variablegroup/$($group.Id)";
+                                            $link = ("https://dev.azure.com/{0}/{1}/_library?itemType=VariableGroups&view=VariableGroupView&variableGroupId={2}") -f $($this.organizationName), $projectName, $($group.Id);
+                                            $this.AddSVTResource($group.name, $projectName, "ADO.VariableGroup", $resourceId, $group, $link);
+                                        }
+                                    }
+                                }
                             }
                         }
+                        catch {
+                            Write-Warning "Variable groups for the project [$($projectName)] could not be fetched.";
+                        }
+                        
                     }
 
-                    #Ceating resource in common resource resolver
-                    if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -ge 0 -or $this.FeedNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed))) {
-                        $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName);
-                        $this.SVTResources += $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.ResourceTypeName, $this.MaxObjectsToScan);
+                    #Creating resource in common resource resolver
+                    if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -gt 0 -or $this.FeedNames.count -gt 0 -or $this.EnvironmentNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed, [ResourceTypeName]::Environment))) {
+                        $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName, $organizationId, $projectId);
+                        $this.SVTResources += $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.EnvironmentNames, $this.ResourceTypeName, $this.MaxObjectsToScan);
+                    }
+
+                    #Fetch only those resources for which data obj backup is available in local 
+                    if([ControlHelper]::ControlFixBackup.Count -gt 0)
+                    {
+                        $this.SVTResources = @($this.SVTResources | Where-Object {[ControlHelper]::ControlFixBackup.ResourceId -contains $_.ResourceId})
+                        if ($this.ResourceNames.count -gt 0) {
+                            $this.SVTResources = @($this.SVTResources | Where-Object {$this.ResourceNames -contains $_.ResourceName})
+                        }
+                        if ($this.ExcludeResourceNames.count -gt 0) {
+                            $this.SVTResources = @($this.SVTResources | Where-Object {$this.ExcludeResourceNames -notcontains $_.ResourceName})
+                        }
                     }
 
                     # getting all the resources count
@@ -964,6 +1019,7 @@ class SVTResourceResolver: AzSKRoot {
         catch {}
         [AIOrgTelemetryHelper]::PublishEvent("Projects resources count", $projectData, @{})
     }
+
 
     #only for build and release
     [void] addResourceToSVT([string] $resourceDfnUrl, [string] $resourceType, [string] $projectName, [string] $organizationId, [string]$projectId,  [bool]  $isFolderPathGiven, [bool] $isFolderSizegt100,[string] $path,[ref] $nObj){
@@ -1209,5 +1265,29 @@ class SVTResourceResolver: AzSKRoot {
         }
         return $resourceLink
     }
+
+    
+    [void] FetchControlFixBackupFile($orgName, $projName, $internalId)
+	{
+        [ControlHelper]::ControlFixBackup = @()
+        $BackupControlStateRootFolder = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState" | Join-Path -ChildPath "BackupControlState");
+        if($internalId -match "Organization")
+        {
+            $BackupControlStateControlJson = (Join-Path $BackupControlStateRootFolder $orgName)
+        }
+        else
+        {
+            $BackupControlStateControlJson = (Join-Path (Join-Path $BackupControlStateRootFolder $orgName) $projName)
+        }
+        $fileName = $internalId + ".json"
+        if(Test-Path (Join-Path $BackupControlStateControlJson $fileName))
+        {
+            [ControlHelper]::ControlFixBackup += Get-Content (Join-Path $BackupControlStateControlJson $fileName) -Raw | ConvertFrom-Json
+        }
+        else {
+            $this.PublishCustomMessage("`nBackup of control data object not found. Please run GADS with -PrepareforControlFix param to generate the backup.",[MessageType]::Warning);
+        }
+	}
+
 
 }

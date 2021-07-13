@@ -29,6 +29,7 @@ class SVTBase: AzSKRoot
 	[string[]] $ExcludeControlIds = @();
 	[hashtable] $ResourceTags = @{}
 	[bool] $GenerateFixScript = $false;
+	[bool] $UndoFix = $false;
 
 	[bool] $IncludeUserComments = $false;
 	[string] $PartialScanIdentifier = [string]::Empty
@@ -531,7 +532,7 @@ class SVTBase: AzSKRoot
 					$filteredControls = $filteredControlsFinal                
                 } 
             }
-
+			
 			$this.ApplicableControls = $filteredControls;
 			#this filtering has been done as the first step it self;
 			#$this.ApplicableControls += $this.ApplyServiceFilters($filteredControls);
@@ -659,9 +660,17 @@ class SVTBase: AzSKRoot
         else
         {
 			$azskScanResult = $this.CreateControlResult($controlItem.FixControl);
+			if ($this.invocationContext.BoundParameters["UndoFix"]) { 
+				$this.UndoFix =$true
+			}
+
             try
             {
                 $methodName = $controlItem.MethodName;
+				if($this.invocationContext.MyCommand.Name -eq "Set-AzSKADOSecurityStatus")
+				{
+					$methodName = $methodName+"AutomatedFix"
+				}
 				#$this.CurrentControlItem = $controlItem;
 
 				#Getting scan time for each control. This is being done to monitor perf issues in ADOScanner internally
