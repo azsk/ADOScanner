@@ -396,7 +396,8 @@ class WebRequestHelper {
         return $outputValues;
 	}
 
-	static [System.Object[]] InvokeWebRequestForBuildsInBatch([string] $validatedUri,[string]$originalUri,[int] $skipCount,[string] $resourceType){
+	#only for builds and releases as of now
+	static [System.Object[]] InvokeWebRequestForResourcesInBatch([string] $validatedUri,[string]$originalUri,[int] $skipCount,[string] $resourceType){
 		$outputValues = @();
 		$success = $false;
 		[int] $retryCount=3;

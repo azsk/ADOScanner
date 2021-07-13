@@ -328,8 +328,8 @@ class SVTResourceResolver: AzSKRoot {
 
 
                         foreach($nonScannedResource in $this.nonScannedResources){
-                            $nonScannedResourceType=$this.findResourceTypeFromPartialScan($nonScannedResource.Id)
-                            $nonScannedresourceLink=$this.createResourceLinkFromPartialScan($nonScannedResource.Id,$nonScannedResourceType,$this.organizationName,$projectName,$projectId)
+                            $nonScannedResourceType=$this.FindResourceTypeFromPartialScan($nonScannedResource.Id)
+                            $nonScannedresourceLink=$this.CreateResourceLinkFromPartialScan($nonScannedResource.Id,$nonScannedResourceType,$this.organizationName,$projectName,$projectId)
                             if($nonScannedResourceType -eq "ADO.Project"){
                                 $this.AddSVTResource($nonScannedResource.Name,$projectName,$nonScannedResourceType, $nonScannedResource.Id,$thisProj , $nonScannedresourceLink)
                             }
@@ -487,10 +487,7 @@ class SVTResourceResolver: AzSKRoot {
                                 $this.PublishCustomMessage("Folder path not found. Please validate the -ReleasesFolderPath provided in the command. `n", [MessageType]::Warning);
                             }
                             else {
-                                #Iterate on each folder to get applicale releases definition if folders count is le 100
-                                if ([string]::IsNullOrEmpty($topNQueryString)) {
-                                    $topNQueryString = '&$top=10000'
-                                }
+                               #API doesnt provide all folders in a path, fallback to fetch all resources and then filter
                                 $nObj=$this.MaxObjectsToScan                                                               
                                 $releaseDefURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
                                 $this.addResourceToSVT($releaseDefURL,"release",$projectName, $organizationId, $projectId, $true, $true, $path,[ref]$nObj)                                  
@@ -509,7 +506,6 @@ class SVTResourceResolver: AzSKRoot {
                         elseif ($this.ReleaseNames -eq "*")
                         {
                             $nObj=$this.MaxObjectsToScan
-                            $topNQueryString='&$top=10000'
                             $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0") -f $($this.OrganizationContext.OrganizationName), $projectName;
                             $this.addResourceToSVT($releaseDefnURL,"release",$projectName,$organizationId,$projectId,$false,$false,$null,[ref]$nObj);
                         }
@@ -969,6 +965,7 @@ class SVTResourceResolver: AzSKRoot {
         [AIOrgTelemetryHelper]::PublishEvent("Projects resources count", $projectData, @{})
     }
 
+    #only for build and release
     [void] addResourceToSVT([string] $resourceDfnUrl, [string] $resourceType, [string] $projectName, [string] $organizationId, [string]$projectId,  [bool]  $isFolderPathGiven, [bool] $isFolderSizegt100,[string] $path,[ref] $nObj){
         [System.Uri] $validatedUri = $null;
         $orginalUri = "";
@@ -984,14 +981,17 @@ class SVTResourceResolver: AzSKRoot {
             $progressCount = 0;
             $applicableDefnsObj=@();
             $skipCount += 10000;
-            $response = [WebRequestHelper]::InvokeWebRequestForBuildsInBatch($validatedUri, $orginalUri, $skipCount,$resourceType);
-            $resourceDefnsObj = $response[0];
-            $resourceDfnUrl = $response[1];
+            $responseAndUpdatedUri = [WebRequestHelper]::InvokeWebRequestForResourcesInBatch($validatedUri, $orginalUri, $skipCount,$resourceType);
+            #API response with resources
+            $resourceDefnsObj = $responseAndUpdatedUri[0];
+            #updated URI
+            $resourceDfnUrl = $responseAndUpdatedUri[1];
 
             if($isFolderPathGiven -and $isFolderSizegt100){
               
                     $applicableDefnsObj = $resourceDefnsObj | Where-Object {$_.path -eq "\$($path)" -or $_.path -match "^\\$($path)\\"}
             }
+            #in case its not a folder based scan or folder cnt <100
             else {
                 $applicableDefnsObj=$resourceDefnsObj;
             }
@@ -999,15 +999,15 @@ class SVTResourceResolver: AzSKRoot {
                                 
             if ( (($applicableDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($applicableDefnsObj[0], "name")) -or ([Helpers]::CheckMember($applicableDefnsObj, "count") -and $applicableDefnsObj[0].count -gt 0)) {
                 if($resourceType -eq "build"){
-                    $temp_link=($applicableDefnsObj[0].url -split('Definitions/'))[0].replace('_apis/build/', '_build?definitionId=');
+                    $tempLink=($applicableDefnsObj[0].url -split('Definitions/'))[0].replace('_apis/build/', '_build?definitionId=');
                 }
                 else {
-                    $temp_link = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId=" -f $this.OrganizationContext.OrganizationName, $projectName;
+                    $tempLink = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId=" -f $this.OrganizationContext.OrganizationName, $projectName;
                                    
                 }
                 foreach ($resourceDef in $applicableDefnsObj) {
                     #$link = $resourceDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
-                    $link=$temp_link+$resourceDef.id
+                    $link=$tempLink+$resourceDef.id
                     $resourceId = "organization/$organizationId/project/$projectId/$($resourceType)/$($resourceDef.id)";
                     if($resourceType -eq "build"){
                         $this.AddSVTResource($resourceDef.name, $resourceDef.project.name, "ADO.Build", $resourceId, $resourceDef, $link);
@@ -1159,7 +1159,7 @@ class SVTResourceResolver: AzSKRoot {
         }
     }
 
-    [string] findResourceTypeFromPartialScan($nonScannedResourceId){
+    [string] FindResourceTypeFromPartialScan($nonScannedResourceId){
         $type="";
         switch -wildcard ($nonScannedResourceId) {
             "*/build/*" {$type="ADO.Build";Break;}
@@ -1174,7 +1174,7 @@ class SVTResourceResolver: AzSKRoot {
         return $type;
     }
 
-    [string] createResourceLinkFromPartialScan($nonScannedResourceId,$resourceType,$orgName,$projName,$projId){
+    [string] CreateResourceLinkFromPartialScan($nonScannedResourceId,$resourceType,$orgName,$projName,$projId){
         $resourceLink="https://dev.azure.com/{0}/" -f $($orgName);
         switch ($resourceType) {
            
