@@ -1018,7 +1018,7 @@ class SVTResourceResolver: AzSKRoot {
 
                     }
                                         
-                    Write-Progress -Activity "Fetching $($progressCount) of $(($applicableDefnsObj | Measure-Object).Count) $($resourceType)s of batch $($batchCount) " -Status "Progress: " -PercentComplete ($progressCount / ($applicableDefnsObj | Measure-Object).Count * 100)
+                    Write-Progress -Activity "Fetching $($resourceType)s in batches. This may take time. Fetched $($progressCount) of $(($applicableDefnsObj | Measure-Object).Count) $($resourceType)s of batch $($batchCount) " -Status "Progress: " -PercentComplete ($progressCount / ($applicableDefnsObj | Measure-Object).Count * 100)
                     $progressCount = $progressCount + 1;
                     if (--$nObj.Value -eq 0) { break; }
                 }
