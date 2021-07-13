@@ -8,6 +8,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	[Datetime] $ScanEnd
 	[bool] $IsAIEnabled = $false;
 	[bool] $IsBugLoggingEnabled = $false;
+	[bool] $IsSarifEnabled = $false;
 	$ActualResourcesPerRsrcType = @(); # Resources count based on resource type . This count is evaluated before comparison with resource tracker file.
     [bool] $IsControlFixCommand = $false;
     [string] $controlInternalId;
@@ -42,6 +43,9 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if($invocationContext.BoundParameters["ALTControlEvaluationMethod"])
 		{
 			[IdentityHelpers]::ALTControlEvaluationMethod = $invocationContext.BoundParameters["ALTControlEvaluationMethod"]
+		}
+		if($invocationContext.BoundParameters["GenerateSarifLogs"]){
+			$this.IsSarifEnabled = $true; 
 		}
 		[PartialScanManager]::ClearInstance();
 		$this.BaselineFilterCheck();
@@ -582,9 +586,22 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			if($this.invocationContext.BoundParameters["AutoBugLog"]){
 				$partialScanMngr.CollateBugSummaryData($result);
 			}
+			#Closes bugs after every partial commit
 			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 			$AutoClose.AutoCloseBug($result)
+			$bugsClosed=[AutoCloseBugManager]::ClosedBugs
+			#Collects closed bugs information in partialScanManager class
+            $partialScanMngr.CollateClosedBugSummaryData($bugsClosed)
+			#Sends closed bugs information to Log Analytics after every partial commit.
+            if($bugsClosed){
+			    $laInstance= [LogAnalyticsOutput]::Instance
+			    $laInstance.WriteControlResult($bugsClosed)
+            }
         }
+		#sarif information. Save in ControlResultsWithSarifSummary only if controls not available in ControlResultsWithBugSummary
+		if($this.IsSarifEnabled -and !$this.invocationContext.BoundParameters["AutoBugLog"]){
+				$partialScanMngr.CollateSarifData($result);
+		}
 		
 	}
 

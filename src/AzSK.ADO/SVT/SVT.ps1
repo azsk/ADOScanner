@@ -302,6 +302,11 @@ function Get-AzSKADOSecurityStatus
     [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
 		[Alias("acem")]
 		[string] $ALTControlEvaluationMethod,
+    
+		[switch]
+    [Parameter(HelpMessage="Print SARIF logs for the scan.")]
+    [Alias("gsl")]
+    $GenerateSarifLogs,
 
 		[switch]
 		[Parameter(HelpMessage="Switch to reset default logged in user.")]
