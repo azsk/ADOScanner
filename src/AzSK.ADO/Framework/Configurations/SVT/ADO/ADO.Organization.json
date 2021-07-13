@@ -456,7 +456,7 @@
       "Automated": "Yes",
       "MethodName": "CheckMaxPCACount",
       "Rationale": "Each additional person in the administrator role increases the attack surface for the entire organization (if an admin's account is compromised via phishing attack). The number of members in these roles should be kept to as low as possible.",
-      "Recommendation": "1. Go to Organization settings --> 2. Security --> 3. Permissions --> 4. Groups --> 5. Select the group : Project Collection Administrators --> 6. Remove redundant members from the group.",
+      "Recommendation": "1. Go to Organization settings --> 2. Security --> 3. Permissions --> 4. Groups --> 5. Select the group : Project Collection Administrators --> 6. Remove redundant/unwanted members from the group.",
       "Tags": [
         "SDL",
         "AuthZ",

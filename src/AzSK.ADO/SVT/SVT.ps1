@@ -334,6 +334,10 @@ function Get-AzSKADOSecurityStatus
       #Clear the cache of nested groups if the org name is not matching from previous scan in same session
 			if ([ControlHelper]::GroupMembersResolutionObj.ContainsKey("OrgName") -and [ControlHelper]::GroupMembersResolutionObj["OrgName"] -ne $OrganizationName) {
 				[ControlHelper]::GroupMembersResolutionObj = @{}
+				[AdministratorHelper]::isCurrentUserPCA = $false
+				[AdministratorHelper]::isCurrentUserPA= $false
+                [AdministratorHelper]::AllPCAMembers = @()
+				[AdministratorHelper]::AllPAMembers = @()
 			}
       
       if ($PrepareForControlFix -eq $true)  {

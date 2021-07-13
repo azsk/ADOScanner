@@ -400,14 +400,14 @@ class Project: ADOSVTBase
                 }
 
                 if ($humanAccounts.count -gt 0) {
-                    $controlResult.AddMessage("`nHuman administrators: $($humanAccounts.Count)")
+                    $controlResult.AddMessage("`nCount of Human administrators: $($humanAccounts.Count)")
                     $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
                 }
 
                 if ($svcAccounts.count -gt 0) {
-                    $controlResult.AddMessage("`nService accounts: $($svcAccounts.Count)")
+                    $controlResult.AddMessage("`nCount of Service accounts: $($svcAccounts.Count)")
                     $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
                     $controlResult.SetStateData("List of service account Project Administrators: ",$svcAccounts)
@@ -1699,7 +1699,7 @@ class Project: ADOSVTBase
 
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No Guest User found.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in organization.");
                 }
                 $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");
             }
@@ -1814,7 +1814,7 @@ class Project: ADOSVTBase
                                                     $_.LastAccessedDate = "User was never active"
                                                 }
                                                 else {
-                                                    $_.LastAccessedDate = $dateobj.ToString("MM-dd-yyyy")
+                                                    $_.LastAccessedDate = $dateobj.ToString("d MMM yyyy")
                                                 }
                                                 $inactiveUsersWithAdminAccess += $_
                                             }
@@ -2256,7 +2256,7 @@ class Project: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group at a project level.");
                 }
-                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n[$($restrictedBroaderGroupsForVarGrp | FT | out-string)");
+                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($restrictedBroaderGroupsForVarGrp | FT | out-string)");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
