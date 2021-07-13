@@ -336,18 +336,26 @@ class PartialScanManager
 		if(($resourceIds | Measure-Object).Count -gt 0)
 		{
 			$resourceIdMap = @();
+			$progressCount=1
 			$resourceIds | ForEach-Object {
-				$resourceId = $_;
+				
 				$resourceValue = [PartialScanResource]@{
-					Id = $resourceId;
+					Id = $_.ResourceId;
 					State = [ScanState]::INIT;
 					ScanRetryCount = 0;
 					CreatedDate = [DateTime]::UtcNow;
 					ModifiedDate = [DateTime]::UtcNow;
+					Name=$_.ResourceName;
+					#ResourceDetails=$_.ResourceDetails
+					
 				}
 				#$resourceIdMap.Add($hashId,$resourceValue);
 				$resourceIdMap +=$resourceValue
+				
+				Write-Progress -Activity "Tracking $($progressCount) of $($resourceIds.Length) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $resourceIds.Length * 100)
+				$progressCount++;
 			}
+			Write-Progress -Activity "Tracked all resources" -Status "Ready" -Completed
 			$masterControlBlob = [PartialScanResourceMap]@{
 				Id = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss");
 				CreatedDate = [DateTime]::UtcNow;
@@ -395,7 +403,10 @@ class PartialScanManager
 						New-Item -ItemType Directory -Path "$this.AzSKTempStatePath" -ErrorAction Stop | Out-Null
 					}
 				}
+				Write-Host "Updating resource tracker file" -ForegroundColor Yellow
 				[JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.MasterFilePath -Force
+				Write-Host "Resource tracker file updated" -ForegroundColor Yellow
+				
 			}
         }
 	}
@@ -549,6 +560,8 @@ class PartialScanManager
         $this.GetResourceScanTrackerObject();
 		if($this.IsListAvailableAndActive())
 		{
+			Write-Host "Finding unscanned resources" -ForegroundColor Yellow
+
 			$nonScannedResources +=[PartialScanResource[]] $this.ResourceScanTrackerObj.ResourceMapTable | Where-Object {$_.State -eq [ScanState]::INIT}
 			return $nonScannedResources;
 		}

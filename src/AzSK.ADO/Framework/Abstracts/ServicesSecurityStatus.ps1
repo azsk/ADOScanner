@@ -636,8 +636,26 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                 }
                 else{
                     $this.IsPartialCommitScanActive = $false;
-					$resourceIdList =  $this.Resolver.SVTResources| Where-Object {$null -ne $_.ResourceTypeMapping} | Select ResourceId | ForEach-Object {  $_.ResourceId }
-                	$partialScanMngr.CreateResourceMasterList($resourceIdList);
+					$resourceLists=@()
+					$progressCount=1
+					foreach ($svtResource in $this.Resolver.SVTResources) {
+						
+						if($null -ne $svtResource.ResourceTypeMapping){
+							$resourceList=[PSCustomObject]@{
+								ResourceId = $svtResource.ResourceId
+								ResourceName=$svtResource.ResourceName
+								#ResourceDetails=$svtResource.ResourceDetails
+							}
+							$resourceLists+=$resourceList
+							
+							Write-Progress -Activity "Processed $($progressCount) of $($this.Resolver.SVTResources.Length) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $this.Resolver.SVTResources.Length * 100)
+							$progressCount++;
+						}
+					}
+					Write-Progress -Activity "Processed all untracked resources" -Status "Ready" -Completed
+					#$resourceIdList=@()
+					#$resourceIdList +=  $this.Resolver.SVTResources| Where-Object {$null -ne $_.ResourceTypeMapping} | Select-Object ResourceId, ResourceName, ResourceDetails | ForEach-Object {  $_.ResourceId, $_.ResourceName, $_.ResourceDetails }
+                	$partialScanMngr.CreateResourceMasterList($resourceLists);
                     #This should fetch full list of resources to be scanned 
                     $nonScannedResourcesList = $partialScanMngr.GetNonScannedResources();
                 }
@@ -652,7 +670,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                     $IncompleteScans = 0;
                     $InErrorResources = 0;
                     $ScanResourcesList = $partialScanMngr.GetAllListedResources() 
-                    
+                    $progressCount=1
                     $ScanResourcesList | Group-Object -Property State | Select-Object Name,Count | ForEach-Object{
                         if($_.Name -eq "COMP")
                         {
@@ -664,8 +682,12 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                         elseif ($_.Name -eq "ERR") {
                             $InErrorResources = $_.Count
                         }
+						
+						Write-Progress -Activity "Computed status of $($progressCount) of $($ScanResourcesList.Length) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $ScanResourcesList.Length * 100)
+						$progressCount++;
                           
-                    }   
+                    }  
+					Write-Progress -Activity "Computed status of all untracked resources" -Status "Ready" -Completed 
                     [AIOrgTelemetryHelper]::PublishEvent( "Partial Commit Details",@{"TotalSVTResources"= $($ScanResourcesList |Measure-Object).Count;"ScanCompletedResourcesCount"=$CompletedResources; "NonScannedResourcesCount" = $IncompleteScans;"ErrorStateResourcesCount"= $InErrorResources;"OrganizationName"=$this.OrganizationContext.OrganizationName;"PartialScanIdentifier"=$this.PartialScanIdentifier;}, $null)
                 }
                 catch{
