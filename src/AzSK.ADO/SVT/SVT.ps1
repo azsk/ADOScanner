@@ -300,7 +300,13 @@ function Get-AzSKADOSecurityStatus
 		[Parameter(Mandatory = $false, HelpMessage="Folder path of builds to be scanned.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("bp")]
-		$BuildsFolderPath
+		$BuildsFolderPath,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage="Folder path of releases to be scanned.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("rfp")]
+		$ReleasesFolderPath
 
 	)
 	Begin
@@ -376,7 +382,7 @@ function Get-AzSKADOSecurityStatus
 				}
 			}
 
-			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $BuildsFolderPath);
+			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $BuildsFolderPath,$ReleasesFolderPath);
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus)
 			{

@@ -19,6 +19,7 @@ class SVTResourceResolver: AzSKRoot {
 
     [string] $ResourcePath;
     [string] $BuildsFolderPath;
+    [string] $ReleasesFolderPath;
     [string] $organizationName
     hidden [string[]] $ProjectNames = @();
     hidden [string[]] $BuildNames = @();
@@ -51,10 +52,10 @@ class SVTResourceResolver: AzSKRoot {
     hidden [string[]] $SecureFileNames = @();
     hidden [string[]] $FeedNames = @();
 
-    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $BuildsFolderPath): Base($organizationName, $PATToken) {
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $BuildsFolderPath, $ReleasesFolderPath): Base($organizationName, $PATToken) {
 
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
-        $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath);
+        $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath, $ReleasesFolderPath);
         $this.skipOrgUserControls = $skipOrgUserControls
 
         $this.RepoNames += $this.ConvertToStringArray($RepoNames);
@@ -62,12 +63,13 @@ class SVTResourceResolver: AzSKRoot {
         $this.FeedNames += $this.ConvertToStringArray($FeedNames);
     }
 
-    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath) {
+    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath, $ReleasesFolderPath) {
         $this.organizationName = $organizationName
         $this.ResourceTypeName = $ResourceTypeName
         $this.allowLongRunningScan = $AllowLongRunningScan
         $this.includeAdminControls = $IncludeAdminControls
         $this.BuildsFolderPath = $BuildsFolderPath.Trim()
+        $this.ReleasesFolderPath = $ReleasesFolderPath.Trim()
 
         if (-not [string]::IsNullOrEmpty($ProjectNames)) {
             $this.ProjectNames += $this.ConvertToStringArray($ProjectNames);
@@ -323,55 +325,40 @@ class SVTResourceResolver: AzSKRoot {
                         }
                         if(-not [string]::IsNullOrEmpty($this.BuildsFolderPath)){
                             # Validate folder path is valid
-                            $path = $this.BuildsFolderPath
-                            $applicableBuilds = @()
+                            $path = $this.BuildsFolderPath;
                             $this.BuildsFolderPath = $this.BuildsFolderPath.Replace(' ','%20').Replace('\','%5C')
                             $buildFoldersURL = "https://dev.azure.com/{0}/{1}/_apis/build/folders/{2}?api-version=6.1-preview.2"  -f $($this.OrganizationContext.OrganizationName), $thisProj.name, $this.BuildsFolderPath
                             $buildFoldersObj = [WebRequestHelper]::InvokeGetWebRequest($buildFoldersURL)
-                            if ($null -eq $buildFoldersObj -or $buildFoldersObj.Count -eq 0)
-                            {
+                            if($null -eq $buildFoldersObj -or (![Helpers]::CheckMember($buildFoldersObj[0],"Path"))){
                                 $this.PublishCustomMessage("Folder path not found. Please validate the -BuildsFolderPath provided in the command. `n", [MessageType]::Warning);
                             }
                             else {
                                 #Iterate on each folder to get applicale build definition if folders count is le 100
+                                if ([string]::IsNullOrEmpty($topNQueryString)) {
+                                    $topNQueryString = '&$top=10000'
+                                }
+                                $nObj=$this.MaxObjectsToScan;
                                 if($buildFoldersObj.Count -le 100)
                                 {
+                                    $folderCount=1
+                                    
                                     foreach($path in $buildFoldersObj.Path)
                                     {
-                                        $buildDefByFolderObj = $null
+                                        
                                         $formattedPath = $path.Replace(' ','%20').Replace('\','%5C')
-                                        $buildDefByFolderURL = 'https://dev.azure.com/{0}/{1}/_apis/build/definitions?path={2}' -f $($this.OrganizationContext.OrganizationName), $thisProj.name, $formattedPath
-                                        $buildDefByFolderObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefByFolderURL)
+                                        $buildDefByFolderURL = ('https://dev.azure.com/{0}/{1}/_apis/build/definitions?path={2}&queryOrder=lastModifiedDescending'+$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name, $formattedPath
 
-                                        #api return element 0 even when no build is there in the folder
-                                        if ([Helpers]::CheckMember($buildDefByFolderObj[0], "name"))
-                                        {
-                                            $applicableBuilds += $buildDefByFolderObj
-                                        }
+                                        Write-Progress -Activity "Searching in folder $($folderCount) of $($buildFoldersObj.Count) : $($path) " -Status "Progress: " -PercentComplete ($folderCount/ $buildFoldersObj.Count * 100)
+                                        $this.addResourceToSVT($buildDefByFolderURL,"build",$projectName,$organizationId,$projectId,$true,$false,$null,[ref]$nObj)
+                                        if($nObj -eq 0) {break;}
+                                        $folderCount++;
                                     }
+                                    Write-Progress -Activity "All builds fetched" -Status "Ready" -Completed
                                 }
-                                else {
-                                    #$buildDefURL = ('https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0'+$topNQueryString) -f  $($this.OrganizationContext.OrganizationName), $thisProj.name
-                                    $buildDefURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
-
-                                    $buildDefObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefURL)
-                                    $applicableBuilds = $buildDefObj | Where-Object {$_.path -eq "\$($path)" -or $_.path -match "^\\$($path)\\"}
+                                else {                                 
+                                    $buildDefURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" + $topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
+                                    $this.addResourceToSVT($buildDefURL,"build",$projectName, $organizationId, $projectId, $true, $true, $path,[ref]$nObj)                                  
                                 }
-
-                                
-                                if (([Helpers]::CheckMember($applicableBuilds, "count") -and $applicableBuilds[0].count -gt 0) -or (($applicableBuilds | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($applicableBuilds[0], "name"))) {
-                                    $nObj = $this.MaxObjectsToScan
-                                    foreach ($bldDef in $applicableBuilds) {
-                                        $link = $bldDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
-                                        $buildResourceId = "organization/$organizationId/project/$projectId/build/$($bldDef.id)";
-                                        $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
-    
-                                        if (--$nObj -eq 0) { break; }
-                                    }
-                                    $applicableBuilds = $null;
-                                    Remove-Variable applicableBuilds;
-                                }
-                                
 
                             }
                         }
@@ -383,20 +370,10 @@ class SVTResourceResolver: AzSKRoot {
                             else {
                                 $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
                             }
-                            $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL)
-                            if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
-                                $nObj = $this.MaxObjectsToScan
-                                foreach ($bldDef in $buildDefnsObj) {
-                                    $link = $bldDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
-                                    $buildResourceId = "organization/$organizationId/project/$projectId/build/$($bldDef.id)";
-                                    $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
-
-                                    if (--$nObj -eq 0) { break; }
-                                }
-                                $buildDefnsObj = $null;
-                                Remove-Variable buildDefnsObj;
+                            $nObj=$this.MaxObjectsToScan
+                            $this.addResourceToSVT($buildDefnURL,"build",$projectName,$organizationId,$projectId,$false,$false,$null,[ref]$nObj);
                             }
-                        }
+                        
                         else {
 
                             $buildDefnURL = "";
@@ -441,21 +418,36 @@ class SVTResourceResolver: AzSKRoot {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting release configurations...");
                         }
-                        if ($this.ReleaseNames -eq "*")
-                        {
-                            $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $projectName;
-                            $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);
-                            if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
-                                $nObj = $this.MaxObjectsToScan
-                                foreach ($relDef in $releaseDefnsObj) {
-                                    $link = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId={2}" -f $this.OrganizationContext.OrganizationName, $projectName, $relDef.url.split('/')[-1];
-                                    $releaseResourceId = "organization/$organizationId/project/$projectId/release/$($relDef.id)";
-                                    $this.AddSVTResource($relDef.name, $projectName, "ADO.Release", $releaseResourceId, $null, $link);
 
-                                    if (--$nObj -eq 0) { break; }
-                                }
-                                $releaseDefnsObj = $null;
+                        if(-not [string]::IsNullOrEmpty($this.ReleasesFolderPath)){
+                            # Validate folder path is valid
+                            $path = $this.ReleasesFolderPath;
+                            $this.ReleasesFolderPath = $this.ReleasesFolderPath.Replace(' ','%20').Replace('\','%5C')
+                            $releasesFoldersURL = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/folders/{2}?api-version=6.1-preview.2"  -f $($this.OrganizationContext.OrganizationName), $thisProj.name, $this.ReleasesFolderPath
+                            $releasesFoldersObj = [WebRequestHelper]::InvokeGetWebRequest($releasesFoldersURL)
+                            if($null -eq $releasesFoldersObj -or (![Helpers]::CheckMember($releasesFoldersObj[0],"Path"))){
+                                $this.PublishCustomMessage("Folder path not found. Please validate the -ReleasesFolderPath provided in the command. `n", [MessageType]::Warning);
                             }
+                            else {
+                                #Iterate on each folder to get applicale releases definition if folders count is le 100
+                                if ([string]::IsNullOrEmpty($topNQueryString)) {
+                                    $topNQueryString = '&$top=10000'
+                                }
+                                $nObj=$this.MaxObjectsToScan                                                               
+                                $releaseDefURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
+                                $this.addResourceToSVT($releaseDefURL,"release",$projectName, $organizationId, $projectId, $true, $true, $path,[ref]$nObj)                                  
+                                
+
+                            }
+                        }
+
+
+                        elseif ($this.ReleaseNames -eq "*")
+                        {
+                            $nObj=$this.MaxObjectsToScan
+                            $topNQueryString='&$top=10000'
+                            $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0") -f $($this.OrganizationContext.OrganizationName), $projectName;
+                            $this.addResourceToSVT($releaseDefnURL,"release",$projectName,$organizationId,$projectId,$false,$false,$null,[ref]$nObj);
                         }
                         else {
                             try {
@@ -907,4 +899,73 @@ class SVTResourceResolver: AzSKRoot {
         catch {}
         [AIOrgTelemetryHelper]::PublishEvent("Projects resources count", $projectData, @{})
     }
+
+    [void] addResourceToSVT([string] $resourceDfnUrl, [string] $resourceType, [string] $projectName, [string] $organizationId, [string]$projectId,  [bool]  $isFolderPathGiven, [bool] $isFolderSizegt100,[string] $path,[ref] $nObj){
+        [System.Uri] $validatedUri = $null;
+        $orginalUri = "";
+        
+        $skipCount = 0
+        $batchCount = 1;
+        #$nObj = $this.MaxObjectsToScan
+     
+        while ([System.Uri]::TryCreate($resourceDfnUrl, [System.UriKind]::Absolute, [ref] $validatedUri)) {
+            if ([string]::IsNullOrWhiteSpace($orginalUri)) {
+                $orginalUri = $validatedUri.AbsoluteUri;   
+            }
+            $progressCount = 0;
+            $applicableDefnsObj=@();
+            $skipCount += 10000;
+            $response = [WebRequestHelper]::InvokeWebRequestForBuildsInBatch($validatedUri, $orginalUri, $skipCount,$resourceType);
+            $resourceDefnsObj = $response[0];
+            $resourceDfnUrl = $response[1];
+
+            if($isFolderPathGiven -and $isFolderSizegt100){
+              
+                    $applicableDefnsObj = $resourceDefnsObj | Where-Object {$_.path -eq "\$($path)" -or $_.path -match "^\\$($path)\\"}
+            }
+            else {
+                $applicableDefnsObj=$resourceDefnsObj;
+            }
+            
+                                
+            if ( (($applicableDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($applicableDefnsObj[0], "name")) -or ([Helpers]::CheckMember($applicableDefnsObj, "count") -and $applicableDefnsObj[0].count -gt 0)) {
+                if($resourceType -eq "build"){
+                    $temp_link=($applicableDefnsObj[0].url -split('Definitions/'))[0].replace('_apis/build/', '_build?definitionId=');
+                }
+                else {
+                    $temp_link = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId=" -f $this.OrganizationContext.OrganizationName, $projectName;
+                                   
+                }
+                foreach ($resourceDef in $applicableDefnsObj) {
+                    #$link = $resourceDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
+                    $link=$temp_link+$resourceDef.id
+                    $resourceId = "organization/$organizationId/project/$projectId/$($resourceType)/$($resourceDef.id)";
+                    if($resourceType -eq "build"){
+                        $this.AddSVTResource($resourceDef.name, $resourceDef.project.name, "ADO.Build", $resourceId, $resourceDef, $link);
+
+                    }
+                    else {
+                        $this.AddSVTResource($resourceDef.name, $projectName, "ADO.Release", $resourceId, $null, $link);
+
+                    }
+                                        
+                    Write-Progress -Activity "Fetching $($resourceType)s in batches. This may take time. Fetched $($progressCount) of $(($applicableDefnsObj | Measure-Object).Count) $($resourceType)s of batch $($batchCount) " -Status "Progress: " -PercentComplete ($progressCount / ($applicableDefnsObj | Measure-Object).Count * 100)
+                    $progressCount = $progressCount + 1;
+                    if (--$nObj.Value -eq 0) { break; }
+                }
+                $batchCount = $batchCount + 1;                             
+
+            }
+            else {
+                break;
+            }
+            if ($nObj -eq 0) { break; }
+        }
+        Write-Progress -Activity "All $($resourceType)s fetched" -Status "Ready" -Completed
+        $resourceDefnsObj = $null;
+        $applicableDefnsObj=$null;
+        Remove-Variable resourceDefnsObj;
+        Remove-Variable applicableDefnsObj;
+    }
+
 }
