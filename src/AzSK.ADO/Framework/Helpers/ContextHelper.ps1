@@ -9,6 +9,7 @@ class ContextHelper {
     
     static hidden [Context] $currentContext;
     static hidden [bool] $IsOAuthScan;
+    static hidden [bool] $PromptForLogin;
     #This will be used to carry current org under current context.
     static hidden [string] $orgName;
 
@@ -27,7 +28,7 @@ class ContextHelper {
 
     hidden static [PSObject] GetCurrentContext([bool]$authNRefresh)
     {
-        if( (-not [ContextHelper]::currentContext) -or $authNRefresh)
+        if( (-not [ContextHelper]::currentContext) -or $authNRefresh -or [ContextHelper]::PromptForLogin)
         {
             $clientId = [Constants]::DefaultClientId ;          
             $replyUri = [Constants]::DefaultReplyUri; 
@@ -38,17 +39,17 @@ class ContextHelper {
 
             [AuthenticationResult] $result = $null;
 
-            $azSKUI = $null;
             if([ContextHelper]::IsOAuthScan) { # this if block will be executed for OAuth based scan
                 $tokenInfo = [ContextHelper]::GetOAuthAccessToken()
                 [ContextHelper]::ConvertToContextObject($tokenInfo)
             }
             else {
-                if ( !$authNRefresh -and ($azSKUI = Get-Variable 'AzSKADOLoginUI' -Scope Global -ErrorAction 'Ignore')) {
-                    if ($azSKUI.Value -eq 1) {
+                if ( !$authNRefresh -and [ContextHelper]::PromptForLogin) {
+                    if ([ContextHelper]::PromptForLogin) {
                         $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Always
                         $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
                         $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+                        [ContextHelper]::PromptForLogin = $false
                     }
                     else {
                         $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
@@ -171,43 +172,62 @@ class ContextHelper {
     }
 
     
-    static [string] GetGraphAccessToken()
+    static [string] GetGraphAccessToken($useAzContext)
 	{
         $accessToken = ''
         try
         {   
-            #getting azure context because graph access token requires azure environment details.
-            $Context = @(Get-AzContext -ErrorAction SilentlyContinue )
-            if ($Context.count -eq 0)  
+            # In CA mode, we use azure context to fetch the graph access token.
+            if ($useAzContext)
             {
-                Write-Host "Graph access is required to evaluate some controls. Attempting to acquire Graph token." -ForegroundColor Cyan
-                
-                Connect-AzAccount -ErrorAction Stop
-                $Context = @(Get-AzContext -ErrorAction SilentlyContinue)
-            }
-
-            if ($null -eq $Context)  
-            {
-                throw "Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate."
-            }
-            else
-            {
-                $graphUri = "https://graph.microsoft.com"
-                $authResult = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate(
-                $Context.Account,
-                $Context.Environment,
-                $Context.Tenant.Id,
-                [System.Security.SecureString] $null,
-                "Never",
-                $null,
-                $graphUri);
-
-                if (-not ($authResult -and (-not [string]::IsNullOrWhiteSpace($authResult.AccessToken))))
+                #getting azure context because graph access token requires azure environment details.
+                $Context = @(Get-AzContext -ErrorAction SilentlyContinue )
+                if ($Context.count -eq 0)  
                 {
-                    throw ([SuppressedException]::new(("Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate."), [SuppressedExceptionType]::Generic))
+                    Write-Host "Graph access is required to evaluate some controls. Attempting to acquire Graph token." -ForegroundColor Cyan
+                    
+                    Connect-AzAccount -ErrorAction Stop
+                    $Context = @(Get-AzContext -ErrorAction SilentlyContinue)
                 }
 
-                $accessToken = $authResult.AccessToken;
+                if ($null -eq $Context)  
+                {
+                    throw "Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate."
+                }
+                else
+                {
+                    $graphUri = "https://graph.microsoft.com"
+                    $authResult = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate(
+                    $Context.Account,
+                    $Context.Environment,
+                    $Context.Tenant.Id,
+                    [System.Security.SecureString] $null,
+                    "Never",
+                    $null,
+                    $graphUri);
+
+                    if (-not ($authResult -and (-not [string]::IsNullOrWhiteSpace($authResult.AccessToken))))
+                    {
+                        throw ([SuppressedException]::new(("Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate."), [SuppressedExceptionType]::Generic))
+                    }
+
+                    $accessToken = $authResult.AccessToken;
+                }
+            }
+            else 
+            {
+                # generating graph access token using default VSTS client.
+                Write-Host "Graph access is required to evaluate some controls. Attempting to acquire Graph token." -ForegroundColor Cyan
+                $clientId = [Constants]::DefaultClientId;          
+                $replyUri = [Constants]::DefaultReplyUri; 
+                $adoResourceId = "https://graph.microsoft.com/";
+                [AuthenticationContext] $ctx = [AuthenticationContext]::new("https://login.windows.net/common");
+                [AuthenticationResult] $result = $null;
+
+                $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
+                $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
+                $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+                $accessToken = $result.AccessToken
             }
         }
         catch

@@ -1513,4 +1513,128 @@ class Build: ADOSVTBase
         }
         $this.buildActivityDetail.isComputed = $true
     }
+
+    hidden [ControlResult] CheckAccessToOAuthToken([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        if(($this.BuildObj | Measure-Object).Count -gt 0)
+        {
+            if([Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename"))
+            {
+                ## In case it is YAML build
+                if([Helpers]::CheckMember($this.ControlSettings,"Build.RegexForOAuthTokenInYAMLScript"))
+                {
+                    $orgName = $this.OrganizationContext.OrganizationName
+                    $projectName = $this.BuildObj.project.name
+                    $projectId = $this.BuildObj.project.id
+                    $buildId = $this.BuildObj.id
+                    $repoid = $this.BuildObj.repository.id
+                    $resultObj = @()
+                    $regex = $this.ControlSettings.Build.RegexForOAuthTokenInYAMLScript
+
+                    try{
+                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=6.0" -f $orgName,$projectName,$repoid
+                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                        $branches = @($responseObj.name | Foreach-Object { $_.split("/")[-1]})
+                        if($branches.count -gt 0)
+                        {
+                            $branches | where-object {
+                                $currentBranch = $_    
+                                $refobj = "" | Select-Object branch,fileName
+                                $refobj.branch = $currentBranch
+                                try{
+                                    $url = 'https://dev.azure.com/{0}/{1}/_apps/hub/ms.vss-build-web.ci-designer-hub?pipelineId={2}&branch={3}&__rt=fps&__ver=2' -f $orgName, $projectId , $buildId, $currentBranch;
+                                    $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                                    if([Helpers]::CheckMember($responseObj,"fps.dataProviders.data") -and $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider' -and [Helpers]::CheckMember($responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider',"content") -and  $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'.content)
+                                    {
+                                        $dataprovider = $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'
+                                        $yamlFileContent = $dataprovider.content
+                                        if($yamlFileContent -match $regex)
+                                        {
+                                            $refobj.fileName = $dataprovider.definition.process.yamlFilename
+                                            $resultObj += $refobj
+                                        }
+                                    }
+                                }
+                                catch
+                                {
+                                    $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch YAML file for the branch: $($currentBranch)");
+                                    $controlResult.LogException($_)
+                                }                        
+                            }
+                            if($resultObj.Count -gt 0)
+                            {
+                                $controlResult.AddMessage([VerificationResult]::Verify,"OAuth token is used in YAML file for the following repo: $($this.BuildObj.repository.name)")
+                                $display = $resultObj | FT -AutoSize | Out-String -Width 512
+                                $controlResult.AddMessage($display)
+                            }
+                            else {
+                                if($controlResult.VerificationResult -ne [VerificationResult]::Error)
+                                {
+                                    $controlResult.AddMessage([VerificationResult]::Passed,"OAuth token is not being accessed in YAML file.");
+                                }
+                            }
+                        }
+                        else {
+                            $controlResult.AddMessage([VerificationResult]::Passed,"The pipeline is not assoaciated with a YAML file of any branch.");
+                        }                    
+                    }
+                    catch
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch branches associated with build.");
+                        $controlResult.LogException($_)
+                    }  
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Error, "Regular expression for detecting OAuth access token is not defined in control settings for your organization.");
+                }
+                      
+            }
+            else {
+                if([Helpers]::CheckMember($this.BuildObj,"process.phases"))
+                {
+                    # In case it is classic build
+                    $jobs = @($this.BuildObj.process.phases)
+                    $agentlessjobs = @()
+                    $AgentjobsWithOAuthAccessTokenEnabled = @()
+                    $AgentjobsWithOAuthAccessTokenDisabled = @()
+                    $jobs | Where-Object {
+                        if([Helpers]::CheckMember($_,"target") -and [Helpers]::CheckMember($_.target,"allowScriptsAuthAccessOption",$false))
+                        {
+                            if($_.target.allowScriptsAuthAccessOption -eq $true)
+                            {
+                                $AgentjobsWithOAuthAccessTokenEnabled += $_
+                            }
+                            else {
+                                $AgentjobsWithOAuthAccessTokenDisabled += $_
+                            }
+                        }
+                        else {
+                            # it will be the case of "AgentLess" job
+                            $agentlessjobs += $_
+                        }
+                    }
+                    if($jobs.Count -eq $agentlessjobs.count)  # All jobs are agentless jobs
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed,"No agent job(s) found in build.");
+                    }
+                    elseif ($AgentjobsWithOAuthAccessTokenEnabled.count -gt 0) {
+                        # Accessing OAuth token is enabled for one or more agent jobs 
+                        $controlResult.AddMessage([VerificationResult]::Verify,"Accessing OAuth token is enabled for agent job(s): `n`t $($AgentjobsWithOAuthAccessTokenEnabled.name -join ", ")");
+                    }
+                    elseif($AgentjobsWithOAuthAccessTokenDisabled.count -gt 0) {
+                        # ACcessing OAuth token is not enabled for agent jobs
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Accessing OAuth token is not enabled for agent job(s).");
+                    }                    
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No job found in build.");
+                }
+            }     
+        }
+        else {
+            $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch build details.");
+        }
+        return $controlResult;
+    }
 }
