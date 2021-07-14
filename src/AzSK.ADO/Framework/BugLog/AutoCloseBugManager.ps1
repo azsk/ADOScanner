@@ -5,6 +5,7 @@ class AutoCloseBugManager {
     hidden [string] $ScanSource;
     hidden [bool] $UseAzureStorageAccount = $false;
     hidden [BugLogHelper] $BugLogHelperObj;
+    static [SVTEventContext []] $ClosedBugs=$null;
 
     AutoCloseBugManager([string] $orgName) {
         $this.OrganizationName = $orgName;
@@ -36,6 +37,7 @@ class AutoCloseBugManager {
         $PassedControlResults = @();
         $autoCloseOrgBugFlag=$true
         $autoCloseProjBugFlag=$true;
+        [AutoCloseBugManager]::ClosedBugs=$null
 
         
 
@@ -73,6 +75,8 @@ class AutoCloseBugManager {
 
         #number of passed controls
         $PassedControlResultsLength = ($PassedControlResults | Measure-Object).Count
+        #This Hash map is used to map an ADOScan hashtag value to a control. 
+        $hashToControlIDMap=@{}
         #the following loop will call api for bug closing in batches of size as defined in control settings,
         #first check if passed controls length is less than the batch size, if yes then we have to combine all tags in one go
         #and call the api
@@ -84,24 +88,31 @@ class AutoCloseBugManager {
             $control = $_;
 
             #if control results are less than the maximum no of tags per batch
+            #ToDo add common method for both if and else condition
             if ($PassedControlResultsLength -lt $MaxKeyWordsToQuery) {
                 #check for number of tags in current query
                 $QueryKeyWordCount++;
 
                 if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA")
                 {
+                    $tagHash=$this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
+                    $hashToControlIDMap.add($tagHash,$control);
                     #complete the query
-                    $TagSearchKeyword += "(ADOScannerHashId eq '" + $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) + "') or "
+                    $TagSearchKeyword += "(ADOScannerHashId eq '" + $tagHash + "') or "
                     #if the query count equals the passing control results, search for bugs for this batch
                     if ($QueryKeyWordCount -eq $PassedControlResultsLength) {
                         #to remove OR from the last tag keyword. Ex: Tags: Tag1 OR Tags: Tag2 OR. Remove the last OR from this keyword
                         $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
-                        $response = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword)
+                        $closedBugsResponse = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword)
+                        if ($closedBugsResponse){
+                            $this.closedBugInfoCollect($closedBugsResponse, $hashToControlIDMap)
+                        }
                     }
                 }
                 else {
-                    #complete the query
-                    $TagSearchKeyword += "Tags: " + $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) + " OR "
+                    $tagHash=$this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
+                    $hashToControlIDMap.add($tagHash,$control);
+                    $TagSearchKeyword += "Tags: " + $tagHash + " OR "
                     #if the query count equals the passing control results, search for bugs for this batch
                     if ($QueryKeyWordCount -eq $PassedControlResultsLength) {
                         #to remove OR from the last tag keyword. Ex: Tags: Tag1 OR Tags: Tag2 OR. Remove the last OR from this keyword
@@ -111,13 +122,17 @@ class AutoCloseBugManager {
                         if ($response[0].results.count -gt 0) {
                             $ids = @();
                             $ids += $response.results.fields."system.id";
-                            $closedBugs = $this.CloseBugsInBulk($ids);
+                            $closedBugsResponse = $this.CloseBugsInBulk($ids);
                             #$response.results | ForEach-Object {
                             #    #close the bug
                             #    $id = $_.fields."system.id"
                             #    $Project = $_.project.name
                             #    $this.CloseBug($id, $Project)
                             #}
+                            
+                            if ($closedBugsResponse){
+                                $this.closedBugInfoCollect($closedBugsResponse, $hashToControlIDMap)
+                            }
                         }
                     }
                 }
@@ -127,22 +142,31 @@ class AutoCloseBugManager {
                     $QueryKeyWordCount++;
                     if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA")
                     {
-                        $TagSearchKeyword += "(ADOScannerHashId eq '" + $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) + "') or "
+                        $tagHash=$this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
+                        $hashToControlIDMap.add($tagHash,$control);
+                        $TagSearchKeyword += "(ADOScannerHashId eq '" + $tagHash + "') or "
 
                         #if number of tags reaches batch limit
                         if ($QueryKeyWordCount -eq $MaxKeyWordsToQuery) {
                             #query for all these tags and their bugs
                             $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
-                            $response = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword);
+                            $closedBugsResponse = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword);
+
+                            if ($closedBugsResponse){
+                                $this.closedBugInfoCollect($closedBugsResponse, $hashToControlIDMap)
+                            }
                             #Reinitialize for the next batch
                             $QueryKeyWordCount = 0;
                             $TagSearchKeyword = "";
                             $PassedControlResultsLength -= $MaxKeyWordsToQuery
+                            $hashToControlIDMap.Clear();
                         }
                     }
                     else
                     {
-                        $TagSearchKeyword += "Tags: " + $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) + " OR "
+                        $tagHash=$this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) 
+                        $hashToControlIDMap.add($tagHash,$control);
+                        $TagSearchKeyword += "Tags: " + $tagHash + " OR "
                         #if number of tags reaches batch limit
                         if ($QueryKeyWordCount -eq $MaxKeyWordsToQuery) {
                         #query for all these tags and their bugs
@@ -151,26 +175,29 @@ class AutoCloseBugManager {
                         if ($response[0].results.count -gt 0) {
                             $ids = @();
                             $ids += $response.results.fields."system.id";
-                            $closedBugs = $this.CloseBugsInBulk($ids);
+                            $closedBugsResponse = $this.CloseBugsInBulk($ids);
                             #$response.results | ForEach-Object {
                             #    $id = $_.fields."system.id"
                             #    $Project = $_.project.name
                             #    $this.CloseBug($id, $Project)
                             #}
+                            if ($closedBugsResponse){
+                                $this.closedBugInfoCollect($closedBugsResponse, $hashToControlIDMap)
+                            }
                         }
                         #Reinitialize for the next batch
                         $QueryKeyWordCount = 0;
                         $TagSearchKeyword = "";
                         $PassedControlResultsLength -= $MaxKeyWordsToQuery
+                        $hashToControlIDMap.Clear();
                         }
                     }
                 }
                 
             }
-
-        
-        
-    
+        $hashToControlIDMap.Clear();
+        $hashToControlIDMap=$null
+        Remove-Variable hashToControlIDMap;    
     }
 
     #function to close an active bug
@@ -227,6 +254,38 @@ class AutoCloseBugManager {
             return $false
         }
     }
+
+    hidden [void] closedBugInfoCollect([object] $closedBugsResponse, [hashtable] $hashToControlIDMap){
+        # Hash map checks for duplicate work items
+        $hashClosedBugs=@{}
+        $closedBugsResponse| ForEach-Object{
+            #Store closed bug details
+            $bug=$_.body |ConvertFrom-Json
+            $controlHashValue=$null
+            #Fetch hash From storage account CA response
+            if($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA"){
+                $controlHashValue=$bug.ADOScannerHashID
+            }
+            #Fetch hash for regular scan
+            else{
+                $controlHashValue=$bug.fields.'System.Tags'
+            }
+            
+            if ($hashToControlIDMap.ContainsKey($controlHashValue) -and $bug.fields.'System.State' -eq 'Closed')
+            {
+                $id=$bug.id
+                $project=$bug.fields.'System.TeamProject'
+                $urlClose= "https://dev.azure.com/{0}/{1}/_workitems/edit/{2}" -f $this.OrganizationName, $project , $id;
+                $hashToControlIDMap[$controlHashValue].ControlResults.AddMessage("Closed Bug",$urlClose);
+                # duplicate work items do not populate static variable $ClosedBugs multiple times
+                if(!$hashClosedBugs.ContainsKey($controlHashValue)){
+                    [AutoCloseBugManager]::ClosedBugs+=$hashToControlIDMap[$controlHashValue]
+                    $hashClosedBugs.add($controlHashValue,$true)
+                }
+            }
+        }
+        $hashClosedBugs.Clear()
+    } 
 
     #function to retrieve all new/active/resolved bugs 
     hidden [object] GetWorkItemByHash([string] $hash,[int] $MaxKeyWordsToQuery) 

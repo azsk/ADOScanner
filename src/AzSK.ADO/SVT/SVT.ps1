@@ -181,6 +181,11 @@ function Get-AzSKADOSecurityStatus
 
 		[switch]
         [Parameter(Mandatory = $false)]
+		[Alias("dnrr")]
+		$DoNotRefetchResources,
+
+		[switch]
+        [Parameter(Mandatory = $false)]
 		[Alias("dnof")]
 		$DoNotOpenOutputFolder,
 
@@ -301,7 +306,25 @@ function Get-AzSKADOSecurityStatus
 		[ValidateSet("Graph", "RegEx", "GraphThenRegEx")]
     [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
 		[Alias("acem")]
-		[string] $ALTControlEvaluationMethod,
+    [string] $ALTControlEvaluationMethod,
+        
+    [string]
+		[Parameter(Mandatory = $false, HelpMessage="Folder path of builds to be scanned.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("bp")]
+		$BuildsFolderPath,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage="Folder path of releases to be scanned.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("rfp")]
+		$ReleasesFolderPath,
+
+    
+		[switch]
+    [Parameter(HelpMessage="Print SARIF logs for the scan.")]
+    [Alias("gsl")]
+    $GenerateSarifLogs,
 
 		[switch]
 		[Parameter(HelpMessage="Switch to reset default logged in user.")]
@@ -312,6 +335,7 @@ function Get-AzSKADOSecurityStatus
 		[Parameter(HelpMessage="Switch to copy current data object in local folder to facilitate control fix.")]
 		[Alias("pcf")]
 		$PrepareForControlFix
+
 
 	)
 	Begin
@@ -408,6 +432,7 @@ function Get-AzSKADOSecurityStatus
 				}
 			}
 
+
 			if ($ResetCredentials)
 			{
 				[ContextHelper]::PromptForLogin = $true
@@ -417,7 +442,8 @@ function Get-AzSKADOSecurityStatus
 				[ContextHelper]::PromptForLogin =$false
 			}
 
-			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames);
+			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources);
+
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus)
 			{

@@ -39,7 +39,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Feed_AuthZ_Restrict_Permissions",
+      "ControlID": "ADO_Feed_AuthZ_Restrict_Broader_Group_Access",
       "Description": "Do not allow a broad group of users to upload packages to feed.",
       "Id": "Feed100",
       "ControlSeverity": "High",

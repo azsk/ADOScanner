@@ -8,6 +8,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	[Datetime] $ScanEnd
 	[bool] $IsAIEnabled = $false;
 	[bool] $IsBugLoggingEnabled = $false;
+	[bool] $IsSarifEnabled = $false;
 	$ActualResourcesPerRsrcType = @(); # Resources count based on resource type . This count is evaluated before comparison with resource tracker file.
     [bool] $IsControlFixCommand = $false;
     [string] $controlInternalId;
@@ -42,6 +43,9 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if($invocationContext.BoundParameters["ALTControlEvaluationMethod"])
 		{
 			[IdentityHelpers]::ALTControlEvaluationMethod = $invocationContext.BoundParameters["ALTControlEvaluationMethod"]
+		}
+		if($invocationContext.BoundParameters["GenerateSarifLogs"]){
+			$this.IsSarifEnabled = $true; 
 		}
 		[PartialScanManager]::ClearInstance();
 		$this.BaselineFilterCheck();
@@ -582,9 +586,22 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			if($this.invocationContext.BoundParameters["AutoBugLog"]){
 				$partialScanMngr.CollateBugSummaryData($result);
 			}
+			#Closes bugs after every partial commit
 			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 			$AutoClose.AutoCloseBug($result)
+			$bugsClosed=[AutoCloseBugManager]::ClosedBugs
+			#Collects closed bugs information in partialScanManager class
+            $partialScanMngr.CollateClosedBugSummaryData($bugsClosed)
+			#Sends closed bugs information to Log Analytics after every partial commit.
+            if($bugsClosed){
+			    $laInstance= [LogAnalyticsOutput]::Instance
+			    $laInstance.WriteControlResult($bugsClosed)
+            }
         }
+		#sarif information. Save in ControlResultsWithSarifSummary only if controls not available in ControlResultsWithBugSummary
+		if($this.IsSarifEnabled -and !$this.invocationContext.BoundParameters["AutoBugLog"]){
+				$partialScanMngr.CollateSarifData($result);
+		}
 		
 	}
 
@@ -609,6 +626,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					$this.IsPartialCommitScanActive = $true;
                     $allResourcesList = $partialScanMngr.GetAllListedResources()
                     # Get list of non-scanned active resources
+					Write-Host "Finding unscanned resources" -ForegroundColor Yellow
                     $nonScannedResourcesList = $partialScanMngr.GetNonScannedResources();
                     $this.PublishCustomMessage("Resuming scan from last commit. $(($nonScannedResourcesList | Measure-Object).Count) out of $(($allResourcesList | Measure-Object).Count) resources will be scanned.", [MessageType]::Warning);
                     $nonScannedResourceIdList = $nonScannedResourcesList | Select-Object Id | ForEach-Object { $_.Id}
@@ -619,9 +637,28 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                 }
                 else{
                     $this.IsPartialCommitScanActive = $false;
-					$resourceIdList =  $this.Resolver.SVTResources| Where-Object {$null -ne $_.ResourceTypeMapping} | Select ResourceId | ForEach-Object {  $_.ResourceId }
-                	$partialScanMngr.CreateResourceMasterList($resourceIdList);
+					$resourceLists=@()
+					$progressCount=1
+					foreach ($svtResource in $this.Resolver.SVTResources) {
+						
+						if($null -ne $svtResource.ResourceTypeMapping){
+							$resourceList=[PSCustomObject]@{
+								ResourceId = $svtResource.ResourceId
+								ResourceName=$svtResource.ResourceName
+								#ResourceDetails=$svtResource.ResourceDetails
+							}
+							$resourceLists+=$resourceList
+							
+							Write-Progress -Activity "Processed $($progressCount) of $($this.Resolver.SVTResources.Length) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $this.Resolver.SVTResources.Length * 100)
+							$progressCount++;
+						}
+					}
+					Write-Progress -Activity "Processed all untracked resources" -Status "Ready" -Completed
+					#$resourceIdList=@()
+					#$resourceIdList +=  $this.Resolver.SVTResources| Where-Object {$null -ne $_.ResourceTypeMapping} | Select-Object ResourceId, ResourceName, ResourceDetails | ForEach-Object {  $_.ResourceId, $_.ResourceName, $_.ResourceDetails }
+                	$partialScanMngr.CreateResourceMasterList($resourceLists);
                     #This should fetch full list of resources to be scanned 
+					Write-Host "Finding unscanned resources" -ForegroundColor Yellow
                     $nonScannedResourcesList = $partialScanMngr.GetNonScannedResources();
                 }
 				#Set unique partial scan identifier (used for correlating events in AI when partial scan resumes.)
@@ -635,7 +672,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                     $IncompleteScans = 0;
                     $InErrorResources = 0;
                     $ScanResourcesList = $partialScanMngr.GetAllListedResources() 
-                    
+                    $progressCount=1
                     $ScanResourcesList | Group-Object -Property State | Select-Object Name,Count | ForEach-Object{
                         if($_.Name -eq "COMP")
                         {
@@ -647,8 +684,12 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                         elseif ($_.Name -eq "ERR") {
                             $InErrorResources = $_.Count
                         }
+						
+						Write-Progress -Activity "Computed status of $($progressCount) of $($ScanResourcesList.Length) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $ScanResourcesList.Length * 100)
+						$progressCount++;
                           
-                    }   
+                    }  
+					Write-Progress -Activity "Computed status of all untracked resources" -Status "Ready" -Completed 
                     [AIOrgTelemetryHelper]::PublishEvent( "Partial Commit Details",@{"TotalSVTResources"= $($ScanResourcesList |Measure-Object).Count;"ScanCompletedResourcesCount"=$CompletedResources; "NonScannedResourcesCount" = $IncompleteScans;"ErrorStateResourcesCount"= $InErrorResources;"OrganizationName"=$this.OrganizationContext.OrganizationName;"PartialScanIdentifier"=$this.PartialScanIdentifier;}, $null)
                 }
                 catch{

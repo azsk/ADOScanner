@@ -22,8 +22,11 @@ class PartialScanManager
 	hidden static $CollatedSummaryCount = @(); # Matrix of counts for severity and control status
 	hidden static $CollatedBugSummaryCount = @(); # Matrix of counts for severity and Bug status
 	hidden static $ControlResultsWithBugSummary = @();
-    hidden [string] $SummaryMarkerText = "------";
-    hidden [string] $BackupControlStatePath = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState" | Join-Path -ChildPath "BackupControlState");
+	hidden static $ControlResultsWithSARIFSummary= @();
+	hidden static $ControlResultsWithClosedBugSummary= @();
+	hidden static $duplicateClosedBugCount=0;
+  hidden [string] $SummaryMarkerText = "------";
+  hidden [string] $BackupControlStatePath = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState" | Join-Path -ChildPath "BackupControlState");
 	hidden [string] $BackupControlStateFilePath;
 	hidden [PSObject] $StateOfControlsToBeFixed = $null;
 	hidden [bool] $IsControlStateBackupFetched = $false;
@@ -333,18 +336,26 @@ class PartialScanManager
 		if(($resourceIds | Measure-Object).Count -gt 0)
 		{
 			$resourceIdMap = @();
+			$progressCount=1
 			$resourceIds | ForEach-Object {
-				$resourceId = $_;
+				
 				$resourceValue = [PartialScanResource]@{
-					Id = $resourceId;
+					Id = $_.ResourceId;
 					State = [ScanState]::INIT;
 					ScanRetryCount = 0;
 					CreatedDate = [DateTime]::UtcNow;
 					ModifiedDate = [DateTime]::UtcNow;
+					Name=$_.ResourceName;
+					#ResourceDetails=$_.ResourceDetails
+					
 				}
 				#$resourceIdMap.Add($hashId,$resourceValue);
 				$resourceIdMap +=$resourceValue
+				
+				Write-Progress -Activity "Tracking $($progressCount) of $($resourceIds.Length) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $resourceIds.Length * 100)
+				$progressCount++;
 			}
+			Write-Progress -Activity "Tracked all resources" -Status "Ready" -Completed
 			$masterControlBlob = [PartialScanResourceMap]@{
 				Id = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss");
 				CreatedDate = [DateTime]::UtcNow;
@@ -392,7 +403,10 @@ class PartialScanManager
 						New-Item -ItemType Directory -Path "$this.AzSKTempStatePath" -ErrorAction Stop | Out-Null
 					}
 				}
+				Write-Host "Updating resource tracker file" -ForegroundColor Yellow
 				[JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.MasterFilePath -Force
+				Write-Host "Resource tracker file updated" -ForegroundColor Yellow
+				
 			}
         }
 	}
@@ -546,6 +560,8 @@ class PartialScanManager
         $this.GetResourceScanTrackerObject();
 		if($this.IsListAvailableAndActive())
 		{
+			
+
 			$nonScannedResources +=[PartialScanResource[]] $this.ResourceScanTrackerObj.ResourceMapTable | Where-Object {$_.State -eq [ScanState]::INIT}
 			return $nonScannedResources;
 		}
@@ -676,6 +692,35 @@ class PartialScanManager
 		};
 
 	}
+		    # Collect Closed Bugs summary data and append to it at every checkpoint. Any changes in this method should be synced with WritePSConsole.ps1 PrintBugSummaryData method
+	[void] CollateClosedBugSummaryData($event){
+		#gather all control results that have passed as their control result
+		#obtain their control severities
+		$TotalWorkItemCount=0;
+		$TotalControlsClosedCount=0;
+		$event | ForEach-Object {
+			$item = $_
+			if ($item -and $item.ControlResults)
+			{
+				$TotalControlsClosedCount+=1;
+				# If two bugs are logged against same resource and control in different project, message will contain closed bug twice with different urls
+				$item.ControlResults[0].Messages | ForEach-Object{
+					if($_.Message -eq "Closed Bug"){
+						# CollatedBugSummaryCount is used for PS Console summary printing
+						[PartialScanManager]::CollatedBugSummaryCount += [PSCustomObject]@{
+							BugStatus=$_.Message
+							ControlSeverity = $item.ControlItem.ControlSeverity;
+						};
+						$TotalWorkItemCount+=1
+					}
+				};
+				#Collecting control results where closed bug has been found. This is used to generate BugSummary at the end of scan
+				[PartialScanManager]::ControlResultsWithClosedBugSummary += $item
+			}
+		};
+		[PartialScanManager]::duplicateClosedBugCount+=($TotalWorkItemCount-$TotalControlsClosedCount)
+
+	}
 
     # Write to csv and append to it at every checkpoint. Any changes in this method should be synced with WriteSummaryFile.ps1 WriteToCSV method
 	[void] WriteToCSV([SVTEventContext[]] $arguments, $FilePath)
@@ -785,7 +830,18 @@ class PartialScanManager
 			($csvItems | Select-Object -Property $nonNullProps.Name -ExcludeProperty SupportsAutoFix,ChildResourceName,IsPreviewBaselineControl,UserComments ) | Group-Object -Property FeatureName | Foreach-Object {$_.Group | Export-Csv -Path $FilePath -append -NoTypeInformation}
 			[PartialScanManager]::IsCsvUpdatedAtCheckpoint = $true
         }
-    }	
+	}
+	[void] 	CollateSARIFData($event)
+	{
+		$event | ForEach-Object {
+			$item = $_
+			if ($item -and $item.ControlResults -and ($item.ControlResults[0].VerificationResult -eq "Failed" -or $item.ControlResults[0].VerificationResult -eq "Verify"))
+			{
+				#Collecting Failed and verify controls
+				[PartialScanManager]::ControlResultsWithSARIFSummary += $item
+			}
+		};
+	}
     
     
     [void] FetchControlStateBackup($InternalId)
@@ -866,6 +922,5 @@ class PartialScanManager
             }
         }
     }
-
 }
 
