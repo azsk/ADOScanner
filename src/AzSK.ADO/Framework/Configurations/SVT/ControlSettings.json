@@ -113,7 +113,7 @@
       {
         "ResourceType": "Feed",
         "ControlIds": [
-          "ADO_Feed_AuthZ_Restrict_Permissions"
+          "ADO_Feed_AuthZ_Restrict_Broader_Group_Access"
         ]
       },
       {
