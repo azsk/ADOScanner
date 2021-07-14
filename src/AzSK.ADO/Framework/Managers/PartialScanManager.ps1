@@ -560,7 +560,7 @@ class PartialScanManager
         $this.GetResourceScanTrackerObject();
 		if($this.IsListAvailableAndActive())
 		{
-			Write-Host "Finding unscanned resources" -ForegroundColor Yellow
+			
 
 			$nonScannedResources +=[PartialScanResource[]] $this.ResourceScanTrackerObj.ResourceMapTable | Where-Object {$_.State -eq [ScanState]::INIT}
 			return $nonScannedResources;

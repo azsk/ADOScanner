@@ -626,6 +626,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					$this.IsPartialCommitScanActive = $true;
                     $allResourcesList = $partialScanMngr.GetAllListedResources()
                     # Get list of non-scanned active resources
+					Write-Host "Finding unscanned resources" -ForegroundColor Yellow
                     $nonScannedResourcesList = $partialScanMngr.GetNonScannedResources();
                     $this.PublishCustomMessage("Resuming scan from last commit. $(($nonScannedResourcesList | Measure-Object).Count) out of $(($allResourcesList | Measure-Object).Count) resources will be scanned.", [MessageType]::Warning);
                     $nonScannedResourceIdList = $nonScannedResourcesList | Select-Object Id | ForEach-Object { $_.Id}
@@ -657,6 +658,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					#$resourceIdList +=  $this.Resolver.SVTResources| Where-Object {$null -ne $_.ResourceTypeMapping} | Select-Object ResourceId, ResourceName, ResourceDetails | ForEach-Object {  $_.ResourceId, $_.ResourceName, $_.ResourceDetails }
                 	$partialScanMngr.CreateResourceMasterList($resourceLists);
                     #This should fetch full list of resources to be scanned 
+					Write-Host "Finding unscanned resources" -ForegroundColor Yellow
                     $nonScannedResourcesList = $partialScanMngr.GetNonScannedResources();
                 }
 				#Set unique partial scan identifier (used for correlating events in AI when partial scan resumes.)
