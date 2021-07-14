@@ -332,7 +332,7 @@ class SVTResourceResolver: AzSKRoot {
                         
                         [PartialScanManager] $partialScanMngr = [PartialScanManager]::GetInstance();
                         if(($partialScanMngr.IsPartialScanInProgress($this.OrganizationContext.OrganizationName) -eq [ActiveStatus]::Yes)  ){
-                            Write-Host "Resuming scan from last commit. Finding unscanned resources..." -ForegroundColor Yellow
+                            Write-Host "Resuming scan from last commit. Fetching unscanned resources..." -ForegroundColor Yellow
                             $this.nonScannedResources = $partialScanMngr.GetNonScannedResources();
                             $this.IsPartialScanActive=$true;
                         }
@@ -434,7 +434,7 @@ class SVTResourceResolver: AzSKRoot {
                                         $buildDefByFolderURL = ('https://dev.azure.com/{0}/{1}/_apis/build/definitions?path={2}&queryOrder=lastModifiedDescending'+$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name, $formattedPath
                                         Write-Progress -Activity "Searching in folder $($folderCount) of $($buildFoldersObj.Count) : $($path) " -Status "Progress: " -PercentComplete ($folderCount/ $buildFoldersObj.Count * 100)
                                         $this.addResourceToSVT($buildDefByFolderURL,"build",$projectName,$organizationId,$projectId,$true,$false,$null,[ref]$nObj)
-                                        if($nObj -eq 0) {break;}
+                                        #if($nObj -eq 0) {break;} 
                                         $folderCount++;
                                     }
                                     Write-Progress -Activity "All builds fetched" -Status "Ready" -Completed
@@ -1045,7 +1045,9 @@ class SVTResourceResolver: AzSKRoot {
 
             if($isFolderPathGiven -and $isFolderSizegt100){
               
-                    $applicableDefnsObj = $resourceDefnsObj | Where-Object {$_.path -eq "\$($path)" -or $_.path -match "^\\$($path)\\"}
+                  
+                   $applicableDefnsObj = $resourceDefnsObj | Where-Object {$_.path -eq "\$($path)" -or $_.path -replace '\s','' -match [System.Text.RegularExpressions.Regex]::Escape("$($path -replace '\s','')")}
+              
             }
             #in case its not a folder based scan or folder cnt <100
             else {
