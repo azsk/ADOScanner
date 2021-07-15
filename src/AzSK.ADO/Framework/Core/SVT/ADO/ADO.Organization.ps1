@@ -5,10 +5,19 @@ class Organization: ADOSVTBase
     [PSObject] $PipelineSettingsObj = $null
     [PSObject] $OrgPolicyObj = $null
     static $InstalledExtensionInfo
+    static $SharedExtensionInfo
+    static $AutoInjectedExtensionInfo
     hidden [PSObject] $allExtensionsObj; # This is used to fetch all extensions (shared+installed+requested) object so that it can be used in installed extension control where top publisher could not be computed.
-    hidden [PSObject] $graphPermissions = @{hasGraphAccess = $false; graphAccessToken = $null}; # This is used to check user has graph permissions to compute the graph api operations.
+    hidden [PSObject] $installedExtensionObj # This is used to store install extensions details, that we fetch using documented API. This object contains some additional properties for installed extensions (e.g. Scopes), that are missing in portal API.
     hidden $GuestMembers = @()
     hidden $AllUsersInOrg = @()
+    hidden $PCAMembersList = @()
+    hidden $svcAccountsList = @()
+    hidden $humanAccountsList = @()
+    hidden [PSObject] $extensionDetailsFromOrgPolicy = @{knownExtPublishers = @(); extensionsLastUpdatedInYears = 2; ExemptedExtensionNames = @(); nonProductionExtensionIndicators = @(); extensionCriticalScopes = @(); isKnownPublishersPropertyPresent=$false; islastUpdatedPropertyPresent=$false; isCriticalScopesPropertyPresent=$false; isNonProdIndicatorsPropertyPresent=$false; isComputed=$false}; 
+    hidden [PSObject] $ComputedExtensionDetails = @{}; 
+    hidden $ADOGrpDescriptor = @() #cache groups descriptor
+
 
     #TODO: testing below line
     hidden [string] $SecurityNamespaceId;
@@ -16,10 +25,6 @@ class Organization: ADOSVTBase
     {
         $this.GetOrgPolicyObject()
         $this.GetPipelineSettingsObj()
-        $this.graphPermissions.hasGraphAccess = [IdentityHelpers]::HasGraphAccess();
-        if ($this.graphPermissions.hasGraphAccess) {
-            $this.graphPermissions.graphAccessToken = [IdentityHelpers]::graphAccessToken
-        }
 
         # If switch ALtControlEvaluationMethod is set as true in org policy, then evaluating control using graph API. If not then fall back to RegEx based evaluation.
         if ([string]::IsNullOrWhiteSpace([IdentityHelpers]::ALTControlEvaluationMethod)) {
@@ -95,50 +100,52 @@ class Organization: ADOSVTBase
         }
     }
 
-    hidden [ControlResult] CheckProCollSerAcc([ControlResult] $controlResult)
+    hidden [ControlResult] CheckPrjCollSvcAcc([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Verify
+
         try
         {
-            #api call to get PCSA descriptor which used to get PCSA members api call.
-            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-            $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'
-            $body = ($body.Replace("{0}", $this.OrganizationContext.OrganizationName)) | ConvertFrom-Json
-            $response = [WebRequestHelper]::InvokePostWebRequest($url,$body);
+            if($this.ADOGrpDescriptor.Count -eq 0)
+            {
+                $this.FetchOrgLevelADOGroupDescriptor() 
+            }
 
             $accname = "Project Collection Service Accounts"; #Enterprise Service Accounts
-            if ($response -and [Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider") {
+            $prcollobj = $this.ADOGrpDescriptor | where {$_.displayName -eq $accname}
 
-                $prcollobj = $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where {$_.displayName -eq $accname}
-                #$prcollobj = $responseObj | where {$_.displayName -eq $accname}
+            if($null -ne $prcollobj )
+            {
+                $groupMembers = @();
 
-                if(($prcollobj | Measure-Object).Count -gt 0)
-                {
-                    #pai call to get PCSA members
-                    $prmemberurl = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-                    $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{1}/_settings/groups?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'
-                    $inputbody = $inputbody.Replace("{0}",$prcollobj.descriptor)
-                    $inputbody = $inputbody.Replace("{1}",$this.OrganizationContext.OrganizationName) | ConvertFrom-Json
-
-                    $responsePrCollObj = [WebRequestHelper]::InvokePostWebRequest($prmemberurl,$inputbody);
-                    $responsePrCollData = $responsePrCollObj.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
-                    $memberCount = ($responsePrCollData | Measure-Object).Count
-                    if($memberCount -gt 0){
-                        $responsePrCollData = $responsePrCollData | Select-Object displayName,mailAddress,subjectKind
-                        $stateData = @();
-                        $stateData += $responsePrCollData
-                        $controlResult.AddMessage("Total number of Project Collection Service Accounts: $($memberCount)");
-                        $controlResult.AdditionalInfo += "Total number of Project Collection Service Accounts: " + $memberCount;
-                        $controlResult.AddMessage([VerificationResult]::Verify, "Review the members of the group Project Collection Service Accounts: ", $stateData);
-                        $controlResult.SetStateData("Members of the Project Collection Service Accounts group: ", $stateData);
-                    }
-                    else
-                    { #count is 0 then there is no member in the prj coll ser acc group
-                        $controlResult.AddMessage([VerificationResult]::Passed, "Project Collection Service Accounts group does not have any member.");
-                    }
+                # Helper function to fetch flattened out list of group members.
+                if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($prcollobj.descriptor) -and [ControlHelper]::groupMembersResolutionObj[$prcollobj.descriptor].count -gt 0) {
+                    $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$prcollobj.descriptor]
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Project Collection Service Accounts group could not be fetched.");
+                    [ControlHelper]::FindGroupMembers($prcollobj.descriptor, $this.OrganizationContext.OrganizationName,"")
+                    $groupMembers += [ControlHelper]::groupMembersResolutionObj[$prcollobj.descriptor]
+                }
+
+                if($groupMembers.Count -gt 0){
+                    $responsePrCollData = @($groupMembers | Select-Object DisplayName,MailAddress,SubjectKind)
+                    $stateData = @();
+                    $stateData += $responsePrCollData | Sort-Object -Property MailAddress -Unique
+                    $memberCount = $stateData.Count
+                    $controlResult.AddMessage("Count of Project Collection Service Accounts: $($memberCount)");
+                    $controlResult.AdditionalInfo += "Count of Project Collection Service Accounts: " + $memberCount;
+                    $controlResult.SetStateData("Members of the Project Collection Service Accounts group: ", $stateData);
+
+
+                    $display = $stateData |FT -AutoSize | Out-String -Width 512
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Review the members of the group Project Collection Service Accounts: ");
+                    $controlResult.AddMessage($display)
+
+                }
+                else
+                { #count is 0 then there is no member in the prj coll ser acc group
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Project Collection Service Accounts group does not have any member.");
                 }
             }
             else
@@ -163,91 +170,137 @@ class Organization: ADOSVTBase
             if(($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "Organization.GroupsToCheckForSCAltMembers"))
             {
                 $adminGroupNames = @($this.ControlSettings.Organization.GroupsToCheckForSCAltMembers);
-                if ($adminGroupNames.Count -gt 0) 
+                if ($adminGroupNames.Count -gt 0)
                 {
-                    #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
-                    $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-                    $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'
-                    $body = ($body.Replace("{0}", $this.OrganizationContext.OrganizationName)) | ConvertFrom-Json
-                    $response = [WebRequestHelper]::InvokePostWebRequest($url,$body);
-
-                    if ($response -and [Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider")
+                    if($this.ADOGrpDescriptor.Count -eq 0)
                     {
-                        $adminGroups = @();
-                        $adminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $adminGroupNames }
-                        $PCSAGroup = @($response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -eq "Project Collection Service Accounts"})
-                        if(($adminGroups | Measure-Object).Count -gt 0)
+                        $this.FetchOrgLevelADOGroupDescriptor()
+                    }
+                    $adminGroups = @();
+                    $adminGroups += $this.ADOGrpDescriptor | where { $_.displayName -in $adminGroupNames }
+                    $PCSAGroup = @($this.ADOGrpDescriptor | where { $_.displayName -eq "Project Collection Service Accounts"})
+
+                    if(($adminGroups | Measure-Object).Count -gt 0)
+                    {
+                        #global variable to track admin members across all admin groups
+                        $allAdminMembers = @();
+                        $allPCSAMembers = @();
+
+                        for ($i = 0; $i -lt $adminGroups.Count; $i++)
                         {
-                            #global variable to track admin members across all admin groups
-                            $allAdminMembers = @();
-                            $allPCSAMembers = @();
-
-                            for ($i = 0; $i -lt $adminGroups.Count; $i++)
+                            $groupMembers = @();
+                            # Helper function to fetch flattened out list of group members.
+                            if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($adminGroups[$i].descriptor) -and [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor].count -gt 0) {
+                                $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
+                            }
+                            else
                             {
-                                # [AdministratorHelper]::AllPCAMembers is a static variable. Always needs to be initialized. At the end of each iteration, it will be populated with members of that particular admin group.
-                                [AdministratorHelper]::AllPCAMembers = @();
-                                # Helper function to fetch flattened out list of group members.
-                                [AdministratorHelper]::FindPCAMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName)
-
-                                $groupMembers = @();
-                                # Add the members of current group to this temp variable.
-                                $groupMembers += [AdministratorHelper]::AllPCAMembers
-                                # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
-                                $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )}
-                            } 
-                            if($PCSAGroup.Count -gt 0)
-                            {
-
-                                # [AdministratorHelper]::AllPCAMembers is a static variable. Needs to be reinitialized as it might contain group info from the previous for loop.
-                                [AdministratorHelper]::AllPCAMembers = @();
-                                # Helper function to fetch flattened out list of group members.
-                                [AdministratorHelper]::FindPCAMembers($PCSAGroup.descriptor, $this.OrganizationContext.OrganizationName)
-
-                                $groupMembers = @();
-                                # Add the members of current group to this temp variable.
-                                $groupMembers += [AdministratorHelper]::AllPCAMembers
-
-                                # Preparing the list of members of PCSA which needs to be subtracted from $allAdminMembers
-                                #USE IDENTITY ID
-                                $groupMembers | ForEach-Object {$allPCSAMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = "Project Collection Administrators" } )}
-
+                                [ControlHelper]::FindGroupMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName,"")
+                                $groupMembers += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
                             }
 
-                            #Removing PCSA members from PCA members using id.
-                            #TODO: HAVE ANOTHER CONTROL TO CHECK FOR PCA because some service accounts might be added directly as PCA and as well as part of PCSA. This new control will serve as a hygiene control.
-                            if($allPCSAMembers.Count -gt 0)
+                            # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
+                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )}
+                        }
+
+                        if($PCSAGroup.Count -gt 0)
+                        {
+                            $groupMembers = @();
+
+                            if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($PCSAGroup.descriptor) -and [ControlHelper]::groupMembersResolutionObj[$PCSAGroup.descriptor].count -gt 0) {
+                                $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$PCSAGroup.descriptor]
+                            }
+                            else
                             {
-                                $allAdminMembers = $allAdminMembers | ? {$_.id -notin $allPCSAMembers.id}
+                                [ControlHelper]::FindGroupMembers($PCSAGroup.descriptor, $this.OrganizationContext.OrganizationName,"")
+                                $groupMembers += [ControlHelper]::groupMembersResolutionObj[$PCSAGroup.descriptor]
                             }
 
-                            # clearing cached value in [AdministratorHelper]::AllPCAMembers as it can be used in attestation later and might have incorrect group loaded.
-                            [AdministratorHelper]::AllPCAMembers = @();
+                            # Preparing the list of members of PCSA which needs to be subtracted from $allAdminMembers
+                            #USE IDENTITY ID
+                            $groupMembers | ForEach-Object {$allPCSAMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = "Project Collection Administrators" } )}
 
-                            # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
-                            $allAdminMembers = @($allAdminMembers| Sort-Object -Property id -Unique)
+                        }
 
-                            if($allAdminMembers.Count -gt 0)
+                        #Removing PCSA members from PCA members using id.
+                        #TODO: HAVE ANOTHER CONTROL TO CHECK FOR PCA because some service accounts might be added directly as PCA and as well as part of PCSA. This new control will serve as a hygiene control.
+                        if($allPCSAMembers.Count -gt 0)
+                        {
+                            $allAdminMembers = $allAdminMembers | ? {$_.id -notin $allPCSAMembers.id}
+                        }
+
+                        # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
+                        $allAdminMembers = @($allAdminMembers| Sort-Object -Property id -Unique)
+
+                        if($allAdminMembers.Count -gt 0)
+                        {
+                            $useGraphEvaluation = $false
+                            $useRegExEvaluation = $false
+                            if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
+                                if ([IdentityHelpers]::hasGraphAccess){
+                                    $useGraphEvaluation = $true
+                                }
+                                else {
+                                    $useRegExEvaluation = $true
+                                }
+                            }
+
+                            if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
                             {
-                                $useGraphEvaluation = $false
-                                $useRegExEvaluation = $false
-                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
-                                    if ($this.graphPermissions.hasGraphAccess){
-                                        $useGraphEvaluation = $true
+                                if ([IdentityHelpers]::hasGraphAccess)
+                                {
+                                    $allAdmins = [IdentityHelpers]::DistinguishAltAndNonAltAccount($allAdminMembers)
+                                    $SCMembers = $allAdmins.altAccount
+                                    $nonSCMembers = $allAdmins.nonAltAccount
+
+                                    $nonSCCount = $nonSCMembers.Count
+                                    $SCCount = $SCMembers.Count
+
+                                    if ($nonSCCount -gt 0)
+                                    {
+                                        $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
+                                        $stateData = @();
+                                        $stateData += $nonSCMembers
+                                        $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount");
+                                        $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
+                                        $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
+                                        $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
                                     }
-                                    else {
-                                        $useRegExEvaluation = $true
+                                    else
+                                    {
+                                        $controlResult.AddMessage([VerificationResult]::Passed, "All user accounts with admin privilege are SC-ALT accounts.");
+                                    }
+                                    if ($SCCount -gt 0)
+                                    {
+                                        $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
+                                        $SCData = @();
+                                        $SCData += $SCMembers
+                                        $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
+                                        $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
+                                        $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
                                     }
                                 }
-
-                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
+                                else
                                 {
-                                    if ($this.graphPermissions.hasGraphAccess) 
+                                    $controlResult.AddMessage([VerificationResult]::Error, "The signed-in user identity does not have graph permission.");
+                                }
+                            }
+
+                            if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
+                            {
+                                $controlResult.AddMessage([Constants]::graphWarningMessage);
+                                if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg"))
+                                {
+                                    $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
+                                    #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
+                                    if (-not [string]::IsNullOrEmpty($matchToSCAlt))
                                     {
-                                        $allAdmins = [IdentityHelpers]::DistinguishAltAndNonAltAccount($allAdminMembers)
-                                        $SCMembers = $allAdmins.altAccount
-                                        $nonSCMembers = $allAdmins.nonAltAccount
-                                    
+                                        $nonSCMembers = @();
+                                        $nonSCMembers += $allAdminMembers | Where-Object { $_.mailAddress -notmatch $matchToSCAlt }
                                         $nonSCCount = $nonSCMembers.Count
+
+                                        $SCMembers = @();
+                                        $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }
                                         $SCCount = $SCMembers.Count
 
                                         if ($nonSCCount -gt 0)
@@ -260,11 +313,11 @@ class Organization: ADOSVTBase
                                             $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                             $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
                                         }
-                                        else
+                                        else 
                                         {
-                                            $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                            $controlResult.AddMessage([VerificationResult]::Passed, "All user accounts with admin privilege are SC-ALT accounts.");
                                         }
-                                        if ($SCCount -gt 0)
+                                        if ($SCCount -gt 0) 
                                         {
                                             $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
                                             $SCData = @();
@@ -274,75 +327,24 @@ class Organization: ADOSVTBase
                                             $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));  
                                         }
                                     }
-                                    else
-                                    {
-                                        $controlResult.AddMessage([VerificationResult]::Error, "The signed-in user identity does not have graph permission.");
+                                    else {
+                                        $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting SC-ALT account is not defined in the organization.");
                                     }
                                 }
-
-                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
+                                else
                                 {
-                                    if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg"))
-                                    {
-                                        $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
-                                        #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
-                                        if (-not [string]::IsNullOrEmpty($matchToSCAlt)) 
-                                        {
-                                            $nonSCMembers = @();
-                                            $nonSCMembers += $allAdminMembers | Where-Object { $_.mailAddress -notmatch $matchToSCAlt }  
-                                            $nonSCCount = $nonSCMembers.Count
-
-                                            $SCMembers = @();
-                                            $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }
-                                            $SCCount = $SCMembers.Count
-
-                                            if ($nonSCCount -gt 0) 
-                                            {
-                                                $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
-                                                $stateData = @();
-                                                $stateData += $nonSCMembers
-                                                $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount"); 
-                                                $controlResult.AddMessage("List of non SC-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));  
-                                                $controlResult.SetStateData("List of non SC-ALT accounts: ", $stateData);
-                                                $controlResult.AdditionalInfo += "Count of non SC-ALT accounts with admin privileges: " + $nonSCCount;
-                                            }
-                                            else 
-                                            {
-                                                $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
-                                            }
-                                            if ($SCCount -gt 0) 
-                                            {
-                                                $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
-                                                $SCData = @();
-                                                $SCData += $SCMembers
-                                                $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
-                                                $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
-                                                $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));  
-                                            }
-                                        }
-                                        else {
-                                            $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting SC-ALT account is not defined in the organization.");
-                                        }
-                                    }
-                                    else
-                                    {
-                                        $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting SC-ALT account is not defined in the organization. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
-                                    }
-                                }  
-                            }
-                            else
-                            { #count is 0 then there is no members added in the admin groups
-                                $controlResult.AddMessage([VerificationResult]::Passed, "Admin groups does not have any members.");
-                            }
+                                    $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting SC-ALT account is not defined in the organization. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
+                                }
+                            }  
                         }
                         else
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of administrator groups in the organization.");
+                        { #count is 0 then there is no members added in the admin groups
+                            $controlResult.AddMessage([VerificationResult]::Passed, "Admin groups does not have any members.");
                         }
                     }
                     else
                     {
-                        $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of groups in the organization.");
+                        $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of administrator groups in the organization.");
                     }
                 }
                 else
@@ -366,19 +368,20 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckAADConfiguration([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
             $apiURL = "https://dev.azure.com/{0}/_settings/organizationAad?__rt=fps&__ver=2" -f $($this.OrganizationContext.OrganizationName);
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
 
-            if(([Helpers]::CheckMember($responseObj[0],"fps.dataProviders.data") ) -and  (($responseObj[0].fps.dataProviders.data."ms.vss-admin-web.organization-admin-aad-data-provider") -and $responseObj[0].fps.dataProviders.data."ms.vss-admin-web.organization-admin-aad-data-provider".orgnizationTenantData) -and (-not [string]::IsNullOrWhiteSpace($responseObj[0].fps.dataProviders.data."ms.vss-admin-web.organization-admin-aad-data-provider".orgnizationTenantData.domain)))
+            if([Helpers]::CheckMember($responseObj[0],"fps.dataProviders.data") -and (-not [string]::IsNullOrWhiteSpace($responseObj[0].fps.dataProviders.data."ms.vss-admin-web.organization-admin-aad-data-provider".orgnizationTenantData.domain)))
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Organization is configured with [$($responseObj.fps.dataProviders.data.'ms.vss-admin-web.organization-admin-aad-data-provider'.orgnizationTenantData.displayName)] directory.");
-                $controlResult.AdditionalInfo += "Organization is configured with [$($responseObj.fps.dataProviders.data.'ms.vss-admin-web.organization-admin-aad-data-provider'.orgnizationTenantData.displayName)] directory.";
+                $controlResult.AddMessage([VerificationResult]::Passed, "Organization is configured to use [$($responseObj[0].fps.dataProviders.data.'ms.vss-admin-web.organization-admin-aad-data-provider'.orgnizationTenantData.displayName)] directory for authentication.");
+                $controlResult.AdditionalInfo += "Organization is configured with [$($responseObj[0].fps.dataProviders.data.'ms.vss-admin-web.organization-admin-aad-data-provider'.orgnizationTenantData.displayName)] directory.";
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Organization is not configured with AAD.");
+                $controlResult.AddMessage("Organization is not configured with AAD.");
             }
         }
         catch {
@@ -425,17 +428,16 @@ class Organization: ADOSVTBase
 
         if([Helpers]::CheckMember($this.OrgPolicyObj,"user"))
         {
-            $userPolicyObj = $this.OrgPolicyObj.user;
-            $guestAuthObj = @($userPolicyObj | Where-Object {$_.Policy.Name -eq "Policy.DisallowAadGuestUserAccess"})
+            $guestAuthObj = @($this.OrgPolicyObj.user | Where-Object {$_.Policy.Name -eq "Policy.DisallowAadGuestUserAccess"})
             if($guestAuthObj.Count -gt 0)
             {
                 if($guestAuthObj.policy.effectiveValue -eq $false )
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"External guest access is disabled in the organization.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"External guest access is disabled for the organization.");
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "External guest access is enabled in the organization.");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "External guest access is enabled for the organization.");
                     if($this.GuestMembers.Count -eq 0)
                     {
                         $this.FetchGuestMembersInOrg()
@@ -462,12 +464,13 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckPublicProjectPolicy([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         if([Helpers]::CheckMember($this.OrgPolicyObj,"security"))
         {
-            $guestAuthObj = $this.OrgPolicyObj.security | Where-Object {$_.Policy.Name -eq "Policy.AllowAnonymousAccess"}
-            if(($guestAuthObj | Measure-Object).Count -gt 0)
+            $publicProjectAccessObj = $this.OrgPolicyObj.security | Where-Object {$_.Policy.Name -eq "Policy.AllowAnonymousAccess"}
+            if($publicProjectAccessObj -ne $null)
             {
-                    if($guestAuthObj.policy.effectiveValue -eq $false )
+                    if($publicProjectAccessObj.policy.effectiveValue -eq $false )
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Public projects are not allowed in the organization.");
                     }
@@ -478,7 +481,7 @@ class Organization: ADOSVTBase
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the public project security policies.");
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization security policy for public projects.");
             }
         }
         else
@@ -488,523 +491,40 @@ class Organization: ADOSVTBase
         return $controlResult
     }
 
-
     hidden [ControlResult] ValidateInstalledExtensions([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-
-            if(($responseObj | Measure-Object).Count -gt 0 ) #includes both custom installed and built in extensions.
+            if($null -eq $this.installedExtensionObj)
             {
-                $extensionList = $responseObj | Select-Object extensionName,publisherId,publisherName,version,flags,lastPublished,scopes,extensionId # 'flags' is not available in every extension. It is visible only for built in extensions. Hence this appends 'flags' to trimmed objects.
-                $extensionList = $extensionList | Where-Object {$_.flags -notlike "*builtin*" } # to filter out extensions that are built in and are not visible on portal.
+                $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
+                $this.installedExtensionObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
+            }
+
+            if($this.installedExtensionObj.Count -gt 0 ) #includes both custom installed and built in extensions.
+            {
+                $extensionList = $this.installedExtensionObj | Select-Object extensionName,publisherId,publisherName,version,flags,lastPublished,scopes,extensionId # 'flags' is not available in every extension. It is visible only for built in extensions. Hence this appends 'flags' to trimmed objects.
+                $extensionList = @($extensionList | Where-Object {$_.flags -notlike "*builtin*" }) # to filter out extensions that are built in and are not visible on portal.
                 $ftWidth = 512 #Used for table output width to avoid "..." truncation
-                $extCount = ($extensionList | Measure-Object ).Count;
+                $extCount = $extensionList.Count;
 
                 if($extCount -gt 0)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the list of installed extensions for your org: ");
-                    $controlResult.AddMessage("No. of installed extensions: " + $extCount);
-                    $controlResult.AdditionalInfo += "No. of installed extensions: " + $extCount;
-                    if([AzSKRoot]::IsDetailedScanRequired -eq $false)
-                    {
-                        #if([Helpers]::CheckMember($this.ControlSettings, "Organization.KnownExtensionPublishersId"))
-                        #{$knownExtPublishersId = $this.ControlSettings.Organization.KnownExtensionPublishersId;}
-                        $knownExtPublishers = $this.ControlSettings.Organization.KnownExtensionPublishers;
-
-                        $knownExtensions = @();
-                        #$knownExtensions += $extensionList | Where-Object {$_.publisherId -in $KnownExtPublishersId}
-                        $knownExtensions += $extensionList | Where-Object {$_.publisherName -in $knownExtPublishers}
-                        $knownCount = ($knownExtensions | Measure-Object).Count
-
-                        $unKnownExtensions = @(); #Publishers not Known by Microsoft
-                        #$unKnownExtensions += $extensionList | Where-Object {$_.publisherId -notin $KnownExtPublishersId}
-                        $unKnownExtensions += $extensionList | Where-Object {$_.publisherName -notin $knownExtPublishers}
-                        $unKnownCount = ($unKnownExtensions | Measure-Object).Count
-
-                        $controlResult.AddMessage("`nNote: The following publishers are considered as 'known publishers': `n`t[$($knownExtPublishers -join ', ')]");
-
-                        if($unKnownCount -gt 0){
-                            $controlResult.AddMessage("`nNo. of extensions (from publishers not in 'known publishers' list): $unKnownCount");
-                            $controlResult.AdditionalInfo += "No. of installed extensions (from publishers not in 'known publishers' list): " + $unKnownCount;
-                            $controlResult.AddMessage("`nExtension details: ")
-                            $display = ($unKnownExtensions |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
-                            $controlResult.AddMessage($display)
-                            $controlResult.AdditionalInfo += "Installed extensions (from 'unknown publishers'): " + [JsonHelper]::ConvertToJsonCustomCompressed($unKnownExtensions);
-                        }
-
-                        if($knownCount -gt 0){
-                            $controlResult.AddMessage("`nNo. of  extensions (from publishers in the 'known publishers' list): $knownCount");
-                            $controlResult.AdditionalInfo += "No. of extensions (from publishers in the 'known publishers' list): " + $knownCount;
-                            $controlResult.AddMessage("`nExtension details: ")
-                            $display = ($knownExtensions|FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
-                            $controlResult.AddMessage($display)
-                        }
-
-                        $stateData = @{
-                            known_Extensions = @();
-                            unKnown_Extensions = @();
-                        };
-
-                        $stateData.known_Extensions += $knownExtensions
-                        $stateData.unKnown_Extensions += $unKnownExtensions
-
-                        $controlResult.SetStateData("List of installed extensions: ", $stateData);
-                    }
-
-                    ## Deep scan start
-                    if([AzSKRoot]::IsDetailedScanRequired -eq $true)
-                    {
-                        $this.PublishCustomMessage("You have requested for detailed scan, it will take few minutes..`n",[MessageType]::Warning);
-                        $isKnownPublishersPropertyPresent = $false
-                        $islastUpdatedPropertyPresent = $false
-                        $isCriticalScopesPropertyPresent = $false
-                        $isNonProdIndicatorsPropertyPresent = $false
-
-                        if($null -ne $this.ControlSettings)
-                        {
-                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.KnownExtensionPublishers"))
-                            {
-                                $knownExtPublishers = $this.ControlSettings.Organization.KnownExtensionPublishers;
-                                $isKnownPublishersPropertyPresent = $true
-                            }
-                            else {
-                                $knownExtPublishers = @()
-                            }
-
-                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.ExtensionsLastUpdatedInYears"))
-                            {
-                                $extensionsLastUpdatedInYears = $this.ControlSettings.Organization.ExtensionsLastUpdatedInYears
-                                $islastUpdatedPropertyPresent = $true
-                            }
-                            else {
-                                $extensionsLastUpdatedInYears = 2 ##Default value
-                            }
-
-                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.ExtensionCriticalScopes") )
-                            {
-                                $extensionCriticalScopes=$this.ControlSettings.Organization.ExtensionCriticalScopes;
-                                $isCriticalScopesPropertyPresent = $true
-                            }
-                            else{
-                                $extensionCriticalScopes = @()
-                            }
-
-                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.NonProductionExtensionIndicators"))
-                            {
-                                $nonProductionExtensionIndicators =$this.ControlSettings.Organization.NonProductionExtensionIndicators;
-                                $isNonProdIndicatorsPropertyPresent = $true
-                            }
-                            else {
-                                $nonProductionExtensionIndicators = @()
-                            }
-
-                            $ExemptedExtensionNames = @()
-                            if([Helpers]::CheckMember($this.ControlSettings, "Organization.ExemptedExtensionNames"))
-                            {
-                                $ExemptedExtensionNames += $this.ControlSettings.Organization.ExemptedExtensionNames;
-                            }
-
-                            $controlResult.AddMessage([Constants]::HashLine)
-                            if( !($isKnownPublishersPropertyPresent -and $islastUpdatedPropertyPresent -and $isCriticalScopesPropertyPresent -and $isNonProdIndicatorsPropertyPresent))
-                            {
-                                $controlResult.AddMessage("***Note: Some settings are not present in the policy configuration.***")
-                            }
-                            $controlResult.AddMessage("`nNote: Apart from this LOG, a combined listing of all extensions and their security sensitive attributes has been output to the '$($this.ResourceContext.ResourceName)"+"_ExtensionInfo.CSV' file in the current folder. Columns with value as 'Unavailable' indicate that data was not available.")
-
-                            $infotable = [ordered] @{
-                                "KnownPublisher" = "Yes/No [if extension is from [$($knownExtPublishers -join ', ')]]";
-                                "Too Old (> $($extensionsLastUpdatedInYears)year(s))" = "Yes/No [if extension has not been updated by publishers for more than [$extensionsLastUpdatedInYears] year(s)]";
-                                "SensitivePermissions" = "Lists if any permissions requested by extension are in the sensitive permissions list. (See list below for the full list of permissions considered to be sensitive.)";
-                                "NonProd (GalleryFlag)" = "Yes/No [if the gallery flags in the manifest mention 'preview']";
-                                "NonProd (ExtensionName)" = "Yes/No [if extension name indicates [$($nonProductionExtensionIndicators -join ', ')]]";
-                                "TopPublisher" = "Yes/No [if extension's publisher has 'Top Publisher' certification]";
-                                "PrivateVisibility" = "Yes/No [if extension has been shared privately with the org]" ;
-                                "Score" = "Secure score of extension. (See further below for the scoring scheme.) "
-                            }
-
-                            $scoretable = @(
-                                New-Object psobject -Property $([ordered] @{"Parameter"="'Top Publisher' certification";"Score (if Yes)"="+10"; "Score (if No)" = "0"});
-                                New-Object psobject -Property $([ordered] @{"Parameter"="Known publishers";"Score (if Yes)"="+10"; "Score (if No)" = "0"});
-                                New-Object psobject -Property $([ordered] @{"Parameter"="Too Old ( x years )";"Score (if Yes)"="-5*(No. of years when extension was last published before threshhold)"; "Score (if No)" = "0"})
-                                New-Object psobject -Property $([ordered] @{"Parameter"="Sensitive permissions(n)";"Score (if Yes)"="-5*(No. of sensitive permmissions found)"; "Score (if No)" = "0"});
-                                New-Object psobject -Property $([ordered] @{"Parameter"="NonProd (GalleryFlag)";"Score (if Yes)"="-10"; "Score (if No)" = "+10"})
-                                New-Object psobject -Property $([ordered] @{"Parameter"="NonProd (ExtensionName)";"Score (if Yes)"="-10"; "Score (if No)" = "+10"})
-                                New-Object psobject -Property $([ordered] @{"Parameter"="Private visibility";"Score (if Yes)"="-10"; "Score (if No)" = "+10"})
-                                New-Object psobject -Property $([ordered] @{"Parameter"="Average Rating ";"Score (if Yes)"="+2*(Marketplace average rating)"; "Score (if No)" = "0"})
-                            ) | Format-Table -AutoSize | Out-String -Width $ftWidth
-
-                            $helperTable = $infotable.keys | Select @{l='Column';e={$_}},@{l='Interpretation';e={$infotable.$_}} | Format-Table -AutoSize | Out-String -Width $ftWidth
-                            $controlResult.AddMessage($helperTable)
-                            $controlResult.AddMessage("The following extension permissions are considered sensitive:")
-                            if(!$isCriticalScopesPropertyPresent)
-                            {
-                                $controlResult.AddMessage("***'Extension critical scopes' setting is not present in the policy configuration.***")
-                            }
-                            $controlResult.AddMessage($extensionCriticalScopes)
-                            $controlResult.AddMessage("`nThe following scheme is used for assigning secure score:")
-                            $controlResult.AddMessage($scoretable)
-
-                            $combinedTable=@()
-                            $knownExtensions=@()
-                            $unKnownExtensions = @()
-                            $staleExtensionList = @()
-                            $extensionListWithCriticalScopes = @()
-                            $extensionListWithNonProductionExtensionIndicators=@()
-                            $privateExtensions = @()
-                            $nonProdExtensions = @()
-                            $topPublisherExtensions = @()
-                            [Organization]::InstalledExtensionInfo = @()
-                            $allInstalledExtensions = @() # This variable gets all installed extensions details from $allExtensionsObj
-
-
-                            $date = Get-Date
-                            $thresholdDate = $date.AddYears(-$extensionsLastUpdatedInYears)
-
-                            $extensionList | ForEach-Object {
-                                $extensionInfo="" | Select-Object ExtensionName,PublisherId,PublisherName,Version,KnownPublisher,TooOld,LastPublished,SensitivePermissions,Scopes,NonProdByName,Preview,TopPublisher,PrivateVisibility,MarketPlaceAverageRating,Score,NoOfInstalls,MaxScore
-                                $extensionInfo.ExtensionName = $_.extensionName
-                                $extensionInfo.PublisherId = $_.publisherId
-                                $extensionInfo.PublisherName = $_.publisherName
-                                $extensionInfo.Version = $_.version
-                                $extensionInfo.LastPublished = ([datetime] $_.lastPublished).ToString("MM-dd-yyyy")
-                                $extensionInfo.Score = 0
-                                $extensionInfo.MaxScore = 0
-
-                                # Checking for known publishers
-                                $extensionInfo.MaxScore += 10 # Known publisher score
-                                if($_.publisherName -in $knownExtPublishers)
-                                {
-                                    $extensionInfo.KnownPublisher = "Yes"
-                                    $knownExtensions += $_
-                                    $extensionInfo.Score += 10
-                                }
-                                else {
-                                    $extensionInfo.KnownPublisher = "No"
-                                    $unKnownExtensions += $_
-                                }
-
-                                # Checking whether extension is too old or not
-                                if(([datetime] $_.lastPublished) -lt $thresholdDate)
-                                {
-                                    $staleExtensionList += $_
-                                    $extensionInfo.TooOld = "Yes"
-                                    $diffInYears = [Math]::Round(($thresholdDate - ([datetime] $_.lastPublished)).Days/365)
-                                    $extensionInfo.Score -= $diffInYears * (5)
-                                }
-                                else {
-                                    $extensionInfo.TooOld = "No"
-                                }
-
-                                # Checking whether extension have sensitive permissions
-                                $riskyScopes = @($_.scopes | ? {$_ -in $extensionCriticalScopes})
-                                if($riskyScopes.count -gt 0)
-                                {
-                                    $extensionListWithCriticalScopes += $_
-                                    $extensionInfo.SensitivePermissions = ($riskyScopes -join ',' )
-                                    $extensionInfo.Score -= $riskyScopes.Count * 5
-                                }
-                                else {
-                                    $extensionInfo.SensitivePermissions = "None"
-                                }
-
-                                # Checking whether extension name comes under exempted extension name or non prod indicators
-                                $extensionInfo.MaxScore += 10 # Score for extension Name  not in non prod indicators
-                                if($_.extensionName -in $ExemptedExtensionNames)
-                                {
-                                    $extensionInfo.NonProdByName = "No"
-                                    $extensionInfo.Score += 10
-                                }
-                                else
-                                {
-                                    $isExtensionNameInIndicators = $false
-                                    for($j=0;$j -lt $nonProductionExtensionIndicators.Count;$j++)
-                                    {
-                                        if( $_.extensionName -match $nonProductionExtensionIndicators[$j])
-                                        {
-                                            $isExtensionNameInIndicators = $true
-                                            break
-                                        }
-                                    }
-                                    if($isExtensionNameInIndicators)
-                                    {
-                                        $extensionInfo.NonProdByName = "Yes"
-                                        $extensionListWithNonProductionExtensionIndicators += $_
-                                        $extensionInfo.Score -= 10
-                                    }
-                                    else
-                                    {
-                                        $extensionInfo.NonProdByName = "No"
-                                        $extensionInfo.Score += 10
-                                    }
-                                }
-
-
-
-                                    $url="https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery?api-version=6.1-preview.1"
-                                    $inputbody = "{
-                                        'assetTypes': null,
-                                        'filters': [
-                                            {
-                                                'criteria': [
-                                                    {
-                                                        'filterType': 7,
-                                                        'value': '$($_.publisherId).$($_.extensionId)'
-                                                    }
-                                                ]
-                                            }
-                                        ],
-                                        'flags': 870
-                                    }"
-
-                                    $response= Invoke-WebRequest -Uri $url `
-                                        -Method Post `
-                                        -ContentType "application/json" `
-                                        -Body $inputbody `
-                                        -UseBasicParsing
-
-                                    $responseObject=$response.Content | ConvertFrom-Json
-
-                                    # if response object does not get details of extension, those extensions are private extensions
-
-                                    $extensionInfo.MaxScore += 10   # Private visibility score
-                                    $extensionInfo.MaxScore += 10   # Preview in Gallery flags score
-                                    $extensionInfo.MaxScore += 10   # Marketplace average rating score
-                                    $extensionInfo.MaxScore += 10   # Top publisher certification score
-
-                                    if([Helpers]::CheckMember($responseobject.results[0], "extensions") -eq $false )
-                                    {
-                                        $extensionInfo.PrivateVisibility = "Yes"
-                                        $extensionInfo.Preview = "Unavailable"
-                                        $extensionInfo.Score -= 10
-
-                                        if($null -eq $this.allExtensionsObj)
-                                        {
-                                            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-                                            $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.OrganizationContext.OrganizationName);
-                                            $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-                                            $this.allExtensionsObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
-                                        }
-
-                                        if(($allInstalledExtensions.Count -eq 0) -and [Helpers]::CheckMember($this.allExtensionsObj[0],"dataProviders") -and $this.allExtensionsObj.dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
-                                        {
-                                            # Using sharedExtension Object so that we can get details of all extensions from shared extension api and later use it to compute top publisher for installed extension
-                                            $allInstalledExtensions = $this.allExtensionsObj[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.installedextensions
-                                        }
-                                        $currentExtension = $_
-
-                                        #This refernce variable contains current private extension's top publisher details
-                                        $refVar = ($allInstalledExtensions | Where-Object {($_.extensionId -eq $currentExtension.extensionId) -and ($_.publisherId -eq $currentExtension.publisherId) })
-
-                                        # if refvar is null then making Unavailable for top publisher
-                                        if($refVar)
-                                        {
-                                            if($refVar.isCertifiedPublisher)
-                                            {
-                                                $extensionInfo.TopPublisher = "Yes"
-                                                $extensionInfo.Score += 10
-                                            }
-                                            else {
-                                                $extensionInfo.TopPublisher = "No"
-                                            }
-                                        }
-                                        else {
-                                            $extensionInfo.TopPublisher = "Unavailable"
-                                        }
-
-                                        $privateExtensions += $_
-                                    }
-                                    else
-                                    {
-                                        $extensionInfo.PrivateVisibility = "No"
-                                        $extensionInfo.Score += 10
-                                        $extensionflags=$responseobject.results[0].extensions.flags
-
-                                        if($extensionflags -match 'Preview')
-                                        {
-                                            $extensionInfo.Preview = "Yes"
-                                            $nonProdExtensions += $_
-                                            $extensionInfo.Score -= 10
-                                        }
-                                        else {
-                                            $extensionInfo.Preview = "No"
-                                            $extensionInfo.Score += 10
-                                        }
-
-                                        $publisherFlags = $responseobject.results[0].extensions.publisher.flags
-                                        if($publisherFlags -match "Certified")
-                                        {
-                                            $extensionInfo.TopPublisher = "Yes"
-                                            $topPublisherExtensions += $_
-                                            $extensionInfo.Score += 10
-                                        }
-                                        else {
-                                            $extensionInfo.TopPublisher = "No"
-                                        }
-                                    }
-
-                                    if([Helpers]::CheckMember($responseObject.results[0].extensions,"statistics"))
-                                    {
-                                        $statistics = $responseObject.results[0].extensions.statistics
-                                        $extensionInfo.NoOfInstalls = 0
-                                        $statistics | ForEach-Object {
-                                            if($_.statisticName -eq "averagerating")
-                                            {
-                                                $extensionInfo.MarketPlaceAverageRating = [Math]::Round($_.Value,1)
-                                                $extensionInfo.Score += [Math]::Round($extensionInfo.MarketPlaceAverageRating*2)
-                                            }
-                                            if($_.statisticName -eq "install")
-                                            {
-                                                $extensionInfo.NoOfInstalls += $_.Value
-                                            }
-                                            if($_.statisticName -eq "onpremDownloads")
-                                            {
-                                                $extensionInfo.NoOfInstalls += $_.Value
-                                            }
-
-                                        }
-                                        if($null -eq $extensionInfo.MarketPlaceAverageRating)
-                                        {
-                                            $extensionInfo.MarketPlaceAverageRating = 0
-                                        }
-
-                                    }
-                                    else {
-                                        $extensionInfo.MarketPlaceAverageRating = "Unavailable"
-                                        $extensionInfo.NoOfInstalls = "Unavailable"
-                                    }
-
-                                $combinedTable += $extensionInfo
-                            }
-                            $MaxScore = $combinedTable[0].MaxScore
-                            $controlResult.AddMessage("Note: Using this scheme an extension can get a maximum secure score of $MaxScore.`n")
-                            $controlResult.AddMessage([Constants]::HashLine)
-                            $controlResult.AddMessage([Constants]::SingleDashLine +"`nLooking for extensions from known publishers`n"+[Constants]::SingleDashLine)
-                            $controlResult.AddMessage("`nNote: The following are considered as 'known' publishers: `n`t[$($knownExtPublishers -join ', ')]");
-                            if(!$IsKnownPublishersPropertyPresent)
-                                {
-                                    $controlResult.AddMessage("***'Known publisher' setting is not present in the policy configuration.***")
-                                }
-                            $unKnownCount = ($unKnownExtensions | Measure-Object).Count
-                            if($unKnownCount -gt 0){
-
-                                $controlResult.AddMessage("`nNo. of extensions (from publishers not in 'known publishers' list): $unKnownCount");
-                                $controlResult.AdditionalInfo += "No. of installed extensions (from publishers not in 'known publishers' list): " + $unKnownCount;
-                                $controlResult.AddMessage("`nExtension details (from publishers not in 'known publishers' list): ")
-                                $display = ($unKnownExtensions |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
-                                $controlResult.AddMessage($display)
-                                $controlResult.AdditionalInfo += "Installed extensions (from unknown publishers): " + [JsonHelper]::ConvertToJsonCustomCompressed($unKnownExtensions);
-                            }
-
-                            $knownCount = ($knownExtensions | Measure-Object).Count
-                            if($knownCount -gt 0){
-                                $controlResult.AddMessage("`nNo. of  extensions (from publishers in the 'known publishers' list): $knownCount");
-                                $controlResult.AdditionalInfo += "No. of extensions (from publishers in the 'known publishers' list): " + $knownCount;
-                                $controlResult.AddMessage("`nExtension details (from publishers in the 'known publishers' list): ")
-                                $display = ($knownExtensions|FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
-                                $controlResult.AddMessage($display)
-                            }
-
-
-                            $stateData = @{
-                                known_Extensions = @();
-                                unKnown_Extensions = @();
-                            };
-
-                            $stateData.known_Extensions += $knownExtensions
-                            $stateData.unKnown_Extensions += $unKnownExtensions
-                            $controlResult.SetStateData("List of installed extensions: ", $stateData);
-
-
-
-                            if($staleExtensionList.count -gt 0)
-                                {
-                                    $controlResult.AddMessage([Constants]::HashLine)
-                                    $controlResult.AddMessage([Constants]::SingleDashLine +"`nLooking for extensions that have not been updated by publishers for more than [$extensionsLastUpdatedInYears] years...`n" +[Constants]::SingleDashLine)
-                                    if(!$islastUpdatedPropertyPresent)
-                                    {
-                                        $controlResult.AddMessage("***'Last Updated' setting is not present in the policy configuration.***")
-                                    }
-                                    $controlResult.AddMessage("`nNo. of extensions that haven't been updated in the last [$extensionsLastUpdatedInYears] years: "+ $staleExtensionList.count)
-                                    $controlResult.AddMessage("`nExtension details (oldest first): ")
-                                    $display = ($staleExtensionList| Sort-Object lastPublished | FT ExtensionName, @{Name = "lastPublished (MM-dd-yyyy)"; Expression = { ([datetime] $_.lastPublished).ToString("MM-dd-yyyy")} }, PublisherId, PublisherName, version -AutoSize | Out-String -Width $ftWidth)
-                                    $controlResult.AddMessage($display)
-                                }
-
-                            if($extensionListWithCriticalScopes.count -gt 0)
-                                {
-                                    $controlResult.AddMessage([Constants]::HashLine)
-                                    $controlResult.AddMessage([Constants]::SingleDashLine + "`nLooking for extensions that have sensitive access permissions...`n" + [Constants]::SingleDashLine)
-                                    if(!$isCriticalScopesPropertyPresent)
-                                    {
-                                        $controlResult.AddMessage("***'Extension critical scopes' setting is not present in the policy configuration.***")
-                                    }
-                                    $controlResult.AddMessage("Note: The following permissions are considered sensitive: `n`t[$($extensionCriticalScopes -join ', ')]")
-                                    $controlResult.AddMessage("`nNo. of extensions that have sensitive access permissions: "+ $extensionListWithCriticalScopes.count)
-                                    $controlResult.AddMessage("`nExtension details (extensions that have sensitive access permissions): ")
-                                    $display= ($extensionListWithCriticalScopes | FT ExtensionName, scopes, PublisherId, PublisherName  -AutoSize | Out-String -Width $ftWidth)
-                                    $controlResult.AddMessage($display)
-                                }
-
-
-                            if($extensionListWithNonProductionExtensionIndicators.count -gt 0)
-                                {
-                                    $controlResult.AddMessage([Constants]::HashLine)
-                                    $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that are not production ready...`n"+[Constants]::SingleDashLine)
-                                    if(!$isNonProdIndicatorsPropertyPresent)
-                                    {
-                                        $controlResult.AddMessage("***'Non-production extension indicators' setting is not present in the policy configuration.***")
-                                    }
-                                    $controlResult.AddMessage("Note: This checks for extensions with words [$($nonProductionExtensionIndicators -join ', ')] in extension names.")
-                                    $controlResult.AddMessage("`nNo. of non-production extensions (based on name):  "+ $extensionListWithNonProductionExtensionIndicators.count)
-                                    $controlResult.AddMessage("`nExtension details (non-production extensions (based on name)):  ")
-                                    $controlResult.AddMessage( ($extensionListWithNonProductionExtensionIndicators | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth))
-                                }
-
-                            if($nonProdExtensions.count -gt 0)
-                            {
-                                $controlResult.AddMessage([Constants]::HashLine)
-                                $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that are marked 'Preview' via Gallery flags...`n"+[Constants]::SingleDashLine)
-                                $controlResult.AddMessage("`nNo. of installed extensions marked as 'Preview' via Gallery flags: "+ $nonProdExtensions.count);
-                                $controlResult.AddMessage("`nExtension details (installed extensions which are marked as 'Preview' via Gallery flags): ")
-                                $controlResult.AddMessage(($nonProdExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth));
-                            }
-
-                            if($topPublisherExtensions.count -gt 0)
-                            {
-                                $controlResult.AddMessage([Constants]::HashLine)
-                                $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that are from publishers with a 'Top Publisher' certification...`n"+[Constants]::SingleDashLine);
-                                $controlResult.AddMessage("`nNo. of installed extensions from 'Top Publishers': "+$topPublisherExtensions.count);
-                                $controlResult.AddMessage("`nExtension details (installed extensions from 'Top Publishers'): ")
-                                $controlResult.AddMessage(($topPublisherExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth) );
-                            }
-
-                            if($privateExtensions.count -gt 0)
-                            {
-                                $controlResult.AddMessage([Constants]::HashLine)
-                                $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that have 'private' visibility for the org...`n"+[Constants]::SingleDashLine);
-                                $controlResult.AddMessage("`nNo. of installed extensions with 'private' visibility: "+$privateExtensions.count);
-                                $controlResult.AddMessage("`nExtension details (installed extensions with 'private' visibility): ")
-                                $controlResult.AddMessage(($privateExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth));
-                            }
-                            [Organization]::InstalledExtensionInfo = $combinedTable
-
-                        }
-                    }
-                    ## end Deep scan
+                    $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the list of installed extensions for your organization: ");
+                    $controlResult.AddMessage("Count of installed extensions: " + $extCount);
+                    $controlResult.AdditionalInfo += "Count of installed extensions: " + $extCount;
+                    $this.ExtensionControlHelper($controlResult, $extensionList, 'Installed')
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No installed extensions found.");
                 }
-            }#>
+            }
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "No installed extensions found.");
             }
-
         }
         catch
         {
@@ -1017,6 +537,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] ValidateSharedExtensions([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
             if($null -eq $this.allExtensionsObj)
@@ -1024,26 +545,20 @@ class Organization: ADOSVTBase
                 $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
                 $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.OrganizationContext.OrganizationName);
                 $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-                $this.allExtensionsObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+                $this.allExtensionsObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody));
             }
 
             if([Helpers]::CheckMember($this.allExtensionsObj[0],"dataProviders") -and $this.allExtensionsObj.dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
             {
-                $sharedExtensions = $this.allExtensionsObj[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.sharedExtensions
-
-                if(($sharedExtensions | Measure-Object).Count -gt 0)
+                $sharedExtensions = @($this.allExtensionsObj[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.sharedExtensions)
+                $sharedCount = $sharedExtensions.Count
+                if($sharedCount -gt 0)
                 {
-                    $controlResult.AddMessage("No. of shared extensions: " + $sharedExtensions.Count)
-                    $controlResult.AdditionalInfo += "No. of shared extensions: " + ($sharedExtensions | Measure-Object).Count;
-                    $extensionList = @();
-                    $extensionList +=  ($sharedExtensions | Select-Object extensionName, publisherId, publisherName, version)
-
-                    $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of shared extensions: ");
-                    $ftWidth = 512 #To avoid "..." truncation
-                    $display = ($extensionList |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
-                    $controlResult.AddMessage($display)
-                    $controlResult.SetStateData("List of shared extensions: ", $extensionList);
-                    $controlResult.AdditionalInfo += "List of shared extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($extensionList);
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Review the list of shared extensions for your organization: ");
+                    $controlResult.AddMessage("Count of shared extensions: " + $sharedCount);
+                    $controlResult.AdditionalInfo += "Count of shared extensions: " + $sharedCount;
+                    $sharedExtList = $sharedExtensions | Select-Object extensionId, extensionName, isCertifiedPublisher, @{Name="lastPublished";Expression={$_.lastUpdated}}, publisherId, publisherName, version, scopes
+                    $this.ExtensionControlHelper($controlResult, $sharedExtList, 'Shared')
                 }
                 else
                 {
@@ -1065,19 +580,20 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckGuestIdentities([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Verify
         try
         {
             if($this.GuestMembers.Count -eq 0)
             {
                 $this.FetchGuestMembersInOrg()
-            }                        
+            }
             $guestUsers = @($this.GuestMembers)
-            if($guestUsers.Count -gt 0) 
+            if($guestUsers.Count -gt 0)
             {
                 $guestList = @();
-                $guestList +=  ($guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}},@{Name="AccessLevel"; Expression = {$_.accessLevel.licenseDisplayName}},@{Name="LastAccessedDate"; Expression = {$_.lastAccessedDate}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
+                $guestList += $guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}},@{Name="AccessLevel"; Expression = {$_.accessLevel.licenseDisplayName}},@{Name="LastAccessedDate"; Expression = {$_.lastAccessedDate}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }}
                 $stateData = @();
-                $stateData += ($guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}})
+                $stateData += $guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}}
                 # $guestListDetailed would be same if DetailedScan is not enabled.
                 $guestListDetailed = $guestList
 
@@ -1088,35 +604,55 @@ class Organization: ADOSVTBase
                         try{
                             $guestUser = $_
                             $apiURL = "https://vsaex.dev.azure.com/{0}/_apis/userentitlements/{1}?api-version=6.1-preview.3" -f $($this.OrganizationContext.OrganizationName), $($guestUser.Id);
-                            $projectEntitlements = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                            $projectEntitlements = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
                             $userProjectEntitlements = $projectEntitlements[0].projectEntitlements
                         }
                         catch {
                             $userProjectEntitlements = "Could not fetch project entitlement details of the user."
                             $controlResult.LogException($_)
                         }
-                        return @{Id = $guestUser.Id; IdentityType = $guestUser.IdentityType; DisplayName = $guestUser.IdentityType; MailAddress = $guestUser.MailAddress; AccessLevel = $guestUser.AccessLevel; LastAccessedDate = $guestUser.LastAccessedDate; InactiveFromDays = $guestUser.InactiveFromDays; ProjectEntitlements = $userProjectEntitlements}
+                        return @{Id = $guestUser.Id; IdentityType = $guestUser.IdentityType; DisplayName = $guestUser.DisplayName; MailAddress = $guestUser.MailAddress; AccessLevel = $guestUser.AccessLevel; LastAccessedDate = $guestUser.LastAccessedDate; InactiveFromDays = $guestUser.InactiveFromDays; ProjectEntitlements = $userProjectEntitlements}
                     }
                 }
 
                 $totalGuestCount = ($guestListDetailed | Measure-Object).Count
                 $controlResult.AddMessage("Displaying all guest users in the organization...");
-                $controlResult.AddMessage([VerificationResult]::Verify,"Total number of guest users in the organization: $($totalGuestCount)");
-                $controlResult.AdditionalInfo += "Total number of guest users in the organization: " + $totalGuestCount;
-                $inactiveGuestUsers = $guestListDetailed | Where-Object { $_.InactiveFromDays -eq "User was never active." }
-                $inactiveCount = ($inactiveGuestUsers | Measure-Object).Count
-                if($inactiveCount) {
-                    $controlResult.AddMessage("`nTotal number of guest users who were never active: $($inactiveCount)");
-                    $controlResult.AdditionalInfo += "Total number of inactive guest users in the organization: " + $inactiveCount;
-                    $controlResult.AddMessage("List of guest users who were never active: ",$inactiveGuestUsers);
+                $controlResult.AddMessage([VerificationResult]::Verify,"Count of guest users in the organization: $($totalGuestCount)");
+                $controlResult.AdditionalInfo += "Count of guest users in the organization: " + $totalGuestCount;
+
+                $inactiveGuestUsers = @($guestListDetailed | Where-Object { $_.InactiveFromDays -eq "User was never active." })
+                $inactiveCount = $inactiveGuestUsers.Count
+                if($inactiveCount -gt 0) {
+                    $controlResult.AddMessage("`nCount of guest users who were never active: $($inactiveCount)");
+                    $controlResult.AdditionalInfo += "Count of guest users who were never active: " + $inactiveCount;
+                    $controlResult.AddMessage("List of users: ",$inactiveGuestUsers);
+                    if([AzSKRoot]::IsDetailedScanRequired -eq $true)
+                    {
+                        $inactiveGuestUsers= $inactiveGuestUsers | Select-Object @{Name="DisplayName"; Expression = {$_.DisplayName}},@{Name="MailAddress"; Expression = {$_.MailAddress}}, @{Name="InactiveFromDays"; Expression = {$_.InactiveFromDays}}, @{Name="ProjectReference"; Expression = {$_.ProjectEntitlements.projectref.name}}, @{Name="ProjectPermission"; Expression = {$_.ProjectEntitlements.group.displayName}}, @{Name="AccessLevel"; Expression = {$_.AccessLevel}}
+                        $display = $inactiveGuestUsers |FT -AutoSize | Out-String -Width 512 
+                    }
+                    else {
+                        $display = $inactiveGuestUsers |FT DisplayName,MailAddress,InactiveFromDays -AutoSize | Out-String -Width 512
+                    }
+                    $controlResult.AddMessage($display)
                 }
 
-                $activeGuestUsers = $guestListDetailed | Where-Object { $_.InactiveFromDays -ne "User was never active." }
-                $activeCount = ($activeGuestUsers | Measure-Object).Count
-                if($activeCount) {
-                    $controlResult.AddMessage("`nTotal number of guest users who are active: $($activeCount)");
-                    $controlResult.AdditionalInfo += "Total number of active guest users in the organization: " + $activeCount;
-                    $controlResult.AddMessage("List of guest users who are active: ",$activeGuestUsers);
+                $activeGuestUsers = @($guestListDetailed | Where-Object { $_.InactiveFromDays -ne "User was never active." })
+                $activeCount = $activeGuestUsers.Count
+                if($activeCount -gt 0) {
+                    $controlResult.AddMessage("`nCount of guest users who are active: $($activeCount)");
+                    $controlResult.AdditionalInfo += "Count of active guest users in the organization: " + $activeCount;
+                    $controlResult.AddMessage("List of users: ");
+                    if([AzSKRoot]::IsDetailedScanRequired -eq $true)
+                    {
+                        $activeGuestUsers= $activeGuestUsers | Select-Object @{Name="DisplayName"; Expression = {$_.DisplayName}},@{Name="MailAddress"; Expression = {$_.MailAddress}}, @{Name="InactiveFromDays"; Expression = {$_.InactiveFromDays}}, @{Name="ProjectReference"; Expression = {$_.ProjectEntitlements.projectref.name}}, @{Name="ProjectPermission"; Expression = {$_.ProjectEntitlements.group.displayName}}, @{Name="AccessLevel"; Expression = {$_.AccessLevel}}
+                        $display = ($activeGuestUsers |FT -AutoSize | Out-String -Width 512)
+                    }
+                    else
+                    {
+                        $display = ($activeGuestUsers |FT DisplayName,MailAddress,InactiveFromDays -AutoSize | Out-String -Width 512)
+                    }
+                    $controlResult.AddMessage($display)
                 }
                 $controlResult.SetStateData("Guest users list: ", $stateData);
             }
@@ -1136,12 +672,11 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckExtensionManagers([ControlResult] $controlResult)
     {
-
-        $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/securityroles/scopes/ems.manage.ui/roleassignments/resources/ems-ui" -f $($this.OrganizationContext.OrganizationName);
-
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            $apiURL = "https://extmgmt.dev.azure.com/{0}/_apis/securityroles/scopes/ems.manage.ui/roleassignments/resources/ems-ui" -f $($this.OrganizationContext.OrganizationName);
+            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
 
             # If no ext. managers are present, 'count' property is available for $responseObj[0] and its value is 0.
             # If ext. managers are assigned, 'count' property is not available for $responseObj[0].
@@ -1155,11 +690,10 @@ class Organization: ADOSVTBase
              # When there are managers - the below condition will be true.
             elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0))
             {
-                $controlResult.AddMessage("No. of extension managers present: " + $responseObj.Count)
-                $controlResult.AdditionalInfo += "No. of extension managers present: " + ($responseObj | Measure-Object).Count;
-                $extensionManagerList = @();
-                $extensionManagerList +=  ($responseObj | Select-Object @{Name="IdentityName"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}})
-                $controlResult.AddMessage([VerificationResult]::Verify, "Review the below list of extension managers: ",$extensionManagerList);
+                $controlResult.AddMessage("Count of extension managers present: " + $responseObj.Count)
+                $controlResult.AdditionalInfo += "Count of extension managers present: " + $responseObj.Count;
+                $extensionManagerList =  @($responseObj | Select-Object @{Name="IdentityName"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}})
+                $controlResult.AddMessage([VerificationResult]::Verify, "Review the list of extension managers as under: `n",$($extensionManagerList | FT | out-string));
                 $controlResult.SetStateData("List of extension managers: ", $extensionManagerList);
             }
             else
@@ -1217,7 +751,10 @@ class Organization: ADOSVTBase
                     $neverActiveUsersCount = ($neverActiveUsers | Measure-Object).Count
                     if ($neverActiveUsersCount -gt 0) {
                         $controlResult.AddMessage("`nTotal number of users who were never active: $($neverActiveUsersCount)");
-                        $controlResult.AddMessage("Review users present in the organization who were never active: ",$neverActiveUsers);
+                        #$controlResult.AddMessage("Review users present in the organization who were never active: ",$neverActiveUsers);
+                        $ftWidth = 512 #To avoid "..." truncation
+                        $display = ($neverActiveUsers |  FT mailAddress, Name, InactiveFromDays -AutoSize | Out-String -Width $ftWidth)
+                        $controlResult.AddMessage("Review users present in the organization who were never active: ",$display);
                         $controlResult.AdditionalInfo += "Total number of users who were never active: " + $neverActiveUsersCount;
                         $controlResult.AdditionalInfo += "List of users who were never active: " + [JsonHelper]::ConvertToJsonCustomCompressed($neverActiveUsers);
                     }
@@ -1225,7 +762,10 @@ class Organization: ADOSVTBase
                     $inactiveUsersWithDaysCount = ($inactiveUsersWithDays | Measure-Object).Count
                     if($inactiveUsersWithDaysCount -gt 0) {
                         $controlResult.AddMessage("`nTotal number of users who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: $($inactiveUsersWithDaysCount)");
-                        $controlResult.AddMessage("Review users present in the organization who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: ",$inactiveUsersWithDays);
+                        #$controlResult.AddMessage("Review users present in the organization who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: ",$inactiveUsersWithDays);
+                        $ftWidth = 512 #To avoid "..." truncation
+                        $display = ($inactiveUsersWithDays |  FT mailAddress, Name, InactiveFromDays -AutoSize | Out-String -Width $ftWidth)
+                        $controlResult.AddMessage("Review users present in the organization who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: ",$display);
                         $controlResult.AdditionalInfo += "Total number of users who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: " + $inactiveUsersWithDaysCount;
                     }
                 }
@@ -1247,34 +787,38 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckDisconnectedIdentities([ControlResult] $controlResult)
     {
+        #Note : Admin Permissions are required to fetch disconnected accounts
         try
         {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
             $apiURL = "https://dev.azure.com/{0}/_apis/OrganizationSettings/DisconnectedUser" -f $($this.OrganizationContext.OrganizationName);
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
 
-            #disabling null check to CheckMember because if there are no disconnected users - it will return null.
+            #Disabling null check to CheckMember because if there are no disconnected users - it will return null.
             if ([Helpers]::CheckMember($responseObj[0], "users",$false))
             {
-                if (($responseObj[0].users | Measure-Object).Count -gt 0 )
+                $disconnectedUsersCount = $responseObj[0].users.Count
+                if ($disconnectedUsersCount -gt 0 )
                 {
-
-                    $userNames = @();
-                    $userNames += ($responseObj[0].users | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "mailAddress"; Expression = { $_.preferredEmailAddress } })
-                    $controlResult.AddMessage("Total number of disconnected users: ", ($userNames | Measure-Object).Count);
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Remove access for below disconnected users: ", $userNames);
-                    $controlResult.SetStateData("Disconnected users list: ", $userNames);
-                    $controlResult.AdditionalInfo += "Total number of disconnected users: " + ($userNames | Measure-Object).Count;
-                    $controlResult.AdditionalInfo += "List of disconnected users: " + [JsonHelper]::ConvertToJsonCustomCompressed($userNames);
+                    $disconnectedUsersList += @($responseObj[0].users | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "MailAddress"; Expression = { $_.preferredEmailAddress } })
+                    $controlResult.AddMessage("Count of disconnected users: $($disconnectedUsersCount)`n");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Remove access for below disconnected users: ", ($disconnectedUsersList | FT | out-string));
+                    $controlResult.SetStateData("Disconnected users list: ", $disconnectedUsersList);
+                    $controlResult.AdditionalInfo += "Count of disconnected users: " + $disconnectedUsersCount ;
+                    $controlResult.AdditionalInfo += "List of disconnected users: " + $disconnectedUsersList;
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No disconnected users found.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No disconnected users found for this organization.");
                 }
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of disconnected users for this organization.");
             }
         }
         catch
         {
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of disconnected users.");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of disconnected users for this organization.");
             $controlResult.LogException($_)
         }
 
@@ -1477,25 +1021,26 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckSettableQueueTime([ControlResult] $controlResult)
     {
-       if($this.PipelineSettingsObj)
-       {
-
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        if($this.PipelineSettingsObj)
+        {
             if($this.PipelineSettingsObj.enforceSettableVar -eq $true )
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Only limited variables can be set at queue time.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Only explicitly marked 'settable at queue time' variables can be set at queue time.");
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "All variables can be set at queue time.");
             }
-       }
-       else{
-            $controlResult.AddMessage([VerificationResult]::Manual, "Pipeline settings could not be fetched due to insufficient permissions at organization scope.");
+        }
+        else{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
         }
         return $controlResult
     }
 
     hidden [ControlResult] CheckJobAuthZScope([ControlResult] $controlResult)
     {
+       $controlResult.VerificationResult = [VerificationResult]::Failed
        if($this.PipelineSettingsObj)
        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceJobAuthScope
@@ -1516,6 +1061,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckJobAuthZReleaseScope([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
        if($this.PipelineSettingsObj)
        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceJobAuthScopeForReleases
@@ -1536,10 +1082,11 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckAuthZRepoScope([ControlResult] $controlResult)
     {
-       if($this.PipelineSettingsObj)
-       {
+        $controlResult.VerificationResult = [VerificationResult]::Failed;
+        if($this.PipelineSettingsObj)
+        {
             $orgLevelScope = $this.PipelineSettingsObj.enforceReferencedRepoScopedToken
-
+ 
             if($orgLevelScope -eq $true )
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Job authorization scope of pipelines is limited to explicitly referenced Azure DevOps repositories at organization level.");
@@ -1547,10 +1094,10 @@ class Organization: ADOSVTBase
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope of pipelines is set to all Azure DevOps repositories in the authorized projects at organization level.");
             }
-       }
-       else{
-             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
-       }
+        }
+        else{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
+        }
         return $controlResult
     }
 
@@ -1719,13 +1266,17 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckAutoInjectedExtensions([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            $url ="https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
-            $autoInjExt = @();
+            if($null -eq $this.installedExtensionObj)
+            {
+                $url ="https://extmgmt.dev.azure.com/{0}/_apis/extensionmanagement/installedextensions?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
+                $this.installedExtensionObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+            }
 
-            foreach($extension in $responseObj)
+            $autoInjExt = @();
+            foreach($extension in $this.installedExtensionObj)
             {
                 foreach($cont in $extension.contributions)
                 {
@@ -1733,19 +1284,31 @@ class Organization: ADOSVTBase
                     {
                         if($cont.type -eq "ms.azure-pipelines.pipeline-decorator")
                         {
-                            $autoInjExt +=  ($extension | Select-Object -Property @{Name="Name"; Expression = {$_.extensionName}},@{Name="Publisher"; Expression = {$_.PublisherName}},@{Name="Version"; Expression = {$_.version}})
+                            $autoInjExt +=  $extension
                             break;
                         }
                     }
                 }
             }
 
-            if (($autoInjExt | Measure-Object).Count -gt 0)
+            if ($autoInjExt.Count -gt 0)
             {
-                $controlResult.AddMessage([VerificationResult]::Verify,"Verify the below auto-injected tasks at organization level: ", $autoInjExt);
-                $controlResult.SetStateData("Auto-injected tasks list: ", $autoInjExt);
-                $controlResult.AdditionalInfo += "Total number of auto-injected extensions: " + ($autoInjExt | Measure-Object).Count;
-                $controlResult.AdditionalInfo += "List of auto-injected extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($autoInjExt);
+                $autoInjExt = $autoInjExt | Select-Object extensionName,publisherId,publisherName,version,flags,lastPublished,scopes,extensionId # 'flags' is not available in every extension. It is visible only for built in extensions. Hence this appends 'flags' to trimmed objects.
+                $autoInjExt = @($autoInjExt | Where-Object {$_.flags -notlike "*builtin*" }) # to filter out extensions that are built in and are not visible on portal.
+                $ftWidth = 512 #Used for table output width to avoid "..." truncation
+                $extCount = $autoInjExt.Count;
+
+                if($extCount -gt 0)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the list of auto-injected extensions for your organization: ");
+                    $controlResult.AddMessage("Count of auto-injected extensions: " + $extCount);
+                    $controlResult.AdditionalInfo += "Count of auto-injected extensions: " + $extCount;
+                    $this.ExtensionControlHelper($controlResult, $autoInjExt, 'AutoInjected')
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No auto-injected extensions found.");
+                }
             }
             else
             {
@@ -1763,52 +1326,53 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckMinPCACount([ControlResult] $controlResult)
     {
-        $TotalPCAMembers=0
-        $PCAMembers = @()
-        $PCAMembers += [AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName)
-        $TotalPCAMembers = ($PCAMembers| Measure-Object).Count
-        $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
-        if ($this.graphPermissions.hasGraphAccess)
-        {
-            $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
-            $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
-            if($HumanAcccountCount -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
-                $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try{
+            $TotalPCAMembers=0
+            if ($this.PCAMembersList.Count -eq 0) {
+                $this.PCAMembersList =@([AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName))
             }
-            else{
-                $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+            $PCAMembers = $this.PCAMembersList
+            $TotalPCAMembers = $PCAMembers.Count
+            $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
+            if ([IdentityHelpers]::hasGraphAccess)
+            {
+                if($this.svcAccountsList.Count -eq 0 -and $this.humanAccountsList.Count -eq 0){
+                    $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
+                    $this.svcAccountsList = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress);
+                    $this.humanAccountsList= @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress);
+                }
+                $svcAccounts=$this.svcAccountsList
+                $humanAccounts=$this.humanAccountsList
+                if($humanAccounts.Count -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured meet the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+                }
+                [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
             }
-            if($TotalPCAMembers -gt 0){
-                $controlResult.AddMessage("Verify the following Project Collection Administrators: ")
-                $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
-            }
-
-            if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
-                $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
-                $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
-                $controlResult.SetStateData("List of human Project Collection Administrators: ",$humanAccounts)
-            }
-
-            if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
-                $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
-                $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
-                $controlResult.SetStateData("List of service account Project Collection Administrators: ",$svcAccounts)
+            else
+            {
+                $controlResult.AddMessage([Constants]::graphWarningMessage+"`n");
+                $PCAMembers = @($PCAMembers | Select-Object displayName,mailAddress)
+                if($TotalPCAMembers -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+                }
+                if($TotalPCAMembers -gt 0){
+                    $display=($PCAMembers |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage("Current set of Project Collection Administrators: `n",$display)
+                    $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
+                    $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;
+                }
             }
         }
-        else
-        {
-            $PCAMembers = $PCAMembers | Select-Object displayName,mailAddress
-            if($TotalPCAMembers -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
-                $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
-            }
-            else{
-                $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are more than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
-            }
-            if($TotalPCAMembers -gt 0){
-                $controlResult.AddMessage("Verify the following Project Collection Administrators: ",$PCAMembers)
-                $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
-                $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
-            }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,"Couldn't fetch the list of Project Collection Administrators.");
+            $controlResult.LogException($_)
         }
 
         return $controlResult
@@ -1816,89 +1380,92 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckMaxPCACount([ControlResult] $controlResult)
     {
-
-        $TotalPCAMembers=0
-        $PCAMembers = @()
-        $PCAMembers += [AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName)
-        $TotalPCAMembers = ($PCAMembers| Measure-Object).Count
-        $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
-        if ($this.graphPermissions.hasGraphAccess)
-        {  
-            $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
-            $HumanAcccountCount = ($SvcAndHumanAccounts.humanAccount | Measure-Object).Count
-            if($HumanAcccountCount -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
-                $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try{
+            $TotalPCAMembers=0
+            
+            if ($this.PCAMembersList.Count -eq 0) {
+                $this.PCAMembersList =@([AdministratorHelper]::GetTotalPCAMembers($this.OrganizationContext.OrganizationName))
             }
-            else{
-                $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are within than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+            $PCAMembers = $this.PCAMembersList
+            $TotalPCAMembers = $PCAMembers.Count
+            $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
+            if ([IdentityHelpers]::hasGraphAccess)
+            {  
+                if($this.svcAccountsList.Count -eq 0 -and $this.humanAccountsList.Count -eq 0){
+                    $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
+                    $this.svcAccountsList = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress);
+                    $this.humanAccountsList= @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress);
+                }
+                $svcAccounts=$this.svcAccountsList
+                $humanAccounts=$this.humanAccountsList
+                
+                if($humanAccounts.Count -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are within the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+                }
+                [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
             }
-            if($TotalPCAMembers -gt 0){
-                $controlResult.AddMessage("Verify the following Project Collection Administrators: ")
-                $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
-            }
-
-            if (($SvcAndHumanAccounts.humanAccount | Measure-Object).Count -gt 0) {
-                $humanAccounts = $SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress
-                $controlResult.AddMessage("`nHuman Administrators: $(($humanAccounts| Measure-Object).Count)", $humanAccounts)
-                $controlResult.SetStateData("List of human Project Collection Administrators: ",$humanAccounts)
-            }
-
-            if (($SvcAndHumanAccounts.serviceAccount | Measure-Object).Count -gt 0) {
-                $svcAccounts = $SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress
-                $controlResult.AddMessage("`nService Account Administrators: $(($svcAccounts| Measure-Object).Count)", $svcAccounts)
-                $controlResult.SetStateData("List of service account Project Collection Administrators: ",$svcAccounts)
+            else
+            {
+                $controlResult.AddMessage([Constants]::graphWarningMessage+"`n");
+                $PCAMembers = @($PCAMembers | Select-Object displayName,mailAddress)
+                if($TotalPCAMembers -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+                }
+                 
+                if($TotalPCAMembers -gt 0){
+                    $display=($PCAMembers |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage("Current set of Project Collection Administrators: `n",$display)
+                    $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
+                    $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;
+                }
             }
         }
-        else
-        {
-            $PCAMembers = $PCAMembers | Select-Object displayName,mailAddress
-            if($TotalPCAMembers -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
-                $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
-            }
-            else{
-                $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
-            }
-            if($TotalPCAMembers -gt 0){
-                $controlResult.AddMessage("Verify the following Project Collection Administrators: ",$PCAMembers)
-                $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
-                $controlResult.AdditionalInfo += "Total number of Project Collection Administrators: " + $TotalPCAMembers;
-            }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,"Couldn't fetch the list of Project Collection Administrators.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
 
     hidden [ControlResult] CheckAuditStream([ControlResult] $controlResult)
     {
-
+        #Note : Admin access is required to fetch the audit streams configure in organization
         try
         {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
             $url ="https://auditservice.dev.azure.com/{0}/_apis/audit/streams?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
+            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
 
             # If no audit streams are configured, 'count' property is available for $responseObj[0] and its value is 0.
             # If audit streams are configured, 'count' property is not available for $responseObj[0].
             #'Count' is a PSObject property and 'count' is response object property. Notice the case sensitivity here.
 
-            # TODO: When there are no audit streams configured, CheckMember in the below condition returns false when checknull flag [third param in CheckMember] is not specified (default value is $true). Assiging it $false. Need to revisit.
             if(([Helpers]::CheckMember($responseObj[0],"count",$false)) -and ($responseObj[0].count -eq 0))
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "No audit stream has been configured on the organization.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Audit streaming is not setup for the organization.");
             }
              # When audit streams are configured - the below condition will be true.
             elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0))
             {
-                $enabledStreams = $responseObj | Where-Object {$_.status -eq 'enabled'}
-                $enabledStreams = $enabledStreams | Select-Object consumerType,displayName,status
-                $enabledStreamsCount = ($enabledStreams | Measure-Object).Count
-                $totalStreamsCount = ($responseObj | Measure-Object).Count
-                $controlResult.AddMessage("`nTotal number of configured audit streams: $($totalStreamsCount)");
-                $controlResult.AdditionalInfo += "Total number of configured audit streams: " + $totalStreamsCount;
-                if(($enabledStreams | Measure-Object).Count -gt 0)
+                $enabledStreams = @($responseObj | Where-Object {$_.status -eq 'enabled'} | Select-Object consumerType,displayName,status)
+                $enabledStreamsCount = $enabledStreams.Count
+                $totalStreamsCount = $responseObj.Count
+                $controlResult.AddMessage("`nCount of configured audit streams: $($totalStreamsCount)");
+                $controlResult.AdditionalInfo += "Count of configured audit streams: " + $totalStreamsCount;
+                if ($enabledStreamsCount -gt 0)
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "One or more audit streams configured on the organization are currently enabled.");
-                    $controlResult.AddMessage("`nTotal number of configured audit streams that are enabled: $($enabledStreamsCount)", $enabledStreams);
-                    $controlResult.AdditionalInfo += "Total number of configured audit streams that are enabled: " + $enabledStreamsCount;
-                    $controlResult.AdditionalInfo += "List of configured audit streams that are enabled: " + [JsonHelper]::ConvertToJsonCustomCompressed($enabledStreams);
+                    $controlResult.AddMessage("`nCount of configured audit streams that are enabled: $($enabledStreamsCount)");
+                    $controlResult.AddMessage(($enabledStreams | FT | out-string));
+                    $controlResult.AdditionalInfo += "Count of configured audit streams that are enabled: " + $enabledStreamsCount;
+                    $controlResult.AdditionalInfo += "List of configured audit streams that are enabled: " + $enabledStreams;
                 }
                 else
                 {
@@ -1920,53 +1487,61 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] ValidateRequestedExtensions([ControlResult] $controlResult)
     {
-        $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
-        $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.OrganizationContext.OrganizationName);
-        $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-
+        #TODO: Need to add deep scan support for requested extensions. Currently there is no documented api for requested extensions and in portal api response, required properties are missing to perform deep scan. PG bug id: 7628393.
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
-
-            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and $responseObj[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
+            if($null -eq $this.allExtensionsObj)
             {
-                $requestedExtensions = $responseObj[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.requestedExtensions
-
-                $ApprovedExtensions = $requestedExtensions | Where-Object { $_.requestState -eq "1" }
-                $PendingExtensionsForApproval = $requestedExtensions | Where-Object { $_.requestState -eq "0" }
-                $RejectedExtensions = $requestedExtensions | Where-Object { $_.requestState -eq "2" }
-
-                if(($PendingExtensionsForApproval| Measure-Object).Count -gt 0)
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
+                $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.OrganizationContext.OrganizationName);
+                $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                $this.allExtensionsObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody));
+            }
+            if([Helpers]::CheckMember($this.allExtensionsObj[0],"dataProviders") -and $this.allExtensionsObj.dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
+            {
+                $requestedExtensions = @($this.allExtensionsObj[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.requestedExtensions)
+                if($requestedExtensions.Count -gt 0)
                 {
-                    $extensionList = @();
-                    $extensionList +=  ($PendingExtensionsForApproval | Select-Object extensionID, publisherId,@{Name="Requested By";Expression={requests.userName}})
-
+                    $PendingExtensionsForApproval = @($requestedExtensions | Where-Object { $_.requestState -eq "0" })
+                    $PendingExtensionsForApproval =  @($PendingExtensionsForApproval | Select-Object extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}})
                     $ftWidth = 512 #To avoid "..." truncation
-                    <#if(($ApprovedExtensions | Measure-Object).Count -gt 0)
-                    {
-                        $controlResult.AddMessage("No. of requested extensions that are approved: " + $ApprovedExtensions.Count)
-                        $controlResult.AddMessage("`nExtension details")
-                        $display = ($ApprovedExtensions |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)
-                        $controlResult.AddMessage($display)
-                    }
+                    $pendingExtCount = $PendingExtensionsForApproval.Count
 
-                    if(($RejectedExtensions| Measure-Object).Count -gt 0)
+                    if($pendingExtCount -gt 0)
                     {
-                        $controlResult.AddMessage("No. of requested extensions that are rejected: " + $RejectedExtensions.Count)
-                        $controlResult.AddMessage("`nExtension details")
-                        $display = ($RejectedExtensions |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)
+                        $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the list of requested extensions for your organization that are pending for approval: ");
+                        $controlResult.AddMessage("Count of requested extensions that are pending for approval: $($pendingExtCount)")
+                        $controlResult.AdditionalInfo += "Count of requested extensions that are pending for approval: " + $pendingExtCount;
+                        $display = ($PendingExtensionsForApproval |  FT -AutoSize | Out-String -Width $ftWidth)
                         $controlResult.AddMessage($display)
-                    }
-                    #>
-                    $controlResult.AddMessage([VerificationResult]::Verify, "`nReview the below list of pending requested extensions: ");
-                    $controlResult.AddMessage("No. of requested extensions that are pending for approval: " + $PendingExtensionsForApproval.Count)
-                    $controlResult.AddMessage("`nExtension details")
-                    $display = ($PendingExtensionsForApproval |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)
-                    $controlResult.AddMessage($display)
+                        $controlResult.SetStateData("List of pending requested extensions: ", $PendingExtensionsForApproval);
+                        $controlResult.AdditionalInfo += "List of requested extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($PendingExtensionsForApproval);
 
-                    $controlResult.SetStateData("List of requested extensions: ", $extensionList);
-                    $controlResult.AdditionalInfo += "No. of pending requested extensions: " + ($PendingExtensionsForApproval | Measure-Object).Count;
-                    $controlResult.AdditionalInfo += "List of requested extensions: " + [JsonHelper]::ConvertToJsonCustomCompressed($extensionList);
+                        <# Not displaying approved and rejected extension details as these details are not required.
+                            $ApprovedExtensions = @($requestedExtensions | Where-Object { $_.requestState -eq "1" })
+                            if($ApprovedExtensions.Count -gt 0)
+                            {
+                                $controlResult.AddMessage("Count of requested extensions that are approved: " + $ApprovedExtensions.Count)
+                                $controlResult.AddMessage("`nList of approved extension: ")
+                                $display = ($ApprovedExtensions |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)
+                                $controlResult.AddMessage($display)
+                            }
+
+                            $RejectedExtensions = @($requestedExtensions | Where-Object { $_.requestState -eq "2" })
+                            if($RejectedExtensions.Count -gt 0)
+                            {
+                                $controlResult.AddMessage("Count of requested extensions that are rejected: " + $RejectedExtensions.Count)
+                                $controlResult.AddMessage("`nList of rejected extension: ")
+                                $display = ($RejectedExtensions |  FT extensionID, publisherId,@{Name="Requested By";Expression={$_.requests.userName}} -AutoSize | Out-String -Width $ftWidth)
+                                $controlResult.AddMessage($display)
+                            }
+                        #>
+                    }
+                    else
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No requested extensions found that are pending for approval.");
+                    }       
                 }
                 else
                 {
@@ -2011,7 +1586,7 @@ class Organization: ADOSVTBase
                         $inactiveGuestUsers+= $_
                     }
                 }
-                
+
                 $inactiveGuestUsersCount = $inactiveGuestUsers.Count
                 $controlResult.AddMessage("`nFound total $($users.Count) guest users.");
                 if($inactiveGuestUsersCount -gt 0)
@@ -2053,7 +1628,7 @@ class Organization: ADOSVTBase
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in org.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in organization.");
             }
         }
         catch {
@@ -2191,7 +1766,7 @@ class Organization: ADOSVTBase
                         }
                     }
                     if($formattedData.Count -gt 0)
-                    {   
+                    {
                         $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}
                         $groups = $formattedData | Group-Object "Principal Name"
                         $results = @()
@@ -2215,9 +1790,9 @@ class Organization: ADOSVTBase
 
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No Guest User found.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in organization.");
                 }
-                $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");                                        
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");
             }
             catch
             {
@@ -2240,7 +1815,7 @@ class Organization: ADOSVTBase
             {
                 $controlResult.VerificationResult = [VerificationResult]::Failed
                 $AdminGroupsToCheckForInactiveUser = @($this.ControlSettings.Organization.AdminGroupsToCheckForInactiveUser)
-       
+
                 $inactiveUsersWithAdminAccess = @()
                 $inactivityThresholdInDays = 90
                 if([Helpers]::CheckMember($this.ControlSettings,"Organization.AdminInactivityThresholdInDays"))
@@ -2252,43 +1827,44 @@ class Organization: ADOSVTBase
                 ## API Call to fetch Org level collection groups
                 $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1"
                 $body = '{"contributionIds": ["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext": {"properties": {"sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'| ConvertFrom-Json
-    
+
                 $body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_settings/groups"
                 $response = @([WebRequestHelper]::InvokePostWebRequest($url, $body))
-                
+
                 if([Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider")
                 {
-                    $OrgCollectionGroups = @($response[0].dataProviders.'ms.vss-admin-web.org-admin-groups-data-provider'.identities) 
+                    $OrgCollectionGroups = @($response[0].dataProviders.'ms.vss-admin-web.org-admin-groups-data-provider'.identities)
                     $ReqdAdminGroups = @($OrgCollectionGroups | Where-Object { $_.displayName -in $AdminGroupsToCheckForInactiveUser })
-                    
+
                     $allAdminMembers =@();
 
                     $ReqdAdminGroups | ForEach-Object{
                         $currentGroup = $_
-
-                        # [AdministratorHelper]::AllPCAMembers is a static variable. Always needs to be initialized. At the end of each iteration, it will be populated with members of that particular admin group.
-                        [AdministratorHelper]::AllPCAMembers = @();
-                        # Helper function to fetch flattened out list of group members.
-                        [AdministratorHelper]::FindPCAMembers($currentGroup.descriptor, $this.OrganizationContext.OrganizationName)
-
                         $groupMembers = @();
 
-                        # Add the members of current group to this temp variable.
-                        $groupMembers += [AdministratorHelper]::AllPCAMembers
+                        if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($currentGroup.descriptor) -and [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor].count -gt 0) {
+                            $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                        }
+                        else
+                        {
+                            [ControlHelper]::FindGroupMembers($currentGroup.descriptor, $this.OrganizationContext.OrganizationName,"")
+                            $groupMembers +=  [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                        }
+
                         # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
                         if($groupMembers.count -gt 0)
                         {
-                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor } )} 
+                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor } )}
                         }
                     }
-                
+
                     $AdminUsersMasterList = @()
                     $AdminUsersFailureCases = @()
                     $controlResult.AddMessage("Found total $($allAdminMembers.count) admin users in the org.")
                     if($allAdminMembers.count -gt 0)
                     {
                         $groups = $allAdminMembers | Group-Object "mailAddress"
-                        $AdminUsersMasterList += foreach( $grpobj in $groups ){                                      
+                        $AdminUsersMasterList += foreach( $grpobj in $groups ){
                                                   $PrincipalName = $grpobj.name
                                                   $OrgGroup = ($grpobj.group.groupName  | select -Unique)-join ','
                                                   $DisplayName = $grpobj.group.name | select -Unique
@@ -2296,15 +1872,15 @@ class Organization: ADOSVTBase
                                                   $descriptor = $grpobj.group.descriptor | select -Unique
                                                   [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date ; Descriptor = $descriptor}
                                                 }
-                                            
-                        $inactiveUsersWithAdminAccess =@()                        
+
+                        $inactiveUsersWithAdminAccess =@()
 
                         if($AdminUsersMasterList.count -gt 0)
                         {
                             $currentObj = $null
                             $AdminUsersMasterList | ForEach-Object{
-                                try 
-                                {   
+                                try
+                                {
                                     if([Helpers]::CheckMember($_,"PrincipalName"))
                                     {
                                         $currentObj = $_
@@ -2326,33 +1902,33 @@ class Organization: ADOSVTBase
                                                     $_.LastAccessedDate = "User was never active"
                                                 }
                                                 else {
-                                                    $_.LastAccessedDate = $dateobj.ToString("MM-dd-yyyy")
+                                                    $_.LastAccessedDate = $dateobj.ToString("d MMM yyyy")
                                                 }
                                                 $inactiveUsersWithAdminAccess += $_
-                                            }                        
+                                            }
                                         }
-                                    }                                   
+                                    }
                                 }
-                                catch 
+                                catch
                                 {
                                     $controlResult.LogException($_)
                                     $AdminUsersFailureCases += $currentObj
                                 }
                             }
-                        }                        
+                        }
                     }
                     else {
                        $controlResult.AddMessage([VerificationResult]::Passed, "No user found with admin roles in the organization.")
-                    }                       
-                    
+                    }
+
                     if($null -eq (Compare-Object -ReferenceObject $AdminUsersMasterList -DifferenceObject $AdminUsersFailureCases))
                     {
                         $controlResult.AddMessage([VerificationResult]::Error, "Unable to fetch details of inactive users in admin role. Please run the scan with admin priveleges.")
-                    }                    
+                    }
                     elseif($inactiveUsersWithAdminAccess.count -gt 0)
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed,"Count of users found inactive for $($inactivityThresholdInDays) days in admin roles: $($inactiveUsersWithAdminAccess.count) ");
-                        $controlResult.AddMessage("`nInactive user details:")
+                        $controlResult.AddMessage("`nInactive admin user details:")
                         $display = ($inactiveUsersWithAdminAccess|FT PrincipalName,DisplayName,Group,LastAccessedDate  -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
@@ -2364,17 +1940,536 @@ class Organization: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Not able to fetch Org level collection groups")
                 }
-                $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForInactiveUser|FT|Out-String)");    
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForInactiveUser|FT|Out-String)");
             }
             catch
             {
                 $controlResult.AddMessage([VerificationResult]::Error, "Not able to fetch Org level collection groups")
                 $controlResult.LogException($_)
-            }         
+            }
         }
         else{
             $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting inactive accounts is not defined in control setting of your organization.");
-        }        
+        }
         return $controlResult;
     }
+
+    hidden [void] GetExtensionPropertiesFromControlSetting()
+    {
+        if ([AzSKRoot]::IsDetailedScanRequired -eq $true -and [Helpers]::CheckMember($this.ControlSettings, "Organization"))
+        {
+            if([Helpers]::CheckMember($this.ControlSettings.Organization, "KnownExtensionPublishers"))
+            {
+                $this.extensionDetailsFromOrgPolicy.knownExtPublishers = $this.ControlSettings.Organization.KnownExtensionPublishers;
+                $this.extensionDetailsFromOrgPolicy.isKnownPublishersPropertyPresent = $true
+            }
+
+            if([Helpers]::CheckMember($this.ControlSettings.Organization, "ExtensionsLastUpdatedInYears"))
+            {
+                $this.extensionDetailsFromOrgPolicy.extensionsLastUpdatedInYears = $this.ControlSettings.Organization.ExtensionsLastUpdatedInYears
+                $this.extensionDetailsFromOrgPolicy.islastUpdatedPropertyPresent = $true
+            }
+
+            if([Helpers]::CheckMember($this.ControlSettings.Organization, "ExtensionCriticalScopes") )
+            {
+                $this.extensionDetailsFromOrgPolicy.extensionCriticalScopes=$this.ControlSettings.Organization.ExtensionCriticalScopes;
+                $this.extensionDetailsFromOrgPolicy.isCriticalScopesPropertyPresent = $true
+            }
+
+            if([Helpers]::CheckMember($this.ControlSettings.Organization, "NonProductionExtensionIndicators"))
+            {
+                $this.extensionDetailsFromOrgPolicy.nonProductionExtensionIndicators =$this.ControlSettings.Organization.NonProductionExtensionIndicators;
+                $this.extensionDetailsFromOrgPolicy.isNonProdIndicatorsPropertyPresent = $true
+            }
+
+            if([Helpers]::CheckMember($this.ControlSettings.Organization, "ExemptedExtensionNames"))
+            {
+                $this.extensionDetailsFromOrgPolicy.ExemptedExtensionNames += $this.ControlSettings.Organization.ExemptedExtensionNames;
+            }
+
+            $this.extensionDetailsFromOrgPolicy.isComputed = $true
+        }
+    }
+
+    hidden [psobject] ComputeExtensionDetails($extensionListObj, $scanType)
+    {
+        $this.ComputedExtensionDetails = @{knownExtensions = @(); unknownExtensions = @(); staleExtensionList = @(); extensionListWithCriticalScopes = @(); extensionListWithNonProductionExtensionIndicators = @(); nonProdExtensions = @(); topPublisherExtensions=@(); privateExtensions=@()}; 
+        $date = Get-Date
+        $thresholdDate = $date.AddYears(-$this.extensionDetailsFromOrgPolicy.extensionsLastUpdatedInYears)
+        $combinedTable = @()
+        $extensionListObj | ForEach-Object {
+            $extensionInfo="" | Select-Object ExtensionName,PublisherId,PublisherName,Version,KnownPublisher,TooOld,LastPublished,SensitivePermissions,Scopes,NonProdByName,Preview,TopPublisher,PrivateVisibility,MarketPlaceAverageRating,Score,NoOfInstalls,MaxScore
+            $extensionInfo.ExtensionName = $_.extensionName
+            $extensionInfo.PublisherId = $_.publisherId
+            $extensionInfo.PublisherName = $_.publisherName
+            $extensionInfo.Version = $_.version
+            $extensionInfo.LastPublished = ([datetime] $_.lastPublished).ToString("d MMM yyyy")
+            $extensionInfo.Score = 0
+            $extensionInfo.MaxScore = 0
+
+            # Checking for known publishers
+            $extensionInfo.MaxScore += 10 # Known publisher score
+            if($_.publisherName -in $this.extensionDetailsFromOrgPolicy.knownExtPublishers)
+            {
+                $extensionInfo.KnownPublisher = "Yes"
+                $this.ComputedExtensionDetails.knownExtensions += $_
+                $extensionInfo.Score += 10
+            }
+            else {
+                $extensionInfo.KnownPublisher = "No"
+                $this.ComputedExtensionDetails.unKnownExtensions += $_
+            }
+
+            # Checking whether extension is too old or not
+            if(([datetime] $_.lastPublished) -lt $thresholdDate)
+            {
+                $this.ComputedExtensionDetails.staleExtensionList += $_
+                $extensionInfo.TooOld = "Yes"
+                $diffInYears = [Math]::Round(($thresholdDate - ([datetime] $_.lastPublished)).Days/365)
+                $extensionInfo.Score -= $diffInYears * (5)
+            }
+            else {
+                $extensionInfo.TooOld = "No"
+            }
+
+            # fetchinbg scope details for shared and requested extensions
+            if ($scanType -eq 'Shared' -or $scanType -eq 'Requested') {
+                $scopes = @()
+                try {
+                    $orgId = ($this.ResourceContext.ResourceId -split("/"))[1]
+                    $uri = 'https://marketplace.visualstudio.com/acquisition?itemName={0}.{1}&targetId={2}&utm_source=vstsproduct&utm_medium=ExtHubManageList' -f $_.publisherId, $_.extensionId, $orgId
+                    $header = [WebRequestHelper]::GetAuthHeaderFromUri($uri)
+                    $response = Invoke-Webrequest -URI $uri -Headers $header
+                    $searchClass = "vss-item-scope"
+                    $parsedHTML = $response.ParsedHtml.getElementsByClassName($searchClass) | % { $_.text}
+                    $scopes += $parsedHTML | ConvertFrom-Json
+                    $_.scopes = $scopes.Value
+                }
+                catch {
+                    #eat exception
+                }
+            }
+
+            #Checking whether extension have sensitive permissions
+            $riskyScopes = @($_.scopes | ? {$_ -in $this.extensionDetailsFromOrgPolicy.extensionCriticalScopes})
+            if($riskyScopes.count -gt 0)
+            {
+                $this.ComputedExtensionDetails.extensionListWithCriticalScopes += $_
+                $extensionInfo.SensitivePermissions = ($riskyScopes -join ',' )
+                $extensionInfo.Score -= $riskyScopes.Count * 5
+            }
+            else {
+                $extensionInfo.SensitivePermissions = "None"
+            }
+
+            # Checking whether extension name comes under exempted extension name or non prod indicators
+            $extensionInfo.MaxScore += 10 # Score for extension Name  not in non prod indicators
+            if($_.extensionName -in $this.extensionDetailsFromOrgPolicy.ExemptedExtensionNames)
+            {
+                $extensionInfo.NonProdByName = "No"
+                $extensionInfo.Score += 10
+            }
+            else
+            {
+                $isExtensionNameInIndicators = $false
+                for($j=0;$j -lt $this.extensionDetailsFromOrgPolicy.nonProductionExtensionIndicators.Count;$j++)
+                {
+                    if( $_.extensionName -match $this.extensionDetailsFromOrgPolicy.nonProductionExtensionIndicators[$j])
+                    {
+                        $isExtensionNameInIndicators = $true
+                        break
+                    }
+                }
+                if($isExtensionNameInIndicators)
+                {
+                    $extensionInfo.NonProdByName = "Yes"
+                    $this.ComputedExtensionDetails.extensionListWithNonProductionExtensionIndicators += $_
+                    $extensionInfo.Score -= 10
+                }
+                else
+                {
+                    $extensionInfo.NonProdByName = "No"
+                    $extensionInfo.Score += 10
+                }
+            }
+
+            $url="https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery?api-version=6.1-preview.1"
+            $inputbody = "{
+                'assetTypes': null,
+                'filters': [
+                    {
+                        'criteria': [
+                            {
+                                'filterType': 7,
+                                'value': '$($_.publisherId).$($_.extensionId)'
+                            }
+                        ]
+                    }
+                ],
+                'flags': 870
+            }"
+            try {
+                $response= Invoke-WebRequest -Uri $url `
+                -Method Post `
+                -ContentType "application/json" `
+                -Body $inputbody `
+                -UseBasicParsing
+
+                $responseObject=$response.Content | ConvertFrom-Json
+            }
+            catch {
+                #eat exception
+            }
+
+            # if response object does not get details of extension, those extensions are private extensions
+            $extensionInfo.MaxScore += 10   # Private visibility score
+            $extensionInfo.MaxScore += 10   # Preview in Gallery flags score
+            $extensionInfo.MaxScore += 10   # Marketplace average rating score
+            $extensionInfo.MaxScore += 10   # Top publisher certification score
+
+            if([Helpers]::CheckMember($responseobject.results[0], "extensions") -eq $false )
+            {
+                $extensionInfo.PrivateVisibility = "Yes"
+                $extensionInfo.Preview = "Unavailable"
+                $extensionInfo.Score -= 10
+
+                if($null -eq $this.allExtensionsObj)
+                {
+                    $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
+                    $orgURL="https://dev.azure.com/{0}/_settings/extensions" -f $($this.OrganizationContext.OrganizationName);
+                    $inputbody =  "{'contributionIds':['ms.vss-extmgmt-web.ext-management-hub'],'dataProviderContext':{'properties':{'sourcePage':{'url':'$orgURL','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'extensions','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                    $this.allExtensionsObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+                }
+                if ($scanType -eq 'Installed' -or $scanType -eq 'AutoInjected') {
+                
+                    $allInstalledExtensions = @()
+                    if(($allInstalledExtensions.Count -eq 0) -and [Helpers]::CheckMember($this.allExtensionsObj[0],"dataProviders") -and $this.allExtensionsObj.dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider')
+                    {
+                        # Using sharedExtension Object so that we can get details of all extensions from shared extension api and later use it to compute top publisher for installed extension
+                        $allInstalledExtensions = $this.allExtensionsObj[0].dataProviders.'ms.vss-extmgmt-web.extensionManagmentHub-collection-data-provider'.installedextensions
+                    }
+                    $currentExtension = $_
+
+                    #This refernce variable contains current private extension's top publisher details
+                    $refVar = ($allInstalledExtensions | Where-Object {($_.extensionId -eq $currentExtension.extensionId) -and ($_.publisherId -eq $currentExtension.publisherId) })
+                }
+                else {
+                    $refVar = $_
+                }
+
+                # if refvar is null then making Unavailable for top publisher
+                if($refVar)
+                {
+                    if($refVar.isCertifiedPublisher)
+                    {
+                        $extensionInfo.TopPublisher = "Yes"
+                        $extensionInfo.Score += 10
+                    }
+                    else {
+                        $extensionInfo.TopPublisher = "No"
+                    }
+                }
+                else {
+                    $extensionInfo.TopPublisher = "Unavailable"
+                }
+
+                $this.ComputedExtensionDetails.privateExtensions += $_
+            }
+            else
+            {
+                $extensionInfo.PrivateVisibility = "No"
+                $extensionInfo.Score += 10
+                $extensionflags=$responseobject.results[0].extensions.flags
+
+                if($extensionflags -match 'Preview')
+                {
+                    $extensionInfo.Preview = "Yes"
+                    $this.ComputedExtensionDetails.nonProdExtensions += $_
+                    $extensionInfo.Score -= 10
+                }
+                else {
+                    $extensionInfo.Preview = "No"
+                    $extensionInfo.Score += 10
+                }
+
+                $publisherFlags = $responseobject.results[0].extensions.publisher.flags
+                if($publisherFlags -match "Certified")
+                {
+                    $extensionInfo.TopPublisher = "Yes"
+                    $this.ComputedExtensionDetails.topPublisherExtensions += $_
+                    $extensionInfo.Score += 10
+                }
+                else {
+                    $extensionInfo.TopPublisher = "No"
+                }
+            }
+
+            if([Helpers]::CheckMember($responseObject.results[0].extensions,"statistics"))
+            {
+                $statistics = $responseObject.results[0].extensions.statistics
+                $extensionInfo.NoOfInstalls = 0
+                $statistics | ForEach-Object {
+                    if($_.statisticName -eq "averagerating")
+                    {
+                        $extensionInfo.MarketPlaceAverageRating = [Math]::Round($_.Value,1)
+                        $extensionInfo.Score += [Math]::Round($extensionInfo.MarketPlaceAverageRating*2)
+                    }
+                    if($_.statisticName -eq "install")
+                    {
+                        $extensionInfo.NoOfInstalls += $_.Value
+                    }
+                    if($_.statisticName -eq "onpremDownloads")
+                    {
+                        $extensionInfo.NoOfInstalls += $_.Value
+                    }
+
+                }
+                if($null -eq $extensionInfo.MarketPlaceAverageRating)
+                {
+                    $extensionInfo.MarketPlaceAverageRating = 0
+                }
+
+            }
+            else {
+                $extensionInfo.MarketPlaceAverageRating = "Unavailable"
+                $extensionInfo.NoOfInstalls = "Unavailable"
+            }
+
+            $combinedTable += $extensionInfo
+        }
+        return $combinedTable
+    }
+
+    hidden ExtensionControlHelper($controlResult, $extensionList, $scanType)
+    {
+        $ftWidth = 512
+        if (-not $this.extensionDetailsFromOrgPolicy.isComputed) {
+            $this.GetExtensionPropertiesFromControlSetting()
+        }
+
+        if ([AzSKRoot]::IsDetailedScanRequired -eq $false) 
+        {
+            if (([Helpers]::CheckMember($this.ControlSettings ,"Organization.KnownExtensionPublishers")))
+            {
+                $knownExtPublishers = $this.ControlSettings.Organization.KnownExtensionPublishers;
+                $controlResult.AddMessage("`nNote: The following are considered as 'known publishers': `n`t[$($this.ControlSettings.Organization.KnownExtensionPublishers -join ', ')]");
+                
+                $knownExtensions = @($extensionList | Where-Object {$_.publisherName -in $knownExtPublishers})
+                $knownCount = $knownExtensions.Count
+
+                $unknownExtensions = @($extensionList | Where-Object {$_.publisherName -notin $knownExtPublishers})
+                $unknownCount = $unknownExtensions.Count
+                if($unknownCount -gt 0){
+
+                    $controlResult.AddMessage("`nCount of extensions (from publishers not in 'known publishers' list): $unknownCount");
+                    $controlResult.AdditionalInfo += "Count of extensions (from publishers not in 'known publishers' list): " + $unknownCount;
+                    $controlResult.AddMessage("`nExtension details (from publishers not in 'known publishers' list): ")
+                    $display = ($unknownExtensions |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
+                    $controlResult.AddMessage($display)
+                    $controlResult.AdditionalInfo += "Extensions (from unknown publishers): " + [JsonHelper]::ConvertToJsonCustomCompressed($unknownExtensions);
+                }
+                if($knownCount -gt 0){
+                    $controlResult.AddMessage("`nCount of extensions (from publishers in the 'known publishers' list): $knownCount");
+                    $controlResult.AdditionalInfo += "Count of extensions (from publishers in the 'known publishers' list): " + $knownCount;
+                    $controlResult.AddMessage("`nExtension details (from publishers in the 'known publishers' list): ")
+                    $display = ($knownExtensions |FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
+                    $controlResult.AddMessage($display)
+                }
+
+                $stateData = @{
+                    known_Extensions = @($knownExtensions);
+                    unknown_Extensions = @($unknownExtensions);
+                };
+
+                $controlResult.SetStateData("List of extensions: ", $stateData);
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of known extension publishers is not defined in control settings for your organization.");
+            }
+        }
+        else ## Deep scan start
+        {
+            $this.PublishCustomMessage("You have requested for a detailed scan, this will take a few minutes..`n",[MessageType]::Warning);
+            $controlResult.AddMessage([Constants]::HashLine)
+            if( !($this.extensionDetailsFromOrgPolicy.isKnownPublishersPropertyPresent -and $this.extensionDetailsFromOrgPolicy.islastUpdatedPropertyPresent -and $this.extensionDetailsFromOrgPolicy.isCriticalScopesPropertyPresent -and $this.extensionDetailsFromOrgPolicy.isNonProdIndicatorsPropertyPresent))
+            {
+                $controlResult.AddMessage("*** Note: Some settings are not present in the policy configuration. ***")
+            }
+            $controlResult.AddMessage("`nNote: Apart from this LOG, a combined listing of all extensions and their security sensitive attributes has been published to the '$($this.ResourceContext.ResourceName)"+"_"+"$($scanType)"+"ExtensionInfo.CSV' file in the current folder. Columns with value as 'Unavailable' indicate that data was not available.")
+
+            $infotable = [ordered] @{
+                "KnownPublisher" = "Yes/No [if extension is from [$($this.extensionDetailsFromOrgPolicy.knownExtPublishers -join ', ')]]";
+                "Too old (> $($this.extensionDetailsFromOrgPolicy.extensionsLastUpdatedInYears) yrs)" = "Yes/No [if extension has not been updated by publishers for more than [$($this.extensionDetailsFromOrgPolicy.extensionsLastUpdatedInYears)] yrs]";
+                "SensitivePermissions" = "Lists if any permissions requested by extension are in the sensitive permissions list. (See list below for the permissions considered sensitive.)";
+                "NonProd (GalleryFlag)" = "Yes/No [if the gallery flags in the manifest mention 'preview']";
+                "NonProd (ExtensionName)" = "Yes/No [if extension name indicates [$($this.extensionDetailsFromOrgPolicy.nonProductionExtensionIndicators -join ', ')]]";
+                "TopPublisher" = "Yes/No [if extension's publisher has 'Top Publisher' certification]";
+                "PrivateVisibility" = "Yes/No [if extension has been shared privately with the org]" ;
+                "Score" = "Secure score of extension. (See further below for the scoring scheme.) "
+            }
+
+            $scoretable = @(
+                New-Object psobject -Property $([ordered] @{"Parameter"="'Top Publisher' certification";"Score (if Yes)"="+10"; "Score (if No)" = "0"});
+                New-Object psobject -Property $([ordered] @{"Parameter"="Known publishers";"Score (if Yes)"="+10"; "Score (if No)" = "0"});
+                New-Object psobject -Property $([ordered] @{"Parameter"="Too old ( x years )";"Score (if Yes)"="-5*(No. of years when extension was last published before threshhold)"; "Score (if No)" = "0"})
+                New-Object psobject -Property $([ordered] @{"Parameter"="Sensitive permissions(n)";"Score (if Yes)"="-5*(No. of sensitive permmissions found)"; "Score (if No)" = "0"});
+                New-Object psobject -Property $([ordered] @{"Parameter"="NonProd (GalleryFlag)";"Score (if Yes)"="-10"; "Score (if No)" = "+10"})
+                New-Object psobject -Property $([ordered] @{"Parameter"="NonProd (ExtensionName)";"Score (if Yes)"="-10"; "Score (if No)" = "+10"})
+                New-Object psobject -Property $([ordered] @{"Parameter"="Private visibility";"Score (if Yes)"="-10"; "Score (if No)" = "+10"})
+                New-Object psobject -Property $([ordered] @{"Parameter"="Average Rating ";"Score (if Yes)"="+2*(Marketplace average rating)"; "Score (if No)" = "0"})
+            ) | Format-Table -AutoSize | Out-String -Width $ftWidth
+
+            $helperTable = $infotable.keys | Select @{l='Column';e={$_}},@{l='Interpretation';e={$infotable.$_}} | Format-Table -AutoSize | Out-String -Width $ftWidth
+            $controlResult.AddMessage($helperTable)
+            $controlResult.AddMessage("The following extension permissions are considered sensitive: ")
+            if(!$this.extensionDetailsFromOrgPolicy.isCriticalScopesPropertyPresent)
+            {
+                $controlResult.AddMessage("*** 'Extension critical scopes' setting is not present in the policy configuration. ***")
+            }
+            $controlResult.AddMessage($this.extensionDetailsFromOrgPolicy.extensionCriticalScopes)
+            $controlResult.AddMessage("`nThe following scheme is used for assigning secure score: ")
+            $controlResult.AddMessage($scoretable)
+            
+            $combinedTable = @($this.ComputeExtensionDetails($extensionList, $scanType))
+            $MaxScore = $combinedTable[0].MaxScore
+            $controlResult.AddMessage("Note: Using this scheme an extension can get a maximum secure score of [$MaxScore].`n")
+            $controlResult.AddMessage([Constants]::HashLine)
+            $controlResult.AddMessage([Constants]::SingleDashLine +"`nLooking for extensions from 'known publishers'`n"+[Constants]::SingleDashLine)
+            $controlResult.AddMessage("`nNote: The following are considered as 'known publishers': `n`t[$($this.extensionDetailsFromOrgPolicy.knownExtPublishers -join ', ')]");
+            if(!$this.extensionDetailsFromOrgPolicy.IsKnownPublishersPropertyPresent)
+            {
+                $controlResult.AddMessage("*** 'Known publisher' setting is not present in the policy configuration. ***")
+            }
+            $unknownCount = $this.ComputedExtensionDetails.unKnownExtensions.Count
+            if($unknownCount -gt 0){
+
+                $controlResult.AddMessage("`nCount of extensions (from publishers not in 'known publishers' list): $unknownCount");
+                $controlResult.AdditionalInfo += "Count of extensions (from publishers not in 'known publishers' list): " + $unknownCount;
+                $controlResult.AddMessage("`nExtension details (from publishers not in 'known publishers' list): ")
+                $display = ($this.ComputedExtensionDetails.unKnownExtensions |  FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
+                $controlResult.AddMessage($display)
+                $controlResult.AdditionalInfo += "Extensions (from unknown publishers): " + [JsonHelper]::ConvertToJsonCustomCompressed($this.ComputedExtensionDetails.unKnownExtensions);
+            }
+
+            $knownCount = $this.ComputedExtensionDetails.knownExtensions.Count
+            if($knownCount -gt 0){
+                $controlResult.AddMessage("`nCount of extensions (from publishers in the 'known publishers' list): $knownCount");
+                $controlResult.AdditionalInfo += "Count of extensions (from publishers in the 'known publishers' list): " + $knownCount;
+                $controlResult.AddMessage("`nExtension details (from publishers in the 'known publishers' list): ")
+                $display = ($this.ComputedExtensionDetails.knownExtensions|FT ExtensionName, publisherId, publisherName, Version -AutoSize | Out-String -Width $ftWidth)
+                $controlResult.AddMessage($display)
+            }
+
+            $stateData = @{
+                known_Extensions = @($this.ComputedExtensionDetails.knownExtensions);
+                unKnown_Extensions = @($this.ComputedExtensionDetails.unKnownExtensions);
+            };
+
+            $controlResult.SetStateData("List of extensions: ", $stateData);
+
+            if($this.ComputedExtensionDetails.staleExtensionList.count -gt 0)
+            {
+                $controlResult.AddMessage([Constants]::HashLine)
+                $controlResult.AddMessage([Constants]::SingleDashLine +"`nLooking for extensions that have not been updated by publishers for more than [$($this.extensionDetailsFromOrgPolicy.extensionsLastUpdatedInYears)] years...`n" +[Constants]::SingleDashLine)
+                if(!$this.extensionDetailsFromOrgPolicy.islastUpdatedPropertyPresent)
+                {
+                    $controlResult.AddMessage("***'Last Updated' setting is not present in the policy configuration.***")
+                }
+                $controlResult.AddMessage("`nCount of extensions that haven't been updated in the last [$($this.extensionDetailsFromOrgPolicy.extensionsLastUpdatedInYears)] years: "+ $this.ComputedExtensionDetails.staleExtensionList.count)
+                $controlResult.AddMessage("`nExtension details (oldest first): ")
+                $display = ($this.ComputedExtensionDetails.staleExtensionList| Sort-Object lastPublished | FT ExtensionName, @{Name = "lastPublished"; Expression = { ([datetime] $_.lastPublished).ToString("d MMM yyyy")} }, PublisherId, PublisherName, version -AutoSize | Out-String -Width $ftWidth)
+                $controlResult.AddMessage($display)
+            }
+
+            if($this.ComputedExtensionDetails.extensionListWithCriticalScopes.count -gt 0)
+            {
+                $controlResult.AddMessage([Constants]::HashLine)
+                $controlResult.AddMessage([Constants]::SingleDashLine + "`nLooking for extensions that have sensitive access permissions...`n" + [Constants]::SingleDashLine)
+                if(!$this.extensionDetailsFromOrgPolicy.isCriticalScopesPropertyPresent)
+                {
+                    $controlResult.AddMessage("*** 'Extension critical scopes' setting is not present in the policy configuration. ***")
+                }
+                $controlResult.AddMessage("Note: The following permissions are considered sensitive: `n`t[$($this.extensionDetailsFromOrgPolicy.extensionCriticalScopes -join ', ')]")
+                $controlResult.AddMessage("`nCount of extensions that have sensitive access permissions: "+ $this.ComputedExtensionDetails.extensionListWithCriticalScopes.count)
+                $controlResult.AddMessage("`nExtension details (extensions that have sensitive access permissions): ")
+                $display= ($this.ComputedExtensionDetails.extensionListWithCriticalScopes | FT ExtensionName, scopes, PublisherId, PublisherName  -AutoSize | Out-String -Width $ftWidth)
+                $controlResult.AddMessage($display)
+            }
+
+            if($this.ComputedExtensionDetails.extensionListWithNonProductionExtensionIndicators.count -gt 0)
+            {
+                $controlResult.AddMessage([Constants]::HashLine)
+                $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that are not production ready...`n"+[Constants]::SingleDashLine)
+                if(!$this.extensionDetailsFromOrgPolicy.isNonProdIndicatorsPropertyPresent)
+                {
+                    $controlResult.AddMessage("*** 'Non-production extension indicators' setting is not present in the policy configuration. ***")
+                }
+                $controlResult.AddMessage("Note: This checks for extensions with words [$($this.extensionDetailsFromOrgPolicy.nonProductionExtensionIndicators -join ', ')] in extension names.")
+                $controlResult.AddMessage("`nCount of non-production extensions (based on name):  "+ $this.ComputedExtensionDetails.extensionListWithNonProductionExtensionIndicators.count)
+                $controlResult.AddMessage("`nExtension details (non-production extensions (based on name)):  ")
+                $controlResult.AddMessage( ($this.ComputedExtensionDetails.extensionListWithNonProductionExtensionIndicators | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth))
+            }
+
+            if($this.ComputedExtensionDetails.nonProdExtensions.count -gt 0)
+            {
+                $controlResult.AddMessage([Constants]::HashLine)
+                $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that are marked 'Preview' via gallery flags...`n"+[Constants]::SingleDashLine)
+                $controlResult.AddMessage("`nCount of extensions marked as 'Preview' via gallery flags: "+ $this.ComputedExtensionDetails.nonProdExtensions.count);
+                $controlResult.AddMessage("`nExtension details (extensions which are marked as 'Preview' via gallery flags): ")
+                $controlResult.AddMessage(($this.ComputedExtensionDetails.nonProdExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth));
+            }
+
+            if($this.ComputedExtensionDetails.topPublisherExtensions.count -gt 0)
+            {
+                $controlResult.AddMessage([Constants]::HashLine)
+                $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that are from publishers with a 'Top Publisher' certification...`n"+[Constants]::SingleDashLine);
+                $controlResult.AddMessage("`nCount of extensions from 'Top Publishers': "+$this.ComputedExtensionDetails.topPublisherExtensions.count);
+                $controlResult.AddMessage("`nExtension details (extensions from 'Top Publishers'): ")
+                $controlResult.AddMessage(($this.ComputedExtensionDetails.topPublisherExtensions | FT ExtensionName, PublisherId, PublisherName -AutoSize | Out-String -Width $ftWidth) );
+            }
+
+            if($this.ComputedExtensionDetails.privateExtensions.count -gt 0)
+            {
+                $controlResult.AddMessage([Constants]::HashLine)
+                $controlResult.AddMessage([Constants]::SingleDashLine+"`nLooking for extensions that have 'private' visibility for the org...`n"+[Constants]::SingleDashLine);
+                $controlResult.AddMessage("`nCount of extensions with 'private' visibility: "+$this.ComputedExtensionDetails.privateExtensions.count);
+                $controlResult.AddMessage("`nExtension details (extensions with 'private' visibility): ")
+                $controlResult.AddMessage(($this.ComputedExtensionDetails.privateExtensions | FT ExtensionName, PublisherId, PublisherName, Version -AutoSize | Out-String -Width $ftWidth));
+            }
+
+            if ($scanType -eq 'Installed') {
+                [Organization]::InstalledExtensionInfo = $combinedTable
+            }
+            elseif ($scanType -eq 'Shared') {
+                [Organization]::SharedExtensionInfo = $combinedTable
+            }
+            elseif ($scanType -eq 'Requested') {
+                [Organization]::RequestedExtensionInfo = $combinedTable
+            }
+            elseif ($scanType -eq 'AutoInjected') {
+                [Organization]::AutoInjectedExtensionInfo = $combinedTable
+            }
+        }
+        ## end Deep scan
+        
+    }
+
+    hidden [void] FetchOrgLevelADOGroupDescriptor()
+    {
+        try {
+            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName);
+            $body = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/_settings/groups","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}'
+            $body = ($body.Replace("{0}", $this.OrganizationContext.OrganizationName)) | ConvertFrom-Json
+            $response = @([WebRequestHelper]::InvokePostWebRequest($url,$body));
+
+            if ([Helpers]::CheckMember($response[0],"dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider") {
+                $this.ADOGrpDescriptor = $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities
+            }
+        }
+        catch{
+            throw
+        }
+    }
+
 }

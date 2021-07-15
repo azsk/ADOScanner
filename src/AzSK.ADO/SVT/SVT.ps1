@@ -100,6 +100,12 @@ function Get-AzSKADOSecurityStatus
 		[Alias("fd", "FeedName","fdn")]
 		$FeedNames,
 
+		[string]
+		[Parameter(HelpMessage="Environment name for which the security evaluation has to be perform.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("en", "EnvironmentName","env")]
+		$EnvironmentNames,
+
 		[switch]
 		[Parameter(HelpMessage="Scan all supported resource types present under organization like build, release, projects etc.")]
 		[Alias("sar", "saa" , "ScanAllArtifacts", "sat", "ScanAllResourceTypes")]
@@ -122,6 +128,12 @@ function Get-AzSKADOSecurityStatus
 		[Parameter(Mandatory = $false)]
 		[Alias("xt")]
 		$ExcludeTags,
+
+		[string]
+		[Parameter(Mandatory = $false)]
+		[Alias("xcids")]
+		[AllowEmptyString()]
+		$ExcludeControlIds,
 
 		[switch]
 		[Parameter(Mandatory = $false)]
@@ -166,6 +178,11 @@ function Get-AzSKADOSecurityStatus
         [Parameter(Mandatory = $false)]
 		[Alias("upc")]
 		$UsePartialCommits,
+
+		[switch]
+        [Parameter(Mandatory = $false)]
+		[Alias("dnrr")]
+		$DoNotRefetchResources,
 
 		[switch]
         [Parameter(Mandatory = $false)]
@@ -286,15 +303,39 @@ function Get-AzSKADOSecurityStatus
 		[Alias("prn")]
 		$PolicyRepoName,
 
-		[switch]
-		[Parameter(HelpMessage="Scan control which require graph permission for evaluation.")]
-		[Alias("uga")]
-		$UseGraphAccess,
-
 		[ValidateSet("Graph", "RegEx", "GraphThenRegEx")]
-        [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
+    [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
 		[Alias("acem")]
-		[string] $ALTControlEvaluationMethod
+    [string] $ALTControlEvaluationMethod,
+        
+    [string]
+		[Parameter(Mandatory = $false, HelpMessage="Folder path of builds to be scanned.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("bp")]
+		$BuildsFolderPath,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage="Folder path of releases to be scanned.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("rfp")]
+		$ReleasesFolderPath,
+
+    
+		[switch]
+    [Parameter(HelpMessage="Print SARIF logs for the scan.")]
+    [Alias("gsl")]
+    $GenerateSarifLogs,
+
+		[switch]
+		[Parameter(HelpMessage="Switch to reset default logged in user.")]
+		[Alias("rc")]
+		$ResetCredentials,
+        
+    [switch]
+		[Parameter(HelpMessage="Switch to copy current data object in local folder to facilitate control fix.")]
+		[Alias("pcf")]
+		$PrepareForControlFix
+
 
 	)
 	Begin
@@ -312,7 +353,28 @@ function Get-AzSKADOSecurityStatus
 			[AzSKConfig]::Instance = $null
 			[ConfigurationHelper]::ServerConfigMetadata = $null
 			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
-			[AutoBugLog]::AutoBugInstance = $null
+      
+      [AutoBugLog]::AutoBugInstance = $null
+      #Clear the cache of nested groups if the org name is not matching from previous scan in same session
+			if ([ControlHelper]::GroupMembersResolutionObj.ContainsKey("OrgName") -and [ControlHelper]::GroupMembersResolutionObj["OrgName"] -ne $OrganizationName) {
+				[ControlHelper]::GroupMembersResolutionObj = @{}
+				[AdministratorHelper]::isCurrentUserPCA = $false
+				[AdministratorHelper]::isCurrentUserPA= $false
+                [AdministratorHelper]::AllPCAMembers = @()
+				[AdministratorHelper]::AllPAMembers = @()
+			}
+      
+      if ($PrepareForControlFix -eq $true)  {
+          if ($UsePartialCommits -ne $true)  {
+              Write-Host "PrepareForControlFix switch requires -UsePartialCommits switch." -ForegroundColor Red
+              return;
+          }
+          elseif ([String]::IsNullOrEmpty($ControlIds) -or $ControlIds -match ','){
+              Write-Host "PrepareForControlFix switch requires one controlid. Use -ControlIds parameter to provide it." -ForegroundColor Red
+              return;
+          }
+      }
+
 			if($PromptForPAT -eq $true)
 			{
 				if($null -ne $PATToken)
@@ -370,7 +432,18 @@ function Get-AzSKADOSecurityStatus
 				}
 			}
 
-			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames);
+
+			if ($ResetCredentials)
+			{
+				[ContextHelper]::PromptForLogin = $true
+			}
+			else
+			{
+				[ContextHelper]::PromptForLogin =$false
+			}
+
+			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources);
+
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus)
 			{
@@ -383,6 +456,8 @@ function Get-AzSKADOSecurityStatus
 
 					$secStatus.FilterTags = $FilterTags;
 					$secStatus.ExcludeTags = $ExcludeTags;
+
+					$secStatus.ExcludeControlIdString = $ExcludeControlIds
 
 					#build the attestation options object
 					[AttestationOptions] $attestationOptions = [AttestationOptions]::new();

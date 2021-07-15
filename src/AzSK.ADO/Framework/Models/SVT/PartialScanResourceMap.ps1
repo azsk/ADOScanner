@@ -13,6 +13,9 @@ class PartialScanResource
 	[int] $ScanRetryCount
     [DateTime] $CreatedDate
 	[DateTime] $ModifiedDate
+	[string] $Name
+	#[PSObject] $ResourceDetails
+	
 }
 
 enum ActiveStatus{

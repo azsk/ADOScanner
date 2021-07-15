@@ -22,7 +22,24 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Feed_AuthZ_Restrict_Permissions",
+      "ControlID": "ADO_Repository_AuthZ_Dont_Grant_All_Pipelines_Access",
+      "Description": "Do not make repository accessible to all pipelines.",
+      "Id": "Repository110",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckRepositoryPipelinePermission",
+      "Rationale": "If a repository is granted access to all pipelines, an unauthorized user can steal information from the repository by building a pipeline and accessing the repository.",
+      "Recommendation": "1. Go to Project --> 2. Repositories --> 3. Select the repository --> 4. Security --> 5. Under 'Pipeline Permissions', remove pipelines that repository no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Feed_AuthZ_Restrict_Broader_Group_Access",
       "Description": "Do not allow a broad group of users to upload packages to feed.",
       "Id": "Feed100",
       "ControlSeverity": "High",
@@ -35,7 +52,8 @@
         "TCP",
         "AuthZ",
         "RBAC",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -47,13 +65,66 @@
       "Automated": "Yes",
       "MethodName": "CheckSecureFilesPermission",
       "Rationale": "If a secure file is granted access to all pipelines, an unauthorized user can steal information from the secure files by building a pipeline and accessing the secure file.",
-      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. Select your secure file from the list --> 6. Click Security --> 7. Under 'Pipeline Permissions', remove pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. Select your secure file from the list --> 6. Click 'Pipeline Permissions', remove pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
       "Tags": [
         "SDL",
         "AuthZ",
         "Automated",
         "Best Practice",
         "MSW"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_SecureFile_AuthZ_Restrict_Broader_Group_Access",
+      "Description": "Do not allow secure file to have excessive permissions for a broad group of users.",
+      "Id": "SecureFile110",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupAccessOnSecureFile",
+      "Rationale": "If a broad group of users (e.g. Contributors) have excessive permissions on a secure file, A malicious user may gain access of stored secret/certificate which may open the door to malicious attack (e.g. SSH for accessing machine/server using these secret/certifcate).",
+      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. Select your secure file from the list --> 6. Click 'Security' --> 7. Review users/groups which have administrator and user roles. Ensure broader groups have read-only access. Refer to detailed scan log (SecureFile.LOG) for broader group list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "MSW"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Environment_AuthZ_Dont_Grant_All_Pipelines_Access",
+      "Description": "Do not make environment accessible to all pipelines.",
+      "Id": "Environment100",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckEnviornmentAccess",
+      "Rationale": "To support security of the pipeline operations, environments must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
+      "Recommendation": "1. Go to Pipelines --> 2. Environments --> 3. Select your environment from the list --> 4. Click Security --> 5. Under 'Pipeline Permissions', remove pipelines that environment no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "MSW"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Environment_AuthZ_Restrict_Broader_Group_Access",
+      "Description": "Do not allow environment to have excessive permissions for a broad group of users.",
+      "Id": "Environment110",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupAccessOnEnvironment",
+      "Rationale": "If a broad group of users (e.g., Contributors) have excessive permissions on an environment, a malicious user can abuse these permissions to compromise integrity of the environment.",
+      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Environments --> 4. Select your environment from the list --> 5. Click 'Security' --> 6. Review users/groups which have administrator and user roles. Ensure broader groups have read-only access. Refer to detailed scan log (Environment.LOG) for broader group list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
       ],
       "Enabled": true
     }

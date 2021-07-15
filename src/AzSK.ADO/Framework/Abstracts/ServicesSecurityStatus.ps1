@@ -8,7 +8,10 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	[Datetime] $ScanEnd
 	[bool] $IsAIEnabled = $false;
 	[bool] $IsBugLoggingEnabled = $false;
+	[bool] $IsSarifEnabled = $false;
 	$ActualResourcesPerRsrcType = @(); # Resources count based on resource type . This count is evaluated before comparison with resource tracker file.
+    [bool] $IsControlFixCommand = $false;
+    [string] $controlInternalId;
 
 	ServicesSecurityStatus([string] $organizationName, [InvocationInfo] $invocationContext, [SVTResourceResolver] $resolver):
         Base($organizationName, $invocationContext)
@@ -37,17 +40,42 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if($invocationContext.BoundParameters["AutoBugLog"] -or $invocationContext.BoundParameters["AutoCloseBugs"]){
 			$this.IsBugLoggingEnabled = $true; 
 		}
-		if($invocationContext.BoundParameters["UseGraphAccess"]){
-			[IdentityHelpers]::useGraphAccess = $true; 
-		}
 		if($invocationContext.BoundParameters["ALTControlEvaluationMethod"])
 		{
 			[IdentityHelpers]::ALTControlEvaluationMethod = $invocationContext.BoundParameters["ALTControlEvaluationMethod"]
 		}
+		if($invocationContext.BoundParameters["GenerateSarifLogs"]){
+			$this.IsSarifEnabled = $true; 
+		}
 		[PartialScanManager]::ClearInstance();
 		$this.BaselineFilterCheck();
 		$this.UsePartialCommitsCheck();
-	}
+    }
+    
+    #Contructor for Set-AzSKADOSecurityStatus command
+    ServicesSecurityStatus([string] $organizationName, [string] $projectName, [InvocationInfo] $invocationContext, [SVTResourceResolver] $resolver, [string] $ControlId):
+    Base($organizationName, $invocationContext)
+    {
+        $this.IsControlFixCommand = $true
+        $this.FilterTags = "AutomatedFix"
+        $this.MapTagsToControlIds();
+        if ($this.ControlIds -contains $ControlId)
+        {
+            $this.Resolver = $resolver;
+            $this.Resolver.FetchControlFixBackupFile($organizationName, $projectName, $this.controlInternalId);
+            $this.Resolver.LoadResourcesForScan();
+            if (!$this.Resolver.SVTResources) {
+                return;
+            }
+            $this.UsePartialCommits = $invocationContext.BoundParameters["UsePartialCommits"];
+            $this.UsePartialCommitsCheck();
+        }
+        else {
+		    $this.PublishCustomMessage("`nControl $($ControlId) does not support automated fix.",[MessageType]::Warning);
+            break;
+        }
+    }
+
 
 	hidden [SVTEventContext[]] RunForAllResources([string] $methodNameToCall, [bool] $runNonAutomated, [PSObject] $resourcesList)
 	{
@@ -83,7 +111,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		
 		$automatedResources += ($resourcesList | Where-Object { $_.ResourceTypeMapping });
 		
-		# Resources skipped from scan using excludeResourceName parameter
+		<# Resources skipped from scan using excludeResourceName parameter
 		$ExcludedResources=$this.resolver.ExcludedResources ;
 		if(($this.resolver.ExcludeResourceNames| Measure-Object).Count -gt 0)
 		{
@@ -103,6 +131,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			$this.PublishCustomMessage("For a detailed list of excluded resources, see 'ExcludedResources-$($this.RunIdentifier).txt' in the output log folder.")
 			$this.ReportExcludedResources($this.resolver);
 		}
+        #>
+        
 		if($runNonAutomated)
 		{
 			$this.ReportNonAutomatedResources();
@@ -258,7 +288,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					$result += $currentResourceResults;
 				}
 				
-				if([Organization]::InstalledextensionInfo)
+				if([Organization]::InstalledextensionInfo -or [Organization]::SharedextensionInfo -or [Organization]::AutoInjectedExtensionInfo)
 				{
 					# Default value if property 'ExtensionsLastUpdatedInYears' not exist in ControlSettings
 					$years = 2
@@ -268,12 +298,29 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                     {
                         $years = $svtObject.ControlSettings.Organization.ExtensionsLastUpdatedInYears
 					}
-					$folderpath=([WriteFolderPath]::GetInstance().FolderPath) + "\$($_.ResourceName)"+"_ExtensionInfo.csv";
-					$MaxScore = [Organization]::InstalledextensionInfo[0].MaxScore
-					[Organization]::InstalledextensionInfo | Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old (>$($years)year(s))"; Expression = { $_.TooOld } },@{Name = "LastPublished (MM-dd-yyyy)"; Expression = { $_.lastPublished} },@{Name = "Sensitive Permissions"; Expression = { $_.SensitivePermissions} },@{Name = "NonProd (ExtensionName)"; Expression = { $_.NonProdByName}},@{Name = "NonProd (Galleryflags) "; Expression = { $_.Preview }},TopPublisher,PrivateVisibility,NoOfInstalls,MarketPlaceAverageRating,@{Name = "Score (Out of $($MaxScore))"; Expression = { $_.Score } } | Export-Csv -Path $folderpath -NoTypeInformation #The NoTypeInformation parameter removes the #TYPE information header from the CSV output 
-					[Organization]::InstalledExtensionInfo = @()   # Clearing the static variable value so that extensioninfo.csv file gets generated only once and when computed during the installed extension control
-				}
+					if ([Organization]::InstalledextensionInfo)
+					{
+						$folderpath=([WriteFolderPath]::GetInstance().FolderPath) + "\$($_.ResourceName)"+"_InstalledExtensionInfo.csv";
+						$MaxScore = [Organization]::InstalledextensionInfo[0].MaxScore
+						[Organization]::InstalledextensionInfo | Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old (>$($years)year(s))"; Expression = { $_.TooOld } },@{Name = "LastPublished"; Expression = { $_.lastPublished} },@{Name = "Sensitive Permissions"; Expression = { $_.SensitivePermissions} },@{Name = "NonProd (ExtensionName)"; Expression = { $_.NonProdByName}},@{Name = "NonProd (GalleryFlags) "; Expression = { $_.Preview }},TopPublisher,PrivateVisibility,NoOfInstalls,MarketPlaceAverageRating,@{Name = "Score (Out of $($MaxScore))"; Expression = { $_.Score } } | Export-Csv -Path $folderpath -NoTypeInformation -encoding utf8 #The NoTypeInformation parameter removes the #TYPE information header from the CSV output 
+						[Organization]::InstalledExtensionInfo = @()   # Clearing the static variable value so that extensioninfo.csv file gets generated only once and when computed during the installed extension control
+					}
 
+					if ([Organization]::SharedextensionInfo) {
+						$folderpath=([WriteFolderPath]::GetInstance().FolderPath) + "\$($_.ResourceName)"+"_SharedExtensionInfo.csv";
+						$MaxScore = [Organization]::SharedextensionInfo[0].MaxScore
+						[Organization]::SharedextensionInfo | Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old (>$($years)year(s))"; Expression = { $_.TooOld } },@{Name = "LastPublished"; Expression = { $_.lastPublished} },@{Name = "Sensitive Permissions"; Expression = { $_.SensitivePermissions} },@{Name = "NonProd (ExtensionName)"; Expression = { $_.NonProdByName}},@{Name = "NonProd (GalleryFlags) "; Expression = { $_.Preview }},TopPublisher,PrivateVisibility,NoOfInstalls,MarketPlaceAverageRating,@{Name = "Score (Out of $($MaxScore))"; Expression = { $_.Score } } | Export-Csv -Path $folderpath -NoTypeInformation -encoding utf8 #The NoTypeInformation parameter removes the #TYPE information header from the CSV output 
+						[Organization]::SharedextensionInfo = @()   # Clearing the static variable value so that extensioninfo.csv file gets generated only once and when computed during the installed extension control
+					}
+
+					if ([Organization]::AutoInjectedExtensionInfo)
+					{
+						$folderpath=([WriteFolderPath]::GetInstance().FolderPath) + "\$($_.ResourceName)"+"_AutoInjectedExtensionInfo.csv";
+						$MaxScore = [Organization]::AutoInjectedExtensionInfo[0].MaxScore
+						[Organization]::AutoInjectedExtensionInfo | Select-Object extensionName,publisherId,KnownPublisher,publisherName,version,@{Name = "Too Old (>$($years)year(s))"; Expression = { $_.TooOld } },@{Name = "LastPublished"; Expression = { $_.lastPublished} },@{Name = "Sensitive Permissions"; Expression = { $_.SensitivePermissions} },@{Name = "NonProd (ExtensionName)"; Expression = { $_.NonProdByName}},@{Name = "NonProd (GalleryFlags) "; Expression = { $_.Preview }},TopPublisher,PrivateVisibility,NoOfInstalls,MarketPlaceAverageRating,@{Name = "Score (Out of $($MaxScore))"; Expression = { $_.Score } } | Export-Csv -Path $folderpath -NoTypeInformation -encoding utf8 #The NoTypeInformation parameter removes the #TYPE information header from the CSV output 
+						[Organization]::AutoInjectedExtensionInfo = @()   # Clearing the static variable value so that extensioninfo.csv file gets generated only once and when computed during the installed extension control
+					}
+				}
 				$memoryUsage = 0
 				if(($result | Measure-Object).Count -gt 0 -and $this.UsePartialCommits)
 				{
@@ -523,6 +570,9 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			$partialScanMngr.WriteToDurableStorage();
 		}
 		else {
+			if($this.invocationContext.BoundParameters["PrepareForControlFix"]){
+				$partialScanMngr.WriteControlFixDataObject($result);
+			}
 			$partialScanMngr.WriteToResourceTrackerFile();
 		}
 		# write to csv after every partial commit
@@ -533,12 +583,25 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 
 		# append summary counts for bug logging & append control results with bug logging data
 		if($this.IsBugLoggingEnabled){
-			if(!$this.invocationContext.BoundParameters["AutoCloseBugs"]){
+			if($this.invocationContext.BoundParameters["AutoBugLog"]){
 				$partialScanMngr.CollateBugSummaryData($result);
 			}
+			#Closes bugs after every partial commit
 			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 			$AutoClose.AutoCloseBug($result)
+			$bugsClosed=[AutoCloseBugManager]::ClosedBugs
+			#Collects closed bugs information in partialScanManager class
+            $partialScanMngr.CollateClosedBugSummaryData($bugsClosed)
+			#Sends closed bugs information to Log Analytics after every partial commit.
+            if($bugsClosed){
+			    $laInstance= [LogAnalyticsOutput]::Instance
+			    $laInstance.WriteControlResult($bugsClosed)
+            }
         }
+		#sarif information. Save in ControlResultsWithSarifSummary only if controls not available in ControlResultsWithBugSummary
+		if($this.IsSarifEnabled -and !$this.invocationContext.BoundParameters["AutoBugLog"]){
+				$partialScanMngr.CollateSarifData($result);
+		}
 		
 	}
 
@@ -563,6 +626,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					$this.IsPartialCommitScanActive = $true;
                     $allResourcesList = $partialScanMngr.GetAllListedResources()
                     # Get list of non-scanned active resources
+					Write-Host "Finding unscanned resources" -ForegroundColor Yellow
                     $nonScannedResourcesList = $partialScanMngr.GetNonScannedResources();
                     $this.PublishCustomMessage("Resuming scan from last commit. $(($nonScannedResourcesList | Measure-Object).Count) out of $(($allResourcesList | Measure-Object).Count) resources will be scanned.", [MessageType]::Warning);
                     $nonScannedResourceIdList = $nonScannedResourcesList | Select-Object Id | ForEach-Object { $_.Id}
@@ -573,9 +637,28 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                 }
                 else{
                     $this.IsPartialCommitScanActive = $false;
-					$resourceIdList =  $this.Resolver.SVTResources| Where-Object {$null -ne $_.ResourceTypeMapping} | Select ResourceId | ForEach-Object {  $_.ResourceId }
-                	$partialScanMngr.CreateResourceMasterList($resourceIdList);
+					$resourceLists=@()
+					$progressCount=1
+					foreach ($svtResource in $this.Resolver.SVTResources) {
+						
+						if($null -ne $svtResource.ResourceTypeMapping){
+							$resourceList=[PSCustomObject]@{
+								ResourceId = $svtResource.ResourceId
+								ResourceName=$svtResource.ResourceName
+								#ResourceDetails=$svtResource.ResourceDetails
+							}
+							$resourceLists+=$resourceList
+							
+							Write-Progress -Activity "Processed $($progressCount) of $($this.Resolver.SVTResources.Length) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $this.Resolver.SVTResources.Length * 100)
+							$progressCount++;
+						}
+					}
+					Write-Progress -Activity "Processed all untracked resources" -Status "Ready" -Completed
+					#$resourceIdList=@()
+					#$resourceIdList +=  $this.Resolver.SVTResources| Where-Object {$null -ne $_.ResourceTypeMapping} | Select-Object ResourceId, ResourceName, ResourceDetails | ForEach-Object {  $_.ResourceId, $_.ResourceName, $_.ResourceDetails }
+                	$partialScanMngr.CreateResourceMasterList($resourceLists);
                     #This should fetch full list of resources to be scanned 
+					Write-Host "Finding unscanned resources" -ForegroundColor Yellow
                     $nonScannedResourcesList = $partialScanMngr.GetNonScannedResources();
                 }
 				#Set unique partial scan identifier (used for correlating events in AI when partial scan resumes.)
@@ -589,7 +672,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                     $IncompleteScans = 0;
                     $InErrorResources = 0;
                     $ScanResourcesList = $partialScanMngr.GetAllListedResources() 
-                    
+                    $progressCount=1
                     $ScanResourcesList | Group-Object -Property State | Select-Object Name,Count | ForEach-Object{
                         if($_.Name -eq "COMP")
                         {
@@ -601,8 +684,12 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                         elseif ($_.Name -eq "ERR") {
                             $InErrorResources = $_.Count
                         }
+						
+						Write-Progress -Activity "Computed status of $($progressCount) of $($ScanResourcesList.Length) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $ScanResourcesList.Length * 100)
+						$progressCount++;
                           
-                    }   
+                    }  
+					Write-Progress -Activity "Computed status of all untracked resources" -Status "Ready" -Completed 
                     [AIOrgTelemetryHelper]::PublishEvent( "Partial Commit Details",@{"TotalSVTResources"= $($ScanResourcesList |Measure-Object).Count;"ScanCompletedResourcesCount"=$CompletedResources; "NonScannedResourcesCount" = $IncompleteScans;"ErrorStateResourcesCount"= $InErrorResources;"OrganizationName"=$this.OrganizationContext.OrganizationName;"PartialScanIdentifier"=$this.PartialScanIdentifier;}, $null)
                 }
                 catch{
@@ -643,7 +730,13 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					$controlIdsWithFilterTagList += $controlList | Where-Object{ $tagName -in $_.Tags  } | ForEach-Object{ $_.ControlId}
 				}
 				#Assign filtered control Id with tag name 
-				$this.ControlIds = $controlIdsWithFilterTagList
+				$this.ControlIds = @($controlIdsWithFilterTagList | Select-Object -Unique)
+
+				#Need Control's internal id in case of Set-AzSKADOSecurityStatus command 
+				if ($this.IsControlFixCommand)
+				{
+					$this.ControlInternalId = ($controlList | Where-Object { $this.ControlIds -contains $_.ControlId }| Select-Object Id -Unique).Id
+				}
 			}
 
 			#********** Commentiing Exclude tags logic as this will not require perf optimization as excludeTags mostly will result in most of the resources

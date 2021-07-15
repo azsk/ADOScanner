@@ -140,8 +140,8 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Build_SI_Limit_Task_Group_Edit_Permission",
-      "Description": "Do not use task groups that are editable by a broad pool of users.",
+      "ControlID": "ADO_Build_SI_Restrict_Task_Group_Edit_Permission",
+      "Description": "Builds should not use task groups that are editable by a broad pool of users.",
       "Id": "Build200",
       "ControlSeverity": "High",
       "Automated": "Yes",
@@ -254,6 +254,23 @@
       "MethodName": "CheckCIScheduledBuildTrigger",
       "Rationale": "Build agents posess a token scoped to either current project or project collection. This token is available to builds triggered via the Continuous Integration and Scheduled Build mechanisms. If an adversary pushed a malicious commit to the upstream public GitHub repo, they can exfiltrate the token and use it to move laterally throughout the ADO organization (or Project).",
       "Recommendation": "1. Navigate to the build pipeline. -> 2. Triggers -> 3. Disable 'Continuous integration' and 'Scheduled' build.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Build_AuthZ_Restrict_Access_To_OAuth_Token_For_Agent_Jobs",
+      "Description": "Do not allow excessive permissions on OAuth access token to agent jobs in a build pipeline.",
+      "Id": "Build270",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckAccessToOAuthToken",
+      "Rationale": "Malicious task or extensions can use Oauth access token for stealing project details like builds,releases,agent pools etc.",
+      "Recommendation": "1. Navigate to the build pipeline --> 2. Edit the pipeline  --> 3. Go to Agent Job (Run on Agent) --> 4. Disable the field 'Allow scripts to access the OAuth token'",
       "Tags": [
         "SDL",
         "TCP",

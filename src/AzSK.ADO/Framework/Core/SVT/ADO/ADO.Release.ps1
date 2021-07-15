@@ -1512,4 +1512,85 @@ class Release: ADOSVTBase
         }
         $this.releaseActivityDetail.isComputed = $true
     }
+
+    hidden [ControlResult] CheckAccessToOAuthToken([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        if(($this.ReleaseObj | Measure-Object).Count -gt 0)
+        {
+            if([Helpers]::CheckMember($this.ReleaseObj,"environments"))
+            {
+                $stages = @($this.ReleaseObj.environments)
+                if($stages.Count -gt 0)
+                {
+                    $resultObj = @()
+                    $stages | Where-Object {
+                        $currentStage = $_
+                        $stageWithJobDetails = "" | Select-Object StageName,JobName
+                        if([Helpers]::CheckMember($currentStage,"deployPhases"))
+                        {                            
+                            $agentlessjobs = @()
+                            $AgentjobsOAuthAccessTokenDisabled = @()
+                            $jobs = @($currentStage.deployPhases)
+                            $stageWithJobDetails.JobName = @()
+                            $jobs | Where-Object {
+                                $currentJob = $_
+                                if([Helpers]::CheckMember($currentJob,"phaseType") -and (($currentJob.phaseType -eq "agentBasedDeployment") -or ($currentJob.phaseType -eq "machineGroupBasedDeployment")))
+                                {
+                                    if([Helpers]::CheckMember($currentJob,"deploymentInput") -and [Helpers]::CheckMember($currentJob.deploymentInput,"enableAccessToken",$false))
+                                    {
+                                        if($currentJob.deploymentInput.enableAccessToken-eq $true)
+                                        {
+                                            $stageWithJobDetails.StageName = $currentStage.name
+                                            $stageWithJobDetails.JobName += $currentJob.name
+                                        }
+                                        else {
+                                            $AgentjobsOAuthAccessTokenDisabled += $currentJob 
+                                        }
+                                    }
+                                    else {
+                                        $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch OAuth Access token details for stage: $($currentStage.name)");
+                                    }
+                                }
+                                else {
+                                    ## it will be the case of "Agentless job"
+                                    $agentlessjobs += $_                                  
+                                }
+                            }
+                        }
+                        else {
+                            $controlResult.AddMessage([VerificationResult]::Passed,"No job found in release.");                            
+                        }
+                        if( -not ([string]::IsNullOrWhiteSpace($stageWithJobDetails.StageName) -and [string]::IsNullOrWhiteSpace($stageWithJobDetails.JobName)))
+                        {
+                            $resultObj += $stageWithJobDetails
+                        }                                        
+                    }
+
+                    if($resultObj.count -gt 0)
+                    {
+                        $display = $resultObj | FT -AutoSize | Out-String -Width 512
+                        $controlResult.AddMessage([VerificationResult]::Verify,"Accessing OAuth token is enabled for the following stages and jobs:");
+                        $controlResult.AddMessage($display)
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Accessing OAuth token is not enabled for agent job(s) in any stage.");
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No stage found in release.");
+                }
+                
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch release environment details.");
+            }
+            
+        }
+        else {
+            $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch release details.");
+        }
+
+        return $controlResult;
+    }
 }
