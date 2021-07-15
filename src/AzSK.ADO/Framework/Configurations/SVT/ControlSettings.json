@@ -24,7 +24,8 @@
           "ADO_Organization_AuthN_Disable_SSH_Access",
           "ADO_Organization_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
           "ADO_Organization_AuthZ_Revoke_Admin_Access_for_Guest_Users",
-          "ADO_Organization_AuthZ_Remove_Inactive_Guest_Users"
+          "ADO_Organization_AuthZ_Remove_Inactive_Guest_Users",
+          "ADO_Organization_AuthZ_Remove_Disconnected_Accounts"
         ]
       },
       {
@@ -120,6 +121,12 @@
         "ResourceType": "SecureFile",
         "ControlIds": [
           "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access"
+        ]
+      },
+      {
+        "ResourceType": "Environment",
+        "ControlIds": [
+          "ADO_Environment_AuthZ_Dont_Grant_All_Pipelines_Access"
         ]
       }
     ]
