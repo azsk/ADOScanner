@@ -120,7 +120,8 @@
       {
         "ResourceType": "SecureFile",
         "ControlIds": [
-          "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access"
+          "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access",
+          "ADO_SecureFile_AuthZ_Restrict_Broader_Group_Access"
         ]
       },
       {
