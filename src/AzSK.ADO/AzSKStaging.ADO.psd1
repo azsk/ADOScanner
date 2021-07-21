@@ -89,7 +89,8 @@
         'Get-AzSKADOServiceMapping',
         'Set-AzSKADOUsageTelemetryLevel',
         'Set-AzSKADOUserPreference',
-        'Set-AzSKADOSecurityStatus'
+        'Set-AzSKADOSecurityStatus',
+        'BatchScan'
     )
 
     # Cmdlets to export from this module
