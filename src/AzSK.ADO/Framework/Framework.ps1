@@ -35,6 +35,7 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Models\SVT\AttestationOptions.ps1
 . $FrameworkPath\Models\SVT\PSCloudService.ps1
 . $FrameworkPath\Models\SVT\PartialScanResourceMap.ps1
+. $FrameworkPath\Models\SVT\BatchScanResourceMap.ps1
 . $FrameworkPath\Models\RemoteReports\ComplianceStateModel.ps1
 . $FrameworkPath\Models\ControlState.ps1
 . $FrameworkPath\Models\FixControl\FixControlModel.ps1

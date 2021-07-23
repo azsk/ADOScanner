@@ -70,13 +70,18 @@ class BatchScanManager
             }
         }
         if($null -ne $this.MasterFilePath){
-            $this.BatchScanTrackerObj = Get-content $this.MasterFilePath 
+            $this.BatchScanTrackerObj = Get-content $this.MasterFilePath | ConvertFrom-Json
         }
         else {
             $this.BatchScanTrackerObj=$null;
         }
         
     }
+
+   [PSObject] GetBatchStatus(){
+        return Get-content $this.MasterFilePath | ConvertFrom-Json;
+    }
+
     hidden [void] GetBatchTrackerFile($OrgName,$ProjectName){
         $this.OrgName=$OrgName;
         $this.ProjectName=$ProjectName;
@@ -96,7 +101,7 @@ class BatchScanManager
             if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
                 if(Test-Path (Join-Path $this.AzSKTempStatePath (Join-Path $this.OrgName $this.ProjectName)))
                 {
-                    Remove-Item -Path (Join-Path (Join-Path $this.AzSKTempStatePath (Join-Path $this.OrgName $this.ProjectName)) $this.ResourceScanTrackerFileName)
+                    Remove-Item -Path (Join-Path (Join-Path $this.AzSKTempStatePath (Join-Path $this.OrgName $this.ProjectName)) $this.BatchScanTrackerFileName)
                     
                 }
             }
@@ -127,45 +132,17 @@ class BatchScanManager
         return $true;
     }
 
-    [void] CreateBatchMasterList([string] $OrgName, [string] $ProjectName){
-        #TODO: call invoke webrequest in batches, after each batch get id and store as array
-        [System.Uri] $validatedUri = $null;
-        $orginalUri = "";
-        
-        $skipCount = 0
-        $batchCount = 1;
-        $topNQueryString = '&$top=10000'
-        $resourceDfnUrl = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $OrgName, $ProjectName;
-                            
-        while ([System.Uri]::TryCreate($resourceDfnUrl, [System.UriKind]::Absolute, [ref] $validatedUri)) {
-            if ([string]::IsNullOrWhiteSpace($orginalUri)) {
-                $orginalUri = $validatedUri.AbsoluteUri;   
-            }
-            $progressCount = 0;            
-            $skipCount += 10000;
-            $responseAndUpdatedUri = [WebRequestHelper]::InvokeWebRequestForResourcesInBatch($validatedUri, $orginalUri, $skipCount,"build");
-            #API response with resources
-            $resourceDefnsObj = $responseAndUpdatedUri[0];
-            #updated URI
-            $resourceDfnUrl = $responseAndUpdatedUri[1];
-            $buildIds=@()
-            if ( (($resourceDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($resourceDefnsObj[0], "name")) -or ([Helpers]::CheckMember($resourceDefnsObj, "count") -and $resourceDefnsObj[0].count -gt 0)) {
-                foreach ($resourceDef in $resourceDefnsObj) {
-                   $buildIds+=$resourceDef.id
-                    Write-Progress -Activity "Fetching builds in batches. This may take time. Fetched $($progressCount) of $(($resourceDefnsObj | Measure-Object).Count) builds of batch $($batchCount) " -Status "Progress: " -PercentComplete ($progressCount / ($resourceDefnsObj | Measure-Object).Count * 100)
-                    $progressCount = $progressCount + 1;
-                   
-                }
-                $batchCount = $batchCount + 1;  
-                $this.BatchScanTrackerObj=$buildIds 
-                $this.WriteToBatchTrackerFile();                          
-
-            }
-            else {
-                break;
-            }
-         
+    [void] CreateBatchMasterList(){
+        $batchStatus = [BatchScanResourceMap]@{
+            Skip = 0;
+            Top = $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency;
+            CurrentContinuationToken=$null;
+            NextContinuationToken=$null;
+            BatchScanState= [BatchScanState]::INIT;
+            LastModifiedTime = [DateTime]:: UtcNow;
         }
+        $this.BatchScanTrackerObj=$batchStatus;
+        $this.WriteToBatchTrackerFile()
         
     }
 
@@ -183,11 +160,143 @@ class BatchScanManager
                     New-Item -ItemType Directory -Path "$this.AzSKTempStatePath" -ErrorAction Stop | Out-Null
                 }
             }
-            Write-Host "Updating resource tracker file" -ForegroundColor Yellow
-            $this.BatchScanTrackerObj | Out-File -append $this.MasterFilePath -Force
-            Write-Host "Resource tracker file updated" -ForegroundColor Yellow
+            Write-Host "Updating batch tracker file" -ForegroundColor Green
+           [JsonHelper]::ConvertToJsonCustom( $this.BatchScanTrackerObj) | Out-File $this.MasterFilePath -Force
+            Write-Host "Batch tracker file updated" -ForegroundColor Green
             
         }
+    }
+
+    [void] UpdateBatchMasterList(){
+        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+            if(Test-Path $this.MasterFilePath){
+                $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
+                
+                if($batchStatus.BatchScanState -eq [BatchScanState]:: INIT ){
+                    if($batchStatus.Skip -eq 0){
+                        $batchStatus.CurrentContinuationToken=$null;
+                        Write-Host "Found a previous batch scan with no scanned builds. Continuing the scan from start `n " -ForegroundColor Green
+                        
+                    }
+                    else
+                    {
+                        Write-Host "Found a previous batch scan in progress with $($batchStatus.Skip) builds scanned. Continuing the scan for the last $($batchStatus.Top) builds from previous batch. `n " -ForegroundColor Green
+                        
+                        if($this.CheckContTokenValidity($batchStatus.CurrentContinuationToken,$batchStatus.LastModifiedTime)){
+                            return;
+                        }
+                        else {
+                            $batchStatus.CurrentContinuationToken=$this.GetUpdatedContToken($batchStatus.Skip,$batchStatus.Top);
+                            $batchStatus.LastModifiedTime=[DateTime]::UtcNow;
+                        }
+                    }
+                }
+                else {
+                    Write-Host "Found a previous batch scan with $($batchStatus.Skip+$batchStatus.Top) builds scanned. Starting fresh scan for the next batch of $($batchStatus.Top) builds. `n " -ForegroundColor Green
+                   
+                    $batchStatus.Skip+=$this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency;
+                    $batchStatus.BatchScanState=[BatchScanState]::INIT
+                    
+                    if($this.CheckContTokenValidity($batchStatus.NextContinuationToken,$batchStatus.LastModifiedTime)){
+                        $batchStatus.CurrentContinuationToken=$batchStatus.NextContinuationToken
+                        
+                    }
+                    else {
+                        
+                        $batchStatus.CurrentContinuationToken=$this.GetUpdatedContToken($batchStatus.Skip,$batchStatus.Top);
+                        $batchStatus.LastModifiedTime=[DateTime]::UtcNow;
+                        
+                    }
+                }
+                $this.BatchScanTrackerObj=$batchStatus;
+                $this.WriteToBatchTrackerFile();
+            }
+        }
+       
+    }
+
+    hidden [bool] CheckContTokenValidity([string] $continuationToken,[DateTime] $lastModifiedTime){
+        if($continuationToken -eq ""){
+            return $false;
+        }
+        if($lastModifiedTime.AddHours([INT32]::Parse(12)) -lt [DateTime]::UtcNow){
+            return $false
+        }
+        return $true;
+
+    }
+
+    [string] GetSkip(){
+        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+            if(Test-Path $this.MasterFilePath){
+                $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
+                return $batchStatus.Skip;
+            }
+        }
+        return $null;
+    }
+
+    [string] GetTop(){
+        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+            if(Test-Path $this.MasterFilePath){
+                $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
+                return $batchStatus.Top;
+            }
+        }
+        return $null;
+    }
+
+    [string] GetContinuationToken(){
+        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+            if(Test-Path $this.MasterFilePath){
+                $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
+                return $batchStatus.NextContinuationToken;
+            }
+        }
+        return $null;
+    }
+
+    [BatchScanState] GetBatchScanState(){
+        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+            if(Test-Path $this.MasterFilePath){
+                $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
+                return $batchStatus.BatchScanState;
+            }
+        }
+        return $null;
+    }
+
+    [void] UpdateContTokenAndDate($contToken, $lastModifiedTime){
+        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+            if(Test-Path $this.MasterFilePath){
+                $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
+                $batchStatus.ContinuationToken=$contToken;
+                $batchStatus.LastModifiedTime=$lastModifiedTime;
+                $this.BatchScanTrackerObj=$batchStatus;
+                $this.WriteToBatchTrackerFile();
+            }
+        }
+    }
+
+    [string] GetUpdatedContToken([int] $skip, [string] $top){
+        $tempSkip=0;
+        $topNQueryString = '&$top={0}' -f $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency
+        $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $this.OrgName, $this.ProjectName;
+        $continuationToken=$null;
+        $originalUri=$buildDefnURL;
+        $validationUrl=$null;
+        while($tempSkip -ne $skip){
+           $validationUrl=$originalUri;
+           $originalUri=$buildDefnURL;
+            $tempSkip+=$this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency;          
+            
+            $updatedUriAndContToken=[WebRequestHelper]:: InvokeWebRequestForContinuationToken($validationUrl,$originalUri,$tempSkip);
+            $continuationToken=$updatedUriAndContToken[0];
+            $originalUri=$updatedUriAndContToken[1];
+
+        }
+        return $continuationToken;
+
     }
 
 

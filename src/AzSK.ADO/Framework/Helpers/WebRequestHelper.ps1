@@ -456,5 +456,67 @@ class WebRequestHelper {
 	    }				
 			return $outputValues,$originalUri;
 	}
+	static [System.Object[]] InvokeWebRequestForContinuationToken([string] $validatedUri,[string] $originalUri,$skipCount){
+		
+		$success = $false;
+		[int] $retryCount=3;
+		$continuationToken=$null;
+		$outputValues=@();
+		while($retryCount -gt 0 -and -not $success){
+			$retryCount=$retryCount-1;
+		
+		try{
+			
+			$headers=[WebRequestHelper]::GetAuthHeaderFromUri($validatedUri)
+			$requestResult = Invoke-WebRequest -Method Get -Uri $validatedUri -Headers $headers -UseBasicParsing
+			
+			if ($null -ne $requestResult -and $requestResult.StatusCode -ge 200 -and $requestResult.StatusCode -le 399) {
+				if ($null -ne $requestResult.Content) {
+					$json = ConvertFrom-Json $requestResult.Content
+					if ($null -ne $json) {
+						if( $null -eq $skipCount){
+						if (($json | Get-Member -Name "value") -and $json.value) {
+							$outputValues += $json.value;
+						}
+						else {
+							$outputValues += $json;
+						}
+					}
+					if($requestResult.Headers.ContainsKey('x-ms-continuationtoken')){
+						$nPKey = $requestResult.Headers["x-ms-continuationtoken"]
+						$continuationToken=$nPKey;
+						if($null -ne $skipCount){
+							$originalUri= $originalUri +"&%24skip="+$skipCount+ "&continuationToken="+$nPKey
+							
+							}
+								
+					}
+					else {
+						$originalUri = [string]::Empty;
+						$continuationToken="";
+					}
+				}
+				}
+			}
+		$success=$true;
+		}
+		catch{
+			if ($originalUri.Contains("mspim") -and [Helpers]::CheckMember($_, "ErrorDetails.Message")) {		
+				$err = $_.ErrorDetails.Message | ConvertFrom-Json
+				throw ([SuppressedException]::new(($err), [SuppressedExceptionType]::Generic))				
+			}
+			elseif ([Helpers]::CheckMember($_, "Exception.Response.StatusCode") -and $_.Exception.Response.StatusCode -eq "Forbidden") {
+				throw ([SuppressedException]::new(("You do not have permission to view the requested resource."), [SuppressedExceptionType]::InvalidOperation))
+			}
+			elseif ([Helpers]::CheckMember($_, "Exception.Message")) {
+				throw ([SuppressedException]::new(($_.Exception.Message.ToString()), [SuppressedExceptionType]::InvalidOperation))
+			}				
+			else {
+				throw;
+			}
+		}	
+	    }				
+			return $continuationToken,$originalUri,$outputValues;
+	}
 
 }

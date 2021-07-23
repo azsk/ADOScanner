@@ -20,6 +20,7 @@ class SVTResourceResolver: AzSKRoot {
     [string] $ResourcePath;
     [string] $BuildsFolderPath;
     [string] $ReleasesFolderPath;
+    [bool] $BatchScan;
     [string] $organizationName
     hidden [string[]] $ProjectNames = @();
     hidden [string[]] $BuildNames = @();
@@ -59,11 +60,11 @@ class SVTResourceResolver: AzSKRoot {
     hidden [string[]] $EnvironmentNames = @();
 
 
-    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources): Base($organizationName, $PATToken) {
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan): Base($organizationName, $PATToken) {
 
 
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
-        $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources);
+        $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan);
         $this.skipOrgUserControls = $skipOrgUserControls
 
         $this.RepoNames += $this.ConvertToStringArray($RepoNames);
@@ -92,7 +93,7 @@ class SVTResourceResolver: AzSKRoot {
     }
 
 
-    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources) {
+    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan) {
 
         $this.organizationName = $organizationName
         $this.ResourceTypeName = $ResourceTypeName
@@ -102,6 +103,7 @@ class SVTResourceResolver: AzSKRoot {
         $this.UsePartialCommits=$UsePartialCommits
         $this.DoNotRefetchResources=$DoNotRefetchResources
         $this.ReleasesFolderPath = $ReleasesFolderPath.Trim()
+        $this.BatchScan = $BatchScan
 
         if (-not [string]::IsNullOrEmpty($ProjectNames)) {
             $this.ProjectNames += $this.ConvertToStringArray($ProjectNames);
@@ -418,6 +420,11 @@ class SVTResourceResolver: AzSKRoot {
                                 $this.PublishCustomMessage("Folder path not found. Please validate the -BuildsFolderPath provided in the command. `n", [MessageType]::Warning);
                             }
                             else {
+
+                                if($this.BatchScan){
+                                    $this.addBuildsToSvtInBatchScan($projectName,$projectId,$path)
+                                }
+                                else {
                                 #Iterate on each folder to get applicale build definition if folders count is le 100
                                 if ([string]::IsNullOrEmpty($topNQueryString)) {
                                     $topNQueryString = '&$top=10000'
@@ -443,21 +450,28 @@ class SVTResourceResolver: AzSKRoot {
                                     $buildDefURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" + $topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
                                     $this.addResourceToSVT($buildDefURL,"build",$projectName, $organizationId, $projectId, $true, $true, $path,[ref]$nObj)                                  
                                 }
+                            }
 
                             }
                         }
                         elseif ($this.BuildNames -eq "*") {
-                            if ([string]::IsNullOrEmpty($topNQueryString)) {
-                                $topNQueryString = '&$top=10000'
-                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
+                            if($this.BatchScan){
+                                $this.addBuildsToSvtInBatchScan($projectName,$projectId,$null);
                             }
                             else {
-                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
+                                if ([string]::IsNullOrEmpty($topNQueryString)) {
+                                    $topNQueryString = '&$top=10000'
+                                    $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
+                                }
+                                else {
+                                    $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
+                                }
+    
+                                $nObj=$this.MaxObjectsToScan
+                                $this.addResourceToSVT($buildDefnURL,"build",$projectName,$organizationId,$projectId,$false,$false,$null,[ref]$nObj);
+    
                             }
-
-                            $nObj=$this.MaxObjectsToScan
-                            $this.addResourceToSVT($buildDefnURL,"build",$projectName,$organizationId,$projectId,$false,$false,$null,[ref]$nObj);
-
+                           
 
                             }
                         
@@ -1290,6 +1304,48 @@ class SVTResourceResolver: AzSKRoot {
             $this.PublishCustomMessage("`nBackup of control data object not found. Please run GADS with -PrepareforControlFix param to generate the backup.",[MessageType]::Warning);
         }
 	}
+
+    [void] addBuildsToSvtInBatchScan($ProjectName,$ProjectId,$Path){
+        [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
+        $batchStatus= $batchScanMngr.GetBatchStatus();
+        if (!$this.ControlSettings) {
+            $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+        }
+        $topNQueryString = '&$top={0}' -f $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency
+        if($null -ne $batchStatus.CurrentContinuationToken){
+            $buildDefURL= ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0&%24skip={2}&continuationToken={3}" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $ProjectName, $batchStatus.Skip, $batchStatus.CurrentContinuationToken;
+        }
+        else {
+            $buildDefURL= ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0&%24skip={2}" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $ProjectName, $batchStatus.Skip;
+        }
+        $updatedUriAndContToken=[WebRequestHelper]:: InvokeWebRequestForContinuationToken($buildDefURL,$buildDefURL,$null);
+        $continuationToken=$updatedUriAndContToken[0];
+        $buildDefnsObj=$updatedUriAndContToken[2];
+
+        if($null -ne $Path){            
+                  
+            $buildDefnsObj = $buildDefnsObj | Where-Object {$_.path -eq "\$($Path)" -or $_.path -replace '\s','' -match [System.Text.RegularExpressions.Regex]::Escape("$($Path -replace '\s','')")}
+       
+        }
+        $progressCount=1
+        if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
+            foreach ($bldDef in $buildDefnsObj) {
+                $link = $bldDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
+                $buildResourceId = "organization/$($this.OrganizationContext.OrganizationId)/project/$ProjectId/build/$($bldDef.id)";
+                $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
+                Write-Progress -Activity "Fetched $($progressCount) out of $(($buildDefnsObj | Measure-Object).Count) builds " -Status "Progress: " -PercentComplete ($progressCount / ($buildDefnsObj | Measure-Object).Count * 100)
+                $progressCount+=1
+            }
+            $buildDefnsObj = $null;
+            Remove-Variable buildDefnsObj;
+        }
+        Write-Progress -Activity "All builds fetched" -Status "Ready" -Completed
+        $batchStatus.NextContinuationToken=$continuationToken;
+        $batchStatus.LastModifiedTime=[DateTime]::UtcNow;
+        $batchScanMngr.BatchScanTrackerObj = $batchStatus;
+        $batchScanMngr.WriteToBatchTrackerFile();
+        
+    }
 
 
 }
