@@ -84,7 +84,7 @@ class PartialScanManager
 		$this.GetResourceScanTrackerObject();
 	}
 
-     hidden [void] GetResourceTrackerFile($orgName)
+     hidden [void] GetResourceTrackerFile($orgName, $isControlFixCmd)
     {
 		$this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
 		$this.OrgName = $orgName
@@ -100,6 +100,10 @@ class PartialScanManager
         {
             if($null -eq $this.ScanPendingForResources)
             {
+                if($isControlFixCmd)
+                {
+                    $this.ResourceScanTrackerFileName = "ControlFix"+ $this.ResourceScanTrackerFileName
+                }
                 if(![string]::isnullorwhitespace($this.OrgName)){
                     if(Test-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrgName) $this.ResourceScanTrackerFileName))	
                     {
@@ -527,9 +531,10 @@ class PartialScanManager
             }
 	}
 
-	[ActiveStatus] IsPartialScanInProgress($orgName)
+    #Sending $isControlFixCmd as true in case set-azskadosecuritystatus command is used in order to store RTF in separate folder, so that it does not interfere with GADS command
+	[ActiveStatus] IsPartialScanInProgress($orgName, $isControlFixCmd) 
 	{
-		$this.GetResourceTrackerFile($orgName);
+		$this.GetResourceTrackerFile($orgName, $isControlFixCmd);
 		if($null -ne $this.ControlSettings.PartialScan)
 		{
 			$resourceTrackerFileValidforDays = [Int32]::Parse($this.ControlSettings.PartialScan.ResourceTrackerValidforDays);
