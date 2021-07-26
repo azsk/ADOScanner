@@ -40,7 +40,8 @@ class SVTResourceResolver: AzSKRoot {
     [bool] $isUserPCA = $false;
     [bool] $skipOrgUserControls = $false
 
-    [bool] $useIncScan = $false
+    [bool] $UseIncrementalScan = $false
+    [DateTime] $IncrementalDate = 0
 
     [bool] $UsePartialCommits=$false;
     [bool] $DoNotRefetchResources=$false;
@@ -61,11 +62,11 @@ class SVTResourceResolver: AzSKRoot {
     hidden [string[]] $EnvironmentNames = @();
 
 
-    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources, $useIncScan): Base($organizationName, $PATToken) {
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources, $UseIncrementalScan, $IncrementalDate): Base($organizationName, $PATToken) {
 
 
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
-        $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources, $useIncScan);
+        $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources, $UseIncrementalScan, $IncrementalDate);
         $this.skipOrgUserControls = $skipOrgUserControls
 
         $this.RepoNames += $this.ConvertToStringArray($RepoNames);
@@ -94,7 +95,7 @@ class SVTResourceResolver: AzSKRoot {
     }
 
 
-    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources, $useIncScan) {
+    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources, $UseIncrementalScan, $IncrementalDate) {
 
         $this.organizationName = $organizationName
         $this.ResourceTypeName = $ResourceTypeName
@@ -104,8 +105,16 @@ class SVTResourceResolver: AzSKRoot {
         $this.UsePartialCommits=$UsePartialCommits
         $this.DoNotRefetchResources=$DoNotRefetchResources
         $this.ReleasesFolderPath = $ReleasesFolderPath.Trim()
-        $this.useIncScan = $useIncScan
-
+        $this.UseIncrementalScan = $UseIncrementalScan
+        
+        if (-not [string]::IsNullOrWhiteSpace($IncrementalDate)) 
+        {
+            $this.IncrementalDate = $IncrementalDate    
+        }
+        else 
+        {
+            $this.IncrementalDate = [datetime] 0    
+        }
         if (-not [string]::IsNullOrEmpty($ProjectNames)) {
             $this.ProjectNames += $this.ConvertToStringArray($ProjectNames);
 
@@ -208,6 +217,10 @@ class SVTResourceResolver: AzSKRoot {
             $this.longRunningScanCheckPoint = $this.ControlSettings.LongRunningScanCheckPoint;
             #>
 
+        }
+        if($this.UsePartialCommits -ne $true -and $this.UseIncrementalScan -eq $true)
+        {
+            $this.PublishCustomMessage("Using Incremental Scan without Partial Scan. Even if scan crashes, scan timestamp will be used for consequent incremental scans. `n ", [MessageType]::Warning);
         }
     }
 
@@ -1066,17 +1079,17 @@ class SVTResourceResolver: AzSKRoot {
                     $tempLink = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId=" -f $this.OrganizationContext.OrganizationName, $projectName;
                                    
                 }
-                if($this.useIncScan -eq $true)
+                if($this.UseIncrementalScan -eq $true)
                 {
                     if($resourceType -eq "build")
                     {
-                        $incScanHelperObj = [IncScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName)
-                        $applicableDefnsObj = $incScanHelperObj.GetModifiedBuilds($applicableDefnsObj)
+                        $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName, $this.IncrementalDate)
+                        $applicableDefnsObj = $incrementalScanHelperObj.GetModifiedBuilds($applicableDefnsObj)
                     }
                     else 
                     {
-                        $incScanHelperObj = [IncScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName)
-                        $applicableDefnsObj = $incScanHelperObj.GetModifiedReleases($applicableDefnsObj)    
+                        $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName, $this.IncrementalDate)
+                        $applicableDefnsObj = $incrementalScanHelperObj.GetModifiedReleases($applicableDefnsObj)    
                     }
                 }
                 foreach ($resourceDef in $applicableDefnsObj) {
