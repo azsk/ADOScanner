@@ -225,6 +225,7 @@ class IncrementalScanHelper
                 {
                     # all fetched build defs are modified after threshold time
                     # TBD: Fetch more builds or return unmodified
+                    $this.UpdateTimeStamp("Build")
                     return $buildDefnsObj
                 }
                 else {
