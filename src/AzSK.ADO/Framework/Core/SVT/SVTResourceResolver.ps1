@@ -169,7 +169,7 @@ class SVTResourceResolver: AzSKRoot {
         if (-not [string]::IsNullOrEmpty($ServiceIds)) {
             $this.serviceIds += $this.ConvertToStringArray($ServiceIds);
             $this.ProjectNames += $this.ConvertToStringArray($ProjectNames);
-            if ($this.serviceId.Count -eq 0) {
+            if ($this.serviceIds.Count -eq 0) {
                 throw [SuppressedException] "The parameter 'ServiceId' does not contain any string."
             }
         }
