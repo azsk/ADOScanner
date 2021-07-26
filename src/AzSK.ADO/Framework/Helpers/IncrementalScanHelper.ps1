@@ -1,8 +1,8 @@
 Set-StrictMode -Version Latest 
 
-class IncScanHelper
+class IncrementalScanHelper
 {
-    hidden [string] $OrgName = $null;
+    hidden [string] $OrganizationName = $null;
     hidden [string] $ProjectName = $null;
     [PSObject] $ControlSettings;
     hidden [string] $AzSKTempStatePath = (Join-Path $([Constants]::AzSKAppFolderPath) "IncrementalScan");
@@ -16,31 +16,33 @@ class IncScanHelper
     hidden [string] $MasterFilePath;
     hidden [PSObject] $ResourceTimestamps = $null;
     hidden [bool] $FirstScan = $false;
+    hidden [datetime] $IncrementalDate = 0;
     
-    IncScanHelper([string] $organizationName, [string] $projectName)
+    IncrementalScanHelper([string] $organizationName, [string] $projectName, [datetime] $incrementalDate)
     {
-        $this.OrgName = $organizationName
+        $this.OrganizationName = $organizationName
         $this.ProjectName = $projectName
         $this.IncrementalScanTimestampFile = $([Constants]::IncrementalScanTimeStampFile)
         $this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource()
         $this.CATempFile = "CATempLocal.json"
+        $this.IncrementalDate = $incrementalDate
+        $this.MasterFilePath = (Join-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName) $this.projectName) $this.IncrementalScanTimestampFile)
     }
     
-    hidden [datetime] GetThresholdTime([string] $rsrcName)
+    hidden [datetime] GetThresholdTime([string] $resourceName)
     {
         $latestScan = 0
         # retrieve threshold time from storage based on scan source
         if($this.ScanSource -eq 'SDL')
         {
-            if(![string]::isnullorwhitespace($this.OrgName))
+            if(![string]::isnullorwhitespace($this.OrganizationName))
             {
-                $this.MasterFilePath = (Join-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrgName) $this.projectName) $this.IncrementalScanTimestampFile)
                 if(Test-Path $this.MasterFilePath)	
                 {
                     #file exists
                     $this.ResourceTimestamps = Get-Content $this.MasterFilePath | ConvertFrom-Json
 
-                    if([datetime]$this.ResourceTimestamps.$rsrcName -eq 0)
+                    if([datetime]$this.ResourceTimestamps.$resourceName -eq 0)
                     {
                         #previous timestamps exist, but not for this resource
                         $this.FirstScan = $true
@@ -55,9 +57,9 @@ class IncScanHelper
         }
         elseif ($this.ScanSource -eq 'CA') 
         {
-            $this.MasterFilePath = (Join-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrgName) $this.ProjectName) $this.IncrementalScanTimestampFile)
+            $this.MasterFilePath = (Join-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName) $this.ProjectName) $this.IncrementalScanTimestampFile)
             $tempPath = Join-Path $([Constants]::AzSKAppFolderPath) $this.CATempFile
-            $blobPath = Join-Path (Join-Path (Join-Path "IncrementalScan" $this.OrgName) $this.ProjectName) $this.IncrementalScanTimestampFile
+            $blobPath = Join-Path (Join-Path (Join-Path "IncrementalScan" $this.OrganizationName) $this.ProjectName) $this.IncrementalScanTimestampFile
             try 
             {
 				#Validate if Storage is found 
@@ -77,7 +79,7 @@ class IncScanHelper
 						$this.ResourceTimestamps  = Get-ChildItem -Path $tempPath -Force | Get-Content | ConvertFrom-Json
 						#Delete the local file
 						Remove-Item -Path $tempPath
-                        if([datetime]$this.ResourceTimestamps.$rsrcName -eq 0)
+                        if([datetime]$this.ResourceTimestamps.$resourceName -eq 0)
                         {
                             # First incremental scan for current resource
                             $this.FirstScan = $true
@@ -104,12 +106,16 @@ class IncScanHelper
         if(-not $this.FirstScan)
         {
             #$this.ResourceTimestamps = (Get-ChildItem -Path $this.MasterFilePath -Force | Get-Content | ConvertFrom-Json)
-            return [datetime]$this.ResourceTimestamps.$rsrcName
+            $latestScan = [datetime]$this.ResourceTimestamps.$resourceName
+        }
+        if($this.IncrementalDate -ne 0)
+        {
+            $latestScan = $this.IncrementalDate
         }
         return $latestScan
     }
     
-    hidden UpdateTimeStamp([string] $rsrcName)
+    hidden UpdateTimeStamp([string] $resourceName)
     {
         $timeStamp = (Get-Date)
         if($this.ScanSource -eq 'SDL')
@@ -117,19 +123,19 @@ class IncScanHelper
             if($this.FirstScan -eq $true)
             {
                 #check if file exists 
-                if((-not (Test-Path ($this.AzSKTempStatePath))) -or (-not (Test-Path (Join-Path $this.AzSKTempStatePath $this.OrgName))) -or (-not (Test-Path $this.MasterFilePath)))
+                if((-not (Test-Path ($this.AzSKTempStatePath))) -or (-not (Test-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName))) -or (-not (Test-Path $this.MasterFilePath)))
                 {
                     #Incremental Scan happening first time locally OR Incremental Scan happening first time for Org OR first time for current Project
-                    New-Item -Type Directory -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrgName) $this.ProjectName) -ErrorAction Stop | Out-Null
-                    $this.ResourceTimestamps = [IncrementalScanTimestamps]::new($this.OrgName)
-                    $this.ResourceTimestamps.$rsrcName = $timeStamp
+                    New-Item -Type Directory -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName) $this.ProjectName) -ErrorAction Stop | Out-Null
+                    $this.ResourceTimestamps = [IncrementalScanTimestamps]::new()
+                    $this.ResourceTimestamps.$resourceName = $timeStamp
                     [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force
                 }
                 else 
                 {
                     # file exists for Organization but first time scan for current resource type
                     $this.ResourceTimestamps = Get-ChildItem -Path $this.MasterFilePath -Force | Get-Content | ConvertFrom-Json
-                    $this.ResourceTimestamps.$rsrcName = $timeStamp
+                    $this.ResourceTimestamps.$resourceName = $timeStamp
                     [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force    
                 }
             }
@@ -137,14 +143,14 @@ class IncScanHelper
             {
                 #not a first time scan for the current resource
                 $this.ResourceTimestamps = Get-ChildItem -Path $this.MasterFilePath -Force | Get-Content | ConvertFrom-Json
-                $this.ResourceTimestamps.$rsrcName = $timeStamp
+                $this.ResourceTimestamps.$resourceName = $timeStamp
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force
             }
         }
         elseif ($this.ScanSource -eq 'CA') 
         {
             $tempPath = Join-Path $([Constants]::AzSKAppFolderPath) $this.CATempFile
-            $blobPath = Join-Path (Join-Path (Join-Path "IncrementalScan" $this.OrgName) $this.ProjectName) $this.IncrementalScanTimestampFile
+            $blobPath = Join-Path (Join-Path (Join-Path "IncrementalScan" $this.OrganizationName) $this.ProjectName) $this.IncrementalScanTimestampFile
             if ($this.FirstScan -eq $true) 
             {
                 #check if container object does not exist 
@@ -155,11 +161,11 @@ class IncScanHelper
 					{
                     	$this.PublishCustomMessage("Could not find/create partial scan container in storage.", [MessageType]::Warning);
 					}
-                    $this.ResourceTimestamps = [IncrementalScanTimestamps]::new($this.OrgName)
+                    $this.ResourceTimestamps = [IncrementalScanTimestamps]::new()
 				}
                 if($null -eq $this.ControlStateBlob)
                 {
-                    $this.ResourceTimestamps = [IncrementalScanTimestamps]::new($this.OrgName)
+                    $this.ResourceTimestamps = [IncrementalScanTimestamps]::new()
                 }
                 else 
                 {
@@ -169,7 +175,7 @@ class IncScanHelper
                     Remove-Item -Path $tempPath
 
                 }
-                $this.ResourceTimestamps.$rsrcName = $timeStamp
+                $this.ResourceTimestamps.$resourceName = $timeStamp
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $tempPath -Force
                 Set-AzStorageBlobContent -File $tempPath -Container $this.ContainerObject.Name -Blob $blobPath -Context $this.StorageContext -Force
                 Remove-Item -Path $tempPath
@@ -180,7 +186,7 @@ class IncScanHelper
 				$this.ResourceTimestamps  = Get-ChildItem -Path $tempPath -Force | Get-Content | ConvertFrom-Json
 				#Delete the local file
                 Remove-Item -Path $tempPath
-                $this.ResourceTimestamps.$rsrcName = $timeStamp
+                $this.ResourceTimestamps.$resourceName = $timeStamp
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $tempPath -Force
                 Set-AzStorageBlobContent -File $tempPath -Container $this.ContainerObject.Name -Blob $blobPath -Context $this.StorageContext -Force
                 Remove-Item -Path $tempPath
@@ -190,7 +196,7 @@ class IncScanHelper
     [System.Object[]] GetModifiedBuilds($buildDefnsObj)
     {
         $latestBuildScan = $this.GetThresholdTime("Build")
-        if($this.FirstScan -eq $true)
+        if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0)
         {
             $this.UpdateTimeStamp("Build")
             return $buildDefnsObj
@@ -200,6 +206,7 @@ class IncScanHelper
         {
             # first resource is modified before the threshold time => all consequent are also modified before threshold
             # return empty list
+            $this.UpdateTimeStamp("Build")
             return $newBuildDefns
         }
         #Binary search 
@@ -262,7 +269,7 @@ class IncScanHelper
     [System.Object[]] GetModifiedReleases($releaseDefnsObj)
     {
         $latestReleaseScan = $this.GetThresholdTime("Release")
-        if($this.FirstScan -eq $true)
+        if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0)
         {
             $this.UpdateTimeStamp("Release")
             return $releaseDefnsObj
