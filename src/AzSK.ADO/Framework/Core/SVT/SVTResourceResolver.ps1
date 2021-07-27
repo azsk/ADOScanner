@@ -218,9 +218,14 @@ class SVTResourceResolver: AzSKRoot {
             #>
 
         }
-        if($this.UsePartialCommits -ne $true -and $this.UseIncrementalScan -eq $true)
+        if($this.UseIncrementalScan -eq $true)
         {
-            $this.PublishCustomMessage("Using Incremental Scan without Partial Scan. Even if scan crashes, scan timestamp will be used for consequent incremental scans. `n ", [MessageType]::Warning);
+            $this.PublishCustomMessage("Incremental Scan is currently supported only for Builds and Releases. `n ", [MessageType]::Warning);
+        
+            if($this.UsePartialCommits -ne $true)
+            {
+                $this.PublishCustomMessage("Using Incremental Scan without Partial Scan. Even if scan crashes, scan timestamp will be used for consequent incremental scans. `n ", [MessageType]::Warning);
+            }
         }
     }
 
