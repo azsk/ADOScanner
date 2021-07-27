@@ -763,29 +763,38 @@ class Release: ADOSVTBase
 
     hidden [ControlResult] CheckExternalSources([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Verify
         if(($this.ReleaseObj | Measure-Object).Count -gt 0)
         {
-            if( [Helpers]::CheckMember($this.ReleaseObj[0],"artifacts") -and ($this.ReleaseObj[0].artifacts | Measure-Object).Count -gt 0){
-               # $sourcetypes = @();
-                $sourcetypes = $this.ReleaseObj[0].artifacts;
-                $nonadoresource = $sourcetypes | Where-Object { $_.type -ne 'Git'} ;
+            if([Helpers]::CheckMember($this.ReleaseObj[0],"artifacts") -and ($this.ReleaseObj[0].artifacts | Measure-Object).Count -gt 0){
+                $sourceObj = @($this.ReleaseObj[0].artifacts);
+                $nonAdoResource = @($sourceObj | Where-Object { $_.type -ne 'Git'}) ;
+                $adoResource = @($sourceObj | Where-Object { $_.type -eq 'Git'}) ;
 
-               if( ($nonadoresource | Measure-Object).Count -gt 0){
-                   $nonadoresource = $nonadoresource | Select-Object -Property @{Name="alias"; Expression = {$_.alias}},@{Name="Type"; Expression = {$_.type}}
-                   $stateData = @();
-                   $stateData += $nonadoresource;
-                   $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline contains artifacts from below external sources.", $stateData);
-                   $controlResult.SetStateData("Pipeline contains artifacts from below external sources.", $stateData);
-                   $controlResult.AdditionalInfo += "Pipeline contains artifacts from these external sources: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
+               if($nonAdoResource.Count -gt 0){
+                    $nonAdoResource = $nonAdoResource | Select-Object -Property @{Name="Artifact source alias"; Expression = {$_.alias}},@{Name="Artifact source type"; Expression = {$_.type}}
+                    $stateData = @();
+                    $stateData += $nonAdoResource;
+                    $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline contains following artifacts from external sources: ");
+                    $display = ($stateData|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                    $controlResult.SetStateData("Pipeline contains following artifacts from external sources: ", $stateData);
                }
                else {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline does not contain artifacts from external sources");
+                    $adoResource = $adoResource | Select-Object -Property @{Name="Artifact source alias"; Expression = {$_.alias}},@{Name="Artifact source type"; Expression = {$_.type}}
+                    $stateData = @();
+                    $stateData += $adoResource;
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline contains artifacts from trusted sources: ");
+                    $display = ($stateData|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                    $controlResult.SetStateData("Pipeline contains artifacts from trusted sources: ", $stateData);
                }
-               $sourcetypes = $null;
-               $nonadoresource = $null;
+               
+               $sourceObj = $null;
+               $nonAdoResource = $null;
            }
            else {
-            $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline does not contain any source repositories");
+            $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline does not contain any source repositories.");
            }
         }
 

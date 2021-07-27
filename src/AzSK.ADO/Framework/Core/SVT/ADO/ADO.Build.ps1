@@ -753,19 +753,25 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckExternalSources([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Verify
         if(($this.BuildObj | Measure-Object).Count -gt 0)
         {
-            $sourceobj = $this.BuildObj[0].repository | Select-Object -Property @{Name="Name"; Expression = {$_.Name}},@{Name="Type"; Expression = {$_.type}}
+           $sourceObj = $this.BuildObj[0].repository | Select-Object -Property @{Name="Repository name"; Expression = {$_.Name}},@{Name="Repository source type"; Expression = {$_.type}}
            if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
            {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository.",  $sourceobj);
-                $controlResult.AdditionalInfo += "Pipeline code is built from trusted repository: " + [JsonHelper]::ConvertToJsonCustomCompressed($sourceobj);
-                $sourceobj = $null;
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository: ");
+                $display = ($sourceObj|FT  -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
+                $controlResult.SetStateData("Pipeline code is built from trusted repository: ",$sourceObj)                
            }
-           else {
-                $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from external repository.", $sourceobj);
-                $controlResult.AdditionalInfo += "Pipeline code is built from external repository: " + [JsonHelper]::ConvertToJsonCustomCompressed($sourceobj);
+           else
+           {
+                $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from external repository: ");
+                $display = ($sourceObj|FT  -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
+                $controlResult.SetStateData("Pipeline code is built from external repository: ",$sourceObj)
            }
+           $sourceObj = $null;
         }
 
         return $controlResult;
