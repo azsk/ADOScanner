@@ -461,6 +461,10 @@ class SVTBase: AzSKRoot
 				$filterControlsById = $filterControlsById | Where-Object {$_.ControlSeverity -in $this.Severity };				
 			}
 
+			if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "DisableInheritedPermControls") -and $this.ControlSettings.DisableInheritedPermControls -eq $true) {
+				$filterControlsById = $filterControlsById | Where-Object { $_.ControlId -notlike "*Disable_Inherited_Permissions*" };
+			}
+
 			
             $unfilteredControlsCount = ($filterControlsById | Measure-Object).Count
 
