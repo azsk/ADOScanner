@@ -279,7 +279,12 @@ class CommonSVTControls: ADOSVTBase {
 
                     $display = ($feedWithBroaderGroup |  FT FeedName, Role, DisplayName -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
-                    $controlResult.SetStateData("List of groups: ", $excesiveFeedsPermissions);
+                    $controlResult.SetStateData("List of groups: ", $feedWithBroaderGroup);
+                    if ($this.ControlFixBackupRequired)
+                    {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $excesiveFeedsPermissions;
+                    }
                 }
                 else
                 {
@@ -304,8 +309,8 @@ class CommonSVTControls: ADOSVTBase {
     {
         try{
             $RawDataObjForControlFix = @();
-            $backupDataObj = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            $RawDataObjForControlFix = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($backupDataObj))  | ConvertFrom-Json
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
             $body = "["
 
             if (-not $this.UndoFix)
