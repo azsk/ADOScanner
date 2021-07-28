@@ -1308,10 +1308,7 @@ class SVTResourceResolver: AzSKRoot {
     [void] addBuildsToSvtInBatchScan($ProjectName,$ProjectId,$Path){
         [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
         $batchStatus= $batchScanMngr.GetBatchStatus();
-        if (!$this.ControlSettings) {
-            $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
-        }
-        $topNQueryString = '&$top={0}' -f $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency
+        $topNQueryString = '&$top={0}' -f $batchScanMngr.GetBatchSize();
         if($null -ne $batchStatus.CurrentContinuationToken){
             $buildDefURL= ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0&%24skip={2}&continuationToken={3}" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $ProjectName, $batchStatus.Skip, $batchStatus.CurrentContinuationToken;
         }

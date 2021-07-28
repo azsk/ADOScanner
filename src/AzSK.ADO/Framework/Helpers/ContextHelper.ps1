@@ -12,6 +12,7 @@ class ContextHelper {
     static hidden [bool] $PromptForLogin;
     #This will be used to carry current org under current context.
     static hidden [string] $orgName;
+    static hidden [bool] $IsBatchScan;
 
     ContextHelper()
     {
@@ -19,6 +20,15 @@ class ContextHelper {
         {
             [ContextHelper]::IsOAuthScan = $true
         }
+    }
+
+    ContextHelper([bool] $IsBatchScan)
+    {
+        if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret))  # this if block will be executed for OAuth based scan
+        {
+            [ContextHelper]::IsOAuthScan = $true
+        }
+        [ContextHelper]::IsBatchScan=$true;
     }
 
     hidden static [PSObject] GetCurrentContext()

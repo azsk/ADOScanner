@@ -11,6 +11,7 @@ class BatchScanManager
     hidden [PSObject] $BatchScanTrackerObj = $null;
     hidden [PSObject] $ScanPendingForBatch = $null;
     hidden static [BatchScanManager] $Instance =$null;
+    hidden [int] $BatchSize = 0;
 
     static [BatchScanManager] GetInstance( [string] $OrganizationName,[string] $ProjectName)
     {
@@ -38,11 +39,15 @@ class BatchScanManager
         $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
 		$this.OrgName = $OrganizationName;
         $this.ProjectName=$ProjectName;
+        if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("BatchSize")){
+            $this.BatchSize = $PSCmdlet.MyInvocation.BoundParameters["BatchSize"]
+        }
+        else {
+            $this.BatchSize = $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency
+        }
         if ([string]::isnullorwhitespace($this.BatchScanTrackerFileName))
-        {
-              
-			$this.BatchScanTrackerFileName = [Constants]::BatchScanTrackerBlobName
-		   
+        {              
+			$this.BatchScanTrackerFileName = [Constants]::BatchScanTrackerBlobName		   
         }
 		$this.GetBatchScanTrackerObject();
     }
@@ -55,6 +60,11 @@ class BatchScanManager
         }
 		$this.GetBatchScanTrackerObject();
 	}
+
+    [int] GetBatchSize()
+    {
+        return $this.BatchSize
+    }
 
     hidden [void] GetBatchScanTrackerObject(){
         if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
@@ -135,7 +145,7 @@ class BatchScanManager
     [void] CreateBatchMasterList(){
         $batchStatus = [BatchScanResourceMap]@{
             Skip = 0;
-            Top = $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency;
+            Top = $this.GetBatchSize();
             CurrentContinuationToken=$null;
             NextContinuationToken=$null;
             BatchScanState= [BatchScanState]::INIT;
@@ -194,7 +204,7 @@ class BatchScanManager
                 else {
                     Write-Host "Found a previous batch scan with $($batchStatus.Skip+$batchStatus.Top) builds scanned. Starting fresh scan for the next batch of $($batchStatus.Top) builds. `n " -ForegroundColor Green
                    
-                    $batchStatus.Skip+=$this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency;
+                    $batchStatus.Skip+=$this.GetBatchSize();
                     $batchStatus.BatchScanState=[BatchScanState]::INIT
                     
                     if($this.CheckContTokenValidity($batchStatus.NextContinuationToken,$batchStatus.LastModifiedTime)){
@@ -280,7 +290,7 @@ class BatchScanManager
 
     [string] GetUpdatedContToken([int] $skip, [string] $top){
         $tempSkip=0;
-        $topNQueryString = '&$top={0}' -f $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency
+        $topNQueryString = '&$top={0}' -f $this.GetBatchSize(); 
         $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $this.OrgName, $this.ProjectName;
         $continuationToken=$null;
         $originalUri=$buildDefnURL;
@@ -288,8 +298,7 @@ class BatchScanManager
         while($tempSkip -ne $skip){
            $validationUrl=$originalUri;
            $originalUri=$buildDefnURL;
-            $tempSkip+=$this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency;          
-            
+            $tempSkip+=$this.GetBatchSize();             
             $updatedUriAndContToken=[WebRequestHelper]:: InvokeWebRequestForContinuationToken($validationUrl,$originalUri,$tempSkip);
             $continuationToken=$updatedUriAndContToken[0];
             $originalUri=$updatedUriAndContToken[1];
