@@ -17,8 +17,9 @@ class IncrementalScanHelper
     hidden [PSObject] $ResourceTimestamps = $null;
     hidden [bool] $FirstScan = $false;
     hidden [datetime] $IncrementalDate = 0;
+    hidden [bool] $UpdateTime = $true;
     
-    IncrementalScanHelper([string] $organizationName, [string] $projectName, [datetime] $incrementalDate)
+    IncrementalScanHelper([string] $organizationName, [string] $projectName, [datetime] $incrementalDate, [bool] $updateTimestamp)
     {
         $this.OrganizationName = $organizationName
         $this.ProjectName = $projectName
@@ -27,6 +28,7 @@ class IncrementalScanHelper
         $this.CATempFile = "CATempLocal.json"
         $this.IncrementalDate = $incrementalDate
         $this.MasterFilePath = (Join-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName) $this.projectName) $this.IncrementalScanTimestampFile)
+        $this.UpdateTime = $updateTimestamp
     }
     
     hidden [datetime] GetThresholdTime([string] $resourceName)
@@ -198,7 +200,10 @@ class IncrementalScanHelper
         $latestBuildScan = $this.GetThresholdTime("Build")
         if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0)
         {
-            $this.UpdateTimeStamp("Build")
+            if($this.UpdateTime -eq $true)
+            {
+                $this.UpdateTimeStamp("Build")
+            }
             return $buildDefnsObj
         }
         $newBuildDefns = @()
@@ -206,7 +211,10 @@ class IncrementalScanHelper
         {
             # first resource is modified before the threshold time => all consequent are also modified before threshold
             # return empty list
-            $this.UpdateTimeStamp("Build")
+            if($this.UpdateTime -eq $true)
+            {
+                $this.UpdateTimeStamp("Build")
+            }
             return $newBuildDefns
         }
         #Binary search 
@@ -225,7 +233,10 @@ class IncrementalScanHelper
                 {
                     # all fetched build defs are modified after threshold time
                     # TBD: Fetch more builds or return unmodified
-                    $this.UpdateTimeStamp("Build")
+                    if($this.UpdateTime -eq $true)
+                    {
+                        $this.UpdateTimeStamp("Build")
+                    }
                     return $buildDefnsObj
                 }
                 else {
@@ -264,7 +275,10 @@ class IncrementalScanHelper
             }
         }
         $newBuildDefns = @($buildDefnsObj[0..$breakIndex])
-        $this.UpdateTimeStamp("Build")
+        if($this.UpdateTime -eq $true)
+        {
+            $this.UpdateTimeStamp("Build")
+        }
         return $newBuildDefns
     }
     [System.Object[]] GetModifiedReleases($releaseDefnsObj)
@@ -272,7 +286,10 @@ class IncrementalScanHelper
         $latestReleaseScan = $this.GetThresholdTime("Release")
         if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0)
         {
-            $this.UpdateTimeStamp("Release")
+            if($this.UpdateTime -eq $true)
+            {
+                $this.UpdateTimeStamp("Release")
+            }
             return $releaseDefnsObj
         }
         $newReleaseDefns = @()
@@ -284,7 +301,10 @@ class IncrementalScanHelper
                 $newReleaseDefns += @($releaseDefn)    
             }
         }
-        $this.UpdateTimeStamp("Release")
+        if($this.UpdateTime -eq $true)
+            {
+                $this.UpdateTimeStamp("Release")
+            }
         return $newReleaseDefns                
     }
 }

@@ -1064,19 +1064,18 @@ class SVTResourceResolver: AzSKRoot {
             #updated URI
             $resourceDfnUrl = $responseAndUpdatedUri[1];
 
-            if($isFolderPathGiven -and $isFolderSizegt100){
-              
-                  
-                   $applicableDefnsObj = $resourceDefnsObj | Where-Object {$_.path -eq "\$($path)" -or $_.path -replace '\s','' -match [System.Text.RegularExpressions.Regex]::Escape("$($path -replace '\s','')")}
-              
+            if($isFolderPathGiven -and $isFolderSizegt100)
+            {
+                $applicableDefnsObj = $resourceDefnsObj | Where-Object {$_.path -eq "\$($path)" -or $_.path -replace '\s','' -match [System.Text.RegularExpressions.Regex]::Escape("$($path -replace '\s','')")}
             }
             #in case its not a folder based scan or folder cnt <100
-            else {
+            else 
+            {
                 $applicableDefnsObj=$resourceDefnsObj;
             }
             
-                                
-            if ( (($applicableDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($applicableDefnsObj[0], "name")) -or ([Helpers]::CheckMember($applicableDefnsObj, "count") -and $applicableDefnsObj[0].count -gt 0)) {
+            if ( (($applicableDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($applicableDefnsObj[0], "name")) -or ([Helpers]::CheckMember($applicableDefnsObj, "count") -and $applicableDefnsObj[0].count -gt 0)) 
+            {
                 if($resourceType -eq "build"){
                     $tempLink=($applicableDefnsObj[0].url -split('Definitions/'))[0].replace('_apis/build/', '_build?definitionId=');
                 }
@@ -1086,16 +1085,25 @@ class SVTResourceResolver: AzSKRoot {
                 }
                 if($this.UseIncrementalScan -eq $true)
                 {
+                    $updateTimestamp = $true
+                    if(-not [string]::IsNullOrWhiteSpace($resourceDfnUrl))
+                    {
+                        $updateTimestamp = $false
+                    }
                     if($resourceType -eq "build")
                     {
-                        $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName, $this.IncrementalDate)
+                        $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName, $this.IncrementalDate, $updateTimestamp)
                         $applicableDefnsObj = $incrementalScanHelperObj.GetModifiedBuilds($applicableDefnsObj)
                     }
                     else 
                     {
-                        $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName, $this.IncrementalDate)
+                        $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName, $this.IncrementalDate, $updateTimestamp)
                         $applicableDefnsObj = $incrementalScanHelperObj.GetModifiedReleases($applicableDefnsObj)    
                     }
+                }
+                if($applicableDefnsObj.Count -lt $nObj.Value)
+                {
+                    $nObj.Value = $applicableDefnsObj.Count;
                 }
                 foreach ($resourceDef in $applicableDefnsObj) {
                     #$link = $resourceDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
