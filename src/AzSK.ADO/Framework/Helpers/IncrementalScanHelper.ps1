@@ -25,28 +25,28 @@ class IncrementalScanHelper
         $this.ProjectName = $projectName
         $this.IncrementalScanTimestampFile = $([Constants]::IncrementalScanTimeStampFile)
         $this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource()
-        $this.CATempFile = "CATempLocal.json"
+        $this.CATempFile = "CATempLocal.json" # temporary file to store Json Data to upload to container (in CA)
         $this.IncrementalDate = $incrementalDate
         $this.MasterFilePath = (Join-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName) $this.projectName) $this.IncrementalScanTimestampFile)
         $this.UpdateTime = $updateTimestamp
     }
     
-    hidden [datetime] GetThresholdTime([string] $resourceName)
+    hidden [datetime] GetThresholdTime([string] $resourceType)
     {
+        # function to retrieve threshold time from storage, based on scan source.
         $latestScan = 0
-        # retrieve threshold time from storage based on scan source
         if($this.ScanSource -eq 'SDL')
         {
             if(![string]::isnullorwhitespace($this.OrganizationName))
             {
                 if(Test-Path $this.MasterFilePath)	
                 {
-                    #file exists
+                    # File exists. Retrieve last timestamp.
                     $this.ResourceTimestamps = Get-Content $this.MasterFilePath | ConvertFrom-Json
 
-                    if([datetime]$this.ResourceTimestamps.$resourceName -eq 0)
+                    if([datetime]$this.ResourceTimestamps.$resourceType -eq 0)
                     {
-                        #previous timestamps exist, but not for this resource
+                        # Previous timestamp does not exist for this resource in the existing file.
                         $this.FirstScan = $true
                     }
                 }
@@ -75,77 +75,80 @@ class IncrementalScanHelper
 					$this.ControlStateBlob = Get-AzStorageBlob -Container $this.CAScanProgressSnapshotsContainerName -Context $this.StorageContext -Blob $blobPath -ErrorAction SilentlyContinue 
                     if($null -ne $this.ControlStateBlob)
                     {
-                        # file exists
-                        #Copy existing RTF locally to handle any non ascii characters as ICloudBlob.DownloadText() was inserting non ascii charcaters
+                        # File exists. Copy existing timestamp file locally 
 						Get-AzStorageBlobContent -CloudBlob $this.ControlStateBlob.ICloudBlob -Context $this.StorageContext -Destination $tempPath -Force                
 						$this.ResourceTimestamps  = Get-ChildItem -Path $tempPath -Force | Get-Content | ConvertFrom-Json
 						#Delete the local file
 						Remove-Item -Path $tempPath
-                        if([datetime]$this.ResourceTimestamps.$resourceName -eq 0)
+                        if([datetime]$this.ResourceTimestamps.$resourceType -eq 0)
                         {
-                            # First incremental scan for current resource
+                            # Previous timestamp does not exist for current resource in existing file.
                             $this.FirstScan = $true
                         }
                     }
                     else 
                     {
-                        #file does not exist 
+                        # File does not exist. 
                         $this.FirstScan = $true
                     }
                 }
                 else 
                 {
-                    #container does not exist
+                    # Container does not exist
                     $this.FirstScan = $true
                 }
             }
             catch
             {
                 write-host "Exception when trying to find/create incremental scan container: $_."
-                #$this.PublishCustomMessage("Exception when trying to find/create incremental scan container: $_.", [MessageType]::Warning);
             }
         }
         if(-not $this.FirstScan)
         {
-            #$this.ResourceTimestamps = (Get-ChildItem -Path $this.MasterFilePath -Force | Get-Content | ConvertFrom-Json)
-            $latestScan = [datetime]$this.ResourceTimestamps.$resourceName
+            $latestScan = [datetime]$this.ResourceTimestamps.$resourceType
         }
         if($this.IncrementalDate -ne 0)
         {
+            # user input of incremental date to be used for scanning incrementally.
             $latestScan = $this.IncrementalDate
         }
         return $latestScan
     }
     
-    hidden UpdateTimeStamp([string] $resourceName)
+    hidden UpdateTimeStamp([string] $resourceType)
     {
+        # Updates timestamp of current scan to storage, based on scan source.
+        if($this.UpdateTime -ne $true)
+        {
+            return;
+        }
         $timeStamp = (Get-Date)
         if($this.ScanSource -eq 'SDL')
         {
             if($this.FirstScan -eq $true)
             {
-                #check if file exists 
+                # Check if file exists 
                 if((-not (Test-Path ($this.AzSKTempStatePath))) -or (-not (Test-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName))) -or (-not (Test-Path $this.MasterFilePath)))
                 {
-                    #Incremental Scan happening first time locally OR Incremental Scan happening first time for Org OR first time for current Project
+                    # Incremental Scan happening first time locally OR Incremental Scan happening first time for Org OR first time for current Project
                     New-Item -Type Directory -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName) $this.ProjectName) -ErrorAction Stop | Out-Null
                     $this.ResourceTimestamps = [IncrementalScanTimestamps]::new()
-                    $this.ResourceTimestamps.$resourceName = $timeStamp
+                    $this.ResourceTimestamps.$resourceType = $timeStamp
                     [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force
                 }
                 else 
                 {
-                    # file exists for Organization but first time scan for current resource type
+                    # File exists for Organization and Project but first time scan for current resource type
                     $this.ResourceTimestamps = Get-ChildItem -Path $this.MasterFilePath -Force | Get-Content | ConvertFrom-Json
-                    $this.ResourceTimestamps.$resourceName = $timeStamp
+                    $this.ResourceTimestamps.$resourceType = $timeStamp
                     [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force    
                 }
             }
             else 
             {
-                #not a first time scan for the current resource
+                # Not a first time scan for the current resource
                 $this.ResourceTimestamps = Get-ChildItem -Path $this.MasterFilePath -Force | Get-Content | ConvertFrom-Json
-                $this.ResourceTimestamps.$resourceName = $timeStamp
+                $this.ResourceTimestamps.$resourceType = $timeStamp
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force
             }
         }
@@ -155,9 +158,10 @@ class IncrementalScanHelper
             $blobPath = Join-Path (Join-Path (Join-Path "IncrementalScan" $this.OrganizationName) $this.ProjectName) $this.IncrementalScanTimestampFile
             if ($this.FirstScan -eq $true) 
             {
-                #check if container object does not exist 
+                # Check if container object does not exist 
                 if($null -eq $this.ContainerObject)
                 {
+                    # Container does not exist, create container.
                     $this.ContainerObject = New-AzStorageContainer -Name $this.CAScanProgressSnapshotsContainerName -Context $this.StorageContext -ErrorAction SilentlyContinue
 					if ($null -eq $this.ContainerObject )
 					{
@@ -177,7 +181,7 @@ class IncrementalScanHelper
                     Remove-Item -Path $tempPath
 
                 }
-                $this.ResourceTimestamps.$resourceName = $timeStamp
+                $this.ResourceTimestamps.$resourceType = $timeStamp
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $tempPath -Force
                 Set-AzStorageBlobContent -File $tempPath -Container $this.ContainerObject.Name -Blob $blobPath -Context $this.StorageContext -Force
                 Remove-Item -Path $tempPath
@@ -186,9 +190,9 @@ class IncrementalScanHelper
             {
                 Get-AzStorageBlobContent -CloudBlob $this.ControlStateBlob.ICloudBlob -Context $this.StorageContext -Destination $tempPath -Force                
 				$this.ResourceTimestamps  = Get-ChildItem -Path $tempPath -Force | Get-Content | ConvertFrom-Json
-				#Delete the local file
+				# Delete the local file
                 Remove-Item -Path $tempPath
-                $this.ResourceTimestamps.$resourceName = $timeStamp
+                $this.ResourceTimestamps.$resourceType = $timeStamp
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $tempPath -Force
                 Set-AzStorageBlobContent -File $tempPath -Container $this.ContainerObject.Name -Blob $blobPath -Context $this.StorageContext -Force
                 Remove-Item -Path $tempPath
@@ -197,13 +201,11 @@ class IncrementalScanHelper
     }
     [System.Object[]] GetModifiedBuilds($buildDefnsObj)
     {
+        # Function to filter builds that have been modified after threshold time
         $latestBuildScan = $this.GetThresholdTime("Build")
         if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0)
         {
-            if($this.UpdateTime -eq $true)
-            {
-                $this.UpdateTimeStamp("Build")
-            }
+            $this.UpdateTimeStamp("Build")
             return $buildDefnsObj
         }
         $newBuildDefns = @()
@@ -211,35 +213,30 @@ class IncrementalScanHelper
         {
             # first resource is modified before the threshold time => all consequent are also modified before threshold
             # return empty list
-            if($this.UpdateTime -eq $true)
-            {
-                $this.UpdateTimeStamp("Build")
-            }
+            $this.UpdateTimeStamp("Build")
             return $newBuildDefns
         }
         #Binary search 
-        [int] $low = 0
-        [int] $high = $buildDefnsObj.length - 1
-        [int] $size = $buildDefnsObj.length
+        [int] $low = 0 # start index of array
+        [int] $high = $buildDefnsObj.length - 1 # last index of array
+        [int] $size = $buildDefnsObj.length # total length of array 
         [int] $breakIndex = 0
         while($low -le $high)
         {
-            [int] $mid = ($low + $high)/2
-            [datetime] $modDate = [datetime]($buildDefnsObj[$mid].createdDate)
-            if($modDate -ge $latestBuildScan)
+            [int] $mid = ($low + $high)/2 # seeking the middle of the array 
+            [datetime] $modifiedDate = [datetime]($buildDefnsObj[$mid].createdDate)
+            if($modifiedDate -ge $latestBuildScan)
             {
                 # modified date is after the threshold time
                 if(($mid + 1) -eq $size)
                 {
                     # all fetched build defs are modified after threshold time
-                    # TBD: Fetch more builds or return unmodified
-                    if($this.UpdateTime -eq $true)
-                    {
-                        $this.UpdateTimeStamp("Build")
-                    }
+                    # return unmodified
+                    $this.UpdateTimeStamp("Build")
                     return $buildDefnsObj
                 }
-                else {
+                else 
+                {
                     # mid point is not the last build defn
                     if([datetime]($buildDefnsObj[$mid+1].createdDate) -lt $latestBuildScan)
                     {
@@ -249,11 +246,12 @@ class IncrementalScanHelper
                     }
                     else 
                     {
+                        # search on right half
                         $low = $mid + 1
                     }
                 }
             }
-            elseif ($modDate -lt $latestBuildScan) 
+            elseif ($modifiedDate -lt $latestBuildScan) 
             {
                 if($mid -eq 0)
                 {
@@ -264,21 +262,20 @@ class IncrementalScanHelper
                 {
                     if([datetime]($buildDefnsObj[$mid - 1].createdDate)  -ge $latestBuildScan)
                     {
+                        # changing point found
                         $breakIndex = $mid - 1
                         break
                     }    
                     else 
                     {
+                        # search on left half
                         $high = $mid - 1
                     }
                 }
             }
         }
         $newBuildDefns = @($buildDefnsObj[0..$breakIndex])
-        if($this.UpdateTime -eq $true)
-        {
-            $this.UpdateTimeStamp("Build")
-        }
+        $this.UpdateTimeStamp("Build")
         return $newBuildDefns
     }
     [System.Object[]] GetModifiedReleases($releaseDefnsObj)
@@ -286,25 +283,19 @@ class IncrementalScanHelper
         $latestReleaseScan = $this.GetThresholdTime("Release")
         if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0)
         {
-            if($this.UpdateTime -eq $true)
-            {
-                $this.UpdateTimeStamp("Release")
-            }
+            $this.UpdateTimeStamp("Release")
             return $releaseDefnsObj
         }
         $newReleaseDefns = @()
         # Searching Linearly
         foreach ($releaseDefn in $releaseDefnsObj)
         {
-            if ([datetime]($releaseDefn.modifiedOn)  -ge $latestReleaseScan) 
+            if ([datetime]($releaseDefn.modifiedOn) -ge $latestReleaseScan) 
             {
                 $newReleaseDefns += @($releaseDefn)    
             }
         }
-        if($this.UpdateTime -eq $true)
-            {
-                $this.UpdateTimeStamp("Release")
-            }
+        $this.UpdateTimeStamp("Release")
         return $newReleaseDefns                
     }
 }

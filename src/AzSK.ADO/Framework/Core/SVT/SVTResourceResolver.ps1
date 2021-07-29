@@ -224,7 +224,7 @@ class SVTResourceResolver: AzSKRoot {
         
             if($this.UsePartialCommits -ne $true)
             {
-                $this.PublishCustomMessage("Using Incremental Scan without Partial Scan. Even if scan crashes, scan timestamp will be used for consequent incremental scans. `n ", [MessageType]::Warning);
+                $this.PublishCustomMessage("Using Incremental Scan without Partial Scan. In case of incomplete scan, the latest updated timestamp will be used for consequent incremental scans. `n ", [MessageType]::Warning);
             }
         }
     }
@@ -1061,7 +1061,7 @@ class SVTResourceResolver: AzSKRoot {
             $responseAndUpdatedUri = [WebRequestHelper]::InvokeWebRequestForResourcesInBatch($validatedUri, $orginalUri, $skipCount,$resourceType);
             #API response with resources
             $resourceDefnsObj = $responseAndUpdatedUri[0];
-            #updated URI
+            #updated URI: null when there is no continuation token
             $resourceDfnUrl = $responseAndUpdatedUri[1];
 
             if($isFolderPathGiven -and $isFolderSizegt100)
@@ -1093,12 +1093,12 @@ class SVTResourceResolver: AzSKRoot {
                     if($resourceType -eq "build")
                     {
                         $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName, $this.IncrementalDate, $updateTimestamp)
-                        $applicableDefnsObj = $incrementalScanHelperObj.GetModifiedBuilds($applicableDefnsObj)
+                        $applicableDefnsObj = @($incrementalScanHelperObj.GetModifiedBuilds($applicableDefnsObj))
                     }
                     else 
                     {
                         $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName, $this.IncrementalDate, $updateTimestamp)
-                        $applicableDefnsObj = $incrementalScanHelperObj.GetModifiedReleases($applicableDefnsObj)    
+                        $applicableDefnsObj = @($incrementalScanHelperObj.GetModifiedReleases($applicableDefnsObj))    
                     }
                 }
                 if($applicableDefnsObj.Count -lt $nObj.Value)
