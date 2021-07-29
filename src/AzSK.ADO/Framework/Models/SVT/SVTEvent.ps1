@@ -50,6 +50,7 @@ class ControlResult
 
 	[StateManagement] $StateManagement = [StateManagement]::new();
 	hidden [PSObject] $FixControlParameters = $null;
+	[PSObject] $BackupControlState = @();
 	hidden [bool] $EnableFixControl = $false;
 	[bool] $IsControlInGrace;
 	[DateTime] $FirstFailedOn = [Constants]::AzSKDefaultDateTime;

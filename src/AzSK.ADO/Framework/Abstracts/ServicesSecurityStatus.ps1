@@ -735,7 +735,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 				#Need Control's internal id in case of Set-AzSKADOSecurityStatus command 
 				if ($this.IsControlFixCommand)
 				{
-					$this.ControlInternalId = ($controlList | Where-Object { $this.ControlIds -contains $_.ControlId }| Select-Object Id -Unique).Id
+					$inputControlId = $this.invocationContext.BoundParameters["ControlId"];
+					$this.ControlInternalId = ($controlList | Where-Object { $inputControlId -contains $_.ControlId }| Select-Object Id -Unique).Id
 				}
 			}
 
