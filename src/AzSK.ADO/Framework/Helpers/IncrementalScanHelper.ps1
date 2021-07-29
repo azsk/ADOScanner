@@ -17,9 +17,10 @@ class IncrementalScanHelper
     hidden [PSObject] $ResourceTimestamps = $null;
     hidden [bool] $FirstScan = $false;
     hidden [datetime] $IncrementalDate = 0;
-    hidden [bool] $UpdateTime = $true;
+    [bool] $UpdateTime = $true;
+    hidden [datetime] $Timestamp = 0; 
     
-    IncrementalScanHelper([string] $organizationName, [string] $projectName, [datetime] $incrementalDate, [bool] $updateTimestamp)
+    IncrementalScanHelper([string] $organizationName, [string] $projectName, [datetime] $incrementalDate, [bool] $updateTimestamp, [datetime] $timestamp)
     {
         $this.OrganizationName = $organizationName
         $this.ProjectName = $projectName
@@ -29,6 +30,7 @@ class IncrementalScanHelper
         $this.IncrementalDate = $incrementalDate
         $this.MasterFilePath = (Join-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName) $this.projectName) $this.IncrementalScanTimestampFile)
         $this.UpdateTime = $updateTimestamp
+        $this.Timestamp = $timestamp
     }
     
     hidden [datetime] GetThresholdTime([string] $resourceType)
@@ -115,14 +117,13 @@ class IncrementalScanHelper
         return $latestScan
     }
     
-    hidden UpdateTimeStamp([string] $resourceType)
+    UpdateTimeStamp([string] $resourceType)
     {
         # Updates timestamp of current scan to storage, based on scan source.
         if($this.UpdateTime -ne $true)
         {
             return;
         }
-        $timeStamp = (Get-Date)
         if($this.ScanSource -eq 'SDL')
         {
             if($this.FirstScan -eq $true)
@@ -133,14 +134,14 @@ class IncrementalScanHelper
                     # Incremental Scan happening first time locally OR Incremental Scan happening first time for Org OR first time for current Project
                     New-Item -Type Directory -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName) $this.ProjectName) -ErrorAction Stop | Out-Null
                     $this.ResourceTimestamps = [IncrementalScanTimestamps]::new()
-                    $this.ResourceTimestamps.$resourceType = $timeStamp
+                    $this.ResourceTimestamps.$resourceType = $this.Timestamp
                     [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force
                 }
                 else 
                 {
                     # File exists for Organization and Project but first time scan for current resource type
                     $this.ResourceTimestamps = Get-ChildItem -Path $this.MasterFilePath -Force | Get-Content | ConvertFrom-Json
-                    $this.ResourceTimestamps.$resourceType = $timeStamp
+                    $this.ResourceTimestamps.$resourceType = $this.Timestamp
                     [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force    
                 }
             }
@@ -148,7 +149,7 @@ class IncrementalScanHelper
             {
                 # Not a first time scan for the current resource
                 $this.ResourceTimestamps = Get-ChildItem -Path $this.MasterFilePath -Force | Get-Content | ConvertFrom-Json
-                $this.ResourceTimestamps.$resourceType = $timeStamp
+                $this.ResourceTimestamps.$resourceType = $this.Timestamp
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force
             }
         }
@@ -181,7 +182,7 @@ class IncrementalScanHelper
                     Remove-Item -Path $tempPath
 
                 }
-                $this.ResourceTimestamps.$resourceType = $timeStamp
+                $this.ResourceTimestamps.$resourceType = $this.Timestamp
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $tempPath -Force
                 Set-AzStorageBlobContent -File $tempPath -Container $this.ContainerObject.Name -Blob $blobPath -Context $this.StorageContext -Force
                 Remove-Item -Path $tempPath
@@ -192,7 +193,7 @@ class IncrementalScanHelper
 				$this.ResourceTimestamps  = Get-ChildItem -Path $tempPath -Force | Get-Content | ConvertFrom-Json
 				# Delete the local file
                 Remove-Item -Path $tempPath
-                $this.ResourceTimestamps.$resourceType = $timeStamp
+                $this.ResourceTimestamps.$resourceType = $this.Timestamp
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $tempPath -Force
                 Set-AzStorageBlobContent -File $tempPath -Container $this.ContainerObject.Name -Blob $blobPath -Context $this.StorageContext -Force
                 Remove-Item -Path $tempPath

@@ -1050,7 +1050,10 @@ class SVTResourceResolver: AzSKRoot {
         $skipCount = 0
         $batchCount = 1;
         #$nObj = $this.MaxObjectsToScan
-     
+        $timestamp = (Get-Date)
+        # to break out from looping and making further API calls after first call, when not all resources in first fetch are modified after threshold date
+        $breakLoop = $false 
+
         while ([System.Uri]::TryCreate($resourceDfnUrl, [System.UriKind]::Absolute, [ref] $validatedUri)) {
             if ([string]::IsNullOrWhiteSpace($orginalUri)) {
                 $orginalUri = $validatedUri.AbsoluteUri;   
@@ -1060,7 +1063,9 @@ class SVTResourceResolver: AzSKRoot {
             $skipCount += 10000;
             $responseAndUpdatedUri = [WebRequestHelper]::InvokeWebRequestForResourcesInBatch($validatedUri, $orginalUri, $skipCount,$resourceType);
             #API response with resources
-            $resourceDefnsObj = $responseAndUpdatedUri[0];
+            $resourceDefnsObj = @($responseAndUpdatedUri[0]);
+            #count of all resources fetched
+            $totalCount = $resourceDefnsObj.Count
             #updated URI: null when there is no continuation token
             $resourceDfnUrl = $responseAndUpdatedUri[1];
 
@@ -1073,7 +1078,6 @@ class SVTResourceResolver: AzSKRoot {
             {
                 $applicableDefnsObj=$resourceDefnsObj;
             }
-            
             if ( (($applicableDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($applicableDefnsObj[0], "name")) -or ([Helpers]::CheckMember($applicableDefnsObj, "count") -and $applicableDefnsObj[0].count -gt 0)) 
             {
                 if($resourceType -eq "build"){
@@ -1090,14 +1094,21 @@ class SVTResourceResolver: AzSKRoot {
                     {
                         $updateTimestamp = $false
                     }
+                    $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName, $this.IncrementalDate, $updateTimestamp, $timestamp)
                     if($resourceType -eq "build")
                     {
-                        $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName, $this.IncrementalDate, $updateTimestamp)
                         $applicableDefnsObj = @($incrementalScanHelperObj.GetModifiedBuilds($applicableDefnsObj))
+                        if($applicableDefnsObj.Count -lt $totalCount -and $updateTimestamp -eq $false)
+                        {
+                            # a continuation token was previously found but no need for making more API calls as even some resources in the first batch are unmodified since last threshold timestamp
+                            # update Incremental Scan Helper Object data member UpdateTime to $true, then call function to Update Timestamp
+                            $incrementalScanHelperObj.UpdateTime = $true
+                            $incrementalScanHelperObj.UpdateTimeStamp("Build")
+                            $breakLoop = $true
+                        }
                     }
                     else 
                     {
-                        $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName, $this.IncrementalDate, $updateTimestamp)
                         $applicableDefnsObj = @($incrementalScanHelperObj.GetModifiedReleases($applicableDefnsObj))    
                     }
                 }
@@ -1129,6 +1140,7 @@ class SVTResourceResolver: AzSKRoot {
                 break;
             }
             if ($nObj.Value -eq 0) { break; }
+            if($breakLoop -eq $true) { break; }
         }
         Write-Progress -Activity "All $($resourceType)s fetched" -Status "Ready" -Completed
         $resourceDefnsObj = $null;
