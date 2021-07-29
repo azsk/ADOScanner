@@ -79,6 +79,15 @@ class EventBase
 				$commandNoun = $commandNoun.TrimStart($this.InvocationContext.MyCommand.Module.Prefix);
 			}
 
+			if($this.InvocationContext.BoundParameters.ContainsKey('BatchScan')){
+				$commandMetadata = [CommandHelper]::Mapping | 
+						Where-Object { $_.Noun -eq $commandNoun -and $_.Verb -eq $this.InvocationContext.MyCommand.Verb } | 
+						Select-Object -First 1 
+				$commandMetadata | Add-Member -NotePropertyName BatchScan -NotePropertyValue ($this.InvocationContext.BoundParameters.FolderName)
+						
+				return $commandMetaData
+			}
+			
 			return [CommandHelper]::Mapping | 
 								Where-Object { $_.Noun -eq $commandNoun -and $_.Verb -eq $this.InvocationContext.MyCommand.Verb } | 
 								Select-Object -First 1;

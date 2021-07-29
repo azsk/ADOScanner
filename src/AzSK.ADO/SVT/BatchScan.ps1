@@ -46,7 +46,23 @@ function BatchScan
         [string]
         [Parameter(Mandatory = $true)]
         [Alias("mp")]
-        $ModulePath
+        $ModulePath,
+
+        [string]
+        [Parameter(Mandatory = $true)]
+        [Alias("fn")]
+        $FolderName,
+
+        [string]
+        [Parameter(Mandatory = $true)]
+        [Alias("rtn")]
+        $ResourceTypeName,
+
+        [string]
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [Alias("rfp")]
+        $ReleasesFolderPath
 
 
 
@@ -137,45 +153,26 @@ function BatchScan
             else {
                 $batchScanMngr.UpdateBatchMasterList();
             }
-            $commandForNextBatch='ipmo \"{0}\" ;BatchScan -oz \"{1}\" -pn \"{2}\" -mp \"{3}\" ' -f $ModulePath,$OrganizationName,$ProjectName, $ModulePath
-            if($PSBoundParameters.ContainsKey('PATTokenURL')){
-                $commandForNextBatch+=' -PATTokenURL \"{0}\" ' -f $PATTokenURL
+            $commandForNextBatch ='ipmo \"{0}\"; BatchScan ' -f $ModulePath;
+            $PSCmdlet.MyInvocation.BoundParameters.GetEnumerator() | foreach-object {
+                $commandForNextBatch += '-{0} \"{1}\" ' -f $_.key, $_.value 
             }
 
-            if ($PSBoundParameters.ContainsKey('BatchSize'))
-            {
-                $commandForNextBatch +=' -BatchSize \"{0}\"' -f $BatchSize
-            }
-            
-            if($PSBoundParameters.ContainsKey('BuildsFolderPath') -and $PSBoundParameters.ContainsKey('UseBaselineControls')){
-                GADS -oz $OrganizationName -pn $ProjectName -rtn Build -BatchScan -upc -als -ubc -bp $BuildsFolderPath
-                $commandForNextBatch+= '-ubc -bp \"{0}\" ' -f $BuildsFolderPath
-            }
-            elseif($PSBoundParameters.ContainsKey('BuildsFolderPath') -and $PSBoundParameters.ContainsKey('ControlIds')){
-                GADS -oz $OrganizationName -pn $ProjectName -rtn Build -BatchScan -upc -als -bp $BuildsFolderPath -cids $ControlIds
-                $commandForNextBatch+= '-bp \"{0}\" -cids \"{1}\" ' -f $BuildsFolderPath, $ControlIds
-            }
-            elseif($PSBoundParameters.ContainsKey('BuildsFolderPath')){
-                GADS -oz $OrganizationName -pn $ProjectName -rtn Build -BatchScan -upc -als -bp $BuildsFolderPath
-                $commandForNextBatch+= '-bp \"{0}\" ' -f $BuildsFolderPath
-            }
-            elseif($PSBoundParameters.ContainsKey('UseBaselineControls')){
-                GADS -oz $OrganizationName -pn $ProjectName -rtn Build -BatchScan -upc -als -ubc
-                $commandForNextBatch+= '-ubc ' 
-            }
-            elseif($PSBoundParameters.ContainsKey('ControlIds')){
-                GADS -oz $OrganizationName -pn $ProjectName -rtn Build -BatchScan -upc -als -cids $ControlIds  
-                $commandForNextBatch+= '-cids \"{0}\" ' -f $ControlIds               
-            }
-            else {
-                GADS -oz $OrganizationName -pn $ProjectName -rtn Build -BatchScan -upc -als                
-            }
-            
+            $parametersForGads = $PSCmdlet.MyInvocation.BoundParameters;
+            $parametersForGads.Add("UsePartialCommits", $true);
+            $parametersForGads.Add("AllowLongRunningScan", $true);
+            $parametersForGads.Add("ResourceTypeName", "Build");
+            $parametersForGads.Add("BatchScan",$true);
+            $parametersForGads.Remove("BatchSize") | Out-Null;
+            $parametersForGads.Remove("ModulePath") | Out-Null;
+
             $rh = $false #Whether to keep each console open after gads completes.
             if ($rh)
             {
                 $commandForNextBatch+= '; Read-Host '
             }
+
+            GADS @parametersForGads
 
             if("" -eq $batchScanMngr.GetContinuationToken() -and $batchScanMngr.GetBatchScanState() -eq [BatchScanState]::COMP){
                 #TODO all batches complete

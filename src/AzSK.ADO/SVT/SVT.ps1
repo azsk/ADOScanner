@@ -339,7 +339,12 @@ function Get-AzSKADOSecurityStatus
 		[switch]
 		[Parameter()]
 		[Alias("bs")]
-		$BatchScan
+		$BatchScan,
+
+		[string]
+		[Parameter()]
+		[Alias("fn")]
+		$FolderName
 
 
 	)

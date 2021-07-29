@@ -256,10 +256,12 @@ class WritePsConsole: FileOutputBase
 
                 $currentInstance.WriteMessage("Status and detailed logs have been exported to path - $([WriteFolderPath]::GetInstance().FolderPath)", [MessageType]::Info)
                 $currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)
+				if($currentInstance.InvocationContext.BoundParameters.ContainsKey('BatchScan')){
 				$CurrentBuildCount = $currentInstance.UpdateCurrentBatch();
 					$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Update)
 					$currentInstance.WriteMessage("Execution completed for current batch. Scanned $($CurrentBuildCount) builds. Next scan will take place in a fresh PS Console. You may close this window now.", [MessageType]::Update)
                 	$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Update)
+				}
                 $currentInstance.FilePath = "";
             }
             catch 
