@@ -62,16 +62,16 @@ class ControlsInfo: CommandBase
 		if (-not [string]::IsNullOrEmpty($this.ResourceType))
 		{
 			$resourcetypes += ([SVTMapping]::AzSKADOResourceMapping |
-					Where-Object { $_.ResourceType -eq $this.ResourceType } | Select-Object JsonFileName)
+					Where-Object { $_.ResourceType -eq $this.ResourceType } | Select-Object JsonFileName, ResourceTypeName)
 		}
 		elseif($this.ResourceTypeName -ne [ResourceTypeName]::All)
 		{
 			$resourcetypes += ([SVTMapping]::AzSKADOResourceMapping |
-					Where-Object { $_.ResourceTypeName -eq $this.ResourceTypeName } | Select-Object JsonFileName)
+					Where-Object { $_.ResourceTypeName -eq $this.ResourceTypeName } | Select-Object JsonFileName, ResourceTypeName)
 		}
 		else
 		{
-			$resourcetypes += ([SVTMapping]::AzSKADOResourceMapping | Sort-Object ResourceTypeName | Select-Object JsonFileName )
+			$resourcetypes += ([SVTMapping]::AzSKADOResourceMapping | Sort-Object ResourceTypeName | Select-Object JsonFileName, ResourceTypeName)
 		}
 
 		# Fetch control Setting data
@@ -110,10 +110,11 @@ class ControlsInfo: CommandBase
 		}
 
 		$resourcetypes | ForEach-Object{
-					$controls = [ConfigurationManager]::GetSVTConfig($_.JsonFileName);
+					$currentResource = $_;
+					$controls = [ConfigurationManager]::GetSVTConfig($currentResource.JsonFileName);
 
-					# Filter control for enable only
-					$controls.Controls = ($controls.Controls | Where-Object { $_.Enabled -eq $true })
+					# Filter control for enable only, Second filter to fetch controls from comonsvt only for specific resource type
+					$controls.Controls = ($controls.Controls | Where-Object { $_.Enabled -eq $true -and $_.Id.StartsWith($currentResource.ResourceTypeName) } )
 
 					# Filter control for ControlIds
 					if ([Helpers]::CheckMember($controls, "Controls") -and $this.ControlIds.Count -gt 0)
@@ -141,9 +142,9 @@ class ControlsInfo: CommandBase
 
 					if ([Helpers]::CheckMember($controls, "Controls") -and $controls.Controls.Count -gt 0)
 					{
-                        if (-not $SVTConfig.ContainsKey($controls.FeatureName)) {
-						$SVTConfig.Add($controls.FeatureName, @($controls.Controls))
-                        }
+                        #if (-not $SVTConfig.ContainsKey($controls.FeatureName)) {
+						$SVTConfig.Add($currentResource.ResourceTypeName, @($controls.Controls))
+                        #}
 					}
                 }
 
