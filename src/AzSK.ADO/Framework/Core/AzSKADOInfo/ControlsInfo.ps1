@@ -142,9 +142,9 @@ class ControlsInfo: CommandBase
 
 					if ([Helpers]::CheckMember($controls, "Controls") -and $controls.Controls.Count -gt 0)
 					{
-                        #if (-not $SVTConfig.ContainsKey($controls.FeatureName)) {
+                        if (-not $SVTConfig.ContainsKey($controls.FeatureName)) {
 						$SVTConfig.Add($currentResource.ResourceTypeName, @($controls.Controls))
-                        #}
+                        }
 					}
                 }
 
