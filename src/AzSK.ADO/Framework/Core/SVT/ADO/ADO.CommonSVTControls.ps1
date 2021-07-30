@@ -505,4 +505,60 @@ class CommonSVTControls: ADOSVTBase {
         }
         return $controlResult
     }
+
+    hidden [ControlResult] CheckBuildSvcAcctAccessOnRepository([ControlResult] $controlResult)
+	{
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+            $refererUrl = "https://dev.azure.com/{0}/{1}/_settings/repositories?repo={2}&_a=permissionsMid" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceGroupName), $($this.ResourceContext.ResourceDetails.id)
+            $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+            $inputbody.dataProviderContext.properties.sourcePage.url = $refererUrl
+            $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceGroupName;
+            $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.Project.id)/$($this.ResourceContext.ResourceDetails.id)"
+            
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+            $repositoryIdentities = @();
+
+            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+            {
+                $repositoryIdentities = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities)
+            }
+        
+            if($repositoryIdentities.Count -gt 0)
+            {
+                $buildServieAccountOnRepo = @()
+                foreach ($identity in $repositoryIdentities)
+                {
+                    if ($identity.displayName -like '*Project Collection Build Service Accounts' -or $identity.displayName -like "*$($this.ResourceContext.ResourceGroupName) Build Service ($($this.OrganizationContext.OrganizationName))")
+                    {
+                        $buildServieAccountOnRepo += $identity.displayName;
+                    }
+                }
+                $restrictedBuildSVCAcctCount = $buildServieAccountOnRepo.Count;
+                if($restrictedBuildSVCAcctCount -gt 0)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of restricted Build Service groups that have access to repository: $($restrictedBuildSVCAcctCount)")
+                    $controlResult.AddMessage("`nList of 'Build Service' Accounts: ", $buildServieAccountOnRepo)
+                    $controlResult.SetStateData("List of 'Build Service' Accounts: ", $buildServieAccountOnRepo)
+                    $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)";
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the repository.");
+                }
+
+                $controlResult.AddMessage("`nNote:`nThe following 'Build Service' accounts should not have access to repository: `nProject Collection Build Service Account`n$($this.ResourceContext.ResourceGroupName) Build Service ($($this.OrganizationContext.OrganizationName))");
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch repository permission details.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch repository permission details.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult;
+    }
 }
