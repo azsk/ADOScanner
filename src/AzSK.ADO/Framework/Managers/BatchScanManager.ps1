@@ -12,6 +12,7 @@ class BatchScanManager
     hidden [PSObject] $ScanPendingForBatch = $null;
     hidden static [BatchScanManager] $Instance =$null;
     hidden [int] $BatchSize = 0;
+    hidden [bool] $isUpdated = $false;
 
     static [BatchScanManager] GetInstance( [string] $OrganizationName,[string] $ProjectName)
     {
@@ -44,6 +45,10 @@ class BatchScanManager
         }
         else {
             $this.BatchSize = $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency
+        }
+        if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq "Build_Release"){
+            
+            $this.BatchSize=$this.BatchSize/2;
         }
         if ([string]::isnullorwhitespace($this.BatchScanTrackerFileName))
         {              
@@ -146,10 +151,27 @@ class BatchScanManager
         $batchStatus = [BatchScanResourceMap]@{
             Skip = 0;
             Top = $this.GetBatchSize();
-            CurrentContinuationToken=$null;
-            NextContinuationToken=$null;
+            BuildCurrentContinuationToken=$null;
+            BuildNextContinuationToken=$null;
+            ReleaseCurrentContinuationToken=$null;
+            ReleaseNextContinuationToken=$null;
             BatchScanState= [BatchScanState]::INIT;
             LastModifiedTime = [DateTime]:: UtcNow;
+            ResourceCount=0;
+            SkipMarker = 'False'
+           
+        }
+        if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq "Build"){
+            $batchStatus = $batchStatus | Select-Object -Property * -ExcludeProperty ReleaseCurrentContinuationToken
+            $batchStatus = $batchStatus | Select-Object -Property * -ExcludeProperty ReleaseNextContinuationToken 
+            $batchStatus = $batchStatus | Select-Object -Property * -ExcludeProperty SkipMarker 
+                  
+        }
+        if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq "Release"){
+            $batchStatus = $batchStatus | Select-Object -Property * -ExcludeProperty BuildCurrentContinuationToken 
+            $batchStatus = $batchStatus | Select-Object -Property * -ExcludeProperty BuildNextContinuationToken
+            $batchStatus = $batchStatus | Select-Object -Property * -ExcludeProperty SkipMarker             
+            
         }
         $this.BatchScanTrackerObj=$batchStatus;
         $this.WriteToBatchTrackerFile()
@@ -177,46 +199,132 @@ class BatchScanManager
         }
     }
 
+    [bool] isPreviousScanPartiallyComplete(){
+        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+            if( ($null -ne $this.MasterFilePath) -and (Test-Path $this.MasterFilePath)){
+                $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
+                if($batchStatus.Skip -ne 0 -and [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken) -and $batchStatus.BatchScanState -eq [BatchScanState]::COMP) {
+                   return $true;
+                    
+                }
+                if($batchStatus.Skip -ne 0 -and [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken) -and $batchStatus.BatchScanState -eq [BatchScanState]::COMP) {
+                    return $true;
+                }
+                if($batchStatus.Skip -ne 0 -and [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken) -and [string]::IsNullOrEmpty($batchStatus.ReleaseCurrentContinuationToken)) {
+                    return $true;
+                     
+                }
+                 if($batchStatus.Skip -ne 0 -and [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken) -and [string]::IsNullOrEmpty($batchStatus.BuildCurrentContinuationToken)) {
+                     return $true;
+                }
+
+            }
+        }
+        return $false;
+    }
+
     [void] UpdateBatchMasterList(){
         if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
             if(Test-Path $this.MasterFilePath){
                 $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
-                
+                $isReleaseScan=$false;
+                $isBuildScan=$false;
+                if($batchStatus.PSobject.Properties.name -match "ReleaseCurrentContinuationToken") {
+                    $isReleaseScan=$true;
+                }
+                if($batchStatus.PSobject.Properties.name -match "BuildCurrentContinuationToken") {
+                    $isBuildScan=$true;
+                }
                 if($batchStatus.BatchScanState -eq [BatchScanState]:: INIT ){
                     if($batchStatus.Skip -eq 0){
-                        $batchStatus.CurrentContinuationToken=$null;
+                        if($isReleaseScan) {
+                            $batchStatus.ReleaseCurrentContinuationToken=$null;
+                        }
+                        if($isBuildScan) {
+                            $batchStatus.BuildCurrentContinuationToken=$null;
+                        }
+                        
                         Write-Host "Found a previous batch scan with no scanned builds. Continuing the scan from start `n " -ForegroundColor Green
                         
                     }
                     else
                     {
-                        Write-Host "Found a previous batch scan in progress with $($batchStatus.Skip) builds scanned. Continuing the scan for the last $($batchStatus.Top) builds from previous batch. `n " -ForegroundColor Green
+                        if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build_Release' -and $this.isPreviousScanPartiallyComplete() ){
+                            if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("BatchSize")){
+                                $this.BatchSize = $PSCmdlet.MyInvocation.BoundParameters["BatchSize"]
+                            }
+                            else {
+                                $this.BatchSize = $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency
+                            }
+                        }
+                        Write-Host "Found a previous batch scan in progress with $($batchStatus.ResourceCount) resources scanned. Continuing the scan for the last $($batchStatus.Top) resources from previous batch. `n " -ForegroundColor Green
                         
-                        if($this.CheckContTokenValidity($batchStatus.CurrentContinuationToken,$batchStatus.LastModifiedTime)){
+                        if($this.CheckContTokenValidity($batchStatus.LastModifiedTime)){
                             return;
                         }
                         else {
-                            $batchStatus.CurrentContinuationToken=$this.GetUpdatedContToken($batchStatus.Skip,$batchStatus.Top);
+                            if($isBuildScan -and $batchStatus.Skip -ne 0 -and (-not [string]::IsNullOrEmpty($batchStatus.BuildCurrentContinuationToken))){
+                                $batchStatus.BuildCurrentContinuationToken=$this.GetUpdatedContToken($batchStatus.Skip,$batchStatus.Top,'Build');
+                            }
+                            if($isReleaseScan -and $batchStatus.Skip -ne 0 -and (-not [string]::IsNullOrEmpty($batchStatus.ReleaseCurrentContinuationToken))){
+                                $batchStatus.ReleaseCurrentContinuationToken=$this.GetUpdatedContToken($batchStatus.Skip,$batchStatus.Top,'Release');
+                            }
+                            
                             $batchStatus.LastModifiedTime=[DateTime]::UtcNow;
                         }
                     }
                 }
                 else {
-                    Write-Host "Found a previous batch scan with $($batchStatus.Skip+$batchStatus.Top) builds scanned. Starting fresh scan for the next batch of $($batchStatus.Top) builds. `n " -ForegroundColor Green
-                   
-                    $batchStatus.Skip+=$this.GetBatchSize();
+                    if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build_Release' -and $this.isPreviousScanPartiallyComplete() ){
+                        if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("BatchSize")){
+                            $this.BatchSize = $PSCmdlet.MyInvocation.BoundParameters["BatchSize"]
+                        }
+                        else {
+                            $this.BatchSize = $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency
+                        }
+                    }
+                    Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Starting fresh scan for the next batch of $($batchStatus.Top) resources. `n " -ForegroundColor Green
+                    if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build_Release' -and $batchStatus.SkipMarker -eq "False" -and $this.isPreviousScanPartiallyComplete() ){
+                        
+                        $batchStatus.Skip=$batchStatus.Skip + ($this.GetBatchSize()/2);
+                        $batchStatus.SkipMarker = "True"
+                    }
+                    else {
+                        $batchStatus.Skip+=$this.GetBatchSize();
+                    }
+                    
+                    
+                    
                     $batchStatus.BatchScanState=[BatchScanState]::INIT
                     
-                    if($this.CheckContTokenValidity($batchStatus.NextContinuationToken,$batchStatus.LastModifiedTime)){
-                        $batchStatus.CurrentContinuationToken=$batchStatus.NextContinuationToken
+                    if($this.CheckContTokenValidity($batchStatus.LastModifiedTime)){
+                        
+                        if($isReleaseScan) {
+                            $batchStatus.ReleaseCurrentContinuationToken=$batchStatus.ReleaseNextContinuationToken
+                        }
+                        if($isBuildScan){
+                            $batchStatus.BuildCurrentContinuationToken=$batchStatus.BuildNextContinuationToken
+                        }
                         
                     }
                     else {
-                        
-                        $batchStatus.CurrentContinuationToken=$this.GetUpdatedContToken($batchStatus.Skip,$batchStatus.Top);
+                        if($isBuildScan -and $batchStatus.Skip -ne 0 -and (-not [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken))){
+                            $batchStatus.BuildCurrentContinuationToken=$this.GetUpdatedContToken($batchStatus.Skip,$batchStatus.Top,'Build');
+                        }
+                        if($isReleaseScan -and $batchStatus.Skip -ne 0 -and (-not [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken))){
+                            $batchStatus.ReleaseCurrentContinuationToken=$this.GetUpdatedContToken($batchStatus.Skip,$batchStatus.Top,'Release');
+                        }
+                        if($isBuildScan -and $batchStatus.Skip -ne 0 -and [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken)){
+                            $batchStatus.BuildCurrentContinuationToken=$batchStatus.BuildNextContinuationToken
+                        }
+                        if($isReleaseScan -and $batchStatus.Skip -ne 0 -and [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken)){
+                            $batchStatus.ReleaseCurrentContinuationToken=$batchStatus.ReleaseNextContinuationToken
+                        }
+                       
                         $batchStatus.LastModifiedTime=[DateTime]::UtcNow;
                         
                     }
+                   
                 }
                 $this.BatchScanTrackerObj=$batchStatus;
                 $this.WriteToBatchTrackerFile();
@@ -225,10 +333,8 @@ class BatchScanManager
        
     }
 
-    hidden [bool] CheckContTokenValidity([string] $continuationToken,[DateTime] $lastModifiedTime){
-        if($continuationToken -eq ""){
-            return $false;
-        }
+    hidden [bool] CheckContTokenValidity([DateTime] $lastModifiedTime){
+       
         if($lastModifiedTime.AddHours([INT32]::Parse(12)) -lt [DateTime]::UtcNow){
             return $false
         }
@@ -256,11 +362,21 @@ class BatchScanManager
         return $null;
     }
 
-    [string] GetContinuationToken(){
+    [string] GetBuildContinuationToken(){
         if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
             if(Test-Path $this.MasterFilePath){
                 $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
-                return $batchStatus.NextContinuationToken;
+                return $batchStatus.BuildNextContinuationToken;
+            }
+        }
+        return $null;
+    }
+
+    [string] GetReleaseContinuationToken(){
+        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+            if(Test-Path $this.MasterFilePath){
+                $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
+                return $batchStatus.ReleaseNextContinuationToken;
             }
         }
         return $null;
@@ -276,30 +392,36 @@ class BatchScanManager
         return $null;
     }
 
-    [void] UpdateContTokenAndDate($contToken, $lastModifiedTime){
-        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
-            if(Test-Path $this.MasterFilePath){
-                $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
-                $batchStatus.ContinuationToken=$contToken;
-                $batchStatus.LastModifiedTime=$lastModifiedTime;
-                $this.BatchScanTrackerObj=$batchStatus;
-                $this.WriteToBatchTrackerFile();
-            }
-        }
-    }
-
-    [string] GetUpdatedContToken([int] $skip, [string] $top){
+    [string] GetUpdatedContToken([int] $skip, [string] $top, [string] $resourceType){
         $tempSkip=0;
-        $topNQueryString = '&$top={0}' -f $this.GetBatchSize(); 
-        $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $this.OrgName, $this.ProjectName;
+        if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build_Release' -and $this.isPreviousScanPartiallyComplete() ){
+            $topNQueryString = '&$top={0}' -f ($this.GetBatchSize()/2); 
+        }
+        else {
+            $topNQueryString = '&$top={0}' -f $this.GetBatchSize();
+        }
+        
+        if($resourceType -eq 'Build'){
+            $resourceDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $this.OrgName, $this.ProjectName;
+        }
+        else {
+            $resourceDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString) -f $this.OrgName, $this.ProjectName;
+        }
+        
         $continuationToken=$null;
-        $originalUri=$buildDefnURL;
+        $originalUri=$resourceDefnURL;
         $validationUrl=$null;
-        while($tempSkip -ne $skip){
+        while($tempSkip -lt $skip){
            $validationUrl=$originalUri;
-           $originalUri=$buildDefnURL;
-            $tempSkip+=$this.GetBatchSize();             
-            $updatedUriAndContToken=[WebRequestHelper]:: InvokeWebRequestForContinuationToken($validationUrl,$originalUri,$tempSkip);
+           $originalUri=$resourceDefnURL;
+            
+            if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build_Release' -and $this.isPreviousScanPartiallyComplete() ){
+                $tempSkip+=($this.GetBatchSize()/2); 
+            }
+            else {
+                $tempSkip+=$this.GetBatchSize(); 
+            }            
+            $updatedUriAndContToken=[WebRequestHelper]:: InvokeWebRequestForContinuationToken($validationUrl,$originalUri,$tempSkip,$resourceType);
             $continuationToken=$updatedUriAndContToken[0];
             $originalUri=$updatedUriAndContToken[1];
 

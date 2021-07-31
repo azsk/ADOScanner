@@ -486,7 +486,7 @@ class WebRequestHelper {
 	    }				
 			return $outputValues,$originalUri;
 	}
-	static [System.Object[]] InvokeWebRequestForContinuationToken([string] $validatedUri,[string] $originalUri,$skipCount){
+	static [System.Object[]] InvokeWebRequestForContinuationToken([string] $validatedUri,[string] $originalUri,$skipCount,$resourceType){
 		
 		$success = $false;
 		[int] $retryCount=3;
@@ -515,10 +515,14 @@ class WebRequestHelper {
 					if($requestResult.Headers.ContainsKey('x-ms-continuationtoken')){
 						$nPKey = $requestResult.Headers["x-ms-continuationtoken"]
 						$continuationToken=$nPKey;
-						if($null -ne $skipCount){
+						if($resourceType -eq "build" -and $null -ne $skipCount ){
 							$originalUri= $originalUri +"&%24skip="+$skipCount+ "&continuationToken="+$nPKey
-							
-							}
+						}
+						elseif($resourceType -eq "release") {
+							$originalUri= $originalUri +"&continuationToken="+$nPKey
+						
+						}
+						
 								
 					}
 					else {

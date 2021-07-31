@@ -161,10 +161,10 @@ function BatchScan
             $parametersForGads = $PSCmdlet.MyInvocation.BoundParameters;
             $parametersForGads.Add("UsePartialCommits", $true);
             $parametersForGads.Add("AllowLongRunningScan", $true);
-            $parametersForGads.Add("ResourceTypeName", "Build");
             $parametersForGads.Add("BatchScan",$true);
             $parametersForGads.Remove("BatchSize") | Out-Null;
             $parametersForGads.Remove("ModulePath") | Out-Null;
+            $parametersForGads.Remove("PATTokenURL") | Out-Null;
 
             $rh = $false #Whether to keep each console open after gads completes.
             if ($rh)
@@ -174,11 +174,18 @@ function BatchScan
 
             GADS @parametersForGads
 
-            if("" -eq $batchScanMngr.GetContinuationToken() -and $batchScanMngr.GetBatchScanState() -eq [BatchScanState]::COMP){
+            if($ResourceTypeName -eq "Build" -and [string]::IsNullOrEmpty($batchScanMngr.GetBuildContinuationToken()) -and $batchScanMngr.GetBatchScanState() -eq [BatchScanState]::COMP){
                 #TODO all batches complete
                 Write-Host "No unscanned builds found. Scan is complete. " -ForegroundColor Green
                 $batchScanMngr.RemoveBatchScanData();
-
+            }
+            elseif($ResourceTypeName -eq "Release" -and [string]::IsNullOrEmpty($batchScanMngr.GetReleaseContinuationToken()) -and $batchScanMngr.GetBatchScanState() -eq [BatchScanState]::COMP){
+                Write-Host "No unscanned releases found. Scan is complete. " -ForegroundColor Green
+                $batchScanMngr.RemoveBatchScanData();
+            }
+            elseif($ResourceTypeName -eq "Build_Release" -and [string]::IsNullOrEmpty($batchScanMngr.GetReleaseContinuationToken()) -and [string]::IsNullOrEmpty($batchScanMngr.GetBuildContinuationToken()) -and $batchScanMngr.GetBatchScanState() -eq [BatchScanState]::COMP) {
+                Write-Host "No unscanned builds or releases found. Scan is complete. " -ForegroundColor Green
+                $batchScanMngr.RemoveBatchScanData();
             }
             else {
                

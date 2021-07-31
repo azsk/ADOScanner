@@ -531,10 +531,15 @@ class SVTResourceResolver: AzSKRoot {
                                 $this.PublishCustomMessage("Folder path not found. Please validate the -ReleasesFolderPath provided in the command. `n", [MessageType]::Warning);
                             }
                             else {
+                                if($this.BatchScan){
+                                    $this.addReleasesToSvtInBatchScan($projectName,$projectId,$path)
+                                }
+                                else {
                                #API doesnt provide all folders in a path, fallback to fetch all resources and then filter
                                 $nObj=$this.MaxObjectsToScan                                                               
                                 $releaseDefURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
-                                $this.addResourceToSVT($releaseDefURL,"release",$projectName, $organizationId, $projectId, $true, $true, $path,[ref]$nObj)                                  
+                                $this.addResourceToSVT($releaseDefURL,"release",$projectName, $organizationId, $projectId, $true, $true, $path,[ref]$nObj)   
+                                }                               
                                 
 
                             }
@@ -547,9 +552,14 @@ class SVTResourceResolver: AzSKRoot {
 
                         elseif ($this.ReleaseNames -eq "*")
                         {
+                            if($this.BatchScan){
+                                $this.addReleasesToSvtInBatchScan($projectName,$projectId,$null);
+                            }
+                            else {
                             $nObj=$this.MaxObjectsToScan
                             $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0") -f $($this.OrganizationContext.OrganizationName), $projectName;
                             $this.addResourceToSVT($releaseDefnURL,"release",$projectName,$organizationId,$projectId,$false,$false,$null,[ref]$nObj);
+                            }
                         }
                         else {
                             try {
@@ -1308,14 +1318,19 @@ class SVTResourceResolver: AzSKRoot {
     [void] addBuildsToSvtInBatchScan($ProjectName,$ProjectId,$Path){
         [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
         $batchStatus= $batchScanMngr.GetBatchStatus();
+        if([string]::IsNullOrEmpty($batchStatus.BuildCurrentContinuationToken) -and $batchStatus.Skip -gt 0){
+           
+            return;
+        }
         $topNQueryString = '&$top={0}' -f $batchScanMngr.GetBatchSize();
-        if($null -ne $batchStatus.CurrentContinuationToken){
-            $buildDefURL= ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0&%24skip={2}&continuationToken={3}" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $ProjectName, $batchStatus.Skip, $batchStatus.CurrentContinuationToken;
+        
+        if($null -ne $batchStatus.BuildCurrentContinuationToken){
+            $buildDefURL= ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0&%24skip={2}&continuationToken={3}" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $ProjectName, $batchStatus.Skip, $batchStatus.BuildCurrentContinuationToken;
         }
         else {
             $buildDefURL= ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0&%24skip={2}" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $ProjectName, $batchStatus.Skip;
         }
-        $updatedUriAndContToken=[WebRequestHelper]:: InvokeWebRequestForContinuationToken($buildDefURL,$buildDefURL,$null);
+        $updatedUriAndContToken=[WebRequestHelper]:: InvokeWebRequestForContinuationToken($buildDefURL,$buildDefURL,$null,'build');
         $continuationToken=$updatedUriAndContToken[0];
         $buildDefnsObj=$updatedUriAndContToken[2];
 
@@ -1337,7 +1352,50 @@ class SVTResourceResolver: AzSKRoot {
             Remove-Variable buildDefnsObj;
         }
         Write-Progress -Activity "All builds fetched" -Status "Ready" -Completed
-        $batchStatus.NextContinuationToken=$continuationToken;
+        $batchStatus.BuildNextContinuationToken=$continuationToken;
+        $batchStatus.LastModifiedTime=[DateTime]::UtcNow;
+        $batchScanMngr.BatchScanTrackerObj = $batchStatus;
+        $batchScanMngr.WriteToBatchTrackerFile();
+        
+    }
+
+    [void] addReleasesToSvtInBatchScan($ProjectName,$ProjectId,$Path){
+        [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
+        $batchStatus= $batchScanMngr.GetBatchStatus();
+        if([string]::IsNullOrEmpty($batchStatus.ReleaseCurrentContinuationToken) -and $batchStatus.Skip -gt 0){
+            return;
+        }
+        $topNQueryString = '&$top={0}' -f $batchScanMngr.GetBatchSize();
+        if($null -ne $batchStatus.ReleaseCurrentContinuationToken){
+            $releaseDefURL= ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0&continuationToken={2}" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $ProjectName, $batchStatus.ReleaseCurrentContinuationToken;
+        }
+        else {
+            $releaseDefURL= ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString ) -f $($this.OrganizationContext.OrganizationName), $ProjectName;
+        }
+        $updatedUriAndContToken=[WebRequestHelper]:: InvokeWebRequestForContinuationToken($releaseDefURL,$releaseDefURL,$null,'release');
+        $continuationToken=$updatedUriAndContToken[0];
+        $releaseDefnsObj=$updatedUriAndContToken[2];
+
+        if($null -ne $Path){            
+                  
+            $releaseDefnsObj = $releaseDefnsObj | Where-Object {$_.path -eq "\$($Path)" -or $_.path -replace '\s','' -match [System.Text.RegularExpressions.Regex]::Escape("$($Path -replace '\s','')")}
+       
+        }
+        $progressCount=1
+        if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
+            $tempLink = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId=" -f $this.OrganizationContext.OrganizationName, $projectName;
+            foreach ($releaseDef in $releaseDefnsObj) {
+                $link = $tempLink+$releaseDef.id
+                $releaseResourceId = "organization/$($this.OrganizationContext.OrganizationId)/project/$ProjectId/release/$($releaseDef.id)";
+                $this.AddSVTResource($releaseDef.name, $ProjectName, "ADO.Release", $releaseResourceId, $null, $link);
+                Write-Progress -Activity "Fetched $($progressCount) out of $(($releaseDefnsObj | Measure-Object).Count) releases " -Status "Progress: " -PercentComplete ($progressCount / ($releaseDefnsObj | Measure-Object).Count * 100)
+                $progressCount+=1
+            }
+            $releaseDefnsObj = $null;
+            Remove-Variable releaseDefnsObj;
+        }
+        Write-Progress -Activity "All releases fetched" -Status "Ready" -Completed
+        $batchStatus.ReleaseNextContinuationToken=$continuationToken;
         $batchStatus.LastModifiedTime=[DateTime]::UtcNow;
         $batchScanMngr.BatchScanTrackerObj = $batchStatus;
         $batchScanMngr.WriteToBatchTrackerFile();
