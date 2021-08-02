@@ -976,69 +976,76 @@ class SVTResourceResolver: AzSKRoot {
                     }
                 }
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::All))
+            #TODO: Remove this try catch in 2110
+            try
             {
-                if ($rsrcList.Repositories -and $rsrcList.Repositories.Count -gt 0)
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::All))
                 {
-                    if ($this.RepoNames -ne "*") {
-                        $rsrcList.Repositories = @($rsrcList.repositories | Where { $_.repoName -in $this.RepoNames }); 
+                    if ($rsrcList.Repositories -and $rsrcList.Repositories.Count -gt 0)
+                    {
+                        if ($this.RepoNames -ne "*") {
+                            $rsrcList.Repositories = @($rsrcList.repositories | Where { $_.repoName -in $this.RepoNames }); 
+                        }
+                        if ($rsrcList.Repositories -and $rsrcList.Repositories.Count -gt 0) {
+                            $this.RepoNames = $rsrcList.Repositories.repoName
+                            $bFoundSvcMappedObjects = $true
+                        }
+                        else {
+                            $this.RepoNames = @();
+                        }
                     }
-                    if ($rsrcList.Repositories -and $rsrcList.Repositories.Count -gt 0) {
-                        $this.RepoNames = $rsrcList.Repositories.repoName
-                        $bFoundSvcMappedObjects = $true
+                }
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::Feed, [ResourceTypeName]::All))
+                {
+                    if ($rsrcList.Feeds -and $rsrcList.Feeds.Count -gt 0)
+                    {
+                        if ($this.FeedNames -ne "*") {
+                            $rsrcList.Feeds = @($rsrcList.Feeds | Where { $_.feedName -in $this.FeedNames }); 
+                        }
+                        if ($rsrcList.Feeds -and $rsrcList.Feeds.Count -gt 0) {
+                            $this.FeedNames = $rsrcList.Feeds.feedName
+                            $bFoundSvcMappedObjects = $true
+                        }
+                        else {
+                            $this.FeedNames = @();
+                        }
                     }
-                    else {
-                        $this.RepoNames = @();
+                }
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::SecureFile, [ResourceTypeName]::All))
+                {
+                    if ($rsrcList.SecureFiles -and $rsrcList.SecureFiles.Count -gt 0)
+                    {
+                        if ($this.SecureFileNames -ne "*") {
+                            $rsrcList.SecureFiles = @($rsrcList.SecureFiles | Where { $_.secureFileName -in $this.SecureFileNames }); 
+                        }
+                        if ($rsrcList.SecureFiles -and $rsrcList.SecureFiles.Count -gt 0) {
+                            $this.SecureFileNames = $rsrcList.SecureFiles.secureFileName
+                            $bFoundSvcMappedObjects = $true
+                        }
+                        else {
+                            $this.SecureFileNames = @();
+                        }
+                    }
+                }
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::Environment, [ResourceTypeName]::All))
+                {
+                    if ($rsrcList.Environments -and $rsrcList.Environments.Count -gt 0)
+                    {
+                        if ($this.EnvironmentNames -ne "*") {
+                            $rsrcList.Environments = @($rsrcList.Environments | Where { $_.environmentName -in $this.EnvironmentNames }); 
+                        }
+                        if ($rsrcList.Environments -and $rsrcList.Environments.Count -gt 0) {
+                            $this.EnvironmentNames = $rsrcList.Environments.environmentName
+                            $bFoundSvcMappedObjects = $true
+                        }
+                        else {
+                            $this.EnvironmentNames = @();
+                        }
                     }
                 }
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::Feed, [ResourceTypeName]::All))
-            {
-                if ($rsrcList.Feeds -and $rsrcList.Feeds.Count -gt 0)
-                {
-                    if ($this.FeedNames -ne "*") {
-                        $rsrcList.Feeds = @($rsrcList.Feeds | Where { $_.feedName -in $this.FeedNames }); 
-                    }
-                    if ($rsrcList.Feeds -and $rsrcList.Feeds.Count -gt 0) {
-                        $this.FeedNames = $rsrcList.Feeds.feedName
-                        $bFoundSvcMappedObjects = $true
-                    }
-                    else {
-                        $this.FeedNames = @();
-                    }
-                }
-            }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::SecureFile, [ResourceTypeName]::All))
-            {
-                if ($rsrcList.SecureFiles -and $rsrcList.SecureFiles.Count -gt 0)
-                {
-                    if ($this.SecureFileNames -ne "*") {
-                        $rsrcList.SecureFiles = @($rsrcList.SecureFiles | Where { $_.secureFileName -in $this.SecureFileNames }); 
-                    }
-                    if ($rsrcList.SecureFiles -and $rsrcList.SecureFiles.Count -gt 0) {
-                        $this.SecureFileNames = $rsrcList.SecureFiles.secureFileName
-                        $bFoundSvcMappedObjects = $true
-                    }
-                    else {
-                        $this.SecureFileNames = @();
-                    }
-                }
-            }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::Environment, [ResourceTypeName]::All))
-            {
-                if ($rsrcList.Environments -and $rsrcList.Environments.Count -gt 0)
-                {
-                    if ($this.EnvironmentNames -ne "*") {
-                        $rsrcList.Environments = @($rsrcList.Environments | Where { $_.environmentName -in $this.EnvironmentNames }); 
-                    }
-                    if ($rsrcList.Environments -and $rsrcList.Environments.Count -gt 0) {
-                        $this.EnvironmentNames = $rsrcList.Environments.environmentName
-                        $bFoundSvcMappedObjects = $true
-                    }
-                    else {
-                        $this.EnvironmentNames = @();
-                    }
-                }
+            catch{
+                #eat the exception
             }
         }
         if ($bFoundSvcMappedObjects -eq $false)
