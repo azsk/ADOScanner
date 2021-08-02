@@ -8,5 +8,6 @@
     "AutoUpdateCommand":  "Install-Module AzSK.ADO -AllowClobber -Scope CurrentUser -Force",
     "BranchId":  "master",
     "EnableOrgControlAttestation":  false,
-    "PolicyProject":  ""
+    "PolicyProject":  "",
+    "OnlineOssPolicyStoreUrl" : "https://raw.githubusercontent.com/SaikumarRagala/policy/main/oss-config-staging/1.0.0/$FileName"
 }

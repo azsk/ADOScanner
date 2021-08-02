@@ -8,6 +8,8 @@ class ConfigurationHelper {
 	hidden static [bool] $OfflineMode = $false;
 	hidden static [string] $ConfigVersion = ""
 	hidden static [bool] $LocalPolicyEnabled = $false
+	hidden static [bool] $OssPolicyEnabled = $false
+	hidden static [bool] $OssPolicyUrl = [string]::Empty
 	hidden static [string] $ConfigPath = [string]::Empty
 	hidden static [Policy[]] $PolicyCacheContent = @()
 	hidden static $NotExtendedTypes = @{} #Used to remember Types we have checked already as to whether they are extended (e.g., Build.ext.ps1) or not.
@@ -61,6 +63,38 @@ class ConfigurationHelper {
 		return $fileContent;
 	}
 
+	hidden static [PSObject] LoadFrameworkConfigFile([string] $fileName, [bool] $parseJson) {
+		#Load file from AzSK App folder"
+        $fileName = $fileName.Split('\')[-1]
+		$extension = [System.IO.Path]::GetExtension($fileName);
+
+		$basePath = [ConfigurationHelper]::GetBaseFrameworkPath()
+		$rootConfigPath = $basePath | Join-Path -ChildPath "Configurations";
+
+		$filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1
+		if ($filePath) {
+			if ($parseJson) {
+				if ($extension -eq ".json" -or $extension -eq ".lawsview") {
+					$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath)) | ConvertFrom-Json
+				}
+				else {
+					$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath))
+				}
+			}
+			else {
+				$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath))
+			}
+		}
+		else {
+			throw "Unable to find the specified file '$fileName'"
+		}
+		if (-not $fileContent) {
+			throw "The specified file '$fileName' is empty"
+		}
+
+		return $fileContent;		
+	}
+
 	hidden static [PSObject] LoadServerConfigFile([string] $policyFileName, [bool] $useOnlinePolicyStore, [string] $onlineStoreUri, [bool] $enableAADAuthForOnlinePolicyStore) {
 		[PSObject] $fileContent = "";
 		if ([string]::IsNullOrWhiteSpace($policyFileName)) {
@@ -109,6 +143,15 @@ class ConfigurationHelper {
 							$Version = [System.Version] ($global:ExecutionContext.SessionState.Module.Version);
 							$serverFileContent = [ConfigurationHelper]::InvokeControlsAPI($onlineStoreUri, $Version, $policyFileName, $enableAADAuthForOnlinePolicyStore);
 							[ConfigurationHelper]::ConfigVersion = $Version;
+							if ([String]::IsNullOrWhiteSpace($serverFileContent)) {
+                                $moduleAzSKSettings = [ConfigurationHelper]::LoadFrameworkConfigFile("AzSKSettings.json", $true);
+                                if(-not [String]::IsNullOrWhiteSpace($moduleAzSKSettings.OnlineOssPolicyStoreUrl)) {
+									[EventBase]::PublishGenericCustomMessage("Running Org-Policy from local policy store location: [$onlineStoreUri]", [MessageType]::Info);
+                                    $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub($moduleAzSKSettings.OnlineOssPolicyStoreUrl, $Version, $policyFileName);
+									[ConfigurationHelper]::OssPolicyEnabled = $true
+								    
+                                }
+							}
 							if ([String]::IsNullOrWhiteSpace($serverFileContent)) {
 								if (Test-Path $onlineStoreUri) {
 									[EventBase]::PublishGenericCustomMessage("Running Org-Policy from local policy store location: [$onlineStoreUri]", [MessageType]::Info);
@@ -309,6 +352,32 @@ class ConfigurationHelper {
 		}
 		catch {
 			return $null;
+		}
+		return $null;
+	}
+
+	# Fetch the configuration file content from github
+	hidden static [PSObject] InvokeControlsAPIGitHub([string] $onlineStoreUri, [string] $configVersion, [string] $policyFileName)
+ 	{
+		#Evaluate all code block in onlineStoreUri. 
+		#Can use '$FileName' in uri to fill dynamic file name.
+		#Revisit
+		$FileName = $policyFileName;
+		$Version = $configVersion;
+		$uri = $global:ExecutionContext.InvokeCommand.ExpandString($onlineStoreUri)
+		[System.Uri] $validatedUri = $null;
+		if ([System.Uri]::TryCreate($uri, [System.UriKind]::Absolute, [ref] $validatedUri))
+		{
+			$serverFileContent = Invoke-RestMethod `
+				-Method GET `
+				-Uri $validatedUri `
+				-UseBasicParsing
+			return $serverFileContent
+		}
+		else
+		{
+			[EventBase]::PublishGenericCustomMessage(("'UseOnlinePolicyStore' is enabled but the 'OnlinePolicyStoreUrl' is not valid Uri: [$uri]. `r`n" + [Constants]::OfflineModeWarning), [MessageType]::Warning);
+			[ConfigurationHelper]::OfflineMode = $true;
 		}
 		return $null;
 	}
