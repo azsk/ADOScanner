@@ -334,6 +334,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 						{
 							# Update local resource tracker file
 							$this.UpdatePartialCommitFile($false, $result)
+							#If this is a batch scan, update the inventory count and add to tracker
 							if($this.IsBatchScan) {
 								$this.UpdateBatchScanCount($currentCount,$totalResources);
 							}

@@ -1318,6 +1318,8 @@ class SVTResourceResolver: AzSKRoot {
     [void] addBuildsToSvtInBatchScan($ProjectName,$ProjectId,$Path){
         [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
         $batchStatus= $batchScanMngr.GetBatchStatus();
+
+        #all builds have been scanned
         if([string]::IsNullOrEmpty($batchStatus.BuildCurrentContinuationToken) -and $batchStatus.Skip -gt 0){
            
             return;
@@ -1362,6 +1364,8 @@ class SVTResourceResolver: AzSKRoot {
     [void] addReleasesToSvtInBatchScan($ProjectName,$ProjectId,$Path){
         [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
         $batchStatus= $batchScanMngr.GetBatchStatus();
+
+        #all releases have been scanned
         if([string]::IsNullOrEmpty($batchStatus.ReleaseCurrentContinuationToken) -and $batchStatus.Skip -gt 0){
             return;
         }

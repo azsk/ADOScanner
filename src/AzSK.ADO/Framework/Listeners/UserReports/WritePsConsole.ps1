@@ -256,6 +256,8 @@ class WritePsConsole: FileOutputBase
 
                 $currentInstance.WriteMessage("Status and detailed logs have been exported to path - $([WriteFolderPath]::GetInstance().FolderPath)", [MessageType]::Info)
                 $currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)
+
+				#change batch scan state to COMP
 				if($currentInstance.InvocationContext.BoundParameters.ContainsKey('BatchScan')){
 				$CurrentResourceCount = $currentInstance.UpdateCurrentBatch();
 					$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Update)

@@ -53,7 +53,6 @@ function CollateBatchScan
            
             $folderCount = (Get-ChildItem $outputPath -Directory | Measure-Object).Count;
             $progress=1;
-            
             Get-ChildItem $outputPath | foreach {
                $scanFolder = $_.name;
                $csvFolder = Join-Path $outputPath -ChildPath $scanFolder;
@@ -62,21 +61,24 @@ function CollateBatchScan
                Get-ChildItem $csvFilePath | foreach {
                 $csv=$_
                 $temp = Import-Csv $csv
-                
+               
                 $temp | foreach  {
                     $oldDetailedLogFile = $_.DetailedLogFile
                     $newDetailedLogFile = Join-Path $scanFolder $oldDetailedLogFile
                     $_.DetailedLogFile = $newDetailedLogFile
+                   
                 }
 
-                $temp | Export-Csv (Join-Path $outputPath "finalnew.csv") -append -NoTypeInformation 
+                $temp | Export-Csv (Join-Path $outputPath "SecurityReport_CollatedBatchScan.csv") -append -NoTypeInformation 
                 Write-Progress -Activity "Collated results from $($progress) folders out of $($folderCount) folders " -PercentComplete ($progress / $folderCount  * 100)
                 $progress+=1
                 
                }
-            }
+            }         
+
+
             Write-Progress -Activity "All results collated" -Status "Ready" -Completed
-            Write-Host "Collated results have been exported to $(Join-Path $outputPath "finalnew.csv") "  -ForegroundColor Green
+            Write-Host "Collated results have been exported to $(Join-Path $outputPath "SecurityReport_CollatedBatchScan.csv") "  -ForegroundColor Green
             
            
             

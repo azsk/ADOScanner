@@ -60,6 +60,7 @@ class FileOutputBase: ListenerBase
 			$runPath = $this.RunIdentifier;
 			$commandMetadata = $this.GetCommandMetadata();
 
+			#if this is a batch scan, we have to add results to the batch scan folder
 			$batchScanSanitizedPath = $null
 			if($commandMetaData.PSObject.Properties.Name.Contains("BatchScan")){
 				$batchScanSanitizedPath = [Helpers]::SanitizeFolderName($commandMetadata.BatchScan)

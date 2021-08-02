@@ -46,6 +46,8 @@ class BatchScanManager
         else {
             $this.BatchSize = $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency
         }
+
+        #need to make batch size half as both builds and releases will be scanned
         if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq "Build_Release"){
             
             $this.BatchSize=$this.BatchSize/2;
@@ -199,6 +201,7 @@ class BatchScanManager
         }
     }
 
+    #to check if anyone either builds or releases have been scanned and other resource is still left, is useful only when build_release is resource type
     [bool] isPreviousScanPartiallyComplete(){
         if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
             if( ($null -ne $this.MasterFilePath) -and (Test-Path $this.MasterFilePath)){
@@ -244,11 +247,12 @@ class BatchScanManager
                             $batchStatus.BuildCurrentContinuationToken=$null;
                         }
                         
-                        Write-Host "Found a previous batch scan with no scanned builds. Continuing the scan from start `n " -ForegroundColor Green
+                        Write-Host "Found a previous batch scan with no scanned resources. Continuing the scan from start `n " -ForegroundColor Green
                         
                     }
                     else
                     {
+                        #anyone of the resource has been completely scanned need to make batch size double again
                         if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build_Release' -and $this.isPreviousScanPartiallyComplete() ){
                             if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("BatchSize")){
                                 $this.BatchSize = $PSCmdlet.MyInvocation.BoundParameters["BatchSize"]
@@ -257,7 +261,7 @@ class BatchScanManager
                                 $this.BatchSize = $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency
                             }
                         }
-                        Write-Host "Found a previous batch scan in progress with $($batchStatus.ResourceCount) resources scanned. Continuing the scan for the last $($batchStatus.Top) resources from previous batch. `n " -ForegroundColor Green
+                        Write-Host "Found a previous batch scan in progress with $($batchStatus.ResourceCount) resources scanned. Resuming the scan from last batch. `n " -ForegroundColor Green
                         
                         if($this.CheckContTokenValidity($batchStatus.LastModifiedTime)){
                             return;
@@ -283,7 +287,7 @@ class BatchScanManager
                             $this.BatchSize = $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency
                         }
                     }
-                    Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Starting fresh scan for the next batch of $($batchStatus.Top) resources. `n " -ForegroundColor Green
+                    Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Starting fresh scan for the next batch. `n " -ForegroundColor Green
                     if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build_Release' -and $batchStatus.SkipMarker -eq "False" -and $this.isPreviousScanPartiallyComplete() ){
                         
                         $batchStatus.Skip=$batchStatus.Skip + ($this.GetBatchSize()/2);
