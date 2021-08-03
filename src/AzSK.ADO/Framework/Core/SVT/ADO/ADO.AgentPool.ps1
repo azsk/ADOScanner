@@ -429,6 +429,10 @@ class AgentPool: ADOSVTBase
                         $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)";
+                        if ($this.ControlFixBackupRequired) {
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $formattedGroupsData;
+                        }
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to agent pool.");
@@ -448,6 +452,14 @@ class AgentPool: ADOSVTBase
             $controlResult.LogException($_)
         }
 
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupAccessAutomatedFix ([ControlResult] $controlResult) {
+        try {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+
+        }
         return $controlResult;
     }
 }

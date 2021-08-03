@@ -906,6 +906,10 @@ class ServiceConnection: ADOSVTBase
                         $controlResult.AddMessage("`nList of groups: ", $formattedGroupsTable)
                         $controlResult.SetStateData("List of groups: ", $formattedGroupsTable)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to service connection:  $($restrictedGroupsCount)";
+                        if ($this.ControlFixBackupRequired) {
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $formattedGroupsData;
+                        }
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection.");
@@ -930,6 +934,18 @@ class ServiceConnection: ADOSVTBase
             $controlResult.AddMessage([VerificationResult]::Error, "Unable to fetch service connections details. $($failMsg)Please verify from portal that you are not granting global security groups access to service connections");
         }
         return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupAccessAutomatedFix ([ControlResult] $controlResult) {        
+        try {
+            $RawDataObjForControlFix = @(); 
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject;
+        }
+        catch{
+
+        }
+        
+        return $controlResult;          
     }
 
     hidden [ControlResult] CheckRestricedCloudEnvironment ([ControlResult] $controlResult) {

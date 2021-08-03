@@ -309,6 +309,10 @@ class VariableGroup: ADOSVTBase
                     $controlResult.AddMessage(($restrictedGroups | FT | Out-String));
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group: $($restrictedGroupsCount)";
+                    if ($this.ControlFixBackupRequired) {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $formattedGroupsData;
+                    }
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group.");
@@ -324,6 +328,14 @@ class VariableGroup: ADOSVTBase
             $controlResult.LogException($_)
         }
 
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupAccessAutomatedFix ([ControlResult] $controlResult) {
+        try {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+
+        }
         return $controlResult;
     }
 
