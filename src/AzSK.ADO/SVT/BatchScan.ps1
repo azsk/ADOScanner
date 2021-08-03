@@ -29,6 +29,11 @@ function BatchScan
         $UseBaselineControls,
 
         [string]
+		[Parameter(Mandatory = $false)]
+		[Alias("ft")]
+		$FilterTags,
+
+        [string]
         [Parameter(HelpMessage = "Comma separated control ids to filter the security controls. e.g.: ADO_Organization_AuthN_Use_AAD_Auth, ADO_Organization_SI_Review_InActive_Users etc.")]
         [Alias("cids")]
         $ControlIds,
