@@ -6,19 +6,19 @@ function BatchScan
     Param
     (
         [string]
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, HelpMessage="Organization name for which the security evaluation has to be performed.")]
         [ValidateNotNullOrEmpty()]
         [Alias("oz")]
         $OrganizationName,
 
         [string]
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, HelpMessage="Project name for which the security evaluation has to be performed.")]
         [ValidateNotNullOrEmpty()]
         [Alias("pn")]
         $ProjectName,
 
         [string]
-        [Parameter()]
+        [Parameter(Mandatory =$false, HelpMessage = "Folder path of builds to be scanned.")]
         [ValidateNotNullOrEmpty()]
         [Alias("bp")]
         $BuildsFolderPath,
@@ -29,17 +29,18 @@ function BatchScan
         $UseBaselineControls,
 
         [string]
-        [Parameter()]
+        [Parameter(HelpMessage = "Comma separated control ids to filter the security controls. e.g.: ADO_Organization_AuthN_Use_AAD_Auth, ADO_Organization_SI_Review_InActive_Users etc.")]
         [Alias("cids")]
         $ControlIds,
 
         [string]
-		[Parameter(Mandatory = $true)]
+		[Parameter(Mandatory = $true, HelpMessage="KeyVault URL for PATToken")]
 		[Alias("ptu")]
 		$PATTokenURL,
 
         [int]
-        [Parameter()]
+        [Parameter(HelpMessage = "Batch size for the scan.")]
+        [ValidateRange(2,10000)]
         [Alias("bsz")]
         $BatchSize,
 
@@ -49,20 +50,59 @@ function BatchScan
         $ModulePath,
 
         [string]
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, HelpMessage = "Folder name where batch scan results are to be stored.")]
         [Alias("fn")]
         $FolderName,
 
         [string]
         [Parameter(Mandatory = $true)]
+        [ValidateSet("Build","Release","Build_Release")]
         [Alias("rtn")]
         $ResourceTypeName,
 
         [string]
-        [Parameter()]
+        [Parameter(HelpMessage = "Folder path of releases to be scanned.")]
         [ValidateNotNullOrEmpty()]
         [Alias("rfp")]
-        $ReleasesFolderPath
+        $ReleasesFolderPath,
+
+        [string]
+		[Parameter(Mandatory = $false, HelpMessage="Name of the project hosting organization policy with which the scan should run.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("pp")]
+		$PolicyProject,
+
+        [ValidateSet("All","BaselineControls", "Custom")]
+		[Parameter(Mandatory = $false)]
+		[Alias("abl")]
+		[string] $AutoBugLog = [BugLogForControls]::All,
+
+
+		[switch]
+		[Parameter(HelpMessage = "Switch to auto-close bugs after the scan.")]
+		[Alias("acb")]
+		$AutoCloseBugs,
+
+		[string]
+		[Parameter(Mandatory=$false, HelpMessage = "Specify the area path where bugs are to be logged.")]
+		[Alias("apt")]
+		$AreaPath,
+
+		[string]
+		[Parameter(Mandatory=$false, HelpMessage = "Specify the iteration path where bugs are to be logged.")]
+		[Alias("ipt")]
+		$IterationPath,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage = "Specify the security severity of bugs to be logged.")]
+		[Alias("ssv")]
+		$SecuritySeverity,
+
+		[string]
+		[Parameter(HelpMessage="Specify the custom field reference name for bug description.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("bdf")]
+		$BugDescriptionField
 
 
 
@@ -155,9 +195,14 @@ function BatchScan
             }
             $commandForNextBatch ='ipmo \"{0}\"; BatchScan ' -f $ModulePath;
             $PSCmdlet.MyInvocation.BoundParameters.GetEnumerator() | foreach-object {
-                $commandForNextBatch += '-{0} \"{1}\" ' -f $_.key, $_.value 
+                if($_.value -eq $true){
+                    $commandForNextBatch += '-{0} ' -f $_.key
+                }
+                else {
+                    $commandForNextBatch += '-{0} \"{1}\" ' -f $_.key, $_.value 
+                }
+                
             }
-
             $parametersForGads = $PSCmdlet.MyInvocation.BoundParameters;
             $parametersForGads.Add("UsePartialCommits", $true);
             $parametersForGads.Add("AllowLongRunningScan", $true);
@@ -165,6 +210,7 @@ function BatchScan
             $parametersForGads.Remove("BatchSize") | Out-Null;
             $parametersForGads.Remove("ModulePath") | Out-Null;
             $parametersForGads.Remove("PATTokenURL") | Out-Null;
+
 
             $rh = $false #Whether to keep each console open after gads completes.
             if ($rh)

@@ -1355,7 +1355,7 @@ class SVTResourceResolver: AzSKRoot {
         }
         Write-Progress -Activity "All builds fetched" -Status "Ready" -Completed
         $batchStatus.BuildNextContinuationToken=$continuationToken;
-        $batchStatus.LastModifiedTime=[DateTime]::UtcNow;
+        $batchStatus.TokenLastModifiedTime=[DateTime]::UtcNow;
         $batchScanMngr.BatchScanTrackerObj = $batchStatus;
         $batchScanMngr.WriteToBatchTrackerFile();
         
@@ -1400,7 +1400,7 @@ class SVTResourceResolver: AzSKRoot {
         }
         Write-Progress -Activity "All releases fetched" -Status "Ready" -Completed
         $batchStatus.ReleaseNextContinuationToken=$continuationToken;
-        $batchStatus.LastModifiedTime=[DateTime]::UtcNow;
+        $batchStatus.TokenLastModifiedTime=[DateTime]::UtcNow;
         $batchScanMngr.BatchScanTrackerObj = $batchStatus;
         $batchScanMngr.WriteToBatchTrackerFile();
         

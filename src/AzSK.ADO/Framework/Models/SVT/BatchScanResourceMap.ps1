@@ -6,7 +6,7 @@ class BatchScanResourceMap
     [string] $BuildCurrentContinuationToken
     [string] $BuildNextContinuationToken
     [BatchScanState] $BatchScanState
-    [DateTime] $LastModifiedTime
+    [DateTime] $TokenLastModifiedTime
     [string] $ReleaseCurrentContinuationToken
     [string] $ReleaseNextContinuationToken
     [int] $ResourceCount
