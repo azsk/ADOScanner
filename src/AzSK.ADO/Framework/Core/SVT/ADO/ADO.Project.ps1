@@ -2269,4 +2269,203 @@ class Project: ADOSVTBase
 
         return $controlResult;
     }
+    
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForFeed ([ControlResult] $controlResult) {
+
+        try {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "Feed.RestrictedBroaderGroupsForFeeds") -and [Helpers]::CheckMember($this.ControlSettings, "Feed.RestrictedRolesForBroaderGroupsInFeeds")) {
+                $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.Feed.RestrictedBroaderGroupsForFeeds;
+                $restrictedRolesForBroaderGroupsInvarGrp = $this.ControlSettings.Feed.RestrictedRolesForBroaderGroupsInFeeds;
+
+                #Fetch variable group RBAC
+                $roleAssignments = @();
+
+                $url = 'https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds?api-version=6.0-preview.1' -f $($this.OrganizationContext.OrganizationName), $($projectId);
+                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                if($responseObj.Count -gt 0)
+                {
+                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                }
+
+                # Checking whether the broader groups have User/Admin permissions
+                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                $restrictedGroupsCount = $restrictedGroups.Count
+
+                # fail the control if restricted group found on variable group
+                if ($restrictedGroupsCount -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)");
+                    $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                    $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
+                    $controlResult.SetStateData("List of groups: ", $restrictedGroups)
+                    $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group at a project level.");
+                }
+                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($restrictedBroaderGroupsForVarGrp | FT | out-string)");
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions at a project level.");
+            $controlResult.LogException($_)
+        }
+
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForSecureFile ([ControlResult] $controlResult) {
+
+        try {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedBroaderGroupsForSecureFile") -and [Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedRolesForBroaderGroupsInSecureFile")) {
+                $restrictedBroaderGroupsForSecureFile = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile;  
+                $restrictedRolesForBroaderGroupsInSecureFile = $this.ControlSettings.SecureFile.RestrictedRolesForBroaderGroupsInSecureFile;              
+
+                #Fetch Secure File RBAC
+                $roleAssignments = @();
+
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.library/roleassignments/resources/{1}' -f $($this.OrganizationContext.OrganizationName), $($projectId);
+                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                if($responseObj.Count -gt 0)
+                {
+                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                }
+
+                # Checking whether the broader groups have User/Admin permissions
+                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForSecureFile -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInSecureFile -contains $_.Role) })
+                $restrictedGroupsCount = $restrictedGroups.Count
+
+                # fail the control if restricted group found on variable group
+                if ($restrictedGroupsCount -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)");
+                    $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                    $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
+                    $controlResult.SetStateData("List of groups: ", $restrictedGroups)
+                    $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group at a project level.");
+                }
+                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($restrictedBroaderGroupsForSecureFile | FT | out-string)");
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions at a project level.");
+            $controlResult.LogException($_)
+        }
+
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForRepo ([ControlResult] $controlResult) {
+
+        try {
+            $orgName = $($this.OrganizationContext.OrganizationName)
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $projectName = $this.ResourceContext.ResourceName;
+            $permissionSetToken = $projectId
+            if ([Helpers]::CheckMember($this.ControlSettings.Release, "RestrictedBroaderGroupsForRelease") -and [Helpers]::CheckMember($this.ControlSettings.Release, "ExcessivePermissionsForBroadGroups")) {
+                $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
+                $excessivePermissions = $this.ControlSettings.Release.ExcessivePermissionsForBroadGroups
+                $namespacesApiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($orgName)
+                $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
+                $releaseSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ReleaseManagement") -and ($_.actions.name -contains "ViewReleaseDefinition")}).namespaceId
+                $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release"
+                $allowPermissionBits = @(1,3)
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
+                $inputbody = "{
+                'contributionIds': [
+                    'ms.vss-admin-web.security-view-members-data-provider'
+                ],
+                'dataProviderContext': {
+                    'properties': {
+                        'permissionSetId': '$releaseSecurityNamespaceId',
+                        'permissionSetToken': '$permissionSetToken',
+                        'sourcePage': {
+                            'url': '$releaseURL',
+                            'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
+                            'routeValues': {
+                                'project': '$projectName',
+                                'viewname': 'details',
+                                'controller': 'ContributedPage',
+                                'action': 'Execute'
+                            }
+                        }
+                    }
+                }
+                }" | ConvertFrom-Json
+                # Todo - Add comments (Also for build, release controls)
+                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions at a project level.");
+            $controlResult.LogException($_)
+        }
+
+        return $controlResult;
+    }   
+        
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForEnv ([ControlResult] $controlResult) {
+
+        try {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedBroaderGroupsForVariableGroup") -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroup")) {
+                $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup;
+                $restrictedRolesForBroaderGroupsInvarGrp = $this.ControlSettings.VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroup;
+
+                #Fetch variable group RBAC
+                $roleAssignments = @();
+
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.globalenvironmentreferencerole/roleassignments/resources/{1}' -f $($this.OrganizationContext.OrganizationName), $($projectId);
+                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                if($responseObj.Count -gt 0)
+                {
+                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                }
+
+                # Checking whether the broader groups have User/Admin permissions
+                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                $restrictedGroupsCount = $restrictedGroups.Count
+
+                # fail the control if restricted group found on variable group
+                if ($restrictedGroupsCount -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)");
+                    $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                    $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
+                    $controlResult.SetStateData("List of groups: ", $restrictedGroups)
+                    $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group at a project level.");
+                }
+                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($restrictedBroaderGroupsForVarGrp | FT | out-string)");
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions at a project level.");
+            $controlResult.LogException($_)
+        }
+
+        return $controlResult;
+    }   
 }
