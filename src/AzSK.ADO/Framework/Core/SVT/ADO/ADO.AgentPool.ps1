@@ -457,8 +457,11 @@ class AgentPool: ADOSVTBase
 
     hidden [ControlResult] CheckBroaderGroupAccessAutomatedFix ([ControlResult] $controlResult) {
         try {
-            $controlResult.VerificationResult = [VerificationResult]::Failed
+            $controlResult.VerificationResult = [VerificationResult]::Failed;
 
+        }
+        catch{
+            
         }
         return $controlResult;
     }

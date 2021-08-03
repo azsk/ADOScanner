@@ -311,7 +311,7 @@ class VariableGroup: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group: $($restrictedGroupsCount)";
                     if ($this.ControlFixBackupRequired) {
                         #Data object that will be required to fix the control
-                        $controlResult.BackupControlState = $formattedGroupsData;
+                        $controlResult.BackupControlState = $restrictedGroups;
                     }
                 }
                 else {
@@ -333,7 +333,11 @@ class VariableGroup: ADOSVTBase
 
     hidden [ControlResult] CheckBroaderGroupAccessAutomatedFix ([ControlResult] $controlResult) {
         try {
-            $controlResult.VerificationResult = [VerificationResult]::Failed
+            $controlResult.VerificationResult = [VerificationResult]::Failed;
+
+        }
+        catch
+        {
 
         }
         return $controlResult;
@@ -341,7 +345,7 @@ class VariableGroup: ADOSVTBase
 
     hidden [ControlResult] CheckBroaderGroupAccessForVarGrpWithSecrets([ControlResult] $controlResult)
     {
-        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $controlResult.VerificationResult = [VerificationResult]::Failed;
         try 
         {
             if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedBroaderGroupsForVariableGroup") -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroupContainingSecrets"))
