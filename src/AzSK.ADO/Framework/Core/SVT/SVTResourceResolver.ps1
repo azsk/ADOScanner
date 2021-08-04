@@ -93,9 +93,6 @@ class SVTResourceResolver: AzSKRoot {
         if ($ResourceTypeName -eq [ResourceTypeName]::Project) {
             $this.ProjectNames = "*"
         }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::Organization) {
-            $this.ProjectNames = "*"
-        }
         elseif ($ResourceTypeName -eq [ResourceTypeName]::Build ) {
             $this.BuildNames = "*"
         }
