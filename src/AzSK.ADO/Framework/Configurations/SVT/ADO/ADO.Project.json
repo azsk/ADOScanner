@@ -369,6 +369,24 @@
       "Enabled": true
     },
     {
+      "ControlID": "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Repo",
+      "Description": "Do not allow agent pools to inherit excessive permissions for a broad group of users at project level.",
+      "Id": "Project370",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupInheritanceSettingsForRepo",
+      "Rationale": "If a broad group (e.g., Contributors) is configured with excessive permissions at a project level, they are inherited by individual agent pools in the project. Then integrity of such agent pools can be compromised by a malicious user",
+      "Recommendation": "1. Go to Project Settings --> 2. Agent pools -->  3. select security. --> 4. Ensure broader groups have read-only access. Refer to detailed scan log (Project.LOG) for broader group list",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "MSW"
+      ],
+      "Enabled": true
+    },
+    {
       "ControlID": "ADO_Project_AuthZ_Revoke_Admin_Access_for_SecureFile",
       "Description": "Remove inactive users from administrative roles in your project.",
       "Id": "Project330",

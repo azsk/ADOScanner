@@ -2372,51 +2372,67 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForRepo ([ControlResult] $controlResult) {
 
-        try {
-            $orgName = $($this.OrganizationContext.OrganizationName)
-            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-            $projectName = $this.ResourceContext.ResourceName;
-            $permissionSetToken = $projectId
-            if ([Helpers]::CheckMember($this.ControlSettings.Release, "RestrictedBroaderGroupsForRelease") -and [Helpers]::CheckMember($this.ControlSettings.Release, "ExcessivePermissionsForBroadGroups")) {
-                $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
-                $excessivePermissions = $this.ControlSettings.Release.ExcessivePermissionsForBroadGroups
-                $namespacesApiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($orgName)
-                $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
-                $releaseSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ReleaseManagement") -and ($_.actions.name -contains "ViewReleaseDefinition")}).namespaceId
-                $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release"
-                $allowPermissionBits = @(1,3)
-                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
-                $inputbody = "{
-                'contributionIds': [
-                    'ms.vss-admin-web.security-view-members-data-provider'
-                ],
-                'dataProviderContext': {
-                    'properties': {
-                        'permissionSetId': '$releaseSecurityNamespaceId',
-                        'permissionSetToken': '$permissionSetToken',
-                        'sourcePage': {
-                            'url': '$releaseURL',
-                            'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
-                            'routeValues': {
-                                'project': '$projectName',
-                                'viewname': 'details',
-                                'controller': 'ContributedPage',
-                                'action': 'Execute'
-                            }
-                        }
-                    }
+        $accessList = @()
+        
+        try{
+
+            $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+            $refererUrl = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=permissions";
+            $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+            $inputbody.dataProviderContext.properties.sourcePage.url = $refererUrl
+            $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
+            $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.id)"
+
+            # Get list of all users and groups granted permissions on all repositories
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+
+            # Iterate through each user/group to fetch detailed permissions list
+            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+            {
+                $body = '{"contributionIds":["ms.vss-admin-web.security-view-permissions-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","accountName":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $body.dataProviderContext.properties.sourcePage.url = $refererUrl
+                $body.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
+                $body.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.id)"
+
+                $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { $_.subjectKind -eq "group" } | ForEach-Object {
+                    $identity = $_
+                    $body.dataProviderContext.properties.accountName = $_.principalName
+                    $body.dataProviderContext.properties.subjectDescriptor = $_.descriptor
+
+                    $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body);
+                    $configuredPermissions = $identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
+                    return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.subjectKind; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
                 }
-                }" | ConvertFrom-Json
-                # Todo - Add comments (Also for build, release controls)
-                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
+
+                $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { $_.subjectKind -eq "user" } | ForEach-Object {
+                    $identity = $_
+                    $body.dataProviderContext.properties.subjectDescriptor = $_.descriptor
+
+                    $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body);
+                    $configuredPermissions = $identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
+                    return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.subjectKind; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
+                }
             }
+
+            if(($accessList | Measure-Object).Count -ne 0)
+            {
+                $accessList= $accessList | Select-Object -Property @{Name="IdentityName"; Expression = {$_.IdentityName}},@{Name="IdentityType"; Expression = {$_.IdentityType}},@{Name="Permissions"; Expression = {$_.Permissions}}
+                $controlResult.AddMessage([VerificationResult]::Verify,"Validate that the following identities have been provided with minimum RBAC access to repositories.", $accessList);
+                $controlResult.SetStateData("List of identities having access to repositories: ", ($responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Select-Object -Property @{Name="IdentityName"; Expression = {$_.FriendlyDisplayName}},@{Name="IdentityType"; Expression = {$_.subjectKind}},@{Name="Scope"; Expression = {$_.Scope}}));
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed,"No identities have been explicitly provided access to repositories.");
+            }
+            $responseObj = $null;
+
         }
-        catch {
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions at a project level.");
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch repositories permission details. $($_) Please verify from portal all teams/groups are granted minimum required permissions.");
             $controlResult.LogException($_)
         }
 
-        return $controlResult;
+        return $controlResult
     }   
         
     hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForEnv ([ControlResult] $controlResult) {
