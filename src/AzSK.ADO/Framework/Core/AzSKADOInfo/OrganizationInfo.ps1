@@ -17,6 +17,7 @@ class OrganizationInfo: CommandBase {
         # fetching the resource count for the given org and project
         [MessageData[]] $returnMsgs = @();
         try {
+            $settings = [ConfigurationManager]::GetAzSKSettings()
             $this.PublishCustomMessage("Inventory details will be fetched within the scope of current identity. `n", [MessageType]::Info)
             $returnMsgs += [MessageData]::new("Inventory details will be fetched based on permissions assigned to current identity. `n")
             $this.PublishCustomMessage("Resource inventory for the organization [$($this.organizationName)]`n")
@@ -31,14 +32,14 @@ class OrganizationInfo: CommandBase {
                 $projectId = $project.id
                 $projectName = $project.name
                 [Hashtable] $resourceInventoryData = @{
-                    Repositories       = -1;
-                    TestPlans          = -1;
-                    Build              = -1;
-                    Release            = -1;
-                    TaskGroups         = -1;
-                    AgentPools         = -1;
-                    VariableGroups     = -1;
-                    ServiceConnections = -1;
+                    Repositories       = 0;
+                    TestPlans          = 0;
+                    Build              = 0;
+                    Release            = 0;
+                    TaskGroups         = 0;
+                    AgentPools         = 0;
+                    VariableGroups     = 0;
+                    ServiceConnections = 0;
                 };
                 [InventoryHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $resourceInventoryData);
                 # Change the hashtable headers to resource type and resource count
@@ -49,6 +50,17 @@ class OrganizationInfo: CommandBase {
                 $returnMsgs += [MessageData]::new("$([Constants]::DoubleDashLine)`nResource inventory for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
                 $formattedResourceInventoryData = ($resourceInventoryDataWithNewHeaders | Out-String)
                 $this.PublishCustomMessage($formattedResourceInventoryData);
+                #publish to primary workspace
+                if(-not [string]::IsNullOrWhiteSpace($settings.LAWSId) -and [LogAnalyticsHelper]::IsLAWSSettingValid -ne -1)
+                {
+                    $laInventoryData = @()
+                    $resourceInventoryData["Project"] = $projectName
+                    $resourceInventoryData["OrganizationName"] = $this.organizationName
+                    $laInventoryData += $resourceInventoryData
+                    $body = $laInventoryData | ConvertTo-Json
+                    $lawsBodyByteArray = ([System.Text.Encoding]::UTF8.GetBytes($body))
+                    [LogAnalyticsHelper]::PostLAWSData($settings.LAWSId, $settings.LAWSSharedKey, $lawsBodyByteArray, 'AzSK_ADO_RESOURCE_INVENTORY', 'LAWS') 
+                }
                 $returnMsgs += $formattedResourceInventoryData;
             }
         }
