@@ -49,8 +49,14 @@ class BatchScanManager
 
         #need to make batch size half as both builds and releases will be scanned
         if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq "Build_Release"){
+            if($this.BatchSize%2 -eq 0){
+                $this.BatchSize=$this.BatchSize/2;
+            }
+            else {
+                $this.BatchSize=($this.BatchSize-1)/2;
+            }
             
-            $this.BatchSize=$this.BatchSize/2;
+            
         }
         if ([string]::isnullorwhitespace($this.BatchScanTrackerFileName))
         {              
@@ -260,6 +266,11 @@ class BatchScanManager
                             else {
                                 $this.BatchSize = $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency
                             }
+                            if($this.BatchSize%2 -ne 0){
+                                $this.BatchSize=$this.BatchSize-1
+                            }                           
+                            
+
                         }
                         Write-Host "Found a previous batch scan in progress with $($batchStatus.ResourceCount) resources scanned. Resuming the scan from last batch. `n " -ForegroundColor Green
                         
@@ -288,6 +299,9 @@ class BatchScanManager
                         else {
                             $this.BatchSize = $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency
                         }
+                        if($this.BatchSize%2 -ne 0){
+                            $this.BatchSize=$this.BatchSize-1
+                        }  
                     }
                     Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Starting fresh scan for the next batch. `n " -ForegroundColor Green
                     #anyone of the resource has been completely scanned need to update skip by original batch size. However for the first time skip should only be updated by half
