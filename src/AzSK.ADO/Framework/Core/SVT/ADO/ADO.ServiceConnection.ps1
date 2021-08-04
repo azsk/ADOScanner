@@ -403,7 +403,7 @@ class ServiceConnection: ADOSVTBase
             {
                 foreach ($identity in $this.serviceEndPointIdentity.identity)
                 {
-                    if ($identity.displayName -like '*Project Collection Build Service Accounts' -or $identity.displayName -like "*$($this.ResourceContext.ResourceGroupName) Build Service ($($this.OrganizationContext.OrganizationName))")
+                    if ($identity.displayName -like '*Project Collection Build Service Accounts' -or $identity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))")
                     {
                         $buildServieAccountOnSvc += $identity.displayName;
                         #$isBuildSvcAccGrpFound = $true;

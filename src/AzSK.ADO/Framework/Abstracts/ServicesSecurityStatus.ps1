@@ -59,7 +59,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
         $this.IsControlFixCommand = $true
         $this.FilterTags = "AutomatedFix"
         $this.MapTagsToControlIds();
-        if ($this.ControlIds -contains $ControlId)
+        
+        if ($this.ControlIds.Count -gt 0)
         {
             $this.Resolver = $resolver;
             $this.Resolver.FetchControlFixBackupFile($organizationName, $projectName, $this.controlInternalId);
@@ -736,6 +737,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 				if ($this.IsControlFixCommand)
 				{
 					$inputControlId = $this.invocationContext.BoundParameters["ControlId"];
+					$this.ControlIds = $this.ControlIds | where-object {$_ -eq $inputControlId}
 					$this.ControlInternalId = ($controlList | Where-Object { $inputControlId -contains $_.ControlId }| Select-Object Id -Unique).Id
 				}
 			}
