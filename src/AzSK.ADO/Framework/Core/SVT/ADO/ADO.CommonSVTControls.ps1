@@ -532,4 +532,62 @@ class CommonSVTControls: ADOSVTBase {
         }
         return $controlResult
     }
+    
+    hidden [ControlResult] CheckBuildSvcAccAccessOnFeeds([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            #orgFeedURL will be used to identify if feed is org scoped or project scoped
+            $orgFeedURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds*'  -f $this.OrganizationContext.OrganizationName
+            $scope = "Project"
+            if ($this.ResourceContext.ResourceDetails.url -match $orgFeedURL){
+                $url = 'https://{0}.feeds.visualstudio.com/_apis/Packaging/Feeds/{1}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+                $controlResult.AddMessage("`n***Organization scoped feed***")
+                $scope = "Organization"
+            }
+            else {
+                $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+                $controlResult.AddMessage("`n***Project scoped feed***")
+            }
+            $feedPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+            $restrictedRolesForBroaderGroupsInFeeds = $this.ControlSettings.Feed.RestrictedRolesForBroaderGroupsInFeeds;
+
+            $excessiveBuildSvcAccFeedsPerm = @($feedPermissionList | Where-Object {($restrictedRolesForBroaderGroupsInFeeds -contains $_.role) -and `
+                (($_.DisplayName.split('\')[-1] -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))") -or `
+                ($_.DisplayName.split('\')[-1] -like "*Build Service ($($this.OrganizationContext.OrganizationName))" ))}) 
+
+            $feedWithBuildSvcAcc = @($excessiveBuildSvcAccFeedsPerm | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}}) ;
+            $feedWithBuildSvcAccCount = $feedWithBuildSvcAcc.count;
+
+            if ($feedWithBuildSvcAccCount -gt 0)
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have administrator/contributor/collaborator access to feed: $($feedWithBuildSvcAccCount)")
+
+                $display = ($feedWithBuildSvcAcc |  FT FeedName, Role, DisplayName -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("`nList of groups: ", $display)
+                $controlResult.SetStateData("List of groups: ", $feedWithBuildSvcAcc);
+                if ($this.ControlFixBackupRequired)
+                {
+                    #Data object that will be required to fix the control
+                    $excessiveBuildSvcAccFeedsPerm | ForEach-Object{
+                        $_ | Add-Member -MemberType NoteProperty -Name "Scope" -Value $scope
+                    }
+                    $controlResult.BackupControlState = $excessiveBuildSvcAccFeedsPerm;
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with administrator/contributor/collaborator permission to broad groups.");
+            }            
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not fetch feed permissions.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
 }
