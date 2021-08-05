@@ -89,26 +89,6 @@ class SVTResourceResolver: AzSKRoot {
         if (-not [string]::IsNullOrEmpty($ExcludeResourceNames)) {
                 $this.ExcludeResourceNames += $this.ConvertToStringArray($ExcludeResourceNames);
         }
-
-        if ($ResourceTypeName -eq [ResourceTypeName]::Project) {
-            $this.ProjectNames = "*"
-        }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::Build ) {
-            $this.BuildNames = "*"
-        }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::Release) {
-            $this.ReleaseNames = "*"
-        }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::ServiceConnection) {
-            $this.ServiceConnections = "*"
-        }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::AgentPool) {
-            $this.AgentPools = "*"
-        }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::VariableGroup) {
-            $this.VariableGroups = "*"
-        }
-        # not needed to specifically add for commonsvtcontrols
     }
 
 
