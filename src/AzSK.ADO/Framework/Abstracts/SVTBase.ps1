@@ -30,6 +30,7 @@ class SVTBase: AzSKRoot
 	[hashtable] $ResourceTags = @{}
 	[bool] $GenerateFixScript = $false;
 	[bool] $UndoFix = $false;
+	[bool] $ControlFixBackupRequired = $false;
 
 	[bool] $IncludeUserComments = $false;
 	[string] $PartialScanIdentifier = [string]::Empty
@@ -662,6 +663,9 @@ class SVTBase: AzSKRoot
 			$azskScanResult = $this.CreateControlResult($controlItem.FixControl);
 			if ($this.invocationContext.BoundParameters["UndoFix"]) { 
 				$this.UndoFix =$true
+			}
+			if ($this.invocationContext.BoundParameters["PrepareForControlFix"]) { 
+				$this.ControlFixBackupRequired =$true
 			}
 
             try

@@ -267,19 +267,39 @@ class CommonSVTControls: ADOSVTBase {
 
                 #GET https://feeds.dev.azure.com/{organization}/{project}/_apis/packaging/Feeds/{feedId}/permissions?api-version=6.0-preview.1
                 #Using visualstudio api because new api (dev.azure.com) is giving null in the displayName property.
-                $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+
+                #orgFeedURL will be used to identify if feed is org scoped or project scoped
+                $orgFeedURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds*'  -f $this.OrganizationContext.OrganizationName
+                $scope = "Project"
+                if ($this.ResourceContext.ResourceDetails.url -match $orgFeedURL){
+                    $url = 'https://{0}.feeds.visualstudio.com/_apis/Packaging/Feeds/{1}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+                    $controlResult.AddMessage("`n***Organization scoped feed***")
+                    $scope = "Organization"
+                }
+                else {
+                    $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+                    $controlResult.AddMessage("`n***Project scoped feed***")
+                }
                 $feedPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
                 $excesiveFeedsPermissions = @($feedPermissionList | Where-Object {($restrictedRolesForBroaderGroupsInFeeds -contains $_.role) -and ($restrictedBroaderGroupsForFeeds -contains $_.DisplayName.split('\')[-1])}) 
                 $feedWithBroaderGroup = @($excesiveFeedsPermissions | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}}) ;
-                $feedWithroaderGroupCount = $feedWithBroaderGroup.count;
+                $feedWithBroaderGroupCount = $feedWithBroaderGroup.count;
 
-                if ($feedWithroaderGroupCount -gt 0)
+                if ($feedWithBroaderGroupCount -gt 0)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have administrator/contributor/collaborator access to feed: $($feedWithroaderGroupCount)")
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have administrator/contributor/collaborator access to feed: $($feedWithBroaderGroupCount)")
 
                     $display = ($feedWithBroaderGroup |  FT FeedName, Role, DisplayName -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
-                    $controlResult.SetStateData("List of groups: ", $excesiveFeedsPermissions);
+                    $controlResult.SetStateData("List of groups: ", $feedWithBroaderGroup);
+                    if ($this.ControlFixBackupRequired)
+                    {
+                        #Data object that will be required to fix the control
+                        $excesiveFeedsPermissions | ForEach-Object{
+                            $_ | Add-Member -MemberType NoteProperty -Name "Scope" -Value $scope
+                        }
+                        $controlResult.BackupControlState = $excesiveFeedsPermissions;
+                    }
                 }
                 else
                 {
@@ -304,8 +324,9 @@ class CommonSVTControls: ADOSVTBase {
     {
         try{
             $RawDataObjForControlFix = @();
-            $backupDataObj = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            $RawDataObjForControlFix = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($backupDataObj))  | ConvertFrom-Json
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            $scope = $RawDataObjForControlFix[0].Scope
+
             $body = "["
 
             if (-not $this.UndoFix)
@@ -348,7 +369,13 @@ class CommonSVTControls: ADOSVTBase {
 
             #Patch request
             $body += "]"
-            $url = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/permissions?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            if ($scope -eq "Organization")
+            {
+                $url = "https://feeds.dev.azure.com/{0}/_apis/packaging/Feeds/{1}/permissions?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+            }
+            else {
+                $url = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/permissions?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            }
             $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
             Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body
 
@@ -505,4 +532,62 @@ class CommonSVTControls: ADOSVTBase {
         }
         return $controlResult
     }
+    
+    hidden [ControlResult] CheckBuildSvcAccAccessOnFeeds([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            #orgFeedURL will be used to identify if feed is org scoped or project scoped
+            $orgFeedURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds*'  -f $this.OrganizationContext.OrganizationName
+            $scope = "Project"
+            if ($this.ResourceContext.ResourceDetails.url -match $orgFeedURL){
+                $url = 'https://{0}.feeds.visualstudio.com/_apis/Packaging/Feeds/{1}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+                $controlResult.AddMessage("`n***Organization scoped feed***")
+                $scope = "Organization"
+            }
+            else {
+                $url = 'https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+                $controlResult.AddMessage("`n***Project scoped feed***")
+            }
+            $feedPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+            $restrictedRolesForBroaderGroupsInFeeds = $this.ControlSettings.Feed.RestrictedRolesForBroaderGroupsInFeeds;
+
+            $excessiveBuildSvcAccFeedsPerm = @($feedPermissionList | Where-Object {($restrictedRolesForBroaderGroupsInFeeds -contains $_.role) -and `
+                (($_.DisplayName.split('\')[-1] -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))") -or `
+                ($_.DisplayName.split('\')[-1] -like "*Build Service ($($this.OrganizationContext.OrganizationName))" ))}) 
+
+            $feedWithBuildSvcAcc = @($excessiveBuildSvcAccFeedsPerm | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}}) ;
+            $feedWithBuildSvcAccCount = $feedWithBuildSvcAcc.count;
+
+            if ($feedWithBuildSvcAccCount -gt 0)
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have administrator/contributor/collaborator access to feed: $($feedWithBuildSvcAccCount)")
+
+                $display = ($feedWithBuildSvcAcc |  FT FeedName, Role, DisplayName -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("`nList of groups: ", $display)
+                $controlResult.SetStateData("List of groups: ", $feedWithBuildSvcAcc);
+                if ($this.ControlFixBackupRequired)
+                {
+                    #Data object that will be required to fix the control
+                    $excessiveBuildSvcAccFeedsPerm | ForEach-Object{
+                        $_ | Add-Member -MemberType NoteProperty -Name "Scope" -Value $scope
+                    }
+                    $controlResult.BackupControlState = $excessiveBuildSvcAccFeedsPerm;
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with administrator/contributor/collaborator permission to broad groups.");
+            }            
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not fetch feed permissions.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
 }

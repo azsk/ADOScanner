@@ -58,6 +58,25 @@
       "Enabled": true
     },
     {
+        "ControlID": "ADO_Feed_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
+        "Description": "Do not grant Build Service Account direct access to feed.",
+        "Id": "Feed110",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckBuildSvcAccAccessOnFeeds",
+        "Rationale": "Build service account is default identity used as part every build in project. Providing direct access to this common service account will expose feeds to all build definitions in the project.",
+        "Recommendation": "1. Go to Project --> 2. Artifacts --> 3. Select Feed --> 4. Feed Settings --> 5. Permissions --> 6. Groups --> 7. Review Build service accounts should not have administrator/contributor/collaborator roles.",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ",
+          "MSW",
+          "AutomatedFix"
+        ],
+        "Enabled": true
+    },
+    {
       "ControlID": "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access",
       "Description": "Do not make secure files accessible to all pipelines.",
       "Id": "SecureFile100",
