@@ -193,7 +193,7 @@ class ConfigurationHelper {
 						$serverFileContent = [ConfigurationHelper]::LoadOfflineConfigFile($policyFileName, $true, $onlineStoreUri)
 					}
 					elseif ([ConfigurationHelper]::OssPolicyEnabled) {
-					    $Version = [System.Version] ($global:ExecutionContext.SessionState.Module.Version);
+					    $Version = [ConfigurationHelper]::ConfigVersion;
 						#If file is not available in both custom and local org policy, Fallback to github based oss policy
 						[EventBase]::PublishGenericCustomMessage("Running Org-Policy from oss  policy store", [MessageType]::Info);
                         $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $policyFileName);
@@ -300,6 +300,9 @@ class ConfigurationHelper {
 
 	hidden static [PSObject] LoadServerFileRaw([string] $fileName, [bool] $useOnlinePolicyStore, [string] $onlineStoreUri, [bool] $enableAADAuthForOnlinePolicyStore) {
 		[PSObject] $fileContent = "";
+		if ($fileName -eq "Release.ext.ps1") {
+			write-host "testing"
+		}
 		$serverFileContent = $null;
 		if ([string]::IsNullOrWhiteSpace($fileName)) {
 			throw [System.ArgumentException] ("The argument 'fileName' is null");
@@ -365,10 +368,9 @@ class ConfigurationHelper {
 						$serverFileContent = [ConfigurationHelper]::LoadOfflineConfigFile($fileName, $true, $onlineStoreUri)
 					}
 					elseif ([ConfigurationHelper]::OssPolicyEnabled) {
-					    $Version = [System.Version] ($global:ExecutionContext.SessionState.Module.Version);
 						#If file is not available in both custom and local org policy, Fallback to github based oss policy
 						[EventBase]::PublishGenericCustomMessage("Running Org-Policy from oss  policy store", [MessageType]::Info);
-                        $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $fileName);
+                        $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, [ConfigurationHelper]::ConfigVersion, $fileName);
 					}
 					else {
 						write-host "fetching from default policy"
@@ -435,6 +437,7 @@ class ConfigurationHelper {
 	# Fetch the configuration file content from github
 	hidden static [PSObject] InvokeControlsAPIGitHub([string] $onlineStoreUri, [string] $configVersion, [string] $policyFileName)
  	{
+		write-host "fetching from oss"
 		#Evaluate all code block in onlineStoreUri. 
 		#Can use '$FileName' in uri to fill dynamic file name.
 		#Revisit
@@ -444,11 +447,16 @@ class ConfigurationHelper {
 		[System.Uri] $validatedUri = $null;
 		if ([System.Uri]::TryCreate($uri, [System.UriKind]::Absolute, [ref] $validatedUri))
 		{
-			$serverFileContent = Invoke-RestMethod `
-				-Method GET `
-				-Uri $validatedUri `
-				-UseBasicParsing
-			return $serverFileContent
+			try {
+				$serverFileContent = Invoke-RestMethod `
+					-Method GET `
+					-Uri $validatedUri `
+					-UseBasicParsing
+				return $serverFileContent
+			}
+			catch {
+				return $null;
+			}
 		}
 		else
 		{
