@@ -2333,7 +2333,7 @@ class Project: ADOSVTBase
                 #Fetch Secure File RBAC
                 $roleAssignments = @();
 
-                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.library/roleassignments/resources/{1}' -f $($this.OrganizationContext.OrganizationName), $($projectId);
+                $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.library/roleassignments/resources/$($projectId)%240"
                 $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                 if($responseObj.Count -gt 0)
                 {
@@ -2344,36 +2344,34 @@ class Project: ADOSVTBase
                 $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForSecureFile -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInSecureFile -contains $_.Role) })
                 $restrictedGroupsCount = $restrictedGroups.Count
 
-                # fail the control if restricted group found on variable group
+                # fail the control if restricted group found on secure file
                 if ($restrictedGroupsCount -gt 0) {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to secure file at a project level: $($restrictedGroupsCount)");
                     $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
                     $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
-                    $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
+                    $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to secure file at a project level: $($restrictedGroupsCount)";
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group at a project level.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to secure file at a project level.");
                 }
                 $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($restrictedBroaderGroupsForSecureFile | FT | out-string)");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for secure file is not defined in the control settings for your organization policy.");
             }
         }
         catch {
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions at a project level.");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the secure file permissions at a project level.");
             $controlResult.LogException($_)
         }
 
         return $controlResult;
     }
 
-    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForRepo ([ControlResult] $controlResult) {
-
-        $accessList = @()
-        
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForRepo ([ControlResult] $controlResult) {        
+        $accessList = @()        
         try{
 
             $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
@@ -2441,14 +2439,14 @@ class Project: ADOSVTBase
             $controlResult.VerificationResult = [VerificationResult]::Failed
             $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedBroaderGroupsForVariableGroup") -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroup")) {
-                $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup;
-                $restrictedRolesForBroaderGroupsInvarGrp = $this.ControlSettings.VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroup;
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedBroaderGroupsForEnv") -and [Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedRolesForBroaderGroupsInEnv")) {
+                $restrictedBroaderGroupsForEnv = $this.ControlSettings.Environment.RestrictedBroaderGroupsForEnv;
+                $restrictedRolesForBroaderGroupsInEnv = $this.ControlSettings.Environment.RestrictedRolesForBroaderGroupsInEnv;
 
-                #Fetch variable group RBAC
+                #Fetch environment RBAC
                 $roleAssignments = @();
 
-                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.globalenvironmentreferencerole/roleassignments/resources/{1}' -f $($this.OrganizationContext.OrganizationName), $($projectId);
+                $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.globalenvironmentreferencerole/roleassignments/resources/$($projectId)?api-version=5.0-preview.1";
                 $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                 if($responseObj.Count -gt 0)
                 {
@@ -2456,32 +2454,31 @@ class Project: ADOSVTBase
                 }
 
                 # Checking whether the broader groups have User/Admin permissions
-                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForEnv -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInEnv -contains $_.Role) })
                 $restrictedGroupsCount = $restrictedGroups.Count
 
-                # fail the control if restricted group found on variable group
+                # fail the control if restricted group found on environment
                 if ($restrictedGroupsCount -gt 0) {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to environment at a project level: $($restrictedGroupsCount)");
                     $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
                     $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
-                    $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
+                    $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to environment at a project level: $($restrictedGroupsCount)";
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group at a project level.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to environment at a project level.");
                 }
-                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($restrictedBroaderGroupsForVarGrp | FT | out-string)");
+                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($restrictedBroaderGroupsForEnv | FT | out-string)");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for environment is not defined in the control settings for your organization policy.");
             }
         }
         catch {
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions at a project level.");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the environment permissions at a project level.");
             $controlResult.LogException($_)
         }
-
         return $controlResult;
     }   
 }

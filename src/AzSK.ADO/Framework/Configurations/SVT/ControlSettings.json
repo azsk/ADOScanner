@@ -438,15 +438,21 @@
       "Readers",
       "Project Valid Users"
       ],
+      "RestrictedRolesForBroaderGroupsInSecureFile": [
+        "administrator"       
+    ],      
       "CheckForInheritedPermissions": false
   },
   "Environment":{
-    "RestrictedBroaderGroupsForEnvironment": [
+    "RestrictedBroaderGroupsForEnv": [
       "Project Collection Valid Users",
       "Contributors",
       "Readers",
       "Project Valid Users"
       ],
+      "RestrictedRolesForBroaderGroupsInEnv": [
+        "administrator"       
+    ],  
       "CheckForInheritedPermissions": false
   },
   "Repo": {
