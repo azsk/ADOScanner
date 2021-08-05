@@ -158,7 +158,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Release_SI_Limit_Task_Group_Edit_Permission",
+      "ControlID": "ADO_Release_SI_Dont_Use_Broadly_Editable_Task_Group",
       "Description": "Do not use task groups that are editable by a broad pool of users.",
       "Id": "Release210",
       "ControlSeverity": "High",
@@ -175,7 +175,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Release_SI_Restrict_Variable_Group_Edit_Permission",
+      "ControlID": "ADO_Release_SI_Dont_Use_Broadly_Editable_Variable_Group",
       "Description": "Do not use variable groups that are editable by a broad group of users.",
       "Id": "Release220",
       "ControlSeverity": "High",

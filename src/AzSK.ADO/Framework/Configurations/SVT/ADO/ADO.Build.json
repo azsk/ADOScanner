@@ -140,7 +140,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Build_SI_Limit_Task_Group_Edit_Permission",
+      "ControlID": "ADO_Build_SI_Dont_Use_Broadly_Editable_Task_Group",
       "Description": "Do not use task groups that are editable by a broad pool of users.",
       "Id": "Build200",
       "ControlSeverity": "High",
@@ -157,7 +157,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Build_SI_Restrict_Variable_Group_Edit_Permission",
+      "ControlID": "ADO_Build_SI_Dont_Use_Broadly_Editable_Variable_Group",
       "Description": "Do not use variable groups that are editable by a broad group of users.",
       "Id": "Build210",
       "ControlSeverity": "High",
