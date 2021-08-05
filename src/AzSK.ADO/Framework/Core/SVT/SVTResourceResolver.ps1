@@ -89,6 +89,7 @@ class SVTResourceResolver: AzSKRoot {
         if (-not [string]::IsNullOrEmpty($ExcludeResourceNames)) {
                 $this.ExcludeResourceNames += $this.ConvertToStringArray($ExcludeResourceNames);
         }
+        $this.SetallTheParamValues($ResourceTypeName)
     }
 
 
@@ -206,6 +207,92 @@ class SVTResourceResolver: AzSKRoot {
             #>
 
         }
+    }
+
+    [void] SetallTheParamValues($ResourceTypeName) {
+    
+        if ($ResourceTypeName -eq [ResourceTypeName]::Build ) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.BuildNames = "*"
+            }
+            else{
+                $this.BuildNames = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::Release) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.ReleaseNames = "*"
+            }
+            else{
+                $this.ReleaseNames = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::ServiceConnection) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.ServiceConnections = "*"
+            }
+            else{
+                $this.ServiceConnections = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::AgentPool) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.AgentPools = "*"
+            }
+            else{
+                $this.AgentPools = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::VariableGroup) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.VariableGroups = "*"
+            }
+            else{
+                $this.VariableGroups = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::Repository) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.RepoNames = "*"
+            }
+            else{
+                $this.RepoNames = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::SecureFile) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.SecureFileNames = "*"
+            }
+            else{
+                $this.SecureFileNames = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::Feed) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.FeedNames = "*"
+            }
+            else{
+                $this.FeedNames = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::Environment) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.EnvironmentNames = "*"
+            }
+            else{
+                $this.EnvironmentNames = $this.ResourceNames
+            }
+        }
+        
     }
 
     [void] LoadResourcesForScan() {
