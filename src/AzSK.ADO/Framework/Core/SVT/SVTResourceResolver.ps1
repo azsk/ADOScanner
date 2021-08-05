@@ -82,6 +82,8 @@ class SVTResourceResolver: AzSKRoot {
         $this.organizationName = $organizationName
         $this.ProjectNames = $ProjectNames
         $this.ResourceTypeName = $ResourceTypeName
+        $this.ServiceConnections ="*"
+        $this.VariableGroups = "*"
 
         if (-not [string]::IsNullOrEmpty($ResourceNames)) {
             $this.ResourceNames += $this.ConvertToStringArray($ResourceNames);

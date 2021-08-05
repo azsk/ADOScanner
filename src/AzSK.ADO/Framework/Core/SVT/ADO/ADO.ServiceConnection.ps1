@@ -962,13 +962,12 @@ class ServiceConnection: ADOSVTBase
             }
             else {
                 foreach ($identity in $RawDataObjForControlFix) 
-                {
-                    $roleId = [int][SVCPermissions] "$($identity.role)"
+                {                    
                     if ($body.length -gt 1) {$body += ","}
                     $body += @"
                         {
                             "userId": "$($identity.id)",
-                            "roleName": "Reader",
+                            "roleName": "$($identity.role)",
                             "uniqueName": "$($identity.accessDisplayName)"
                         }
 "@;
@@ -976,13 +975,14 @@ class ServiceConnection: ADOSVTBase
                 $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
                 $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
             }
-
-            #Patch request
             $body += "]"
-            $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/$($this.ProjectId)_$($this.ServiceEndpointsObj.id)";
-            $header = [WebRequestHelper]::invowe([Microsoft.PowerShell.Commands.WebRequestMethod]::Put, $header,$body,)
-            Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers $header -Body $body
 
+            #Put request           
+            $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/$($this.ProjectId)_$($this.ServiceEndpointsObj.id)?api-version=5.0-preview.1";  
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+			$webRequestResult = Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -Body $body				
             $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
             $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
 
