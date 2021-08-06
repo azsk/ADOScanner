@@ -141,8 +141,9 @@ class IdentityHelpers
 	{
 		$humanAccount = @(); 
 		$serviceAccount = @();
-		$defaultSvcAcc = "Account Service ($orgName)" # This is default service account automatically added by ADO.
-		$allMembers = $allMembers | Where-Object {$_.displayName -ne $defaultSvcAcc}
+		$defaultSvcAccName = "Account Service ($orgName)" # This is default service account automatically added by ADO.
+		$defaultSvcAcc = $allMembers | Where-Object {$_.displayName -eq $defaultSvcAccName}
+		$allMembers = $allMembers | Where-Object {$_.displayName -ne $defaultSvcAccName}
 		$allMembers | ForEach-Object{
 			$isServiceAccount = [IdentityHelpers]::IsServiceAccount($_.mailAddress, $_.subjectKind, [IdentityHelpers]::graphAccessToken)
 			if ($isServiceAccount)
@@ -153,6 +154,9 @@ class IdentityHelpers
 			{
 				$humanAccount += $_
 			}
+		}
+		if (-not [string]::IsNullOrEmpty($defaultSvcAcc)) {
+			$serviceAccount += $defaultSvcAcc
 		}
 		$adminMembers = @{serviceAccount = $serviceAccount; humanAccount = $humanAccount;};
 		return $adminMembers
