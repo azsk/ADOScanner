@@ -209,6 +209,7 @@ class SVTResourceResolver: AzSKRoot {
         }
     }
 
+    # Method called for Set-AzSKADOSecurityStatus, invoked from constructor 
     [void] SetallTheParamValues($ResourceTypeName) {
     
         if ($ResourceTypeName -eq [ResourceTypeName]::Build ) {
