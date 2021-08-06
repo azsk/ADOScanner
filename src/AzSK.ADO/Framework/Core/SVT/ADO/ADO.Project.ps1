@@ -1270,8 +1270,8 @@ class Project: ADOSVTBase
         $OrgName = $this.OrganizationContext.OrganizationName
         $projName = $this.ResourceContext.ResourceName
         ## Checking Inactive Repos
-        $IsRepoActive = $false
-        $Reporow = @()
+        $isRepoActive = $false
+        $repoRow = @()
         $inactiveRepocount = 0
         try {
             $repoDefnsObj = $this.FetchRepositoriesList()
@@ -1304,18 +1304,18 @@ class Project: ADOSVTBase
                 {
                     if($inactiveRepocount -ne ($repoDefnsObj | Measure-Object).count)
                     {
-                        $IsRepoActive = $true
+                        $isRepoActive = $true
                     }
                     $inactiveRepos = $inactiveRepos | sort-object
-                    $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "Total number of inactive repositories that have no commits in last $($threshold) days: $($inactiveRepocount) => {$($inactiveRepos -join ", ")} "})
+                    $repoRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($isRepoActive)"; "Additional Info" = "Total number of inactive repositories that have no commits in last $($threshold) days: $($inactiveRepocount) => {$($inactiveRepos -join ", ")} "})
                 }
                 else {
-                        $IsRepoActive = $true
-                        $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "There are no inactive repositories in the project."})
+                        $isRepoActive = $true
+                        $repoRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($isRepoActive)"; "Additional Info" = "There are no inactive repositories in the project."})
                 }
             }
             else {
-                $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "All repositories are disabled in the project."})
+                $repoRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($isRepoActive)"; "Additional Info" = "All repositories are disabled in the project."})
             }
         }
         catch {
@@ -1324,8 +1324,8 @@ class Project: ADOSVTBase
         }
 
         ## Checking Inactive build
-        $IsBuildActive = $false
-        $Buildrow = @()
+        $isBuildActive = $false
+        $buildRow = @()
         $threshold = $this.ControlSettings.Build.BuildHistoryPeriodInDays
         $currentDate = Get-Date
         $thresholdDate = $currentDate.AddDays(-$threshold);
@@ -1338,15 +1338,15 @@ class Project: ADOSVTBase
                 if($res[0].queueTime -gt $thresholdDate)
                 {
                     ## active build
-                    $IsBuildActive = $true
-                    $Buildrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($IsBuildActive)"; "Additional Info" = "Builds are queued in the project. Most recent build is [$($res[0].definition.name)] which was last queued on [$($res[0].queueTime)]"})
+                    $isBuildActive = $true
+                    $buildRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($isBuildActive)"; "Additional Info" = "Builds are queued in the project. Most recent build is [$($res[0].definition.name)] which was last queued on [$($res[0].queueTime)]"})
                 }
                 else {
-                    $Buildrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($IsBuildActive)"; "Additional Info" = "Builds are not queued in the project."})
+                    $buildRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($isBuildActive)"; "Additional Info" = "Builds are not queued in the project."})
                 }
             }
             else {
-                $Buildrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($IsBuildActive)"; "Additional Info" = "No builds are created/queued since [$($thresholdDate)]"})
+                $buildRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($isBuildActive)"; "Additional Info" = "No builds are created/queued since [$($thresholdDate)]"})
             }
         }
         catch{
@@ -1356,8 +1356,8 @@ class Project: ADOSVTBase
 
 
         ## Checking Inactive Release
-        $IsReleaseActive = $false
-        $Releaserow = @()
+        $isReleaseActive = $false
+        $releaseRow = @()
         $threshold = $this.ControlSettings.Release.ReleaseHistoryPeriodInDays
         $currentDate = Get-Date
         $thresholdDate = $currentDate.AddDays(-$threshold);
@@ -1372,15 +1372,15 @@ class Project: ADOSVTBase
                 if($res[0].queuedOn -gt $thresholdDate)
                 {
                     ## active Release
-                    $IsReleaseActive = $true
-                    $Releaserow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($IsReleaseActive)"; "Additional Info" = "Releases are queued in the project.Most recent release is [$($res[0].release.name)] of release definition [$($res[0].releasedefinition.name)] which was last queued on [$($res[0].queuedOn)]"})
+                    $isReleaseActive = $true
+                    $releaseRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($isReleaseActive)"; "Additional Info" = "Releases are queued in the project.Most recent release is [$($res[0].release.name)] of release definition [$($res[0].releasedefinition.name)] which was last queued on [$($res[0].queuedOn)]"})
                 }
                 else {
-                    $Releaserow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($IsReleaseActive)"; "Additional Info" = "Releases are not queued in the project."})
+                    $releaseRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($isReleaseActive)"; "Additional Info" = "Releases are not queued in the project."})
                 }
             }
                 else {
-                    $Releaserow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($IsReleaseActive)"; "Additional Info" = "No Releases are created/queued since [$($thresholdDate)]"})
+                    $releaseRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($isReleaseActive)"; "Additional Info" = "No Releases are created/queued since [$($thresholdDate)]"})
                 }
         }
         catch{
@@ -1389,8 +1389,8 @@ class Project: ADOSVTBase
         }
 
          ## Checking AgentPools
-         $IsAgentPoolActive = $false
-         $AgentPoolrow = @()
+         $isAgentPoolActive = $false
+         $agentPoolRow = @()
          $thresholdLimit = $this.ControlSettings.AgentPool.AgentPoolHistoryPeriodInDays
 
          # Fetch All Agent Pools
@@ -1430,16 +1430,16 @@ class Project: ADOSVTBase
                                     else
                                     {
                                         ## Active pool
-                                        $IsAgentPoolActive = $true
-                                        $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "Agent pool has been queued in the last $thresholdLimit days."})
+                                        $isAgentPoolActive = $true
+                                        $agentPoolRow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($isAgentPoolActive)"; "Additional Info" = "Agent pool has been queued in the last $thresholdLimit days."})
                                         break
                                     }
                                 }
                                 else
                                 {
                                     ## Active pool
-                                    $IsAgentPoolActive = $true
-                                    $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "Agent pool was being queued during control evaluation."})
+                                    $isAgentPoolActive = $true
+                                    $agentPoolRow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($isAgentPoolActive)"; "Additional Info" = "Agent pool was being queued during control evaluation."})
                                     break
                                 }
                             }
@@ -1453,13 +1453,13 @@ class Project: ADOSVTBase
                             $controlResult.AddMessage("Could not fetch agent pool details.");
                         }
                     }
-                    if(-not $IsAgentPoolActive)
+                    if(-not $isAgentPoolActive)
                     {
-                        $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "Agent pool has not been queued in the last $thresholdLimit days."})
+                        $agentPoolRow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($isAgentPoolActive)"; "Additional Info" = "Agent pool has not been queued in the last $thresholdLimit days."})
                     }
                 }
                 else {
-                    $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "No Agent pools are there in project."})
+                    $agentPoolRow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($isAgentPoolActive)"; "Additional Info" = "No Agent pools are there in project."})
                 }
             }
             else {
@@ -1472,8 +1472,8 @@ class Project: ADOSVTBase
          }
 
         # Checking Service Connections
-        $IsServiceConnectionActive = $false
-        $ServiceConnectionrow = @()
+        $isServiceConnectionActive = $false
+        $serviceConnectionRow = @()
         $thresholdLimit = $this.ControlSettings.ServiceConnection.ServiceConnectionHistoryPeriodInDays
 
          $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/serviceendpoint/endpoints?api-version=6.0-preview.4"
@@ -1502,19 +1502,19 @@ class Project: ADOSVTBase
                             }
                             else
                             {
-                                $IsServiceConnectionActive = $true
-                                $ServiceConnectionrow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($IsServiceConnectionActive)"; "Additional Info" = "Service connection has been used in the last $thresholdLimit days."})
+                                $isServiceConnectionActive = $true
+                                $serviceConnectionRow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($isServiceConnectionActive)"; "Additional Info" = "Service connection has been used in the last $thresholdLimit days."})
                                 break
                             }
                     }
                 }
-                if(-not $IsServiceConnectionActive)
+                if(-not $isServiceConnectionActive)
                 {
-                    $ServiceConnectionrow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($IsServiceConnectionActive)"; "Additional Info" = "Service connection has never been used."})
+                    $serviceConnectionRow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($isServiceConnectionActive)"; "Additional Info" = "Service connection has never been used."})
                 }
             }
             else {
-                $ServiceConnectionrow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($IsServiceConnectionActive)"; "Additional Info" = "No Service Connections are present in project."})
+                $serviceConnectionRow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($isServiceConnectionActive)"; "Additional Info" = "No Service Connections are present in project."})
             }
         }
         catch
@@ -1524,8 +1524,8 @@ class Project: ADOSVTBase
         }       
 
         # Checking Work items
-        $IsWorkItemActive = $false
-        $WorkItemsrow = @()
+        $isWorkItemActive = $false
+        $workItemsRow = @()
         $thresholdLimit = $this.ControlSettings.WorkItems.ThreshHoldDaysForWorkItemInactivity
         try 
         {
@@ -1534,11 +1534,11 @@ class Project: ADOSVTBase
             $res = [WebRequestHelper]::InvokePostWebRequest($url, $body)
             if([Helpers]::CheckMember($res[0],"workitems.id"))
             {
-                $IsWorkItemActive = $true
-                $WorkItemsrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Work Items";"IsActive"="$($IsWorkItemActive)"; "Additional Info" = "Work items are actively used in last $($thresholdLimit) days."})
+                $isWorkItemActive = $true
+                $workItemsRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Work Items";"IsActive"="$($isWorkItemActive)"; "Additional Info" = "Work items are actively used in last $($thresholdLimit) days."})
             }
             else {
-                $WorkItemsrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Work Items";"IsActive"="$($IsWorkItemActive)"; "Additional Info" = "Work items are not used in last $($thresholdLimit) days."})
+                $workItemsRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Work Items";"IsActive"="$($isWorkItemActive)"; "Additional Info" = "Work items are not used in last $($thresholdLimit) days."})
             }
         }
         catch {
@@ -1551,7 +1551,7 @@ class Project: ADOSVTBase
         $thresholdLimit = $this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity
         $thresholdDate = (Get-Date).AddDays(-$thresholdLimit)
         $feeds = @()
-        $FeedAndPackagerow = @()
+        $feedAndPackageRow = @()
         try {
             $url = "https://feeds.dev.azure.com/$($OrgName)/$($projName)/_apis/packaging/feeds?api-version=6.1-preview.1"
             $feeds = @([WebRequestHelper]::InvokeGetWebRequest($url))
@@ -1574,15 +1574,15 @@ class Project: ADOSVTBase
                 }
             }
             else {
-                $FeedAndPackagerow = New-Object psobject -Property $([ordered] @{"Resource Type"="Feeds and Packages";"IsActive"="$($isFeedAndPAckageActive)"; "Additional Info" = "Feed packages are not published in last $($thresholdLimit) days."})
+                $feedAndPackageRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Feeds and Packages";"IsActive"="$($isFeedAndPAckageActive)"; "Additional Info" = "Feed packages are not published in last $($thresholdLimit) days."})
             }
             
             if($isFeedAndPackageActive)
             {
-                $FeedAndPackagerow = New-Object psobject -Property $([ordered] @{"Resource Type"="Feeds and Packages";"IsActive"="$($isFeedAndPAckageActive)"; "Additional Info" = "Feed packages are published in last $($thresholdLimit) days."})
+                $feedAndPackageRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Feeds and Packages";"IsActive"="$($isFeedAndPAckageActive)"; "Additional Info" = "Feed packages are published in last $($thresholdLimit) days."})
             }
             else {
-                $FeedAndPackagerow = New-Object psobject -Property $([ordered] @{"Resource Type"="Feeds and Packages";"IsActive"="$($isFeedAndPAckageActive)"; "Additional Info" = "Feed packages are not published in last $($thresholdLimit) days."})
+                $feedAndPackageRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Feeds and Packages";"IsActive"="$($isFeedAndPAckageActive)"; "Additional Info" = "Feed packages are not published in last $($thresholdLimit) days."})
             }
 
         }
@@ -1595,7 +1595,7 @@ class Project: ADOSVTBase
         $isTestPlanActive = $false
         $thresholdLimit = $this.ControlSettings.TestPlans.ThreshHoldDaysForTestPlansInactivity
         $thresholdDate = (Get-Date).AddDays(-$thresholdLimit)
-        $TestPlanrow = @()
+        $testPlanRow = @()
 
         try {
             
@@ -1617,16 +1617,16 @@ class Project: ADOSVTBase
                             if( $runs[0].completedDate -gt $thresholdDate)
                             {
                                 $isTestPlanActive = $true
-                                $TestPlanrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "Test cases are executed in last $($thresholdLimit) days."})
+                                $testPlanRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "Test cases are executed in last $($thresholdLimit) days."})
                             }
                         }
                         else {
-                            $TestPlanrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "No test cases are executed in last $($thresholdLimit) days."})
+                            $testPlanRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "No test cases are executed in last $($thresholdLimit) days."})
                         }   
                     }
                     else
                     {
-                        $TestPlanrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "Test plans are not used in last $($thresholdLimit) days."})
+                        $testPlanRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "Test plans are not used in last $($thresholdLimit) days."})
                     }
                 }
                 else {
@@ -1635,7 +1635,7 @@ class Project: ADOSVTBase
             }
             else
             {
-                $TestPlanrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "No Test plan found in the project."})
+                $testPlanRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "No Test plan found in the project."})
             }                     
         }
         catch {
@@ -1648,7 +1648,7 @@ class Project: ADOSVTBase
         $isProjectWikiActive = $false
         $thresholdLimit = $this.ControlSettings.Wikis.ThreshHoldDaysForWikisInactivity
         $thresholdDate = (Get-Date).AddDays(-$thresholdLimit)
-        $Wikirow = @()
+        $wikiRow = @()
 
         try {
             $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/wiki/wikis?api-version=6.0"
@@ -1661,15 +1661,15 @@ class Project: ADOSVTBase
                 if((-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1 )) -and ($res[0].author.date -gt $thresholdDate -or $res[0].committer.date -gt $thresholdDate))
                 {
                     $IsprojectWikiActive = $true
-                    $Wikirow = New-Object psobject -Property $([ordered] @{"Resource Type"="Project Wiki";"IsActive"="$($IsprojectWikiActive)"; "Additional Info" = "Project wiki is active in project."})
+                    $wikiRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Project Wiki";"IsActive"="$($IsprojectWikiActive)"; "Additional Info" = "Project wiki is active in project."})
                 }
                 else {
-                    $Wikirow = New-Object psobject -Property $([ordered] @{"Resource Type"="Project Wiki";"IsActive"="$($IsprojectWikiActive)"; "Additional Info" = "Project wiki is inactive in project."})
+                    $wikiRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Project Wiki";"IsActive"="$($IsprojectWikiActive)"; "Additional Info" = "Project wiki is inactive in project."})
                 }
 
             }
             else {
-                $Wikirow = New-Object psobject -Property $([ordered] @{"Resource Type"="Project Wiki";"IsActive"="$($IsprojectWikiActive)"; "Additional Info" = "No project wiki is present in project."})
+                $wikiRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Project Wiki";"IsActive"="$($IsprojectWikiActive)"; "Additional Info" = "No project wiki is present in project."})
             }
 
         }
@@ -1681,13 +1681,13 @@ class Project: ADOSVTBase
         if( $controlResult.VerificationResult -ne [VerificationResult]::Error)
         {
             $controlResult.AddMessage("Below mentioned resource types are considered for checking inactivity of a project:")
-            $table = @($Reporow;$Buildrow;$Releaserow;$AgentPoolrow;$ServiceConnectionrow;$WorkItemsrow;$FeedAndPackagerow;$TestPlanrow;$Wikirow) | Format-Table -AutoSize | Out-String -Width 512
+            $table = @($repoRow;$buildRow;$releaseRow;$agentPoolRow;$serviceConnectionRow;$workItemsRow;$feedAndPackageRow;$testPlanRow;$wikiRow) | Format-Table -AutoSize | Out-String -Width 512
             $controlResult.AddMessage($table)
 
-            $IsProjectActive  = $IsRepoActive -or $IsBuildActive -or $IsReleaseActive -or $IsAgentPoolActive -or $IsServiceConnectionActive -or $IsWorkItemActive -or $isFeedAndPAckageActive -or $isTestPlanActive -or $isProjectWikiActive
+            $IsProjectActive  = $isRepoActive -or $isBuildActive -or $isReleaseActive -or $isAgentPoolActive -or $isServiceConnectionActive -or $isWorkItemActive -or $isFeedAndPAckageActive -or $isTestPlanActive -or $isProjectWikiActive
             if($IsProjectActive)
             {
-                if(($inactiveRepocount -gt 0) -and  (($IsRepoActive -eq $true) -and ($IsBuildActive -eq $true) -and  ($IsReleaseActive -eq $true) -and ($IsAgentPoolActive -eq $true) -and ($IsServiceConnectionActive -eq $true) -and ($IsWorkItemActive -eq $true) -and ($isFeedAndPAckageActive -eq $true) -and ($isTestPlanActive -eq $true) -and ($isProjectWikiActive)))
+                if(($inactiveRepocount -gt 0) -and  (($isRepoActive -eq $true) -and ($isBuildActive -eq $true) -and  ($isReleaseActive -eq $true) -and ($isAgentPoolActive -eq $true) -and ($isServiceConnectionActive -eq $true) -and ($isWorkItemActive -eq $true) -and ($isFeedAndPAckageActive -eq $true) -and ($isTestPlanActive -eq $true) -and ($isProjectWikiActive)))
                 {
                     $controlResult.AddMessage([VerificationResult]::Verify,"One or more repositories are inactive.")
                 }
