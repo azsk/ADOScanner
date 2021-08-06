@@ -195,3 +195,18 @@ enum FeedPermissions {
 	administrator = 4 
 	collaborator = 5
 }
+
+enum ReleasePermissions {
+	Administerreleasepermissions = 512
+	Editreleasepipeline= 2
+	Deletereleases = 1024
+	Deletereleasepipeline = 4
+}
+
+enum BuildPermissions {
+	Administerbuildpermissions = 16384
+	Editbuildpipeline= 2048
+	Deletebuilds = 8
+	Deletebuildpipeline = 4096
+	Destroybuilds = 32
+}
