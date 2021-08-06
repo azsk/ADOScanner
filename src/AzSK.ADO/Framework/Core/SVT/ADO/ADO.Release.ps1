@@ -1397,9 +1397,7 @@ class Release: ADOSVTBase
         try {
             $RawDataObjForControlFix = @();
             $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            
-            
-
+                       
             if (-not $this.UndoFix)
             {
                 foreach ($identity in $RawDataObjForControlFix) 
@@ -1409,6 +1407,8 @@ class Release: ADOSVTBase
                     foreach ($excessivePermission in $excessivePermissions) {
                         $roleId = [int][ReleasePermissions] $excessivePermission.Replace(" ","");
                         
+                        #need to invoke a post request which does not accept all permissions added in the body at once
+                        #hence need to call invoke seperately for each permission
                          $body = "{
                             'token': '$($identity.PermissionSetToken)',
                             'merge': true,

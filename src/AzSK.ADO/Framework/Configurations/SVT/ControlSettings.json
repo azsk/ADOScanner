@@ -282,7 +282,7 @@
     "ExcessivePermissionsForBroadGroups": [
       "Administer build permissions",
       "Delete build pipeline",
-      "Delete builds",
+      "Delete builds ",
       "Destroy builds",
       "Edit build pipeline"
     ],
