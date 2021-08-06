@@ -201,6 +201,10 @@ enum ReleasePermissions {
 	Editreleasepipeline= 2
 	Deletereleases = 1024
 	Deletereleasepipeline = 4
+	Deletereleasestage = 256
+	Managereleaseapprovers = 8
+	Managereleases = 16
+	Editreleasestage = 128
 }
 
 enum BuildPermissions {

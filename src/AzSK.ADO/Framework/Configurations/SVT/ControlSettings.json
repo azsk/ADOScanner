@@ -323,7 +323,7 @@
       "Administer release permissions",
       "Delete release pipeline",
       "Delete releases",
-      "Edit release pipeline"
+      "Edit release pipeline",
       "Delete release stage",      
       "Edit release stage",
       "Manage release approvers",
