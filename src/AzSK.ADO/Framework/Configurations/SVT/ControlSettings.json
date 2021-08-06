@@ -287,7 +287,8 @@
       "Edit build pipeline"
     ],
     "CheckForInheritedPermissions" : false,
-    "RegexForOAuthTokenInYAMLScript" : "\\s*:\\s*\\$\\s*\\(\\s*System\\.AccessToken\\s*\\)"
+    "RegexForOAuthTokenInYAMLScript" : "\\s*:\\s*\\$\\s*\\(\\s*System\\.AccessToken\\s*\\)",
+    "BranchesToCheckForYAMLScript": ["master","main","develop"]
   },
   "Release": {
     "ReleaseHistoryPeriodInDays": 180,
@@ -327,7 +328,11 @@
       "Administer release permissions",
       "Delete release pipeline",
       "Delete releases ",
-      "Edit release pipeline"
+      "Delete release stage",
+      "Edit release pipeline",      
+      "Edit release stage",
+      "Manage release approvers",
+      "Manage releases"
     ],
     "CheckForInheritedPermissions": false
   },
