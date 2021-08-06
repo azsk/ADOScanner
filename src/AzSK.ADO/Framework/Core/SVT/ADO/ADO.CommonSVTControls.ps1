@@ -173,26 +173,6 @@ class CommonSVTControls: ADOSVTBase {
 
     hidden [ControlResult] CheckInheritedPermissionsOnRepository([ControlResult] $controlResult) {
 
-        <#
-        {
-        "ControlID": "ADO_Repository_AuthZ_Disable_Inherited_Permissions",
-        "Description": "Do not allow inherited permission on repository.",
-        "Id": "Repository120",
-        "ControlSeverity": "High",
-        "Automated": "Yes",
-        "MethodName": "CheckInheritedPermissionsOnRepository",
-        "Rationale": "Disabling inherited permissions lets you finely control access to various operations at the repository level for different stakeholders. This ensures that you follow the principle of least privilege and provide access only to the persons that require it.",
-        "Recommendation": "1. Go to Project Settings --> 2. Repositories --> 3. Select a Repository --> 4. Permissions --> 5. Disable 'Inheritance'.",
-        "Tags": [
-          "SDL",
-          "TCP",
-          "Automated",
-          "AuthZ"
-        ],
-        "Enabled": true
-        },
-        #>
-
         $controlResult.VerificationResult = [VerificationResult]::Failed
         $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
         $projectName = $this.ResourceContext.ResourceGroupName;

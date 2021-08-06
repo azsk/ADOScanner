@@ -418,7 +418,7 @@ class SVTResourceResolver: AzSKRoot {
                     if($this.UsePartialCommits -and $this.DoNotRefetchResources){
                         
                         [PartialScanManager] $partialScanMngr = [PartialScanManager]::GetInstance();
-                        if(($partialScanMngr.IsPartialScanInProgress($this.OrganizationContext.OrganizationName) -eq [ActiveStatus]::Yes)  ){
+                        if(($partialScanMngr.IsPartialScanInProgress($this.OrganizationContext.OrganizationName, $false) -eq [ActiveStatus]::Yes)  ){
                             Write-Host "Resuming scan from last commit. Fetching unscanned resources..." -ForegroundColor Yellow
                             $this.nonScannedResources = $partialScanMngr.GetNonScannedResources();
                             $this.IsPartialScanActive=$true;
