@@ -1044,7 +1044,7 @@ class SVTResourceResolver: AzSKRoot {
                 if ($rsrcList.Builds -and $rsrcList.Builds.Count -gt 0)
                 {
                     if ($inputBuildNames -ne "*") {
-                        $rsrcList.Builds = @($rsrcList.Builds | Where { $_.buildDefinitionName -in $inputBuilds });
+                        $rsrcList.Builds = @($rsrcList.Builds | Where { $_.buildDefinitionName -in $inputBuildNames });
                     }
                     if ($rsrcList.Builds -and $rsrcList.Builds.Count -gt 0) {
                         $this.BuildNames = $rsrcList.Builds.buildDefinitionName
