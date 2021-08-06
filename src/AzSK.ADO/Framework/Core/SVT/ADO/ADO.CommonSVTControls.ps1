@@ -511,6 +511,7 @@ class CommonSVTControls: ADOSVTBase {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
+            # Fetching repository RBAC using portal api's because no documented api present for this purpose.
             $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
             $refererUrl = "https://dev.azure.com/{0}/{1}/_settings/repositories?repo={2}&_a=permissionsMid" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceGroupName), $($this.ResourceContext.ResourceDetails.id)
             $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
@@ -531,7 +532,7 @@ class CommonSVTControls: ADOSVTBase {
                 $buildServieAccountOnRepo = @()
                 foreach ($identity in $repositoryIdentities)
                 {
-                    if ($identity.displayName -like '*Project Collection Build Service Accounts' -or $identity.displayName -like "*$($this.ResourceContext.ResourceGroupName) Build Service ($($this.OrganizationContext.OrganizationName))")
+                    if ($identity.displayName -like '*Project Collection Build Service Accounts' -or $identity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))")
                     {
                         $buildServieAccountOnRepo += $identity.displayName;
                     }
@@ -540,7 +541,7 @@ class CommonSVTControls: ADOSVTBase {
                 if($restrictedBuildSVCAcctCount -gt 0)
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Count of restricted Build Service groups that have access to repository: $($restrictedBuildSVCAcctCount)")
-                    $controlResult.AddMessage("`nList of 'Build Service' Accounts: ", $buildServieAccountOnRepo)
+                    $controlResult.AddMessage("`nList of 'Build Service' Accounts: ", $($buildServieAccountOnRepo | FT | Out-String))
                     $controlResult.SetStateData("List of 'Build Service' Accounts: ", $buildServieAccountOnRepo)
                     $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)";
                 }
@@ -548,7 +549,6 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the repository.");
                 }
 
-                $controlResult.AddMessage("`nNote:`nThe following 'Build Service' accounts should not have access to repository: `nProject Collection Build Service Account`n$($this.ResourceContext.ResourceGroupName) Build Service ($($this.OrganizationContext.OrganizationName))");
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch repository permission details.");
