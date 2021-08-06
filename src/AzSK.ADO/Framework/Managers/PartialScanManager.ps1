@@ -889,9 +889,17 @@ class PartialScanManager
             $scannedby = [ContextHelper]::GetCurrentSessionUser();
             $date = [DateTime]::UtcNow;
             $applicableControls = @()
-
-            $controlsDataObject = @($results  | Where-Object {$_.ControlItem.Tags -contains 'AutomatedFix' -and $_.ControlResults.VerificationResult -eq 'Failed' -and $null -ne $_.ControlResults.BackupControlState} `
-                                            | Select-Object @{Name="ProjectName"; Expression={$_.ResourceContext.ResourceGroupName}}, @{Name="ResourceId"; Expression={$_.ResourceContext.ResourceId}}, @{Name="InternalId"; Expression={$_.ControlItem.id}}, @{Name="DataObject"; Expression={$_.ControlResults.BackupControlState}}); 
+			$controlsDataObject = @();
+			if (($results | measure-object).Count -gt 0) {
+				if ($results[0].FeatureName -eq "Project") {
+					$controlsDataObject = @($results  | Where-Object {$_.ControlItem.Tags -contains 'AutomatedFix' -and $_.ControlResults.VerificationResult -eq 'Failed' -and $null -ne $_.ControlResults.BackupControlState} `
+					| Select-Object @{Name="ProjectName"; Expression={$_.ResourceContext.ResourceName}}, @{Name="ResourceId"; Expression={$_.ResourceContext.ResourceId}}, @{Name="InternalId"; Expression={$_.ControlItem.id}}, @{Name="DataObject"; Expression={$_.ControlResults.BackupControlState}}); 
+				}
+				else {
+					$controlsDataObject = @($results  | Where-Object {$_.ControlItem.Tags -contains 'AutomatedFix' -and $_.ControlResults.VerificationResult -eq 'Failed' -and $null -ne $_.ControlResults.BackupControlState} `
+					| Select-Object @{Name="ProjectName"; Expression={$_.ResourceContext.ResourceGroupName}}, @{Name="ResourceId"; Expression={$_.ResourceContext.ResourceId}}, @{Name="InternalId"; Expression={$_.ControlItem.id}}, @{Name="DataObject"; Expression={$_.ControlResults.BackupControlState}}); 
+				}
+			}
 
             if($null -ne $controlsDataObject -and $controlsDataObject.Count -gt 0)
             {
