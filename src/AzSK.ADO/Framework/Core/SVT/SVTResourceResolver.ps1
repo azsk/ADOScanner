@@ -579,7 +579,7 @@ class SVTResourceResolver: AzSKRoot {
                     }
 
                     #Note: $topNQueryString is currently not supported in the SvcConn and AgentPool APIs.
-                    if ($this.ServiceConnections.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User)))
+                    if ($this.ServiceConnections.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTControls)))
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting service endpoint configurations...");
@@ -629,7 +629,7 @@ class SVTResourceResolver: AzSKRoot {
                     {
                         return;
                     }
-                    if ($this.AgentPools.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User)))
+                    if ($this.AgentPools.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTControls)))
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting agent pools configurations...");
@@ -731,7 +731,7 @@ class SVTResourceResolver: AzSKRoot {
                     {
                         return;
                     }
-                    if ($this.VariableGroups.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User)))
+                    if ($this.VariableGroups.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTControls)))
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting variable group configurations...");
@@ -784,7 +784,7 @@ class SVTResourceResolver: AzSKRoot {
                     }
 
                     #Creating resource in common resource resolver
-                    if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -gt 0 -or $this.FeedNames.count -gt 0 -or $this.EnvironmentNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed, [ResourceTypeName]::Environment))) {
+                    if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -gt 0 -or $this.FeedNames.count -gt 0 -or $this.EnvironmentNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed, [ResourceTypeName]::Environment, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTControls))) {
                         $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName, $organizationId, $projectId);
                         $this.SVTResources += $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.EnvironmentNames, $this.ResourceTypeName, $this.MaxObjectsToScan);
                     }
