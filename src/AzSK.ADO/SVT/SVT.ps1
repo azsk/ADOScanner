@@ -229,7 +229,7 @@ function Get-AzSKADOSecurityStatus
 		[string]
 		[Parameter(HelpMessage="Project name to store attestation details for organization-specific controls.")]
 		[ValidateNotNullOrEmpty()]
-		[Alias("atp","HostProjectName")]
+		[Alias("atp")]
 		$AttestationHostProjectName,
 
 
@@ -267,7 +267,7 @@ function Get-AzSKADOSecurityStatus
 
 		[switch]
 		[Parameter(HelpMessage="Allow long running scan.")]
-		[Alias("als","alrs")]
+		[Alias("als")]
 		$AllowLongRunningScan,
 
 		[string]
