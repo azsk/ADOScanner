@@ -101,9 +101,6 @@ class ConfigurationHelper {
 		if ([string]::IsNullOrWhiteSpace($policyFileName)) {
 			throw [System.ArgumentException] ("The argument 'policyFileName' is null");
 		}
-		if($policyFileName -eq "ADO.Release.json") {
-			write-host "Debug"
-		}
 		$serverFileContent = $null
 		#Check if policy is present in cache and fetch the same if present
 		$cachedPolicyContent = [ConfigurationHelper]::PolicyCacheContent | Where-Object { $_.Name -eq $policyFileName }
@@ -240,21 +237,18 @@ class ConfigurationHelper {
 			#ADOTOD: Perhaps we should query for repo being present when the OnlinePolicyURL is formed (or first used)
 			if ($bFetchingSCMD -and -not [Helpers]::CheckMember($fileContent, "OnlinePolicyList"))
 			{
-				write-host "fallback to local policy1"
 				#[EventBase]::PublishGenericCustomMessage([Constants]::OfflineModeWarning, [MessageType]::Warning);
 				$fileContent = [ConfigurationHelper]::LoadOfflineConfigFile($policyFileName)
 			}
 
 			if (-not $fileContent) {
 				#Fire special event to notify user about switching to offline policy
-				write-host "fallback to local policy2"
 				[EventBase]::PublishGenericCustomMessage(([Constants]::OfflineModeWarning + " Policy: $policyFileName"), [MessageType]::Warning);
 				$fileContent = [ConfigurationHelper]::LoadOfflineConfigFile($policyFileName)
 			}
 			# return $updateResult
 		}
 		else {
-			write-host "fallback to local policy3"
 			[EventBase]::PublishGenericCustomMessage(([Constants]::OfflineModeWarning + " Policy: $policyFileName"), [MessageType]::Warning);
 			$fileContent = [ConfigurationHelper]::LoadOfflineConfigFile($policyFileName)
 		}
@@ -300,9 +294,6 @@ class ConfigurationHelper {
 
 	hidden static [PSObject] LoadServerFileRaw([string] $fileName, [bool] $useOnlinePolicyStore, [string] $onlineStoreUri, [bool] $enableAADAuthForOnlinePolicyStore) {
 		[PSObject] $fileContent = "";
-		if ($fileName -eq "Release.ext.ps1") {
-			write-host "testing"
-		}
 		$serverFileContent = $null;
 		if ([string]::IsNullOrWhiteSpace($fileName)) {
 			throw [System.ArgumentException] ("The argument 'fileName' is null");
@@ -364,7 +355,6 @@ class ConfigurationHelper {
 						}
 					}
 					elseif ([ConfigurationHelper]::LocalPolicyEnabled) {
-						write-host "fetching from local policy"
 						$serverFileContent = [ConfigurationHelper]::LoadOfflineConfigFile($fileName, $true, $onlineStoreUri)
 					}
 					elseif ([ConfigurationHelper]::OssPolicyEnabled) {
@@ -373,7 +363,6 @@ class ConfigurationHelper {
                         $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, [ConfigurationHelper]::ConfigVersion, $fileName);
 					}
 					else {
-						write-host "fetching from default policy"
 						$Version = [ConfigurationHelper]::ConfigVersion ;
 						#If file is not available in both custom and local org policy, Fallback to github based oss policy
 						[EventBase]::PublishGenericCustomMessage("Running Org-Policy from oss  policy store", [MessageType]::Info);
