@@ -956,6 +956,7 @@ class Build: ADOSVTBase
                         }
                         else
                         {
+                            $controlResult.AdditionalInfo += "Contributors do not have edit permissions on any task groups used in build definition."
                             $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in build definition.");
                         }
                     }
@@ -968,6 +969,7 @@ class Build: ADOSVTBase
                 }
                 else
                 {
+                    $controlResult.AdditionalInfo += "No task groups found in build definition.";
                     $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in build definition.");
                 }
             }

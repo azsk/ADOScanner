@@ -170,7 +170,9 @@
         "SDL",
         "TCP",
         "Automated",
-        "SI"
+        "SI",
+        "MSW",
+        "SkipYAML"
       ],
       "Enabled": true
     },
