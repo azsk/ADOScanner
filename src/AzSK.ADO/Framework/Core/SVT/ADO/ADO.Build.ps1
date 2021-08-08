@@ -994,20 +994,38 @@ class Build: ADOSVTBase
         {
             $varGrps = $this.BuildObj[0].variableGroups
             $projectId = $this.BuildObj.project.id
-            $projectName = $this.BuildObj.project.name
             $editableVarGrps = @();
             try
             {
-                $varGrps | ForEach-Object{
-                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($projectId), $($_.Id);
-                    $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                    if($responseObj.Count -gt 0)
+                foreach($currentVarGrp in $varGrps)
+                {
+                    if([Helpers]::CheckMember($currentVarGrp,"name"))  ## Deleted VGs do not contain "name" property thats why ignoring them
                     {
-                        $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})
-                        if((-not [string]::IsNullOrEmpty($contributorsObj)) -and ($contributorsObj.role.name -ne 'Reader')){
-                            $editableVarGrps += $_.name
+                        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($projectId), $($currentVarGrp.Id);
+                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                        if($responseObj.Count -gt 0)
+                        {                        
+                            if(([Helpers]::CheckMember($this.ControlSettings, "Build.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions))
+                            {
+                                $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
+                            }
+                            else {
+                                $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access = "assigned")})                        
+                            }
+
+                            if($contributorsObj.Count -gt 0)
+                            {   
+                                foreach($obj in $contributorsObj){
+                                    if($obj.role.name -ne 'Reader')
+                                    {
+                                        $editableVarGrps += $currentVarGrp.name
+                                        break;
+                                    }
+                                }                            
+                            }
                         }
                     }
+                    
                 }
                 $editableVarGrpsCount = $editableVarGrps.Count
                 if($editableVarGrpsCount -gt 0)
