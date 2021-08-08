@@ -1047,8 +1047,8 @@ class SVTResourceResolver: AzSKRoot {
                         $rsrcList.Builds = @($rsrcList.Builds | Where { $_.buildDefinitionName -in $inputBuildNames });
                     }
                     if ($rsrcList.Builds -and $rsrcList.Builds.Count -gt 0) {
-                        $this.BuildNames = $rsrcList.Builds.buildDefinitionName
-                        $this.BuildIds = $rsrcList.Builds.buildDefinitionId
+                        $this.BuildNames += $rsrcList.Builds.buildDefinitionName
+                        $this.BuildIds += $rsrcList.Builds.buildDefinitionId
                         $bFoundSvcMappedObjects = $true
                     }                   
                 }
@@ -1061,8 +1061,8 @@ class SVTResourceResolver: AzSKRoot {
                         $rsrcList.Releases = @($rsrcList.Releases | Where { $_.releaseDefinitionName -in $inputReleaseNames });
                     }
                     if ($rsrcList.Releases -and $rsrcList.Releases.Count -gt 0) {
-                        $this.ReleaseNames = $rsrcList.Releases.releaseDefinitionName
-                        $this.ReleaseIds = $rsrcList.Releases.releaseDefinitionId
+                        $this.ReleaseNames += $rsrcList.Releases.releaseDefinitionName
+                        $this.ReleaseIds += $rsrcList.Releases.releaseDefinitionId
                         $bFoundSvcMappedObjects = $true
                     }                 
                 }
@@ -1075,8 +1075,8 @@ class SVTResourceResolver: AzSKRoot {
                         $rsrcList.ServiceConnections = @($rsrcList.ServiceConnections | Where { $_.serviceConnectionName -in $inputSvcNames }); 
                     }
                     if ($rsrcList.ServiceConnections -and $rsrcList.ServiceConnections.Count -gt 0) {
-                        $this.ServiceConnections = $rsrcList.ServiceConnections.serviceConnectionName
-                        $this.ServiceConnectionIds = $rsrcList.ServiceConnections.ServiceConnectionId
+                        $this.ServiceConnections += $rsrcList.ServiceConnections.serviceConnectionName
+                        $this.ServiceConnectionIds += $rsrcList.ServiceConnections.ServiceConnectionId
                         $bFoundSvcMappedObjects = $true
                     }                  
                 }
@@ -1089,8 +1089,8 @@ class SVTResourceResolver: AzSKRoot {
                         $rsrcList.AgentPools = @($rsrcList.AgentPools | Where { $_.agentPoolName -in $inputAgentPoolNames }); 
                     }
                     if ($rsrcList.AgentPools -and $rsrcList.AgentPools.Count -gt 0) {
-                        $this.AgentPools = $rsrcList.AgentPools.agentPoolName
-                        $this.AgentPoolIds = $rsrcList.AgentPools.agentPoolId
+                        $this.AgentPools += $rsrcList.AgentPools.agentPoolName
+                        $this.AgentPoolIds += $rsrcList.AgentPools.agentPoolId
                         $bFoundSvcMappedObjects = $true
                     }                 
                 }
@@ -1103,8 +1103,8 @@ class SVTResourceResolver: AzSKRoot {
                         $rsrcList.VariableGroups = @($rsrcList.VariableGroups | Where { $_.variableGroupName -in $inputVargrpNames }); 
                     }
                     if ($rsrcList.VariableGroups -and $rsrcList.VariableGroups.Count -gt 0) {
-                        $this.VariableGroups = $rsrcList.VariableGroups.variableGroupName
-                        $this.VariableGroupIds = $rsrcList.VariableGroups.variableGroupId
+                        $this.VariableGroups += $rsrcList.VariableGroups.variableGroupName
+                        $this.VariableGroupIds += $rsrcList.VariableGroups.variableGroupId
                         $bFoundSvcMappedObjects = $true
                     }                 
                 }
@@ -1120,7 +1120,7 @@ class SVTResourceResolver: AzSKRoot {
                             $rsrcList.Repositories = @($rsrcList.repositories | Where { $_.repoName -in $inputRepoNames }); 
                         }
                         if ($rsrcList.Repositories -and $rsrcList.Repositories.Count -gt 0) {
-                            $this.RepoNames = $rsrcList.Repositories.repoName
+                            $this.RepoNames += $rsrcList.Repositories.repoName
                             $bFoundSvcMappedObjects = $true
                         }                      
                     }
@@ -1133,7 +1133,7 @@ class SVTResourceResolver: AzSKRoot {
                             $rsrcList.Feeds = @($rsrcList.Feeds | Where { $_.feedName -in $inputFeedNames }); 
                         }
                         if ($rsrcList.Feeds -and $rsrcList.Feeds.Count -gt 0) {
-                            $this.FeedNames = $rsrcList.Feeds.feedName
+                            $this.FeedNames += $rsrcList.Feeds.feedName
                             $bFoundSvcMappedObjects = $true
                         }                     
                     }
@@ -1146,7 +1146,7 @@ class SVTResourceResolver: AzSKRoot {
                             $rsrcList.SecureFiles = @($rsrcList.SecureFiles | Where { $_.secureFileName -in $inputSecFileNames }); 
                         }
                         if ($rsrcList.SecureFiles -and $rsrcList.SecureFiles.Count -gt 0) {
-                            $this.SecureFileNames = $rsrcList.SecureFiles.secureFileName
+                            $this.SecureFileNames += $rsrcList.SecureFiles.secureFileName
                             $bFoundSvcMappedObjects = $true
                         }                    
                     }
@@ -1159,7 +1159,7 @@ class SVTResourceResolver: AzSKRoot {
                             $rsrcList.Environments = @($rsrcList.Environments | Where { $_.environmentName -in $inputEnvNames }); 
                         }
                         if ($rsrcList.Environments -and $rsrcList.Environments.Count -gt 0) {
-                            $this.EnvironmentNames = $rsrcList.Environments.environmentName
+                            $this.EnvironmentNames += $rsrcList.Environments.environmentName
                             $bFoundSvcMappedObjects = $true
                         }                  
                     }
