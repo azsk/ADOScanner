@@ -773,6 +773,8 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckTaskGroupEditPermission([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+
         #Task groups have type 'metaTask' whereas individual tasks have type 'task'
         $taskGroups = @();
 
@@ -854,11 +856,9 @@ class Build: ADOSVTBase
         }
         else {
 
-            if([Helpers]::CheckMember($this.BuildObj[0].process,"phases")) #phases is not available for YAML-based pipelines.
-            {
                 if([Helpers]::CheckMember($this.BuildObj[0].process.phases[0],"steps"))
                 {
-                    $taskGroups += $this.BuildObj[0].process.phases[0].steps | Where-Object {$_.task.definitiontype -eq 'metaTask'}
+                    $taskGroups += $this.BuildObj[0].process.phases[0].steps | Where-Object {$_.task.definitiontype -eq 'metaTask' -and $_.enabled -eq $true}
                 }
                 $editableTaskGroups = @();
                 if(($taskGroups | Measure-Object).Count -gt 0)
@@ -906,9 +906,9 @@ class Build: ADOSVTBase
                             if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
                             {
 
-                                $contributorObj = $responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object {$_.subjectKind -eq 'group' -and $_.principalName -eq "[$projectName]\Contributors"}
+                                $contributorObj = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object {$_.subjectKind -eq 'group' -and $_.principalName -like "*\Contributors"})
                                 # $contributorObj would be null if none of its permissions are set i.e. all perms are 'Not Set'.
-                                if($contributorObj)
+                                foreach($obj in $contributorObj)
                                 {
                                     $contributorInputbody = "{
                                         'contributionIds': [
@@ -916,10 +916,10 @@ class Build: ADOSVTBase
                                         ],
                                         'dataProviderContext': {
                                             'properties': {
-                                                'subjectDescriptor': '$($contributorObj.descriptor)',
+                                                'subjectDescriptor': '$($obj.descriptor)',
                                                 'permissionSetId': 'f6a4de49-dbe2-4704-86dc-f8ec1a294436',
                                                 'permissionSetToken': '$permissionSetToken',
-                                                'accountName': '$(($contributorObj.principalName).Replace('\','\\'))',
+                                                'accountName': '$(($obj.principalName).Replace('\','\\'))',
                                                 'sourcePage': {
                                                     'url': '$taskGrpURL',
                                                     'routeId':'ms.vss-distributed-task.hub-task-group-edit-route',
@@ -942,16 +942,19 @@ class Build: ADOSVTBase
                                     #effectivePermissionValue equals to 1 implies edit task group perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
                                     if([Helpers]::CheckMember($editPerms,"effectivePermissionValue") -and (($editPerms.effectivePermissionValue -eq 1) -or ($editPerms.effectivePermissionValue -eq 3)))
                                     {
-                                        $editableTaskGroups += $_.displayName
+                                        $editableTaskGroups += New-Object -TypeName psobject -Property @{DisplayName = $_.displayName; PrincipalName=$obj.principalName}
                                     }
                                 }
                             }
                         }
-                        if(($editableTaskGroups | Measure-Object).Count -gt 0)
+                        $editableTaskGroupsCount = $editableTaskGroups.Count
+                        if($editableTaskGroupsCount -gt 0)
                         {
-                            $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in build definition: ", ($editableTaskGroups | Measure-Object).Count);
-                            $controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in build definition: " + ($editableTaskGroups | Measure-Object).Count;
-                            $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in build definition: ", $editableTaskGroups);
+                            $controlResult.AddMessage("Count of task groups on which contributors have edit permissions in build definition: $editableTaskGroupsCount");
+                            $controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in build definition: " + $editableTaskGroupsCount;
+                            $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in build definition: ");
+                            $display = $editableTaskGroups|FT  -AutoSize | Out-String -Width 512
+                            $controlResult.AddMessage($display)
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
                         }
                         else
@@ -972,18 +975,6 @@ class Build: ADOSVTBase
                     $controlResult.AdditionalInfo += "No task groups found in build definition.";
                     $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in build definition.");
                 }
-            }
-            else
-            {
-                if([Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename")) #if the pipeline is YAML-based - control should pass as task groups are not supported for YAML pipelines.
-                {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Task groups are not supported in YAML pipelines.");
-                }
-                else
-                {
-                    $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the list of task groups used in the pipeline.");
-                }
-            }
         }
         return $controlResult;
     }

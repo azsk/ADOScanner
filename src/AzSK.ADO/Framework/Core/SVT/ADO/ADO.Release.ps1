@@ -891,6 +891,7 @@ class Release: ADOSVTBase
     }
     hidden [ControlResult] CheckTaskGroupEditPermission([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         $taskGroups = @();
 
         if ([Release]::IsOAuthScan -eq $true)
@@ -981,7 +982,7 @@ class Release: ADOSVTBase
             $releaseEnv | ForEach-Object {
                 #Task groups have type 'metaTask' whereas individual tasks have type 'task'
                 $_.deployPhases[0].workflowTasks | ForEach-Object {
-                    if(([Helpers]::CheckMember($_ ,"definitiontype")) -and ($_.definitiontype -eq 'metaTask'))
+                    if(([Helpers]::CheckMember($_ ,"definitiontype")) -and ($_.definitiontype -eq 'metaTask') -and $_.enabled -eq $true)
                     {
                         $taskGroups += $_
                     }
@@ -1036,9 +1037,9 @@ class Release: ADOSVTBase
                         if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
                         {
 
-                            $contributorObj = $responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object {$_.subjectKind -eq 'group' -and $_.principalName -eq "[$projectName]\Contributors"}
+                            $contributorObj = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object {$_.subjectKind -eq 'group' -and $_.principalName -like "*\Contributors"})
                             # $contributorObj would be null if none of its permissions are set i.e. all perms are 'Not Set'.
-                            if($contributorObj)
+                            foreach($obj in $contributorObj)
                             {
                                 $contributorInputbody = "{
                                     'contributionIds': [
@@ -1046,10 +1047,10 @@ class Release: ADOSVTBase
                                     ],
                                     'dataProviderContext': {
                                         'properties': {
-                                            'subjectDescriptor': '$($contributorObj.descriptor)',
+                                            'subjectDescriptor': '$($obj.descriptor)',
                                             'permissionSetId': 'f6a4de49-dbe2-4704-86dc-f8ec1a294436',
                                             'permissionSetToken': '$permissionSetToken',
-                                            'accountName': '$(($contributorObj.principalName).Replace('\','\\'))',
+                                            'accountName': '$(($obj.principalName).Replace('\','\\'))',
                                             'sourcePage': {
                                                 'url': '$taskGrpURL',
                                                 'routeId':'ms.vss-distributed-task.hub-task-group-edit-route',
@@ -1072,16 +1073,19 @@ class Release: ADOSVTBase
                                 #effectivePermissionValue equals to 1 implies edit task group perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
                                 if([Helpers]::CheckMember($editPerms,"effectivePermissionValue") -and (($editPerms.effectivePermissionValue -eq 1) -or ($editPerms.effectivePermissionValue -eq 3)))
                                 {
-                                    $editableTaskGroups += $_.name
+                                    $editableTaskGroups += New-Object -TypeName psobject -Property @{DisplayName = $_.name; PrincipalName=$obj.principalName}
                                 }
                             }
                         }
                     }
-                    if(($editableTaskGroups | Measure-Object).Count -gt 0)
+                    $editableTaskGroupsCount = $editableTaskGroups.Count
+                    if($editableTaskGroupsCount -gt 0)
                     {
-                        $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", ($editableTaskGroups | Measure-Object).Count);
-                        $controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + ($editableTaskGroups | Measure-Object).Count;
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ", $editableTaskGroups);
+                        $controlResult.AddMessage("Count of task groups on which contributors have edit permissions in release definition: $editableTaskGroupsCount");
+                        $controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ");
+                        $display = $editableTaskGroups|FT  -AutoSize | Out-String -Width 512
+                        $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of task groups used in release definition that contributors can edit: ", $editableTaskGroups);
                     }
                     else
