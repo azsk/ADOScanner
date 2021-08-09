@@ -58,6 +58,25 @@
       "Enabled": true
     },
     {
+        "ControlID": "ADO_Feed_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
+        "Description": "Do not grant Build Service Account direct access to feed.",
+        "Id": "Feed110",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckBuildSvcAccAccessOnFeeds",
+        "Rationale": "Build service account is default identity used as part every build in project. Providing direct access to this common service account will expose feeds to all build definitions in the project.",
+        "Recommendation": "1. Go to Project --> 2. Artifacts --> 3. Select Feed --> 4. Feed Settings --> 5. Permissions --> 6. Groups --> 7. Review Build service accounts should not have administrator/contributor/collaborator roles.",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ",
+          "MSW",
+          "AutomatedFix"
+        ],
+        "Enabled": true
+    },
+    {
       "ControlID": "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access",
       "Description": "Do not make secure files accessible to all pipelines.",
       "Id": "SecureFile100",
@@ -106,8 +125,7 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ",
-        "MSW"
+        "AuthZ"
       ],
       "Enabled": true
     },
@@ -120,6 +138,23 @@
       "MethodName": "CheckBroaderGroupAccessOnEnvironment",
       "Rationale": "If a broad group of users (e.g., Contributors) have excessive permissions on an environment, a malicious user can abuse these permissions to compromise integrity of the environment.",
       "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Environments --> 4. Select your environment from the list --> 5. Click 'Security' --> 6. Review users/groups which have administrator and user roles. Ensure broader groups have read-only access. Refer to detailed scan log (Environment.LOG) for broader group list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Repository_AuthZ_Disable_Inherited_Permissions",
+      "Description": "Do not allow inherited permission on repository.",
+      "Id": "Repository120",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckInheritedPermissionsOnRepository",
+      "Rationale": "Disabling inherited permissions lets you finely control access to various operations at the repository level for different stakeholders. This ensures that you follow the principle of least privilege and provide access only to the persons that require it.",
+      "Recommendation": "1. Go to Project Settings --> 2. Repositories --> 3. Select a Repository --> 4. Permissions --> 5. Disable 'Inheritance'.",
       "Tags": [
         "SDL",
         "TCP",

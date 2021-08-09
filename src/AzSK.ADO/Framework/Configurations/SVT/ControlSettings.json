@@ -53,7 +53,6 @@
         "ResourceType": "ServiceConnection",
         "ControlIds": [
           "ADO_ServiceConnection_AuthZ_Dont_Use_Classic_Connections",
-          "ADO_ServiceConnection_AuthZ_Disable_Inherited_Permissions",
           "ADO_ServiceConnection_AuthZ_Dont_Grant_All_Pipelines_Access",
           "ADO_ServiceConnection_AuthZ_Dont_Allow_Global_Groups",
           "ADO_ServiceConnection_DP_Review_Inactive_Connection",
@@ -66,11 +65,10 @@
       {
         "ResourceType": "Build",
         "ControlIds": [
-          "ADO_Build_AuthZ_Disable_Inherited_Permissions",
           "ADO_Build_DP_No_PlainText_Secrets_In_Definition",
           "ADO_Build_SI_Review_URL_Variables_Settable_At_Queue_Time",
-          "ADO_Build_SI_Restrict_Task_Group_Edit_Permission",
-          "ADO_Build_SI_Restrict_Variable_Group_Edit_Permission",
+          "ADO_Build_SI_Dont_Use_Broadly_Editable_Task_Group",
+          "ADO_Build_SI_Dont_Use_Broadly_Editable_Variable_Group",
           "ADO_Build_AuthZ_Limit_Pipeline_Access",
           "ADO_Build_AuthZ_Restrict_Broader_Group_Access",
           "ADO_Build_DP_Dont_Make_Secrets_Available_To_Forked_Builds",
@@ -83,8 +81,8 @@
           "ADO_Release_AuthZ_Disable_Inherited_Permissions",
           "ADO_Release_DP_No_PlainText_Secrets_In_Definition",
           "ADO_Release_SI_Review_URL_Variables_Settable_At_Release_Time",
-          "ADO_Release_SI_Restrict_Task_Group_Edit_Permission",
-          "ADO_Release_SI_Restrict_Variable_Group_Edit_Permission",
+          "ADO_Release_SI_Dont_Use_Broadly_Editable_Task_Group",
+          "ADO_Release_SI_Dont_Use_Broadly_Editable_Variable_Group",
           "ADO_Release_AuthZ_Restrict_Broader_Group_Access",
           "ADO_Release_DP_Review_Inactive_Release"
         ]
@@ -92,7 +90,6 @@
       {
         "ResourceType": "AgentPool",
         "ControlIds": [
-          "ADO_AgentPool_AuthZ_Disable_Inherited_Permissions",
           "ADO_AgentPool_AuthZ_Dont_Grant_All_Pipelines_Access",
           "ADO_AgentPool_AuthZ_Dont_Enable_Auto_Provisioning",
           "ADO_AgentPool_DP_Review_Inactive_Pool",
@@ -105,7 +102,6 @@
         "ResourceType": "VariableGroup",
         "ControlIds": [
           "ADO_VariableGroup_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secrets",
-          "ADO_VariableGroup_AuthZ_Disable_Inherited_Permissions",
           "ADO_VariableGroup_DP_No_PlainText_Secrets_In_Variables",
           "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access",
           "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access_On_VG_With_Secrets"
@@ -126,9 +122,7 @@
       },
       {
         "ResourceType": "Environment",
-        "ControlIds": [
-          "ADO_Environment_AuthZ_Dont_Grant_All_Pipelines_Access"
-        ]
+        "ControlIds": []
       }
     ]
   },
@@ -285,7 +279,8 @@
       "Edit build pipeline"
     ],
     "CheckForInheritedPermissions" : false,
-    "RegexForOAuthTokenInYAMLScript" : "\\s*:\\s*\\$\\s*\\(\\s*System\\.AccessToken\\s*\\)"
+    "RegexForOAuthTokenInYAMLScript" : "\\s*:\\s*\\$\\s*\\(\\s*System\\.AccessToken\\s*\\)",
+    "BranchesToCheckForYAMLScript": ["master","main","develop"]
   },
   "Release": {
     "ReleaseHistoryPeriodInDays": 180,
@@ -325,7 +320,11 @@
       "Administer release permissions",
       "Delete release pipeline",
       "Delete releases ",
-      "Edit release pipeline"
+      "Delete release stage",
+      "Edit release pipeline",      
+      "Edit release stage",
+      "Manage release approvers",
+      "Manage releases"
     ],
     "CheckForInheritedPermissions": false
   },
@@ -568,5 +567,6 @@
     "SecureFile",
     "Feed",
     "Environment"
-  ]
+  ],
+  "DisableInheritedPermControls" : true
 }

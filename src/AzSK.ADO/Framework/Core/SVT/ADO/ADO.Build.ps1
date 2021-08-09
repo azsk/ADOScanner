@@ -1535,11 +1535,20 @@ class Build: ADOSVTBase
                     $repoid = $this.BuildObj.repository.id
                     $resultObj = @()
                     $regex = $this.ControlSettings.Build.RegexForOAuthTokenInYAMLScript
+                    $branchesToCheckForYAMLScript = @()
 
                     try{
                         $url = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=6.0" -f $orgName,$projectName,$repoid
                         $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                         $branches = @($responseObj.name | Foreach-Object { $_.split("/")[-1]})
+                        if([Helpers]::CheckMember($this.ControlSettings,"Build.BranchesToCheckForYAMLScript"))
+                        {
+                            $branchesToCheckForYAMLScript += $this.ControlSettings.Build.BranchesToCheckForYAMLScript
+                        }
+                        else {
+                            $branchesToCheckForYAMLScript += "master"  ## default branch to check
+                        }
+                        $branches = @($branches | Where-Object {$_ -in $branchesToCheckForYAMLScript})
                         if($branches.count -gt 0)
                         {
                             $branches | where-object {
