@@ -124,6 +124,12 @@
       {
         "ResourceType": "Environment",
         "ControlIds": []
+      },
+      {
+        "ResourceType": "Repository",
+        "ControlIds": [
+          "ADO_Repository_AuthZ_Dont_Grant_BuildSvcAcct_Permission"
+        ]
       }
     ]
   },
