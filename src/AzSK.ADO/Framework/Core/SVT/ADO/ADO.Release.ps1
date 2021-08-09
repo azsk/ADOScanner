@@ -768,11 +768,11 @@ class Release: ADOSVTBase
         {
             if([Helpers]::CheckMember($this.ReleaseObj[0],"artifacts") -and ($this.ReleaseObj[0].artifacts | Measure-Object).Count -gt 0){
                 $sourceObj = @($this.ReleaseObj[0].artifacts);
-                $nonAdoResource = @($sourceObj | Where-Object { $_.type -ne 'Git'}) ;
-                $adoResource = @($sourceObj | Where-Object { $_.type -eq 'Git'}) ;
+                $nonAdoResource = @($sourceObj | Where-Object { ($_.type -ne 'Git' -and $_.type -ne 'Build')}) ;
+                $adoResource = @($sourceObj | Where-Object { $_.type -eq 'Git' -or $_.type -eq 'Build'}) ;
 
                if($nonAdoResource.Count -gt 0){
-                    $nonAdoResource = $nonAdoResource | Select-Object -Property @{Name="Artifact source alias"; Expression = {$_.alias}},@{Name="Artifact source type"; Expression = {$_.type}}
+                    $nonAdoResource = $nonAdoResource | Select-Object -Property @{Name="ArtifactSourceAlias"; Expression = {$_.alias}},@{Name="ArtifactSourceType"; Expression = {$_.type}}
                     $stateData = @();
                     $stateData += $nonAdoResource;
                     $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline contains following artifacts from external sources: ");
@@ -781,7 +781,7 @@ class Release: ADOSVTBase
                     $controlResult.SetStateData("Pipeline contains following artifacts from external sources: ", $stateData);
                }
                else {
-                    $adoResource = $adoResource | Select-Object -Property @{Name="Artifact source alias"; Expression = {$_.alias}},@{Name="Artifact source type"; Expression = {$_.type}}
+                    $adoResource = $adoResource | Select-Object -Property @{Name="ArtifactSourceAlias"; Expression = {$_.alias}},@{Name="ArtifactSourceType"; Expression = {$_.type}}
                     $stateData = @();
                     $stateData += $adoResource;
                     $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline contains artifacts from trusted sources: ");

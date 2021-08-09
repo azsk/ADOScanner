@@ -754,25 +754,23 @@ class Build: ADOSVTBase
     hidden [ControlResult] CheckExternalSources([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Verify
-        if(($this.BuildObj | Measure-Object).Count -gt 0)
-        {
-           $sourceObj = $this.BuildObj[0].repository | Select-Object -Property @{Name="Repository name"; Expression = {$_.Name}},@{Name="Repository source type"; Expression = {$_.type}}
-           if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
+        $sourceObj = $this.BuildObj[0].repository | Select-Object -Property @{Name="RepositoryName"; Expression = {$_.Name}},@{Name="RepositorySourceType"; Expression = {$_.type}}
+        if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
            {
                 $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository: ");
                 $display = ($sourceObj|FT  -AutoSize | Out-String -Width 512)
                 $controlResult.AddMessage($display)
                 $controlResult.SetStateData("Pipeline code is built from trusted repository: ",$sourceObj)                
            }
-           else
+        else
            {
                 $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from external repository: ");
                 $display = ($sourceObj|FT  -AutoSize | Out-String -Width 512)
                 $controlResult.AddMessage($display)
                 $controlResult.SetStateData("Pipeline code is built from external repository: ",$sourceObj)
            }
-           $sourceObj = $null;
-        }
+        $sourceObj = $null;
+        
 
         return $controlResult;
     }
