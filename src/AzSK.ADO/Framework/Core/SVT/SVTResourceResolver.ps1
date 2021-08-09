@@ -209,6 +209,9 @@ class SVTResourceResolver: AzSKRoot {
         }
     }
 
+
+    # Method called for Set-AzSKADOSecurityStatus, invoked from constructor 
+
     [void] SetallTheParamValues($ResourceTypeName) {
     
         if ($ResourceTypeName -eq [ResourceTypeName]::Build ) {
@@ -549,7 +552,7 @@ class SVTResourceResolver: AzSKRoot {
                             }
                         
                         else {
-
+                            $nObj=$this.MaxObjectsToScan;
                             $buildDefnURL = "";
                             #If service id based scan then will break the loop after one run because, sending all build ids to api as comma separated in one go.
                             for ($i = 0; $i -lt $this.BuildNames.Count; $i++) {
@@ -566,7 +569,7 @@ class SVTResourceResolver: AzSKRoot {
                                         $link = $bldDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
                                         $buildResourceId = "organization/$organizationId/project/$projectId/build/$($bldDef.id)";
                                         $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
-
+                                        if (--$nObj -eq 0) { break; }
                                     }
                                     $buildDefnsObj = $null;
                                     Remove-Variable buildDefnsObj;
@@ -626,6 +629,7 @@ class SVTResourceResolver: AzSKRoot {
                         }
                         else {
                             try {
+                                $nObj=$this.MaxObjectsToScan
                                 $releaseDefnsObj = $null;
                                 #If service id based scan then will break the loop after one run because, sending all release ids to api as comma separated in one go.
                                 for ($i = 0; $i -lt $this.ReleaseNames.Count; $i++) {
@@ -642,6 +646,7 @@ class SVTResourceResolver: AzSKRoot {
                                         $link = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId={2}" -f $this.OrganizationContext.OrganizationName, $projectName, $relDef.url.split('/')[-1];
                                         $releaseResourceId = "organization/$organizationId/project/$projectId/release/$($relDef.id)";
                                         $this.AddSVTResource($relDef.name, $projectName, "ADO.Release", $releaseResourceId, $null, $link);
+                                        if (--$nObj -eq 0) { break; }
                                     }
                                     #If service id based scan then no need to run loop as all the release ids has been sent to api as comma separated list in one go. so break the loop.
                                     if ($this.isServiceIdBasedScan -eq $true) {
@@ -980,46 +985,157 @@ class SVTResourceResolver: AzSKRoot {
             {
                 if ($rsrcList.Builds -and $rsrcList.Builds.Count -gt 0)
                 {
-                    $this.BuildNames = $rsrcList.Builds.buildDefinitionName
-                    $this.BuildIds = $rsrcList.Builds.buildDefinitionId
-                    $bFoundSvcMappedObjects = $true
+                    if ($this.BuildNames -ne "*") {
+                        $rsrcList.Builds = @($rsrcList.Builds | Where { $_.buildDefinitionName -in $this.BuildNames });
+                    }
+                    if ($rsrcList.Builds -and $rsrcList.Builds.Count -gt 0) {
+                        $this.BuildNames = $rsrcList.Builds.buildDefinitionName
+                        $this.BuildIds = $rsrcList.Builds.buildDefinitionId
+                        $bFoundSvcMappedObjects = $true
+                    }
+                    else {
+                        $this.BuildNames = @();
+                    }
                 }
             }
             if ($this.ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
             {
                 if ($rsrcList.Releases -and $rsrcList.Releases.Count -gt 0)
                 {
-                    $this.ReleaseNames = $rsrcList.Releases.releaseDefinitionName
-                    $this.ReleaseIds = $rsrcList.Releases.releaseDefinitionId
-                    $bFoundSvcMappedObjects = $true
+                    if ($this.ReleaseNames -ne "*") {
+                        $rsrcList.Releases = @($rsrcList.Releases | Where { $_.releaseDefinitionName -in $this.ReleaseNames }); 
+                    }
+                    if ($rsrcList.Releases -and $rsrcList.Releases.Count -gt 0) {
+                        $this.ReleaseNames = $rsrcList.Releases.releaseDefinitionName
+                        $this.ReleaseIds = $rsrcList.Releases.releaseDefinitionId
+                        $bFoundSvcMappedObjects = $true
+                    }
+                    else {
+                        $this.ReleaseNames = @();
+                    }
                 }
             }
             if ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
             {
                 if ($rsrcList.ServiceConnections -and $rsrcList.ServiceConnections.Count -gt 0)
                 {
-                    $this.ServiceConnections = $rsrcList.ServiceConnections.serviceConnectionName
-                    $this.ServiceConnectionIds = $rsrcList.ServiceConnections.ServiceConnectionId
-                    $bFoundSvcMappedObjects = $true
+                    if ($this.ServiceConnections -ne "*") {
+                        $rsrcList.ServiceConnections = @($rsrcList.ServiceConnections | Where { $_.serviceConnectionName -in $this.ServiceConnections }); 
+                    }
+                    if ($rsrcList.ServiceConnections -and $rsrcList.ServiceConnections.Count -gt 0) {
+                        $this.ServiceConnections = $rsrcList.ServiceConnections.serviceConnectionName
+                        $this.ServiceConnectionIds = $rsrcList.ServiceConnections.ServiceConnectionId
+                        $bFoundSvcMappedObjects = $true
+                    }
+                    else {
+                        $this.ServiceConnections = @();
+                    }
                 }
             }
             if ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
             {
                 if ($rsrcList.AgentPools -and $rsrcList.AgentPools.Count -gt 0)
                 {
-                    $this.AgentPools = $rsrcList.AgentPools.agentPoolName
-                    $this.AgentPoolIds = $rsrcList.AgentPools.agentPoolId
-                    $bFoundSvcMappedObjects = $true
+                    if ($this.AgentPools -ne "*") {
+                        $rsrcList.AgentPools = @($rsrcList.AgentPools | Where { $_.agentPoolName -in $this.AgentPools }); 
+                    }
+                    if ($rsrcList.AgentPools -and $rsrcList.AgentPools.Count -gt 0) {
+                        $this.AgentPools = $rsrcList.AgentPools.agentPoolName
+                        $this.AgentPoolIds = $rsrcList.AgentPools.agentPoolId
+                        $bFoundSvcMappedObjects = $true
+                    }
+                    else {
+                        $this.AgentPools = @();
+                    }
                 }
             }
             if ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
             {
                 if ($rsrcList.VariableGroups -and $rsrcList.VariableGroups.Count -gt 0)
                 {
-                    $this.VariableGroups = $rsrcList.VariableGroups.variableGroupName
-                    $this.VariableGroupIds = $rsrcList.VariableGroups.variableGroupId
-                    $bFoundSvcMappedObjects = $true
+                    if ($this.VariableGroups -ne "*") {
+                        $rsrcList.VariableGroups = @($rsrcList.VariableGroups | Where { $_.variableGroupName -in $this.VariableGroups }); 
+                    }
+                    if ($rsrcList.VariableGroups -and $rsrcList.VariableGroups.Count -gt 0) {
+                        $this.VariableGroups = $rsrcList.VariableGroups.variableGroupName
+                        $this.VariableGroupIds = $rsrcList.VariableGroups.variableGroupId
+                        $bFoundSvcMappedObjects = $true
+                    }
+                    else {
+                        $this.VariableGroups = @();
+                    }
                 }
+            }
+            #TODO: Remove this try catch in 2110
+            try
+            {
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::All))
+                {
+                    if ($rsrcList.Repositories -and $rsrcList.Repositories.Count -gt 0)
+                    {
+                        if ($this.RepoNames -ne "*") {
+                            $rsrcList.Repositories = @($rsrcList.repositories | Where { $_.repoName -in $this.RepoNames }); 
+                        }
+                        if ($rsrcList.Repositories -and $rsrcList.Repositories.Count -gt 0) {
+                            $this.RepoNames = $rsrcList.Repositories.repoName
+                            $bFoundSvcMappedObjects = $true
+                        }
+                        else {
+                            $this.RepoNames = @();
+                        }
+                    }
+                }
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::Feed, [ResourceTypeName]::All))
+                {
+                    if ($rsrcList.Feeds -and $rsrcList.Feeds.Count -gt 0)
+                    {
+                        if ($this.FeedNames -ne "*") {
+                            $rsrcList.Feeds = @($rsrcList.Feeds | Where { $_.feedName -in $this.FeedNames }); 
+                        }
+                        if ($rsrcList.Feeds -and $rsrcList.Feeds.Count -gt 0) {
+                            $this.FeedNames = $rsrcList.Feeds.feedName
+                            $bFoundSvcMappedObjects = $true
+                        }
+                        else {
+                            $this.FeedNames = @();
+                        }
+                    }
+                }
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::SecureFile, [ResourceTypeName]::All))
+                {
+                    if ($rsrcList.SecureFiles -and $rsrcList.SecureFiles.Count -gt 0)
+                    {
+                        if ($this.SecureFileNames -ne "*") {
+                            $rsrcList.SecureFiles = @($rsrcList.SecureFiles | Where { $_.secureFileName -in $this.SecureFileNames }); 
+                        }
+                        if ($rsrcList.SecureFiles -and $rsrcList.SecureFiles.Count -gt 0) {
+                            $this.SecureFileNames = $rsrcList.SecureFiles.secureFileName
+                            $bFoundSvcMappedObjects = $true
+                        }
+                        else {
+                            $this.SecureFileNames = @();
+                        }
+                    }
+                }
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::Environment, [ResourceTypeName]::All))
+                {
+                    if ($rsrcList.Environments -and $rsrcList.Environments.Count -gt 0)
+                    {
+                        if ($this.EnvironmentNames -ne "*") {
+                            $rsrcList.Environments = @($rsrcList.Environments | Where { $_.environmentName -in $this.EnvironmentNames }); 
+                        }
+                        if ($rsrcList.Environments -and $rsrcList.Environments.Count -gt 0) {
+                            $this.EnvironmentNames = $rsrcList.Environments.environmentName
+                            $bFoundSvcMappedObjects = $true
+                        }
+                        else {
+                            $this.EnvironmentNames = @();
+                        }
+                    }
+                }
+            }
+            catch{
+                #eat the exception
             }
         }
         if ($bFoundSvcMappedObjects -eq $false)

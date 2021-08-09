@@ -123,9 +123,7 @@
       },
       {
         "ResourceType": "Environment",
-        "ControlIds": [
-          "ADO_Environment_AuthZ_Dont_Grant_All_Pipelines_Access"
-        ]
+        "ControlIds": []
       }
     ]
   },
