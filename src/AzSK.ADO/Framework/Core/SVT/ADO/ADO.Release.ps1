@@ -838,43 +838,46 @@ class Release: ADOSVTBase
 
     hidden [ControlResult] CheckSettableAtReleaseTimeForURL([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
             if ([Helpers]::CheckMember($this.ReleaseObj[0], "variables"))
             {
-                $settableURLVars = @();
-                $count = 0;
-                $patterns = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "URLs"} | Select-Object -Property RegexList;
+                if ([Helpers]::CheckMember($this.ControlSettings, "Patterns"))
+                {
+                    $settableURLVars = @();
+                    $regexForURL = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "URLs"} | Select-Object -Property RegexList;
+                    $allVars = Get-Member -InputObject $this.ReleaseObj[0].variables -MemberType Properties
 
-                if(($patterns | Measure-Object).Count -gt 0){
-                    Get-Member -InputObject $this.ReleaseObj[0].variables -MemberType Properties | ForEach-Object {
+                    $allVars | ForEach-Object {
                         if ([Helpers]::CheckMember($this.ReleaseObj[0].variables.$($_.Name), "allowOverride") )
                         {
                             $varName = $_.Name;
                             $varValue = $this.ReleaseObj[0].variables.$($varName).value;
-                            for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) {
-                                if ($varValue -match $patterns.RegexList[$i]) {
-                                    $count +=1
+                            for ($i = 0; $i -lt $regexForURL.RegexList.Count; $i++) {
+                                if ($varValue -match $regexForURL.RegexList[$i]) {
                                     $settableURLVars += @( [PSCustomObject] @{ Name = $varName; Value = $varValue } )
                                     break
                                 }
                             }
                         }
                     }
-                    if ($count -gt 0)
+                    $varCount = $settableURLVars.Count
+                    if ($varCount -gt 0)
                     {
-                        $controlResult.AddMessage("Total number of variables that are settable at release time and contain URL value: ", ($settableURLVars | Measure-Object).Count);
-                        $controlResult.AddMessage([VerificationResult]::Failed, "Found variables that are settable at release time and contain URL value: ", $settableURLVars);
-                        $controlResult.AdditionalInfo += "Total number of variables that are settable at release time and contain URL value: " + ($settableURLVars | Measure-Object).Count;
+                        $controlResult.AddMessage("Count of variables that are settable at release time and contain URL value: $($varCount)");
+                        $controlResult.AddMessage([VerificationResult]::Verify, "List of variables settable at release time and containing URL value: `n", $($settableURLVars | FT | Out-String));
+                        $controlResult.AdditionalInfo += "Count of variables that are settable at release time and contain URL value: " + $varCount;
                         $controlResult.SetStateData("List of variables settable at release time and containing URL value: ", $settableURLVars);
                     }
-                    else {
+                    else 
+                    {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No variables were found in the release pipeline that are settable at release time and contain URL value.");
                     }
                 }
-                else
+                else 
                 {
-                    $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting URLs in pipeline variables are not defined in your organization.");
+                    $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting URLs in pipeline variables are not defined in control settings for your organization.");
                 }
             }
             else
@@ -884,7 +887,7 @@ class Release: ADOSVTBase
         }
         catch
         {
-            $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch variables of the release pipeline.");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch variables of the release pipeline.");
             $controlResult.LogException($_)
         }
         return $controlResult;

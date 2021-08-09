@@ -113,7 +113,7 @@
       "Automated": "Yes",
       "MethodName": "CheckSettableAtQueueTimeForURL",
       "Rationale": "Pipeline variables that are marked settable at queue time can be changed by anyone who can queue a build. If these variables contain a URL then someone can change the URL to a server that they control and can intercept any secrets used to interact with the intended server by queueing a build.",
-      "Recommendation": "1. Navigate to the build pipeline. 2. Click on Edit. 3. Select variables. 4. Uncheck 'settable at queue time' for such variables. 5. Save the build pipeline.",
+      "Recommendation": "1. Navigate to the build pipeline. --> 2. Click on Edit. --> 3. Select variables. --> 4. Uncheck 'settable at queue time' for such variables. --> 5. Save the build pipeline.",
       "Tags": [
         "SDL",
         "TCP",
