@@ -2028,7 +2028,7 @@ class Project: ADOSVTBase
                                 'deny':$($roleId)                              
                             }]
                         }" | ConvertFrom-Json
-                        $url = "https://dev.azure.com/juhitiwari/_apis/AccessControlEntries/{0}" -f $RawDataObjForControlFix[0].PermissionSetId
+                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$RawDataObjForControlFix[0].PermissionSetId
 
                         [WebRequestHelper]:: InvokePostWebRequest($url,$body)
 
@@ -2056,7 +2056,7 @@ class Project: ADOSVTBase
                                 'deny':0                              
                             }]
                         }" | ConvertFrom-Json
-                        $url = "https://dev.azure.com/juhitiwari/_apis/AccessControlEntries/{0}" -f $RawDataObjForControlFix[0].PermissionSetId
+                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $RawDataObjForControlFix[0].PermissionSetId
 
                         [WebRequestHelper]:: InvokePostWebRequest($url,$body)
 
