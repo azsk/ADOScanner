@@ -170,7 +170,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "SI"
+        "SI",
+        "MSW"
       ],
       "Enabled": true
     },
