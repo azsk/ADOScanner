@@ -444,15 +444,15 @@
       "CheckForInheritedPermissions": false
   },
   "Environment":{
-    "RestrictedBroaderGroupsForEnv": [
+    "RestrictedBroaderGroupsForEnvironment": [
       "Project Collection Valid Users",
       "Contributors",
       "Readers",
       "Project Valid Users"
       ],
-      "RestrictedRolesForBroaderGroupsInEnv": [
+       "RestrictedRolesForBroaderGroupsInEnv": [
         "administrator"       
-    ],  
+    ], 
       "CheckForInheritedPermissions": false
   },
   "Repo": {
