@@ -2238,12 +2238,10 @@ class Project: ADOSVTBase
                 foreach ($identity in $RawDataObjForControlFix) 
                 {
                     $roleId = "Reader"
+                    $userId = $identity.RoleId
                     if ($body.length -gt 1) {$body += ","}
-                    $body += @"
-                        {
-                            "userId": $identity.RoleId,
-                            "roleName" : $roleId
-                        }
+                    $body += @" 
+                        {"userId": "$($userId)","roleName": "$($roleId)"}
 "@;
                 }
                 $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
@@ -2253,21 +2251,19 @@ class Project: ADOSVTBase
                 foreach ($identity in $RawDataObjForControlFix) 
                 {
                     $roleId = "$($identity.Role)"
+                    $userId = $identity.RoleId
                     if ($body.length -gt 1) {$body += ","}
                     $body += @"
-                        {
-                            "userId": $identity.RoleId,
-                            "roleName" : $roleId
-                        }
+                    {"userId": "$($userId)","roleName": "$($roleId)"}
 "@;
                 }
                 $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
                 $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
             }
 
-            #Patch request
             $body += "]"
-            $url = "https://dev.azure.com/{0}}/_apis/securityroles/scopes/distributedtask.globalagentqueuerole/roleassignments/resources/{1}?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+            #Patch request
+            $url = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.globalagentqueuerole/roleassignments/resources/{1}?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
             $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
             Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers $header -Body $body
 
@@ -2300,7 +2296,7 @@ class Project: ADOSVTBase
                 $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                 if($responseObj.Count -gt 0)
                 {
-                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}},@{Name="RoleId"; Expression = {$_.identity.id}},@{Name="ProjectName"; Expression = {$this.ResourceContext.ResourceName}});
                 }
 
                 # Checking whether the broader groups have User/Admin permissions
@@ -2315,6 +2311,11 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
+                    if ($this.ControlFixBackupRequired)
+                    {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $restrictedGroups;
+                    }
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group at a project level.");
@@ -2335,51 +2336,51 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForVarGrpAutomatedFix ([ControlResult] $controlResult) {
 
-        try {
-            $controlResult.VerificationResult = [VerificationResult]::Failed
-            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedBroaderGroupsForVariableGroup") -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroup")) {
-                $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup;
-                $restrictedRolesForBroaderGroupsInvarGrp = $this.ControlSettings.VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroup;
+            $body = "["
 
-                #Fetch variable group RBAC
-                $roleAssignments = @();
-
-                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.library/roleassignments/resources/{1}%240' -f $($this.OrganizationContext.OrganizationName), $($projectId);
-                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                if($responseObj.Count -gt 0)
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
                 {
-                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                    $roleId = "Reader"
+                    $userId = $identity.RoleId
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += "{""userId"": ""$($userId)"",""roleName"": ""$($roleId)""}"
                 }
-
-                # Checking whether the broader groups have User/Admin permissions
-                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
-                $restrictedGroupsCount = $restrictedGroups.Count
-
-                # fail the control if restricted group found on variable group
-                if ($restrictedGroupsCount -gt 0) {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)");
-                    $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
-                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
-                    $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
-                    $controlResult.SetStateData("List of groups: ", $restrictedGroups)
-                    $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
-                }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group at a project level.");
-                }
-                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($restrictedBroaderGroupsForVarGrp | FT | out-string)");
+                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = "$($identity.Role)"
+                    $userId = $identity.RoleId
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += "{""userId"": ""$($userId)"",""roleName"": ""$($roleId)""}"
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
             }
+
+            $body += "]"
+            #Patch request
+            $url = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.library/roleassignments/resources/{1}?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers $header -Body $body
+
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
+            $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
         }
-        catch {
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions at a project level.");
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
             $controlResult.LogException($_)
         }
-
-        return $controlResult;
+        return $controlResult
     }
 }
