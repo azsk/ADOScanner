@@ -7,7 +7,6 @@ class CommonSVTResourceResolver {
     [string] $organizationName
     [string] $organizationId
     [string] $projectId
-    [psobject] $feedDefnsObj = $null
 
     CommonSVTResourceResolver($organizationName, $organizationId, $projectId) {
         $this.organizationName = $organizationName;
@@ -123,22 +122,14 @@ class CommonSVTResourceResolver {
 
     hidden [PSObject] FetchFeeds($projectName, $feedNames) {
         try {
-            # Here we are fetching all the feeds in the project. 
-            #$feedDefnURL = 'https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds?api-version=6.0-preview.1' -f $this.organizationName, $projectName
-            
-            #Fetching project and org scoped feeds
-            if($null -eq $this.feedDefnsObj)
-            {
-                $feedDefnURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds?api-version=6.0-preview.1' -f $this.organizationName
-                $this.feedDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($feedDefnURL);
-            }
-            $orgFeedURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds*'  -f $this.organizationName
-            $projFeedURL = 'https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds*' -f $this.organizationName, $this.projectId
+            # Here we are fetching all the feeds in the project.
+            $feedDefnURL = 'https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds?api-version=6.0-preview.1' -f $this.organizationName, $projectName
+            $feedDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($feedDefnURL);
             if ($feedNames -ne "*") {
-                return $this.feedDefnsObj | Where-Object { $feedNames -contains $_.name -and ($_.url -match $projFeedURL -or $_.url -match $orgFeedURL) }
+                $feedDefnsObj = $feedDefnsObj | Where-Object { $feedNames -contains $_.name }
             }
-            
-            return $this.feedDefnsObj | Where-Object { $_.url -match $projFeedURL -or $_.url -match $orgFeedURL}
+
+            return $feedDefnsObj;
         }
         catch {
             return $null;
