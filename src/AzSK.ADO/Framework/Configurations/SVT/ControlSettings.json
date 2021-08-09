@@ -320,9 +320,9 @@
     "ExcessivePermissionsForBroadGroups": [
       "Administer release permissions",
       "Delete release pipeline",
-      "Delete releases ",
-      "Delete release stage",
-      "Edit release pipeline",      
+      "Delete releases",
+      "Edit release pipeline",
+      "Delete release stage",      
       "Edit release stage",
       "Manage release approvers",
       "Manage releases"

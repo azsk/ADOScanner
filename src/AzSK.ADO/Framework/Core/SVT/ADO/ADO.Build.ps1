@@ -1211,6 +1211,9 @@ class Build: ADOSVTBase
                                     $excessivePermissionsGroupObj = @{}
                                     $excessivePermissionsGroupObj['Group'] = $broderGroup.principalName
                                     $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join ', ')
+                                    $excessivePermissionsGroupObj['Descriptor'] = $broderGroup.sid
+                                    $excessivePermissionsGroupObj['PermissionSetToken'] = $permissionSetToken
+                                    $excessivePermissionsGroupObj['PermissionSetId'] = [Build]::SecurityNamespaceId
                                     $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
                                 }
                             }
@@ -1221,6 +1224,12 @@ class Build: ADOSVTBase
                                 $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                                 $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                                 $controlResult.AdditionalInfo += "List of excessive permissions on which contributors have access:  $($groupsWithExcessivePermissionsList.Group).";
+                                if ($this.ControlFixBackupRequired)
+                                {
+                                    #Data object that will be required to fix the control
+                                    
+                                    $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                                }
                             }
                             else {
                                 $controlResult.AddMessage([VerificationResult]::Passed, "Broader Groups do not have excessive permissions on the build pipeline.");
@@ -1248,6 +1257,82 @@ class Build: ADOSVTBase
         }
 
         return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupAccessAutomatedFix([ControlResult] $controlResult)
+    {
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    
+                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        $roleId = [int][BuildPermissions] $excessivePermission.Replace(" ","");
+                        #need to invoke a post request which does not accept all permissions added in the body at once
+                        #hence need to call invoke seperately for each permission
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
+                                'allow':0,
+                                'deny':$($roleId)                              
+                            }]
+                        }" | ConvertFrom-Json
+                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $RawDataObjForControlFix[0].PermissionSetId
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Allow"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Deny"
+
+                }              
+                
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                   
+                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        $roleId = [int][BuildPermissions] $excessivePermission.Replace(" ","");
+                        
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
+                                'allow':$($roleId),
+                                'deny':0                              
+                            }]
+                        }" | ConvertFrom-Json
+                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$RawDataObjForControlFix[0].PermissionSetId
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Allow"
+                }
+
+            }
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permissions for broader groups have been changed as below: ");
+            $formattedGroupsData = $RawDataObjForControlFix | Select @{l = 'Group'; e = { $_.Group } }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions }}, @{l = 'OldPermission'; e = { $_.OldPermission }}, @{l = 'NewPermission'; e = { $_.NewPermission } }
+            $display = ($formattedGroupsData |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
 
     hidden [ControlResult] CheckForkedBuildTrigger([ControlResult] $controlResult)
