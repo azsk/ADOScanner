@@ -2269,57 +2269,7 @@ class Project: ADOSVTBase
 
         return $controlResult;
     }
-    
-    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForFeed ([ControlResult] $controlResult) {
-
-        try {
-            $controlResult.VerificationResult = [VerificationResult]::Failed
-            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "Feed.RestrictedBroaderGroupsForFeeds") -and [Helpers]::CheckMember($this.ControlSettings, "Feed.RestrictedRolesForBroaderGroupsInFeeds")) {
-                $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.Feed.RestrictedBroaderGroupsForFeeds;
-                $restrictedRolesForBroaderGroupsInvarGrp = $this.ControlSettings.Feed.RestrictedRolesForBroaderGroupsInFeeds;
-
-                #Fetch variable group RBAC
-                $roleAssignments = @();
-
-                $url = 'https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds?api-version=6.0-preview.1' -f $($this.OrganizationContext.OrganizationName), $($projectId);
-                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                if($responseObj.Count -gt 0)
-                {
-                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
-                }
-
-                # Checking whether the broader groups have User/Admin permissions
-                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
-                $restrictedGroupsCount = $restrictedGroups.Count
-
-                # fail the control if restricted group found on variable group
-                if ($restrictedGroupsCount -gt 0) {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)");
-                    $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
-                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
-                    $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
-                    $controlResult.SetStateData("List of groups: ", $restrictedGroups)
-                    $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
-                }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group at a project level.");
-                }
-                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($restrictedBroaderGroupsForVarGrp | FT | out-string)");
-            }
-            else {
-                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
-            }
-        }
-        catch {
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions at a project level.");
-            $controlResult.LogException($_)
-        }
-
-        return $controlResult;
-    }
-
+        
     hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForSecureFile ([ControlResult] $controlResult) {
 
         try {
@@ -2439,8 +2389,8 @@ class Project: ADOSVTBase
             $controlResult.VerificationResult = [VerificationResult]::Failed
             $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedBroaderGroupsForEnv") -and [Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedRolesForBroaderGroupsInEnv")) {
-                $restrictedBroaderGroupsForEnv = $this.ControlSettings.Environment.RestrictedBroaderGroupsForEnv;
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedBroaderGroupsForEnvironment") -and [Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedRolesForBroaderGroupsInEnv")) {
+                $RestrictedBroaderGroupsForEnvironment = $this.ControlSettings.Environment.RestrictedBroaderGroupsForEnvironment;
                 $restrictedRolesForBroaderGroupsInEnv = $this.ControlSettings.Environment.RestrictedRolesForBroaderGroupsInEnv;
 
                 #Fetch environment RBAC
@@ -2454,7 +2404,7 @@ class Project: ADOSVTBase
                 }
 
                 # Checking whether the broader groups have User/Admin permissions
-                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForEnv -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInEnv -contains $_.Role) })
+                $restrictedGroups = @($roleAssignments | Where-Object { ($RestrictedBroaderGroupsForEnvironment -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInEnv -contains $_.Role) })
                 $restrictedGroupsCount = $restrictedGroups.Count
 
                 # fail the control if restricted group found on environment
@@ -2469,7 +2419,7 @@ class Project: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to environment at a project level.");
                 }
-                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($restrictedBroaderGroupsForEnv | FT | out-string)");
+                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($RestrictedBroaderGroupsForEnvironment | FT | out-string)");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for environment is not defined in the control settings for your organization policy.");

@@ -349,25 +349,7 @@
         "MSW"
       ],
       "Enabled": true
-    },
-    {
-      "ControlID": "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Feed",
-      "Description": "Do not allow feeds to inherit excessive permissions for a broad group of users at project level.",
-      "Id": "Project381",
-      "ControlSeverity": "High",
-      "Automated": "Yes",
-      "MethodName": "CheckBroaderGroupInheritanceSettingsForFeed",
-      "Rationale": "If a broad group (e.g., Contributors) is configured with excessive permissions at a project level, they are inherited by individual variable groups in the project. Then the integrity of variable groups can be compromised by a malicious user",
-      "Recommendation": "1. Go to Project --> 2. Artifacts -->  3. Security. --> 4. Ensure broader groups have read-only access. Refer to detailed scan log (Project.LOG) for broader group list",
-      "Tags": [
-        "SDL",
-        "TCP",
-        "Automated",
-        "AuthZ",
-        "MSW"
-      ],
-      "Enabled": true
-    },
+    },    
     {
       "ControlID": "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Env",
       "Description": "Do not allow environments to inherit excessive permissions for a broad group of users at project level.",
