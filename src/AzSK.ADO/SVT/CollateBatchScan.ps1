@@ -1,8 +1,9 @@
 Set-StrictMode -Version Latest
 
-function CollateBatchScan
+function Get-AzSKADOSecurityStatusBatchModeResults
 {
     [OutputType([String])]
+    [Alias("Get-AzSKAzureDevOpsSecurityStatusBatchModeResults")]
     Param
     (
         [string]
@@ -70,7 +71,7 @@ function CollateBatchScan
                 }
 
                 $temp | Export-Csv (Join-Path $outputPath "SecurityReport_CollatedBatchScan.csv") -append -NoTypeInformation 
-                Write-Progress -Activity "Collated results from $($progress) folders out of $($folderCount) folders " -PercentComplete ($progress / $folderCount  * 100)
+                Write-Progress -Activity "Combined results from $($progress) folders out of $($folderCount) folders " -PercentComplete ($progress / $folderCount  * 100)
                 $progress+=1
                 
                }
@@ -78,7 +79,7 @@ function CollateBatchScan
 
 
             Write-Progress -Activity "All results collated" -Status "Ready" -Completed
-            Write-Host "Collated results have been exported to $(Join-Path $outputPath "SecurityReport_CollatedBatchScan.csv") "  -ForegroundColor Green
+            Write-Host "Results from batch mode have been combined and exported to $(Join-Path $outputPath "SecurityReport_CollatedBatchScan.csv") "  -ForegroundColor Green
             
            
             

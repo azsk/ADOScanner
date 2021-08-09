@@ -1,8 +1,9 @@
 Set-StrictMode -Version Latest
 
-function BatchScan
+function Get-AzSKADOSecurityStatusBatchMode
 {
     [OutputType([String])]
+	[Alias("Get-AzSKAzureDevOpsSecurityStatusBatchMode")]
     Param
     (
         [string]
@@ -198,7 +199,7 @@ function BatchScan
             else {
                 $batchScanMngr.UpdateBatchMasterList();
             }
-            $commandForNextBatch ='ipmo \"{0}\"; BatchScan ' -f $ModulePath;
+            $commandForNextBatch ='ipmo \"{0}\"; gadsbm ' -f $ModulePath;
             $PSCmdlet.MyInvocation.BoundParameters.GetEnumerator() | foreach-object {
                 if($_.value -eq $true){
                     $commandForNextBatch += '-{0} ' -f $_.key

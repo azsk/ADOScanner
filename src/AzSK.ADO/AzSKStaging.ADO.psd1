@@ -90,8 +90,8 @@
         'Set-AzSKADOUsageTelemetryLevel',
         'Set-AzSKADOUserPreference',
         'Set-AzSKADOSecurityStatus',
-        'BatchScan',
-        'CollateBatchScan'
+        'Get-AzSKADOSecurityStatusBatchMode',
+        'Get-AzSKADOSecurityStatusBatchModeResults'
     )
 
     # Cmdlets to export from this module
