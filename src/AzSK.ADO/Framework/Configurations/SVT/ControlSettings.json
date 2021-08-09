@@ -131,6 +131,12 @@
         "ControlIds": [
           "ADO_Environment_AuthZ_Dont_Grant_All_Pipelines_Access"
         ]
+      },
+      {
+        "ResourceType": "Repository",
+        "ControlIds": [
+          "ADO_Repository_AuthZ_Dont_Grant_BuildSvcAcct_Permission"
+        ]
       }
     ]
   },
