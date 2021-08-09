@@ -359,7 +359,7 @@ class BatchScanManager
 
     hidden [bool] CheckContTokenValidity([DateTime] $lastModifiedTime){
        
-        if($lastModifiedTime.AddHours([INT32]::Parse(12)) -lt [DateTime]::UtcNow){
+        if($lastModifiedTime.AddHours([INT32]::Parse(15)) -lt [DateTime]::UtcNow){
             return $false
         }
         return $true;

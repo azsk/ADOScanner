@@ -144,7 +144,7 @@
     "DurableScanUpdateFrequency": "200"
   },
   "BatchScan":{
-    "BatchTrackerValidForDays":5,
+    "BatchTrackerValidForDays":10,
     "BatchTrackerUpdateFrequency":5000
   },
   "DockerImage":{
