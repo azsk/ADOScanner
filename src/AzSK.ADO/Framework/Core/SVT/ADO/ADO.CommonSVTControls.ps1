@@ -538,14 +538,14 @@ class CommonSVTControls: ADOSVTBase {
                 (($_.DisplayName.split('\')[-1] -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))") -or `
                 ($_.DisplayName.split('\')[-1] -like "*Build Service ($($this.OrganizationContext.OrganizationName))" ))}) 
 
-            $feedWithBuildSvcAcc = @($excessiveBuildSvcAccFeedsPerm | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}}) ;
+            $feedWithBuildSvcAcc = @($excessiveBuildSvcAccFeedsPerm | Select-Object -Property @{Name="Role"; Expression = {$_.role}},@{Name="DisplayName"; Expression = {$_.displayName}}) ;
             $feedWithBuildSvcAccCount = $feedWithBuildSvcAcc.count;
 
             if ($feedWithBuildSvcAccCount -gt 0)
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have administrator/contributor/collaborator access to feed: $($feedWithBuildSvcAccCount)")
+                $controlResult.AddMessage([VerificationResult]::Failed, "Count of build service accounts that have administrator/contributor/collaborator access to feed: $($feedWithBuildSvcAccCount)")
 
-                $display = ($feedWithBuildSvcAcc |  FT FeedName, Role, DisplayName -AutoSize | Out-String -Width 512)
+                $display = ($feedWithBuildSvcAcc |  FT Role, DisplayName -AutoSize | Out-String -Width 512)
                 $controlResult.AddMessage("`nList of groups: ", $display)
                 $controlResult.SetStateData("List of groups: ", $feedWithBuildSvcAcc);
                 if ($this.ControlFixBackupRequired)
@@ -559,7 +559,7 @@ class CommonSVTControls: ADOSVTBase {
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with administrator/contributor/collaborator permission to broad groups.");
+                $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with administrator/contributor/collaborator permission to build service accounts.");
             }            
         }
         catch
@@ -570,4 +570,188 @@ class CommonSVTControls: ADOSVTBase {
         return $controlResult
     }
 
+    hidden [ControlResult] CheckBuildSvcAccAccessOnFeedsAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            $scope = $RawDataObjForControlFix[0].Scope
+            $isBuildSVcAccUsedToPublishPackage = $false
+
+            $body = "["
+
+            if (-not $this.UndoFix)
+            {
+                #If last 10 published packages are published via Build service accounts, user should provide -Force switch in the command
+                if (-not $this.invocationContext.BoundParameters["Force"])
+                {
+                    $isBuildSVcAccUsedToPublishPackage = $this.ValidateBuildSvcAccInPackage($scope);
+                }
+
+                if ($isBuildSVcAccUsedToPublishPackage -eq $false)
+                {
+                    foreach ($identity in $RawDataObjForControlFix) 
+                    {
+                        $roleId = [int][FeedPermissions] "Reader"
+                        if ($body.length -gt 1) {$body += ","}
+                        $body += @"
+                            {
+                                "displayName": "$($($identity.displayName).Replace('\','\\'))",
+                                "identityId": "$($identity.identityId)",
+                                "role": $roleId,
+                                "identityDescriptor": "$($($identity.identityDescriptor).Replace('\','\\'))",
+                                "isInheritedRole": false
+                            }
+"@;
+                    }
+                    $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                    $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+                }
+                else {
+                    $this.PublishCustomMessage("Build service accounts have been used recently to publish package. Please use -Force in the command to apply fix for such feeds.`n",[MessageType]::Warning);
+                    $controlResult.AddMessage([VerificationResult]::Verify,  "Build service accounts have been used recently to publish package. Please use -Force in the command to apply fix for such feeds.");
+                    return $controlResult;
+                }
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = [int][FeedPermissions] "$($identity.role)"
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                        {
+                            "displayName": "$($($identity.displayName).Replace('\','\\'))",
+                            "identityId": "$($identity.identityId)",
+                            "role": $roleId,
+                            "identityDescriptor": "$($($identity.identityDescriptor).Replace('\','\\'))",
+                            "isInheritedRole": false
+                        }
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+            }
+            
+            #Patch request
+            $body += "]"
+            if ($scope -eq "Organization")
+            {
+                $url = "https://feeds.dev.azure.com/{0}/_apis/packaging/Feeds/{1}/permissions?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+            }
+            else {
+                $url = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/permissions?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            }
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body
+
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for Build service accounts have been changed as below: ");
+            $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [boolean] ValidateBuildSvcAccInPackage($scope)
+    {
+        $isBuildSvsAccUsed = $false
+        try 
+        {
+            if ($scope -eq "Organization")
+            {
+                #$top in this api returns data alphabetically. Also queryorder is not supported.
+                $url = "https://feeds.dev.azure.com/{0}/_apis/packaging/Feeds/{1}/packages?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+            }
+            else {
+                $url = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/packages?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            }
+            $packageList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+            #Get top 10 published packages 
+            $recentPackages = $packageList | Sort-Object -Property @{Expression={$_.versions.publishdate}; Descending = $true } | Select-Object -First 10
+            foreach ($package in $recentPackages)
+            {
+                if ($scope -eq "Organization")
+                {
+                    $provenanceURL = "https://feeds.dev.azure.com/{0}/_apis/packaging/Feeds/{1}/Packages/{2}/Versions/{3}/provenance?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id, $package.id, $package.versions.id ;
+                }
+                else
+                {
+                    $provenanceURL = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/Packages/{3}/Versions/{4}/provenance?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id, $package.id, $package.versions.id ;
+                }
+                $provenanceDetails = @([WebRequestHelper]::InvokeGetWebRequest($provenanceURL));
+
+                if ($provenanceDetails.provenance.data.'Common.IdentityDisplayName' -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $provenanceDetails.provenance.data.'Common.IdentityDisplayName' -like "*Build Service ($($this.OrganizationContext.OrganizationName))")
+                {
+                    $isBuildSvsAccUsed = $true
+                    break;
+                }
+            }
+        }
+        catch
+        {
+            #eat exception
+        }
+        return $isBuildSvsAccUsed
+    }
+
+    hidden [ControlResult] CheckBuildSvcAcctAccessOnRepository([ControlResult] $controlResult)
+	{
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            # Fetching repository RBAC using portal api's because no documented api present for this purpose.
+            $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+            $refererUrl = "https://dev.azure.com/{0}/{1}/_settings/repositories?repo={2}&_a=permissionsMid" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceGroupName), $($this.ResourceContext.ResourceDetails.id)
+            $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+            $inputbody.dataProviderContext.properties.sourcePage.url = $refererUrl
+            $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceGroupName;
+            $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.Project.id)/$($this.ResourceContext.ResourceDetails.id)"
+
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+            $repositoryIdentities = @();
+
+            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+            {
+                $repositoryIdentities = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities)
+            }
+
+            if($repositoryIdentities.Count -gt 0)
+            {
+                $buildServieAccountOnRepo = @()
+                foreach ($identity in $repositoryIdentities)
+                {
+                    if ($identity.displayName -like '*Project Collection Build Service Accounts' -or $identity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))")
+                    {
+                        $buildServieAccountOnRepo += $identity.displayName;
+                    }
+                }
+                $restrictedBuildSVCAcctCount = $buildServieAccountOnRepo.Count;
+                if($restrictedBuildSVCAcctCount -gt 0)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of restricted Build Service groups that have access to repository: $($restrictedBuildSVCAcctCount)")
+                    $controlResult.AddMessage("`nList of 'Build Service' Accounts: ", $($buildServieAccountOnRepo | FT | Out-String))
+                    $controlResult.SetStateData("List of 'Build Service' Accounts: ", $buildServieAccountOnRepo)
+                    $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)";
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the repository.");
+                }
+
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch repository permission details.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch repository permission details.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult;
+    }
 }

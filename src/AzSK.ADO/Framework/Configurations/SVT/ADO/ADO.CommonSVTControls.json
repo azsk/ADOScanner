@@ -125,8 +125,7 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ",
-        "MSW"
+        "AuthZ"
       ],
       "Enabled": true
     },
@@ -161,6 +160,24 @@
         "TCP",
         "Automated",
         "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Repository_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
+      "Description": "Do not grant Build Service Account direct access to repositories.",
+      "Id": "Repository120",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBuildSvcAcctAccessOnRepository",
+      "Rationale": "Build service account is default identity used as part every build in project. Providing direct access to this common service account will expose repository details to all build definitions in the project.",
+      "Recommendation": "1. Go to Project Settings --> 2. Repositories --> 3. Select your repository from the list --> 4. Select security --> 5. Remove 'Project Collection Build Service Accounts/[Project] Build Service Account' access from user permission.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "MSW"
       ],
       "Enabled": true
     }
