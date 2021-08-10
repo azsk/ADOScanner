@@ -13,6 +13,7 @@ class Release: ADOSVTBase
     hidden static [PSObject] $ReleaseVarNames = @{};
     hidden [PSObject] $releaseActivityDetail = @{isReleaseActive = $true; latestReleaseTriggerDate = $null; releaseCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [PSObject] $excessivePermissionBits = @(1)
+    hidden static [PSObject] $RegexForURL = $null;
 
     Release([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -838,7 +839,7 @@ class Release: ADOSVTBase
 
     hidden [ControlResult] CheckSettableAtReleaseTimeForURL([ControlResult] $controlResult)
     {
-        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $controlResult.VerificationResult = [VerificationResult]::Verify
         try
         {
             if ([Helpers]::CheckMember($this.ReleaseObj[0], "variables"))
@@ -846,7 +847,11 @@ class Release: ADOSVTBase
                 if ([Helpers]::CheckMember($this.ControlSettings, "Patterns"))
                 {
                     $settableURLVars = @();
-                    $regexForURL = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "URLs"} | Select-Object -Property RegexList;
+                    if($null -eq [Release]::RegexForURL)
+                    {
+                        $this.FetchRegexForURL()
+                    }
+                    $regexForURLs = [Release]::RegexForURL;
                     $allVars = Get-Member -InputObject $this.ReleaseObj[0].variables -MemberType Properties
 
                     $allVars | ForEach-Object {
@@ -854,8 +859,8 @@ class Release: ADOSVTBase
                         {
                             $varName = $_.Name;
                             $varValue = $this.ReleaseObj[0].variables.$($varName).value;
-                            for ($i = 0; $i -lt $regexForURL.RegexList.Count; $i++) {
-                                if ($varValue -match $regexForURL.RegexList[$i]) {
+                            for ($i = 0; $i -lt $regexForURLs.RegexList.Count; $i++) {
+                                if ($varValue -match $regexForURLs.RegexList[$i]) {
                                     $settableURLVars += @( [PSCustomObject] @{ Name = $varName; Value = $varValue } )
                                     break
                                 }
@@ -1514,6 +1519,11 @@ class Release: ADOSVTBase
             $this.releaseActivityDetail.errorObject = $_
         }
         $this.releaseActivityDetail.isComputed = $true
+    }
+
+    hidden FetchRegexForURL()
+    {
+        [Release]::RegexForURL = @($this.ControlSettings.Patterns | where {$_.RegexCode -eq "URLs"} | Select-Object -Property RegexList);
     }
 
     hidden [ControlResult] CheckAccessToOAuthToken([ControlResult] $controlResult)

@@ -12,6 +12,7 @@ class Build: ADOSVTBase
     hidden static [PSObject] $BuildVarNames = @{};
     hidden [PSObject] $buildActivityDetail = @{isBuildActive = $true; buildLastRunDate = $null; buildCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [PSObject] $excessivePermissionBits = @(1)
+    hidden static [PSObject] $RegexForURL = $null;
 
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -707,7 +708,11 @@ class Build: ADOSVTBase
                 if ([Helpers]::CheckMember($this.ControlSettings, "Patterns"))
                 {
                     $settableURLVars = @();
-                    $regexForURL = @($this.ControlSettings.Patterns | where {$_.RegexCode -eq "URLs"} | Select-Object -Property RegexList);
+                    if($null -eq [Build]::RegexForURL)
+                    {
+                        $this.FetchRegexForURL()
+                    }
+                    $regexForURLs = [Build]::RegexForURL;
                     $allVars = Get-Member -InputObject $this.BuildObj[0].variables -MemberType Properties
                      
                     $allVars | ForEach-Object {
@@ -715,8 +720,8 @@ class Build: ADOSVTBase
                         {
                             $varName = $_.Name;
                             $varValue = $this.BuildObj[0].variables.$($varName).value;
-                            for ($i = 0; $i -lt $regexForURL.RegexList.Count; $i++) {
-                                if ($varValue -match $regexForURL.RegexList[$i]) {
+                            for ($i = 0; $i -lt $regexForURLs.RegexList.Count; $i++) {
+                                if ($varValue -match $regexForURLs.RegexList[$i]) {
                                     $settableURLVars += @( [PSCustomObject] @{ Name = $varName; Value = $varValue } )
                                     break
                                 }
@@ -1388,6 +1393,11 @@ class Build: ADOSVTBase
         }
 
         return $controlResult;
+    }
+
+    hidden FetchRegexForURL()
+    {
+        [Build]::RegexForURL = @($this.ControlSettings.Patterns | where {$_.RegexCode -eq "URLs"} | Select-Object -Property RegexList);
     }
 
     hidden CheckActiveBuilds()
