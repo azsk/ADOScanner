@@ -110,11 +110,13 @@ class Build: ADOSVTBase
             {
                 [Build]::isInheritedPermissionCheckEnabled = $true
             }
+        }
+        
         if (![Build]::SecretsInBuildRegexList) {
             [Build]::SecretsInBuildRegexList = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList;
             
         }
-        if ([Build]::SecretsScanToolEnabled -eq $null) {
+        if ($null -eq [Build]::SecretsScanToolEnabled) {
             [Build]::SecretsScanToolEnabled = [Helpers]::CheckMember([ConfigurationManager]::GetAzSKSettings(),"SecretsScanToolFolder")
         }
     }
