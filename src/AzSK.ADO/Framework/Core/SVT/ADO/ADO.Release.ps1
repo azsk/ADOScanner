@@ -13,6 +13,8 @@ class Release: ADOSVTBase
     hidden static [PSObject] $ReleaseVarNames = @{};
     hidden [PSObject] $releaseActivityDetail = @{isReleaseActive = $true; latestReleaseTriggerDate = $null; releaseCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [PSObject] $excessivePermissionBits = @(1)
+    hidden static $SecretsInReleaseRegexList = $null;
+    hidden static $SecretsScanToolEnabled = $null;
 
     Release([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -95,11 +97,19 @@ class Release: ADOSVTBase
             #allow permission bit for inherited permission is '3'
             $this.excessivePermissionBits = @(1, 3)
         }
+
+        if (![Release]::SecretsInReleaseRegexList) {
+            [Release]::SecretsInReleaseRegexList = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "SecretsInRelease"} | Select-Object -Property RegexList; 
+        }
+        if ([Release]::SecretsScanToolEnabled -eq $null) {
+            [Release]::SecretsScanToolEnabled = [Helpers]::CheckMember([ConfigurationManager]::GetAzSKSettings(),"SecretsScanToolFolder")
+        }
     }
 
     hidden [ControlResult] CheckCredInReleaseVariables([ControlResult] $controlResult)
 	{
-        if([Helpers]::CheckMember([ConfigurationManager]::GetAzSKSettings(),"SecretsScanToolFolder"))
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        if([Release]::SecretsScanToolEnabled -eq $true)
         {
             $ToolFolderPath =  [ConfigurationManager]::GetAzSKSettings().SecretsScanToolFolder
             $SecretsScanToolName = [ConfigurationManager]::GetAzSKSettings().SecretsScanToolName
@@ -157,14 +167,14 @@ class Release: ADOSVTBase
        else
        {
             try {
-                $patterns = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "SecretsInRelease"} | Select-Object -Property RegexList;
+                #$patterns = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "SecretsInRelease"} | Select-Object -Property RegexList;
                 $exclusions = $this.ControlSettings.Release.ExcludeFromSecretsCheck;
                 $varList = @();
                 $varGrpList = @();
                 $noOfCredFound = 0;
                 $restrictedVarGrp = $false;
 
-                if(($patterns | Measure-Object).Count -gt 0)
+                if([Release]::SecretsInReleaseRegexList.RegexList.Count -gt 0)
                 {
                     if([Helpers]::CheckMember($this.ReleaseObj,"variables"))
                     {
@@ -173,23 +183,13 @@ class Release: ADOSVTBase
                             {
                                 $releaseVarName = $_.Name
                                 $releaseVarValue = $this.ReleaseObj[0].variables.$releaseVarName.value
-                                <# code to collect stats for var names
-                                    if ([Release]::ReleaseVarNames.Keys -contains $releaseVarName)
-                                    {
-                                            [Release]::ReleaseVarNames.$releaseVarName++
-                                    }
-                                    else
-                                    {
-                                        [Release]::ReleaseVarNames.$releaseVarName = 1
-                                    }
-                                #>
                                 if ($exclusions -notcontains $releaseVarName)
                                 {
-                                    for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) {
+                                    for ($i = 0; $i -lt [Release]::SecretsInReleaseRegexList.RegexList.Count; $i++) {
                                         #Note: We are using '-cmatch' here.
                                         #When we compile the regex, we don't specify ignoreCase flag.
                                         #If regex is in text form, the match will be case-sensitive.
-                                        if ($releaseVarValue -cmatch $patterns.RegexList[$i]) {
+                                        if ($releaseVarValue -cmatch [Release]::SecretsInReleaseRegexList.RegexList[$i]) {
                                             $noOfCredFound +=1
                                             $varList += "$releaseVarName";
                                             break;
@@ -242,11 +242,11 @@ class Release: ADOSVTBase
                                         $varValue = $varGrp.variables.$($_.Name).value
                                         if ($exclusions -notcontains $varName)
                                         {
-                                            for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) {
+                                            for ($i = 0; $i -lt [Release]::SecretsInReleaseRegexList.RegexList.Count; $i++) {
                                                 #Note: We are using '-cmatch' here.
                                                 #When we compile the regex, we don't specify ignoreCase flag.
                                                 #If regex is in text form, the match will be case-sensitive.
-                                                if ($varValue -cmatch $patterns.RegexList[$i]) {
+                                                if ($varValue -cmatch [Release]::SecretsInReleaseRegexList.RegexList[$i]) {
                                                     $noOfCredFound +=1
                                                     $varGrpList += "[$($varGrp.Name)]:$varName";
                                                     break
@@ -276,21 +276,27 @@ class Release: ADOSVTBase
                             VariableList = @();
                             VariableGroupList = @();
                         };
-                        if(($varList | Measure-Object).Count -gt 0 )
+
+                        $varContaningSecretCount = $varList.Count
+                        if($varContaningSecretCount -gt 0 )
                         {
                             $varList = $varList | select -Unique | Sort-object
                             $stateData.VariableList += $varList
-                            $controlResult.AddMessage("`nTotal number of variable(s) containing secret: ", ($varList | Measure-Object).Count);
-                            $controlResult.AddMessage("`nList of variable(s) containing secret: ", $varList);
-                            $controlResult.AdditionalInfo += "Total number of variable(s) containing secret: " + ($varList | Measure-Object).Count;
+                            $controlResult.AddMessage("`nCount of variable(s) containing secret: $($varContaningSecretCount)");
+                            $formattedVarList = $($varList | FT | out-string )
+                            $controlResult.AddMessage("`nList of variable(s) containing secret: ", $formattedVarList);
+                            $controlResult.AdditionalInfo += "Count of variable(s) containing secret: " + $varContaningSecretCount;
                         }
-                        if(($varGrpList | Measure-Object).Count -gt 0 )
+
+                        $varGrpContaningSecretCount = $varGrpList.Count; 
+                        if($varGrpContaningSecretCount -gt 0 )
                         {
                             $varGrpList = $varGrpList | select -Unique | Sort-object
                             $stateData.VariableGroupList += $varGrpList
-                            $controlResult.AddMessage("`nTotal number of variable(s) containing secret in variable group(s): ", ($varGrpList | Measure-Object).Count);
-                            $controlResult.AddMessage("`nList of variable(s) containing secret in variable group(s): ", $varGrpList);
-                            $controlResult.AdditionalInfo += "Total number of variable(s) containing secret in variable group(s): " + ($varGrpList | Measure-Object).Count;
+                            $controlResult.AddMessage("`nCount of variable(s) containing secret in variable group(s): $($varGrpContaningSecretCount)");
+                            $formattedVarGrpList = $($varGrpList | FT | out-string )
+                            $controlResult.AddMessage("`nList of variable(s) containing secret in variable group(s): ", $formattedVarGrpList);
+                            $controlResult.AdditionalInfo += "Count of variable(s) containing secret in variable group(s): " + $varGrpContaningSecretCount;
                         }
                         $controlResult.SetStateData("List of variable and variable group containing secret: ", $stateData );
                     }
@@ -298,11 +304,11 @@ class Release: ADOSVTBase
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting credentials in pipeline variables are not defined in your organization.");
+                    $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting credentials in pipeline variables are not defined in your organization.");
                 }
             }
             catch {
-                $controlResult.AddMessage([VerificationResult]::Manual, "Could not evaluate release definition.");
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not evaluate release definition.");
                 $controlResult.AddMessage($_);
                 $controlResult.LogException($_)
             }

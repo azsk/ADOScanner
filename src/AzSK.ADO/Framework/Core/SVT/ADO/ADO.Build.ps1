@@ -12,6 +12,8 @@ class Build: ADOSVTBase
     hidden static [PSObject] $BuildVarNames = @{};
     hidden [PSObject] $buildActivityDetail = @{isBuildActive = $true; buildLastRunDate = $null; buildCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [PSObject] $excessivePermissionBits = @(1)
+    hidden static $SecretsInBuildRegexList = $null;
+    hidden static $SecretsScanToolEnabled = $null;
 
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -100,6 +102,14 @@ class Build: ADOSVTBase
             #allow permission bit for inherited permission is '3'
             $this.excessivePermissionBits = @(1,3)
         }
+
+        if (![Build]::SecretsInBuildRegexList) {
+            [Build]::SecretsInBuildRegexList = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList;
+            
+        }
+        if ([Build]::SecretsScanToolEnabled -eq $null) {
+            [Build]::SecretsScanToolEnabled = [Helpers]::CheckMember([ConfigurationManager]::GetAzSKSettings(),"SecretsScanToolFolder")
+        }
     }
 
     [ControlItem[]] ApplyServiceFilters([ControlItem[]] $controls)
@@ -115,7 +125,9 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckCredInBuildVariables([ControlResult] $controlResult)
 	{
-        if([Helpers]::CheckMember([ConfigurationManager]::GetAzSKSettings(),"SecretsScanToolFolder"))
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        
+        if([Build]::SecretsScanToolEnabled -eq $true)
         {
             $ToolFolderPath =  [ConfigurationManager]::GetAzSKSettings().SecretsScanToolFolder
         $SecretsScanToolName = [ConfigurationManager]::GetAzSKSettings().SecretsScanToolName
@@ -171,9 +183,9 @@ class Build: ADOSVTBase
         }
         else {
           try {
-            $patterns = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList;
+            #$patterns = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList;
             $exclusions = $this.ControlSettings.Build.ExcludeFromSecretsCheck;
-            if(($patterns | Measure-Object).Count -gt 0)
+            if([Build]::SecretsInBuildRegexList.RegexList.Count -gt 0)
             {
                 $varList = @();
                 $varGrpList = @();
@@ -186,28 +198,18 @@ class Build: ADOSVTBase
 
                             $buildVarName = $_.Name
                             $buildVarValue = $this.BuildObj[0].variables.$buildVarName.value
-                            <# helper code to build a list of vars and counts
-                            if ([Build]::BuildVarNames.Keys -contains $buildVarName)
-                            {
-                                    [Build]::BuildVarNames.$buildVarName++
-                            }
-                            else
-                            {
-                                [Build]::BuildVarNames.$buildVarName = 1
-                            }
-                            #>
                             if ($exclusions -notcontains $buildVarName)
                             {
-                                for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) {
+                                for ($i = 0; $i -lt [Build]::SecretsInBuildRegexList.RegexList.Count; $i++) {
                                     #Note: We are using '-cmatch' here.
                                     #When we compile the regex, we don't specify ignoreCase flag.
                                     #If regex is in text form, the match will be case-sensitive.
-                                    if ($buildVarValue -cmatch $patterns.RegexList[$i]) {
+                                    if ($buildVarValue -cmatch [Build]::SecretsInBuildRegexList.RegexList[$i]) {
                                         $noOfCredFound +=1
                                         $varList += "$buildVarName";
                                         break
-                                        }
                                     }
+                                }
                             }
                         }
                     }
@@ -226,11 +228,11 @@ class Build: ADOSVTBase
                                     $varValue = $varGrp.variables.$($_.Name).value
                                     if ($exclusions -notcontains $varName)
                                     {
-                                        for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) {
+                                        for ($i = 0; $i -lt [Build]::SecretsInBuildRegexList.RegexList.Count; $i++) {
                                             #Note: We are using '-cmatch' here.
                                             #When we compile the regex, we don't specify ignoreCase flag.
                                             #If regex is in text form, the match will be case-sensitive.
-                                            if ($varValue -cmatch $patterns.RegexList[$i]) {
+                                            if ($varValue -cmatch [Build]::SecretsInBuildRegexList.RegexList[$i]) {
                                                 $noOfCredFound +=1
                                                 $varGrpList += "[$($varGrp.Name)]:$varName";
                                                 break
@@ -252,21 +254,26 @@ class Build: ADOSVTBase
                         VariableList = @();
                         VariableGroupList = @();
                     };
-                    if(($varList | Measure-Object).Count -gt 0 )
+
+                    $varContaningSecretCount = $varList.Count
+                    if($varContaningSecretCount -gt 0 )
                     {
                         $varList = $varList | select -Unique | Sort-object
                         $stateData.VariableList += $varList
-                        $controlResult.AddMessage("`nTotal number of variable(s) containing secret: ", ($varList | Measure-Object).Count);
-                        $controlResult.AddMessage("`nList of variable(s) containing secret: ", $varList);
-                        $controlResult.AdditionalInfo += "Total number of variable(s) containing secret: " + ($varList | Measure-Object).Count;
+                        $controlResult.AddMessage("`nCount of variable(s) containing secret: $($varContaningSecretCount)");
+                        $formattedVarList = $($varList | FT | out-string )
+                        $controlResult.AddMessage("`nList of variable(s) containing secret: ", $formattedVarList);
+                        $controlResult.AdditionalInfo += "Count number of variable(s) containing secret: " + $varContaningSecretCount;
                     }
-                    if(($varGrpList | Measure-Object).Count -gt 0 )
+                    $varGrpContaningSecretCount = $varGrpList.Count; 
+                    if($varGrpContaningSecretCount -gt 0 )
                     {
                         $varGrpList = $varGrpList | select -Unique | Sort-object
                         $stateData.VariableGroupList += $varGrpList
-                        $controlResult.AddMessage("`nTotal number of variable(s) containing secret in variable group(s): ", ($varGrpList | Measure-Object).Count);
-                        $controlResult.AddMessage("`nList of variable(s) containing secret in variable group(s): ", $varGrpList);
-                        $controlResult.AdditionalInfo += "Total number of variable(s) containing secret in variable group(s): " + ($varGrpList | Measure-Object).Count;
+                        $controlResult.AddMessage("`nCount of variable(s) containing secret in variable group(s): $($varGrpContaningSecretCount)");
+                        $formattedVarGrpList = $($varGrpList | FT | out-string )
+                        $controlResult.AddMessage("`nList of variable(s) containing secret in variable group(s): ", $formattedVarGrpList);
+                        $controlResult.AdditionalInfo += "Count of variable(s) containing secret in variable group(s): " + $varGrpContaningSecretCount;
                     }
                     $controlResult.SetStateData("List of variable and variable group containing secret: ", $stateData );
                 }
@@ -274,11 +281,11 @@ class Build: ADOSVTBase
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting credentials in pipeline variables are not defined in your organization.");
+                $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting credentials in pipeline variables are not defined in your organization.");
             }
         }
         catch {
-            $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch the build definition.");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the build definition.");
             $controlResult.AddMessage($_);
             $controlResult.LogException($_)
         }
