@@ -1038,7 +1038,8 @@ class Build: ADOSVTBase
     }
 
     hidden [ControlResult] CheckBuildAuthZScope([ControlResult] $controlResult)
-    {
+    {   
+        $controlResult.VerificationResult = [VerificationResult]::Failed
 
         if([Helpers]::CheckMember($this.BuildObj[0],"jobAuthorizationScope"))
         {
