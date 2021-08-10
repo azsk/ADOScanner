@@ -184,7 +184,7 @@
       "Automated": "Yes",
       "MethodName": "CheckBuildAuthZScope",
       "Rationale": "If pipelines use project collection level tokens, a vulnerability in components used by one project can be leveraged by an attacker to attack all other projects. This is also in keeping with the principle of least privilege.",
-      "Recommendation": "1. Navigate to the build pipeline. 2. Click on Options. 3. Set 'Build job authorization scope' to 'Current Project'.",
+      "Recommendation": "1. Navigate to the build pipeline. --> 2. Click on Options. --> 3. Set 'Build job authorization scope' to 'Current Project'.",
       "Tags": [
         "SDL",
         "TCP",
