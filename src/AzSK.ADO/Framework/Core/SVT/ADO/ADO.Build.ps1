@@ -12,6 +12,8 @@ class Build: ADOSVTBase
     hidden static [PSObject] $BuildVarNames = @{};
     hidden [PSObject] $buildActivityDetail = @{isBuildActive = $true; buildLastRunDate = $null; buildCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [PSObject] $excessivePermissionBits = @(1)
+    hidden static $isInheritedPermissionCheckEnabled = $false
+
 
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -99,6 +101,14 @@ class Build: ADOSVTBase
         if ([Helpers]::CheckMember($this.ControlSettings, "Build.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions) {
             #allow permission bit for inherited permission is '3'
             $this.excessivePermissionBits = @(1,3)
+        }
+
+        if(-not [Build]::isInheritedPermissionCheckEnabled)
+        {
+            if(([Helpers]::CheckMember($this.ControlSettings, "Build.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions))
+            {
+                [Build]::isInheritedPermissionCheckEnabled = $true
+            }
         }
     }
 
@@ -1005,7 +1015,7 @@ class Build: ADOSVTBase
                         $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                         if($responseObj.Count -gt 0)
                         {                        
-                            if(([Helpers]::CheckMember($this.ControlSettings, "Build.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions))
+                            if([Build]::isInheritedPermissionCheckEnabled)
                             {
                                 $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
                             }
@@ -1172,7 +1182,7 @@ class Build: ADOSVTBase
                     }" | ConvertFrom-Json
 
                     # Web request to fetch the group details for a build definition
-                    $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
+                    $responseObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody));
                     if ([Helpers]::CheckMember($responseObj[0], "dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider', "identities"))) {
 
                         $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $broaderGroups -contains $_.displayName })
@@ -1220,8 +1230,8 @@ class Build: ADOSVTBase
                                 }" | ConvertFrom-Json
 
                                 #Web request to fetch RBAC permissions of broader groups on build.
-                                $broaderGroupResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $broaderGroupInputbody);
-                                $broaderGroupRBACObj = $broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
+                                $broaderGroupResponseObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL, $broaderGroupInputbody));
+                                $broaderGroupRBACObj = @($broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions)
                                 $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
                                 $excessivePermissionsPerGroup = @()
                                 $excessivePermissionList | ForEach-Object {

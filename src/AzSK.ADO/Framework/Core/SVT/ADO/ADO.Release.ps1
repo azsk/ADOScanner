@@ -13,6 +13,7 @@ class Release: ADOSVTBase
     hidden static [PSObject] $ReleaseVarNames = @{};
     hidden [PSObject] $releaseActivityDetail = @{isReleaseActive = $true; latestReleaseTriggerDate = $null; releaseCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [PSObject] $excessivePermissionBits = @(1)
+    hidden static $isInheritedPermissionCheckEnabled = $false
 
     Release([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -88,6 +89,14 @@ class Release: ADOSVTBase
                 #Get permission and its bit for security namespaces
                 $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$TaskGroupSecurityNamespace
                 [Release]::TaskGroupNamespacePermissionObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlNamespace);
+            }
+
+            if(-not [Release]::isInheritedPermissionCheckEnabled)
+            {
+                if(([Helpers]::CheckMember($this.ControlSettings, "Release.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions))
+                {
+                    [Release]::isInheritedPermissionCheckEnabled = $true
+                }
             }
         }
 
@@ -1139,7 +1148,7 @@ class Release: ADOSVTBase
                     $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                     if($responseObj.Count -gt 0)
                     {                                       
-                        if(([Helpers]::CheckMember($this.ControlSettings, "Release.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions))
+                        if([Release]::isInheritedPermissionCheckEnabled)
                         {
                             $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
                         }
@@ -1287,7 +1296,7 @@ class Release: ADOSVTBase
                     }" | ConvertFrom-Json
 
                     # Web request to fetch the group details for a release definition
-                    $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+                    $responseObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody));
                     if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
                     {
 
@@ -1337,8 +1346,8 @@ class Release: ADOSVTBase
                                 }" | ConvertFrom-Json
 
                                 #Web request to fetch RBAC permissions of Contributors group on release.
-                                $broaderGroupResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $contributorInputbody);
-                                $broaderGroupRBACObj = $broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
+                                $broaderGroupResponseObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL, $contributorInputbody));
+                                $broaderGroupRBACObj = @($broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions)
                                 $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
                                 $excessivePermissionsPerGroup = @()
                                 $excessivePermissionList | ForEach-Object {
