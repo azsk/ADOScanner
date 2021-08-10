@@ -380,6 +380,7 @@ class Project: ADOSVTBase
         }
 
         $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
+        $controlResult.SetStateData("Count of Project Administrators: ",$TotalPAMembers)
         if ($TotalPAMembers -gt 0) {
             if ([IdentityHelpers]::hasGraphAccess)
             {
@@ -403,14 +404,12 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("`nCount of Human administrators: $($humanAccounts.Count)")
                     $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                    $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
                 }
 
                 if ($svcAccounts.count -gt 0) {
                     $controlResult.AddMessage("`nCount of Service accounts: $($svcAccounts.Count)")
                     $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                    $controlResult.SetStateData("List of service account Project Administrators: ",$svcAccounts)
                 }
             }
             else
@@ -427,7 +426,6 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("Current set of Project Administrators: ")
                     $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                    $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
                     $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
                 }
             }
@@ -451,6 +449,7 @@ class Project: ADOSVTBase
         {
             $TotalPAMembers = $this.PAMembers.Count
             $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
+            $controlResult.SetStateData("Count of Project Administrators: ",$TotalPAMembers)
         }
 
 
@@ -481,14 +480,12 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("`nCount of Human Administrators: $($humanAccountsCount)")
                     $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                    $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
                 }
 
                 if ($svcAccountsCount -gt 0) {
                     $controlResult.AddMessage("`nCount of Service Accounts: $($svcAccountsCount)")
                     $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                    $controlResult.SetStateData("List of service account Project Administrators: ",$svcAccounts)
                 }
             }
             else
@@ -507,7 +504,6 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("Current set of Project Administrators: ")
                     $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                    $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
                     $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
                 }
             }
