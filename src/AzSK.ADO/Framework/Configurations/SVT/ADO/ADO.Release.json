@@ -28,7 +28,7 @@
       "Automated": "Yes",
       "MethodName": "CheckForInactiveReleases",
       "Rationale": "Each additional release having access to repositories/other artifacts increases the attack surface. To minimize this risk ensure that only active and legitimate release pipelines are present in your environment.",
-      "Recommendation": "To remove inactive release pipeline follow these steps: 1.Navigate to the release pipeline. 2. Select a release pipeline. 3. Select three dots (present in right top). 4. Click on Delete.",
+      "Recommendation": "Steps to remove inactive release pipeline: 1.Navigate to the release pipeline. --> 2. Select a release pipeline. --> 3. Select three dots (present in right top). --> 4. Click on Delete.",
       "Tags": [
         "SDL",
         "Best Practice",

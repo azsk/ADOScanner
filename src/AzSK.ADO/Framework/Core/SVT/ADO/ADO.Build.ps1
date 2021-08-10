@@ -295,6 +295,7 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckForInactiveBuilds([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
             if ($this.buildActivityDetail.message -eq 'Could not fetch build details.')
@@ -322,8 +323,10 @@ class Build: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed, "No build history found in last $($inactiveLimit) days.");
                     }
-                    $controlResult.AddMessage("The build pipeline was created on: $($this.buildActivityDetail.buildCreationDate)");
-                    $controlResult.AdditionalInfo += "The build pipeline was created on: " + $this.buildActivityDetail.buildCreationDate;
+                    $dateobj = [datetime]::Parse($this.buildActivityDetail.buildCreationDate);
+                    $formattedDate = $dateobj.ToString("d MMM yyyy")
+                    $controlResult.AddMessage("The build pipeline was created on: $($formattedDate)");
+                    $controlResult.AdditionalInfo += "The build pipeline was created on: " + $formattedDate;
                 }
                 else
                 {
@@ -333,8 +336,10 @@ class Build: ADOSVTBase
 
             if ($null -ne $this.buildActivityDetail.buildLastRunDate)
             {
-                $controlResult.AddMessage("Last run date of build pipeline: $($this.buildActivityDetail.buildLastRunDate)");
-                $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $this.buildActivityDetail.buildLastRunDate;
+                $dateobj = [datetime]::Parse($this.buildActivityDetail.buildLastRunDate);
+                $formattedDate = $dateobj.ToString("d MMM yyyy")
+                $controlResult.AddMessage("Last run date of build pipeline: $($formattedDate)");
+                $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $formattedDate;
                 $buildInactivePeriod = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
                 $controlResult.AddMessage("The build was inactive from last $($buildInactivePeriod) days.");
             }
@@ -1547,9 +1552,9 @@ class Build: ADOSVTBase
                     if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider' -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider',"pipelines") -and  $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines)
                     {
 
-                        $builds = $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines
+                        $builds = @($responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines)
 
-                        if(($builds | Measure-Object).Count -gt 0 )
+                        if($builds.Count -gt 0 )
                         {
                             $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
                             [datetime]$createdDate = $this.BuildObj.createdDate
