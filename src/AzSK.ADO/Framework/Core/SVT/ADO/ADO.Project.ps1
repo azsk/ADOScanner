@@ -1263,15 +1263,11 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckInactiveProject([ControlResult] $controlResult) {
 
-        # these variables are used to make table which will show inactivity status for resource types.
-        $Reporow = @()
-        $Buildrow = @()
-        $Releaserow = @()
-        $AgentPoolrow = @()
-        $ServiceConnectionrow = @()
-
+        $OrgName = $this.OrganizationContext.OrganizationName
+        $projName = $this.ResourceContext.ResourceName
         ## Checking Inactive Repos
-        $IsRepoActive = $false
+        $isRepoActive = $false
+        $repoRow = @()
         $inactiveRepocount = 0
         try {
             $repoDefnsObj = $this.FetchRepositoriesList()
@@ -1304,18 +1300,18 @@ class Project: ADOSVTBase
                 {
                     if($inactiveRepocount -ne ($repoDefnsObj | Measure-Object).count)
                     {
-                        $IsRepoActive = $true
+                        $isRepoActive = $true
                     }
                     $inactiveRepos = $inactiveRepos | sort-object
-                    $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "Total number of inactive repositories that have no commits in last $($threshold) days: $($inactiveRepocount) => {$($inactiveRepos -join ", ")} "})
+                    $repoRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($isRepoActive)"; "Additional Info" = "Total number of inactive repositories that have no commits in last $($threshold) days: $($inactiveRepocount) => {$($inactiveRepos -join ", ")} "})
                 }
                 else {
-                        $IsRepoActive = $true
-                        $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "There are no inactive repositories in the project."})
+                        $isRepoActive = $true
+                        $repoRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($isRepoActive)"; "Additional Info" = "There are no inactive repositories in the project."})
                 }
             }
             else {
-                $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "All repositories are disabled in the project."})
+                $repoRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($isRepoActive)"; "Additional Info" = "All repositories are disabled in the project."})
             }
         }
         catch {
@@ -1324,11 +1320,12 @@ class Project: ADOSVTBase
         }
 
         ## Checking Inactive build
-        $IsBuildActive = $false
+        $isBuildActive = $false
+        $buildRow = @()
         $threshold = $this.ControlSettings.Build.BuildHistoryPeriodInDays
         $currentDate = Get-Date
         $thresholdDate = $currentDate.AddDays(-$threshold);
-        $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/build/builds?minTime=$($thresholdDate)&api-version=6.0"
+        $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/build/builds?minTime=$($thresholdDate)&api-version=6.0"
         try{
             $res = [WebRequestHelper]::InvokeGetWebRequest($url);
             if(-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1 ))
@@ -1337,15 +1334,15 @@ class Project: ADOSVTBase
                 if($res[0].queueTime -gt $thresholdDate)
                 {
                     ## active build
-                    $IsBuildActive = $true
-                    $Buildrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($IsBuildActive)"; "Additional Info" = "Builds are queued in the project. Most recent build is [$($res[0].definition.name)] which was last queued on [$($res[0].queueTime)]"})
+                    $isBuildActive = $true
+                    $buildRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($isBuildActive)"; "Additional Info" = "Builds are queued in the project. Most recent build is [$($res[0].definition.name)] which was last queued on [$($res[0].queueTime)]"})
                 }
                 else {
-                    $Buildrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($IsBuildActive)"; "Additional Info" = "Builds are not queued in the project."})
+                    $buildRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($isBuildActive)"; "Additional Info" = "Builds are not queued in the project."})
                 }
             }
             else {
-                $Buildrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($IsBuildActive)"; "Additional Info" = "No builds are created/queued since [$($thresholdDate)]"})
+                $buildRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($isBuildActive)"; "Additional Info" = "No builds are created/queued since [$($thresholdDate)]"})
             }
         }
         catch{
@@ -1355,13 +1352,14 @@ class Project: ADOSVTBase
 
 
         ## Checking Inactive Release
-        $IsReleaseActive = $false
+        $isReleaseActive = $false
+        $releaseRow = @()
         $threshold = $this.ControlSettings.Release.ReleaseHistoryPeriodInDays
         $currentDate = Get-Date
         $thresholdDate = $currentDate.AddDays(-$threshold);
 
         # Below API will arrange all deployments in project in descending order (latest first) and give first object of that sorted array
-        $url = "https://vsrm.dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/release/deployments?queryOrder=descending&`$top=1"
+        $url = "https://vsrm.dev.azure.com/$($OrgName)/$($projName)/_apis/release/deployments?queryOrder=descending&`$top=1"
         try{
             $res = [WebRequestHelper]::InvokeGetWebRequest($url);
             if(-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1))
@@ -1370,15 +1368,15 @@ class Project: ADOSVTBase
                 if($res[0].queuedOn -gt $thresholdDate)
                 {
                     ## active Release
-                    $IsReleaseActive = $true
-                    $Releaserow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($IsReleaseActive)"; "Additional Info" = "Releases are queued in the project.Most recent release is [$($res[0].release.name)] of release definition [$($res[0].releasedefinition.name)] which was last queued on [$($res[0].queuedOn)]"})
+                    $isReleaseActive = $true
+                    $releaseRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($isReleaseActive)"; "Additional Info" = "Releases are queued in the project.Most recent release is [$($res[0].release.name)] of release definition [$($res[0].releasedefinition.name)] which was last queued on [$($res[0].queuedOn)]"})
                 }
                 else {
-                    $Releaserow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($IsReleaseActive)"; "Additional Info" = "Releases are not queued in the project."})
+                    $releaseRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($isReleaseActive)"; "Additional Info" = "Releases are not queued in the project."})
                 }
             }
                 else {
-                    $Releaserow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($IsReleaseActive)"; "Additional Info" = "No Releases are created/queued since [$($thresholdDate)]"})
+                    $releaseRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($isReleaseActive)"; "Additional Info" = "No Releases are created/queued since [$($thresholdDate)]"})
                 }
         }
         catch{
@@ -1387,11 +1385,12 @@ class Project: ADOSVTBase
         }
 
          ## Checking AgentPools
-         $IsAgentPoolActive = $false
+         $isAgentPoolActive = $false
+         $agentPoolRow = @()
          $thresholdLimit = $this.ControlSettings.AgentPool.AgentPoolHistoryPeriodInDays
 
          # Fetch All Agent Pools
-         $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/distributedtask/queues?api-version=6.0-preview.1"
+         $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/distributedtask/queues?api-version=6.0-preview.1"
          try{
              $res = [WebRequestHelper]::InvokeGetWebRequest($url);
              $taskAgentQueues = @()
@@ -1427,16 +1426,16 @@ class Project: ADOSVTBase
                                     else
                                     {
                                         ## Active pool
-                                        $IsAgentPoolActive = $true
-                                        $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "Agent pool has been queued in the last $thresholdLimit days."})
+                                        $isAgentPoolActive = $true
+                                        $agentPoolRow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($isAgentPoolActive)"; "Additional Info" = "Agent pool has been queued in the last $thresholdLimit days."})
                                         break
                                     }
                                 }
                                 else
                                 {
                                     ## Active pool
-                                    $IsAgentPoolActive = $true
-                                    $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "Agent pool was being queued during control evaluation."})
+                                    $isAgentPoolActive = $true
+                                    $agentPoolRow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($isAgentPoolActive)"; "Additional Info" = "Agent pool was being queued during control evaluation."})
                                     break
                                 }
                             }
@@ -1450,13 +1449,13 @@ class Project: ADOSVTBase
                             $controlResult.AddMessage("Could not fetch agent pool details.");
                         }
                     }
-                    if(-not $IsAgentPoolActive)
+                    if(-not $isAgentPoolActive)
                     {
-                        $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "Agent pool has not been queued in the last $thresholdLimit days."})
+                        $agentPoolRow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($isAgentPoolActive)"; "Additional Info" = "Agent pool has not been queued in the last $thresholdLimit days."})
                     }
                 }
                 else {
-                    $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "No Agent pools are there in project."})
+                    $agentPoolRow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($isAgentPoolActive)"; "Additional Info" = "No Agent pools are there in project."})
                 }
             }
             else {
@@ -1464,15 +1463,16 @@ class Project: ADOSVTBase
             }
          }
          catch{
-             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch Agent pool details");
+             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch Agent pool details.");
              $controlResult.LogException($_)
          }
 
         # Checking Service Connections
-        $IsServiceConnectionActive = $false
+        $isServiceConnectionActive = $false
+        $serviceConnectionRow = @()
         $thresholdLimit = $this.ControlSettings.ServiceConnection.ServiceConnectionHistoryPeriodInDays
 
-         $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/serviceendpoint/endpoints?api-version=6.0-preview.4"
+         $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/serviceendpoint/endpoints?api-version=6.0-preview.4"
 
         try
         {
@@ -1498,37 +1498,192 @@ class Project: ADOSVTBase
                             }
                             else
                             {
-                                $IsServiceConnectionActive = $true
-                                $ServiceConnectionrow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($IsServiceConnectionActive)"; "Additional Info" = "Service connection has been used in the last $thresholdLimit days."})
+                                $isServiceConnectionActive = $true
+                                $serviceConnectionRow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($isServiceConnectionActive)"; "Additional Info" = "Service connection has been used in the last $thresholdLimit days."})
                                 break
                             }
                     }
                 }
-                if(-not $IsServiceConnectionActive)
+                if(-not $isServiceConnectionActive)
                 {
-                    $ServiceConnectionrow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($IsServiceConnectionActive)"; "Additional Info" = "Service connection has never been used."})
+                    $serviceConnectionRow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($isServiceConnectionActive)"; "Additional Info" = "Service connection has never been used."})
                 }
             }
             else {
-                $ServiceConnectionrow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($IsServiceConnectionActive)"; "Additional Info" = "No Service Connections are present in project."})
+                $serviceConnectionRow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($isServiceConnectionActive)"; "Additional Info" = "No Service Connections are present in project."})
             }
         }
         catch
         {
-            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch Service connection details");
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch Service connection details.");
+            $controlResult.LogException($_)
+        }       
+
+        # Checking Work items
+        $isWorkItemActive = $false
+        $workItemsRow = @()
+        $thresholdLimit = $this.ControlSettings.WorkItems.ThreshHoldDaysForWorkItemInactivity
+        try 
+        {
+            $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/wit/wiql?timePrecision=$false&`$top=5&api-version=5.1"
+            $body = '{"query": "Select * From WorkItems where [System.TeamProject] = @project AND [System.WorkItemType] <> '''' AND [Changed Date] > @today-'+$thresholdLimit+' ORDER BY [Changed Date] desc "}' | ConvertFrom-Json
+            $res = [WebRequestHelper]::InvokePostWebRequest($url, $body)
+            if([Helpers]::CheckMember($res[0],"workitems.id"))
+            {
+                $isWorkItemActive = $true
+                $workItemsRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Work Items";"IsActive"="$($isWorkItemActive)"; "Additional Info" = "Work items are actively used in last $($thresholdLimit) days."})
+            }
+            else {
+                $workItemsRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Work Items";"IsActive"="$($isWorkItemActive)"; "Additional Info" = "Work items are not used in last $($thresholdLimit) days."})
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch work item details.");
+            $controlResult.LogException($_)
+        }
+
+        # Checking Artifacts: Feeds and Packages
+        $isFeedAndPAckageActive = $false
+        $thresholdLimit = $this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity
+        $thresholdDate = (Get-Date).AddDays(-$thresholdLimit)
+        $feeds = @()
+        $feedAndPackageRow = @()
+        try {
+            $url = "https://feeds.dev.azure.com/$($OrgName)/$($projName)/_apis/packaging/feeds?api-version=6.1-preview.1"
+            $feeds = @([WebRequestHelper]::InvokeGetWebRequest($url))
+            if(-not ([Helpers]::CheckMember($feeds,"count") -and $feeds[0].count -eq 0 -and $feeds.Length -eq 1 ))
+            {
+                foreach( $feed in $feeds)
+                {
+                    $url = "https://feeds.dev.azure.com/$($OrgName)/$($projName)/_apis/packaging/Feeds/$($feed.id)/packagechanges?api-version=6.1-preview.1"
+                    $allpackageObj= @([WebRequestHelper]::InvokeGetWebRequest($url))
+                    if(-not ([Helpers]::CheckMember($allpackageObj,"count") -and $allpackageObj[0].count -eq 0 -and $allpackageObj.Length -eq 1 ))
+                    {
+                        $publishDatesofAllPackages = @($allpackageObj.packageChanges.packageVersionChange.packageVersion.publishDate | Sort-Object -Descending)
+                    
+                        if($publishDatesofAllPackages[0] -gt $thresholdDate)
+                        {
+                            $isFeedAndPAckageActive = $true
+                            break;
+                        }
+                    }
+                }
+            }
+            else {
+                $feedAndPackageRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Feeds and Packages";"IsActive"="$($isFeedAndPAckageActive)"; "Additional Info" = "Feed packages are not published in last $($thresholdLimit) days."})
+            }
+            
+            if($isFeedAndPackageActive)
+            {
+                $feedAndPackageRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Feeds and Packages";"IsActive"="$($isFeedAndPAckageActive)"; "Additional Info" = "Feed packages are published in last $($thresholdLimit) days."})
+            }
+            else {
+                $feedAndPackageRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Feeds and Packages";"IsActive"="$($isFeedAndPAckageActive)"; "Additional Info" = "Feed packages are not published in last $($thresholdLimit) days."})
+            }
+
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch feeds and packages details.");
+            $controlResult.LogException($_)
+        }
+
+        ## Checking Test Plans
+        $isTestPlanActive = $false
+        $thresholdLimit = $this.ControlSettings.TestPlans.ThreshHoldDaysForTestPlansInactivity
+        $thresholdDate = (Get-Date).AddDays(-$thresholdLimit)
+        $testPlanRow = @()
+
+        try {
+            
+            $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/testplan/plans?includePlanDetails=True&filterActivePlans=True&api-version=6.0-preview.1"
+            $res = @([WebRequestHelper]::InvokeGetWebRequest($url))
+            if(-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1 ))
+            {
+                $Testplans = $res | Sort-Object -Property endDate -Descending
+                $latestTestPlan = $Testplans[0]
+                if([Helpers]::CheckMember($latestTestPlan,"endDate"))
+                {
+                    if($latestTestPlan.endDate -gt $thresholdDate)
+                    {
+                        $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/test/runs?includeRunDetails=true&planid=$($latestTestPlan.id)&api-version=6.0"
+                        $res = @([WebRequestHelper]::InvokeGetWebRequest($url))
+                        if(-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1 ))
+                        {
+                            $runs = $res | Sort-Object -Property completedDate -Descending
+                            if( $runs[0].completedDate -gt $thresholdDate)
+                            {
+                                $isTestPlanActive = $true
+                                $testPlanRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "Test cases are executed in last $($thresholdLimit) days."})
+                            }
+                        }
+                        else {
+                            $testPlanRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "No test cases are executed in last $($thresholdLimit) days."})
+                        }   
+                    }
+                    else
+                    {
+                        $testPlanRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "Test plans are not used in last $($thresholdLimit) days."})
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch test plan details.");
+                }
+            }
+            else
+            {
+                $testPlanRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "No Test plan found in the project."})
+            }                     
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch test cases details.");
+            $controlResult.LogException($_)
+        }
+
+        ## Checking Wiki`s
+        # We are only checking for project wiki not for code wiki as there is no portal or documented api for finding code wiki commits.
+        $isProjectWikiActive = $false
+        $thresholdLimit = $this.ControlSettings.Wikis.ThreshHoldDaysForWikisInactivity
+        $thresholdDate = (Get-Date).AddDays(-$thresholdLimit)
+        $wikiRow = @()
+
+        try {
+            $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/wiki/wikis?api-version=6.0"
+            $res = @([WebRequestHelper]::InvokeGetWebRequest($url))
+            if(-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1 ))
+            {
+                $projectWiki = @($res | Where-Object{ $_.type -eq "projectWiki" })
+                $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/git/repositories/$($projectWiki.id)/Commits"
+                $res = @([WebRequestHelper]::InvokeGetWebRequest($url))
+                if((-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1 )) -and ($res[0].author.date -gt $thresholdDate -or $res[0].committer.date -gt $thresholdDate))
+                {
+                    $IsprojectWikiActive = $true
+                    $wikiRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Project Wiki";"IsActive"="$($IsprojectWikiActive)"; "Additional Info" = "Project wiki is active in project."})
+                }
+                else {
+                    $wikiRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Project Wiki";"IsActive"="$($IsprojectWikiActive)"; "Additional Info" = "Project wiki is inactive in project."})
+                }
+
+            }
+            else {
+                $wikiRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Project Wiki";"IsActive"="$($IsprojectWikiActive)"; "Additional Info" = "No project wiki is present in project."})
+            }
+
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch project wiki details.");
             $controlResult.LogException($_)
         }
 
         if( $controlResult.VerificationResult -ne [VerificationResult]::Error)
         {
             $controlResult.AddMessage("Below mentioned resource types are considered for checking inactivity of a project:")
-            $table = @($Reporow;$Buildrow;$Releaserow;$AgentPoolrow;$ServiceConnectionrow) | Format-Table -AutoSize | Out-String -Width 512
+            $table = @($repoRow;$buildRow;$releaseRow;$agentPoolRow;$serviceConnectionRow;$workItemsRow;$feedAndPackageRow;$testPlanRow;$wikiRow) | Format-Table -AutoSize | Out-String -Width 512
             $controlResult.AddMessage($table)
 
-            $IsProjectActive  = $IsRepoActive -or $IsBuildActive -or $IsReleaseActive -or $IsAgentPoolActive -or $IsServiceConnectionActive
+            $IsProjectActive  = $isRepoActive -or $isBuildActive -or $isReleaseActive -or $isAgentPoolActive -or $isServiceConnectionActive -or $isWorkItemActive -or $isFeedAndPAckageActive -or $isTestPlanActive -or $isProjectWikiActive
             if($IsProjectActive)
             {
-                if(($inactiveRepocount -gt 0) -and  (($IsRepoActive -eq $true) -and ($IsBuildActive -eq $true) -and  ($IsReleaseActive -eq $true) -and ($IsAgentPoolActive -eq $true) -and ($IsServiceConnectionActive -eq $true)))
+                if(($inactiveRepocount -gt 0) -and  (($isRepoActive -eq $true) -and ($isBuildActive -eq $true) -and  ($isReleaseActive -eq $true) -and ($isAgentPoolActive -eq $true) -and ($isServiceConnectionActive -eq $true) -and ($isWorkItemActive -eq $true) -and ($isFeedAndPAckageActive -eq $true) -and ($isTestPlanActive -eq $true) -and ($isProjectWikiActive)))
                 {
                     $controlResult.AddMessage([VerificationResult]::Verify,"One or more repositories are inactive.")
                 }
