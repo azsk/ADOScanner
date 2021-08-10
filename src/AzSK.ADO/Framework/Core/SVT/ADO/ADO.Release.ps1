@@ -15,10 +15,20 @@ class Release: ADOSVTBase
     hidden [PSObject] $excessivePermissionBits = @(1)
     hidden static $SecretsInReleaseRegexList = $null;
     hidden static $SecretsScanToolEnabled = $null;
+    hidden [string] $BackupFolderPath = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState" | Join-Path -ChildPath "BackupControlState" )
+    hidden [string] $BackupFilePath;
+    hidden static [bool] $IsPathValidated = $false;
 
     Release([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         [system.gc]::Collect();
+
+        #This denotes that command to undo control fix of inactive release is called. 
+        #In this case api calls to populate $this.ReleaseObj will not work as resource has already been deleted
+        if([Helpers]::CheckMember($_.ResourceDetails, "deletedOn")) 
+        {
+            return;
+        }
 
         if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret))  # this if block will be executed for OAuth based scan
         {
@@ -31,6 +41,9 @@ class Release: ADOSVTBase
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
         $apiURL = "https://vsrm.dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ProjectId)/_apis/Release/definitions/$($releaseId)?api-version=6.0"
         $this.ReleaseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+
+        $this.BackupFilePath = $this.BackupFolderPath | Join-Path -ChildPath $this.OrganizationContext.OrganizationName | Join-Path -ChildPath $this.ResourceContext.ResourceGroupName | Join-Path -ChildPath "BuildBackupFiles"
+
         # Get security namespace identifier of current release pipeline.
         if ([string]::IsNullOrEmpty([Release]::SecurityNamespaceId)) {
             $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($this.OrganizationContext.OrganizationName)
@@ -392,6 +405,83 @@ class Release: ADOSVTBase
             }
         }
 
+        try {
+            if ($this.ControlFixBackupRequired -and $controlResult.VerificationResult -eq "Failed")
+            {
+                #Create folders if not already present
+                if(-not [Release]::IsPathValidated)
+                {
+                    if (-not (Test-Path $this.BackupFilePath))
+                    {
+                        New-Item -ItemType Directory -Force -Path $this.BackupFilePath
+                    }
+                    [Release]::IsPathValidated = $true
+                }
+
+                #Generate json of release
+                $apiURL = "https://vsrm.dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.projectid)/_apis/release/Definitions/$($this.ReleaseObj.id)?api-version=6.0";
+        
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+                $headers = @{
+                                "Authorization"= ("Basic " + $base64AuthInfo); 
+                                "Accept"="application/json;api-version=6.0;excludeUrls=true;enumsAsNumbers=true;msDateFormat=true;noArrayWrap=true"
+                            };
+
+                $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL, $headers);
+                $this.BackupFilePath = $this.BackupFilePath | Join-Path -ChildPath "$($this.ReleaseObj.name)-$($this.ReleaseObj.Id).json"
+                $responseObj | ConvertTo-Json -Depth 10 | Out-File $this.BackupFilePath
+
+                $obj = New-Object -TypeName psobject -Property @{BackupPath= $this.BackupFilePath}
+                $controlResult.BackupControlState = $obj 
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage("Error generating backup of release pipeline. ");
+            $controlResult.LogException($_)
+        }
+
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckForInactiveReleasesAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            if (-not $this.UndoFix)
+            {
+                if(Test-Path $RawDataObjForControlFix.BackupPath)
+                {
+                    $rmContext = [ContextHelper]::GetCurrentContext();
+                    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+                    $uri = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions/{2}?api-version=6.0" -f ($this.OrganizationContext.OrganizationName), $($this.projectid), $($this.ReleaseObj.id) 
+                    Invoke-RestMethod -Method DELETE -Uri $uri -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }  -ContentType "application/json"
+
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Release pipeline has been deleted.`nBackup is stored locally at: $($RawDataObjForControlFix.BackupPath)");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Error,  "Backup of release not found.");
+                }
+            }
+            else {
+                $uri = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions/{2}?api-version=6.0" -f ($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceGroupName), $($this.ResourceContext.ResourceDetails.id) 
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                $body = '{"comment":"Restored release via ADOScanner"}'
+                Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
+
+                $pipelineUrl = "https://dev.azure.com/{0}/{1}/_release?definitionId={2}" -f ($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceGroupName), $($this.ResourceContext.ResourceDetails.id) 
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Release pipeline has been restored.`nUrl: $pipelineUrl");
+            }
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
         return $controlResult
     }
 

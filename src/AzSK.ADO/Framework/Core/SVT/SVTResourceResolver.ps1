@@ -15,7 +15,8 @@ class SVTResourceResolver: AzSKRoot {
     [SVTResource[]] $SVTResources = @();
     [int] $SVTResourcesFoundCount = 0;
 
-	[bool] $IsAIEnabled = $false;
+    [bool] $IsAIEnabled = $false;
+    [bool] $IsAutomatedFixUndoCmd = $false;
 
     [string] $ResourcePath;
     [string] $BuildsFolderPath;
@@ -77,8 +78,11 @@ class SVTResourceResolver: AzSKRoot {
     }
 
     #Constructor for Set-AzSKADOSecurityStatus
-    SVTResourceResolver([string]$organizationName, $ProjectNames, $ResourceNames, $ExcludeResourceNames, $PATToken, $ResourceTypeName): Base($organizationName, $PATToken) {
-
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $ResourceNames, $ExcludeResourceNames, $PATToken, $ResourceTypeName, $UndoFix, $ControlId): Base($organizationName, $PATToken) {
+        if($UndoFix -and ("ADO_Build_DP_Review_Inactive_Build","ADO_Release_DP_Review_Inactive_Release" -contains $ControlId)) {
+            #When these 2 controls undo fix is called, resources need to be fetched from deleted list
+            $this.IsAutomatedFixUndoCmd = $true
+        }
         $this.organizationName = $organizationName
         $this.ProjectNames = $ProjectNames
         $this.ResourceTypeName = $ResourceTypeName
@@ -498,6 +502,28 @@ class SVTResourceResolver: AzSKRoot {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting build configurations...");
                         }
+
+                        #When Undo fix for build/release inactive controls is called, resources need to be fetched from deleted list
+                        if ($this.IsAutomatedFixUndoCmd)
+                        {
+                            $url = 'https://dev.azure.com/{0}/{1}/_build/deleted?__rt=fps&__ver=2 ' -f $($this.OrganizationContext.OrganizationName), $thisProj.name
+                            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                            $buildDefnsObj = @()
+                            if([Helpers]::CheckMember($responseObj,"fps.dataProviders.data") -and $responseObj.fps.dataProviders.data.'ms.vss-build-web.deleted-pipelines-data-provider' -and [Helpers]::CheckMember($responseObj.fps.dataProviders.data.'ms.vss-build-web.deleted-pipelines-data-provider',"pipelines") -and  $responseObj.fps.dataProviders.data.'ms.vss-build-web.deleted-pipelines-data-provider'.pipelines)
+                            {
+                                $buildDefnsObj = $responseObj.fps.dataProviders.data."ms.vss-build-web.deleted-pipelines-data-provider".pipelines;
+                            }
+                            if ($buildDefnsObj.count -gt 0) {
+                                foreach ($bldDef in $buildDefnsObj) {
+                                    $buildResourceId = "organization/$organizationId/project/$projectId/build/$($bldDef.id)";
+                                    $this.AddSVTResource($bldDef.name, $thisProj.name, "ADO.Build", $buildResourceId, $bldDef, $null);
+                                }
+                                $buildDefnsObj = $null;
+                                Remove-Variable buildDefnsObj;
+                            }
+                        }
+                        else
+                        {
                         if(-not [string]::IsNullOrEmpty($this.BuildsFolderPath)){
                             # Validate folder path is valid
                             $path = $this.BuildsFolderPath;
@@ -580,6 +606,7 @@ class SVTResourceResolver: AzSKRoot {
                                 }
                             }
                         }
+                        }
 
                         #Initialysing null to SecurityNamespaceId variable for new scan, it is static variable, setting once only in svc class and same value is applicable for all the svc con withing org
                         [Build]::SecurityNamespaceId = $null;
@@ -595,7 +622,36 @@ class SVTResourceResolver: AzSKRoot {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting release configurations...");
                         }
+                        #When Undo fix for build/release inactive controls is called, resources need to be fetched from deleted list
+                        if ($this.IsAutomatedFixUndoCmd)
+                        {
+                            $accessToken = [RemoteApiHelper]::GetAccessToken()
+                            $apiURL = "https://vsrm.dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}" -f $($this.organizationName), $projectId
+                            $inputbody = "{'contributionIds':['ms.vss-releaseManagement-web.deleted-definitions-data-provider'],'dataProviderContext':{'properties':{'sourcePage':{'url':'https://dev.azure.com/$($this.organizationName)/$projectName/_release?view=deleted','routeId':'ms.vss-releaseManagement-web.hub-explorer-3-default-route','routeValues':{'project':'$projectName','viewname':'hub-explorer-3-view','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                            $headers = @{
+                                "Authorization"= ("Bearer " + $accessToken); 
+                                "Accept"="application/json;api-version=5.0-preview.1;excludeUrls=true;enumsAsNumbers=true;msDateFormat=true;noArrayWrap=true";
+                                "content-type"="application/json";
+                            };
 
+                            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$headers, $inputbody);
+                            $releaseDefnsObj = @()
+                            if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-releaseManagement-web.deleted-definitions-data-provider' -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-releaseManagement-web.deleted-definitions-data-provider',"releaseDefinitions") -and  $responseObj.dataProviders.'ms.vss-releaseManagement-web.deleted-definitions-data-provider'.releaseDefinitions)
+                            {
+                                $releaseDefnsObj = $responseObj.dataProviders."ms.vss-releaseManagement-web.deleted-definitions-data-provider".releaseDefinitions;
+                            }
+
+                            if ($releaseDefnsObj.count -gt 0) {
+                                foreach ($relDef in $releaseDefnsObj) {
+                                    $releaseResourceId = "organization/$organizationId/project/$projectId/release/$($relDef.id)";
+                                    $this.AddSVTResource($relDef.name, $projectName, "ADO.Release", $releaseResourceId, $relDef, $null);
+                                }
+                                $releaseDefnsObj = $null;
+                                Remove-Variable releaseDefnsObj;
+                            }
+                        }
+                        else
+                        {
 
                         if(-not [string]::IsNullOrEmpty($this.ReleasesFolderPath)){
                             # Validate folder path is valid
@@ -658,6 +714,7 @@ class SVTResourceResolver: AzSKRoot {
                                 #Write-Error $_.Exception.Message;
                                 Write-Warning "Release pipelines for the project [$($projectName)] could not be fetched.";
                             }
+                        }
                         }
 
                         #Initialysing null to SecurityNamespaceId variable for new scan, it is static variable, setting once only in release class and same value is applicable for all the release pipelines withing org

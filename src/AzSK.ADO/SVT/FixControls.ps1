@@ -138,7 +138,7 @@ function Set-AzSKADOSecurityStatus
             #Fetching resource type name based on control id 
             $ResourceTypeName =$ControlId.Split("_")[1]
 
-            $resolver = [SVTResourceResolver]::new($OrganizationName, $ProjectName, $ResourceNames, $ExcludeResourceNames, $PATToken, $ResourceTypeName);
+            $resolver = [SVTResourceResolver]::new($OrganizationName, $ProjectName, $ResourceNames, $ExcludeResourceNames, $PATToken, $ResourceTypeName, $UndoFix, $ControlId);
             $secStatus = [ServicesSecurityStatus]::new($OrganizationName,$ProjectName, $PSCmdlet.MyInvocation, $resolver, $ControlId);
             
             if ($secStatus)

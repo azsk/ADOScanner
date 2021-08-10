@@ -14,10 +14,21 @@ class Build: ADOSVTBase
     hidden [PSObject] $excessivePermissionBits = @(1)
     hidden static $SecretsInBuildRegexList = $null;
     hidden static $SecretsScanToolEnabled = $null;
+    hidden [string] $BackupFolderPath = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState" | Join-Path -ChildPath "BackupControlState" )
+    hidden [string] $BackupFilePath;
+    hidden static [bool] $IsPathValidated = $false;
 
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         [system.gc]::Collect();
+
+        #This denotes that command to undo control fix of inactive build is called. 
+        #In this case api calls to populate $this.BuildObj will not work as resource has already been deleted
+        if([Helpers]::CheckMember($_.ResourceDetails, "deletedDate")) 
+        {
+            $this.BuildObj = New-Object -TypeName psobject -Property @{ process = $null }
+            return;
+        }
 
         if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret))  # this if block will be executed for OAuth based scan
         {
@@ -47,6 +58,8 @@ class Build: ADOSVTBase
         {
             throw [SuppressedException] "Unable to find build pipeline in [Organization: $($this.OrganizationContext.OrganizationName)] [Project: $($this.ResourceContext.ResourceGroupName)]."
         }
+
+        $this.BackupFilePath = $this.BackupFolderPath | Join-Path -ChildPath $this.OrganizationContext.OrganizationName | Join-Path -ChildPath $this.BuildObj.project.name | Join-Path -ChildPath "BuildBackupFiles"
 
         # if build activity check function is not computed, then first compute the function to get the correct status of build.
         if($this.buildActivityDetail.isComputed -eq $false)
@@ -344,6 +357,102 @@ class Build: ADOSVTBase
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch build details.");
             $controlResult.LogException($_)
         }
+        
+        try{
+            if ($this.ControlFixBackupRequired -and $controlResult.VerificationResult -eq "Failed")
+            {
+                #Create folders if not already present
+                if(-not [Build]::IsPathValidated)
+                {
+                    if (-not (Test-Path $this.BackupFilePath))
+                    {
+                        New-Item -ItemType Directory -Force -Path $this.BackupFilePath
+                    }
+                    [Build]::IsPathValidated = $true
+                }
+
+                if(-not [Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename"))
+                {
+                    #Generate json of classic build
+                    $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.BuildObj.project.id)/_apis/build/Definitions/$($this.BuildObj.id)?api-version=6.0";
+        
+                    $rmContext = [ContextHelper]::GetCurrentContext();
+                    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+                    $headers = @{
+                                    "Authorization"= ("Basic " + $base64AuthInfo); 
+                                    "Accept"="application/json;api-version=6.0;excludeUrls=true;enumsAsNumbers=true;msDateFormat=true;noArrayWrap=true"
+                                };
+        
+                    $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL, $headers);
+                    $this.BackupFilePath = $this.BackupFilePath | Join-Path -ChildPath "$($this.buildObj.name)-$($this.buildObj.Id).json"
+                    $responseObj | ConvertTo-Json -Depth 10 | Out-File $this.BackupFilePath
+
+                    $obj = New-Object -TypeName psobject -Property @{BackupPath= $this.BackupFilePath ; Type="Classic"}
+                    $controlResult.BackupControlState = $obj 
+                }
+                else
+                {
+                    #For YAML build
+                    $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.BuildObj.project.id)/_apps/hub/ms.vss-build-web.ci-designer-hub?pipelineId=$($this.BuildObj.id)&__rt=fps&__ver=2"
+                    $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
+                    if([Helpers]::CheckMember($responseObj,"fps.dataProviders.data") -and $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider' -and [Helpers]::CheckMember($responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider',"content") -and  $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'.content)
+                    {
+                        $yamlContent = $responseObj.fps.dataProviders.data."ms.vss-build-web.pipeline-editor-data-provider".content;
+
+                        $this.BackupFilePath = $this.BackupFilePath | Join-Path -ChildPath "$($this.buildObj.name)-$($this.buildObj.id).txt"
+                        $yamlContent | Out-File $this.BackupFilePath
+                        $obj = New-Object -TypeName psobject -Property @{BackupPath= $this.BackupFilePath ; Type="YAML"}
+                        $controlResult.BackupControlState = $obj 
+                    }
+                }
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage("Error generating backup of build pipeline. ");
+            $controlResult.LogException($_)
+        }
+
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckForInactiveBuildsAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            if (-not $this.UndoFix)
+            {
+                if(Test-Path $RawDataObjForControlFix.BackupPath)
+                {
+                    $rmContext = [ContextHelper]::GetCurrentContext();
+                    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+                    $uri = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=6.0" -f ($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $($this.BuildObj.id) 
+                    Invoke-RestMethod -Method DELETE -Uri $uri -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }  -ContentType "application/json"
+
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Build pipeline has been deleted.`nBackup is stored locally at: $($RawDataObjForControlFix.BackupPath)");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Error,  "Backup of build not found.");
+                }
+            }
+            else {
+                $uri = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?deleted=false&api-version=6.0" -f ($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceGroupName), $($this.ResourceContext.ResourceDetails.id) 
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header
+
+                $pipelineUrl = "https://dev.azure.com/{0}/{1}/_build?definitionId={2}" -f ($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceGroupName), $($this.ResourceContext.ResourceDetails.id) 
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Build pipeline has been restored.`nUrl: $pipelineUrl");
+            }
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        
         return $controlResult
     }
 
