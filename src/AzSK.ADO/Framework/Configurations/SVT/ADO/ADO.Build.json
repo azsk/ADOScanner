@@ -140,24 +140,26 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Build_SI_Restrict_Task_Group_Edit_Permission",
+      "ControlID": "ADO_Build_SI_Dont_Use_Broadly_Editable_Task_Group",
       "Description": "Builds should not use task groups that are editable by a broad pool of users.",
       "Id": "Build200",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckTaskGroupEditPermission",
       "Rationale": "If a broad pool of users (e.g., Contributors) have edit permissions on a task group, then integrity of your pipeline can be compromised by a malicious user who edits the task group.",
-      "Recommendation": "1. Navigate to the build pipeline. 2. Click on Tasks. 3. Right click on each task group and select 'Manage task group'. 4. Select 'Security' for the task group. 5. Ensure 'Edit task group' permission of Contributors is not set to 'Allow'. 6. Repeat this for any other groups that should not have edit access.",
+      "Recommendation": "1. Navigate to the build pipeline. --> 2. Click on Tasks. --> 3. Right click on each task group and select 'Manage task group'. --> 4. Select 'Security' for the task group. --> 5. Ensure 'Edit task group' permission of Contributors is not set to 'Allow'. --> 6. Repeat this for any other groups that should not have edit access.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "SI"
+        "SI",
+        "MSW",
+        "SkipYAML"
       ],
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Build_SI_Restrict_Variable_Group_Edit_Permission",
+      "ControlID": "ADO_Build_SI_Dont_Use_Broadly_Editable_Variable_Group",
       "Description": "Do not use variable groups that are editable by a broad group of users.",
       "Id": "Build210",
       "ControlSeverity": "High",
@@ -175,7 +177,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Build_AuthZ_Limit_Pipeline_Access",
+      "ControlID": "ADO_Build_AuthZ_Limit_Pipeline_Scope",
       "Description": "Limit scope of access for build pipeline to the current project.",
       "Id": "Build220",
       "ControlSeverity": "Medium",
@@ -206,7 +208,8 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },

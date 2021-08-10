@@ -36,6 +36,7 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Models\SVT\PSCloudService.ps1
 . $FrameworkPath\Models\SVT\PartialScanResourceMap.ps1
 . $FrameworkPath\Models\SVT\IncrementalScanTimestamps.ps1
+. $FrameworkPath\Models\SVT\BatchScanResourceMap.ps1
 . $FrameworkPath\Models\RemoteReports\ComplianceStateModel.ps1
 . $FrameworkPath\Models\ControlState.ps1
 . $FrameworkPath\Models\FixControl\FixControlModel.ps1
@@ -57,6 +58,7 @@ $FrameworkPath = $PSScriptRoot
 
 
 #Managers
+. $FrameworkPath\Managers\BatchScanManager.ps1
 . $FrameworkPath\Managers\FeatureFlightingManager.ps1
 . $PSScriptRoot\Managers\ControlStateExtension.ps1
 . $FrameworkPath\Managers\AzSKPDFExtension.ps1

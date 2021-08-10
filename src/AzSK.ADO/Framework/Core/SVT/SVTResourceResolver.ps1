@@ -20,6 +20,7 @@ class SVTResourceResolver: AzSKRoot {
     [string] $ResourcePath;
     [string] $BuildsFolderPath;
     [string] $ReleasesFolderPath;
+    [bool] $BatchScan;
     [string] $organizationName
     hidden [string[]] $ProjectNames = @();
     hidden [string[]] $BuildNames = @();
@@ -62,11 +63,11 @@ class SVTResourceResolver: AzSKRoot {
     hidden [string[]] $EnvironmentNames = @();
 
 
-    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources, $UseIncrementalScan, $IncrementalDate): Base($organizationName, $PATToken) {
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan, $UseIncrementalScan, $IncrementalDate): Base($organizationName, $PATToken) {
 
 
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
-        $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources, $UseIncrementalScan, $IncrementalDate);
+        $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan, $UseIncrementalScan, $IncrementalDate);
         $this.skipOrgUserControls = $skipOrgUserControls
 
         $this.RepoNames += $this.ConvertToStringArray($RepoNames);
@@ -92,10 +93,11 @@ class SVTResourceResolver: AzSKRoot {
         if (-not [string]::IsNullOrEmpty($ExcludeResourceNames)) {
                 $this.ExcludeResourceNames += $this.ConvertToStringArray($ExcludeResourceNames);
         }
+        $this.SetallTheParamValues($ResourceTypeName)
     }
 
 
-    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources, $UseIncrementalScan, $IncrementalDate) {
+    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan, $UseIncrementalScan, $IncrementalDate) {
 
         $this.organizationName = $organizationName
         $this.ResourceTypeName = $ResourceTypeName
@@ -115,6 +117,8 @@ class SVTResourceResolver: AzSKRoot {
         {
             $this.IncrementalDate = [datetime] 0    
         }
+        $this.BatchScan = $BatchScan
+
         if (-not [string]::IsNullOrEmpty($ProjectNames)) {
             $this.ProjectNames += $this.ConvertToStringArray($ProjectNames);
 
@@ -227,6 +231,95 @@ class SVTResourceResolver: AzSKRoot {
                 $this.PublishCustomMessage("Using Incremental Scan without Partial Scan. In case of incomplete scan, the latest updated timestamp will be used for consequent incremental scans. `n ", [MessageType]::Warning);
             }
         }
+    }
+
+
+    # Method called for Set-AzSKADOSecurityStatus, invoked from constructor 
+
+    [void] SetallTheParamValues($ResourceTypeName) {
+    
+        if ($ResourceTypeName -eq [ResourceTypeName]::Build ) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.BuildNames = "*"
+            }
+            else{
+                $this.BuildNames = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::Release) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.ReleaseNames = "*"
+            }
+            else{
+                $this.ReleaseNames = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::ServiceConnection) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.ServiceConnections = "*"
+            }
+            else{
+                $this.ServiceConnections = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::AgentPool) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.AgentPools = "*"
+            }
+            else{
+                $this.AgentPools = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::VariableGroup) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.VariableGroups = "*"
+            }
+            else{
+                $this.VariableGroups = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::Repository) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.RepoNames = "*"
+            }
+            else{
+                $this.RepoNames = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::SecureFile) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.SecureFileNames = "*"
+            }
+            else{
+                $this.SecureFileNames = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::Feed) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.FeedNames = "*"
+            }
+            else{
+                $this.FeedNames = $this.ResourceNames
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::Environment) {
+            if([string]::IsNullOrWhitespace($this.ResourceNames))
+            {
+                $this.EnvironmentNames = "*"
+            }
+            else{
+                $this.EnvironmentNames = $this.ResourceNames
+            }
+        }
+        
     }
 
     [void] LoadResourcesForScan() {
@@ -352,7 +445,7 @@ class SVTResourceResolver: AzSKRoot {
                     if($this.UsePartialCommits -and $this.DoNotRefetchResources){
                         
                         [PartialScanManager] $partialScanMngr = [PartialScanManager]::GetInstance();
-                        if(($partialScanMngr.IsPartialScanInProgress($this.OrganizationContext.OrganizationName) -eq [ActiveStatus]::Yes)  ){
+                        if(($partialScanMngr.IsPartialScanInProgress($this.OrganizationContext.OrganizationName, $false) -eq [ActiveStatus]::Yes)  ){
                             Write-Host "Resuming scan from last commit. Fetching unscanned resources..." -ForegroundColor Yellow
                             $this.nonScannedResources = $partialScanMngr.GetNonScannedResources();
                             $this.IsPartialScanActive=$true;
@@ -439,6 +532,11 @@ class SVTResourceResolver: AzSKRoot {
                                 $this.PublishCustomMessage("Folder path not found. Please validate the -BuildsFolderPath provided in the command. `n", [MessageType]::Warning);
                             }
                             else {
+
+                                if($this.BatchScan){
+                                    $this.addBuildsToSvtInBatchScan($projectName,$projectId,$path)
+                                }
+                                else {
                                 #Iterate on each folder to get applicale build definition if folders count is le 100
                                 if ([string]::IsNullOrEmpty($topNQueryString)) {
                                     $topNQueryString = '&$top=10000'
@@ -464,26 +562,33 @@ class SVTResourceResolver: AzSKRoot {
                                     $buildDefURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" + $topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
                                     $this.addResourceToSVT($buildDefURL,"build",$projectName, $organizationId, $projectId, $true, $true, $path,[ref]$nObj)                                  
                                 }
+                            }
 
                             }
                         }
                         elseif ($this.BuildNames -eq "*") {
-                            if ([string]::IsNullOrEmpty($topNQueryString)) {
-                                $topNQueryString = '&$top=10000'
-                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
+                            if($this.BatchScan){
+                                $this.addBuildsToSvtInBatchScan($projectName,$projectId,$null);
                             }
                             else {
-                                $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
+                                if ([string]::IsNullOrEmpty($topNQueryString)) {
+                                    $topNQueryString = '&$top=10000'
+                                    $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
+                                }
+                                else {
+                                    $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
+                                }
+    
+                                $nObj=$this.MaxObjectsToScan
+                                $this.addResourceToSVT($buildDefnURL,"build",$projectName,$organizationId,$projectId,$false,$false,$null,[ref]$nObj);
+    
                             }
-
-                            $nObj=$this.MaxObjectsToScan
-                            $this.addResourceToSVT($buildDefnURL,"build",$projectName,$organizationId,$projectId,$false,$false,$null,[ref]$nObj);
-
+                           
 
                             }
                         
                         else {
-
+                            $nObj=$this.MaxObjectsToScan;
                             $buildDefnURL = "";
                             #If service id based scan then will break the loop after one run because, sending all build ids to api as comma separated in one go.
                             for ($i = 0; $i -lt $this.BuildNames.Count; $i++) {
@@ -500,7 +605,7 @@ class SVTResourceResolver: AzSKRoot {
                                         $link = $bldDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
                                         $buildResourceId = "organization/$organizationId/project/$projectId/build/$($bldDef.id)";
                                         $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
-
+                                        if (--$nObj -eq 0) { break; }
                                     }
                                     $buildDefnsObj = $null;
                                     Remove-Variable buildDefnsObj;
@@ -538,10 +643,15 @@ class SVTResourceResolver: AzSKRoot {
                                 $this.PublishCustomMessage("Folder path not found. Please validate the -ReleasesFolderPath provided in the command. `n", [MessageType]::Warning);
                             }
                             else {
+                                if($this.BatchScan){
+                                    $this.addReleasesToSvtInBatchScan($projectName,$projectId,$path)
+                                }
+                                else {
                                #API doesnt provide all folders in a path, fallback to fetch all resources and then filter
                                 $nObj=$this.MaxObjectsToScan                                                               
                                 $releaseDefURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.OrganizationContext.OrganizationName), $thisProj.name;
-                                $this.addResourceToSVT($releaseDefURL,"release",$projectName, $organizationId, $projectId, $true, $true, $path,[ref]$nObj)                                  
+                                $this.addResourceToSVT($releaseDefURL,"release",$projectName, $organizationId, $projectId, $true, $true, $path,[ref]$nObj)   
+                                }                               
                                 
 
                             }
@@ -554,12 +664,18 @@ class SVTResourceResolver: AzSKRoot {
 
                         elseif ($this.ReleaseNames -eq "*")
                         {
+                            if($this.BatchScan){
+                                $this.addReleasesToSvtInBatchScan($projectName,$projectId,$null);
+                            }
+                            else {
                             $nObj=$this.MaxObjectsToScan
                             $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0") -f $($this.OrganizationContext.OrganizationName), $projectName;
                             $this.addResourceToSVT($releaseDefnURL,"release",$projectName,$organizationId,$projectId,$false,$false,$null,[ref]$nObj);
+                            }
                         }
                         else {
                             try {
+                                $nObj=$this.MaxObjectsToScan
                                 $releaseDefnsObj = $null;
                                 #If service id based scan then will break the loop after one run because, sending all release ids to api as comma separated in one go.
                                 for ($i = 0; $i -lt $this.ReleaseNames.Count; $i++) {
@@ -576,6 +692,7 @@ class SVTResourceResolver: AzSKRoot {
                                         $link = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId={2}" -f $this.OrganizationContext.OrganizationName, $projectName, $relDef.url.split('/')[-1];
                                         $releaseResourceId = "organization/$organizationId/project/$projectId/release/$($relDef.id)";
                                         $this.AddSVTResource($relDef.name, $projectName, "ADO.Release", $releaseResourceId, $null, $link);
+                                        if (--$nObj -eq 0) { break; }
                                     }
                                     #If service id based scan then no need to run loop as all the release ids has been sent to api as comma separated list in one go. so break the loop.
                                     if ($this.isServiceIdBasedScan -eq $true) {
@@ -600,7 +717,7 @@ class SVTResourceResolver: AzSKRoot {
                     }
 
                     #Note: $topNQueryString is currently not supported in the SvcConn and AgentPool APIs.
-                    if ($this.ServiceConnections.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User)))
+                    if ($this.ServiceConnections.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources)))
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting service endpoint configurations...");
@@ -650,7 +767,7 @@ class SVTResourceResolver: AzSKRoot {
                     {
                         return;
                     }
-                    if ($this.AgentPools.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User)))
+                    if ($this.AgentPools.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources)))
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting agent pools configurations...");
@@ -752,7 +869,7 @@ class SVTResourceResolver: AzSKRoot {
                     {
                         return;
                     }
-                    if ($this.VariableGroups.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User)))
+                    if ($this.VariableGroups.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources)))
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting variable group configurations...");
@@ -805,7 +922,7 @@ class SVTResourceResolver: AzSKRoot {
                     }
 
                     #Creating resource in common resource resolver
-                    if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -gt 0 -or $this.FeedNames.count -gt 0 -or $this.EnvironmentNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed, [ResourceTypeName]::Environment))) {
+                    if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -gt 0 -or $this.FeedNames.count -gt 0 -or $this.EnvironmentNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed, [ResourceTypeName]::Environment, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))) {
                         $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName, $organizationId, $projectId);
                         $this.SVTResources += $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.EnvironmentNames, $this.ResourceTypeName, $this.MaxObjectsToScan);
                     }
@@ -914,46 +1031,157 @@ class SVTResourceResolver: AzSKRoot {
             {
                 if ($rsrcList.Builds -and $rsrcList.Builds.Count -gt 0)
                 {
-                    $this.BuildNames = $rsrcList.Builds.buildDefinitionName
-                    $this.BuildIds = $rsrcList.Builds.buildDefinitionId
-                    $bFoundSvcMappedObjects = $true
+                    if ($this.BuildNames -ne "*") {
+                        $rsrcList.Builds = @($rsrcList.Builds | Where { $_.buildDefinitionName -in $this.BuildNames });
+                    }
+                    if ($rsrcList.Builds -and $rsrcList.Builds.Count -gt 0) {
+                        $this.BuildNames = $rsrcList.Builds.buildDefinitionName
+                        $this.BuildIds = $rsrcList.Builds.buildDefinitionId
+                        $bFoundSvcMappedObjects = $true
+                    }
+                    else {
+                        $this.BuildNames = @();
+                    }
                 }
             }
             if ($this.ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
             {
                 if ($rsrcList.Releases -and $rsrcList.Releases.Count -gt 0)
                 {
-                    $this.ReleaseNames = $rsrcList.Releases.releaseDefinitionName
-                    $this.ReleaseIds = $rsrcList.Releases.releaseDefinitionId
-                    $bFoundSvcMappedObjects = $true
+                    if ($this.ReleaseNames -ne "*") {
+                        $rsrcList.Releases = @($rsrcList.Releases | Where { $_.releaseDefinitionName -in $this.ReleaseNames }); 
+                    }
+                    if ($rsrcList.Releases -and $rsrcList.Releases.Count -gt 0) {
+                        $this.ReleaseNames = $rsrcList.Releases.releaseDefinitionName
+                        $this.ReleaseIds = $rsrcList.Releases.releaseDefinitionId
+                        $bFoundSvcMappedObjects = $true
+                    }
+                    else {
+                        $this.ReleaseNames = @();
+                    }
                 }
             }
             if ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
             {
                 if ($rsrcList.ServiceConnections -and $rsrcList.ServiceConnections.Count -gt 0)
                 {
-                    $this.ServiceConnections = $rsrcList.ServiceConnections.serviceConnectionName
-                    $this.ServiceConnectionIds = $rsrcList.ServiceConnections.ServiceConnectionId
-                    $bFoundSvcMappedObjects = $true
+                    if ($this.ServiceConnections -ne "*") {
+                        $rsrcList.ServiceConnections = @($rsrcList.ServiceConnections | Where { $_.serviceConnectionName -in $this.ServiceConnections }); 
+                    }
+                    if ($rsrcList.ServiceConnections -and $rsrcList.ServiceConnections.Count -gt 0) {
+                        $this.ServiceConnections = $rsrcList.ServiceConnections.serviceConnectionName
+                        $this.ServiceConnectionIds = $rsrcList.ServiceConnections.ServiceConnectionId
+                        $bFoundSvcMappedObjects = $true
+                    }
+                    else {
+                        $this.ServiceConnections = @();
+                    }
                 }
             }
             if ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
             {
                 if ($rsrcList.AgentPools -and $rsrcList.AgentPools.Count -gt 0)
                 {
-                    $this.AgentPools = $rsrcList.AgentPools.agentPoolName
-                    $this.AgentPoolIds = $rsrcList.AgentPools.agentPoolId
-                    $bFoundSvcMappedObjects = $true
+                    if ($this.AgentPools -ne "*") {
+                        $rsrcList.AgentPools = @($rsrcList.AgentPools | Where { $_.agentPoolName -in $this.AgentPools }); 
+                    }
+                    if ($rsrcList.AgentPools -and $rsrcList.AgentPools.Count -gt 0) {
+                        $this.AgentPools = $rsrcList.AgentPools.agentPoolName
+                        $this.AgentPoolIds = $rsrcList.AgentPools.agentPoolId
+                        $bFoundSvcMappedObjects = $true
+                    }
+                    else {
+                        $this.AgentPools = @();
+                    }
                 }
             }
             if ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
             {
                 if ($rsrcList.VariableGroups -and $rsrcList.VariableGroups.Count -gt 0)
                 {
-                    $this.VariableGroups = $rsrcList.VariableGroups.variableGroupName
-                    $this.VariableGroupIds = $rsrcList.VariableGroups.variableGroupId
-                    $bFoundSvcMappedObjects = $true
+                    if ($this.VariableGroups -ne "*") {
+                        $rsrcList.VariableGroups = @($rsrcList.VariableGroups | Where { $_.variableGroupName -in $this.VariableGroups }); 
+                    }
+                    if ($rsrcList.VariableGroups -and $rsrcList.VariableGroups.Count -gt 0) {
+                        $this.VariableGroups = $rsrcList.VariableGroups.variableGroupName
+                        $this.VariableGroupIds = $rsrcList.VariableGroups.variableGroupId
+                        $bFoundSvcMappedObjects = $true
+                    }
+                    else {
+                        $this.VariableGroups = @();
+                    }
                 }
+            }
+            #TODO: Remove this try catch in 2110
+            try
+            {
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::All))
+                {
+                    if ($rsrcList.Repositories -and $rsrcList.Repositories.Count -gt 0)
+                    {
+                        if ($this.RepoNames -ne "*") {
+                            $rsrcList.Repositories = @($rsrcList.repositories | Where { $_.repoName -in $this.RepoNames }); 
+                        }
+                        if ($rsrcList.Repositories -and $rsrcList.Repositories.Count -gt 0) {
+                            $this.RepoNames = $rsrcList.Repositories.repoName
+                            $bFoundSvcMappedObjects = $true
+                        }
+                        else {
+                            $this.RepoNames = @();
+                        }
+                    }
+                }
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::Feed, [ResourceTypeName]::All))
+                {
+                    if ($rsrcList.Feeds -and $rsrcList.Feeds.Count -gt 0)
+                    {
+                        if ($this.FeedNames -ne "*") {
+                            $rsrcList.Feeds = @($rsrcList.Feeds | Where { $_.feedName -in $this.FeedNames }); 
+                        }
+                        if ($rsrcList.Feeds -and $rsrcList.Feeds.Count -gt 0) {
+                            $this.FeedNames = $rsrcList.Feeds.feedName
+                            $bFoundSvcMappedObjects = $true
+                        }
+                        else {
+                            $this.FeedNames = @();
+                        }
+                    }
+                }
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::SecureFile, [ResourceTypeName]::All))
+                {
+                    if ($rsrcList.SecureFiles -and $rsrcList.SecureFiles.Count -gt 0)
+                    {
+                        if ($this.SecureFileNames -ne "*") {
+                            $rsrcList.SecureFiles = @($rsrcList.SecureFiles | Where { $_.secureFileName -in $this.SecureFileNames }); 
+                        }
+                        if ($rsrcList.SecureFiles -and $rsrcList.SecureFiles.Count -gt 0) {
+                            $this.SecureFileNames = $rsrcList.SecureFiles.secureFileName
+                            $bFoundSvcMappedObjects = $true
+                        }
+                        else {
+                            $this.SecureFileNames = @();
+                        }
+                    }
+                }
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::Environment, [ResourceTypeName]::All))
+                {
+                    if ($rsrcList.Environments -and $rsrcList.Environments.Count -gt 0)
+                    {
+                        if ($this.EnvironmentNames -ne "*") {
+                            $rsrcList.Environments = @($rsrcList.Environments | Where { $_.environmentName -in $this.EnvironmentNames }); 
+                        }
+                        if ($rsrcList.Environments -and $rsrcList.Environments.Count -gt 0) {
+                            $this.EnvironmentNames = $rsrcList.Environments.environmentName
+                            $bFoundSvcMappedObjects = $true
+                        }
+                        else {
+                            $this.EnvironmentNames = @();
+                        }
+                    }
+                }
+            }
+            catch{
+                #eat the exception
             }
         }
         if ($bFoundSvcMappedObjects -eq $false)
@@ -1344,6 +1572,97 @@ class SVTResourceResolver: AzSKRoot {
             $this.PublishCustomMessage("`nBackup of control data object not found. Please run GADS with -PrepareforControlFix param to generate the backup.",[MessageType]::Warning);
         }
 	}
+
+    [void] addBuildsToSvtInBatchScan($ProjectName,$ProjectId,$Path){
+        [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
+        $batchStatus= $batchScanMngr.GetBatchStatus();
+
+        #all builds have been scanned
+        if([string]::IsNullOrEmpty($batchStatus.BuildCurrentContinuationToken) -and $batchStatus.Skip -gt 0){
+           
+            return;
+        }
+        $topNQueryString = '&$top={0}' -f $batchScanMngr.GetBatchSize();
+        
+        if($null -ne $batchStatus.BuildCurrentContinuationToken){
+            $buildDefURL= ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0&%24skip={2}&continuationToken={3}" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $ProjectName, $batchStatus.Skip, $batchStatus.BuildCurrentContinuationToken;
+        }
+        else {
+            $buildDefURL= ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0&%24skip={2}" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $ProjectName, $batchStatus.Skip;
+        }
+        $updatedUriAndContToken=[WebRequestHelper]:: InvokeWebRequestForContinuationToken($buildDefURL,$buildDefURL,$null,'build');
+        $continuationToken=$updatedUriAndContToken[0];
+        $buildDefnsObj=$updatedUriAndContToken[2];
+
+        if($null -ne $Path){            
+                  
+            $buildDefnsObj = $buildDefnsObj | Where-Object {$_.path -eq "\$($Path)" -or $_.path -replace '\s','' -match [System.Text.RegularExpressions.Regex]::Escape("$($Path -replace '\s','')")}
+       
+        }
+        $progressCount=1
+        if (([Helpers]::CheckMember($buildDefnsObj, "count") -and $buildDefnsObj[0].count -gt 0) -or (($buildDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($buildDefnsObj[0], "name"))) {
+            foreach ($bldDef in $buildDefnsObj) {
+                $link = $bldDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
+                $buildResourceId = "organization/$($this.OrganizationContext.OrganizationId)/project/$ProjectId/build/$($bldDef.id)";
+                $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
+                Write-Progress -Activity "Fetched $($progressCount) out of $(($buildDefnsObj | Measure-Object).Count) builds " -Status "Progress: " -PercentComplete ($progressCount / ($buildDefnsObj | Measure-Object).Count * 100)
+                $progressCount+=1
+            }
+            $buildDefnsObj = $null;
+            Remove-Variable buildDefnsObj;
+        }
+        Write-Progress -Activity "All builds fetched" -Status "Ready" -Completed
+        $batchStatus.BuildNextContinuationToken=$continuationToken;
+        $batchStatus.TokenLastModifiedTime=[DateTime]::UtcNow;
+        $batchScanMngr.BatchScanTrackerObj = $batchStatus;
+        $batchScanMngr.WriteToBatchTrackerFile();
+        
+    }
+
+    [void] addReleasesToSvtInBatchScan($ProjectName,$ProjectId,$Path){
+        [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
+        $batchStatus= $batchScanMngr.GetBatchStatus();
+
+        #all releases have been scanned
+        if([string]::IsNullOrEmpty($batchStatus.ReleaseCurrentContinuationToken) -and $batchStatus.Skip -gt 0){
+            return;
+        }
+        $topNQueryString = '&$top={0}' -f $batchScanMngr.GetBatchSize();
+        if($null -ne $batchStatus.ReleaseCurrentContinuationToken){
+            $releaseDefURL= ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0&continuationToken={2}" +$topNQueryString) -f $($this.OrganizationContext.OrganizationName), $ProjectName, $batchStatus.ReleaseCurrentContinuationToken;
+        }
+        else {
+            $releaseDefURL= ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString ) -f $($this.OrganizationContext.OrganizationName), $ProjectName;
+        }
+        $updatedUriAndContToken=[WebRequestHelper]:: InvokeWebRequestForContinuationToken($releaseDefURL,$releaseDefURL,$null,'release');
+        $continuationToken=$updatedUriAndContToken[0];
+        $releaseDefnsObj=$updatedUriAndContToken[2];
+
+        if($null -ne $Path){            
+                  
+            $releaseDefnsObj = $releaseDefnsObj | Where-Object {$_.path -eq "\$($Path)" -or $_.path -replace '\s','' -match [System.Text.RegularExpressions.Regex]::Escape("$($Path -replace '\s','')")}
+       
+        }
+        $progressCount=1
+        if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
+            $tempLink = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId=" -f $this.OrganizationContext.OrganizationName, $projectName;
+            foreach ($releaseDef in $releaseDefnsObj) {
+                $link = $tempLink+$releaseDef.id
+                $releaseResourceId = "organization/$($this.OrganizationContext.OrganizationId)/project/$ProjectId/release/$($releaseDef.id)";
+                $this.AddSVTResource($releaseDef.name, $ProjectName, "ADO.Release", $releaseResourceId, $null, $link);
+                Write-Progress -Activity "Fetched $($progressCount) out of $(($releaseDefnsObj | Measure-Object).Count) releases " -Status "Progress: " -PercentComplete ($progressCount / ($releaseDefnsObj | Measure-Object).Count * 100)
+                $progressCount+=1
+            }
+            $releaseDefnsObj = $null;
+            Remove-Variable releaseDefnsObj;
+        }
+        Write-Progress -Activity "All releases fetched" -Status "Ready" -Completed
+        $batchStatus.ReleaseNextContinuationToken=$continuationToken;
+        $batchStatus.TokenLastModifiedTime=[DateTime]::UtcNow;
+        $batchScanMngr.BatchScanTrackerObj = $batchStatus;
+        $batchScanMngr.WriteToBatchTrackerFile();
+        
+    }
 
 
 }

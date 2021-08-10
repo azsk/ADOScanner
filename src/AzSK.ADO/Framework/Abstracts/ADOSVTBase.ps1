@@ -237,7 +237,7 @@ class ADOSVTBase: SVTBase {
 													#In Linux env base24 encoding is different from that in Windows. Therefore doing a comparison of decoded data object as fallback
 													$decodedAttestedDataObj = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($childResourceState.State.DataObject))  | ConvertFrom-Json
 													$decodedCurrentDataObj = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($currentStateDataObject))  | ConvertFrom-Json
-													if ([Helpers]::CompareObject($decodedAttestedDataObj, $decodedCurrentDataObj, $true))
+													if ([Helpers]::CompareObject($decodedAttestedDataObj, $decodedCurrentDataObj, $true) -and [Helpers]::CompareObject($decodedCurrentDataObj, $decodedAttestedDataObj, $true))
 													{
 														$dataObjMatched = $true
 													}

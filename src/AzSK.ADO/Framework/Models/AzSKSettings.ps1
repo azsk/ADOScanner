@@ -20,6 +20,7 @@ class AzSKSettings {
 	[string] $WebhookType;
 	[string] $WebhookSource;
 	[string] $AutoUpdateCommand;
+	[string] $BatchScanModule;
 	[AutoUpdate] $AutoUpdateSwitch = [AutoUpdate]::On;
 
 	[string] $OutputFolderPath;
