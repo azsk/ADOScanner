@@ -29,6 +29,7 @@ class AzSKSettings {
 	[bool] $EnableAADAuthForOnlinePolicyStore;
     [bool] $UseOnlinePolicyStore;
 	[string] $OnlinePolicyStoreUrl;
+	[string] $OnlineOssPolicyStoreUrl;
 	[string] $AzureEnvironment;
 	[string] $UsageTelemetryLevel;
 	[string] $LocalControlTelemetryKey;
