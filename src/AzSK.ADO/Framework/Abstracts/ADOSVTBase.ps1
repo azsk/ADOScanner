@@ -249,6 +249,11 @@ class ADOSVTBase: SVTBase {
 															$dataObjMatched = $true
 														}
 													}
+													elseif ($decodedCurrentDataObj.GetType() -eq [Int] -and $decodedAttestedDataObj.GetType() -eq [Int]) {
+														if ($decodedCurrentDataObj -lt $decodedAttestedDataObj) {
+															$dataObjMatched = $true
+														}
+													}
 												}
 												if ($dataObjMatched)
 												{
