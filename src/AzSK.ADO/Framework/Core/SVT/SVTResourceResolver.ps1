@@ -41,6 +41,9 @@ class SVTResourceResolver: AzSKRoot {
     [bool] $isUserPCA = $false;
     [bool] $skipOrgUserControls = $false
 
+    [bool] $UseIncrementalScan = $false
+    [DateTime] $IncrementalDate = 0
+
     [bool] $UsePartialCommits=$false;
     [bool] $DoNotRefetchResources=$false;
     [bool] $isPartialScanActive=$false;
@@ -60,11 +63,11 @@ class SVTResourceResolver: AzSKRoot {
     hidden [string[]] $EnvironmentNames = @();
 
 
-    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan): Base($organizationName, $PATToken) {
+    SVTResourceResolver([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $skipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan, $UseIncrementalScan, $IncrementalDate): Base($organizationName, $PATToken) {
 
 
         $this.MaxObjectsToScan = $MaxObj #default = 0 => scan all if "*" specified...
-        $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan);
+        $this.SetallTheParamValues($organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan, $UseIncrementalScan, $IncrementalDate);
         $this.skipOrgUserControls = $skipOrgUserControls
 
         $this.RepoNames += $this.ConvertToStringArray($RepoNames);
@@ -94,7 +97,7 @@ class SVTResourceResolver: AzSKRoot {
     }
 
 
-    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan) {
+    [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan, $UseIncrementalScan, $IncrementalDate) {
 
         $this.organizationName = $organizationName
         $this.ResourceTypeName = $ResourceTypeName
@@ -104,6 +107,16 @@ class SVTResourceResolver: AzSKRoot {
         $this.UsePartialCommits=$UsePartialCommits
         $this.DoNotRefetchResources=$DoNotRefetchResources
         $this.ReleasesFolderPath = $ReleasesFolderPath.Trim()
+        $this.UseIncrementalScan = $UseIncrementalScan
+        
+        if (-not [string]::IsNullOrWhiteSpace($IncrementalDate)) 
+        {
+            $this.IncrementalDate = $IncrementalDate    
+        }
+        else 
+        {
+            $this.IncrementalDate = [datetime] 0    
+        }
         $this.BatchScan = $BatchScan
 
         if (-not [string]::IsNullOrEmpty($ProjectNames)) {
@@ -208,6 +221,15 @@ class SVTResourceResolver: AzSKRoot {
             $this.longRunningScanCheckPoint = $this.ControlSettings.LongRunningScanCheckPoint;
             #>
 
+        }
+        if($this.UseIncrementalScan -eq $true)
+        {
+            $this.PublishCustomMessage("Incremental Scan is currently supported only for Builds and Releases. `n ", [MessageType]::Warning);
+        
+            if($this.UsePartialCommits -ne $true)
+            {
+                $this.PublishCustomMessage("Using Incremental Scan without Partial Scan. In case of incomplete scan, the latest updated timestamp will be used for consequent incremental scans. `n ", [MessageType]::Warning);
+            }
         }
     }
 
@@ -1256,7 +1278,10 @@ class SVTResourceResolver: AzSKRoot {
         $skipCount = 0
         $batchCount = 1;
         #$nObj = $this.MaxObjectsToScan
-     
+        $timestamp = (Get-Date)
+        # to break out from looping and making further API calls after first call, when not all resources in first fetch are modified after threshold date
+        $breakLoop = $false 
+
         while ([System.Uri]::TryCreate($resourceDfnUrl, [System.UriKind]::Absolute, [ref] $validatedUri)) {
             if ([string]::IsNullOrWhiteSpace($orginalUri)) {
                 $orginalUri = $validatedUri.AbsoluteUri;   
@@ -1266,29 +1291,58 @@ class SVTResourceResolver: AzSKRoot {
             $skipCount += 10000;
             $responseAndUpdatedUri = [WebRequestHelper]::InvokeWebRequestForResourcesInBatch($validatedUri, $orginalUri, $skipCount,$resourceType);
             #API response with resources
-            $resourceDefnsObj = $responseAndUpdatedUri[0];
-            #updated URI
+            $resourceDefnsObj = @($responseAndUpdatedUri[0]);
+            #count of all resources fetched
+            $totalCount = $resourceDefnsObj.Count
+            #updated URI: null when there is no continuation token
             $resourceDfnUrl = $responseAndUpdatedUri[1];
 
-            if($isFolderPathGiven -and $isFolderSizegt100){
-              
-                  
-                   $applicableDefnsObj = $resourceDefnsObj | Where-Object {$_.path -eq "\$($path)" -or $_.path -replace '\s','' -match [System.Text.RegularExpressions.Regex]::Escape("$($path -replace '\s','')")}
-              
+            if($isFolderPathGiven -and $isFolderSizegt100)
+            {
+                $applicableDefnsObj = $resourceDefnsObj | Where-Object {$_.path -eq "\$($path)" -or $_.path -replace '\s','' -match [System.Text.RegularExpressions.Regex]::Escape("$($path -replace '\s','')")}
             }
             #in case its not a folder based scan or folder cnt <100
-            else {
+            else 
+            {
                 $applicableDefnsObj=$resourceDefnsObj;
             }
-            
-                                
-            if ( (($applicableDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($applicableDefnsObj[0], "name")) -or ([Helpers]::CheckMember($applicableDefnsObj, "count") -and $applicableDefnsObj[0].count -gt 0)) {
+            if ( (($applicableDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($applicableDefnsObj[0], "name")) -or ([Helpers]::CheckMember($applicableDefnsObj, "count") -and $applicableDefnsObj[0].count -gt 0)) 
+            {
                 if($resourceType -eq "build"){
                     $tempLink=($applicableDefnsObj[0].url -split('Definitions/'))[0].replace('_apis/build/', '_build?definitionId=');
                 }
                 else {
                     $tempLink = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId=" -f $this.OrganizationContext.OrganizationName, $projectName;
                                    
+                }
+                if($this.UseIncrementalScan -eq $true)
+                {
+                    $updateTimestamp = $true
+                    if(-not [string]::IsNullOrWhiteSpace($resourceDfnUrl))
+                    {
+                        $updateTimestamp = $false
+                    }
+                    $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName, $this.IncrementalDate, $updateTimestamp, $timestamp)
+                    if($resourceType -eq "build")
+                    {
+                        $applicableDefnsObj = @($incrementalScanHelperObj.GetModifiedBuilds($applicableDefnsObj))
+                        if($applicableDefnsObj.Count -lt $totalCount -and $updateTimestamp -eq $false)
+                        {
+                            # a continuation token was previously found but no need for making more API calls as even some resources in the first batch are unmodified since last threshold timestamp
+                            # update Incremental Scan Helper Object data member UpdateTime to $true, then call function to Update Timestamp
+                            $incrementalScanHelperObj.UpdateTime = $true
+                            $incrementalScanHelperObj.UpdateTimeStamp("Build")
+                            $breakLoop = $true
+                        }
+                    }
+                    else 
+                    {
+                        $applicableDefnsObj = @($incrementalScanHelperObj.GetModifiedReleases($applicableDefnsObj))    
+                    }
+                }
+                if($applicableDefnsObj.Count -lt $nObj.Value)
+                {
+                    $nObj.Value = $applicableDefnsObj.Count;
                 }
                 foreach ($resourceDef in $applicableDefnsObj) {
                     #$link = $resourceDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
@@ -1314,6 +1368,7 @@ class SVTResourceResolver: AzSKRoot {
                 break;
             }
             if ($nObj.Value -eq 0) { break; }
+            if($breakLoop -eq $true) { break; }
         }
         Write-Progress -Activity "All $($resourceType)s fetched" -Status "Ready" -Completed
         $resourceDefnsObj = $null;

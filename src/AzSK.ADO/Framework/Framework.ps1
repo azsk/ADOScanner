@@ -35,6 +35,7 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Models\SVT\AttestationOptions.ps1
 . $FrameworkPath\Models\SVT\PSCloudService.ps1
 . $FrameworkPath\Models\SVT\PartialScanResourceMap.ps1
+. $FrameworkPath\Models\SVT\IncrementalScanTimestamps.ps1
 . $FrameworkPath\Models\SVT\BatchScanResourceMap.ps1
 . $FrameworkPath\Models\RemoteReports\ComplianceStateModel.ps1
 . $FrameworkPath\Models\ControlState.ps1
@@ -52,7 +53,7 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Helpers\ConfigOverride.ps1
 . $FrameworkPath\Helpers\ControlHelper.ps1
 . $PSScriptRoot\Helpers\AdministratorHelper.ps1
-
+. $FrameworkPath\Helpers\IncrementalScanHelper.ps1
 . $FrameworkPath\Models\Common\ResourceInventory.ps1
 
 
