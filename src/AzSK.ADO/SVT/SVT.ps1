@@ -334,7 +334,17 @@ function Get-AzSKADOSecurityStatus
     [switch]
 		[Parameter(HelpMessage="Switch to copy current data object in local folder to facilitate control fix.")]
 		[Alias("pcf")]
-		$PrepareForControlFix
+		$PrepareForControlFix,
+
+		[switch]
+		[Parameter()]
+		[Alias("bs")]
+		$BatchScan,
+
+		[string]
+		[Parameter()]
+		[Alias("fn")]
+		$FolderName
 
 
 	)
@@ -442,7 +452,7 @@ function Get-AzSKADOSecurityStatus
 				[ContextHelper]::PromptForLogin =$false
 			}
 
-			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources);
+			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan);
 
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus)
