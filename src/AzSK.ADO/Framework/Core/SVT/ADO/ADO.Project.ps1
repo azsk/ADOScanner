@@ -1882,7 +1882,11 @@ class Project: ADOSVTBase
                 $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
                 $buildSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "Build") -and ($_.actions.name -contains "ViewBuilds")}).namespaceId
                 $buildURL = "https://dev.azure.com/$orgName/$projectName/_build"
-                $allowPermissionBits = @(1,3)
+                $allowPermissionBits = @(1)
+                if ([Helpers]::CheckMember($this.ControlSettings, "Build.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions) {
+                    #allow permission bit for inherited permission is '3'
+                    $allowPermissionBits = @(1,3)
+                }
                 $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
                 $inputbody = "{
                 'contributionIds': [
@@ -2010,7 +2014,11 @@ class Project: ADOSVTBase
                 $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
                 $releaseSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ReleaseManagement") -and ($_.actions.name -contains "ViewReleaseDefinition")}).namespaceId
                 $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release"
-                $allowPermissionBits = @(1,3)
+                $allowPermissionBits = @(1)
+                if ([Helpers]::CheckMember($this.ControlSettings.Release, "CheckForInheritedPermissions") -and $this.ControlSettings.Release.CheckForInheritedPermissions) {
+                    #allow permission bit for inherited permission is '3'
+                    $allowPermissionBits = @(1,3)
+                }
                 $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
                 $inputbody = "{
                 'contributionIds': [
@@ -2136,9 +2144,14 @@ class Project: ADOSVTBase
                 if (($serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($serviceEndPointIdentity, "identity")) {
                     # match all the identities added on service connection with defined restricted list
                     $roleAssignments = @();
-                    $roleAssignments +=   ($serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                    $roleAssignments +=   ($serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}},@{Name="Access"; Expression = {$_.access}});
                     #Checking where broader groups have user/admin permission for service connection
-                    $restrictedGroups += @($roleAssignments | Where-Object { $restrictedBroaderGroupsForSvcConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+                    if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.CheckForInheritedPermissions") -and $this.ControlSettings.ServiceConnection.CheckForInheritedPermissions) {
+                        $restrictedGroups += @($roleAssignments | Where-Object { $restrictedBroaderGroupsForSvcConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+                    }
+                    else {
+                        $restrictedGroups += @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and $restrictedBroaderGroupsForSvcConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+                    }
 
                     $restrictedGroupsCount = $restrictedGroups.Count
 
