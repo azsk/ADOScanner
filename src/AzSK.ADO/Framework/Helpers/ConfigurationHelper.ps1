@@ -160,7 +160,6 @@ class ConfigurationHelper {
 							if ([String]::IsNullOrWhiteSpace($serverFileContent) -and -not [ConfigurationHelper]::OnlinePolicyEnabled) {
 								#If file is not available in both custom and local org policy, Fallback to github based oss policy
                                 if(-not [String]::IsNullOrWhiteSpace([ConfigurationHelper]::OssPolicyUrl)) {
-									[EventBase]::PublishGenericCustomMessage("Running Org-Policy from oss  policy store", [MessageType]::Info);
                                     $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $policyFileName);
 									[ConfigurationHelper]::OssPolicyEnabled = $true
 								    [ConfigurationHelper]::ConfigVersion = $Version;
@@ -170,7 +169,6 @@ class ConfigurationHelper {
 								#If file is not available in both custom and local org policy, Fallback to github based oss policy
 								$Version = ([ConfigurationHelper]::LoadOfflineConfigFile("AzSK.json")).ConfigSchemaBaseVersion;
                                 if(-not [String]::IsNullOrWhiteSpace([ConfigurationHelper]::OssPolicyUrl)) {
-									[EventBase]::PublishGenericCustomMessage("Running Org-Policy from oss  policy store", [MessageType]::Info);
                                     $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $policyFileName);
 									[ConfigurationHelper]::ConfigVersion = $Version;
                                 }
@@ -192,13 +190,11 @@ class ConfigurationHelper {
 					elseif ([ConfigurationHelper]::OssPolicyEnabled) {
 					    $Version = [ConfigurationHelper]::ConfigVersion;
 						#If file is not available in both custom and local org policy, Fallback to github based oss policy
-						[EventBase]::PublishGenericCustomMessage("Running Org-Policy from oss  policy store", [MessageType]::Info);
                         $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $policyFileName);
 					}
 					else {
 						$Version = [ConfigurationHelper]::ConfigVersion ;
 						#If file is not available in both custom and local org policy, Fallback to github based oss policy
-						[EventBase]::PublishGenericCustomMessage("Running Org-Policy from oss  policy store", [MessageType]::Info);
                         $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $policyFileName);     
 						[ConfigurationHelper]::ConfigVersion = $Version;                
 					}
@@ -328,7 +324,6 @@ class ConfigurationHelper {
 							if ([String]::IsNullOrWhiteSpace($serverFileContent)) {
 								#If file is not available in both custom and local org policy, Fallback to github based oss policy
                                 if(-not [String]::IsNullOrWhiteSpace([ConfigurationHelper]::OssPolicyUrl)) {
-									[EventBase]::PublishGenericCustomMessage("Running Org-Policy from oss  policy store", [MessageType]::Info);
                                     $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $fileName);
 									[ConfigurationHelper]::OssPolicyEnabled = $true
 								    [ConfigurationHelper]::ConfigVersion = $Version;
@@ -338,7 +333,6 @@ class ConfigurationHelper {
 								#If file is not available in both custom and local org policy, Fallback to github based oss policy
 								$Version = ([ConfigurationHelper]::LoadOfflineConfigFile("AzSK.json")).ConfigSchemaBaseVersion;
                                 if(-not [String]::IsNullOrWhiteSpace([ConfigurationHelper]::OssPolicyUrl)) {
-									[EventBase]::PublishGenericCustomMessage("Running Org-Policy from oss  policy store", [MessageType]::Info);
                                     $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $fileName);
 									[ConfigurationHelper]::ConfigVersion = $Version;
                                 }
@@ -348,7 +342,6 @@ class ConfigurationHelper {
 								#If file is not available in both custom and local org policy, Fallback to github based oss policy
 								$Version = ([ConfigurationHelper]::LoadOfflineConfigFile("AzSK.json")).ConfigSchemaBaseVersion;
                                 if(-not [String]::IsNullOrWhiteSpace([ConfigurationHelper]::OssPolicyUrl)) {
-									[EventBase]::PublishGenericCustomMessage("Running Org-Policy from oss  policy store", [MessageType]::Info);
                                     $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $fileName);
 									[ConfigurationHelper]::ConfigVersion = $Version;
                                 }
@@ -359,13 +352,11 @@ class ConfigurationHelper {
 					}
 					elseif ([ConfigurationHelper]::OssPolicyEnabled) {
 						#If file is not available in both custom and local org policy, Fallback to github based oss policy
-						[EventBase]::PublishGenericCustomMessage("Running Org-Policy from oss  policy store", [MessageType]::Info);
                         $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, [ConfigurationHelper]::ConfigVersion, $fileName);
 					}
 					else {
 						$Version = [ConfigurationHelper]::ConfigVersion ;
 						#If file is not available in both custom and local org policy, Fallback to github based oss policy
-						[EventBase]::PublishGenericCustomMessage("Running Org-Policy from oss  policy store", [MessageType]::Info);
                         $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $fileName);
 						[ConfigurationHelper]::ConfigVersion = $Version;
 					}
