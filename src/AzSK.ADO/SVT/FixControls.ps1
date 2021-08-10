@@ -63,8 +63,13 @@ function Set-AzSKADOSecurityStatus
 
         [switch]
         [Parameter()]
-		[Alias("upc")]
-		$UsePartialCommits
+        [Alias("upc")]
+        $UsePartialCommits,
+
+        [switch]
+        [Parameter()]
+        [Alias("f")]
+        $Force
     )
     Begin
     {
