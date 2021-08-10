@@ -149,7 +149,7 @@ class AdministratorHelper{
             }
             $currentUser = [ContextHelper]::GetCurrentSessionUser();
 
-            if([AdministratorHelper]::isCurrentUserPCA -eq $false -and $currentUser -in [AdministratorHelper]::AllPCAMembers.mailAddress){
+            if((-not [string]::IsNullOrEmpty([AdministratorHelper]::AllPCAMembers)) -and [AdministratorHelper]::isCurrentUserPCA -eq $false -and $currentUser -in [AdministratorHelper]::AllPCAMembers.mailAddress){
                 [AdministratorHelper]::isCurrentUserPCA=$true;
             }
         }
@@ -167,7 +167,7 @@ class AdministratorHelper{
             }
             $currentUser = [ContextHelper]::GetCurrentSessionUser();
 
-            if([AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -in [AdministratorHelper]::AllPAMembers.mailAddress){
+            if((-not [string]::IsNullOrEmpty([AdministratorHelper]::AllPAMembers)) -and [AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -in [AdministratorHelper]::AllPAMembers.mailAddress){
                 [AdministratorHelper]::isCurrentUserPA=$true;
             }
         }
