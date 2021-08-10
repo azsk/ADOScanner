@@ -51,11 +51,6 @@ function Get-AzSKADOSecurityStatusBatchMode
         $BatchSize,
 
         [string]
-        [Parameter(Mandatory = $true)]
-        [Alias("mp")]
-        $ModulePath,
-
-        [string]
         [Parameter(Mandatory = $true, HelpMessage = "Folder name where batch scan results are to be stored.")]
         [Alias("fn")]
         $FolderName,
@@ -199,6 +194,9 @@ function Get-AzSKADOSecurityStatusBatchMode
             else {
                 $batchScanMngr.UpdateBatchMasterList();
             }
+            $AzSKContents = [BatchScanManager]::LoadFrameworkConfigFile("AzSKSettings.json", $true);
+            $ModulePath= $AzSKContents.BatchScanModule
+            
             $commandForNextBatch ='ipmo \"{0}\"; gadsbm ' -f $ModulePath;
             $PSCmdlet.MyInvocation.BoundParameters.GetEnumerator() | foreach-object {
                 if($_.value -eq $true){

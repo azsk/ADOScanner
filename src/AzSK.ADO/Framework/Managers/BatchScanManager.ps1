@@ -231,6 +231,49 @@ class BatchScanManager
         }
         return $false;
     }
+    hidden static [PSObject] GetBaseFrameworkPath() {
+		$moduleName = $([Constants]::AzSKModuleName)
+
+		#Remove Staging from module name before forming config base path
+		$moduleName = $moduleName -replace "Staging", ""
+
+		#Irrespective of whether Dev-Test mode is on or off, base framework path will now remain same as the new source code repo doesn't have AzSK.Framework folder.
+		$basePath = (Get-Item $PSScriptRoot).Parent.FullName
+
+		return $basePath
+	}
+
+    hidden static [PSObject] LoadFrameworkConfigFile([string] $fileName, [bool] $parseJson) {
+        #Load file from AzSK App folder"
+        $fileName = $fileName.Split('\')[-1]
+        $extension = [System.IO.Path]::GetExtension($fileName);
+ 
+        $basePath = [BatchScanManager]::GetBaseFrameworkPath()
+        $rootConfigPath = $basePath | Join-Path -ChildPath "Configurations";
+ 
+        $filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1
+        if ($filePath) {
+            if ($parseJson) {
+                if ($extension -eq ".json" -or $extension -eq ".lawsview") {
+                    $fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath)) | ConvertFrom-Json
+                }
+                else {
+                    $fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath))
+                }
+            }
+            else {
+                $fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath))
+            }
+        }
+        else {
+            throw "Unable to find the specified file '$fileName'"
+        }
+        if (-not $fileContent) {
+            throw "The specified file '$fileName' is empty"
+        }
+ 
+        return $fileContent;        
+    }
 
     [void] UpdateBatchMasterList(){
         if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
