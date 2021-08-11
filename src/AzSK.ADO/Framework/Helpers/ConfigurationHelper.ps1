@@ -8,6 +8,9 @@ class ConfigurationHelper {
 	hidden static [bool] $OfflineMode = $false;
 	hidden static [string] $ConfigVersion = ""
 	hidden static [bool] $LocalPolicyEnabled = $false
+	hidden static [bool] $OssPolicyEnabled = $false
+	hidden static [bool] $OnlinePolicyEnabled = $false
+	hidden static [string] $OssPolicyUrl = ""
 	hidden static [string] $ConfigPath = [string]::Empty
 	hidden static [Policy[]] $PolicyCacheContent = @()
 	hidden static $NotExtendedTypes = @{} #Used to remember Types we have checked already as to whether they are extended (e.g., Build.ext.ps1) or not.
@@ -61,13 +64,44 @@ class ConfigurationHelper {
 		return $fileContent;
 	}
 
+	hidden static [PSObject] LoadFrameworkConfigFile([string] $fileName, [bool] $parseJson) {
+		#Load file from AzSK App folder"
+        $fileName = $fileName.Split('\')[-1]
+		$extension = [System.IO.Path]::GetExtension($fileName);
+
+		$basePath = [ConfigurationHelper]::GetBaseFrameworkPath()
+		$rootConfigPath = $basePath | Join-Path -ChildPath "Configurations";
+
+		$filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1
+		if ($filePath) {
+			if ($parseJson) {
+				if ($extension -eq ".json" -or $extension -eq ".lawsview") {
+					$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath)) | ConvertFrom-Json
+				}
+				else {
+					$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath))
+				}
+			}
+			else {
+				$fileContent = (Get-Content -Raw -Path (Join-Path $rootConfigPath $filePath))
+			}
+		}
+		else {
+			throw "Unable to find the specified file '$fileName'"
+		}
+		if (-not $fileContent) {
+			throw "The specified file '$fileName' is empty"
+		}
+
+		return $fileContent;		
+	}
+
 	hidden static [PSObject] LoadServerConfigFile([string] $policyFileName, [bool] $useOnlinePolicyStore, [string] $onlineStoreUri, [bool] $enableAADAuthForOnlinePolicyStore) {
 		[PSObject] $fileContent = "";
 		if ([string]::IsNullOrWhiteSpace($policyFileName)) {
 			throw [System.ArgumentException] ("The argument 'policyFileName' is null");
 		}
-
-
+		$serverFileContent = $null
 		#Check if policy is present in cache and fetch the same if present
 		$cachedPolicyContent = [ConfigurationHelper]::PolicyCacheContent | Where-Object { $_.Name -eq $policyFileName }
 		if ($cachedPolicyContent)
@@ -99,42 +133,70 @@ class ConfigurationHelper {
 			}
 			#First load offline OSS Content
 			$fileContent = [ConfigurationHelper]::LoadOfflineConfigFile($policyFileName)
-
+			if ([String]::IsNullOrWhiteSpace([ConfigurationHelper]::OssPolicyUrl)) {
+				$moduleAzSKSettings = [ConfigurationHelper]::LoadFrameworkConfigFile("AzSKSettings.json", $true);
+				[ConfigurationHelper]::OssPolicyUrl = $moduleAzSKSettings.OnlineOssPolicyStoreUrl
+			}
 			#Check if policy is listed as present in server config metadata file
 			if (-not [ConfigurationHelper]::OfflineMode -and [ConfigurationHelper]::IsPolicyPresentOnServer($policyFileName, $useOnlinePolicyStore, $onlineStoreUri, $enableAADAuthForOnlinePolicyStore)) {
 				#Write-Host -ForegroundColor Yellow "**NOT FOUND** $policyFileName"
 				try {
-					if ([String]::IsNullOrWhiteSpace([ConfigurationHelper]::ConfigVersion) -and -not [ConfigurationHelper]::LocalPolicyEnabled) {
+					if ([String]::IsNullOrWhiteSpace([ConfigurationHelper]::ConfigVersion) -and -not [ConfigurationHelper]::LocalPolicyEnabled -and -not [ConfigurationHelper]::OssPolicyEnabled) {
 						try {
 							$Version = [System.Version] ($global:ExecutionContext.SessionState.Module.Version);
+							# Try to fetch the file content from custom org policy
 							$serverFileContent = [ConfigurationHelper]::InvokeControlsAPI($onlineStoreUri, $Version, $policyFileName, $enableAADAuthForOnlinePolicyStore);
-							[ConfigurationHelper]::ConfigVersion = $Version;
-							if ([String]::IsNullOrWhiteSpace($serverFileContent)) {
+							if (-not [String]::IsNullOrWhiteSpace($serverFileContent)) {
+								[ConfigurationHelper]::OnlinePolicyEnabled = $true
+							}
+							if([String]::IsNullOrWhiteSpace($serverFileContent) -and -not [ConfigurationHelper]::OnlinePolicyEnabled){
+								#If file is not available in custom org policy, Try to fetch the file content from local org policy
 								if (Test-Path $onlineStoreUri) {
 									[EventBase]::PublishGenericCustomMessage("Running Org-Policy from local policy store location: [$onlineStoreUri]", [MessageType]::Info);
 									$serverFileContent = [ConfigurationHelper]::LoadOfflineConfigFile($policyFileName, $true, $onlineStoreUri)
 									[ConfigurationHelper]::LocalPolicyEnabled = $true
 								}
 							}
+							if ([String]::IsNullOrWhiteSpace($serverFileContent) -and -not [ConfigurationHelper]::OnlinePolicyEnabled) {
+								#If file is not available in both custom and local org policy, Fallback to github based oss policy
+                                if(-not [String]::IsNullOrWhiteSpace([ConfigurationHelper]::OssPolicyUrl)) {
+                                    $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $policyFileName);
+									[ConfigurationHelper]::OssPolicyEnabled = $true
+								    [ConfigurationHelper]::ConfigVersion = $Version;
+                                }
+							}
+							if ([String]::IsNullOrWhiteSpace($serverFileContent) -and  -not [ConfigurationHelper]::OnlinePolicyEnabled) {
+								#If file is not available in both custom and local org policy, Fallback to github based oss policy
+								$Version = ([ConfigurationHelper]::LoadOfflineConfigFile("AzSK.json")).ConfigSchemaBaseVersion;
+                                if(-not [String]::IsNullOrWhiteSpace([ConfigurationHelper]::OssPolicyUrl)) {
+                                    $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $policyFileName);
+									[ConfigurationHelper]::ConfigVersion = $Version;
+                                }
+							}
 						}
 						catch {
-
-							if (Test-Path $onlineStoreUri) {
-								[EventBase]::PublishGenericCustomMessage("Running Org-Policy from local policy store location: [$onlineStoreUri]", [MessageType]::Info);
-								$serverFileContent = [ConfigurationHelper]::LoadOfflineConfigFile($policyFileName, $true, $onlineStoreUri)
-								[ConfigurationHelper]::LocalPolicyEnabled = $true
-							}
-							else {
-								throw $_
-							}
+								#If file is not available in both custom and local org policy, Fallback to github based oss policy
+								$Version = ([ConfigurationHelper]::LoadOfflineConfigFile("AzSK.json")).ConfigSchemaBaseVersion;
+                                if(-not [String]::IsNullOrWhiteSpace([ConfigurationHelper]::OssPolicyUrl)) {
+									[EventBase]::PublishGenericCustomMessage("Running Org-Policy from oss  policy store", [MessageType]::Info);
+                                    $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $policyFileName);
+									[ConfigurationHelper]::ConfigVersion = $Version;
+                                }
 						}
 					}
 					elseif ([ConfigurationHelper]::LocalPolicyEnabled) {
 						$serverFileContent = [ConfigurationHelper]::LoadOfflineConfigFile($policyFileName, $true, $onlineStoreUri)
 					}
+					elseif ([ConfigurationHelper]::OssPolicyEnabled) {
+					    $Version = [ConfigurationHelper]::ConfigVersion;
+						#If file is not available in both custom and local org policy, Fallback to github based oss policy
+                        $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $policyFileName);
+					}
 					else {
 						$Version = [ConfigurationHelper]::ConfigVersion ;
-						$serverFileContent = [ConfigurationHelper]::InvokeControlsAPI($onlineStoreUri, $Version, $policyFileName, $enableAADAuthForOnlinePolicyStore);
+						#If file is not available in both custom and local org policy, Fallback to github based oss policy
+                        $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $policyFileName);     
+						[ConfigurationHelper]::ConfigVersion = $Version;                
 					}
 
 					#Completely override offline config if Server Override flag is enabled
@@ -147,7 +209,6 @@ class ConfigurationHelper {
 					#Write-Host -ForegroundColor Green "**ADDING TO CACHE** $policyFileName"
 				}
 				catch {
-					[ConfigurationHelper]::OfflineMode = $true;
 
 					if (-not [ConfigurationHelper]::IsIssueLogged) {
 						if ([Helpers]::CheckMember($_, "Exception.Response.StatusCode") -and $_.Exception.Response.StatusCode.ToString().ToLower() -eq "unauthorized") {
@@ -229,8 +290,14 @@ class ConfigurationHelper {
 
 	hidden static [PSObject] LoadServerFileRaw([string] $fileName, [bool] $useOnlinePolicyStore, [string] $onlineStoreUri, [bool] $enableAADAuthForOnlinePolicyStore) {
 		[PSObject] $fileContent = "";
+		$serverFileContent = $null;
 		if ([string]::IsNullOrWhiteSpace($fileName)) {
 			throw [System.ArgumentException] ("The argument 'fileName' is null");
+		}
+
+		if ([String]::IsNullOrWhiteSpace([ConfigurationHelper]::OssPolicyUrl)) {
+			$moduleAzSKSettings = [ConfigurationHelper]::LoadFrameworkConfigFile("AzSKSettings.json", $true);
+			[ConfigurationHelper]::OssPolicyUrl = $moduleAzSKSettings.OnlineOssPolicyStoreUrl
 		}
 
 		if ($useOnlinePolicyStore) {
@@ -242,27 +309,61 @@ class ConfigurationHelper {
 			#Check if policy present in server using metadata file
 			if (-not [ConfigurationHelper]::OfflineMode -and [ConfigurationHelper]::IsPolicyPresentOnServer($fileName, $useOnlinePolicyStore, $onlineStoreUri, $enableAADAuthForOnlinePolicyStore)) {
 				try {
-					if ([String]::IsNullOrWhiteSpace([ConfigurationHelper]::ConfigVersion)) {
+					if ([String]::IsNullOrWhiteSpace([ConfigurationHelper]::ConfigVersion) -and -not [ConfigurationHelper]::LocalPolicyEnabled -and -not [ConfigurationHelper]::OssPolicyEnabled) {
 						try {
 							$Version = [System.Version] ($global:ExecutionContext.SessionState.Module.Version);
 							$serverFileContent = [ConfigurationHelper]::InvokeControlsAPI($onlineStoreUri, $Version, $fileName, $enableAADAuthForOnlinePolicyStore);
-							[ConfigurationHelper]::ConfigVersion = $Version;
+							if ([String]::IsNullOrWhiteSpace($serverFileContent)) {
+								#If file is not available in custom org policy, Try to fetch the file content from local org policy
+								if (Test-Path $onlineStoreUri) {
+									[EventBase]::PublishGenericCustomMessage("Running Org-Policy from local policy store location: [$onlineStoreUri]", [MessageType]::Info);
+									$serverFileContent = [ConfigurationHelper]::LoadOfflineConfigFile($fileName, $true, $onlineStoreUri)
+									[ConfigurationHelper]::LocalPolicyEnabled = $true
+								}
+							}
+							if ([String]::IsNullOrWhiteSpace($serverFileContent)) {
+								#If file is not available in both custom and local org policy, Fallback to github based oss policy
+                                if(-not [String]::IsNullOrWhiteSpace([ConfigurationHelper]::OssPolicyUrl)) {
+                                    $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $fileName);
+									[ConfigurationHelper]::OssPolicyEnabled = $true
+								    [ConfigurationHelper]::ConfigVersion = $Version;
+                                }
+							}
+							if ([String]::IsNullOrWhiteSpace($serverFileContent)) {
+								#If file is not available in both custom and local org policy, Fallback to github based oss policy
+								$Version = ([ConfigurationHelper]::LoadOfflineConfigFile("AzSK.json")).ConfigSchemaBaseVersion;
+                                if(-not [String]::IsNullOrWhiteSpace([ConfigurationHelper]::OssPolicyUrl)) {
+                                    $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $fileName);
+									[ConfigurationHelper]::ConfigVersion = $Version;
+                                }
+							}
 						}
 						catch {
-							$Version = ([ConfigurationHelper]::LoadOfflineConfigFile("AzSK.json")).ConfigSchemaBaseVersion;
-							$serverFileContent = [ConfigurationHelper]::InvokeControlsAPI($onlineStoreUri, $Version, $fileName, $enableAADAuthForOnlinePolicyStore);
-							[ConfigurationHelper]::ConfigVersion = $Version;
+								#If file is not available in both custom and local org policy, Fallback to github based oss policy
+								$Version = ([ConfigurationHelper]::LoadOfflineConfigFile("AzSK.json")).ConfigSchemaBaseVersion;
+                                if(-not [String]::IsNullOrWhiteSpace([ConfigurationHelper]::OssPolicyUrl)) {
+                                    $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $fileName);
+									[ConfigurationHelper]::ConfigVersion = $Version;
+                                }
 						}
+					}
+					elseif ([ConfigurationHelper]::LocalPolicyEnabled) {
+						$serverFileContent = [ConfigurationHelper]::LoadOfflineConfigFile($fileName, $true, $onlineStoreUri)
+					}
+					elseif ([ConfigurationHelper]::OssPolicyEnabled) {
+						#If file is not available in both custom and local org policy, Fallback to github based oss policy
+                        $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, [ConfigurationHelper]::ConfigVersion, $fileName);
 					}
 					else {
 						$Version = [ConfigurationHelper]::ConfigVersion ;
-						$serverFileContent = [ConfigurationHelper]::InvokeControlsAPI($onlineStoreUri, $Version, $fileName, $enableAADAuthForOnlinePolicyStore);
+						#If file is not available in both custom and local org policy, Fallback to github based oss policy
+                        $serverFileContent = [ConfigurationHelper]::InvokeControlsAPIGitHub([ConfigurationHelper]::OssPolicyUrl, $Version, $fileName);
+						[ConfigurationHelper]::ConfigVersion = $Version;
 					}
 
 					$fileContent = $serverFileContent
 				}
 				catch {
-					[ConfigurationHelper]::OfflineMode = $true;
 
 					if (-not [ConfigurationHelper]::IsIssueLogged) {
 						if ([Helpers]::CheckMember($_, "Exception.Response.StatusCode") -and $_.Exception.Response.StatusCode.ToString().ToLower() -eq "unauthorized") {
@@ -309,6 +410,37 @@ class ConfigurationHelper {
 		}
 		catch {
 			return $null;
+		}
+		return $null;
+	}
+
+	# Fetch the configuration file content from github
+	hidden static [PSObject] InvokeControlsAPIGitHub([string] $onlineStoreUri, [string] $configVersion, [string] $policyFileName)
+ 	{
+		write-host "fetching from oss"
+		#Evaluate all code block in onlineStoreUri. 
+		#Can use '$FileName' in uri to fill dynamic file name.
+		#Revisit
+		$FileName = $policyFileName;
+		$Version = $configVersion;
+		$uri = $global:ExecutionContext.InvokeCommand.ExpandString($onlineStoreUri)
+		[System.Uri] $validatedUri = $null;
+		if ([System.Uri]::TryCreate($uri, [System.UriKind]::Absolute, [ref] $validatedUri))
+		{
+			try {
+				$serverFileContent = Invoke-RestMethod `
+					-Method GET `
+					-Uri $validatedUri `
+					-UseBasicParsing
+				return $serverFileContent
+			}
+			catch {
+				return $null;
+			}
+		}
+		else
+		{
+			[EventBase]::PublishGenericCustomMessage(("'UseOnlinePolicyStore' is enabled but the 'OnlinePolicyStoreUrl' is not valid Uri: [$uri]. `r`n" + [Constants]::OfflineModeWarning), [MessageType]::Warning);
 		}
 		return $null;
 	}

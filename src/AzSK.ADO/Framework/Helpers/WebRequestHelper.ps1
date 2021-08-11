@@ -110,6 +110,36 @@ class WebRequestHelper {
 		return @{ "Content-Type"="application/json" };
 	}
 
+	hidden static [Hashtable] GetAuthHeaderFromUri([string] $uri, [bool] $isPatTokenGiven)
+	{
+		[System.Uri] $validatedUri = $null;
+        if([System.Uri]::TryCreate($uri, [System.UriKind]::Absolute, [ref] $validatedUri))
+		{
+
+			$token = [ContextHelper]::GetAccessToken();
+
+			# Validate if token is PAT using lenght (PAT has lengh of 52) else go with default bearer token
+			if($token.length -eq 52)
+			{
+				$user = ""
+				$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$token)))
+				return @{
+					"Authorization"= ("Basic " + $base64AuthInfo); 
+					"Content-Type"="application/json"
+				};
+			}
+			else {
+				return @{
+					"Authorization"= ("Bearer " + $token); 
+					"Content-Type"="application/json"
+				};
+			}
+			
+		}
+		
+		return @{ "Content-Type"="application/json" };
+	}
+
 	hidden static [Hashtable] GetAuthHeaderFromUriPatch([string] $uri) {
         [System.Uri] $validatedUri = $null;
         if ([System.Uri]::TryCreate($uri, [System.UriKind]::Absolute, [ref] $validatedUri)) {
@@ -455,6 +485,72 @@ class WebRequestHelper {
 		}	
 	    }				
 			return $outputValues,$originalUri;
+	}
+	static [System.Object[]] InvokeWebRequestForContinuationToken([string] $validatedUri,[string] $originalUri,$skipCount,$resourceType){
+		
+		$success = $false;
+		[int] $retryCount=3;
+		$continuationToken=$null;
+		$outputValues=@();
+		while($retryCount -gt 0 -and -not $success){
+			$retryCount=$retryCount-1;
+		
+		try{
+			
+			$headers=[WebRequestHelper]::GetAuthHeaderFromUri($validatedUri,$true)
+			$requestResult = Invoke-WebRequest -Method Get -Uri $validatedUri -Headers $headers -UseBasicParsing
+			
+			if ($null -ne $requestResult -and $requestResult.StatusCode -ge 200 -and $requestResult.StatusCode -le 399) {
+				if ($null -ne $requestResult.Content) {
+					$json = ConvertFrom-Json $requestResult.Content
+					if ($null -ne $json) {
+						if( $null -eq $skipCount){
+						if (($json | Get-Member -Name "value") -and $json.value) {
+							$outputValues += $json.value;
+						}
+						else {
+							$outputValues += $json;
+						}
+					}
+					if($requestResult.Headers.ContainsKey('x-ms-continuationtoken')){
+						$nPKey = $requestResult.Headers["x-ms-continuationtoken"]
+						$continuationToken=$nPKey;
+						if($resourceType -eq "build" -and $null -ne $skipCount ){
+							$originalUri= $originalUri +"&%24skip="+$skipCount+ "&continuationToken="+$nPKey
+						}
+						elseif($resourceType -eq "release") {
+							$originalUri= $originalUri +"&continuationToken="+$nPKey
+						
+						}
+						
+								
+					}
+					else {
+						$originalUri = [string]::Empty;
+						$continuationToken="";
+					}
+				}
+				}
+			}
+		$success=$true;
+		}
+		catch{
+			if ($originalUri.Contains("mspim") -and [Helpers]::CheckMember($_, "ErrorDetails.Message")) {		
+				$err = $_.ErrorDetails.Message | ConvertFrom-Json
+				throw ([SuppressedException]::new(($err), [SuppressedExceptionType]::Generic))				
+			}
+			elseif ([Helpers]::CheckMember($_, "Exception.Response.StatusCode") -and $_.Exception.Response.StatusCode -eq "Forbidden") {
+				throw ([SuppressedException]::new(("You do not have permission to view the requested resource."), [SuppressedExceptionType]::InvalidOperation))
+			}
+			elseif ([Helpers]::CheckMember($_, "Exception.Message")) {
+				throw ([SuppressedException]::new(($_.Exception.Message.ToString()), [SuppressedExceptionType]::InvalidOperation))
+			}				
+			else {
+				throw;
+			}
+		}	
+	    }				
+			return $continuationToken,$originalUri,$outputValues;
 	}
 
 }
