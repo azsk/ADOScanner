@@ -299,7 +299,9 @@ class VariableGroup: ADOSVTBase
                 }
 
                 # Checking whether the broader groups have User/Admin permissions
-                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                $backupDataObject = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                
+                $restrictedGroups = @($backupDataObject | Select-Object Name,role)
                 $restrictedGroupsCount = $restrictedGroups.Count
 
                 # fail the control if restricted group found on variable group
@@ -311,7 +313,7 @@ class VariableGroup: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group: $($restrictedGroupsCount)";
                     if ($this.ControlFixBackupRequired) {
                         #Data object that will be required to fix the control
-                        $controlResult.BackupControlState = $restrictedGroups;
+                        $controlResult.BackupControlState = $backupDataObject;
                     }
                 }
                 else {
@@ -365,7 +367,7 @@ class VariableGroup: ADOSVTBase
 "@;
                 }
                 $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
-                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.group}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
             }            
             $body += "]"
             #Put request
