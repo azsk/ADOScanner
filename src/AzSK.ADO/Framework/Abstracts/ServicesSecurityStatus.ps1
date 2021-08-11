@@ -12,6 +12,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	$ActualResourcesPerRsrcType = @(); # Resources count based on resource type . This count is evaluated before comparison with resource tracker file.
     [bool] $IsControlFixCommand = $false;
     [string] $controlInternalId;
+	[bool] $IsBatchScan=$false;
 
 	ServicesSecurityStatus([string] $organizationName, [InvocationInfo] $invocationContext, [SVTResourceResolver] $resolver):
         Base($organizationName, $invocationContext)
@@ -30,6 +31,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		$this.ActualResourcesPerRsrcType = $this.Resolver.SVTResources | Group-Object -Property ResourceType |select-object Name, Count           
 
 		$this.UsePartialCommits = $invocationContext.BoundParameters["UsePartialCommits"];
+		$this.IsBatchScan = $invocationContext.BoundParameters["BatchScan"];
 
 		#BaseLineControlFilter with control ids
 		$this.UseBaselineControls = $invocationContext.BoundParameters["UseBaselineControls"];
@@ -59,7 +61,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
         $this.IsControlFixCommand = $true
         $this.FilterTags = "AutomatedFix"
         $this.MapTagsToControlIds();
-        if ($this.ControlIds -contains $ControlId)
+        
+        if ($this.ControlIds.Count -gt 0)
         {
             $this.Resolver = $resolver;
             $this.Resolver.FetchControlFixBackupFile($organizationName, $projectName, $this.controlInternalId);
@@ -332,7 +335,12 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 						{
 							# Update local resource tracker file
 							$this.UpdatePartialCommitFile($false, $result)
+							#If this is a batch scan, update the inventory count and add to tracker
+							if($this.IsBatchScan) {
+								$this.UpdateBatchScanCount($currentCount,$totalResources);
+							}
 							$updateSucceeded = $true
+
 						}	
 					}	
 					else{			
@@ -560,6 +568,20 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		}
 	}
 
+	[void] UpdateBatchScanCount($currentCount,$totalResources) {
+		$ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+		[BatchScanManager] $batchScanMngr = [BatchScanManager]::GetInstance()
+		$batchStatus = $batchScanMngr.GetBatchStatus();
+		if($currentCount % $ControlSettings.PartialScan.LocalScanUpdateFrequency -eq 0){
+			$batchStatus.ResourceCount += $ControlSettings.PartialScan.LocalScanUpdateFrequency;
+		}
+		elseif($currentCount -eq $totalResources){
+			$batchStatus.ResourceCount += ($totalResources %  $ControlSettings.PartialScan.LocalScanUpdateFrequency );
+		}
+		
+		$batchScanMngr.BatchScanTrackerObj = $batchStatus;
+        $batchScanMngr.WriteToBatchTrackerFile();
+	}
 
 	[void] UpdatePartialCommitFile($isDurableStorageUpdate , $result)
 	{
@@ -737,6 +759,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 				if ($this.IsControlFixCommand)
 				{
 					$inputControlId = $this.invocationContext.BoundParameters["ControlId"];
+					$this.ControlIds = $this.ControlIds | where-object {$_ -eq $inputControlId}
 					$this.ControlInternalId = ($controlList | Where-Object { $inputControlId -contains $_.ControlId }| Select-Object Id -Unique).Id
 				}
 			}

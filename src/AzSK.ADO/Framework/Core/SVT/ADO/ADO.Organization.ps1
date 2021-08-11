@@ -255,7 +255,8 @@ class Organization: ADOSVTBase
 
                                     $nonSCCount = $nonSCMembers.Count
                                     $SCCount = $SCMembers.Count
-
+                                    $totalAdminCount = $nonSCCount+$SCCount
+                                    $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
                                     if ($nonSCCount -gt 0)
                                     {
                                         $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
@@ -1335,6 +1336,7 @@ class Organization: ADOSVTBase
             $PCAMembers = $this.PCAMembersList
             $TotalPCAMembers = $PCAMembers.Count
             $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
+            $controlResult.SetStateData("Count of Project Collection Administrators: ",$TotalPCAMembers)
             if ([IdentityHelpers]::hasGraphAccess)
             {
                 if($this.svcAccountsList.Count -eq 0 -and $this.humanAccountsList.Count -eq 0){
@@ -1365,7 +1367,6 @@ class Organization: ADOSVTBase
                 if($TotalPCAMembers -gt 0){
                     $display=($PCAMembers |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("Current set of Project Collection Administrators: `n",$display)
-                    $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
                     $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;
                 }
             }
@@ -1390,6 +1391,7 @@ class Organization: ADOSVTBase
             $PCAMembers = $this.PCAMembersList
             $TotalPCAMembers = $PCAMembers.Count
             $controlResult.AddMessage("There are a total of $TotalPCAMembers Project Collection Administrators in your organization.")
+            $controlResult.SetStateData("Count of Project Collection Administrators: ",$TotalPCAMembers)
             if ([IdentityHelpers]::hasGraphAccess)
             {  
                 if($this.svcAccountsList.Count -eq 0 -and $this.humanAccountsList.Count -eq 0){
@@ -1422,7 +1424,6 @@ class Organization: ADOSVTBase
                 if($TotalPCAMembers -gt 0){
                     $display=($PCAMembers |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("Current set of Project Collection Administrators: `n",$display)
-                    $controlResult.SetStateData("List of Project Collection Administrators: ",$PCAMembers)
                     $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;
                 }
             }

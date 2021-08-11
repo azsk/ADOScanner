@@ -28,12 +28,13 @@
       "Automated": "Yes",
       "MethodName": "CheckForInactiveReleases",
       "Rationale": "Each additional release having access to repositories/other artifacts increases the attack surface. To minimize this risk ensure that only active and legitimate release pipelines are present in your environment.",
-      "Recommendation": "To remove inactive release pipeline follow these steps: 1.Navigate to the release pipeline. 2. Select a release pipeline. 3. Select three dots (present in right top). 4. Click on Delete.",
+      "Recommendation": "Steps to remove inactive release pipeline: 1.Navigate to the release pipeline. --> 2. Select a release pipeline. --> 3. Select three dots (present in right top). --> 4. Click on Delete.",
       "Tags": [
         "SDL",
         "Best Practice",
         "Automated",
-        "DP"
+        "DP",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -148,7 +149,7 @@
       "Automated": "Yes",
       "MethodName": "CheckSettableAtReleaseTimeForURL",
       "Rationale": "Pipeline variables that are marked settable at queue time can be changed by anyone who can create a release. If these variables contain a URL then someone can change the URL to a server that they control and can intercept any secret used to interact with the intended server by creating a release.",
-      "Recommendation": "1. Navigate to the release pipeline. 2. Click on Edit. 3. Select variables. 4. Uncheck 'settable at release time' for such variables. 5. Save the release pipeline.",
+      "Recommendation": "1. Navigate to the release pipeline. --> 2. Click on Edit. --> 3. Select variables. --> 4. Uncheck 'settable at release time' for such variables. --> 5. Save the release pipeline.",
       "Tags": [
         "SDL",
         "TCP",
@@ -158,24 +159,25 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Release_SI_Restrict_Task_Group_Edit_Permission",
+      "ControlID": "ADO_Release_SI_Dont_Use_Broadly_Editable_Task_Group",
       "Description": "Releases should not use task groups that are editable by a broad pool of users.",
       "Id": "Release210",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckTaskGroupEditPermission",
       "Rationale": "If a broad pool of users (e.g., Contributors) have edit permissions on a task group, then integrity of your pipeline can be compromised by a malicious user who edits the task group.",
-      "Recommendation": "1. Navigate to the release pipeline. 2. Click on Tasks. 3. Right click on each task group and select 'Manage task group'. 4. Select 'Security' for the task group. 5. Ensure 'Edit task group' permission of Contributor is not set to 'Allow'. 6. Repeat this for any other groups that should not have edit access.",
+      "Recommendation": "1. Navigate to the release pipeline. --> 2. Click on Tasks. --> 3. Right click on each task group and select 'Manage task group'. --> 4. Select 'Security' for the task group. --> 5. Ensure 'Edit task group' permission of Contributor is not set to 'Allow'. --> 6. Repeat this for any other groups that should not have edit access.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "SI"
+        "SI",
+        "MSW"
       ],
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Release_SI_Restrict_Variable_Group_Edit_Permission",
+      "ControlID": "ADO_Release_SI_Dont_Use_Broadly_Editable_Variable_Group",
       "Description": "Do not use variable groups that are editable by a broad group of users.",
       "Id": "Release220",
       "ControlSeverity": "High",
@@ -206,7 +208,8 @@
         "TCP",
         "Automated",
         "SI",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
