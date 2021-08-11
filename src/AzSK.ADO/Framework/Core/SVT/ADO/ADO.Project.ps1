@@ -2652,7 +2652,7 @@ class Project: ADOSVTBase
             $controlResult.VerificationResult = [VerificationResult]::Failed
             $projectId = $this.ResourceContext.ResourceDetails.Id
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedBroaderGroupsForSecureFile") -and [Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedRolesForBroaderGroupsInSecureFile")) {
+            if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedBroaderGroupsForSecureFile") -and [Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedRolesForBroaderGroupsInSecureFile")) {
                 $restrictedBroaderGroupsForSecureFile = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile;  
                 $restrictedRolesForBroaderGroupsInSecureFile = $this.ControlSettings.SecureFile.RestrictedRolesForBroaderGroupsInSecureFile;              
 
@@ -2701,7 +2701,7 @@ class Project: ADOSVTBase
         $controlResult.VerificationResult = [VerificationResult]::Failed       
         try{
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedBroaderGroupsForSecureFile") -and [Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedRolesForBroaderGroupsInSecureFile")) {
+            if ([Helpers]::CheckMember($this.ControlSettings, "Repo.RestrictedBroaderGroupsForRepo") -and [Helpers]::CheckMember($this.ControlSettings, "Repo.RestrictedRolesForBroaderGroupsInRepo")) {
                 $restrictedBroaderGroupsForRepo = $this.ControlSettings.Repo.RestrictedBroaderGroupsForRepo;  
                 $restrictedRolesForBroaderGroupsInRepo = $this.ControlSettings.Repo.RestrictedRolesForBroaderGroupsInRepo;  
 
@@ -2805,7 +2805,7 @@ class Project: ADOSVTBase
             $controlResult.VerificationResult = [VerificationResult]::Failed
             $projectId = $this.ResourceContext.ResourceDetails.Id
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedBroaderGroupsForEnvironment") -and [Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedRolesForBroaderGroupsInEnv")) {
+            if ([Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedBroaderGroupsForEnvironment") -and [Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedRolesForBroaderGroupsInEnv")) {
                 $RestrictedBroaderGroupsForEnvironment = $this.ControlSettings.Environment.RestrictedBroaderGroupsForEnvironment;
                 $restrictedRolesForBroaderGroupsInEnv = $this.ControlSettings.Environment.RestrictedRolesForBroaderGroupsInEnv;
 
