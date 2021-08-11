@@ -285,7 +285,7 @@ function Get-AzSKADOSecurityStatus
 		[Parameter(HelpMessage="Service id for which the security evaluation has to be performed.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("svcid")]
-		$ServiceId,
+		$ServiceIds,
 
 		[switch]
 		[Parameter(HelpMessage="Include admin controls (organization and project specific controls) in scan.")]

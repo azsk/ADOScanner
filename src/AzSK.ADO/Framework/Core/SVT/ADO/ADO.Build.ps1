@@ -12,6 +12,9 @@ class Build: ADOSVTBase
     hidden static [PSObject] $BuildVarNames = @{};
     hidden [PSObject] $buildActivityDetail = @{isBuildActive = $true; buildLastRunDate = $null; buildCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [PSObject] $excessivePermissionBits = @(1)
+    hidden static $isInheritedPermissionCheckEnabled = $false
+    hidden static $SecretsInBuildRegexList = $null;
+    hidden static $SecretsScanToolEnabled = $null;
 
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -100,6 +103,22 @@ class Build: ADOSVTBase
             #allow permission bit for inherited permission is '3'
             $this.excessivePermissionBits = @(1,3)
         }
+
+        if(-not [Build]::isInheritedPermissionCheckEnabled)
+        {
+            if(([Helpers]::CheckMember($this.ControlSettings, "Build.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions))
+            {
+                [Build]::isInheritedPermissionCheckEnabled = $true
+            }
+        }
+        
+        if (![Build]::SecretsInBuildRegexList) {
+            [Build]::SecretsInBuildRegexList = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList;
+            
+        }
+        if ($null -eq [Build]::SecretsScanToolEnabled) {
+            [Build]::SecretsScanToolEnabled = [Helpers]::CheckMember([ConfigurationManager]::GetAzSKSettings(),"SecretsScanToolFolder")
+        }
     }
 
     [ControlItem[]] ApplyServiceFilters([ControlItem[]] $controls)
@@ -115,7 +134,9 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckCredInBuildVariables([ControlResult] $controlResult)
 	{
-        if([Helpers]::CheckMember([ConfigurationManager]::GetAzSKSettings(),"SecretsScanToolFolder"))
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        
+        if([Build]::SecretsScanToolEnabled -eq $true)
         {
             $ToolFolderPath =  [ConfigurationManager]::GetAzSKSettings().SecretsScanToolFolder
         $SecretsScanToolName = [ConfigurationManager]::GetAzSKSettings().SecretsScanToolName
@@ -171,9 +192,9 @@ class Build: ADOSVTBase
         }
         else {
           try {
-            $patterns = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList;
+            #$patterns = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList;
             $exclusions = $this.ControlSettings.Build.ExcludeFromSecretsCheck;
-            if(($patterns | Measure-Object).Count -gt 0)
+            if([Build]::SecretsInBuildRegexList.RegexList.Count -gt 0)
             {
                 $varList = @();
                 $varGrpList = @();
@@ -186,28 +207,18 @@ class Build: ADOSVTBase
 
                             $buildVarName = $_.Name
                             $buildVarValue = $this.BuildObj[0].variables.$buildVarName.value
-                            <# helper code to build a list of vars and counts
-                            if ([Build]::BuildVarNames.Keys -contains $buildVarName)
-                            {
-                                    [Build]::BuildVarNames.$buildVarName++
-                            }
-                            else
-                            {
-                                [Build]::BuildVarNames.$buildVarName = 1
-                            }
-                            #>
                             if ($exclusions -notcontains $buildVarName)
                             {
-                                for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) {
+                                for ($i = 0; $i -lt [Build]::SecretsInBuildRegexList.RegexList.Count; $i++) {
                                     #Note: We are using '-cmatch' here.
                                     #When we compile the regex, we don't specify ignoreCase flag.
                                     #If regex is in text form, the match will be case-sensitive.
-                                    if ($buildVarValue -cmatch $patterns.RegexList[$i]) {
+                                    if ($buildVarValue -cmatch [Build]::SecretsInBuildRegexList.RegexList[$i]) {
                                         $noOfCredFound +=1
                                         $varList += "$buildVarName";
                                         break
-                                        }
                                     }
+                                }
                             }
                         }
                     }
@@ -226,11 +237,11 @@ class Build: ADOSVTBase
                                     $varValue = $varGrp.variables.$($_.Name).value
                                     if ($exclusions -notcontains $varName)
                                     {
-                                        for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) {
+                                        for ($i = 0; $i -lt [Build]::SecretsInBuildRegexList.RegexList.Count; $i++) {
                                             #Note: We are using '-cmatch' here.
                                             #When we compile the regex, we don't specify ignoreCase flag.
                                             #If regex is in text form, the match will be case-sensitive.
-                                            if ($varValue -cmatch $patterns.RegexList[$i]) {
+                                            if ($varValue -cmatch [Build]::SecretsInBuildRegexList.RegexList[$i]) {
                                                 $noOfCredFound +=1
                                                 $varGrpList += "[$($varGrp.Name)]:$varName";
                                                 break
@@ -252,21 +263,26 @@ class Build: ADOSVTBase
                         VariableList = @();
                         VariableGroupList = @();
                     };
-                    if(($varList | Measure-Object).Count -gt 0 )
+
+                    $varContaningSecretCount = $varList.Count
+                    if($varContaningSecretCount -gt 0 )
                     {
                         $varList = $varList | select -Unique | Sort-object
                         $stateData.VariableList += $varList
-                        $controlResult.AddMessage("`nTotal number of variable(s) containing secret: ", ($varList | Measure-Object).Count);
-                        $controlResult.AddMessage("`nList of variable(s) containing secret: ", $varList);
-                        $controlResult.AdditionalInfo += "Total number of variable(s) containing secret: " + ($varList | Measure-Object).Count;
+                        $controlResult.AddMessage("`nCount of variable(s) containing secret: $($varContaningSecretCount)");
+                        $formattedVarList = $($varList | FT | out-string )
+                        $controlResult.AddMessage("`nList of variable(s) containing secret: ", $formattedVarList);
+                        $controlResult.AdditionalInfo += "Count number of variable(s) containing secret: " + $varContaningSecretCount;
                     }
-                    if(($varGrpList | Measure-Object).Count -gt 0 )
+                    $varGrpContaningSecretCount = $varGrpList.Count; 
+                    if($varGrpContaningSecretCount -gt 0 )
                     {
                         $varGrpList = $varGrpList | select -Unique | Sort-object
                         $stateData.VariableGroupList += $varGrpList
-                        $controlResult.AddMessage("`nTotal number of variable(s) containing secret in variable group(s): ", ($varGrpList | Measure-Object).Count);
-                        $controlResult.AddMessage("`nList of variable(s) containing secret in variable group(s): ", $varGrpList);
-                        $controlResult.AdditionalInfo += "Total number of variable(s) containing secret in variable group(s): " + ($varGrpList | Measure-Object).Count;
+                        $controlResult.AddMessage("`nCount of variable(s) containing secret in variable group(s): $($varGrpContaningSecretCount)");
+                        $formattedVarGrpList = $($varGrpList | FT | out-string )
+                        $controlResult.AddMessage("`nList of variable(s) containing secret in variable group(s): ", $formattedVarGrpList);
+                        $controlResult.AdditionalInfo += "Count of variable(s) containing secret in variable group(s): " + $varGrpContaningSecretCount;
                     }
                     $controlResult.SetStateData("List of variable and variable group containing secret: ", $stateData );
                 }
@@ -274,11 +290,11 @@ class Build: ADOSVTBase
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting credentials in pipeline variables are not defined in your organization.");
+                $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting credentials in pipeline variables are not defined in your organization.");
             }
         }
         catch {
-            $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch the build definition.");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the build definition.");
             $controlResult.AddMessage($_);
             $controlResult.LogException($_)
         }
@@ -288,6 +304,7 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckForInactiveBuilds([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
             if ($this.buildActivityDetail.message -eq 'Could not fetch build details.')
@@ -315,8 +332,10 @@ class Build: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed, "No build history found in last $($inactiveLimit) days.");
                     }
-                    $controlResult.AddMessage("The build pipeline was created on: $($this.buildActivityDetail.buildCreationDate)");
-                    $controlResult.AdditionalInfo += "The build pipeline was created on: " + $this.buildActivityDetail.buildCreationDate;
+                    $dateobj = [datetime]::Parse($this.buildActivityDetail.buildCreationDate);
+                    $formattedDate = $dateobj.ToString("d MMM yyyy")
+                    $controlResult.AddMessage("The build pipeline was created on: $($formattedDate)");
+                    $controlResult.AdditionalInfo += "The build pipeline was created on: " + $formattedDate;
                 }
                 else
                 {
@@ -326,8 +345,10 @@ class Build: ADOSVTBase
 
             if ($null -ne $this.buildActivityDetail.buildLastRunDate)
             {
-                $controlResult.AddMessage("Last run date of build pipeline: $($this.buildActivityDetail.buildLastRunDate)");
-                $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $this.buildActivityDetail.buildLastRunDate;
+                $dateobj = [datetime]::Parse($this.buildActivityDetail.buildLastRunDate);
+                $formattedDate = $dateobj.ToString("d MMM yyyy")
+                $controlResult.AddMessage("Last run date of build pipeline: $($formattedDate)");
+                $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $formattedDate;
                 $buildInactivePeriod = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
                 $controlResult.AddMessage("The build was inactive from last $($buildInactivePeriod) days.");
             }
@@ -753,20 +774,24 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckExternalSources([ControlResult] $controlResult)
     {
-        if(($this.BuildObj | Measure-Object).Count -gt 0)
-        {
-            $sourceobj = $this.BuildObj[0].repository | Select-Object -Property @{Name="Name"; Expression = {$_.Name}},@{Name="Type"; Expression = {$_.type}}
-           if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
+        $controlResult.VerificationResult = [VerificationResult]::Verify
+        $sourceObj = $this.BuildObj[0].repository | Select-Object -Property @{Name="RepositoryName"; Expression = {$_.Name}},@{Name="RepositorySourceType"; Expression = {$_.type}}
+        if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
            {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository.",  $sourceobj);
-                $controlResult.AdditionalInfo += "Pipeline code is built from trusted repository: " + [JsonHelper]::ConvertToJsonCustomCompressed($sourceobj);
-                $sourceobj = $null;
+                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository: ");
+                $display = ($sourceObj|FT  -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
+                $controlResult.SetStateData("Pipeline code is built from trusted repository: ",$sourceObj)                
            }
-           else {
-                $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from external repository.", $sourceobj);
-                $controlResult.AdditionalInfo += "Pipeline code is built from external repository: " + [JsonHelper]::ConvertToJsonCustomCompressed($sourceobj);
+        else
+           {
+                $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from external repository: ");
+                $display = ($sourceObj|FT  -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
+                $controlResult.SetStateData("Pipeline code is built from external repository: ",$sourceObj)
            }
-        }
+        $sourceObj = $null;
+        
 
         return $controlResult;
     }
@@ -987,20 +1012,38 @@ class Build: ADOSVTBase
         {
             $varGrps = $this.BuildObj[0].variableGroups
             $projectId = $this.BuildObj.project.id
-            $projectName = $this.BuildObj.project.name
             $editableVarGrps = @();
             try
             {
-                $varGrps | ForEach-Object{
-                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($projectId), $($_.Id);
-                    $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                    if($responseObj.Count -gt 0)
+                foreach($currentVarGrp in $varGrps)
+                {
+                    if([Helpers]::CheckMember($currentVarGrp,"name"))  ## Deleted VGs do not contain "name" property thats why ignoring them
                     {
-                        $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})
-                        if((-not [string]::IsNullOrEmpty($contributorsObj)) -and ($contributorsObj.role.name -ne 'Reader')){
-                            $editableVarGrps += $_.name
+                        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($projectId), $($currentVarGrp.Id);
+                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                        if($responseObj.Count -gt 0)
+                        {                        
+                            if([Build]::isInheritedPermissionCheckEnabled)
+                            {
+                                $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
+                            }
+                            else {
+                                $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access = "assigned")})                        
+                            }
+
+                            if($contributorsObj.Count -gt 0)
+                            {   
+                                foreach($obj in $contributorsObj){
+                                    if($obj.role.name -ne 'Reader')
+                                    {
+                                        $editableVarGrps += $currentVarGrp.name
+                                        break;
+                                    }
+                                }                            
+                            }
                         }
                     }
+                    
                 }
                 $editableVarGrpsCount = $editableVarGrps.Count
                 if($editableVarGrpsCount -gt 0)
@@ -1031,7 +1074,8 @@ class Build: ADOSVTBase
     }
 
     hidden [ControlResult] CheckBuildAuthZScope([ControlResult] $controlResult)
-    {
+    {   
+        $controlResult.VerificationResult = [VerificationResult]::Failed
 
         if([Helpers]::CheckMember($this.BuildObj[0],"jobAuthorizationScope"))
         {
@@ -1147,7 +1191,7 @@ class Build: ADOSVTBase
                     }" | ConvertFrom-Json
 
                     # Web request to fetch the group details for a build definition
-                    $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
+                    $responseObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody));
                     if ([Helpers]::CheckMember($responseObj[0], "dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider', "identities"))) {
 
                         $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $broaderGroups -contains $_.displayName })
@@ -1195,8 +1239,8 @@ class Build: ADOSVTBase
                                 }" | ConvertFrom-Json
 
                                 #Web request to fetch RBAC permissions of broader groups on build.
-                                $broaderGroupResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $broaderGroupInputbody);
-                                $broaderGroupRBACObj = $broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
+                                $broaderGroupResponseObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL, $broaderGroupInputbody));
+                                $broaderGroupRBACObj = @($broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions)
                                 $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
                                 $excessivePermissionsPerGroup = @()
                                 $excessivePermissionList | ForEach-Object {
@@ -1535,9 +1579,9 @@ class Build: ADOSVTBase
                     if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider' -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider',"pipelines") -and  $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines)
                     {
 
-                        $builds = $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines
+                        $builds = @($responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines)
 
-                        if(($builds | Measure-Object).Count -gt 0 )
+                        if($builds.Count -gt 0 )
                         {
                             $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
                             [datetime]$createdDate = $this.BuildObj.createdDate
