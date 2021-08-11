@@ -46,7 +46,9 @@
           "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Releases",
           "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SvcConn",
           "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Agentpool",
-          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_VarGrp"
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_VarGrp",
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Repo",
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SecureFile"
         ]
       },
       {
@@ -452,8 +454,11 @@
       "Contributors",
       "Readers",
       "Project Valid Users"
-      ],
-      "CheckForInheritedPermissions": false
+    ],
+    "RestrictedRolesForBroaderGroupsInSecureFile": [
+      "administrator"       
+    ],
+    "CheckForInheritedPermissions": false
   },
   "Environment":{
     "RestrictedBroaderGroupsForEnvironment": [
@@ -461,8 +466,12 @@
       "Contributors",
       "Readers",
       "Project Valid Users"
-      ],
-      "CheckForInheritedPermissions": false
+    ],
+    "RestrictedRolesForBroaderGroupsInEnv": [
+      "Administrator",
+      "User"       
+    ],
+    "CheckForInheritedPermissions": false
   },
   "Repo": {
     "RepoHistoryPeriodInDays": 180,
@@ -473,7 +482,19 @@
       "*@exchange.microsoft.com",
       "*@ntdev.microsoft.com",
       "*@microsoftfederal.com"
-    ]
+    ],
+    "RestrictedBroaderGroupsForRepo": [
+      "Project Collection Valid Users",
+      "Contributors",
+      "Readers",
+      "Project Valid Users"
+    ],
+    "RestrictedRolesForBroaderGroupsInRepo": [
+      "Contribute",
+      "Delete repository",
+      "Manage permissions"
+    ],
+    "CheckForInheritedPermissions": false
   },
   "ServiceConnection": {
     "ServiceConnectionHistoryPeriodInDays": 180,
