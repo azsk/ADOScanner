@@ -33,7 +33,8 @@
         "SDL",
         "Best Practice",
         "Automated",
-        "DP"
+        "DP",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
