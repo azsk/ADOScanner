@@ -364,6 +364,18 @@
     ],
     "CheckForInheritedPermissions": false
   },
+  "WorkItems":{
+    "ThreshHoldDaysForWorkItemInactivity":180
+  },
+  "FeedsAndPackages":{
+    "ThreshHoldDaysForFeedsAndPackagesInactivity":180
+  },
+  "TestPlans":{
+    "ThreshHoldDaysForTestPlansInactivity":180
+  },
+  "Wikis":{
+    "ThreshHoldDaysForWikisInactivity":180
+  }  ,
   "AlernateAccountRegularExpressionForOrg": "^sc-\\w+@(?:\\w+\\.)*microsoft\\.com$|^\\w+.*@gme\\.gbl$",
   "ALTControlEvaluationMethod": "GraphThenRegEx",
   "Organization": {

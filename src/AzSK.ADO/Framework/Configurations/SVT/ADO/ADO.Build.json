@@ -62,7 +62,7 @@
       "Automated": "Yes",
       "MethodName": "CheckForInactiveBuilds",
       "Rationale": "Each additional build having access to repositories increases the attack surface. To minimize this risk ensure that only active and legitimate build pipelines are present in your environment.",
-      "Recommendation": "To remove inactive build pipelines follow the steps given here: 1.Navigate to the build pipeline. 2. Select a build pipeline. 3. Select three dots (present at right top). 4. Click on Delete. (https://www.azuredevopslabs.com/labs/devopsserver/build/)",
+      "Recommendation": "Steps to remove inactive build pipelines : 1.Navigate to the build pipeline. --> 2. Select a build pipeline. --> 3. Select three dots (present at right top). --> 4. Click on Delete.",
       "Tags": [
         "SDL",
         "Best Practice",
