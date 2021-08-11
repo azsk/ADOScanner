@@ -13,6 +13,7 @@ class Release: ADOSVTBase
     hidden static [PSObject] $ReleaseVarNames = @{};
     hidden [PSObject] $releaseActivityDetail = @{isReleaseActive = $true; latestReleaseTriggerDate = $null; releaseCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [PSObject] $excessivePermissionBits = @(1)
+    hidden static $isInheritedPermissionCheckEnabled = $false
     hidden static $SecretsInReleaseRegexList = $null;
     hidden static $SecretsScanToolEnabled = $null;
 
@@ -90,6 +91,14 @@ class Release: ADOSVTBase
                 #Get permission and its bit for security namespaces
                 $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$TaskGroupSecurityNamespace
                 [Release]::TaskGroupNamespacePermissionObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlNamespace);
+            }
+
+            if(-not [Release]::isInheritedPermissionCheckEnabled)
+            {
+                if(([Helpers]::CheckMember($this.ControlSettings, "Release.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions))
+                {
+                    [Release]::isInheritedPermissionCheckEnabled = $true
+                }
             }
         }
 
@@ -1128,15 +1137,14 @@ class Release: ADOSVTBase
     hidden [ControlResult] CheckVariableGroupEditPermission([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        $varGrps = @();
-        $projectName = $this.ResourceContext.ResourceGroupName
+        $varGrpIds = @();
         $editableVarGrps = @();
 
         #add var groups scoped at release scope.
         $releaseVarGrps = @($this.ReleaseObj[0].variableGroups)
         if($releaseVarGrps.Count -gt 0)
         {
-            $varGrps += $releaseVarGrps
+            $varGrpIds += $releaseVarGrps
         }
 
         # Each release pipeline has atleast 1 env.
@@ -1147,30 +1155,42 @@ class Release: ADOSVTBase
             $environmentVarGrps = @($this.ReleaseObj[0].environments[$i].variableGroups);
             if($environmentVarGrps.Count -gt 0)
             {
-                $varGrps += $environmentVarGrps
+                $varGrpIds += $environmentVarGrps
             }
         }
 
-        if($varGrps.Count -gt 0)
+        if($varGrpIds.Count -gt 0)
         {
             try
             {
-                $varGrps | ForEach-Object{
+                foreach($vgId in $varGrpIds){
                     #Fetch the security role assignments for variable group
-                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($_);
+                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
                     $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                     if($responseObj.Count -gt 0)
-                    {
-                        #$_.identity.uniqueName.split("\")[-1]
-                        $contributorsObj = $responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"}
-                        if((-not [string]::IsNullOrEmpty($contributorsObj)) -and ($contributorsObj.role.name -ne 'Reader')){
+                    {                                       
+                        if([Release]::isInheritedPermissionCheckEnabled)
+                        {
+                            $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
+                        }
+                        else {
+                            $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access = "assigned")})                        
+                        }
 
-                            #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
-                            $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($_);
-                            $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
-                            if ((-not ([Helpers]::CheckMember($varGrpObj[0],"count"))) -and ($varGrpObj.Count -gt 0) -and ([Helpers]::CheckMember($varGrpObj[0],"name"))) {
-                                $editableVarGrps += $varGrpObj[0].name
-                            }
+                        if($contributorsObj.Count -gt 0)
+                        {   
+                            foreach($obj in $contributorsObj){
+                                if($obj.role.name -ne 'Reader')
+                                {
+                                    #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
+                                    $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
+                                    $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
+                                    if ((-not ([Helpers]::CheckMember($varGrpObj[0],"count"))) -and ($varGrpObj.Count -gt 0) -and ([Helpers]::CheckMember($varGrpObj[0],"name"))) {
+                                    $editableVarGrps += $varGrpObj[0].name
+                                    break;
+                                    }
+                                }
+                            }                            
                         }
                     }
                 }
@@ -1297,7 +1317,7 @@ class Release: ADOSVTBase
                     }" | ConvertFrom-Json
 
                     # Web request to fetch the group details for a release definition
-                    $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
+                    $responseObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody));
                     if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
                     {
 
@@ -1347,8 +1367,8 @@ class Release: ADOSVTBase
                                 }" | ConvertFrom-Json
 
                                 #Web request to fetch RBAC permissions of Contributors group on release.
-                                $broaderGroupResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $contributorInputbody);
-                                $broaderGroupRBACObj = $broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
+                                $broaderGroupResponseObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL, $contributorInputbody));
+                                $broaderGroupRBACObj = @($broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions)
                                 $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
                                 $excessivePermissionsPerGroup = @()
                                 $excessivePermissionList | ForEach-Object {
