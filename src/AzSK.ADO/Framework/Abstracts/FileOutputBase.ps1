@@ -60,6 +60,13 @@ class FileOutputBase: ListenerBase
 			$runPath = $this.RunIdentifier;
 			$commandMetadata = $this.GetCommandMetadata();
 
+			#if this is a batch scan, we have to add results to the batch scan folder
+			$batchScanSanitizedPath = $null
+			if($commandMetaData.PSObject.Properties.Name.Contains("BatchScan")){
+				$batchScanSanitizedPath = [Helpers]::SanitizeFolderName($commandMetadata.BatchScan)
+			}
+			
+
 			if($commandMetadata)
 			{
 				$runPath += "_" + $commandMetadata.ShortName;
@@ -69,7 +76,13 @@ class FileOutputBase: ListenerBase
 				$outputPath = Join-Path $outputPath -ChildPath "Default" |Join-Path -ChildPath $runPath ;           
 			}
 			else {
-				$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) |Join-Path -ChildPath $runPath ;            
+				if(![string]::IsNullOrEmpty($batchScansanitizedPath)) {
+					$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) | Join-Path -ChildPath "BatchScan" | Join-Path -ChildPath $batchScanSanitizedPath |Join-Path -ChildPath $runPath ;
+				}
+				else {
+					$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) |Join-Path -ChildPath $runPath ;
+				}
+				            
 			}
 
 			if (-not [string]::IsNullOrEmpty($subFolderPath)) {

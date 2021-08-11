@@ -229,7 +229,7 @@ function Get-AzSKADOSecurityStatus
 		[string]
 		[Parameter(HelpMessage="Project name to store attestation details for organization-specific controls.")]
 		[ValidateNotNullOrEmpty()]
-		[Alias("atp")]
+		[Alias("atp","HostProjectName")]
 		$AttestationHostProjectName,
 
 
@@ -267,7 +267,7 @@ function Get-AzSKADOSecurityStatus
 
 		[switch]
 		[Parameter(HelpMessage="Allow long running scan.")]
-		[Alias("als")]
+		[Alias("als","alrs")]
 		$AllowLongRunningScan,
 
 		[string]
@@ -285,7 +285,7 @@ function Get-AzSKADOSecurityStatus
 		[Parameter(HelpMessage="Service id for which the security evaluation has to be performed.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("svcid")]
-		$ServiceId,
+		$ServiceIds,
 
 		[switch]
 		[Parameter(HelpMessage="Include admin controls (organization and project specific controls) in scan.")]
@@ -304,11 +304,11 @@ function Get-AzSKADOSecurityStatus
 		$PolicyRepoName,
 
 		[ValidateSet("Graph", "RegEx", "GraphThenRegEx")]
-    [Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
+    	[Parameter(Mandatory = $false, HelpMessage="Evaluation method to evaluate SC-ALT admin controls.")]
 		[Alias("acem")]
-    [string] $ALTControlEvaluationMethod,
+    	[string] $ALTControlEvaluationMethod,
         
-    [string]
+    	[string]
 		[Parameter(Mandatory = $false, HelpMessage="Folder path of builds to be scanned.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("bp")]
@@ -322,20 +322,40 @@ function Get-AzSKADOSecurityStatus
 
     
 		[switch]
-    [Parameter(HelpMessage="Print SARIF logs for the scan.")]
-    [Alias("gsl")]
-    $GenerateSarifLogs,
+    	[Parameter(HelpMessage="Print SARIF logs for the scan.")]
+    	[Alias("gsl")]
+    	$GenerateSarifLogs,
 
 		[switch]
 		[Parameter(HelpMessage="Switch to reset default logged in user.")]
 		[Alias("rc")]
 		$ResetCredentials,
         
-    [switch]
+    	[switch]
 		[Parameter(HelpMessage="Switch to copy current data object in local folder to facilitate control fix.")]
 		[Alias("pcf")]
-		$PrepareForControlFix
+		$PrepareForControlFix,
+	
+		[switch]
+        [Parameter(Mandatory = $false, HelpMessage="Scan only those resource objects modified after immediately previous scan.")]
+		[Alias("inc", "ScanIncrementally")]
+		$IncrementalScan,
 
+		[switch]
+		[Parameter()]
+		[Alias("bs")]
+		$BatchScan,
+
+		[string]
+		[Parameter()]
+		[Alias("fn")]
+		$FolderName,
+
+		[DateTime]
+		[Parameter(Mandatory = $false, HelpMessage="Date to use as threshold for incremental scanning.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("dt", "IncrementDate")]
+		$IncrementalDate
 
 	)
 	Begin
@@ -442,7 +462,7 @@ function Get-AzSKADOSecurityStatus
 				[ContextHelper]::PromptForLogin =$false
 			}
 
-			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceId, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources);
+			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceIds, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan, $IncrementalScan, $IncrementalDate);
 
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
 			if ($secStatus)
