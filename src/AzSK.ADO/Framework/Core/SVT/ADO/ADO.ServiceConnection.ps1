@@ -901,14 +901,15 @@ class ServiceConnection: ADOSVTBase
                     # fail the control if restricted group found on service connection
                     if ($restrictedGroupsCount -gt 0) {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have user/administrator access to service connection: $($restrictedGroupsCount)")
-                        $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id} }, @{l = 'Role'; e = { $_.Role } },@{l = 'AccessDisplayName'; e = { $_.AccessDisplayName } }
+                        $backupDataObject = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id} }, @{l = 'Role'; e = { $_.Role } },@{l = 'AccessDisplayName'; e = { $_.AccessDisplayName } }
+                        $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } },@{l = 'AccessDisplayName'; e = { $_.AccessDisplayName } }
                         $formattedGroupsTable = ($formattedGroupsData | Out-String)
                         $controlResult.AddMessage("`nList of groups: ", $formattedGroupsTable)
                         $controlResult.SetStateData("List of groups: ", $formattedGroupsTable)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to service connection:  $($restrictedGroupsCount)";
                         if ($this.ControlFixBackupRequired) {
                             #Data object that will be required to fix the control
-                            $controlResult.BackupControlState = $formattedGroupsData;
+                            $controlResult.BackupControlState = $backupDataObject;
                         }
                     }
                     else {
