@@ -42,7 +42,7 @@ class Release: ADOSVTBase
         $apiURL = "https://vsrm.dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ProjectId)/_apis/Release/definitions/$($releaseId)?api-version=6.0"
         $this.ReleaseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
-        $this.BackupFilePath = $this.BackupFolderPath | Join-Path -ChildPath $this.OrganizationContext.OrganizationName | Join-Path -ChildPath $this.ResourceContext.ResourceGroupName | Join-Path -ChildPath "BuildBackupFiles"
+        $this.BackupFilePath = $this.BackupFolderPath | Join-Path -ChildPath $this.OrganizationContext.OrganizationName | Join-Path -ChildPath $this.ResourceContext.ResourceGroupName | Join-Path -ChildPath "ReleaseBackupFiles"
 
         # Get security namespace identifier of current release pipeline.
         if ([string]::IsNullOrEmpty([Release]::SecurityNamespaceId)) {

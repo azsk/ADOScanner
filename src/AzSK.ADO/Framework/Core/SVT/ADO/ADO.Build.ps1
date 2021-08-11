@@ -399,7 +399,7 @@ class Build: ADOSVTBase
                     {
                         $yamlContent = $responseObj.fps.dataProviders.data."ms.vss-build-web.pipeline-editor-data-provider".content;
 
-                        $this.BackupFilePath = $this.BackupFilePath | Join-Path -ChildPath "$($this.buildObj.name)-$($this.buildObj.id).txt"
+                        $this.BackupFilePath = $this.BackupFilePath | Join-Path -ChildPath "$($this.buildObj.name)-$($this.buildObj.id).yml"
                         $yamlContent | Out-File $this.BackupFilePath
                         $obj = New-Object -TypeName psobject -Property @{BackupPath= $this.BackupFilePath ; Type="YAML"}
                         $controlResult.BackupControlState = $obj 
