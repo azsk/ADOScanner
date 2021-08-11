@@ -1152,7 +1152,7 @@ class SVTResourceResolver: AzSKRoot {
         }
         if ($bFoundSvcMappedObjects -eq $false)
         {
-            $this.PublishCustomMessage("Could not find any objects mapped to the provided service id.", [MessageType]::Warning);
+            $this.PublishCustomMessage("Could not find any objects mapped to the provided service id : $svcId", [MessageType]::Warning);
         }
     }
     #check for PCA group members
