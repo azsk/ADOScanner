@@ -525,7 +525,7 @@
       "RegexCode": "URLs",
       "RegexList": [
         "(?# To match regular URL.)(www.|http:|https:)+[^\\s]+[\\w]",
-        "(?# To match ftp URL.)(ftp.)+[^\\s]+[\\w]"
+        "(?# To match ftp URL.)(ftp:)+[^\\s]+[\\w]"
       ]
     }
   ],
