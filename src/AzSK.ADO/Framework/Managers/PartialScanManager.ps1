@@ -901,7 +901,7 @@ class PartialScanManager
 				}
 			}
 			if($null -ne $controlsDataObject -and $controlsDataObject.Count -gt 0)
-            {
+        {
 				$controlsDataObject | Add-Member -NotePropertyName ScannedBy -NotePropertyValue $scannedBy 
 				$controlsDataObject | Add-Member -NotePropertyName Date -NotePropertyValue $date  
 

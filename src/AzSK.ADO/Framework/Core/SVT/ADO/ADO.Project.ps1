@@ -2033,7 +2033,11 @@ class Project: ADOSVTBase
                 $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
                 $buildSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "Build") -and ($_.actions.name -contains "ViewBuilds")}).namespaceId
                 $buildURL = "https://dev.azure.com/$orgName/$projectName/_build"
-                $allowPermissionBits = @(1,3)
+                $allowPermissionBits = @(1)
+                if ([Helpers]::CheckMember($this.ControlSettings, "Build.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions) {
+                    #allow permission bit for inherited permission is '3'
+                    $allowPermissionBits = @(1,3)
+                }
                 $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
                 $inputbody = "{
                 'contributionIds': [
@@ -2247,7 +2251,11 @@ class Project: ADOSVTBase
                 $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
                 $releaseSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ReleaseManagement") -and ($_.actions.name -contains "ViewReleaseDefinition")}).namespaceId
                 $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release"
-                $allowPermissionBits = @(1,3)
+                $allowPermissionBits = @(1)
+                if ([Helpers]::CheckMember($this.ControlSettings.Release, "CheckForInheritedPermissions") -and $this.ControlSettings.Release.CheckForInheritedPermissions) {
+                    #allow permission bit for inherited permission is '3'
+                    $allowPermissionBits = @(1,3)
+                }
                 $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
                 $inputbody = "{
                 'contributionIds': [
@@ -2373,9 +2381,14 @@ class Project: ADOSVTBase
                 if (($serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($serviceEndPointIdentity, "identity")) {
                     # match all the identities added on service connection with defined restricted list
                     $roleAssignments = @();
-                    $roleAssignments +=   ($serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                    $roleAssignments +=   ($serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}},@{Name="Access"; Expression = {$_.access}});
                     #Checking where broader groups have user/admin permission for service connection
-                    $restrictedGroups += @($roleAssignments | Where-Object { $restrictedBroaderGroupsForSvcConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+                    if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.CheckForInheritedPermissions") -and $this.ControlSettings.ServiceConnection.CheckForInheritedPermissions) {
+                        $restrictedGroups += @($roleAssignments | Where-Object { $restrictedBroaderGroupsForSvcConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+                    }
+                    else {
+                        $restrictedGroups += @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and $restrictedBroaderGroupsForSvcConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+                    }
 
                     $restrictedGroupsCount = $restrictedGroups.Count
 
@@ -2421,9 +2434,16 @@ class Project: ADOSVTBase
 
                 if (($agentPoolPermObj.Count -gt 0) -and [Helpers]::CheckMember($agentPoolPermObj, "identity")) {
                     # match all the identities added on agentpool with defined restricted list
-                    $roleAssignments = @($agentPoolPermObj | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                    $roleAssignments = @($agentPoolPermObj | Select-Object -Property @{Name="ProjectName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="DisplayName"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}},@{Name="RoleId"; Expression = {$_.identity.id}},@{Name="Access"; Expression = {$_.access}});
                     # Checking whether the broader groups have User/Admin permissions
-                    $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.Name.split('\')[-1] -and ($restrictedRolesForBroaderGroupsInAgentPool -Contains $_.Role) })
+                    $restrictedGroups = @();
+
+                    if ([Helpers]::CheckMember($this.ControlSettings, "Agentpool.CheckForInheritedPermissions") -and $this.ControlSettings.Agentpool.CheckForInheritedPermissions) {
+                        $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.DisplayName.split('\')[-1] -and ($restrictedRolesForBroaderGroupsInAgentPool -Contains $_.Role) })
+                    }
+                    else {
+                        $restrictedGroups = @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and $restrictedBroaderGroupsForAgentPool -contains $_.DisplayName.split('\')[-1] -and ($restrictedRolesForBroaderGroupsInAgentPool -Contains $_.Role) })                      
+                    }
 
                     $restrictedGroupsCount = $restrictedGroups.Count
                     # fail the control if restricted group found on agentpool
@@ -2435,6 +2455,11 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage("`nList of groups: $formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool at a project level: $($restrictedGroupsCount)";
+                        if ($this.ControlFixBackupRequired)
+                        {
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $restrictedGroups;
+                        }
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to agent pool at a project level.");
@@ -2457,6 +2482,60 @@ class Project: ADOSVTBase
         return $controlResult;
     }
 
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForAgentpoolAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $body = "["
+
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = "Reader"
+                    $userId = $identity.RoleId
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @" 
+                        {"userId": "$($userId)","roleName": "$($roleId)"}
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = "$($identity.Role)"
+                    $userId = $identity.RoleId
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                    {"userId": "$($userId)","roleName": "$($roleId)"}
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+            }
+
+            $body += "]"
+            #Patch request
+            $url = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.globalagentqueuerole/roleassignments/resources/{1}?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers $header -Body $body
+
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
+            $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
     hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForVarGrp ([ControlResult] $controlResult) {
 
         try {
@@ -2474,11 +2553,16 @@ class Project: ADOSVTBase
                 $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                 if($responseObj.Count -gt 0)
                 {
-                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}},@{Name="RoleId"; Expression = {$_.identity.id}},@{Name="ProjectName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Access"; Expression = {$_.access}});
                 }
 
                 # Checking whether the broader groups have User/Admin permissions
-                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                if ([Helpers]::CheckMember($this.ControlSettings, "VariableGroup.CheckForInheritedPermissions") -and $this.ControlSettings.VariableGroup.CheckForInheritedPermissions) {
+                    $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                }
+                else {
+                    $restrictedGroups = @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and  ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                }
                 $restrictedGroupsCount = $restrictedGroups.Count
 
                 # fail the control if restricted group found on variable group
@@ -2489,6 +2573,11 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
+                    if ($this.ControlFixBackupRequired)
+                    {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $restrictedGroups;
+                    }
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group at a project level.");
@@ -2505,5 +2594,55 @@ class Project: ADOSVTBase
         }
 
         return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForVarGrpAutomatedFix ([ControlResult] $controlResult) {
+
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $body = "["
+
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = "Reader"
+                    $userId = $identity.RoleId
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += "{`"userId`": `"$($userId)`",`"roleName`": `"$($roleId)`"}"
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = "$($identity.Role)"
+                    $userId = $identity.RoleId
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += "{`"userId`": `"$($userId)`",`"roleName`": `"$($roleId)`"}"
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+            }
+
+            $body += "]"
+            #Patch request
+            $url = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.library/roleassignments/resources/{1}%240?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method PUT -ContentType "application/json" -Headers $header -Body $body
+
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
+            $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
 }
