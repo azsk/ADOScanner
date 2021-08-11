@@ -500,51 +500,32 @@ class SVTResourceResolver: AzSKRoot {
                         $inputEnvNames = @()
                         $inputSecFileNames = @()
 
-                        if ($this.BuildNames -ne "*") {
+                        $inputBuildNames = $this.BuildNames;
+                        $this.BuildNames =@();
+   
+                        $inputReleaseNames = $this.ReleaseNames;
+                        $this.ReleaseNames =@();
+                        
+                        $inputSvcNames = $this.ServiceConnections;
+                        $this.ServiceConnections =@();
+                        
+                        $inputAgentPoolNames = $this.AgentPools;
+                        $this.AgentPools =@();
+                        
+                        $inputVargrpNames = $this.VariableGroups;
+                        $this.VariableGroups =@();
+                        
+                        $inputRepoNames = $this.RepoNames;
+                        $this.RepoNames  =@();
+                        
+                        $inputFeedNames = $this.FeedNames;
+                        $this.FeedNames  =@();
+                        
+                        $inputEnvNames = $this.EnvironmentNames ;
+                        $this.EnvironmentNames =@();
                             
-                            $inputBuildNames = $this.BuildNames;
-                            $this.BuildNames =@();
-                        }  
-                        if ($this.ReleaseNames -ne "*") {
-                            
-                            $inputReleaseNames = $this.ReleaseNames;
-                            $this.ReleaseNames =@();
-                        }                        
-                        if ($this.ServiceConnections -ne "*") {
-                            
-                            $inputSvcNames = $this.ServiceConnections;
-                            $this.ServiceConnections =@();
-                        }
-                        if ($this.AgentPools -ne "*") {
-                            
-                            $inputAgentPoolNames = $this.AgentPools;
-                            $this.AgentPools =@();
-                        }
-                        if ($this.VariableGroups -ne "*") {
-                            
-                            $inputVargrpNames = $this.VariableGroups;
-                            $this.VariableGroups =@();
-                        }
-                        if ($this.RepoNames -ne "*") {
-                            
-                            $inputRepoNames = $this.RepoNames;
-                            $this.RepoNames  =@();
-                        }
-                        if ($this.FeedNames -ne "*") {
-                            
-                            $inputFeedNames = $this.FeedNames;
-                            $this.FeedNames  =@();
-                        }   
-                        if ($this.EnvironmentNames  -ne "*") {
-                            
-                            $inputEnvNames = $this.EnvironmentNames ;
-                            $this.EnvironmentNames =@();
-                        }  
-                        if ($this.SecureFileNames -ne "*") {
-                            
-                            $inputSecFileNames = $this.SecureFileNames ;
-                            $this.SecureFileNames =@();
-                        }               
+                        $inputSecFileNames = $this.SecureFileNames ;
+                        $this.SecureFileNames =@();             
                         
                         $this.PublishCustomMessage("Getting service associated resources...");                        
                         foreach ($thisServiceId in $this.serviceIds)
