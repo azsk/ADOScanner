@@ -306,7 +306,7 @@ class VariableGroup: ADOSVTBase
                 if ($restrictedGroupsCount -gt 0) {
                     $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to variable group: $($restrictedGroupsCount)");
                     $controlResult.AddMessage("`nList of groups: ")
-                    $controlResult.AddMessage(($restrictedGroups | FT | Out-String));
+                    $controlResult.AddMessage(($restrictedGroups | FT Name,Role -AutoSize | Out-String -Width 512));
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group: $($restrictedGroupsCount)";
                     if ($this.ControlFixBackupRequired) {
@@ -351,7 +351,7 @@ class VariableGroup: ADOSVTBase
 "@;
                 }
                 $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
-                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.group}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
             }
             else {
                 foreach ($identity in $RawDataObjForControlFix) 
