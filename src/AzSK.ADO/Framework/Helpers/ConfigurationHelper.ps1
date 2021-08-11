@@ -417,7 +417,6 @@ class ConfigurationHelper {
 	# Fetch the configuration file content from github
 	hidden static [PSObject] InvokeControlsAPIGitHub([string] $onlineStoreUri, [string] $configVersion, [string] $policyFileName)
  	{
-		write-host "fetching from oss"
 		#Evaluate all code block in onlineStoreUri. 
 		#Can use '$FileName' in uri to fill dynamic file name.
 		#Revisit
