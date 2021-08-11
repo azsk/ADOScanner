@@ -900,39 +900,41 @@ class PartialScanManager
 					| Select-Object @{Name="ProjectName"; Expression={$_.ResourceContext.ResourceGroupName}}, @{Name="ResourceId"; Expression={$_.ResourceContext.ResourceId}}, @{Name="InternalId"; Expression={$_.ControlItem.id}}, @{Name="DataObject"; Expression={$_.ControlResults.BackupControlState}}); 
 				}
 			}
+			if($null -ne $controlsDataObject -and $controlsDataObject.Count -gt 0)
+        {
+				$controlsDataObject | Add-Member -NotePropertyName ScannedBy -NotePropertyValue $scannedBy 
+				$controlsDataObject | Add-Member -NotePropertyName Date -NotePropertyValue $date  
 
-            if($null -ne $controlsDataObject -and $controlsDataObject.Count -gt 0)
-            {
-                $controlsDataObject | Add-Member -NotePropertyName ScannedBy -NotePropertyValue $scannedBy 
-                $controlsDataObject | Add-Member -NotePropertyName Date -NotePropertyValue $date  
+				if(-not $this.IsControlStateBackupFetched)  
+				{
+					$this.ProjectName = ($controlsDataObject | Select-Object -Property ProjectName -Unique).ProjectName
+					$this.ProjectName = $this.ProjectName.Trim()
+					$this.FetchControlStateBackup($controlsDataObject[0].InternalId);
+				}
 
-                if(-not $this.IsControlStateBackupFetched)  
-                {
-                    $this.ProjectName = ($controlsDataObject | Select-Object -Property ProjectName -Unique).ProjectName
-                    $this.ProjectName = $this.ProjectName.Trim()
-                    $this.FetchControlStateBackup($controlsDataObject[0].InternalId);
-                }
+				$controlsDataObject = @($controlsDataObject)
 
-                $controlsDataObject = @($controlsDataObject)
+				if($controlsDataObject.Count -gt 0)
+				{
+					$fileName =  $controlsDataObject[0].InternalId + ".json"
 
-                if($controlsDataObject.Count -gt 0)
-                {
-                    $fileName =  $controlsDataObject[0].InternalId + ".json"
+					if($null -ne $this.StateOfControlsToBeFixed)
+					{
+						$existingDataObj = $this.StateOfControlsToBeFixed | where-Object {$_.ResourceId -in $controlsDataObject.ResourceId}
+						if (($existingDataObj | Measure-Object).Count -gt 0)
+						{
+							$this.StateOfControlsToBeFixed = @($this.StateOfControlsToBeFixed | where-Object {$_ -notin $existingDataObj})
+						}
+					}
 
-                    if($null -ne $this.StateOfControlsToBeFixed)
-                    {
-                        $existingDataObj = $this.StateOfControlsToBeFixed | where-Object {$_.ResourceId -in $controlsDataObject.ResourceId}
-                        if (($existingDataObj | Measure-Object).Count -gt 0)
-                        {
-                            $this.StateOfControlsToBeFixed = @($this.StateOfControlsToBeFixed | where-Object {$_ -notin $existingDataObj})
-                        }
-                    }
-
-                    $applicableControls += $controlsDataObject |  select-object -property Date,ResourceId,DataObject,ScannedBy
-                    $this.StateOfControlsToBeFixed += $applicableControls
-                    [JsonHelper]::ConvertToJsonCustom($this.StateOfControlsToBeFixed) | Out-File (Join-Path $this.BackupControlStateFilePath $fileName) -Force
-                }
-            }
+					$applicableControls += $controlsDataObject |  select-object -property Date,ResourceId,DataObject,ScannedBy
+					$this.StateOfControlsToBeFixed += $applicableControls
+					[JsonHelper]::ConvertToJsonCustom($this.StateOfControlsToBeFixed) | Out-File (Join-Path $this.BackupControlStateFilePath $fileName) -Force
+				}
+            }		
+			 
+									
+            
         }
     }
 }
