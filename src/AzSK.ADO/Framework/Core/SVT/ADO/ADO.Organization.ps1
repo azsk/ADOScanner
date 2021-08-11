@@ -255,7 +255,8 @@ class Organization: ADOSVTBase
 
                                     $nonSCCount = $nonSCMembers.Count
                                     $SCCount = $SCMembers.Count
-
+                                    $totalAdminCount = $nonSCCount+$SCCount
+                                    $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
                                     if ($nonSCCount -gt 0)
                                     {
                                         $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
