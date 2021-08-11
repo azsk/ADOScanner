@@ -79,9 +79,15 @@ class SVTResourceResolver: AzSKRoot {
 
     #Constructor for Set-AzSKADOSecurityStatus
     SVTResourceResolver([string]$organizationName, $ProjectNames, $ResourceNames, $ExcludeResourceNames, $PATToken, $ResourceTypeName, $UndoFix, $ControlId): Base($organizationName, $PATToken) {
-        if($UndoFix -and ("ADO_Build_DP_Review_Inactive_Build","ADO_Release_DP_Review_Inactive_Release" -contains $ControlId)) {
-            #When these 2 controls undo fix is called, resources need to be fetched from deleted list
-            $this.IsAutomatedFixUndoCmd = $true
+        if($UndoFix) {
+            if (!$this.ControlSettings) {
+                $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+            }
+            if($this.ControlSettings.AutomatedFix.RevertDeletedResourcesControlList -contains $ControlId)
+            {
+                #When controls undo fix is called, resources need to be fetched from deleted list (only for controls ids in RevertDeletedResourcesControlList)
+                $this.IsAutomatedFixUndoCmd = $true
+            }
         }
         $this.organizationName = $organizationName
         $this.ProjectNames = $ProjectNames
