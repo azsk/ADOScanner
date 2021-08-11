@@ -12,6 +12,7 @@ class Build: ADOSVTBase
     hidden static [PSObject] $BuildVarNames = @{};
     hidden [PSObject] $buildActivityDetail = @{isBuildActive = $true; buildLastRunDate = $null; buildCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [PSObject] $excessivePermissionBits = @(1)
+    hidden static [PSObject] $RegexForURL = $null;
     hidden static $isInheritedPermissionCheckEnabled = $false
     hidden static $SecretsInBuildRegexList = $null;
     hidden static $SecretsScanToolEnabled = $null;
@@ -720,34 +721,40 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckSettableAtQueueTimeForURL([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Verify
         try
         {
             if ([Helpers]::CheckMember($this.BuildObj[0], "variables"))
             {
-                $settableURLVars = @();
-                $count = 0;
-                $patterns = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "URLs"} | Select-Object -Property RegexList;
-
-                if(($patterns | Measure-Object).Count -gt 0){
-                    Get-Member -InputObject $this.BuildObj[0].variables -MemberType Properties | ForEach-Object {
+                if ([Helpers]::CheckMember($this.ControlSettings, "Patterns"))
+                {
+                    $settableURLVars = @();
+                    if($null -eq [Build]::RegexForURL)
+                    {
+                        $this.FetchRegexForURL()
+                    }
+                    $regexForURLs = [Build]::RegexForURL;
+                    $allVars = Get-Member -InputObject $this.BuildObj[0].variables -MemberType Properties
+                     
+                    $allVars | ForEach-Object {
                         if ([Helpers]::CheckMember($this.BuildObj[0].variables.$($_.Name), "allowOverride") )
                         {
                             $varName = $_.Name;
                             $varValue = $this.BuildObj[0].variables.$($varName).value;
-                            for ($i = 0; $i -lt $patterns.RegexList.Count; $i++) {
-                                if ($varValue -match $patterns.RegexList[$i]) {
-                                    $count +=1
+                            for ($i = 0; $i -lt $regexForURLs.RegexList.Count; $i++) {
+                                if ($varValue -match $regexForURLs.RegexList[$i]) {
                                     $settableURLVars += @( [PSCustomObject] @{ Name = $varName; Value = $varValue } )
                                     break
                                 }
                             }
                         }
                     }
-                    if ($count -gt 0)
+                    $varCount = $settableURLVars.Count
+                    if ($varCount -gt 0)
                     {
-                        $controlResult.AddMessage("Total number of variables that are settable at queue time and contain URL value: ", ($settableURLVars | Measure-Object).Count);
-                        $controlResult.AddMessage([VerificationResult]::Failed, "Found variables that are settable at queue time and contain URL value: ", $settableURLVars);
-                        $controlResult.AdditionalInfo += "Total number of variables that are settable at queue time and contain URL value: " + ($settableURLVars | Measure-Object).Count;
+                        $controlResult.AddMessage("Count of variables that are settable at queue time and contain URL value: $($varCount)");
+                        $controlResult.AddMessage([VerificationResult]::Verify, "List of variables settable at queue time and containing URL value: `n", $($settableURLVars | FT | Out-String));
+                        $controlResult.AdditionalInfo += "Count of variables that are settable at queue time and contain URL value: " + $varCount;
                         $controlResult.SetStateData("List of variables settable at queue time and containing URL value: ", $settableURLVars);
                     }
                     else {
@@ -756,7 +763,7 @@ class Build: ADOSVTBase
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting URLs in pipeline variables are not defined in your organization.");
+                    $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting URLs in pipeline variables are not defined in control settings for your organization.");
                 }
             }
             else
@@ -766,7 +773,7 @@ class Build: ADOSVTBase
         }
         catch
         {
-            $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch variables of the build pipeline.");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch variables of the build pipeline.");
             $controlResult.LogException($_)
         }
         return $controlResult;
@@ -1508,6 +1515,11 @@ class Build: ADOSVTBase
         }
 
         return $controlResult;
+    }
+
+    hidden FetchRegexForURL()
+    {
+        [Build]::RegexForURL = @($this.ControlSettings.Patterns | where {$_.RegexCode -eq "URLs"} | Select-Object -Property RegexList);
     }
 
     hidden CheckActiveBuilds()

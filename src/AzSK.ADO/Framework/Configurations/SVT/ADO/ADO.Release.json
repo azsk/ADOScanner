@@ -148,7 +148,7 @@
       "Automated": "Yes",
       "MethodName": "CheckSettableAtReleaseTimeForURL",
       "Rationale": "Pipeline variables that are marked settable at queue time can be changed by anyone who can create a release. If these variables contain a URL then someone can change the URL to a server that they control and can intercept any secret used to interact with the intended server by creating a release.",
-      "Recommendation": "1. Navigate to the release pipeline. 2. Click on Edit. 3. Select variables. 4. Uncheck 'settable at release time' for such variables. 5. Save the release pipeline.",
+      "Recommendation": "1. Navigate to the release pipeline. --> 2. Click on Edit. --> 3. Select variables. --> 4. Uncheck 'settable at release time' for such variables. --> 5. Save the release pipeline.",
       "Tags": [
         "SDL",
         "TCP",
