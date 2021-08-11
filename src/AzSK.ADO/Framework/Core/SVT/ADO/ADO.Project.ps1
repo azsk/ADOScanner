@@ -374,7 +374,7 @@ class Project: ADOSVTBase
         if ($this.PAMembers.Count -eq 0) {
             $this.PAMembers += @([AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName))
         }
-        if([Helpers]::CheckMember($this.PAMembers[0],"mailAddress"))
+        if((-not [string]::IsNullOrEmpty($this.PAMembers)) -and [Helpers]::CheckMember($this.PAMembers[0],"mailAddress"))
         {
             $TotalPAMembers = $this.PAMembers.Count
         }
@@ -586,7 +586,8 @@ class Project: ADOSVTBase
 
                                         $nonSCCount = $nonSCMembers.Count
                                         $SCCount = $SCMembers.Count
-
+                                        $totalAdminCount = $nonSCCount+$SCCount
+                                        $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
                                         if ($nonSCCount -gt 0)
                                         {
                                             $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
