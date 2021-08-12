@@ -66,6 +66,10 @@ class ServicesSecurityStatus: ADOSVTCommandBase
         {
             $this.Resolver = $resolver;
             $this.Resolver.FetchControlFixBackupFile($organizationName, $projectName, $this.controlInternalId);
+            if ([ControlHelper]::ControlFixBackup.Count -eq 0)
+            {
+                break;
+            }
             $this.Resolver.LoadResourcesForScan();
             if (!$this.Resolver.SVTResources) {
                 return;
