@@ -2515,7 +2515,7 @@ class Project: ADOSVTBase
                     if ($restrictedGroupsCount -gt 0) {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Agent pools are set to inherit excessive permissions for a broad group of users at project level.");
                         $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups: $($restrictedGroupsCount)");
-                        $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
+                        $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.DisplayName} }, @{l = 'Role'; e = { $_.Role } }
                         $formattedGroupsTable = ($formattedGroupsData | Out-String)
                         $controlResult.AddMessage("`nList of groups: $formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
