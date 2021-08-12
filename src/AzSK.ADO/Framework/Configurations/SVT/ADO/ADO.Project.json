@@ -395,7 +395,7 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupInheritanceSettingsForRepo",
-      "Rationale": "If a broad group (e.g., Contributors) is configured with excessive permissions at a project level, they are inherited by individual repositories in the project. Then the integrity of repository can be compromised by a malicious user.",
+      "Rationale": "If a broad group (e.g., Contributors) is configured with excessive permissions at a project level, they are inherited by individual repositories in the project. Then the security of repositories can be compromised by a malicious user.",
       "Recommendation": "1. Go to Project Settings --> 2. Repos -->  3. Repositories. -->  4. Security. --> 5. Ensure broader groups have read-only access. Refer to detailed scan log (Project.LOG) for broader group list.",
       "Tags": [
         "SDL",
@@ -413,7 +413,7 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupInheritanceSettingsForSecureFile",
-      "Rationale": "If a broad group (e.g., Contributors) is configured with excessive permissions at a project level, they are inherited by individual secure files in the project. Then the integrity of secure files can be compromised by a malicious user.",
+      "Rationale": "If a broad group (e.g., Contributors) is configured with excessive permissions at a project level, they are inherited by individual secure files in the project. Then the confidentiality of secure files can be compromised by a malicious user.",
       "Recommendation": "1. Go to Project --> 2. Pipelines -->  3. Library. -->  4. Secure Files. --> 5. Security. --> 5. Ensure broader groups have read-only access. Refer to detailed scan log (Project.LOG) for broader group list.",
       "Tags": [
         "SDL",
