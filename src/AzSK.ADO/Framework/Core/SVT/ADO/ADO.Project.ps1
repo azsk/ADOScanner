@@ -445,7 +445,7 @@ class Project: ADOSVTBase
         if ($this.PAMembers.Count -eq 0) {
             $this.PAMembers += @([AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName))
         }
-        if((-not [string]::IsNullOrEmpty($this.PAMembers)) -and [Helpers]::CheckMember($this.PAMembers[0],"mailAddress"))
+        if($this.PAMembers.Count -gt 0 -and [Helpers]::CheckMember($this.PAMembers[0],"mailAddress"))
         {
             $TotalPAMembers = $this.PAMembers.Count
             $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
@@ -561,7 +561,7 @@ class Project: ADOSVTBase
                             }
 
                             # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
-                            $allAdminMembers = @($allAdminMembers| Sort-Object -Property id -Unique)
+                            $allAdminMembers = @($allAdminMembers| Sort-Object -Property mailAddress -Unique)
 
                             if($allAdminMembers.Count -gt 0)
                             {

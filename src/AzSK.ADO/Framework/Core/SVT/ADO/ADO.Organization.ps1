@@ -230,7 +230,7 @@ class Organization: ADOSVTBase
                         }
 
                         # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
-                        $allAdminMembers = @($allAdminMembers| Sort-Object -Property id -Unique)
+                        $allAdminMembers = @($allAdminMembers| Sort-Object -Property mailAddress -Unique)
 
                         if($allAdminMembers.Count -gt 0)
                         {
