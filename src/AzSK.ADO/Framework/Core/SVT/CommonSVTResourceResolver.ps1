@@ -14,10 +14,10 @@ class CommonSVTResourceResolver {
         $this.projectId = $projectId;
     }
 
-    [SVTResource[]] LoadResourcesForScan($projectName, $repoNames, $secureFileNames, $feedNames, $environmentNames, $ResourceTypeName, $MaxObjectsToScan) {
+    [SVTResource[]] LoadResourcesForScan($projectName, $repoNames, $secureFileNames, $feedNames, $environmentNames, $ResourceTypeName, $MaxObjectsToScan, $isServiceIdBasedScan) {
         #Get resources    
         [SVTResource[]] $SVTResources = @();
-        if ($repoNames.Count -gt 0 -or $ResourceTypeName -eq [ResourceTypeName]::Repository) {
+        if ($repoNames.Count -gt 0 -or ($ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::All, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan) ) {
             #Write-Host "Getting repository configurations..." -ForegroundColor cyan
             if ($ResourceTypeName -eq [ResourceTypeName]::Repository -and $repoNames.Count -eq 0) {
                 $repoNames += "*";
@@ -37,7 +37,7 @@ class CommonSVTResourceResolver {
         }
         
         ##Get SecureFiles
-        if ($secureFileNames.Count -gt 0 -or $ResourceTypeName -eq [ResourceTypeName]::SecureFile) {
+        if ($secureFileNames.Count -gt 0 -or ($ResourceTypeName -in ([ResourceTypeName]::SecureFile, [ResourceTypeName]::All, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan) ) {
             if ($ResourceTypeName -eq [ResourceTypeName]::SecureFile -and $secureFileNames.Count -eq 0) {
                 $secureFileNames += "*"
             }
@@ -58,7 +58,7 @@ class CommonSVTResourceResolver {
         }
 
         #Get feeds
-        if ($feedNames.Count -gt 0 -or $ResourceTypeName -eq [ResourceTypeName]::Feed) {
+        if ($feedNames.Count -gt 0 -or ($ResourceTypeName -in ([ResourceTypeName]::Feed, [ResourceTypeName]::All, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan) ) {
             #Write-Host "Getting feed configurations..." -ForegroundColor cyan
             if ($ResourceTypeName -eq [ResourceTypeName]::Feed -and $feedNames.Count -eq 0) {
                 $feedNames += "*"
@@ -79,7 +79,7 @@ class CommonSVTResourceResolver {
         }
 
         #Get $EnvironmentNames
-        if ($environmentNames.Count -gt 0 -or $ResourceTypeName -eq [ResourceTypeName]::Environment) {
+        if ($environmentNames.Count -gt 0 -or ($ResourceTypeName -in ([ResourceTypeName]::Environment, [ResourceTypeName]::All, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan)) {
             #Write-Host "Getting feed configurations..." -ForegroundColor cyan
             if ($ResourceTypeName -eq [ResourceTypeName]::Environment -and $environmentNames.Count -eq 0) {
                 $environmentNames += "*"
