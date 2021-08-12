@@ -369,7 +369,6 @@ function Get-AzSKADOSecurityStatus
 		try
 		{
 			[ConfigurationHelper]::PolicyCacheContent = @()
-			[ConfigurationHelper]::PolicyCacheContent = @()
 			[ConfigurationHelper]::OnlinePolicyEnabled = $false
 			[ConfigurationHelper]::OssPolicyUrl = ""
 			[ConfigurationHelper]::OssPolicyEnabled = $false
