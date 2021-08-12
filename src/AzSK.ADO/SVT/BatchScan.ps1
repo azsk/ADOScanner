@@ -233,13 +233,13 @@ function Get-AzSKADOSecurityStatusBatchMode
             elseif($ResourceTypeName -eq "Release" -and [string]::IsNullOrEmpty($batchScanMngr.GetReleaseContinuationToken()) -and $batchScanMngr.GetBatchScanState() -eq [BatchScanState]::COMP){
                 Write-Host "No unscanned releases found. Scan is complete. " -ForegroundColor Green
                 $batchScanMngr.RemoveBatchScanData();
-                start-process powershell.exe -argument "Write-Host 'No unscanned builds found. Scan is fully complete. You can use GADSBMR command to combine CSVs from all batch results.'; Read-Host" 
+                start-process powershell.exe -argument "Write-Host 'No unscanned releases found. Scan is fully complete. You can use GADSBMR command to combine CSVs from all batch results.'; Read-Host" 
 
             }
             elseif($ResourceTypeName -eq "Build_Release" -and [string]::IsNullOrEmpty($batchScanMngr.GetReleaseContinuationToken()) -and [string]::IsNullOrEmpty($batchScanMngr.GetBuildContinuationToken()) -and $batchScanMngr.GetBatchScanState() -eq [BatchScanState]::COMP) {
                 Write-Host "No unscanned builds or releases found. Scan is complete. " -ForegroundColor Green
                 $batchScanMngr.RemoveBatchScanData();
-                start-process powershell.exe -argument "Write-Host 'No unscanned builds found. Scan is fully complete. You can use GADSBMR command to combine CSVs from all batch results.'; Read-Host" 
+                start-process powershell.exe -argument "Write-Host 'No unscanned builds or releases found. Scan is fully complete. You can use GADSBMR command to combine CSVs from all batch results.'; Read-Host" 
 
             }
             else {
