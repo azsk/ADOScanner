@@ -303,7 +303,8 @@ class Organization: ADOSVTBase
                                         $SCMembers = @();
                                         $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }
                                         $SCCount = $SCMembers.Count
-
+                                        $totalAdminCount = $nonSCCount+$SCCount
+                                        $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
                                         if ($nonSCCount -gt 0)
                                         {
                                             $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
