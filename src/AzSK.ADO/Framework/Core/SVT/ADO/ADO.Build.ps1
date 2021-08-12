@@ -335,7 +335,7 @@ class Build: ADOSVTBase
             }
             else
             {
-                if ($null -ne $this.buildActivityDetail.buildCreationDate)
+                if (-not [string]::IsNullOrEmpty($this.buildActivityDetail.buildCreationDate))
                 {
                     $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
                     if ((((Get-Date) - $this.buildActivityDetail.buildCreationDate).Days) -lt $inactiveLimit)
@@ -346,8 +346,7 @@ class Build: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed, "No build history found in last $($inactiveLimit) days.");
                     }
-                    $dateobj = [datetime]::Parse($this.buildActivityDetail.buildCreationDate);
-                    $formattedDate = $dateobj.ToString("d MMM yyyy")
+                    $formattedDate = $this.buildActivityDetail.buildCreationDate.ToString("d MMM yyyy")
                     $controlResult.AddMessage("The build pipeline was created on: $($formattedDate)");
                     $controlResult.AdditionalInfo += "The build pipeline was created on: " + $formattedDate;
                 }
@@ -357,10 +356,9 @@ class Build: ADOSVTBase
                 }
             }
 
-            if ($null -ne $this.buildActivityDetail.buildLastRunDate)
+            if (-not [string]::IsNullOrEmpty($this.buildActivityDetail.buildLastRunDate))
             {
-                $dateobj = [datetime]::Parse($this.buildActivityDetail.buildLastRunDate);
-                $formattedDate = $dateobj.ToString("d MMM yyyy")
+                $formattedDate = $this.buildActivityDetail.buildLastRunDate.ToString("d MMM yyyy")
                 $controlResult.AddMessage("Last run date of build pipeline: $($formattedDate)");
                 $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $formattedDate;
                 $buildInactivePeriod = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
@@ -1640,8 +1638,7 @@ class Build: ADOSVTBase
                 if($this.BuildObj)
                 {
                     $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
-                    [datetime]$createdDate = $this.BuildObj.createdDate
-                    $this.buildActivityDetail.buildCreationDate = $createdDate;
+                    $this.buildActivityDetail.buildCreationDate = [datetime]::Parse($this.BuildObj.createdDate);
 
                     if([Helpers]::CheckMember($this.BuildObj[0],"latestBuild") -and $null -ne $this.BuildObj[0].latestBuild)
                     {
@@ -1705,8 +1702,7 @@ class Build: ADOSVTBase
                         if($builds.Count -gt 0 )
                         {
                             $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
-                            [datetime]$createdDate = $this.BuildObj.createdDate
-                            $this.buildActivityDetail.buildCreationDate = $createdDate;
+                            $this.buildActivityDetail.buildCreationDate = [datetime]::Parse($this.BuildObj.createdDate);
                             if([Helpers]::CheckMember($builds[0],"latestRun") -and $null -ne $builds[0].latestRun)
                             {
                                 if ([datetime]::Parse( $builds[0].latestRun.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays)))

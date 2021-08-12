@@ -360,7 +360,7 @@ class Release: ADOSVTBase
             }
             else
             {
-                if ($null -ne $this.releaseActivityDetail.releaseCreationDate)
+                if (-not [string]::IsNullOrEmpty($this.releaseActivityDetail.releaseCreationDate))
                 {
                     $inactiveLimit = $this.ControlSettings.Release.ReleaseHistoryPeriodInDays
                     if ((((Get-Date) - $this.releaseActivityDetail.releaseCreationDate).Days) -lt $inactiveLimit)
@@ -371,8 +371,7 @@ class Release: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed, $this.releaseActivityDetail.message);
                     }
-                    $dateobj = [datetime]::Parse($this.releaseActivityDetail.releaseCreationDate);
-                    $formattedDate = $dateobj.ToString("d MMM yyyy")
+                    $formattedDate = $this.releaseActivityDetail.releaseCreationDate.ToString("d MMM yyyy")
                     $controlResult.AddMessage("The release pipeline was created on: $($formattedDate)");
                     $controlResult.AdditionalInfo += "The release pipeline was created on: " + $formattedDate;
                 }
@@ -382,10 +381,9 @@ class Release: ADOSVTBase
                 }
             }
 
-            if ($null -ne $this.releaseActivityDetail.latestReleaseTriggerDate)
+            if (-not [string]::IsNullOrEmpty($this.releaseActivityDetail.latestReleaseTriggerDate))
             {
-                $dateobj = [datetime]::Parse($this.releaseActivityDetail.latestReleaseTriggerDate);
-                $formattedDate = $dateobj.ToString("d MMM yyyy")
+                $formattedDate = $this.releaseActivityDetail.latestReleaseTriggerDate.ToString("d MMM yyyy")
                 $controlResult.AddMessage("Last release date of pipeline: $($formattedDate)");
                 $controlResult.AdditionalInfo += "Last release date of pipeline: " + $formattedDate;
                 $releaseInactivePeriod = ((Get-Date) - $this.releaseActivityDetail.latestReleaseTriggerDate).Days
@@ -1696,8 +1694,7 @@ class Release: ADOSVTBase
 
                     if($releases.Count -gt 0 )
                     {
-                        [datetime] $createdDate = $this.ReleaseObj.createdOn
-                        $this.releaseActivityDetail.releaseCreationDate = $createdDate
+                        $this.releaseActivityDetail.releaseCreationDate = [datetime]::Parse($this.ReleaseObj.createdOn);
                         $recentReleases = @()
                         $releases | ForEach-Object {
                             if([datetime]::Parse( $_.createdOn) -gt (Get-Date).AddDays(-$($this.ControlSettings.Release.ReleaseHistoryPeriodInDays)))
@@ -1723,8 +1720,7 @@ class Release: ADOSVTBase
                     {
                         # no release history ever.
                         $this.releaseActivityDetail.isReleaseActive = $false;
-                        [datetime] $createdDate = $this.ReleaseObj.createdOn
-                        $this.releaseActivityDetail.releaseCreationDate = $createdDate
+                        $this.releaseActivityDetail.releaseCreationDate = [datetime]::Parse($this.ReleaseObj.createdOn);
                         $this.releaseActivityDetail.message = "No release history found.";
                     }
 
