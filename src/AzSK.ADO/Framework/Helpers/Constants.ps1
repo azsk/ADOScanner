@@ -87,6 +87,8 @@ class Constants
 	static [string] $CAScanLogsContainerName = "ado-scan-logs"
 	static [string] $ResourceScanTrackerBlobName = "ResourceScanTracker.json"
 	static [string] $ResourceScanTrackerCMBlobName = "ResourceScanTracker_CentralMode.json"
+	static [string] $IncrementalScanTimeStampFile = "IncrementalScanTimestamp.json"
+	static [string] $BatchScanTrackerBlobName = "BatchScanTracker.json"
 	static [hashtable] $AttestationStatusHashMap = @{
 			[AttestationStatus]::NotAnIssue		="1";
 			[AttestationStatus]::WillNotFix		="2";

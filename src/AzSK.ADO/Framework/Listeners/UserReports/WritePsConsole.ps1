@@ -233,6 +233,7 @@ class WritePsConsole: FileOutputBase
             {
                 if(($Event.SourceArgs | Measure-Object).Count -gt 0 -or $null -ne [PartialScanManager]::CollatedSummaryCount)
                 {
+					
                     # Print summary
                     $currentInstance.PrintSummaryData($Event);
 					
@@ -255,7 +256,14 @@ class WritePsConsole: FileOutputBase
 
                 $currentInstance.WriteMessage("Status and detailed logs have been exported to path - $([WriteFolderPath]::GetInstance().FolderPath)", [MessageType]::Info)
                 $currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)
-				
+
+				#change batch scan state to COMP
+				if($currentInstance.InvocationContext.BoundParameters.ContainsKey('BatchScan')){
+				$CurrentResourceCount = $currentInstance.UpdateCurrentBatch();
+					$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Update)
+					$currentInstance.WriteMessage("Execution completed for current batch. Scanned $($CurrentResourceCount) resources. Next scan will take place in a fresh PS Console. You may close this window now.", [MessageType]::Update)
+                	$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Update)
+				}
                 $currentInstance.FilePath = "";
             }
             catch 
@@ -677,6 +685,15 @@ class WritePsConsole: FileOutputBase
 		[PartialScanManager]::duplicateClosedBugCount = 0;
 
 
+	}
+
+	hidden [int] UpdateCurrentBatch(){
+		[BatchScanManager] $batchScanMngr=[BatchScanManager]::GetInstance();
+		$batchStatus= $batchScanMngr.GetBatchStatus();
+		$batchStatus.BatchScanState=[BatchScanState]::COMP;
+		$batchScanMngr.BatchScanTrackerObj = $batchStatus;
+        $batchScanMngr.WriteToBatchTrackerFile();
+		return $batchStatus.ResourceCount;
 	}
 
 

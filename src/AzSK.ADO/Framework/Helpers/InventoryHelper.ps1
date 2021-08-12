@@ -16,7 +16,6 @@ class InventoryHelper {
                 }
             }
             catch {}
-
             # fetching the testPlan count of a project
             try {
                 $resourceURL = "https://dev.azure.com/$($organizationName)/$($projectName)/_apis/testplan/plans?api-version=6.0-preview.1"
@@ -94,7 +93,6 @@ class InventoryHelper {
             catch {}
         }
         catch {
-
         }
         [AIOrgTelemetryHelper]::PublishEvent("Projects resources count", $projectData, @{})
     }

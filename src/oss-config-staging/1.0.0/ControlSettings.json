@@ -1,0 +1,595 @@
+{
+    "BaselineControls": {
+      "ResourceTypeControlIdMappingList": [
+        {
+          "ResourceType": "Organization",
+          "ControlIds": [
+            "ADO_Organization_AuthN_Use_AAD_Auth",
+            "ADO_Organization_AuthN_Disable_Guest_Users",
+            "ADO_Organization_AuthZ_Review_Guest_Members",
+            "ADO_Organization_SI_Review_Installed_Extensions",
+            "ADO_Organization_SI_Review_Shared_Extensions",
+            "ADO_Organization_AuthZ_Review_Extension_Managers",
+            "ADO_Organization_AuthZ_Review_Project_Collection_Service_Accounts",
+            "ADO_Organization_SI_Review_Auto_Injected_Extensions",
+            "ADO_Organization_SI_Limit_Variables_Settable_At_Queue_Time",
+            "ADO_Organization_AuthZ_Limit_Non_Release_Pipeline_Scope",
+            "ADO_Organization_AuthZ_Limit_Release_Pipeline_Scope",
+            "ADO_Organization_AuthZ_Limit_Pipeline_Scope_To_Referenced_Repos",
+            "ADO_Organization_DP_Dont_Allow_Public_Projects",
+            "ADO_Organization_Enable_Audit_Stream",
+            "ADO_Organization_BCDR_Min_Admin_Count",
+            "ADO_Organization_AuthZ_Limit_Admin_Count",
+            "ADO_Organization_AuthN_Use_ALT_Accounts_For_Admin",
+            "ADO_Organization_AuthZ_Disable_OAuth_App_Access",
+            "ADO_Organization_AuthN_Disable_SSH_Access",
+            "ADO_Organization_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
+            "ADO_Organization_AuthZ_Revoke_Admin_Access_for_Guest_Users",
+            "ADO_Organization_AuthZ_Remove_Inactive_Guest_Users",
+            "ADO_Organization_AuthZ_Remove_Disconnected_Accounts"
+          ]
+        },
+        {
+          "ResourceType": "Project",
+          "ControlIds": [
+            "ADO_Project_AuthZ_Set_Visibility_Private_Or_Enterprise",
+            "ADO_Project_SI_Limit_Variables_Settable_At_Queue_Time",
+            "ADO_Project_BCDR_Min_Admin_Count",
+            "ADO_Project_AuthZ_Limit_Admin_Count",
+            "ADO_Project_AuthZ_Limit_Non_Release_Pipeline_Scope",
+            "ADO_Project_AuthZ_Limit_Release_Pipeline_Scope",
+            "ADO_Project_AuthZ_Limit_Pipeline_Scope_To_Referenced_Repos",
+            "ADO_Project_AuthN_Use_ALT_Accounts_For_Admin",
+            "ADO_Project_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
+            "ADO_Project_AuthZ_Revoke_Admin_Access_for_Guest_Users",
+            "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Builds",
+            "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Releases",
+            "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SvcConn",
+            "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Agentpool",
+            "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_VarGrp"
+          ]
+        },
+        {
+          "ResourceType": "ServiceConnection",
+          "ControlIds": [
+            "ADO_ServiceConnection_AuthZ_Dont_Use_Classic_Connections",
+            "ADO_ServiceConnection_AuthZ_Dont_Grant_All_Pipelines_Access",
+            "ADO_ServiceConnection_AuthZ_Dont_Allow_Global_Groups",
+            "ADO_ServiceConnection_DP_Review_Inactive_Connection",
+            "ADO_ServiceConnection_SI_Dont_Share_Across_Projects",
+            "ADO_ServiceConnection_AuthZ_Use_Least_Privilege_Access",
+            "ADO_ServiceConnection_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
+            "ADO_ServiceConnection_AuthZ_Restrict_Broader_Group_Access"
+          ]
+        },
+        {
+          "ResourceType": "Build",
+          "ControlIds": [
+            "ADO_Build_DP_No_PlainText_Secrets_In_Definition",
+            "ADO_Build_SI_Review_URL_Variables_Settable_At_Queue_Time",
+            "ADO_Build_SI_Dont_Use_Broadly_Editable_Task_Group",
+            "ADO_Build_SI_Dont_Use_Broadly_Editable_Variable_Group",
+            "ADO_Build_AuthZ_Limit_Pipeline_Scope",
+            "ADO_Build_AuthZ_Restrict_Broader_Group_Access",
+            "ADO_Build_DP_Dont_Make_Secrets_Available_To_Forked_Builds",
+            "ADO_Build_DP_Review_Inactive_Build"
+          ]
+        },
+        {
+          "ResourceType": "Release",
+          "ControlIds": [
+            "ADO_Release_DP_No_PlainText_Secrets_In_Definition",
+            "ADO_Release_SI_Review_URL_Variables_Settable_At_Release_Time",
+            "ADO_Release_SI_Dont_Use_Broadly_Editable_Task_Group",
+            "ADO_Release_SI_Dont_Use_Broadly_Editable_Variable_Group",
+            "ADO_Release_AuthZ_Restrict_Broader_Group_Access",
+            "ADO_Release_DP_Review_Inactive_Release"
+          ]
+        },
+        {
+          "ResourceType": "AgentPool",
+          "ControlIds": [
+            "ADO_AgentPool_AuthZ_Dont_Grant_All_Pipelines_Access",
+            "ADO_AgentPool_AuthZ_Dont_Enable_Auto_Provisioning",
+            "ADO_AgentPool_DP_Review_Inactive_Pool",
+            "ADO_AgentPool_DP_Enable_Auto_Update",
+            "ADO_AgentPool_DP_No_Secrets_In_Capabilities",
+            "ADO_AgentPool_AuthZ_Restrict_Broader_Group_Access"
+          ]
+        },
+        {
+          "ResourceType": "VariableGroup",
+          "ControlIds": [
+            "ADO_VariableGroup_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secrets",
+            "ADO_VariableGroup_DP_No_PlainText_Secrets_In_Variables",
+            "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access",
+            "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access_On_VG_With_Secrets"
+          ]
+        },
+        {
+          "ResourceType": "Feed",
+          "ControlIds": [
+            "ADO_Feed_AuthZ_Restrict_Broader_Group_Access"
+          ]
+        },
+        {
+          "ResourceType": "SecureFile",
+          "ControlIds": [
+            "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access",
+            "ADO_SecureFile_AuthZ_Restrict_Broader_Group_Access"
+          ]
+        },
+        {
+          "ResourceType": "Environment",
+          "ControlIds": []
+        },
+        {
+          "ResourceType": "Repository",
+          "ControlIds": [
+            "ADO_Repository_AuthZ_Dont_Grant_BuildSvcAcct_Permission"
+          ]
+        }
+      ]
+    },
+    "PreviewBaselineControls": {
+      "ResourceTypeControlIdMappingList": []
+    },
+    "PartialScan": {
+      "ResourceTrackerValidforDays": 3,
+      "StoreResourceTrackerLocally": "True",
+      "LocalScanUpdateFrequency": "100",
+      "DurableScanUpdateFrequency": "200"
+    },
+    "BatchScan":{
+      "BatchTrackerValidForDays":10,
+      "BatchTrackerUpdateFrequency":5000
+    },
+    "DockerImage":{
+      "ImageName" : "azskado/adosecurityscan"
+    },
+    "ADOInfoAPI":{
+      "Enabled" : false,
+      "Endpoint" : "",
+      "Code" : ""
+    },
+    "AllowAdminControlScanForGroups": [
+      {
+        "ResourceType": "Organization",
+        "GroupNames": [
+          "Project Collection Administrators"
+        ]
+      },
+      {
+        "ResourceType": "Project",
+        "GroupNames": [
+          "Project Administrators"
+        ]
+      }
+    ],
+    "AttestableResourceTypes": [
+      "Organization",
+      "Project",
+      "Build",
+      "Release",
+      "ServiceConnection",
+      "AgentPool",
+      "VariableGroup",
+      "Repository",
+      "Feed",
+      "SecureFile",
+      "Environment"
+    ],
+    "AttestationExpiryPeriodInDays": {
+      "Default": 90,
+      "ControlSeverity": {
+        "Critical": 7,
+        "High": 30,
+        "Medium": 60,
+        "Low": 90
+      }
+    },
+    "ExtendedAttestationExpiryDuration": 180,
+    "ExtendedAttestationExpiryResources": [
+      {
+        "ResourceType": "",
+        "ResourceIds": []
+      }
+    ],
+    "DefaultAttestationPeriodForExemptControl" : 180,
+    "GroupsWithAttestPermission": [
+      {
+        "ResourceType": "Organization",
+        "GroupNames": [
+          "Project Collection Administrators"
+        ]
+      },
+      {
+        "ResourceType": "Project",
+        "GroupNames": [
+          "Project Collection Administrators",
+          "Project Administrators"
+        ]
+      }
+    ],
+    "AttestationRepo": "",
+    "AttestationBranch": "",
+    "EnableMultiProjectAttestation": false,
+    "ProjectToStoreAttestation": "",
+    "EnforceApprovedException": false,
+    "ApprovedExceptionSettings": {
+      "ControlsList": [],
+      "InvalidatePreviousAttestations": false,
+      "ApprovedExceptionPromptMessage": "",
+      "ByDesignExceptionPromptMessage": "",
+      "DefaultPromptMessage": "Refer the docs https://github.com/azsk/ADOScanner-docs to fetch the exception id."
+    },
+    "IsAllowLongRunningScan": true,
+    "LongRunningScanCheckPoint": 1000,
+    "DefaultValidAttestationStates": [
+      "NotAnIssue",
+      "WillFixLater",
+      "WillNotFix",
+      "ApprovedException"
+    ],
+    "NewControlGracePeriodInDays": {
+      "Default": 60,
+      "ControlSeverity": {
+        "Critical": 7,
+        "High": 30,
+        "Medium": 60,
+        "Low": 90
+      }
+    },
+    "AttestationPeriodInDays": {
+      "Default": 90,
+      "ControlSeverity": {
+        "Critical": 7,
+        "High": 30,
+        "Medium": 60,
+        "Low": 90
+      }
+    },
+    "ControlSeverity": {
+      "Critical": "Critical",
+      "High": "High",
+      "Medium": "Medium",
+      "Low": "Low"
+    },
+    "Build": {
+      "BuildHistoryPeriodInDays": 180,
+      "ExemptedUserIdentities": [
+        {
+          "Domain": "Build",
+          "DisplayName": [
+            "OneITVSO Build Service (MicrosoftIT)",
+            "Project Collection Build Service (MicrosoftIT)"
+          ]
+        }
+      ],
+      "ExcludeFromSecretsCheck": [
+          "system.debug",
+          "BuildConfiguration",
+          "BuildPlatform",
+          "InputFeeds",
+          "Environment",
+          "SolutionName"
+      ],
+      "RestrictedBroaderGroupsForBuild" : [
+        "Contributors",
+        "Readers",
+        "Project Collection Valid Users",
+        "Project Valid Users"
+      ],
+      "ExcessivePermissionsForBroadGroups": [
+        "Administer build permissions",
+        "Delete build pipeline",
+        "Delete builds ",
+        "Destroy builds",
+        "Edit build pipeline"
+      ],
+      "CheckForInheritedPermissions" : false,
+      "RegexForOAuthTokenInYAMLScript" : "\\s*:\\s*\\$\\s*\\(\\s*System\\.AccessToken\\s*\\)",
+      "BranchesToCheckForYAMLScript": ["master","main","develop"]
+    },
+    "Release": {
+      "ReleaseHistoryPeriodInDays": 180,
+      "ExemptedUserIdentities": [
+        {
+          "Domain": "Build",
+          "DisplayName": [
+            "OneITVSO Build Service (MicrosoftIT)",
+            "Project Collection Build Service (MicrosoftIT)"
+          ]
+        }
+      ],
+      "RequirePreDeployApprovals": [
+        "Production",
+        "Pre-Production",
+        "Prod",
+        "Pre-Prod"
+      ],
+      "ExcludeFromSecretsCheck": [
+          "Domain",
+          "UserName",
+          "Build",
+          "AgentPath",
+          "BuildNumber",
+          "MachineGroup",
+          "Environment",
+          "System.debug",
+          "BuildConfiguration"
+      ],
+      "RestrictedBroaderGroupsForRelease": [
+        "Contributors",
+        "Readers",
+        "Project Collection Valid Users",
+        "Project Valid Users"
+      ],
+      "ExcessivePermissionsForBroadGroups": [
+        "Administer release permissions",
+        "Delete release pipeline",
+        "Delete releases",
+        "Edit release pipeline",
+        "Delete release stage",      
+        "Edit release stage",
+        "Manage release approvers",
+        "Manage releases"
+      ],
+      "CheckForInheritedPermissions": false
+    },
+    "AgentPool": {
+      "AgentPoolHistoryPeriodInDays": 180 ,
+      "RestrictedBroaderGroupsForAgentPool": [
+          "Project Collection Valid Users",
+          "Contributors",
+          "Readers",
+          "Project Valid Users"
+      ],
+      "RestrictedRolesForBroaderGroupsInAgentPool": [
+        "Administrator",
+        "User"
+      ],
+      "CheckForInheritedPermissions": false
+    },
+    "VariableGroup": {
+      "RestrictedBroaderGroupsForVariableGroup": [
+          "Project Collection Valid Users",
+          "Contributors",
+          "Readers",
+          "Project Valid Users"
+      ],
+      "RestrictedRolesForBroaderGroupsInVariableGroup": [
+          "Administrator"
+      ],
+      "RestrictedRolesForBroaderGroupsInVariableGroupContainingSecrets": [
+        "Administrator",
+        "User"
+      ],
+      "CheckForInheritedPermissions": false
+    },
+    "WorkItems":{
+      "ThreshHoldDaysForWorkItemInactivity":180
+    },
+    "FeedsAndPackages":{
+      "ThreshHoldDaysForFeedsAndPackagesInactivity":180
+    },
+    "TestPlans":{
+      "ThreshHoldDaysForTestPlansInactivity":180
+    },
+    "Wikis":{
+      "ThreshHoldDaysForWikisInactivity":180
+    }  ,
+    "AlernateAccountRegularExpressionForOrg": "^sc-\\w+@(?:\\w+\\.)*microsoft\\.com$|^\\w+.*@gme\\.gbl$",
+    "ALTControlEvaluationMethod": "GraphThenRegEx",
+    "Organization": {
+      "DisallowedEnvironments" : [],
+      "InactiveUserActivityLogsPeriodInDays": 90,
+      "GuestUserInactivePeriodInDays": 90,
+      "TopInactiveUserCount": 100,
+      "KnownExtensionPublishers": [
+        "Microsoft",
+        "Microsoft DevLabs"
+      ],
+      "KnownExtensionPublisherIds":[""],
+      "NonProductionExtensionIndicators":["DevTest", "Demo", "Preview", "Deprecated"],
+      "ExtensionsLastUpdatedInYears": 2,
+      "ExtensionCriticalScopes":["vso.agentpools_manage","vso.build_execute","vso.code_write","vso.code_manage","vso.code_full",
+                        "vso.code_status","vso.extension_manage",
+                        "vso.extension.data_write","vso.graph_manage","vso.identity_manage","vso.loadtest_write",
+                        "vso.machinegroup_manage","vso.memberentitlementmanagement_write","vso.gallery_manage","vso.notification_write","vso.notification_manage",
+                        "vso.packaging_write","vso.packaging_manage","vso.project_write","vso.project_manage","vso.release_execute",
+                        "vso.release_manage","vso.security_manage","vso.serviceendpoint_manage","vso.settings_write",
+                        "vso.symbols_write","vso.symbols_manage","vso.taskgroups_write","vso.taskgroups_manage",
+                        "vso.dashboards_manage","vso.test_write","vso.tokenadministration","vso.profile_write",
+                        "vso.variablegroups_write","vso.variablegroups_manage","vso.wiki_write","vso.work_write","vso.work_full"],
+      "ExemptedExtensionNames":["Azure DevTest Labs Tasks"],
+      "MaxPCAMembersPermissible": 6,
+      "MinPCAMembersPermissible": 2,
+      "GroupsToCheckForSCAltMembers": [
+        "Project Collection Administrators"
+      ],
+      "AdminGroupsToCheckForGuestUser":[
+        "Project Collection Administrators",
+        "Project Collection Build Administrators",
+        "Project Collection Service Accounts"
+      ],
+      "AdminGroupsToCheckForInactiveUser":[
+        "Project Collection Administrators",
+        "Project Collection Build Administrators",
+        "Project Collection Service Accounts"
+      ],
+      "AdminInactivityThresholdInDays": 90
+    },
+    "Project": {
+      "MaxPAMembersPermissible": 6,
+      "MinPAMembersPermissible": 2,
+      "GroupsToCheckForSCAltMembers": [
+        "Project Administrators"
+      ],
+      "AdminGroupsToCheckForGuestUser":[
+        "Endpoint Administrators",
+        "Project Administrators"
+      ],
+      "AdminGroupsToCheckForInactiveUser":[
+        "Endpoint Administrators",
+        "Project Administrators"
+      ],
+      "AdminInactivityThresholdInDays": 90
+    },
+    "Feed":{
+    "RestrictedBroaderGroupsForFeeds": [
+      "Project Collection Valid Users",
+      "Contributors",
+      "Readers",
+      "Project Valid Users"
+      ],
+      "RestrictedRolesForBroaderGroupsInFeeds": [
+          "administrator",
+          "collaborator",
+          "contributor"
+      ]
+    },
+    "SecureFile":{
+      "RestrictedBroaderGroupsForSecureFile": [
+        "Project Collection Valid Users",
+        "Contributors",
+        "Readers",
+        "Project Valid Users"
+        ],
+        "CheckForInheritedPermissions": false
+    },
+    "Environment":{
+      "RestrictedBroaderGroupsForEnvironment": [
+        "Project Collection Valid Users",
+        "Contributors",
+        "Readers",
+        "Project Valid Users"
+        ],
+        "CheckForInheritedPermissions": false
+    },
+    "Repo": {
+      "RepoHistoryPeriodInDays": 180,
+      "AuthorEmailValidationPolicyID": "77ed4bd3-b063-4689-934a-175e4d0a78d7",
+      "CredScanPolicyID": "e67ae10f-cf9a-40bc-8e66-6b3a8216956e",
+      "CommitAuthorEmailPattern": [
+        "*@microsoft.com",
+        "*@exchange.microsoft.com",
+        "*@ntdev.microsoft.com",
+        "*@microsoftfederal.com"
+      ]
+    },
+    "ServiceConnection": {
+      "ServiceConnectionHistoryPeriodInDays": 180,
+      "ExemptedGroupIdentities": [
+        "Endpoint Administrators"
+      ],
+      "RestrictedGlobalGroupsForSerConn": [
+        "Microsoft IT Build Admins (msitbuildadm@microsoft.com)",
+        "Everyone Microsoft FTE",
+        "Project Collection Administrators",
+        "Project Collection Build Administrators",
+        "Project Collection Proxy Service Accounts",
+        "Project Collection Service Accounts",
+        "Project Collection Valid Users",
+        "Security Service Group",
+        "Project Administrators",
+        "Build Administrators",
+        "Release Administrators",
+        "CSEOPipelineContributors",
+        "Endpoint Creators",
+        "Contributors",
+        "Readers"
+      ],
+      "RestrictedBroaderGroupsForSvcConn": [
+        "Project Collection Valid Users",
+        "Contributors",
+        "Readers",
+        "Project Valid Users"
+      ],
+      "CheckForInheritedPermissions": false
+    },
+    "Patterns": [
+      {
+        "RegexCode": "SecretsInBuild",
+        "RegexList": [
+          "(?# To match general passwords.)^(?=\\D*\\d)(?=[^a-z]*[a-z])(?=[^A-Z]*[A-Z])(?=(\\w*\\W|\\w*))[0-9\\Wa-zA-Z]{7,20}$",
+          "(?# To match SQL/MySQL conn strings.)((P|p)assword|pwd)\\s*=\\s*\\w+;?",
+          "(?# To match Azure storage keys.)^[A-Za-z0-9/+]{86}==$",
+          "(?# To match storage SAS.)([^?]*\\?sv=)[^&]+(&s[a-z]=[^&]+){4}",
+          "(?# To match ADO PATs.)^[a-z2-7]{52}$"
+        ]
+      },
+      {
+        "RegexCode": "SecretsInRelease",
+        "RegexList": [
+          "(?# To match general passwords.)^(?=\\D*\\d)(?=[^a-z]*[a-z])(?=[^A-Z]*[A-Z])(?=(\\w*\\W|\\w*))[0-9\\Wa-zA-Z]{7,20}$",
+          "(?# To match SQL/MySQL conn strings.)((P|p)assword|pwd)\\s*=\\s*\\w+;?",
+          "(?# To match Azure storage keys.)^[A-Za-z0-9/+]{86}==$",
+          "(?# To match storage SAS.)([^?]*\\?sv=)[^&]+(&s[a-z]=[^&]+){4}",
+          "(?# To match ADO PATs.)^[a-z2-7]{52}$"
+        ]
+      },
+      {
+        "RegexCode": "SecretsInVariables",
+        "RegexList": [
+          "(?# To match general passwords.)^(?=\\D*\\d)(?=[^a-z]*[a-z])(?=[^A-Z]*[A-Z])(?=(\\w*\\W|\\w*))[0-9\\Wa-zA-Z]{7,20}$",
+          "(?# To match SQL/MySQL conn strings.)((P|p)assword|pwd)\\s*=\\s*\\w+;?",
+          "(?# To match Azure storage keys.)^[A-Za-z0-9/+]{86}==$",
+          "(?# To match storage SAS.)([^?]*\\?sv=)[^&]+(&s[a-z]=[^&]+){4}",
+          "(?# To match ADO PATs.)^[a-z2-7]{52}$"
+        ]
+      },
+      {
+        "RegexCode": "URLs",
+        "RegexList": [
+          "(?# To match regular URL.)(www.|http:|https:)+[^\\s]+[\\w]",
+          "(?# To match ftp URL.)(ftp:)+[^\\s]+[\\w]"
+        ]
+      }
+    ],
+    "BugLogging": {
+      "BugLogAreaPath": "RootDefaultProject",
+      "BugLogIterationPath": "RootDefaultProject",
+      "ResolvedBugLogBehaviour": "ReactiveOldBug",
+      "MaxKeyWordsToQueryForBugClose": 30,
+      "AutoCloseProjectBug": true,
+      "AutoCloseOrgBug": true,
+      "BugAssigneeAndPathCustomFlow": false,
+      "BuildSTData": "BuildSTData.json",
+      "ReleaseSTData": "ReleaseSTData.json",
+      "ServiceTreeData": "ServiceTreeData.json",
+      "DomainName": "microsoft.com",
+      "BugDescriptionField" : "",
+      "ShowBugsInS360" : false,
+      "HowFound": "ADO Scanner",
+      "ComplianceArea": "Security",
+      "ServiceTreeIdType": "Service",
+      "UseAzureStorageAccount": false,
+      "LogBugsForInactiveResources": true,
+      "CustomControlList": [],
+      "LogBugsForUnmappedResource": true,
+      "Description":"Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a> </br></br> <b> Resource Owner: </b> {10} </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>",
+      "UpdateBug": []
+    },
+    "GenerateSecurityEvaluationJsonFile" : false,
+    "ResourceProviders": [
+      "Microsoft.Storage",
+      "Microsoft.Keyvault",
+      "Microsoft.Resources",
+      "Microsoft.OperationalInsights"
+    ],
+    "CriticalPATPermissions": [
+      "vso.build_execute",
+      "vso.release_execute",
+      "vso.release_manage"
+    ],
+    "DisableWarningMessage" : false,
+    "ResourceTypesForCommonSVT": [
+      "Repository",
+      "SecureFile",
+      "Feed",
+      "Environment"
+    ],
+    "DisableInheritedPermControls" : true
+  }
+  

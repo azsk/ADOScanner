@@ -62,6 +62,18 @@ class CommandHelper
             Noun = "AzSKADOSecurityStatus";
             ShortName = "sads";
 			IsLatestRequired = $false;
+        },
+		[CommandDetails]@{
+            Verb = "Get";
+            Noun = "AzSKADOSecurityStatusBatchMode";
+            ShortName = "gadsbm";
+			IsLatestRequired = $false;
+        },
+		[CommandDetails]@{
+            Verb = "Get";
+            Noun = "AzSKADOSecurityStatusBatchModeResults";
+            ShortName = "gadsbmr";
+			IsLatestRequired = $false;
         }
     );
 
