@@ -28,24 +28,27 @@ class OrganizationInfo: CommandBase {
             $this.PublishCustomMessage("Fetching resource inventory for below projects : $($projectsList)`n")
             $returnMsgs += [MessageData]::new("Fetching resource inventory for below projects: $($projectsList)`n")
             $outputFolder = ([WriteFolderPath]::GetInstance().FolderPath)
+            $inventorySummary = @()
+            $outputPath = $outputFolder + "\$($this.organizationName)" + "_Inventory.csv";
             foreach ($project in $this.projects) {
                 $projectId = $project.id
                 $projectName = $project.name
                 [Hashtable] $resourceInventoryData = @{
-                    Repositories       = 0;
-                    TestPlans          = 0;
-                    Build              = 0;
-                    Release            = 0;
-                    TaskGroups         = 0;
-                    AgentPools         = 0;
-                    VariableGroups     = 0;
-                    ServiceConnections = 0;
+                    Repositories       =  0;
+                    TestPlans          =  0;
+                    Build              =  0;
+                    Release            =  0;
+                    TaskGroups         =  0;
+                    AgentPools         =  0;
+                    VariableGroups     =  0;
+                    ServiceConnections =  0;
                 };
                 [InventoryHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $resourceInventoryData);
                 # Change the hashtable headers to resource type and resource count
+                $tempObj = [PSCustomObject]$resourceInventoryData
+                $tempObj | Add-Member -Name 'ProjectName' -Type NoteProperty -Value $projectName
+                $inventorySummary += $tempObj
                 $resourceInventoryDataWithNewHeaders = $resourceInventoryData.keys  | Select @{l = 'ResourceType'; e = { $_ } }, @{l = 'Count'; e = { if ($resourceInventoryData.$_ -eq -1 ) { 0 } else { $resourceInventoryData.$_ } } }
-                $outputPath = $outputFolder + "\$($project.name)" + "_Inventory.csv";
-                $resourceInventoryData.GetEnumerator()  | Select-Object -Property @{N = 'ResourceType'; E = { $_.Key } }, @{N = 'Count'; E = { $_.Value } } | Export-Csv -NoTypeInformation -Path $outputPath
                 $this.PublishCustomMessage("$([Constants]::DoubleDashLine)`nResource inventory for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
                 $returnMsgs += [MessageData]::new("$([Constants]::DoubleDashLine)`nResource inventory for the project [$($projectName)] `n$([Constants]::DoubleDashLine)`n")
                 $formattedResourceInventoryData = ($resourceInventoryDataWithNewHeaders | Out-String)
@@ -62,6 +65,9 @@ class OrganizationInfo: CommandBase {
                     [LogAnalyticsHelper]::PostLAWSData($settings.LAWSId, $settings.LAWSSharedKey, $lawsBodyByteArray, 'AzSK_ADO_RESOURCE_INVENTORY', 'LAWS') 
                 }
                 $returnMsgs += $formattedResourceInventoryData;
+            }
+            if ($inventorySummary.Count -gt 0) {
+                $inventorySummary | Export-Csv -NoTypeInformation -Path $outputPath
             }
         }
         catch {
