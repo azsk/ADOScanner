@@ -70,7 +70,8 @@ class CommonSVTResourceResolver {
                 $maxObjScan = $MaxObjectsToScan
                 foreach ($feed in $feedObjList) {
                     $resourceId = "organization/{0}/project/{1}/feed/{2}" -f $this.organizationId, $this.projectId, $feed.id;
-                    $SVTResources += $this.AddSVTResource($feed.name, $projectName, "ADO.Feed", $resourceId, $feed, $feed.Url);
+                    $resourceLink = "https://dev.azure.com/{0}/{1}/_packaging?_a=feed&feed={2}" -f $this.organizationName, $projectName, $feed.name;
+                    $SVTResources += $this.AddSVTResource($feed.name, $projectName, "ADO.Feed", $resourceId, $feed, $resourceLink);
                     if (--$maxObjScan -eq 0) { break; }
                 }
 
