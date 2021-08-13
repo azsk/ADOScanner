@@ -124,7 +124,7 @@ class IncrementalScanHelper
         {
             return;
         }
-        if($this.ScanSource -eq 'SDL')
+        if($this.ScanSource -ne "CA" -and $this.ScanSource -ne "CICD")
         {
             if($this.FirstScan -eq $true)
             {
