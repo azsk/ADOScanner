@@ -37,7 +37,7 @@ class IncrementalScanHelper
     {
         # function to retrieve threshold time from storage, based on scan source.
         $latestScan = 0
-        if($this.ScanSource -eq 'SDL')
+        if($this.ScanSource -ne "CA" -and $this.ScanSource -ne "CICD")
         {
             if(![string]::isnullorwhitespace($this.OrganizationName))
             {
