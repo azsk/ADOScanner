@@ -178,7 +178,7 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_Build_AuthZ_Limit_Pipeline_Scope",
+      "ControlID": "ADO_Build_AuthZ_Limit_Pipeline_Access",
       "Description": "Limit scope of access for build pipeline to the current project.",
       "Id": "Build220",
       "ControlSeverity": "Medium",
