@@ -176,7 +176,8 @@
         "SDL",
         "Best Practice",
         "Automated",
-        "DP"
+        "DP",
+        "MSW"
       ],
       "Enabled": true
     },
@@ -228,7 +229,8 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },

@@ -374,12 +374,13 @@ class Project: ADOSVTBase
         if ($this.PAMembers.Count -eq 0) {
             $this.PAMembers += @([AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName))
         }
-        if([Helpers]::CheckMember($this.PAMembers[0],"mailAddress"))
+        if((-not [string]::IsNullOrEmpty($this.PAMembers)) -and [Helpers]::CheckMember($this.PAMembers[0],"mailAddress"))
         {
             $TotalPAMembers = $this.PAMembers.Count
         }
 
         $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
+        $controlResult.SetStateData("Count of Project Administrators: ",$TotalPAMembers)
         if ($TotalPAMembers -gt 0) {
             if ([IdentityHelpers]::hasGraphAccess)
             {
@@ -403,14 +404,12 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("`nCount of Human administrators: $($humanAccounts.Count)")
                     $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                    $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
                 }
 
                 if ($svcAccounts.count -gt 0) {
                     $controlResult.AddMessage("`nCount of Service accounts: $($svcAccounts.Count)")
                     $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                    $controlResult.SetStateData("List of service account Project Administrators: ",$svcAccounts)
                 }
             }
             else
@@ -427,7 +426,6 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("Current set of Project Administrators: ")
                     $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                    $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
                     $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
                 }
             }
@@ -447,10 +445,11 @@ class Project: ADOSVTBase
         if ($this.PAMembers.Count -eq 0) {
             $this.PAMembers += @([AdministratorHelper]::GetTotalPAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName))
         }
-        if((-not [string]::IsNullOrEmpty($this.PAMembers)) -and [Helpers]::CheckMember($this.PAMembers[0],"mailAddress"))
+        if($this.PAMembers.Count -gt 0 -and [Helpers]::CheckMember($this.PAMembers[0],"mailAddress"))
         {
             $TotalPAMembers = $this.PAMembers.Count
             $controlResult.AddMessage("There are a total of $TotalPAMembers Project Administrators in your project.")
+            $controlResult.SetStateData("Count of Project Administrators: ",$TotalPAMembers)
         }
 
 
@@ -481,14 +480,12 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("`nCount of Human Administrators: $($humanAccountsCount)")
                     $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                    $controlResult.SetStateData("List of human Project Administrators: ",$humanAccounts)
                 }
 
                 if ($svcAccountsCount -gt 0) {
                     $controlResult.AddMessage("`nCount of Service Accounts: $($svcAccountsCount)")
                     $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                    $controlResult.SetStateData("List of service account Project Administrators: ",$svcAccounts)
                 }
             }
             else
@@ -507,7 +504,6 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("Current set of Project Administrators: ")
                     $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                    $controlResult.SetStateData("List of Project Administrators: ",$this.PAMembers)
                     $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
                 }
             }
@@ -565,7 +561,7 @@ class Project: ADOSVTBase
                             }
 
                             # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
-                            $allAdminMembers = @($allAdminMembers| Sort-Object -Property id -Unique)
+                            $allAdminMembers = @($allAdminMembers| Sort-Object -Property mailAddress -Unique)
 
                             if($allAdminMembers.Count -gt 0)
                             {
@@ -590,7 +586,8 @@ class Project: ADOSVTBase
 
                                         $nonSCCount = $nonSCMembers.Count
                                         $SCCount = $SCMembers.Count
-
+                                        $totalAdminCount = $nonSCCount+$SCCount
+                                        $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
                                         if ($nonSCCount -gt 0)
                                         {
                                             $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
@@ -636,6 +633,9 @@ class Project: ADOSVTBase
                                             $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }
                                             $SCCount = $SCMembers.Count
 
+                                            $totalAdminCount = $nonSCCount+$SCCount
+                                            $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
+                                            
                                             if ($nonSCCount -gt 0)
                                             {
                                                 $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
@@ -1267,15 +1267,11 @@ class Project: ADOSVTBase
 
     hidden [ControlResult] CheckInactiveProject([ControlResult] $controlResult) {
 
-        # these variables are used to make table which will show inactivity status for resource types.
-        $Reporow = @()
-        $Buildrow = @()
-        $Releaserow = @()
-        $AgentPoolrow = @()
-        $ServiceConnectionrow = @()
-
+        $OrgName = $this.OrganizationContext.OrganizationName
+        $projName = $this.ResourceContext.ResourceName
         ## Checking Inactive Repos
-        $IsRepoActive = $false
+        $isRepoActive = $false
+        $repoRow = @()
         $inactiveRepocount = 0
         try {
             $repoDefnsObj = $this.FetchRepositoriesList()
@@ -1308,18 +1304,18 @@ class Project: ADOSVTBase
                 {
                     if($inactiveRepocount -ne ($repoDefnsObj | Measure-Object).count)
                     {
-                        $IsRepoActive = $true
+                        $isRepoActive = $true
                     }
                     $inactiveRepos = $inactiveRepos | sort-object
-                    $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "Total number of inactive repositories that have no commits in last $($threshold) days: $($inactiveRepocount) => {$($inactiveRepos -join ", ")} "})
+                    $repoRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($isRepoActive)"; "Additional Info" = "Total number of inactive repositories that have no commits in last $($threshold) days: $($inactiveRepocount) => {$($inactiveRepos -join ", ")} "})
                 }
                 else {
-                        $IsRepoActive = $true
-                        $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "There are no inactive repositories in the project."})
+                        $isRepoActive = $true
+                        $repoRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($isRepoActive)"; "Additional Info" = "There are no inactive repositories in the project."})
                 }
             }
             else {
-                $Reporow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($IsRepoActive)"; "Additional Info" = "All repositories are disabled in the project."})
+                $repoRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Repository";"IsActive"="$($isRepoActive)"; "Additional Info" = "All repositories are disabled in the project."})
             }
         }
         catch {
@@ -1328,11 +1324,12 @@ class Project: ADOSVTBase
         }
 
         ## Checking Inactive build
-        $IsBuildActive = $false
+        $isBuildActive = $false
+        $buildRow = @()
         $threshold = $this.ControlSettings.Build.BuildHistoryPeriodInDays
         $currentDate = Get-Date
         $thresholdDate = $currentDate.AddDays(-$threshold);
-        $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/build/builds?minTime=$($thresholdDate)&api-version=6.0"
+        $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/build/builds?minTime=$($thresholdDate)&api-version=6.0"
         try{
             $res = [WebRequestHelper]::InvokeGetWebRequest($url);
             if(-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1 ))
@@ -1341,15 +1338,15 @@ class Project: ADOSVTBase
                 if($res[0].queueTime -gt $thresholdDate)
                 {
                     ## active build
-                    $IsBuildActive = $true
-                    $Buildrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($IsBuildActive)"; "Additional Info" = "Builds are queued in the project. Most recent build is [$($res[0].definition.name)] which was last queued on [$($res[0].queueTime)]"})
+                    $isBuildActive = $true
+                    $buildRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($isBuildActive)"; "Additional Info" = "Builds are queued in the project. Most recent build is [$($res[0].definition.name)] which was last queued on [$($res[0].queueTime)]"})
                 }
                 else {
-                    $Buildrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($IsBuildActive)"; "Additional Info" = "Builds are not queued in the project."})
+                    $buildRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($isBuildActive)"; "Additional Info" = "Builds are not queued in the project."})
                 }
             }
             else {
-                $Buildrow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($IsBuildActive)"; "Additional Info" = "No builds are created/queued since [$($thresholdDate)]"})
+                $buildRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Build definition";"IsActive"="$($isBuildActive)"; "Additional Info" = "No builds are created/queued since [$($thresholdDate)]"})
             }
         }
         catch{
@@ -1359,13 +1356,14 @@ class Project: ADOSVTBase
 
 
         ## Checking Inactive Release
-        $IsReleaseActive = $false
+        $isReleaseActive = $false
+        $releaseRow = @()
         $threshold = $this.ControlSettings.Release.ReleaseHistoryPeriodInDays
         $currentDate = Get-Date
         $thresholdDate = $currentDate.AddDays(-$threshold);
 
         # Below API will arrange all deployments in project in descending order (latest first) and give first object of that sorted array
-        $url = "https://vsrm.dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/release/deployments?queryOrder=descending&`$top=1"
+        $url = "https://vsrm.dev.azure.com/$($OrgName)/$($projName)/_apis/release/deployments?queryOrder=descending&`$top=1"
         try{
             $res = [WebRequestHelper]::InvokeGetWebRequest($url);
             if(-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1))
@@ -1374,15 +1372,15 @@ class Project: ADOSVTBase
                 if($res[0].queuedOn -gt $thresholdDate)
                 {
                     ## active Release
-                    $IsReleaseActive = $true
-                    $Releaserow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($IsReleaseActive)"; "Additional Info" = "Releases are queued in the project.Most recent release is [$($res[0].release.name)] of release definition [$($res[0].releasedefinition.name)] which was last queued on [$($res[0].queuedOn)]"})
+                    $isReleaseActive = $true
+                    $releaseRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($isReleaseActive)"; "Additional Info" = "Releases are queued in the project.Most recent release is [$($res[0].release.name)] of release definition [$($res[0].releasedefinition.name)] which was last queued on [$($res[0].queuedOn)]"})
                 }
                 else {
-                    $Releaserow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($IsReleaseActive)"; "Additional Info" = "Releases are not queued in the project."})
+                    $releaseRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($isReleaseActive)"; "Additional Info" = "Releases are not queued in the project."})
                 }
             }
                 else {
-                    $Releaserow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($IsReleaseActive)"; "Additional Info" = "No Releases are created/queued since [$($thresholdDate)]"})
+                    $releaseRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Release definition";"IsActive"="$($isReleaseActive)"; "Additional Info" = "No Releases are created/queued since [$($thresholdDate)]"})
                 }
         }
         catch{
@@ -1391,11 +1389,12 @@ class Project: ADOSVTBase
         }
 
          ## Checking AgentPools
-         $IsAgentPoolActive = $false
+         $isAgentPoolActive = $false
+         $agentPoolRow = @()
          $thresholdLimit = $this.ControlSettings.AgentPool.AgentPoolHistoryPeriodInDays
 
          # Fetch All Agent Pools
-         $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/distributedtask/queues?api-version=6.0-preview.1"
+         $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/distributedtask/queues?api-version=6.0-preview.1"
          try{
              $res = [WebRequestHelper]::InvokeGetWebRequest($url);
              $taskAgentQueues = @()
@@ -1431,16 +1430,16 @@ class Project: ADOSVTBase
                                     else
                                     {
                                         ## Active pool
-                                        $IsAgentPoolActive = $true
-                                        $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "Agent pool has been queued in the last $thresholdLimit days."})
+                                        $isAgentPoolActive = $true
+                                        $agentPoolRow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($isAgentPoolActive)"; "Additional Info" = "Agent pool has been queued in the last $thresholdLimit days."})
                                         break
                                     }
                                 }
                                 else
                                 {
                                     ## Active pool
-                                    $IsAgentPoolActive = $true
-                                    $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "Agent pool was being queued during control evaluation."})
+                                    $isAgentPoolActive = $true
+                                    $agentPoolRow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($isAgentPoolActive)"; "Additional Info" = "Agent pool was being queued during control evaluation."})
                                     break
                                 }
                             }
@@ -1454,13 +1453,13 @@ class Project: ADOSVTBase
                             $controlResult.AddMessage("Could not fetch agent pool details.");
                         }
                     }
-                    if(-not $IsAgentPoolActive)
+                    if(-not $isAgentPoolActive)
                     {
-                        $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "Agent pool has not been queued in the last $thresholdLimit days."})
+                        $agentPoolRow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($isAgentPoolActive)"; "Additional Info" = "Agent pool has not been queued in the last $thresholdLimit days."})
                     }
                 }
                 else {
-                    $AgentPoolrow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($IsAgentPoolActive)"; "Additional Info" = "No Agent pools are there in project."})
+                    $agentPoolRow = New-Object psobject -Property $([ordered] @{"Resource Type"="AgentPool";"IsActive"="$($isAgentPoolActive)"; "Additional Info" = "No Agent pools are there in project."})
                 }
             }
             else {
@@ -1468,15 +1467,16 @@ class Project: ADOSVTBase
             }
          }
          catch{
-             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch Agent pool details");
+             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch Agent pool details.");
              $controlResult.LogException($_)
          }
 
         # Checking Service Connections
-        $IsServiceConnectionActive = $false
+        $isServiceConnectionActive = $false
+        $serviceConnectionRow = @()
         $thresholdLimit = $this.ControlSettings.ServiceConnection.ServiceConnectionHistoryPeriodInDays
 
-         $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_apis/serviceendpoint/endpoints?api-version=6.0-preview.4"
+         $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/serviceendpoint/endpoints?api-version=6.0-preview.4"
 
         try
         {
@@ -1502,37 +1502,192 @@ class Project: ADOSVTBase
                             }
                             else
                             {
-                                $IsServiceConnectionActive = $true
-                                $ServiceConnectionrow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($IsServiceConnectionActive)"; "Additional Info" = "Service connection has been used in the last $thresholdLimit days."})
+                                $isServiceConnectionActive = $true
+                                $serviceConnectionRow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($isServiceConnectionActive)"; "Additional Info" = "Service connection has been used in the last $thresholdLimit days."})
                                 break
                             }
                     }
                 }
-                if(-not $IsServiceConnectionActive)
+                if(-not $isServiceConnectionActive)
                 {
-                    $ServiceConnectionrow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($IsServiceConnectionActive)"; "Additional Info" = "Service connection has never been used."})
+                    $serviceConnectionRow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($isServiceConnectionActive)"; "Additional Info" = "Service connection has never been used."})
                 }
             }
             else {
-                $ServiceConnectionrow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($IsServiceConnectionActive)"; "Additional Info" = "No Service Connections are present in project."})
+                $serviceConnectionRow = New-Object psobject -Property $([ordered] @{"Resource Type"="ServiceConnection";"IsActive"="$($isServiceConnectionActive)"; "Additional Info" = "No Service Connections are present in project."})
             }
         }
         catch
         {
-            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch Service connection details");
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch Service connection details.");
+            $controlResult.LogException($_)
+        }       
+
+        # Checking Work items
+        $isWorkItemActive = $false
+        $workItemsRow = @()
+        $thresholdLimit = $this.ControlSettings.WorkItems.ThreshHoldDaysForWorkItemInactivity
+        try 
+        {
+            $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/wit/wiql?timePrecision=$false&`$top=5&api-version=5.1"
+            $body = '{"query": "Select * From WorkItems where [System.TeamProject] = @project AND [System.WorkItemType] <> '''' AND [Changed Date] > @today-'+$thresholdLimit+' ORDER BY [Changed Date] desc "}' | ConvertFrom-Json
+            $res = [WebRequestHelper]::InvokePostWebRequest($url, $body)
+            if([Helpers]::CheckMember($res[0],"workitems.id"))
+            {
+                $isWorkItemActive = $true
+                $workItemsRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Work Items";"IsActive"="$($isWorkItemActive)"; "Additional Info" = "Work items are actively used in last $($thresholdLimit) days."})
+            }
+            else {
+                $workItemsRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Work Items";"IsActive"="$($isWorkItemActive)"; "Additional Info" = "Work items are not used in last $($thresholdLimit) days."})
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch work item details.");
+            $controlResult.LogException($_)
+        }
+
+        # Checking Artifacts: Feeds and Packages
+        $isFeedAndPAckageActive = $false
+        $thresholdLimit = $this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity
+        $thresholdDate = (Get-Date).AddDays(-$thresholdLimit)
+        $feeds = @()
+        $feedAndPackageRow = @()
+        try {
+            $url = "https://feeds.dev.azure.com/$($OrgName)/$($projName)/_apis/packaging/feeds?api-version=6.1-preview.1"
+            $feeds = @([WebRequestHelper]::InvokeGetWebRequest($url))
+            if(-not ([Helpers]::CheckMember($feeds,"count") -and $feeds[0].count -eq 0 -and $feeds.Length -eq 1 ))
+            {
+                foreach( $feed in $feeds)
+                {
+                    $url = "https://feeds.dev.azure.com/$($OrgName)/$($projName)/_apis/packaging/Feeds/$($feed.id)/packagechanges?api-version=6.1-preview.1"
+                    $allpackageObj= @([WebRequestHelper]::InvokeGetWebRequest($url))
+                    if(-not ([Helpers]::CheckMember($allpackageObj,"count") -and $allpackageObj[0].count -eq 0 -and $allpackageObj.Length -eq 1 ))
+                    {
+                        $publishDatesofAllPackages = @($allpackageObj.packageChanges.packageVersionChange.packageVersion.publishDate | Sort-Object -Descending)
+                    
+                        if($publishDatesofAllPackages[0] -gt $thresholdDate)
+                        {
+                            $isFeedAndPAckageActive = $true
+                            break;
+                        }
+                    }
+                }
+            }
+            else {
+                $feedAndPackageRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Feeds and Packages";"IsActive"="$($isFeedAndPAckageActive)"; "Additional Info" = "Feed packages are not published in last $($thresholdLimit) days."})
+            }
+            
+            if($isFeedAndPackageActive)
+            {
+                $feedAndPackageRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Feeds and Packages";"IsActive"="$($isFeedAndPAckageActive)"; "Additional Info" = "Feed packages are published in last $($thresholdLimit) days."})
+            }
+            else {
+                $feedAndPackageRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Feeds and Packages";"IsActive"="$($isFeedAndPAckageActive)"; "Additional Info" = "Feed packages are not published in last $($thresholdLimit) days."})
+            }
+
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch feeds and packages details.");
+            $controlResult.LogException($_)
+        }
+
+        ## Checking Test Plans
+        $isTestPlanActive = $false
+        $thresholdLimit = $this.ControlSettings.TestPlans.ThreshHoldDaysForTestPlansInactivity
+        $thresholdDate = (Get-Date).AddDays(-$thresholdLimit)
+        $testPlanRow = @()
+
+        try {
+            
+            $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/testplan/plans?includePlanDetails=True&filterActivePlans=True&api-version=6.0-preview.1"
+            $res = @([WebRequestHelper]::InvokeGetWebRequest($url))
+            if(-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1 ))
+            {
+                $Testplans = $res | Sort-Object -Property endDate -Descending
+                $latestTestPlan = $Testplans[0]
+                if([Helpers]::CheckMember($latestTestPlan,"endDate"))
+                {
+                    if($latestTestPlan.endDate -gt $thresholdDate)
+                    {
+                        $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/test/runs?includeRunDetails=true&planid=$($latestTestPlan.id)&api-version=6.0"
+                        $res = @([WebRequestHelper]::InvokeGetWebRequest($url))
+                        if(-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1 ))
+                        {
+                            $runs = $res | Sort-Object -Property completedDate -Descending
+                            if( $runs[0].completedDate -gt $thresholdDate)
+                            {
+                                $isTestPlanActive = $true
+                                $testPlanRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "Test cases are executed in last $($thresholdLimit) days."})
+                            }
+                        }
+                        else {
+                            $testPlanRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "No test cases are executed in last $($thresholdLimit) days."})
+                        }   
+                    }
+                    else
+                    {
+                        $testPlanRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "Test plans are not used in last $($thresholdLimit) days."})
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch test plan details.");
+                }
+            }
+            else
+            {
+                $testPlanRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Test Plans";"IsActive"="$($isTestPlanActive)"; "Additional Info" = "No Test plan found in the project."})
+            }                     
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch test cases details.");
+            $controlResult.LogException($_)
+        }
+
+        ## Checking Wiki`s
+        # We are only checking for project wiki not for code wiki as there is no portal or documented api for finding code wiki commits.
+        $isProjectWikiActive = $false
+        $thresholdLimit = $this.ControlSettings.Wikis.ThreshHoldDaysForWikisInactivity
+        $thresholdDate = (Get-Date).AddDays(-$thresholdLimit)
+        $wikiRow = @()
+
+        try {
+            $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/wiki/wikis?api-version=6.0"
+            $res = @([WebRequestHelper]::InvokeGetWebRequest($url))
+            if(-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1 ))
+            {
+                $projectWiki = @($res | Where-Object{ $_.type -eq "projectWiki" })
+                $url = "https://dev.azure.com/$($OrgName)/$($projName)/_apis/git/repositories/$($projectWiki.id)/Commits"
+                $res = @([WebRequestHelper]::InvokeGetWebRequest($url))
+                if((-not ([Helpers]::CheckMember($res,"count") -and $res[0].count -eq 0 -and $res.Length -eq 1 )) -and ($res[0].author.date -gt $thresholdDate -or $res[0].committer.date -gt $thresholdDate))
+                {
+                    $IsprojectWikiActive = $true
+                    $wikiRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Project Wiki";"IsActive"="$($IsprojectWikiActive)"; "Additional Info" = "Project wiki is active in project."})
+                }
+                else {
+                    $wikiRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Project Wiki";"IsActive"="$($IsprojectWikiActive)"; "Additional Info" = "Project wiki is inactive in project."})
+                }
+
+            }
+            else {
+                $wikiRow = New-Object psobject -Property $([ordered] @{"Resource Type"="Project Wiki";"IsActive"="$($IsprojectWikiActive)"; "Additional Info" = "No project wiki is present in project."})
+            }
+
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch project wiki details.");
             $controlResult.LogException($_)
         }
 
         if( $controlResult.VerificationResult -ne [VerificationResult]::Error)
         {
             $controlResult.AddMessage("Below mentioned resource types are considered for checking inactivity of a project:")
-            $table = @($Reporow;$Buildrow;$Releaserow;$AgentPoolrow;$ServiceConnectionrow) | Format-Table -AutoSize | Out-String -Width 512
+            $table = @($repoRow;$buildRow;$releaseRow;$agentPoolRow;$serviceConnectionRow;$workItemsRow;$feedAndPackageRow;$testPlanRow;$wikiRow) | Format-Table -AutoSize | Out-String -Width 512
             $controlResult.AddMessage($table)
 
-            $IsProjectActive  = $IsRepoActive -or $IsBuildActive -or $IsReleaseActive -or $IsAgentPoolActive -or $IsServiceConnectionActive
+            $IsProjectActive  = $isRepoActive -or $isBuildActive -or $isReleaseActive -or $isAgentPoolActive -or $isServiceConnectionActive -or $isWorkItemActive -or $isFeedAndPAckageActive -or $isTestPlanActive -or $isProjectWikiActive
             if($IsProjectActive)
             {
-                if(($inactiveRepocount -gt 0) -and  (($IsRepoActive -eq $true) -and ($IsBuildActive -eq $true) -and  ($IsReleaseActive -eq $true) -and ($IsAgentPoolActive -eq $true) -and ($IsServiceConnectionActive -eq $true)))
+                if(($inactiveRepocount -gt 0) -and  (($isRepoActive -eq $true) -and ($isBuildActive -eq $true) -and  ($isReleaseActive -eq $true) -and ($isAgentPoolActive -eq $true) -and ($isServiceConnectionActive -eq $true) -and ($isWorkItemActive -eq $true) -and ($isFeedAndPAckageActive -eq $true) -and ($isTestPlanActive -eq $true) -and ($isProjectWikiActive)))
                 {
                     $controlResult.AddMessage([VerificationResult]::Verify,"One or more repositories are inactive.")
                 }
@@ -1882,7 +2037,11 @@ class Project: ADOSVTBase
                 $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
                 $buildSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "Build") -and ($_.actions.name -contains "ViewBuilds")}).namespaceId
                 $buildURL = "https://dev.azure.com/$orgName/$projectName/_build"
-                $allowPermissionBits = @(1,3)
+                $allowPermissionBits = @(1)
+                if ([Helpers]::CheckMember($this.ControlSettings, "Build.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions) {
+                    #allow permission bit for inherited permission is '3'
+                    $allowPermissionBits = @(1,3)
+                }
                 $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
                 $inputbody = "{
                 'contributionIds': [
@@ -1955,6 +2114,9 @@ class Project: ADOSVTBase
                                 $excessivePermissionsGroupObj = @{}
                                 $excessivePermissionsGroupObj['Group'] = $broderGroup.principalName
                                 $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessiveEditPermissions.displayName -join ', ')
+                                $excessivePermissionsGroupObj['Descriptor'] = $broderGroup.sid
+                                $excessivePermissionsGroupObj['PermissionSetToken'] = $permissionSetToken
+                                $excessivePermissionsGroupObj['PermissionSetId'] = $buildSecurityNamespaceId
                                 $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
                             }
                         }
@@ -1965,6 +2127,12 @@ class Project: ADOSVTBase
                             $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                             $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                             $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
+                            if ($this.ControlFixBackupRequired)
+                                {
+                                    #Data object that will be required to fix the control
+                                    
+                                    $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                                }
                         }
                         else {
                             $controlResult.AddMessage([VerificationResult]::Passed, "Build pipelines are not allowed to inherit excessive permissions for a broad group of users at project level.");
@@ -1994,6 +2162,83 @@ class Project: ADOSVTBase
     }
 
 
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForBuildAutomatedFix([ControlResult] $controlResult)
+    {
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    
+                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        $roleId = [int][BuildPermissions] $excessivePermission.Replace(" ","");
+                        #need to invoke a post request which does not accept all permissions added in the body at once
+                        #hence need to call invoke seperately for each permission
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
+                                'allow':0,
+                                'deny':$($roleId)                              
+                            }]
+                        }" | ConvertFrom-Json
+                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$RawDataObjForControlFix[0].PermissionSetId
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Allow"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Deny"
+
+                }              
+                
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                   
+                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        $roleId = [int][BuildPermissions] $excessivePermission.Replace(" ","");
+                        
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
+                                'allow':$($roleId),
+                                'deny':0                              
+                            }]
+                        }" | ConvertFrom-Json
+                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $RawDataObjForControlFix[0].PermissionSetId
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Allow"
+                }
+
+            }
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permissions for broader groups have been changed as below: ");
+            $formattedGroupsData = $RawDataObjForControlFix | Select @{l = 'Group'; e = { $_.Group } }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions }}, @{l = 'OldPermission'; e = { $_.OldPermission }}, @{l = 'NewPermission'; e = { $_.NewPermission } }
+            $display = ($formattedGroupsData |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }  
+
+
   hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForRelease([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -2010,7 +2255,11 @@ class Project: ADOSVTBase
                 $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
                 $releaseSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ReleaseManagement") -and ($_.actions.name -contains "ViewReleaseDefinition")}).namespaceId
                 $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release"
-                $allowPermissionBits = @(1,3)
+                $allowPermissionBits = @(1)
+                if ([Helpers]::CheckMember($this.ControlSettings.Release, "CheckForInheritedPermissions") -and $this.ControlSettings.Release.CheckForInheritedPermissions) {
+                    #allow permission bit for inherited permission is '3'
+                    $allowPermissionBits = @(1,3)
+                }
                 $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
                 $inputbody = "{
                 'contributionIds': [
@@ -2136,9 +2385,14 @@ class Project: ADOSVTBase
                 if (($serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($serviceEndPointIdentity, "identity")) {
                     # match all the identities added on service connection with defined restricted list
                     $roleAssignments = @();
-                    $roleAssignments +=   ($serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                    $roleAssignments +=   ($serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.Id}},@{Name="Role"; Expression = {$_.role.displayName}},@{Name="Access"; Expression = {$_.access}});
                     #Checking where broader groups have user/admin permission for service connection
-                    $restrictedGroups += @($roleAssignments | Where-Object { $restrictedBroaderGroupsForSvcConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+                    if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.CheckForInheritedPermissions") -and $this.ControlSettings.ServiceConnection.CheckForInheritedPermissions) {
+                        $restrictedGroups += @($roleAssignments | Where-Object { $restrictedBroaderGroupsForSvcConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+                    }
+                    else {
+                        $restrictedGroups += @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and $restrictedBroaderGroupsForSvcConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+                    }
 
                     $restrictedGroupsCount = $restrictedGroups.Count
 
@@ -2147,10 +2401,15 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage([VerificationResult]::Failed, "Service connections are set to inherit excessive permissions for a broad group of users at project level.");
                         $controlResult.AddMessage("Count of broader groups: $($restrictedGroupsCount)`n")
                         $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
+                        $formattedGroupsDataForAutoFix = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id } }, @{l = 'Role'; e = { $_.Role } }
                         $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
                         $controlResult.AddMessage("`nList of groups: ", $formattedGroupsTable)
                         $controlResult.SetStateData("List of groups: ", $formattedGroupsData)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to service connection at a project level:  $($restrictedGroupsCount)";
+                        if ($this.ControlFixBackupRequired) {
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $formattedGroupsDataForAutoFix;
+                        }  
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection at a project level.");
@@ -2170,6 +2429,62 @@ class Project: ADOSVTBase
         }
         return $controlResult;
     }
+    
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForSvcConnAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            $body = "["
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = "Reader"
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                        {
+                            "userId":"$($identity.id)",
+	                        "roleName":"$($roleId)",
+	                        "uniqueName":"Assigned"
+                        }
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Group}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = "$($identity.role)"
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                        {
+                            "userId":"$($identity.id)",
+	                        "roleName":"$($roleId)",
+	                        "uniqueName":"Assigned"
+                        }
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Group}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+            }
+            #Patch request
+            $body += "]"
+            #$url = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/permissions?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            $url = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.project.serviceendpointrole/roleassignments/resources/{1}?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers $header -Body $body
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
+            $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
 
     hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForAgentpool ([ControlResult] $controlResult) {
         try {
@@ -2184,20 +2499,32 @@ class Project: ADOSVTBase
 
                 if (($agentPoolPermObj.Count -gt 0) -and [Helpers]::CheckMember($agentPoolPermObj, "identity")) {
                     # match all the identities added on agentpool with defined restricted list
-                    $roleAssignments = @($agentPoolPermObj | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                    $roleAssignments = @($agentPoolPermObj | Select-Object -Property @{Name="ProjectName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="DisplayName"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}},@{Name="RoleId"; Expression = {$_.identity.id}},@{Name="Access"; Expression = {$_.access}});
                     # Checking whether the broader groups have User/Admin permissions
-                    $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.Name.split('\')[-1] -and ($restrictedRolesForBroaderGroupsInAgentPool -Contains $_.Role) })
+                    $restrictedGroups = @();
+
+                    if ([Helpers]::CheckMember($this.ControlSettings, "Agentpool.CheckForInheritedPermissions") -and $this.ControlSettings.Agentpool.CheckForInheritedPermissions) {
+                        $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.DisplayName.split('\')[-1] -and ($restrictedRolesForBroaderGroupsInAgentPool -Contains $_.Role) })
+                    }
+                    else {
+                        $restrictedGroups = @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and $restrictedBroaderGroupsForAgentPool -contains $_.DisplayName.split('\')[-1] -and ($restrictedRolesForBroaderGroupsInAgentPool -Contains $_.Role) })                      
+                    }
 
                     $restrictedGroupsCount = $restrictedGroups.Count
                     # fail the control if restricted group found on agentpool
                     if ($restrictedGroupsCount -gt 0) {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Agent pools are set to inherit excessive permissions for a broad group of users at project level.");
                         $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups: $($restrictedGroupsCount)");
-                        $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
+                        $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.DisplayName} }, @{l = 'Role'; e = { $_.Role } }
                         $formattedGroupsTable = ($formattedGroupsData | Out-String)
                         $controlResult.AddMessage("`nList of groups: $formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool at a project level: $($restrictedGroupsCount)";
+                        if ($this.ControlFixBackupRequired)
+                        {
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $restrictedGroups;
+                        }
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to agent pool at a project level.");
@@ -2220,6 +2547,60 @@ class Project: ADOSVTBase
         return $controlResult;
     }
 
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForAgentpoolAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $body = "["
+
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = "Reader"
+                    $userId = $identity.RoleId
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @" 
+                        {"userId": "$($userId)","roleName": "$($roleId)"}
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = "$($identity.Role)"
+                    $userId = $identity.RoleId
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                    {"userId": "$($userId)","roleName": "$($roleId)"}
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+            }
+
+            $body += "]"
+            #Patch request
+            $url = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.globalagentqueuerole/roleassignments/resources/{1}?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers $header -Body $body
+
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
+            $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
     hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForVarGrp ([ControlResult] $controlResult) {
 
         try {
@@ -2237,11 +2618,16 @@ class Project: ADOSVTBase
                 $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                 if($responseObj.Count -gt 0)
                 {
-                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}},@{Name="RoleId"; Expression = {$_.identity.id}},@{Name="ProjectName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Access"; Expression = {$_.access}});
                 }
 
                 # Checking whether the broader groups have User/Admin permissions
-                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                if ([Helpers]::CheckMember($this.ControlSettings, "VariableGroup.CheckForInheritedPermissions") -and $this.ControlSettings.VariableGroup.CheckForInheritedPermissions) {
+                    $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                }
+                else {
+                    $restrictedGroups = @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and  ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                }
                 $restrictedGroupsCount = $restrictedGroups.Count
 
                 # fail the control if restricted group found on variable group
@@ -2252,6 +2638,11 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
+                    if ($this.ControlFixBackupRequired)
+                    {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $restrictedGroups;
+                    }
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group at a project level.");
@@ -2269,4 +2660,256 @@ class Project: ADOSVTBase
 
         return $controlResult;
     }
+
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForVarGrpAutomatedFix ([ControlResult] $controlResult) {
+
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $body = "["
+
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = "Reader"
+                    $userId = $identity.RoleId
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += "{`"userId`": `"$($userId)`",`"roleName`": `"$($roleId)`"}"
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = "$($identity.Role)"
+                    $userId = $identity.RoleId
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += "{`"userId`": `"$($userId)`",`"roleName`": `"$($roleId)`"}"
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+            }
+
+            $body += "]"
+            #Patch request
+            $url = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.library/roleassignments/resources/{1}%240?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method PUT -ContentType "application/json" -Headers $header -Body $body
+
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
+            $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForSecureFile ([ControlResult] $controlResult) {
+
+        try {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            $projectId = $this.ResourceContext.ResourceDetails.Id
+
+            if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedBroaderGroupsForSecureFile") -and [Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedRolesForBroaderGroupsInSecureFile")) {
+                $restrictedBroaderGroupsForSecureFile = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile;  
+                $restrictedRolesForBroaderGroupsInSecureFile = $this.ControlSettings.SecureFile.RestrictedRolesForBroaderGroupsInSecureFile;              
+
+                #Fetch Secure File RBAC
+                $roleAssignments = @();
+
+                $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.library/roleassignments/resources/$($projectId)%240"
+                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                if($responseObj.Count -gt 0)
+                {
+                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                }
+
+                # Checking whether the broader groups have User/Admin permissions
+                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForSecureFile -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInSecureFile -contains $_.Role) })
+                $restrictedGroupsCount = $restrictedGroups.Count
+
+                # fail the control if restricted group found on secure file
+                if ($restrictedGroupsCount -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to secure file at a project level: $($restrictedGroupsCount)");
+                    $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                    $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
+                    $controlResult.SetStateData("List of groups: ", $restrictedGroups)
+                    $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to secure file at a project level: $($restrictedGroupsCount)";
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to secure file at a project level.");
+                }
+                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($restrictedBroaderGroupsForSecureFile | FT | out-string)");
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for secure file is not defined in the control settings for your organization policy.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the secure file permissions at a project level.");
+            $controlResult.LogException($_)
+        }
+
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForRepo ([ControlResult] $controlResult) {        
+        $accessList = @() 
+        $controlResult.VerificationResult = [VerificationResult]::Failed       
+        try{
+
+            if ([Helpers]::CheckMember($this.ControlSettings, "Repo.RestrictedBroaderGroupsForRepo") -and [Helpers]::CheckMember($this.ControlSettings, "Repo.RestrictedRolesForBroaderGroupsInRepo")) {
+                $restrictedBroaderGroupsForRepo = $this.ControlSettings.Repo.RestrictedBroaderGroupsForRepo;  
+                $restrictedRolesForBroaderGroupsInRepo = $this.ControlSettings.Repo.RestrictedRolesForBroaderGroupsInRepo;  
+
+                $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+                $refererUrl = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=permissions";
+                $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $inputbody.dataProviderContext.properties.sourcePage.url = $refererUrl
+                $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
+                $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.id)"
+
+                # Get list of all users and groups granted permissions on all repositories
+                $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+
+                # Iterate through each user/group to fetch detailed permissions list
+                if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+                {
+                    $body = '{"contributionIds":["ms.vss-admin-web.security-view-permissions-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","accountName":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                    $body.dataProviderContext.properties.sourcePage.url = $refererUrl
+                    $body.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
+                    $body.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.id)"
+
+                    $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { $_.subjectKind -eq "group" } | ForEach-Object {
+                        $identity = $_
+                        $body.dataProviderContext.properties.accountName = $_.principalName
+                        $body.dataProviderContext.properties.subjectDescriptor = $_.descriptor
+
+                        $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body);
+                        $configuredPermissions = $identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
+                        return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.subjectKind; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
+                    }
+
+                    $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { $_.subjectKind -eq "user" } | ForEach-Object {
+                        $identity = $_
+                        $body.dataProviderContext.properties.subjectDescriptor = $_.descriptor
+
+                        $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body);
+                        $configuredPermissions = $identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
+                        return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.subjectKind; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
+                    }
+                }
+
+                # Checking if Inherited permissions are allowed or not.
+                $allowPermission = @("Allow")
+                if ([Helpers]::CheckMember($this.ControlSettings, "Repo.CheckForInheritedPermissions") -and $this.ControlSettings.Repo.CheckForInheritedPermissions) {
+                    #allow permission bit for inherited permission is '3'
+                    $allowPermission = @("Allow", "Allow (Inherited)")
+                }
+
+                # Checking whether the broader groups have User/Admin permissions
+                $restrictedBroaderGroups = $accessList| Where-Object { ($restrictedBroaderGroupsForRepo -contains $_.IdentityName)}
+                $restrictedGroups = @()
+                $foundRestrictedPermissions = $false
+                $restrictedBroaderGroups | Foreach-Object {
+                    $group = $_
+                    $group.Permissions | Foreach-Object {
+                        #Where-Object {$_.Name -in $restrictedRolesForBroaderGroupsInRepo -and $_.Permission -in $allowPermission}
+                        if ($_.Name -in $restrictedRolesForBroaderGroupsInRepo -and $_.Permission -in $allowPermission) {
+                            $foundRestrictedPermissions = $true
+                        }
+                    }
+                    if ($foundRestrictedPermissions) {
+                        $restrictedGroups += $group
+                    }
+                    $foundRestrictedPermissions = $false
+                }
+
+                if($restrictedGroups.Count -ne 0)
+                {
+                    $accessList = $restrictedGroups | Select-Object -Property @{Name="Name"; Expression = {$_.IdentityName}}, @{Name="Type"; Expression = {$_.IdentityType}}, @{Name="Permissions"; Expression = {$_.Permissions.Name}}
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Count of broader groups that have excessive permissions to repository at a project level: $($restrictedGroups.Count)");
+                    $controlResult.AddMessage("Validate that the following broader groups that have excessive permissions to repositories: `n", $($accessList | FT -AutoSize | Out-String -Width 512));
+                    $stateData = ($responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Select-Object -Property @{Name="Name"; Expression = {$_.displayName}},@{Name="Type"; Expression = {$_.subjectKind}},@{Name="Scope"; Expression = {$_.Scope}}) 
+                    $controlResult.SetStateData("List of broader groups having access to repositories: ", $stateData);
+                    $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions to repository at a project level: $($restrictedGroups.Count)";
+
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have excessive access to repository at a project level.");
+                }
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' and should not have excessive privileges: `n$($restrictedBroaderGroupsForRepo | FT | out-string)");
+                $responseObj = $null;
+            }
+            else 
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for repository is not defined in the control settings for your organization policy.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch repositories permission details. Please verify from portal all teams/groups are granted minimum required permissions.");
+            $controlResult.LogException($_)
+        }
+
+        return $controlResult
+    }   
+        
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForEnv ([ControlResult] $controlResult) {
+
+        try {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            $projectId = $this.ResourceContext.ResourceDetails.Id
+
+            if ([Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedBroaderGroupsForEnvironment") -and [Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedRolesForBroaderGroupsInEnv")) {
+                $RestrictedBroaderGroupsForEnvironment = $this.ControlSettings.Environment.RestrictedBroaderGroupsForEnvironment;
+                $restrictedRolesForBroaderGroupsInEnv = $this.ControlSettings.Environment.RestrictedRolesForBroaderGroupsInEnv;
+
+                #Fetch environment RBAC
+                $roleAssignments = @();
+
+                $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.globalenvironmentreferencerole/roleassignments/resources/$($projectId)?api-version=5.0-preview.1";
+                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                if($responseObj.Count -gt 0)
+                {
+                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                }
+
+                # Checking whether the broader groups have User/Admin permissions
+                $restrictedGroups = @($roleAssignments | Where-Object { ($RestrictedBroaderGroupsForEnvironment -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInEnv -contains $_.Role) })
+                $restrictedGroupsCount = $restrictedGroups.Count
+
+                # fail the control if restricted group found on environment
+                if ($restrictedGroupsCount -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator/user access to environment at a project level: $($restrictedGroupsCount)");
+                    $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                    $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
+                    $controlResult.SetStateData("List of groups: ", $restrictedGroups)
+                    $controlResult.AdditionalInfo += "Count of broader groups that have administrator/user access to environment at a project level: $($restrictedGroupsCount)";
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator/user access to environment at a project level.");
+                }
+                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($RestrictedBroaderGroupsForEnvironment | FT | out-string)");
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for environment is not defined in the control settings for your organization policy.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the environment permissions at a project level.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult;
+    } 
 }

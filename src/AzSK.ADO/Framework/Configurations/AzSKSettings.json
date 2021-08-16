@@ -8,5 +8,7 @@
     "AutoUpdateCommand":  "Install-Module AzSK.ADO -AllowClobber -Scope CurrentUser -Force",
     "BranchId":  "master",
     "EnableOrgControlAttestation":  false,
-    "PolicyProject":  ""
+    "PolicyProject":  "",
+    "OnlineOssPolicyStoreUrl" : "https://raw.githubusercontent.com/azsk/ADOScanner/master/src/oss-config/$Version/$Filename",
+    "BatchScanModule" : "AzSK.ADO"
 }

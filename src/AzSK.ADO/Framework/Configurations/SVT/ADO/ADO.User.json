@@ -90,7 +90,7 @@
     },
     {
       "ControlID": "ADO_User_AuthZ_Dont_Grant_Critical_Permissions_To_PAT",
-      "Description": "Do not use PAT that have critical permissions on the organization unless required.",
+      "Description": "Do not use personal access tokens (PATs) that have critical permissions on the organization unless required.",
       "Id": "User160",
       "ControlSeverity": "Medium",
       "Automated": "Yes",

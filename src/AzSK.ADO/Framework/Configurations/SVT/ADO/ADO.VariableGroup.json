@@ -4,7 +4,7 @@
     "IsMaintenanceMode": false,
     "Controls": [
           {
-            "ControlID": "ADO_VariableGroup_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secrets",
+            "ControlID": "ADO_VariableGroup_AuthZ_Dont_Grant_All_Pipelines_Access_On_VG_With_Secrets",
             "Description": "Do not make variable groups with secret variables accessible to all pipelines.",
             "Id": "VariableGroup120",
             "ControlSeverity": "High",
@@ -86,7 +86,8 @@
               "TCP",
               "Automated",
               "AuthZ",
-              "MSW"
+              "MSW",
+              "AutomatedFix"
             ],
             "Enabled": true
           },

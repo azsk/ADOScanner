@@ -12,6 +12,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	$ActualResourcesPerRsrcType = @(); # Resources count based on resource type . This count is evaluated before comparison with resource tracker file.
     [bool] $IsControlFixCommand = $false;
     [string] $controlInternalId;
+	[bool] $IsBatchScan=$false;
 
 	ServicesSecurityStatus([string] $organizationName, [InvocationInfo] $invocationContext, [SVTResourceResolver] $resolver):
         Base($organizationName, $invocationContext)
@@ -30,6 +31,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		$this.ActualResourcesPerRsrcType = $this.Resolver.SVTResources | Group-Object -Property ResourceType |select-object Name, Count           
 
 		$this.UsePartialCommits = $invocationContext.BoundParameters["UsePartialCommits"];
+		$this.IsBatchScan = $invocationContext.BoundParameters["BatchScan"];
 
 		#BaseLineControlFilter with control ids
 		$this.UseBaselineControls = $invocationContext.BoundParameters["UseBaselineControls"];
@@ -59,10 +61,15 @@ class ServicesSecurityStatus: ADOSVTCommandBase
         $this.IsControlFixCommand = $true
         $this.FilterTags = "AutomatedFix"
         $this.MapTagsToControlIds();
-        if ($this.ControlIds -contains $ControlId)
+        
+        if ($this.ControlIds.Count -gt 0)
         {
             $this.Resolver = $resolver;
             $this.Resolver.FetchControlFixBackupFile($organizationName, $projectName, $this.controlInternalId);
+            if ([ControlHelper]::ControlFixBackup.Count -eq 0)
+            {
+                break;
+            }
             $this.Resolver.LoadResourcesForScan();
             if (!$this.Resolver.SVTResources) {
                 return;
@@ -332,7 +339,12 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 						{
 							# Update local resource tracker file
 							$this.UpdatePartialCommitFile($false, $result)
+							#If this is a batch scan, update the inventory count and add to tracker
+							if($this.IsBatchScan) {
+								$this.UpdateBatchScanCount($currentCount,$totalResources);
+							}
 							$updateSucceeded = $true
+
 						}	
 					}	
 					else{			
@@ -560,6 +572,20 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		}
 	}
 
+	[void] UpdateBatchScanCount($currentCount,$totalResources) {
+		$ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+		[BatchScanManager] $batchScanMngr = [BatchScanManager]::GetInstance()
+		$batchStatus = $batchScanMngr.GetBatchStatus();
+		if($currentCount % $ControlSettings.PartialScan.LocalScanUpdateFrequency -eq 0){
+			$batchStatus.ResourceCount += $ControlSettings.PartialScan.LocalScanUpdateFrequency;
+		}
+		elseif($currentCount -eq $totalResources){
+			$batchStatus.ResourceCount += ($totalResources %  $ControlSettings.PartialScan.LocalScanUpdateFrequency );
+		}
+		
+		$batchScanMngr.BatchScanTrackerObj = $batchStatus;
+        $batchScanMngr.WriteToBatchTrackerFile();
+	}
 
 	[void] UpdatePartialCommitFile($isDurableStorageUpdate , $result)
 	{
@@ -620,19 +646,20 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                 #$this.PublishCustomMessage("Running cmdlet under transactional mode. This will scan resources and store intermittent scan progress to Storage. It resume scan in next run if something breaks inbetween.", [MessageType]::Warning);
                 #Validate if active resources list already available in store
                 #If list not available in store. Get resources filtered by baseline resource types and store it storage
-				$nonScannedResourcesList = @();
-				if(($partialScanMngr.IsPartialScanInProgress($this.OrganizationContext.OrganizationName) -eq [ActiveStatus]::Yes)  )
+                $nonScannedResourcesList = @();
+                #Sending $this.isControlFixCommand as true in case set-azskadosecuritystatus command is used in order to store RTF in separate folder, so that it does not interfere with GADS command
+                if(($partialScanMngr.IsPartialScanInProgress($this.OrganizationContext.OrganizationName, $this.IsControlFixCommand) -eq [ActiveStatus]::Yes)  )
                 {
-					$this.IsPartialCommitScanActive = $true;
+                    $this.IsPartialCommitScanActive = $true;
                     $allResourcesList = $partialScanMngr.GetAllListedResources()
                     # Get list of non-scanned active resources
-					Write-Host "Finding unscanned resources" -ForegroundColor Yellow
+                    Write-Host "Finding unscanned resources" -ForegroundColor Yellow
                     $nonScannedResourcesList = $partialScanMngr.GetNonScannedResources();
                     $this.PublishCustomMessage("Resuming scan from last commit. $(($nonScannedResourcesList | Measure-Object).Count) out of $(($allResourcesList | Measure-Object).Count) resources will be scanned.", [MessageType]::Warning);
                     $nonScannedResourceIdList = $nonScannedResourcesList | Select-Object Id | ForEach-Object { $_.Id}
                     #Filter SVT resources based on master resources list available and scan completed
                     #Commenting telemtry here to include PartialScanIdentifier
-					#[AIOrgTelemetryHelper]::PublishEvent( "Partial Commit Details", @{"TotalSVTResources"= $($this.Resolver.SVTResources | Where-Object { $_.ResourceTypeMapping } | Measure-Object).Count;"UnscannedResource"=$(($nonScannedResourcesList | Measure-Object).Count); "ResourceToBeScanned" = ($this.Resolver.SVTResources | Where-Object {$_.ResourceId -in $nonScannedResourceIdList } | Measure-Object).Count;},$null)
+                    #[AIOrgTelemetryHelper]::PublishEvent( "Partial Commit Details", @{"TotalSVTResources"= $($this.Resolver.SVTResources | Where-Object { $_.ResourceTypeMapping } | Measure-Object).Count;"UnscannedResource"=$(($nonScannedResourcesList | Measure-Object).Count); "ResourceToBeScanned" = ($this.Resolver.SVTResources | Where-Object {$_.ResourceId -in $nonScannedResourceIdList } | Measure-Object).Count;},$null)
                     $this.Resolver.SVTResources = $this.Resolver.SVTResources | Where-Object {$_.ResourceId -in $nonScannedResourceIdList }             
                 }
                 else{
@@ -735,7 +762,9 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 				#Need Control's internal id in case of Set-AzSKADOSecurityStatus command 
 				if ($this.IsControlFixCommand)
 				{
-					$this.ControlInternalId = ($controlList | Where-Object { $this.ControlIds -contains $_.ControlId }| Select-Object Id -Unique).Id
+					$inputControlId = $this.invocationContext.BoundParameters["ControlId"];
+					$this.ControlIds = $this.ControlIds | where-object {$_ -eq $inputControlId}
+					$this.ControlInternalId = ($controlList | Where-Object { $inputControlId -contains $_.ControlId }| Select-Object Id -Unique).Id
 				}
 			}
 
