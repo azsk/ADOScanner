@@ -268,7 +268,7 @@
     },
     {
       "ControlID": "ADO_Build_AuthZ_Restrict_Access_To_OAuth_Token_For_Agent_Jobs",
-      "Description": "Do not allow excessive permissions on OAuth access token to agent jobs in a build pipeline.",
+      "Description": "Do not allow agent jobs to access OAuth token unless explicitly required.",
       "Id": "Build270",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
