@@ -102,7 +102,7 @@
       {
         "ResourceType": "VariableGroup",
         "ControlIds": [
-          "ADO_VariableGroup_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secrets",
+          "ADO_VariableGroup_AuthZ_Dont_Grant_All_Pipelines_Access_On_VG_With_Secrets",
           "ADO_VariableGroup_DP_No_PlainText_Secrets_In_Variables",
           "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access",
           "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access_On_VG_With_Secrets"
