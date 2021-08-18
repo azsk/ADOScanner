@@ -1783,7 +1783,7 @@ class Project: ADOSVTBase
                         }
                     }
                     $this.AllUsersInOrg = @($AllUsersAccounts)
-                }
+                } 
             }
         catch {
             throw
@@ -1856,12 +1856,15 @@ class Project: ADOSVTBase
                                       $Scope = $grpObj.group."User or scope" | select -Unique
                                       [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; Scope = $Scope }
                                     }
-
+                    
                         $controlResult.AddMessage([VerificationResult]::Failed,"Count of guest users in admin roles: $($results.count) ");
                         $controlResult.AddMessage("`nGuest users list :")
                         $display = ($results | FT PrincipalName, DisplayName, Group  -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("Guest users list : ", $results);
+                        $controlResult.AdditionalInfoInCSV += "Total Count: $($results.count); ";
+                        $UserList = $results | ForEach-Object { $_.DisplayName + ': ' } | select-object -Unique -First 10;
+                        $controlResult.AdditionalInfoInCSV += "Guest users list : $($UserList -join ' ; ');";
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No guest users have admin roles in the project.");
@@ -2014,6 +2017,12 @@ class Project: ADOSVTBase
                         $display = ($inactiveUsersWithAdminAccess|FT PrincipalName,DisplayName,Group,LastAccessedDate  -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
+                       
+                        $controlResult.AdditionalInfoInCSV += "Total Count: $($inactiveUsersWithAdminAccess.count) ; ";
+                        $UserList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName } | select-object -Unique -First 10;
+                        $controlResult.AdditionalInfoInCSV += "Inactive user list : $($UserList -join ' ; ');";
+                
+                    
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No users in project admin roles found to be inactive for $($inactivityPeriodInDays) days.");
@@ -2908,7 +2917,7 @@ class Project: ADOSVTBase
                 {
                     $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
                 }
-
+            
                 # Checking whether the broader groups have User/Admin permissions
                 $restrictedGroups = @($roleAssignments | Where-Object { ($RestrictedBroaderGroupsForEnvironment -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInEnv -contains $_.Role) })
                 $restrictedGroupsCount = $restrictedGroups.Count
