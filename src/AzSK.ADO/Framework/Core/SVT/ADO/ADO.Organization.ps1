@@ -266,6 +266,8 @@ class Organization: ADOSVTBase
                                         $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
                                         $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                         $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
+                                        $formatedSCMembers = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.groupName }
+                                        $controlResult.AdditionalInfoInCSV = "Count of accounts with admin privileges: $($totalAdminCount); Count of non-ALT accounts with admin privileges:: $($nonSCCount); List of non-alt accounts: $(($formatedSCMembers | Select -First 10) -join '; ')"
                                     }
                                     else
                                     {
@@ -314,6 +316,8 @@ class Organization: ADOSVTBase
                                             $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));  
                                             $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                             $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
+                                            $formatedSCMembers = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.groupName }
+                                            $controlResult.AdditionalInfoInCSV = "Count of non-ALT accounts with admin privileges: $($totalAdminCount); Count of non-ALT accounts with admin privileges: $($nonSCCount); List of non-alt accounts: $(($formatedSCMembers | Select -First 10) -join '; ')"
                                         }
                                         else 
                                         {
@@ -637,6 +641,9 @@ class Organization: ADOSVTBase
                         $display = $inactiveGuestUsers |FT DisplayName,MailAddress,InactiveFromDays -AutoSize | Out-String -Width 512
                     }
                     $controlResult.AddMessage($display)
+
+                    #$formatedInactiveGuestUsers = $inactiveGuestUsers | ForEach-Object { $_.DisplayName + ': ' +$_.MailAddress +': '+ $_.InactiveFromDays }
+                    #$controlResult.AdditionalInfoInCSV = "Count of guest users who were never active: $($inactiveCount); List of users: " + (($formatedInactiveGuestUsers | Select -First 10) -join '; ' )
                 }
 
                 $activeGuestUsers = @($guestListDetailed | Where-Object { $_.InactiveFromDays -ne "User was never active." })
@@ -802,12 +809,14 @@ class Organization: ADOSVTBase
                 $disconnectedUsersCount = $responseObj[0].users.Count
                 if ($disconnectedUsersCount -gt 0 )
                 {
+                    $disconnectedUsersList = @();
                     $disconnectedUsersList += @($responseObj[0].users | Select-Object -Property @{Name = "Name"; Expression = { $_.displayName } }, @{Name = "MailAddress"; Expression = { $_.preferredEmailAddress } })
                     $controlResult.AddMessage("Count of disconnected users: $($disconnectedUsersCount)`n");
                     $controlResult.AddMessage([VerificationResult]::Failed, "Remove access for below disconnected users: ", ($disconnectedUsersList | FT | out-string));
                     $controlResult.SetStateData("Disconnected users list: ", $disconnectedUsersList);
                     $controlResult.AdditionalInfo += "Count of disconnected users: " + $disconnectedUsersCount ;
                     $controlResult.AdditionalInfo += "List of disconnected users: " + $disconnectedUsersList;
+                    $controlResult.AdditionalInfoInCSV = "Count of disconnected users: " + $disconnectedUsersCount;
                 }
                 else
                 {
@@ -1405,6 +1414,7 @@ class Organization: ADOSVTBase
                 
                 if($humanAccounts.Count -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+                    $controlResult.AdditionalInfoInCSV = "Count of Project Collection Administrators: $TotalPCAMembers; Max admin approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)"
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are within the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
@@ -1417,6 +1427,7 @@ class Organization: ADOSVTBase
                 $PCAMembers = @($PCAMembers | Select-Object displayName,mailAddress)
                 if($TotalPCAMembers -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+                    $controlResult.AdditionalInfoInCSV = "Count of Project Collection Administrators: $TotalPCAMembers; Max admin approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)"
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
@@ -1785,6 +1796,8 @@ class Organization: ADOSVTBase
                         $display = ($results|FT  -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of guest users: ", $results);
+                        $guestUsers = $results | ForEach-Object { $_.DisplayName + ': ' + $_.Group }
+                        $controlResult.AdditionalInfoInCSV = "Count of guest users in admin roles: $($results.count); List of guest users: " + (($guestUsers | Select -First 10) -join '; ' )
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No guest users have admin roles in the organization.");
@@ -1934,6 +1947,8 @@ class Organization: ADOSVTBase
                         $display = ($inactiveUsersWithAdminAccess|FT PrincipalName,DisplayName,Group,LastAccessedDate  -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
+                        $inactiveUsers = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName + ': ' + $_.Group +': ' +$_.LastAccessedDate }
+                        $controlResult.AdditionalInfoInCSV = "Count of users found inactive for $($inactivityThresholdInDays) days in admin roles: $($inactiveUsersWithAdminAccess.count); List of inactive users: " + (($inactiveUsers | Select -First 10) -join '; ' )
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No users in org admin roles have been inactive for $($inactivityThresholdInDays) days.");

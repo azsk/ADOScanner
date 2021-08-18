@@ -315,6 +315,8 @@ class VariableGroup: ADOSVTBase
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $backupDataObject;
                     }
+                    $formatedRestrictedGroups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role }
+                    $controlResult.AdditionalInfoInCSV = ($formatedRestrictedGroups -join '; ' )
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group.");
