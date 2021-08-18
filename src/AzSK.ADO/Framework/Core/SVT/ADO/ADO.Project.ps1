@@ -474,18 +474,24 @@ class Project: ADOSVTBase
                 if($TotalPAMembers -gt 0){
                     $controlResult.AddMessage("Current set of Project Administrators: ")
                     $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AdditionalInfoInCSV += "Total Admin: $($TotalPAMembers); ";
                 }
 
                 if ($humanAccountsCount -gt 0) {
                     $controlResult.AddMessage("`nCount of Human Administrators: $($humanAccountsCount)")
                     $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
+                    $controlResult.AdditionalInfoInCSV += "Human Admin: $($humanAccountsCount); ";
+                    $humanIdentities = $humanAccounts | ForEach-Object { $_.displayName + ': ' + $_.mailAddress } | select-object -Unique -First 10;
+                    $controlResult.AdditionalInfoInCSV += "List of humans: $($humanIdentities -join ' ; ');";
+
                 }
 
                 if ($svcAccountsCount -gt 0) {
                     $controlResult.AddMessage("`nCount of Service Accounts: $($svcAccountsCount)")
                     $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
+                    $controlResult.AdditionalInfoInCSV += "Service Account: $($svcAccountsCount); ";
                 }
             }
             else
@@ -505,6 +511,9 @@ class Project: ADOSVTBase
                     $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
                     $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AdditionalInfoInCSV += "Total Admin: $($TotalPAMembers); ";
+                    $identities = $this.PAMembers | ForEach-Object { $_.displayName + ': ' + $_.mailAddress } | select-object -Unique -First 10;
+                    $controlResult.AdditionalInfoInCSV += "List of Admins: $($identities -join ' ; ');";
                 }
             }
         }
@@ -597,6 +606,9 @@ class Project: ADOSVTBase
                                             $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
                                             $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                             $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
+                                            $controlResult.AdditionalInfoInCSV += "$($nonSCCount) out of $($allAdminMembers.Count) admins are with non-ALT accounts; "
+                                            $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress } | select-object -Unique -First 10
+                                            $controlResult.AdditionalInfoInCSV += "List of non-ALT accounts: " + $nonSCaccounts -join ' ; '
                                         }
                                         else
                                         {
@@ -645,6 +657,9 @@ class Project: ADOSVTBase
                                                 $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
                                                 $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                                 $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
+                                                $controlResult.AdditionalInfoInCSV += "$($nonSCCount) out of $($allAdminMembers.Count) admins are with non-ALT accounts; "
+                                                $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress } | select-object -Unique -First 10
+                                                $controlResult.AdditionalInfoInCSV += "List of non-ALT accounts: " + $nonSCaccounts -join ' ; '
                                             }
                                             else
                                             {
@@ -2133,6 +2148,8 @@ class Project: ADOSVTBase
                                     
                                     $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
                                 }
+                            $groups = $groupsWithExcessivePermissionsList | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions -join ',' } 
+                            $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                         }
                         else {
                             $controlResult.AddMessage([VerificationResult]::Passed, "Build pipelines are not allowed to inherit excessive permissions for a broad group of users at project level.");
@@ -2343,6 +2360,8 @@ class Project: ADOSVTBase
                             $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                             $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                             $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
+                            $groups = $groupsWithExcessivePermissionsList | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions -join ',' } 
+                            $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                         }
                         else {
                             $controlResult.AddMessage([VerificationResult]::Passed, "Broader Groups do not have excessive permissions on the release pipelines at a project level.");
@@ -2409,7 +2428,9 @@ class Project: ADOSVTBase
                         if ($this.ControlFixBackupRequired) {
                             #Data object that will be required to fix the control
                             $controlResult.BackupControlState = $formattedGroupsDataForAutoFix;
-                        }  
+                        }
+                        $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role } 
+                        $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection at a project level.");
@@ -2525,6 +2546,8 @@ class Project: ADOSVTBase
                             #Data object that will be required to fix the control
                             $controlResult.BackupControlState = $restrictedGroups;
                         }
+                        $groups = $restrictedGroups | ForEach-Object { $_.DisplayName + ': ' + $_.role } 
+                        $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to agent pool at a project level.");
@@ -2643,6 +2666,8 @@ class Project: ADOSVTBase
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $restrictedGroups;
                     }
+                    $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role } 
+                    $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group at a project level.");
