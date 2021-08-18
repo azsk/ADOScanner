@@ -453,6 +453,9 @@ class VariableGroup: ADOSVTBase
                             $controlResult.AddMessage("`nList of broader groups: ",$($restrictedGroups | FT | Out-String))
                             $controlResult.AddMessage("`nList of variables with secret: ",$secretVarList)
                             $controlResult.SetStateData("List of broader groups: ", $restrictedGroups)
+
+                            $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role } 
+                            $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                         }
                         else
                         {

@@ -272,6 +272,9 @@ class CommonSVTControls: ADOSVTBase {
                     $display = ($feedWithBroaderGroup |  FT FeedName, Role, DisplayName -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
                     $controlResult.SetStateData("List of groups: ", $feedWithBroaderGroup);
+                    $groups = $feedWithBroaderGroup | ForEach-Object { $_.DisplayName + ': ' + $_.Role } 
+                    $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+
                     if ($this.ControlFixBackupRequired)
                     {
                         #Data object that will be required to fix the control
@@ -420,6 +423,9 @@ class CommonSVTControls: ADOSVTBase {
 
                     $display = ($secureFileWithBroaderGroup |  FT SecureFileName, Role, DisplayName -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
+
+                    $groups = $secureFileWithBroaderGroup | ForEach-Object { $_.DisplayName + ': ' + $_.Role } 
+                    $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                 }
                 else
                 {

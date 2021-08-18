@@ -430,6 +430,9 @@ class AgentPool: ADOSVTBase
                         $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)";
+                        $groups = $restrictedGroups | ForEach-Object { $_.name + ': ' + $_.role } 
+                        $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+                        
                         if ($this.ControlFixBackupRequired) {
                             #Data object that will be required to fix the control
                             $controlResult.BackupControlState = $backupDataObject;
