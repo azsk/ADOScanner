@@ -1095,6 +1095,10 @@ class Build: ADOSVTBase
                             $display = $editableTaskGroups|FT  -AutoSize | Out-String -Width 512
                             $controlResult.AddMessage($display)
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
+                            
+                            $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName } 
+                            $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+
                         }
                         else
                         {
@@ -1166,6 +1170,7 @@ class Build: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of variable groups on which contributors have edit permissions: " + $editableVarGrpsCount;
                     $controlResult.AddMessage([VerificationResult]::Failed, "`nVariable groups list: `n$($editableVarGrps | FT | Out-String)");
                     $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
+                    $controlResult.AdditionalInfoInCSV =  $editableVarGrps -join ' ; '
                 }
                 else
                 {
@@ -1382,6 +1387,10 @@ class Build: ADOSVTBase
                                 $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                                 $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                                 $controlResult.AdditionalInfo += "List of excessive permissions on which contributors have access:  $($groupsWithExcessivePermissionsList.Group).";
+                                
+                                $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions } 
+                                $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+                                
                                 if ($this.ControlFixBackupRequired)
                                 {
                                     #Data object that will be required to fix the control
