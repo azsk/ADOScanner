@@ -1080,7 +1080,7 @@ class Release: ADOSVTBase
                         $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", $editableTaskGroupsCount);
                         $controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;
                         $formatedTaskGroups = $editableTaskGroups | ForEach-Object { $_.DisplayName + ': ' + $_.PrincipalName }
-                        $controlResult.AdditionalInfoInCSV = "Total number of task groups on which contributors have edit permissions in release definition: $($editableTaskGroupsCount); List of task groups on which contributors have edit permissions in release definition: $(($formatedTaskGroups | Select -First 10) -join '; ')"
+                        $controlResult.AdditionalInfoInCSV =  $formatedTaskGroups -join ';';
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ", $editableTaskGroups);
                         $controlResult.SetStateData("List of task groups used in release definition that contributors can edit: ", $editableTaskGroups);
                     }
@@ -1306,7 +1306,7 @@ class Release: ADOSVTBase
                 {
                     $controlResult.AddMessage("`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount `n");
                     $controlResult.AdditionalInfo += "`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount";                    
-                    $controlResult.AdditionalInfoInCSV = "Count of variable groups on which contributors have edit permissions: $($editableVarGrpsCount); List of variable groups on which contributors have edit permissions: $(($editableVarGrps | Select -First 10) -join '; ')"
+                    $controlResult.AdditionalInfoInCSV = $editableVarGrps -join ' ; ';
                     $controlResult.AddMessage([VerificationResult]::Failed,"Variable groups list: `n$($editableVarGrps | FT | Out-String)");
                     $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
                 }
