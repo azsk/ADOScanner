@@ -584,6 +584,7 @@ class ServiceConnection: ADOSVTBase
                 $controlResult.AddMessage("Last usage date of service connection: $($this.SvcConnActivityDetail.svcConnLastRunDate)");
                 $controlResult.AdditionalInfo += "Last usage date of service connection: " + $this.SvcConnActivityDetail.svcConnLastRunDate;
                 $SvcConnInactivePeriod = ((Get-Date) - $this.SvcConnActivityDetail.svcConnLastRunDate).Days
+                $controlResult.AdditionalInfoInCSV += "Days of inactivity: $($SvcConnInactivePeriod) days.";                               
                 $controlResult.AddMessage("The service connection was inactive from last $($SvcConnInactivePeriod) days.");
             }
             elseif ($this.SvcConnActivityDetail.isSvcConnActive)
@@ -593,6 +594,7 @@ class ServiceConnection: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, $this.SvcConnActivityDetail.message);
+                $controlResult.AdditionalInfoInCSV += "Serivce connection last run date not found.";   
             }
         }
         catch

@@ -1076,8 +1076,11 @@ class Release: ADOSVTBase
 
                     if(($editableTaskGroups | Measure-Object).Count -gt 0)
                     {
-                        $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", ($editableTaskGroups | Measure-Object).Count);
-                        $controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + ($editableTaskGroups | Measure-Object).Count;
+                        $editableTaskGroupsCount = ($editableTaskGroups | Measure-Object).Count;
+                        $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", $editableTaskGroupsCount);
+                        $controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;
+                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object { $_.DisplayName }
+                        $controlResult.AdditionalInfoInCSV =  $formatedTaskGroups -join ';';
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ", $editableTaskGroups);
                         $controlResult.SetStateData("List of task groups used in release definition that contributors can edit: ", $editableTaskGroups);
                     }
@@ -1207,7 +1210,9 @@ class Release: ADOSVTBase
                     if($editableTaskGroupsCount -gt 0)
                     {
                         $controlResult.AddMessage("Count of task groups on which contributors have edit permissions in release definition: $editableTaskGroupsCount");
-                        $controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;
+                        $controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;                                                
+                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object { $_.DisplayName}
+                        $controlResult.AdditionalInfoInCSV =  $formatedTaskGroups -join ';';
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ");
                         $display = $editableTaskGroups|FT  -AutoSize | Out-String -Width 512
                         $controlResult.AddMessage($display)
@@ -1300,7 +1305,8 @@ class Release: ADOSVTBase
                 if($editableVarGrpsCount -gt 0)
                 {
                     $controlResult.AddMessage("`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount `n");
-                    $controlResult.AdditionalInfo += "`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount";
+                    $controlResult.AdditionalInfo += "`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount";                    
+                    $controlResult.AdditionalInfoInCSV = $editableVarGrps -join ' ; ';
                     $controlResult.AddMessage([VerificationResult]::Failed,"Variable groups list: `n$($editableVarGrps | FT | Out-String)");
                     $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
                 }
@@ -1496,6 +1502,8 @@ class Release: ADOSVTBase
                                 $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                                 $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                                 $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
+                                $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions }
+                                $controlResult.AdditionalInfoInCSV = $groups -join ';'
                                 
                                 if ($this.ControlFixBackupRequired)
                                 {
