@@ -14,6 +14,7 @@ class PartialScanResource
     [DateTime] $CreatedDate
 	[DateTime] $ModifiedDate
 	[string] $Name
+	[string] $ProjectName
 	#[PSObject] $ResourceDetails
 	
 }
