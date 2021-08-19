@@ -437,6 +437,8 @@ class Project: ADOSVTBase
         else
         {
             $controlResult.AddMessage([VerificationResult]::Failed,"No Project Administrators are configured in the project.");
+            $controlResult.AdditionalInfoInCSV += "Total PA Member Count: $($TotalPAMembers);";
+            $controlResult.AdditionalInfoInCSV += "Min PA Member required: $($this.ControlSettings.project.MinPAMembersPermissible);";
         }
 
         return $controlResult

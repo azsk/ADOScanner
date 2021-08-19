@@ -592,6 +592,7 @@ class ServiceConnection: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, $this.SvcConnActivityDetail.message);
+                $controlResult.AdditionalInfoInCSV += "Serivce connection last run date not found.";   
             }
         }
         catch
