@@ -678,6 +678,8 @@ class Organization: ADOSVTBase
                         $display = ($activeGuestUsers |FT DisplayName,MailAddress,InactiveFromDays -AutoSize | Out-String -Width 512)
                     }
                     $controlResult.AddMessage($display)
+                    $formatedGuestUsers = ($activeGuestUsers | Sort-Object -Property InactiveFromDays -Descending) | ForEach-Object { $_.DisplayName + ': ' +$_.MailAddress +': '+ $_.InactiveFromDays }
+                    $controlResult.AdditionalInfoInCSV = "Count of active guest users: $($activeCount); List of users: " + (($formatedGuestUsers | Select -First 10) -join '; ' )
                 }
                 $controlResult.SetStateData("Guest users list: ", $stateData);
             }
