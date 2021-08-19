@@ -1212,7 +1212,7 @@ class Release: ADOSVTBase
                         $controlResult.AddMessage("Count of task groups on which contributors have edit permissions in release definition: $editableTaskGroupsCount");
                         $controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;                                                
                         $formatedTaskGroups = $editableTaskGroups | ForEach-Object { $_.DisplayName + ': ' + $_.PrincipalName }
-                        $controlResult.AdditionalInfoInCSV = "Total number of task groups on which contributors have edit permissions in release definition: $($editableTaskGroupsCount); List of task groups on which contributors have edit permissions in release definition: $(($formatedTaskGroups | Select -First 10) -join '; ')"
+                        $controlResult.AdditionalInfoInCSV =  $formatedTaskGroups -join ';';
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ");
                         $display = $editableTaskGroups|FT  -AutoSize | Out-String -Width 512
                         $controlResult.AddMessage($display)
@@ -1502,7 +1502,8 @@ class Release: ADOSVTBase
                                 $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                                 $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                                 $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
-                                $controlResult.AdditionalInfoInCSV = $(($groupsWithExcessivePermissionsList.Group | Select -First 10) -join ';'
+                                $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions }
+                                $controlResult.AdditionalInfoInCSV = $groups -join ';'
                                 
                                 if ($this.ControlFixBackupRequired)
                                 {
