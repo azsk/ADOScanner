@@ -1284,6 +1284,7 @@ class Organization: ADOSVTBase
             }
 
             $autoInjExt = @();
+            $unknown = @();
             foreach($extension in $this.installedExtensionObj)
             {
                 foreach($cont in $extension.contributions)
@@ -1295,11 +1296,12 @@ class Organization: ADOSVTBase
                             $autoInjExt +=  $extension
                             break;
                         }
+                        $unknown += $extension
                     }
                 }
             }
 
-            if ($autoInjExt.Count -gt 0)
+             if ($autoInjExt.Count -gt 0)
             {
                 $autoInjExt = $autoInjExt | Select-Object extensionName,publisherId,publisherName,version,flags,lastPublished,scopes,extensionId # 'flags' is not available in every extension. It is visible only for built in extensions. Hence this appends 'flags' to trimmed objects.
                 $autoInjExt = @($autoInjExt | Where-Object {$_.flags -notlike "*builtin*" }) # to filter out extensions that are built in and are not visible on portal.
@@ -1312,6 +1314,10 @@ class Organization: ADOSVTBase
                     $controlResult.AddMessage("Count of auto-injected extensions: " + $extCount);
                     $controlResult.AdditionalInfo += "Count of auto-injected extensions: " + $extCount;
                     $this.ExtensionControlHelper($controlResult, $autoInjExt, 'AutoInjected')
+                   
+                    $controlResult.AdditionalInfoInCSV += "Count of Auto-Injected Extensions: $($extCount) ; ";
+                    $ExtList = $unknown | ForEach-Object { $_.ExtensionName } | select-object -Unique -First 10;
+                    $controlResult.AdditionalInfoInCSV += "List of Extension from unknown publisher : $($ExtList -join ' ; ');";
                 }
                 else
                 {
