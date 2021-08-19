@@ -469,6 +469,7 @@ class SVTResourceResolver: AzSKRoot {
                     }
 
                     if($this.IsPartialScanActive -and $this.nonScannedResources.Count -ne 0 -and $this.isDnrrAllProject -eq $false){
+                        #The tracker is loaded in one go, so no need to load it again when we are looping through multiple projects
                         if($this.ProjectNames -eq "*"){
                             $this.isDnrrAllProject = $true;
                         }
@@ -484,6 +485,7 @@ class SVTResourceResolver: AzSKRoot {
                             $progressCount++;                           
                         }
                         Write-Progress -Activity "All resources fetched" -Status "Ready" -Completed
+                        #to be used with release and agent pool to check if we need to call apis for fetching resources or it has been already done via the tracker
                         $this.shouldFetchResource = $false
 
                     }

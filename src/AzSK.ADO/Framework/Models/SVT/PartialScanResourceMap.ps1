@@ -14,6 +14,7 @@ class PartialScanResource
     [DateTime] $CreatedDate
 	[DateTime] $ModifiedDate
 	[string] $Name
+	#need project name only for -dnrr release/agent pool
 	[string] $ProjectName
 	#[PSObject] $ResourceDetails
 	
