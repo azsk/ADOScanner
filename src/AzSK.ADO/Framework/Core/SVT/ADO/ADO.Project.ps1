@@ -427,6 +427,8 @@ class Project: ADOSVTBase
                     $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
                     $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AdditionalInfoInCSV += "Total PA Member Count: $($TotalPAMembers) ; ";
+                    $controlResult.AdditionalInfoInCSV += "Min PA Member required: $($this.ControlSettings.project.MinPAMembersPermissible);";
                 }
             }
         }
