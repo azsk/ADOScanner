@@ -1079,7 +1079,7 @@ class Release: ADOSVTBase
                         $editableTaskGroupsCount = ($editableTaskGroups | Measure-Object).Count;
                         $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", $editableTaskGroupsCount);
                         $controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;
-                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object { $_.DisplayName + ': ' + $_.PrincipalName }
+                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object { $_.DisplayName }
                         $controlResult.AdditionalInfoInCSV =  $formatedTaskGroups -join ';';
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ", $editableTaskGroups);
                         $controlResult.SetStateData("List of task groups used in release definition that contributors can edit: ", $editableTaskGroups);
@@ -1211,7 +1211,7 @@ class Release: ADOSVTBase
                     {
                         $controlResult.AddMessage("Count of task groups on which contributors have edit permissions in release definition: $editableTaskGroupsCount");
                         $controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;                                                
-                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object { $_.DisplayName + ': ' + $_.PrincipalName }
+                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object { $_.DisplayName}
                         $controlResult.AdditionalInfoInCSV =  $formatedTaskGroups -join ';';
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ");
                         $display = $editableTaskGroups|FT  -AutoSize | Out-String -Width 512
