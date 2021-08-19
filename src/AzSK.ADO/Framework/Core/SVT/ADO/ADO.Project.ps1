@@ -391,15 +391,15 @@ class Project: ADOSVTBase
                 # In case of graph access we will only evaluate the control on the basis of human accounts
                 if($humanAccounts.count -lt $this.ControlSettings.Project.MinPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                    $controlResult.AdditionalInfoInCSV += "Total PA Member Count: $($TotalPAMembers);";
+                    $controlResult.AdditionalInfoInCSV += "Min PA Member required: $($this.ControlSettings.project.MinPAMembersPermissible);";
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured meet the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
                 }
                 if($TotalPAMembers -gt 0){
                     $controlResult.AddMessage("Current set of Project Administrators: ")
-                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
-                    $controlResult.AdditionalInfoInCSV += "Total PA Member Count: $($TotalPAMembers);";
-                    $controlResult.AdditionalInfoInCSV += "Min PA Member required: $($this.ControlSettings.project.MinPAMembersPermissible);";
+                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;                
                 }
 
                 if ($humanAccounts.count -gt 0) {
@@ -420,6 +420,8 @@ class Project: ADOSVTBase
                 $this.PAMembers = @($this.PAMembers | Select-Object displayName,mailAddress)
                 if($TotalPAMembers -lt $this.ControlSettings.Project.MinPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                    $controlResult.AdditionalInfoInCSV += "Total PA Member Count: $($TotalPAMembers);";
+                    $controlResult.AdditionalInfoInCSV += "Min PA Member required: $($this.ControlSettings.project.MinPAMembersPermissible);";
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
@@ -428,9 +430,7 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("Current set of Project Administrators: ")
                     $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
-                    $controlResult.AdditionalInfoInCSV += "Total PA Member Count: $($TotalPAMembers);";
-                    $controlResult.AdditionalInfoInCSV += "Min PA Member required: $($this.ControlSettings.project.MinPAMembersPermissible);";
+                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;                 
                 }
             }
         }
