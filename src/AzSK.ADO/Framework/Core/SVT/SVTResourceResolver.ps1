@@ -168,7 +168,7 @@ class SVTResourceResolver: AzSKRoot {
                 throw [SuppressedException] "The parameter 'ServiceConnectionNames' does not contain any string."
             }
         }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::ServiceConnection) {
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::ServiceConnection -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) {
             $this.ServiceConnections = "*"
         }
 
@@ -178,7 +178,7 @@ class SVTResourceResolver: AzSKRoot {
                 throw [SuppressedException] "The parameter 'AgentPools' does not contain any string."
             }
         }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::AgentPool) {
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::AgentPool -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) {
             $this.AgentPools = "*"
         }
 
@@ -189,7 +189,7 @@ class SVTResourceResolver: AzSKRoot {
                 throw [SuppressedException] "The parameter 'VariableGroupNames' does not contain any string."
             }
         }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::VariableGroup) {
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::VariableGroup -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) {
             $this.VariableGroups = "*"
         }
 
@@ -1160,7 +1160,7 @@ class SVTResourceResolver: AzSKRoot {
                     }                 
                 }
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources,[ResourceTypeName]::SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
             {
                 if ($rsrcList.ServiceConnections -and $rsrcList.ServiceConnections.Count -gt 0)
                 {
@@ -1174,7 +1174,7 @@ class SVTResourceResolver: AzSKRoot {
                     }                  
                 }
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources,[ResourceTypeName]::SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
             {
                 if ($rsrcList.AgentPools -and $rsrcList.AgentPools.Count -gt 0)
                 {
@@ -1188,7 +1188,7 @@ class SVTResourceResolver: AzSKRoot {
                     }                 
                 }
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources,[ResourceTypeName]::SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
             {
                 if ($rsrcList.VariableGroups -and $rsrcList.VariableGroups.Count -gt 0)
                 {
