@@ -23,6 +23,7 @@ class CommonSVTResourceResolver {
                 $repoNames += "*";
             }
             $repoObjList = @();
+            #if rtn Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources and resource name not provided (neither * nor any name) no need to fetch this resource
             if($repoNames.Count -ne 0){
                 $repoObjList += $this.FetchRepositories($projectName, $repoNames);
             }            
@@ -45,6 +46,7 @@ class CommonSVTResourceResolver {
             }            
             # Here we are fetching all the secure files in the project.
             $secureFileObjList = @();
+            #if rtn Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources and resource name not provided (neither * nor any name) no need to fetch this resource
             if($secureFileNames.Count -ne 0){
                 $secureFileObjList += $this.FetchSecureFiles($projectName, $secureFileNames);
             }            
@@ -69,6 +71,7 @@ class CommonSVTResourceResolver {
             }
 
             $feedObjList = @();
+            #if rtn Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources and resource name not provided (neither * nor any name) no need to fetch this resource
             if($feedNames.Count -ne 0){
                 $feedObjList += $this.FetchFeeds($projectName, $feedNames);
             }            
@@ -93,6 +96,7 @@ class CommonSVTResourceResolver {
             }
 
             $environmentObjList = @();
+            #if rtn Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources and resource name not provided (neither * nor any name) no need to fetch this resource
             if($environmentNames.Count -ne 0){
                 $environmentObjList += $this.FetchEnvironments($projectName, $environmentNames, $MaxObjectsToScan);
             }            
