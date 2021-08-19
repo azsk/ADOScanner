@@ -626,12 +626,28 @@ class Organization: ADOSVTBase
                 $controlResult.AddMessage([VerificationResult]::Verify,"Count of guest users in the organization: $($totalGuestCount)");
                 $controlResult.AdditionalInfo += "Count of guest users in the organization: " + $totalGuestCount;
 
-                $inactiveGuestUsers = @($guestListDetailed | Where-Object { $_.InactiveFromDays -eq "User was never active." })
-                $inactiveCount = $inactiveGuestUsers.Count
-                if($inactiveCount -gt 0) {
-                    $controlResult.AddMessage("`nCount of guest users who were never active: $($inactiveCount)");
-                    $controlResult.AdditionalInfo += "Count of guest users who were never active: " + $inactiveCount;
-                    $controlResult.AddMessage("List of users: ",$inactiveGuestUsers);
+                #$inactiveGuestUsers = @($guestListDetailed | Where-Object { $_.InactiveFromDays -eq "User was never active." })
+                #$inactiveCount = $inactiveGuestUsers.Count
+                $inactiveGuestUsers = @()
+                $GuestUserInactivePeriodInDays = 90;
+                if ([Helpers]::CheckMember($this.ControlSettings.Organization, "GuestUserInactivePeriodInDays") -and (-not [String]::IsNullOrEmpty($this.ControlSettings.Organization.GuestUserInactivePeriodInDays))) {
+                    $GuestUserInactivePeriodInDays = $this.ControlSettings.Organization.GuestUserInactivePeriodInDays
+                }
+
+                $thresholdDate = (Get-Date).AddDays(-$($GuestUserInactivePeriodInDays))
+                $guestListDetailed | ForEach-Object {
+                    if([datetime]::Parse($_.lastAccessedDate) -lt $thresholdDate)
+                    {
+                        $inactiveGuestUsers+= $_
+                    }
+                }
+
+                $inactiveGuestUsersCount = $inactiveGuestUsers.Count
+
+                if($inactiveGuestUsersCount -gt 0) {
+                    $controlResult.AddMessage("`nCount of inactive guest users: $($inactiveGuestUsersCount)");
+                    $controlResult.AdditionalInfo += "Count of inactive guest users: " + $inactiveGuestUsersCount;
+                    $controlResult.AddMessage("List of users: ");
                     if([AzSKRoot]::IsDetailedScanRequired -eq $true)
                     {
                         $inactiveGuestUsers= $inactiveGuestUsers | Select-Object @{Name="DisplayName"; Expression = {$_.DisplayName}},@{Name="MailAddress"; Expression = {$_.MailAddress}}, @{Name="InactiveFromDays"; Expression = {$_.InactiveFromDays}}, @{Name="ProjectReference"; Expression = {$_.ProjectEntitlements.projectref.name}}, @{Name="ProjectPermission"; Expression = {$_.ProjectEntitlements.group.displayName}}, @{Name="AccessLevel"; Expression = {$_.AccessLevel}}
@@ -642,8 +658,8 @@ class Organization: ADOSVTBase
                     }
                     $controlResult.AddMessage($display)
 
-                    #$formatedInactiveGuestUsers = $inactiveGuestUsers | ForEach-Object { $_.DisplayName + ': ' +$_.MailAddress +': '+ $_.InactiveFromDays }
-                    #$controlResult.AdditionalInfoInCSV = "Count of guest users who were never active: $($inactiveCount); List of users: " + (($formatedInactiveGuestUsers | Select -First 10) -join '; ' )
+                    $formatedInactiveGuestUsers = ($inactiveGuestUsers | Sort-Object -Property InactiveFromDays -Descending) | ForEach-Object { $_.DisplayName + ': ' +$_.MailAddress +': '+ $_.InactiveFromDays }
+                    $controlResult.AdditionalInfoInCSV = "Count of inactive guest users: $($inactiveGuestUsersCount); List of users: " + (($formatedInactiveGuestUsers | Select -First 10) -join '; ' )
                 }
 
                 $activeGuestUsers = @($guestListDetailed | Where-Object { $_.InactiveFromDays -ne "User was never active." })
