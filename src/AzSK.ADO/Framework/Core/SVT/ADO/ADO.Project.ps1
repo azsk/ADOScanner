@@ -1863,7 +1863,7 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("Guest users list : ", $results);
                         $controlResult.AdditionalInfoInCSV += "Total Count: $($results.count); ";
-                        $UserList = $results | ForEach-Object { $_.DisplayName + ': ' } | select-object -Unique -First 10;
+                        $UserList = $results | ForEach-Object { $_.DisplayName } | select-object -Unique -First 10;
                         $controlResult.AdditionalInfoInCSV += "Guest users list : $($UserList -join ' ; ');";
                     }
                     else {
