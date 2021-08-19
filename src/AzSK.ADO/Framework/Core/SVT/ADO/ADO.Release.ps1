@@ -1502,8 +1502,7 @@ class Release: ADOSVTBase
                                 $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                                 $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                                 $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
-                                $formatedGroups = $groupsWithExcessivePermissionsList.Group | ForEach-Object { $_.name + ': ' + $_.groupName }
-                                $controlResult.AdditionalInfoInCSV = "List of excessive permissions on which broader groups have access: $(($formatedGroups | Select -First 10) -join '; ')"
+                                $controlResult.AdditionalInfoInCSV = "List of excessive permissions on which broader groups have access: $(($groupsWithExcessivePermissionsList.Group | Select -First 10) -join '; ')"
                                 
                                 if ($this.ControlFixBackupRequired)
                                 {
