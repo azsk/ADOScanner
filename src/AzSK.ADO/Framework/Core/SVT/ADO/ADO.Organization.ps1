@@ -570,7 +570,7 @@ class Organization: ADOSVTBase
                     $this.ExtensionControlHelper($controlResult, $sharedExtList, 'Shared')
 
                     $extString = $sharedExtensions | Select-Object -First 10 | ForEach-Object { $_.extensionName + ' by ' + $_.publisherName } 
-                    $controlResult.AdditionalInfoInCSV = "Shared extensions count: $($sharedCount) ; `n$($extString -join ' ; ')"
+                    $controlResult.AdditionalInfoInCSV = "Shared extensions count: $($sharedCount) ; `n$($extString -join ' ; ')"                    
                 }
                 else
                 {
@@ -1325,7 +1325,7 @@ class Organization: ADOSVTBase
                     $this.ExtensionControlHelper($controlResult, $autoInjExt, 'AutoInjected')
                    
                     $controlResult.AdditionalInfoInCSV += "Count of Auto-Injected Extensions: $($extCount) ; ";
-                    $ExtList = $unknown | ForEach-Object { $_.ExtensionName } | select-object -Unique -First 10;
+                    $ExtList = $unknown | ForEach-Object { $_.extensionName + ' by ' + $_.publisherName } | select-object -Unique -First 10;
                     $controlResult.AdditionalInfoInCSV += "List of Extension from unknown publisher : $($ExtList -join ' ; ');";
                 }
                 else
