@@ -590,7 +590,8 @@ class Project: ADOSVTBase
                                         $useRegExEvaluation = $true
                                     }
                                 }
-
+                                
+                                $controlResult.AdditionalInfoInCSV += "Total Account: $($allAdminMembers.Count); "
                                 if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
                                 {
                                     if ([IdentityHelpers]::hasGraphAccess)
@@ -601,6 +602,7 @@ class Project: ADOSVTBase
 
                                         $nonSCCount = $nonSCMembers.Count
                                         $SCCount = $SCMembers.Count
+                                        $controlResult.AdditionalInfoInCSV += "Non-ALT Account: $($nonSCCount); "
                                         $totalAdminCount = $nonSCCount+$SCCount
                                         $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
                                         if ($nonSCCount -gt 0)
@@ -612,7 +614,6 @@ class Project: ADOSVTBase
                                             $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
                                             $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                             $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
-                                            $controlResult.AdditionalInfoInCSV += "$($nonSCCount) out of $($allAdminMembers.Count) admins are with non-ALT accounts; "
                                             $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress } | select-object -Unique -First 10
                                             $controlResult.AdditionalInfoInCSV += "List of non-ALT accounts: " + $nonSCaccounts -join ' ; '
                                         }
@@ -653,7 +654,8 @@ class Project: ADOSVTBase
 
                                             $totalAdminCount = $nonSCCount+$SCCount
                                             $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
-                                            
+                                            $controlResult.AdditionalInfoInCSV += "Non-ALT Account: $($nonSCCount); "
+
                                             if ($nonSCCount -gt 0)
                                             {
                                                 $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
@@ -663,7 +665,6 @@ class Project: ADOSVTBase
                                                 $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
                                                 $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                                 $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
-                                                $controlResult.AdditionalInfoInCSV += "$($nonSCCount) out of $($allAdminMembers.Count) admins are with non-ALT accounts; "
                                                 $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress } | select-object -Unique -First 10
                                                 $controlResult.AdditionalInfoInCSV += "List of non-ALT accounts: " + $nonSCaccounts -join ' ; '
                                             }
