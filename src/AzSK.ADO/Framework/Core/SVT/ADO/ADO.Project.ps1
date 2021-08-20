@@ -1869,7 +1869,7 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("Guest users list : ", $results);
                         $controlResult.AdditionalInfoInCSV += "Total Count: $($results.count); ";
-                        $UserList = $results | ForEach-Object { $_.DisplayName } | select-object -Unique -First 10;
+                        $UserList = $results | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName } | select-object -Unique -First 10;
                         $controlResult.AdditionalInfoInCSV += "Guest users list : $($UserList -join ' ; ');";
                     }
                     else {
@@ -2025,7 +2025,7 @@ class Project: ADOSVTBase
                         $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
                        
                         $controlResult.AdditionalInfoInCSV += "Total Count: $($inactiveUsersWithAdminAccess.count) ; ";
-                        $UserList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName } | select-object -Unique -First 10;
+                        $UserList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName} | select-object -Unique -First 10;
                         $controlResult.AdditionalInfoInCSV += "Inactive user list : $($UserList -join ' ; ');";
                 
                     
