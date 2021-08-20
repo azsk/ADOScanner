@@ -523,7 +523,7 @@ class Organization: ADOSVTBase
                     $this.ExtensionControlHelper($controlResult, $extensionList, 'Installed')
 
                     $extString = $extensionList | Select-Object -First 10 | ForEach-Object { $_.extensionName + ' by ' + $_.publisherName } 
-                    $controlResult.AdditionalInfoInCSV = "Installed extensions count: $($extCount) ; `n$($extString -join ' ; ')"
+                    $controlResult.AdditionalInfoInCSV = "InstalledExtensions: $($extCount) ; `n$($extString -join ' ; ')"
                 }
                 else
                 {
@@ -570,7 +570,7 @@ class Organization: ADOSVTBase
                     $this.ExtensionControlHelper($controlResult, $sharedExtList, 'Shared')
 
                     $extString = $sharedExtensions | Select-Object -First 10 | ForEach-Object { $_.extensionName + ' by ' + $_.publisherName } 
-                    $controlResult.AdditionalInfoInCSV = "Shared extensions count: $($sharedCount) ; `n$($extString -join ' ; ')"                    
+                    $controlResult.AdditionalInfoInCSV = "SharedExtensions: $($sharedCount) ; `n$($extString -join ' ; ')"                    
                 }
                 else
                 {
@@ -1648,22 +1648,10 @@ class Organization: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive guest users in the organization: $($inactiveGuestUsersCount)");
                     $controlResult.AdditionalInfo += "Count of inactive guest users in the organization: " + $inactiveGuestUsersCount;
                     $controlResult.SetStateData("Inactive guest users list: ", $inactiveUsersStateData);
-                    $csvAdditionalInfo= "$($inactiveGuestUsersCount) out of $($users.Count) guest users are inactive ; " 
+                    $controlResult.AdditionalInfoInCSV = "GuestUsers: $($users.Count); InactiveGuestUsers: $($inactiveGuestUsersCount); "
 
-                    # segregate never active users from the list
-                    $neverActiveUsers = $inactiveUsers | Where-Object {$_.InactiveFromDays -eq "User was never active."}
+
                     $inactiveUsersWithDays = $inactiveUsers | Where-Object {$_.InactiveFromDays -ne "User was never active."}
-
-                    $neverActiveUsersCount = ($neverActiveUsers | Measure-Object).Count
-                    if ($neverActiveUsersCount -gt 0) {
-                        $controlResult.AddMessage("`nCount of users who were never active: $($neverActiveUsersCount)");
-                        $neverActiveUsersTable = ($neverActiveUsers | FT | Out-String)
-                        $controlResult.AddMessage("Never active guest users list: `n$neverActiveUsersTable"); # show in table
-                        $controlResult.AdditionalInfo += "Count of users who were never active: " + $neverActiveUsersCount;
-                        $controlResult.AdditionalInfo += "List of users who were never active: " + [JsonHelper]::ConvertToJsonCustomCompressed($neverActiveUsers);
-                        $csvAdditionalInfo += "$($neverActiveUsersCount) users have never been active ; "
-                    }
-
                     $inactiveUsersWithDaysCount = ($inactiveUsersWithDays | Measure-Object).Count
                     if($inactiveUsersWithDaysCount -gt 0) {
                         $controlResult.AddMessage("`nCount of guest users who are inactive from last $($GuestUserInactivePeriodInDays) days: $($inactiveUsersWithDaysCount)");
@@ -1673,16 +1661,17 @@ class Organization: ADOSVTBase
                     }
 
                     $domainsInfo = $inactiveguestUsers | ForEach-Object { $_.user.mailaddress.Split("@")[1]} | select-object -Unique -First 10
-                    $csvAdditionalInfo += "Different domains: $($domainsInfo -join ', ')"
-                    $controlResult.AdditionalInfoInCSV = $csvAdditionalInfo
+                    $controlResult.AdditionalInfoInCSV  += "Different domains: $($domainsInfo -join ', ')"
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found to be inactive from last $($GuestUserInactivePeriodInDays) days.")
+                    $controlResult.AdditionalInfoInCSV = "GuestUsers: $($users.Count); InactiveGuestUsers: 0"
                 }
             }
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in organization.");
+                $controlResult.AdditionalInfoInCSV = "GuestUsers: 0"
             }
         }
         catch {

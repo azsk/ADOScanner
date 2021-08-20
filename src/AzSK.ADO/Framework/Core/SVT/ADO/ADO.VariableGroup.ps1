@@ -456,12 +456,14 @@ class VariableGroup: ADOSVTBase
                             $controlResult.AddMessage("`nList of variables with secret: ",$secretVarList)
                             $controlResult.SetStateData("List of broader groups: ", $restrictedGroups)
 
+                            $controlResult.AdditionalInfoInCSV = "VariablesWithSecret: $($secretVarList.Count); "
                             $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role } 
-                            $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+                            $controlResult.AdditionalInfoInCSV += $groups -join ' ; '
                         }
                         else
                         {
                             $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to variable group.");
+                            $controlResult.AdditionalInfoInCSV = "VariablesWithSecret: $($secretVarList.Count); BroadGroupAccess: 0"
                         }
 
                         $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' and should not have user/administrator privileges: `n$( $restrictedBroaderGroupsForVarGrp| FT | out-string)");
@@ -469,11 +471,13 @@ class VariableGroup: ADOSVTBase
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No secrets found in variable group.");
+                        $controlResult.AdditionalInfoInCSV = "VariablesWithSecret: 0"
                     }
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No variables found in variable group.");
+                    $controlResult.AdditionalInfoInCSV = "VariablesFound: 0"
                 }
             }
             else

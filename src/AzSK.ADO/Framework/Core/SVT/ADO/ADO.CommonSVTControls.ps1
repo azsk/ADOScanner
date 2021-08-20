@@ -555,6 +555,9 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.AddMessage("`nList of groups: ", $display)
                 $controlResult.SetStateData("List of groups: ", $feedWithBuildSvcAcc);
 
+                $groups = $feedWithBuildSvcAcc | ForEach-Object { $_.DisplayName + ': ' + $_.Role } 
+                $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+
                 #Fetching identity used to publish last 10 packages
                 $accUsedToPublishPackage = $this.ValidateBuildSvcAccInPackage($scope, $true);
                 if ($accUsedToPublishPackage.packagesInfo.count -gt 0)
@@ -562,10 +565,13 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AddMessage("`nList of last 10 published packages and identity used to publish: ", ($accUsedToPublishPackage.packagesInfo | FT | Out-String -Width 512))
                     $uniqueIdentities = $accUsedToPublishPackage.packagesInfo | select-object -Property IdentityName -Unique
                     $controlResult.AdditionalInfo += "List of identities used to publish last 10 packages: $($uniqueIdentities.IdentityName -join ', ')";
+                    $controlResult.AdditionalInfoInCSV += "; Identities used to publish last 10 packages: $($uniqueIdentities.IdentityName -join ', ')";
                 }
-
-                $groups = $feedWithBuildSvcAcc | ForEach-Object { $_.DisplayName + ': ' + $_.Role } 
-                $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+                else
+                {
+                    $controlResult.AdditionalInfo += "No package found";
+                    $controlResult.AdditionalInfoInCSV += "; No package found";
+                }
 
                 if ($this.ControlFixBackupRequired)
                 {
