@@ -266,7 +266,7 @@ class Organization: ADOSVTBase
                                         $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
                                         $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                         $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
-                                        $formatedSCMembers = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.groupName }
+                                        $formatedSCMembers = $nonSCMembers | ForEach-Object { $_.name + ': '+ $_.mailAddress + ': ' + $_.groupName }
                                         $controlResult.AdditionalInfoInCSV = "Count of accounts with admin privileges: $($totalAdminCount); Count of non-ALT accounts with admin privileges:: $($nonSCCount); List of non-alt accounts: $(($formatedSCMembers | Select -First 10) -join '; ')"
                                     }
                                     else
@@ -316,7 +316,7 @@ class Organization: ADOSVTBase
                                             $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));  
                                             $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                             $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
-                                            $formatedSCMembers = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.groupName }
+                                            $formatedSCMembers = $nonSCMembers | ForEach-Object { $_.name + ': '+ $_.mailAddress + ': ' + $_.groupName }
                                             $controlResult.AdditionalInfoInCSV = "Count of non-ALT accounts with admin privileges: $($totalAdminCount); Count of non-ALT accounts with admin privileges: $($nonSCCount); List of non-alt accounts: $(($formatedSCMembers | Select -First 10) -join '; ')"
                                         }
                                         else 
