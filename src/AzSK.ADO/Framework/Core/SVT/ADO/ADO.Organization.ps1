@@ -1392,8 +1392,8 @@ class Organization: ADOSVTBase
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured meet the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
                 }
-                $controlResult.AdditionalInfoInCSV += "Total: $($TotalPCAMembers) ; ";
-                $controlResult.AdditionalInfoInCSV += "Min: $($this.ControlSettings.Organization.MinPCAMembersPermissible) ; ";
+                $controlResult.AdditionalInfoInCSV += "TotalPCA_Admins: $($TotalPCAMembers) ; ";
+                $controlResult.AdditionalInfoInCSV += "MinPCA_Required: $($this.ControlSettings.Organization.MinPCAMembersPermissible) ; ";
                 [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
             }
             else
@@ -1410,8 +1410,8 @@ class Organization: ADOSVTBase
                     $display=($PCAMembers |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("Current set of Project Collection Administrators: `n",$display)
                     $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;
-                    $controlResult.AdditionalInfoInCSV += "Total: $($TotalPCAMembers) ; ";
-                    $controlResult.AdditionalInfoInCSV += "Min: $($this.ControlSettings.Organization.MinPCAMembersPermissible) ; ";
+                    $controlResult.AdditionalInfoInCSV += "TotalPCA_Admins: $($TotalPCAMembers) ; ";
+                    $controlResult.AdditionalInfoInCSV += "MinPCA_Required: $($this.ControlSettings.Organization.MinPCAMembersPermissible) ; ";
                 }
             }
         }
