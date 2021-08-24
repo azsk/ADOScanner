@@ -1871,7 +1871,7 @@ class Project: ADOSVTBase
                         $controlResult.SetStateData("Guest users list : ", $results);
                         $controlResult.AdditionalInfoInCSV += "Total Count: $($results.count); ";
                         $UserList = $results | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName } | select-object -Unique -First 10;
-                        $controlResult.AdditionalInfoInCSV += "Guest users list : $($UserList -join ' ; ');";
+                        $controlResult.AdditionalInfoInCSV += "Guest_Users: $($UserList -join ' ; ');";
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No guest users have admin roles in the project.");
@@ -2027,7 +2027,7 @@ class Project: ADOSVTBase
                        
                         $controlResult.AdditionalInfoInCSV += "Total Count: $($inactiveUsersWithAdminAccess.count) ; ";
                         $UserList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName} | select-object -Unique -First 10;
-                        $controlResult.AdditionalInfoInCSV += "Inactive user list : $($UserList -join ' ; ');";
+                        $controlResult.AdditionalInfoInCSV += "Inactive: $($UserList -join ' ; ');";
                 
                     
                     }

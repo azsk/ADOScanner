@@ -1344,7 +1344,7 @@ class Organization: ADOSVTBase
                    
                     $controlResult.AdditionalInfoInCSV += "Count of Auto-Injected Extensions: $($extCount) ; ";
                     $ExtList = $unknown | ForEach-Object { $_.extensionName + ' by ' + $_.publisherName } | select-object -Unique -First 10;
-                    $controlResult.AdditionalInfoInCSV += "List of Extension from unknown publisher : $($ExtList -join ' ; ');";
+                    $controlResult.AdditionalInfoInCSV += "Unknown_Publisher: $($ExtList -join ' ; ');";
                 }
                 else
                 {
@@ -1392,8 +1392,8 @@ class Organization: ADOSVTBase
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured meet the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
                 }
-                $controlResult.AdditionalInfoInCSV += "Total PCA Member Count: $($TotalPCAMembers) ; ";
-                $controlResult.AdditionalInfoInCSV += "Min PCA Member required: $($this.ControlSettings.Organization.MinPCAMembersPermissible) ; ";
+                $controlResult.AdditionalInfoInCSV += "Total: $($TotalPCAMembers) ; ";
+                $controlResult.AdditionalInfoInCSV += "Min: $($this.ControlSettings.Organization.MinPCAMembersPermissible) ; ";
                 [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
             }
             else
@@ -1410,8 +1410,8 @@ class Organization: ADOSVTBase
                     $display=($PCAMembers |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("Current set of Project Collection Administrators: `n",$display)
                     $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;
-                    $controlResult.AdditionalInfoInCSV += "Total PCA Member Count: $($TotalPCAMembers) ; ";
-                    $controlResult.AdditionalInfoInCSV += "Min PCA Member required: $($this.ControlSettings.Organization.MinPCAMembersPermissible) ; ";
+                    $controlResult.AdditionalInfoInCSV += "Total: $($TotalPCAMembers) ; ";
+                    $controlResult.AdditionalInfoInCSV += "Min: $($this.ControlSettings.Organization.MinPCAMembersPermissible) ; ";
                 }
             }
         }
