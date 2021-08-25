@@ -898,11 +898,16 @@ class Release: ADOSVTBase
                     $controlResult.AddMessage($display)
                     $controlResult.SetStateData("Pipeline contains artifacts from trusted sources: ", $stateData);
                }
-               
-               $sourceObj = $null;
-               $nonAdoResource = $null;
+                $resource = $stateData | ForEach-Object { $_.ArtifactSourceAlias + ': ' + $_.ArtifactSourceType } 
+                $controlResult.AdditionalInfoInCSV = $resource -join ' ; '
+                $controlResult.AdditionalInfo = $resource -join ' ; '
+            
+                $sourceObj = $null;
+                $nonAdoResource = $null;
            }
            else {
+
+            $controlResult.AdditionalInfoInCSV = "No source repository found."
             $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline does not contain any source repositories.");
            }
         }

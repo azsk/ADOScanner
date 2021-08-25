@@ -904,6 +904,9 @@ class Build: ADOSVTBase
                 $controlResult.AddMessage($display)
                 $controlResult.SetStateData("Pipeline code is built from external repository: ",$sourceObj)
            }
+        $controlResult.AdditionalInfo = "$($sourceObj.repositoryName) : $($this.BuildObj[0].repository.type)";
+        $controlResult.AdditionalInfoInCSV = "$($sourceObj.repositoryName) : $($this.BuildObj[0].repository.type)"
+
         $sourceObj = $null;
         
 

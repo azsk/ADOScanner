@@ -697,33 +697,35 @@ class CommonSVTControls: ADOSVTBase {
             }
             $packageList = @([WebRequestHelper]::InvokeGetWebRequest($url));
 
-            #Get top 10 published packages 
-            $recentPackages = $packageList | Sort-Object -Property @{Expression={$_.versions.publishdate}; Descending = $true } | Select-Object -First 10
-            foreach ($package in $recentPackages)
+            if ( $packageList.Count -gt 0 -and [Helpers]::CheckMember($packageList[0],"Id"))
             {
-                if ($scope -eq "Organization")
+                #Get top 10 published packages 
+                $recentPackages = $packageList | Sort-Object -Property @{Expression={$_.versions.publishdate}; Descending = $true } | Select-Object -First 10
+                foreach ($package in $recentPackages)
                 {
-                    $provenanceURL = "https://feeds.dev.azure.com/{0}/_apis/packaging/Feeds/{1}/Packages/{2}/Versions/{3}/provenance?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id, $package.id, $package.versions.id ;
-                }
-                else
-                {
-                    $provenanceURL = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/Packages/{3}/Versions/{4}/provenance?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id, $package.id, $package.versions.id ;
-                }
-                $provenanceDetails = @([WebRequestHelper]::InvokeGetWebRequest($provenanceURL));
-
-                $pkgDetails = New-Object -TypeName PSObject
-                $pkgDetails | Add-Member -NotePropertyName PackageName -NotePropertyValue $package.name
-                $pkgDetails | Add-Member -NotePropertyName IdentityName -NotePropertyValue $provenanceDetails.provenance.data.'Common.IdentityDisplayName'
-
-                $packagesInfo += $pkgDetails 
-
-                if (-not $detailedList)
-                {
-                    if ($provenanceDetails.provenance.data.'Common.IdentityDisplayName' -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $provenanceDetails.provenance.data.'Common.IdentityDisplayName' -like "*Build Service ($($this.OrganizationContext.OrganizationName))")
+                    if ($scope -eq "Organization")
                     {
-                        
-                        $isBuildSvsAccUsed = $true
-                        break;
+                        $provenanceURL = "https://feeds.dev.azure.com/{0}/_apis/packaging/Feeds/{1}/Packages/{2}/Versions/{3}/provenance?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id, $package.id, $package.versions.id ;
+                    }
+                    else
+                    {
+                        $provenanceURL = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/Packages/{3}/Versions/{4}/provenance?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id, $package.id, $package.versions.id ;
+                    }
+                    $provenanceDetails = @([WebRequestHelper]::InvokeGetWebRequest($provenanceURL));
+
+                    $pkgDetails = New-Object -TypeName PSObject
+                    $pkgDetails | Add-Member -NotePropertyName PackageName -NotePropertyValue $package.name
+                    $pkgDetails | Add-Member -NotePropertyName IdentityName -NotePropertyValue $provenanceDetails.provenance.data.'Common.IdentityDisplayName'
+
+                    $packagesInfo += $pkgDetails 
+
+                    if (-not $detailedList)
+                    {
+                        if ($provenanceDetails.provenance.data.'Common.IdentityDisplayName' -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $provenanceDetails.provenance.data.'Common.IdentityDisplayName' -like "*Build Service ($($this.OrganizationContext.OrganizationName))")
+                        {
+                            $isBuildSvsAccUsed = $true
+                            break;
+                        }
                     }
                 }
             }
