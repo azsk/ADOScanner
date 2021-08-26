@@ -1112,7 +1112,14 @@ class Build: ADOSVTBase
                         }
                         if($taskGroups.Count -ne $editableTaskGroups.Count)
                         {
-                            $nonEditableTaskGroups = $taskGroups | where-object {$editableTaskGroups.DisplayName -notcontains $_.DisplayName}
+                            if ($editableTaskGroups.Count -gt 0)
+                            {
+                                $nonEditableTaskGroups = $taskGroups | where-object {$editableTaskGroups.DisplayName -notcontains $_.DisplayName}
+                            }
+                            else
+                            {
+                                $nonEditableTaskGroups = $taskGroups
+                            }
                             $groups = $nonEditableTaskGroups | ForEach-Object { $_.DisplayName } 
                             $controlResult.AdditionalInfoInCSV += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
                         }
