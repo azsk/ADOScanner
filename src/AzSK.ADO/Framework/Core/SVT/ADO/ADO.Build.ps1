@@ -1100,13 +1100,21 @@ class Build: ADOSVTBase
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
                             
                             $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName } 
-                            $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+                            $controlResult.AdditionalInfoInCSV += "TaskGroupsFound: $($taskGroups.Count); TaskGroupsWithEditPerm: $($editableTaskGroupsCount) ; "
+                            $controlResult.AdditionalInfoInCSV += "EditableTaskGroupsList: $($groups -join ' ; ') ; "
 
                         }
                         else
                         {
+                            $controlResult.AdditionalInfoInCSV += "TaskGroupsFound: $($taskGroups.Count); TaskGroupsWithEditPerm: 0 ; "
                             $controlResult.AdditionalInfo += "Contributors do not have edit permissions on any task groups used in build definition."
                             $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in build definition.");
+                        }
+                        if($taskGroups.Count -ne $editableTaskGroups.Count)
+                        {
+                            $nonEditableTaskGroups = $taskGroups | where-object {$editableTaskGroups.DisplayName -notcontains $_.DisplayName}
+                            $groups = $nonEditableTaskGroups | ForEach-Object { $_.DisplayName } 
+                            $controlResult.AdditionalInfoInCSV += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
                         }
                     }
                     catch
@@ -1118,6 +1126,7 @@ class Build: ADOSVTBase
                 }
                 else
                 {
+                    $controlResult.AdditionalInfoInCSV += "TaskGroupsFound: 0"
                     $controlResult.AdditionalInfo += "No task groups found in build definition.";
                     $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in build definition.");
                 }

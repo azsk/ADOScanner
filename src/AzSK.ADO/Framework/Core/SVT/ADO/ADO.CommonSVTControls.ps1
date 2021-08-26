@@ -556,7 +556,7 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.SetStateData("List of groups: ", $feedWithBuildSvcAcc);
 
                 $groups = $feedWithBuildSvcAcc | ForEach-Object { $_.DisplayName + ': ' + $_.Role } 
-                $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+                $controlResult.AdditionalInfoInCSV = "* $($groups -join ' ; ')"
 
                 #Fetching identity used to publish last 10 packages
                 $accUsedToPublishPackage = $this.ValidateBuildSvcAccInPackage($scope, $true);
