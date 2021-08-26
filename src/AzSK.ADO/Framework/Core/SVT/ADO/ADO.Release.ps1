@@ -1230,9 +1230,16 @@ class Release: ADOSVTBase
                         $controlResult.AdditionalInfo += "Contributors do not have edit permissions on any task groups used in release definition."
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in release definition.");
                     }
-                    if(($taskGroups | Measure-Object).Count -ne $editableTaskGroups.Count -and $editableTaskGroups.Count -gt 0)
+                    if(($taskGroups | Measure-Object).Count -ne $editableTaskGroups.Count)
                     {
-                        $nonEditableTaskGroups = $taskGroups | where-object {$editableTaskGroups.DisplayName -notcontains $_.name}
+                        if ($editableTaskGroups.Count -gt 0)
+                        {                            
+                            $nonEditableTaskGroups = $taskGroups | where-object {$editableTaskGroups.DisplayName -notcontains $_.name}
+                        }
+                        else
+                        {
+                            $nonEditableTaskGroups = $taskGroups
+                        }                        
                         $groups = $nonEditableTaskGroups | ForEach-Object { $_.name } 
                         $controlResult.AdditionalInfoInCSV += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
                     }
