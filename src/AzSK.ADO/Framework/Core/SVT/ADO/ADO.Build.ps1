@@ -19,6 +19,8 @@ class Build: ADOSVTBase
     hidden [string] $BackupFolderPath = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState" | Join-Path -ChildPath "BackupControlState" )
     hidden [string] $BackupFilePath;
     hidden static [bool] $IsPathValidated = $false;
+    hidden static [bool] $BroaderGroupMemberCountCheckEnabled = $false;
+    hidden static $AllowedMemberCountInBroaderGroups = $null;
 
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -132,6 +134,14 @@ class Build: ADOSVTBase
         }
         if ($null -eq [Build]::SecretsScanToolEnabled) {
             [Build]::SecretsScanToolEnabled = [Helpers]::CheckMember([ConfigurationManager]::GetAzSKSettings(),"SecretsScanToolFolder")
+        }
+
+        if ($null -eq [Build]::AllowedMemberCountInBroaderGroups)
+        {
+            if ([Helpers]::CheckMember($this.ControlSettings, "Build.CheckForBroadGroupMemberCount") -and [Helpers]::CheckMember($this.ControlSettings, "Build.AllowedBroadGroupMemberCount")) {
+                [Build]::BroaderGroupMemberCountCheckEnabled = $this.ControlSettings.Build.CheckForBroadGroupMemberCount
+                [Build]::AllowedMemberCountInBroaderGroups = $this.ControlSettings.Build.AllowedBroadGroupMemberCount
+            }
         }
     }
 
@@ -1276,9 +1286,11 @@ class Build: ADOSVTBase
                 $projectName = $this.BuildObj.project.name
                 $buildId = $this.BuildObj.id
                 $permissionSetToken = "$projectId/$buildId"
-                if ([Helpers]::CheckMember($this.ControlSettings.Build, "RestrictedBroaderGroupsForBuild") -and [Helpers]::CheckMember($this.ControlSettings.Build, "ExcessivePermissionsForBroadGroups")) {
+                if ([Helpers]::CheckMember($this.ControlSettings.Build, "RestrictedBroaderGroupsForBuild")) 
+                {
+                    $restrictedBroaderGroups = @{}
                     $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
-                    $excessivePermissions = $this.ControlSettings.Build.ExcessivePermissionsForBroadGroups
+                    $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
                     $buildURL = "https://dev.azure.com/$orgName/$projectName/_build?definitionId=$buildId"
 
                     $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
@@ -1308,7 +1320,7 @@ class Build: ADOSVTBase
                     $responseObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody));
                     if ([Helpers]::CheckMember($responseObj[0], "dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider', "identities"))) {
 
-                        $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $broaderGroups -contains $_.displayName })
+                        $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $restrictedBroaderGroups.keys -contains $_.displayName })
 
                         <#
                         #Check if inheritance is disabled on build pipeline, if disabled, inherited permissions should be considered irrespective of control settings
@@ -1327,6 +1339,7 @@ class Build: ADOSVTBase
 
                         if ($broaderGroupsList.Count) {
                             $groupsWithExcessivePermissionsList = @()
+                            $filteredBroaderGroupList = @()
                             foreach ($broderGroup in $broaderGroupsList) {
                                 $broaderGroupInputbody = "{
                                     'contributionIds': [
@@ -1355,7 +1368,7 @@ class Build: ADOSVTBase
                                 #Web request to fetch RBAC permissions of broader groups on build.
                                 $broaderGroupResponseObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL, $broaderGroupInputbody));
                                 $broaderGroupRBACObj = @($broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions)
-                                $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
+                                $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $restrictedBroaderGroups[$broderGroup.displayName] }
                                 $excessivePermissionsPerGroup = @()
                                 $excessivePermissionList | ForEach-Object {
                                     #effectivePermissionValue equals to 1 implies edit build pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
@@ -1373,8 +1386,30 @@ class Build: ADOSVTBase
                                     $excessivePermissionsGroupObj['PermissionSetToken'] = $permissionSetToken
                                     $excessivePermissionsGroupObj['PermissionSetId'] = [Build]::SecurityNamespaceId
                                     $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
+                                    $filteredBroaderGroupList += $broderGroup
                                 }
                             }
+
+                            if ([Build]::BroaderGroupMemberCountCheckEnabled -and $filteredBroaderGroupList.Count -gt 0)
+                            {
+                                $broaderGroupsWithExcessiveMembers = @()
+                                $groupMembers = @()
+                                $filteredBroaderGroupList | Foreach-Object {
+                                    if (-not [ControlHelper]::ResolvedBroaderGroups.ContainsKey($_.principalName)) {
+                                        $groupMembers = @([ControlHelper]::ResolveNestedBroaderGroupMembers($_, $this.OrganizationContext.OrganizationName, $projectName))
+                                    }
+                                    else {
+                                        $groupMembers = [ControlHelper]::ResolvedBroaderGroups[$_.principalName]
+                                    }
+                                    $groupMembersCount = ($groupMembers | Select-Object -property mailAddress -Unique).Count
+                                    if (($groupMembersCount -gt [Build]::AllowedMemberCountInBroaderGroups) -or ([ControlHelper]::GroupsWithCriticalBroaderGroup -contains $_.principalName))
+                                    {
+                                        $broaderGroupsWithExcessiveMembers += $_.principalName
+                                    }
+                                }
+                                $groupsWithExcessivePermissionsList = @($groupsWithExcessivePermissionsList | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Group})
+                            }
+
                             if ($groupsWithExcessivePermissionsList.count -gt 0) {
                                 #TODO: Do we need to put state object?
                                 $controlResult.AddMessage([VerificationResult]::Failed, "Broader groups have excessive permissions on the build pipeline.");
@@ -1400,10 +1435,11 @@ class Build: ADOSVTBase
                     else {
                         $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the pipeline.");
                     }
-                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT | Out-String)");
-                    $controlResult.AddMessage("Following permissions are considered 'excessive':`n$($excessivePermissions | FT | Out-String)");
+                    $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String)");
                 }
-            else {
+                else 
+                {
                     $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
                 }
             }

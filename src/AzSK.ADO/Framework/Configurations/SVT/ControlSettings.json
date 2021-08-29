@@ -277,23 +277,44 @@
         "Environment",
         "SolutionName"
     ],
-    "RestrictedBroaderGroupsForBuild" : [
-      "Contributors",
-      "Readers",
-      "Project Collection Valid Users",
-      "Project Valid Users"
-    ],
-    "ExcessivePermissionsForBroadGroups": [
-      "Administer build permissions",
-      "Delete build pipeline",
-      "Delete builds ",
-      "Destroy builds",
-      "Edit build pipeline"
-    ],
+    "RestrictedBroaderGroupsForBuild" : {
+      "Contributors":[
+        "Administer build permissions",
+        "Delete build pipeline",
+        "Delete builds ",
+        "Destroy builds"
+      ],
+      "Readers":[
+        "Administer build permissions",
+        "Delete build pipeline",
+        "Delete builds ",
+        "Destroy builds",
+        "Edit build pipeline"
+      ],
+      "Project Collection Valid Users":[
+        "Administer build permissions",
+        "Delete build pipeline",
+        "Delete builds ",
+        "Destroy builds",
+        "Edit build pipeline"
+      ],
+      "Project Valid Users":[
+        "Administer build permissions",
+        "Delete build pipeline",
+        "Delete builds ",
+        "Destroy builds",
+        "Edit build pipeline"
+      ]
+    },
     "CheckForInheritedPermissions" : false,
     "RegexForOAuthTokenInYAMLScript" : "\\s*:\\s*\\$\\s*\\(\\s*System\\.AccessToken\\s*\\)",
-    "BranchesToCheckForYAMLScript": ["master","main","develop"]
+    "BranchesToCheckForYAMLScript": ["master","main","develop"],
+    "CheckForBroadGroupMemberCount": true,
+    "AllowedBroadGroupMemberCount": 50
   },
+  "CriticalBroadGroups":[
+    "[TEAM FOUNDATION]\\Microsoft All FTE"
+  ],
   "Release": {
     "ReleaseHistoryPeriodInDays": 180,
     "ExemptedUserIdentities": [
@@ -322,37 +343,72 @@
         "System.debug",
         "BuildConfiguration"
     ],
-    "RestrictedBroaderGroupsForRelease": [
-      "Contributors",
-      "Readers",
-      "Project Collection Valid Users",
-      "Project Valid Users"
-    ],
-    "ExcessivePermissionsForBroadGroups": [
-      "Administer release permissions",
-      "Delete release pipeline",
-      "Delete releases",
-      "Edit release pipeline",
-      "Delete release stage",      
-      "Edit release stage",
-      "Manage release approvers",
-      "Manage releases"
-    ],
-    "CheckForInheritedPermissions": false
+    "RestrictedBroaderGroupsForRelease" : {
+      "Contributors":[
+        "Administer release permissions",
+        "Delete release pipeline",
+        "Delete releases",
+        "Delete release stage",      
+        "Manage release approvers",
+        "Manage releases"
+      ],
+      "Readers":[
+        "Administer release permissions",
+        "Delete release pipeline",
+        "Delete releases",
+        "Edit release pipeline",
+        "Delete release stage",      
+        "Edit release stage",
+        "Manage release approvers",
+        "Manage releases"
+      ],
+      "Project Collection Valid Users":[
+        "Administer release permissions",
+        "Delete release pipeline",
+        "Delete releases",
+        "Edit release pipeline",
+        "Delete release stage",      
+        "Edit release stage",
+        "Manage release approvers",
+        "Manage releases"
+      ],
+      "Project Valid Users":[
+        "Administer release permissions",
+        "Delete release pipeline",
+        "Delete releases",
+        "Edit release pipeline",
+        "Delete release stage",      
+        "Edit release stage",
+        "Manage release approvers",
+        "Manage releases"
+      ]
+    },
+    "CheckForInheritedPermissions": false,
+    "CheckForBroadGroupMemberCount": true,
+    "AllowedBroadGroupMemberCount": 50
   },
   "AgentPool": {
     "AgentPoolHistoryPeriodInDays": 180 ,
-    "RestrictedBroaderGroupsForAgentPool": [
-        "Project Collection Valid Users",
-        "Contributors",
-        "Readers",
-        "Project Valid Users"
-    ],
-    "RestrictedRolesForBroaderGroupsInAgentPool": [
-      "Administrator",
-      "User"
-    ],
-    "CheckForInheritedPermissions": false
+    "RestrictedBroaderGroupsForAgentPool" : {
+      "Contributors":[
+        "Administrator"
+      ],
+      "Readers":[
+        "Administrator",
+        "User"
+      ],
+      "Project Collection Valid Users":[
+        "Administrator",
+        "User"
+      ],
+      "Project Valid Users":[
+        "Administrator",
+        "User"
+      ]
+    },
+    "CheckForInheritedPermissions": false,
+    "CheckForBroadGroupMemberCount": true,
+    "AllowedBroadGroupMemberCount": 50
   },
   "VariableGroup": {
     "RestrictedBroaderGroupsForVariableGroup": [
@@ -522,13 +578,26 @@
       "Contributors",
       "Readers"
     ],
-    "RestrictedBroaderGroupsForSvcConn": [
-      "Project Collection Valid Users",
-      "Contributors",
-      "Readers",
-      "Project Valid Users"
-    ],
-    "CheckForInheritedPermissions": false
+    "RestrictedBroaderGroupsForSvcConn" : {
+      "Contributors":[
+        "Administrator"
+      ],
+      "Readers":[
+        "Administrator",
+        "User"
+      ],
+      "Project Collection Valid Users":[
+        "Administrator",
+        "User"
+      ],
+      "Project Valid Users":[
+        "Administrator",
+        "User"
+      ]
+    },
+    "CheckForInheritedPermissions": true,
+    "CheckForBroadGroupMemberCount": true,
+    "AllowedBroadGroupMemberCount": 50
   },
   "Patterns": [
     {
