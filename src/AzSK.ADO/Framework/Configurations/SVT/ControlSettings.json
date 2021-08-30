@@ -309,7 +309,7 @@
     "CheckForInheritedPermissions" : false,
     "RegexForOAuthTokenInYAMLScript" : "\\s*:\\s*\\$\\s*\\(\\s*System\\.AccessToken\\s*\\)",
     "BranchesToCheckForYAMLScript": ["master","main","develop"],
-    "CheckForBroadGroupMemberCount": true,
+    "CheckForBroadGroupMemberCount": false,
     "AllowedBroadGroupMemberCount": 50
   },
   "CriticalBroadGroups":[
@@ -384,7 +384,7 @@
       ]
     },
     "CheckForInheritedPermissions": false,
-    "CheckForBroadGroupMemberCount": true,
+    "CheckForBroadGroupMemberCount": false,
     "AllowedBroadGroupMemberCount": 50
   },
   "AgentPool": {
@@ -407,24 +407,34 @@
       ]
     },
     "CheckForInheritedPermissions": false,
-    "CheckForBroadGroupMemberCount": true,
+    "CheckForBroadGroupMemberCount": false,
     "AllowedBroadGroupMemberCount": 50
   },
   "VariableGroup": {
-    "RestrictedBroaderGroupsForVariableGroup": [
-        "Project Collection Valid Users",
-        "Contributors",
-        "Readers",
-        "Project Valid Users"
-    ],
-    "RestrictedRolesForBroaderGroupsInVariableGroup": [
+    "RestrictedBroaderGroupsForVariableGroup" : {
+      "Contributors":[
         "Administrator"
-    ],
+      ],
+      "Readers":[
+        "Administrator",
+        "User"
+      ],
+      "Project Collection Valid Users":[
+        "Administrator",
+        "User"
+      ],
+      "Project Valid Users":[
+        "Administrator",
+        "User"
+      ]
+    },
     "RestrictedRolesForBroaderGroupsInVariableGroupContainingSecrets": [
       "Administrator",
       "User"
     ],
-    "CheckForInheritedPermissions": false
+    "CheckForInheritedPermissions": false,
+    "CheckForBroadGroupMemberCount": false,
+    "AllowedBroadGroupMemberCount": 50
   },
   "WorkItems":{
     "ThreshHoldDaysForWorkItemInactivity":180
@@ -496,42 +506,72 @@
     "AdminInactivityThresholdInDays": 90
   },
   "Feed":{
-  "RestrictedBroaderGroupsForFeeds": [
-    "Project Collection Valid Users",
-    "Contributors",
-    "Readers",
-    "Project Valid Users"
-    ],
-    "RestrictedRolesForBroaderGroupsInFeeds": [
-        "administrator",
-        "collaborator",
-        "contributor"
-    ]
+    "RestrictedBroaderGroupsForFeeds" : {
+      "Contributors":[
+        "Administrator"
+      ],
+      "Readers":[
+        "Administrator",
+        "Collaborator",
+        "Contributor"
+      ],
+      "Project Collection Valid Users":[
+        "Administrator",
+        "Collaborator",
+        "Contributor"
+      ],
+      "Project Valid Users":[
+        "Administrator",
+        "Collaborator",
+        "Contributor"
+      ]
+    },
+    "CheckForBroadGroupMemberCount": false,
+    "AllowedBroadGroupMemberCount": 50
   },
   "SecureFile":{
-    "RestrictedBroaderGroupsForSecureFile": [
-      "Project Collection Valid Users",
-      "Contributors",
-      "Readers",
-      "Project Valid Users"
-    ],
-    "RestrictedRolesForBroaderGroupsInSecureFile": [
-      "administrator"       
-    ],
-    "CheckForInheritedPermissions": false
+    "RestrictedBroaderGroupsForSecureFile" : {
+      "Contributors":[
+        "Administrator"
+      ],
+      "Readers":[
+        "Administrator",
+        "User"
+      ],
+      "Project Collection Valid Users":[
+        "Administrator",
+        "User"
+      ],
+      "Project Valid Users":[
+        "Administrator",
+        "User"
+      ]
+    },
+    "CheckForInheritedPermissions": false,
+    "CheckForBroadGroupMemberCount": false,
+    "AllowedBroadGroupMemberCount": 50
   },
   "Environment":{
-    "RestrictedBroaderGroupsForEnvironment": [
-      "Project Collection Valid Users",
-      "Contributors",
-      "Readers",
-      "Project Valid Users"
-    ],
-    "RestrictedRolesForBroaderGroupsInEnv": [
-      "Administrator",
-      "User"       
-    ],
-    "CheckForInheritedPermissions": false
+    "RestrictedBroaderGroupsForEnvironment" : {
+      "Contributors":[
+        "Administrator"
+      ],
+      "Readers":[
+        "Administrator",
+        "User"
+      ],
+      "Project Collection Valid Users":[
+        "Administrator",
+        "User"
+      ],
+      "Project Valid Users":[
+        "Administrator",
+        "User"
+      ]
+    },
+    "CheckForInheritedPermissions": false,
+    "CheckForBroadGroupMemberCount": false,
+    "AllowedBroadGroupMemberCount": 50
   },
   "Repo": {
     "RepoHistoryPeriodInDays": 180,
@@ -595,8 +635,8 @@
         "User"
       ]
     },
-    "CheckForInheritedPermissions": true,
-    "CheckForBroadGroupMemberCount": true,
+    "CheckForInheritedPermissions": false,
+    "CheckForBroadGroupMemberCount": false,
     "AllowedBroadGroupMemberCount": 50
   },
   "Patterns": [

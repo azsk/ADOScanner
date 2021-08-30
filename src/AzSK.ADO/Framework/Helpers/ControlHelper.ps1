@@ -254,4 +254,30 @@ class ControlHelper: EventBase{
         }
         return $groupObj
     }
+
+    static [PSObject] FilterBroadGroupMembers([PSObject] $groupList, [int] $allowedMemberCount, [bool] $fetchDescriptor)
+    {
+        $broaderGroupsWithExcessiveMembers = @()
+        $groupList | Foreach-Object {
+            # In some cases, group object doesn't contains descriptor key which requires to expand the groups.
+            if ($fetchDescriptor) {
+                $groupObj = [ControlHelper]::GetBroaderGroupDescriptorObj($this.OrganizationContext.OrganizationName, $_.Name)
+            }
+            else {
+                $groupObj = $_
+            }
+            if (-not [ControlHelper]::ResolvedBroaderGroups.ContainsKey($groupObj.principalName)) {
+                $groupMembers = @([ControlHelper]::ResolveNestedBroaderGroupMembers($groupObj, $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName))
+            }
+            else {
+                $groupMembers = @([ControlHelper]::ResolvedBroaderGroups[$groupObj.principalName])
+            }
+            $groupMembersCount = @($groupMembers | Select-Object -property mailAddress -Unique).Count
+            if (($groupMembersCount -gt $allowedMemberCount) -or ([ControlHelper]::GroupsWithCriticalBroaderGroup -contains $groupObj.principalName))
+            {
+                $broaderGroupsWithExcessiveMembers += $groupObj.principalName
+            }
+        }
+        return $broaderGroupsWithExcessiveMembers
+    }
 }

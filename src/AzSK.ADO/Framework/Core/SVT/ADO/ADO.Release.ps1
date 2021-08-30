@@ -1507,21 +1507,7 @@ class Release: ADOSVTBase
 
                             if ([Release]::BroaderGroupMemberCountCheckEnabled -and $filteredBroaderGroupList.Count -gt 0)
                             {
-                                $broaderGroupsWithExcessiveMembers = @()
-                                $groupMembers = @()
-                                $filteredBroaderGroupList | Foreach-Object {
-                                    if (-not [ControlHelper]::ResolvedBroaderGroups.ContainsKey($_.principalName)) {
-                                        $groupMembers = @([ControlHelper]::ResolveNestedBroaderGroupMembers($_, $this.OrganizationContext.OrganizationName, $projectName))
-                                    }
-                                    else {
-                                        $groupMembers = [ControlHelper]::ResolvedBroaderGroups[$_.principalName]
-                                    }
-                                    $groupMembersCount = ($groupMembers | Select-Object -property mailAddress -Unique).Count
-                                    if (($groupMembersCount -gt [Release]::AllowedMemberCountInBroaderGroups) -or ([ControlHelper]::GroupsWithCriticalBroaderGroup -contains $_.principalName))
-                                    {
-                                        $broaderGroupsWithExcessiveMembers += $_.principalName
-                                    }
-                                }
+                                $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($filteredBroaderGroupList, [Release]::AllowedMemberCountInBroaderGroups, $false))
                                 $groupsWithExcessivePermissionsList = @($groupsWithExcessivePermissionsList | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Group})
                             }
 

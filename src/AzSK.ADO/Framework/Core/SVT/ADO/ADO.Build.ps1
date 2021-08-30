@@ -1392,21 +1392,7 @@ class Build: ADOSVTBase
 
                             if ([Build]::BroaderGroupMemberCountCheckEnabled -and $filteredBroaderGroupList.Count -gt 0)
                             {
-                                $broaderGroupsWithExcessiveMembers = @()
-                                $groupMembers = @()
-                                $filteredBroaderGroupList | Foreach-Object {
-                                    if (-not [ControlHelper]::ResolvedBroaderGroups.ContainsKey($_.principalName)) {
-                                        $groupMembers = @([ControlHelper]::ResolveNestedBroaderGroupMembers($_, $this.OrganizationContext.OrganizationName, $projectName))
-                                    }
-                                    else {
-                                        $groupMembers = [ControlHelper]::ResolvedBroaderGroups[$_.principalName]
-                                    }
-                                    $groupMembersCount = ($groupMembers | Select-Object -property mailAddress -Unique).Count
-                                    if (($groupMembersCount -gt [Build]::AllowedMemberCountInBroaderGroups) -or ([ControlHelper]::GroupsWithCriticalBroaderGroup -contains $_.principalName))
-                                    {
-                                        $broaderGroupsWithExcessiveMembers += $_.principalName
-                                    }
-                                }
+                                $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($filteredBroaderGroupList, [Build]::AllowedMemberCountInBroaderGroups, $false))
                                 $groupsWithExcessivePermissionsList = @($groupsWithExcessivePermissionsList | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Group})
                             }
 
@@ -1436,7 +1422,7 @@ class Build: ADOSVTBase
                         $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the pipeline.");
                     }
                     $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
-                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String)");
+                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -Width 512)");
                 }
                 else 
                 {

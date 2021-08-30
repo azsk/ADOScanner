@@ -439,22 +439,7 @@ class AgentPool: ADOSVTBase
 
                     if ([AgentPool]::BroaderGroupMemberCountCheckEnabled -and $restrictedGroups.Count -gt 0)
                     {
-                        $broaderGroupsWithExcessiveMembers = @()
-                        $groupMembers = @()
-                        $restrictedGroups | Foreach-Object {
-                            $groupObj = [ControlHelper]::GetBroaderGroupDescriptorObj($this.OrganizationContext.OrganizationName, $_.Name)
-                            if (-not [ControlHelper]::ResolvedBroaderGroups.ContainsKey($groupObj.principalName)) {
-                                $groupMembers = @([ControlHelper]::ResolveNestedBroaderGroupMembers($groupObj, $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName))
-                            }
-                            else {
-                                $groupMembers = @([ControlHelper]::ResolvedBroaderGroups[$groupObj.principalName])
-                            }
-                            $groupMembersCount = @($groupMembers | Select-Object -property mailAddress -Unique).Count
-                            if (($groupMembersCount -gt [AgentPool]::AllowedMemberCountInBroaderGroups) -or ([ControlHelper]::GroupsWithCriticalBroaderGroup -contains $groupObj.principalName))
-                            {
-                                $broaderGroupsWithExcessiveMembers += $groupObj.principalName
-                            }
-                        }
+                        $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($restrictedGroups, [AgentPool]::AllowedMemberCountInBroaderGroups, $true))
                         $restrictedGroups = @($restrictedGroups | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
                     }
                     $restrictedGroupsCount = $restrictedGroups.Count
