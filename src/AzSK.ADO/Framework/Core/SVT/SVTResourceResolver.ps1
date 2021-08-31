@@ -1652,7 +1652,13 @@ class SVTResourceResolver: AzSKRoot {
 	}
 
     [void] addBuildsToSvtInBatchScan($ProjectName,$ProjectId,$Path){
-        [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
+        if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("BatchScanMultipleProjects")){
+            [BatchScanManagerForMultipleProjects] $batchScanMngr = [BatchScanManagerForMultipleProjects]:: GetInstance();
+        }
+        else {
+            [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
+        }
+        
         $batchStatus= $batchScanMngr.GetBatchStatus();
 
         #all builds have been scanned
@@ -1698,7 +1704,12 @@ class SVTResourceResolver: AzSKRoot {
     }
 
     [void] addReleasesToSvtInBatchScan($ProjectName,$ProjectId,$Path){
-        [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
+        if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("BatchScanMultipleProjects")){
+            [BatchScanManagerForMultipleProjects] $batchScanMngr = [BatchScanManagerForMultipleProjects]:: GetInstance();
+        }
+        else {
+            [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
+        }
         $batchStatus= $batchScanMngr.GetBatchStatus();
 
         #all releases have been scanned

@@ -688,7 +688,12 @@ class WritePsConsole: FileOutputBase
 	}
 
 	hidden [int] UpdateCurrentBatch(){
-		[BatchScanManager] $batchScanMngr=[BatchScanManager]::GetInstance();
+		if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("BatchScanMultipleProjects")){
+            [BatchScanManagerForMultipleProjects] $batchScanMngr = [BatchScanManagerForMultipleProjects]:: GetInstance();
+        }
+        else {
+            [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
+        }
 		$batchStatus= $batchScanMngr.GetBatchStatus();
 		$batchStatus.BatchScanState=[BatchScanState]::COMP;
 		$batchScanMngr.BatchScanTrackerObj = $batchStatus;
