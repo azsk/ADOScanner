@@ -1390,8 +1390,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckMaxPCACount([ControlResult] $controlResult)
     {
-        $controlResult.VerificationResult = [VerificationResult]::Failed
-        $controlResult.AdditionalInfoInCSV ="NA"
+        $controlResult.VerificationResult = [VerificationResult]::Failed        
         try{
             $TotalPCAMembers=0
             
@@ -1414,10 +1413,11 @@ class Organization: ADOSVTBase
                 
                 if($humanAccounts.Count -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
-                    $controlResult.AdditionalInfoInCSV = "TotalPCA: $TotalPCAMembers; MaxAdminApprovedLimit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)"
+                    $controlResult.AdditionalInfoInCSV = "NumPCAs: $TotalPCAMembers; MaxAdminApprovedLimit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)"
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are within the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are within the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)")
+                    $controlResult.AdditionalInfoInCSV ="NA"
                 }
                 [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
             }
@@ -1427,10 +1427,11 @@ class Organization: ADOSVTBase
                 $PCAMembers = @($PCAMembers | Select-Object displayName,mailAddress)
                 if($TotalPCAMembers -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
-                    $controlResult.AdditionalInfoInCSV = "TotalPCA: $TotalPCAMembers; MaxAdminApprovedLimit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)"
+                    $controlResult.AdditionalInfoInCSV = "NumPCAs: $TotalPCAMembers; MaxAdminApprovedLimit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)"
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+                    $controlResult.AdditionalInfoInCSV ="NA"
                 }
                  
                 if($TotalPCAMembers -gt 0){
@@ -1793,7 +1794,7 @@ class Organization: ADOSVTBase
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of guest users: ", $results);
                         $guestUsers = $results | ForEach-Object { $_.DisplayName + ': '+$_.PrincipalName+': ' + $_.Group }
-                        $controlResult.AdditionalInfoInCSV = "NumAdminGuests: $($results.count);" + (($guestUsers | Select -First 10) -join '; ' )
+                        $controlResult.AdditionalInfoInCSV = "First 10 guest users in admin role: $($results.count);" + (($guestUsers | Select -First 10) -join '; ' )
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No guest users have admin roles in the organization.");
