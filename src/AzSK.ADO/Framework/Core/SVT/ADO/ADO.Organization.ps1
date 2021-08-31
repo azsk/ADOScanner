@@ -1914,6 +1914,7 @@ class Organization: ADOSVTBase
                 }
 
                 $display = ($RawDataObjForControlFix |  FT PrincipalName,Name,Group -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
             }
             else
             {
@@ -2096,7 +2097,7 @@ class Organization: ADOSVTBase
             {
                 $excludePrincipalId = $this.InvocationContext.BoundParameters["ExcludePrincipalId"]
                 $excludePrincipalId = $excludePrincipalId -Split ','
-                $RawDataObjForControlFix = @($RawDataObjForControlFix | where-object {$excludePrincipalId  -notcontains $_.mailAddress })
+                $RawDataObjForControlFix = @($RawDataObjForControlFix | where-object {$excludePrincipalId  -notcontains $_.PrincipalName })
             }
 
             $rmContext = [ContextHelper]::GetCurrentContext();
@@ -2127,12 +2128,13 @@ class Organization: ADOSVTBase
                             $webRequestResult = Invoke-RestMethod -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
                         }
                     }
-                    $controlResult.AddMessage([VerificationResult]::Fixed,"Admin permissions for these users has been reverted: ");
+                    $controlResult.AddMessage([VerificationResult]::Fixed,"Admin permissions for these users has been restored: ");
                 }
 
-                $display = ($user |  FT PrincipalName,Group,DisplayName -AutoSize | Out-String -Width 512)
+                $display = ($RawDataObjForControlFix |  FT PrincipalName,Group,DisplayName -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
                 $controlResult.AddMessage("Note: Users which are part of admin groups via AAD group will need to be modified manually.");
-                #Note: api does not fail even if the user is getting flagged from a team foundation group, but the user is not deleted from the group
+                #Note: api does not fail even if the user is getting flagged from a team foundation group, but the user does not get deleted from the group
             }
             else
             {

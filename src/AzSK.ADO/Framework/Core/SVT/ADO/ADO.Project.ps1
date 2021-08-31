@@ -1815,6 +1815,8 @@ class Project: ADOSVTBase
                                                 Scope = $data[0];
                                                 Name = $_.user.displayName;
                                                 PrincipalName = $_.user.principalName;
+                                                ContainerDescriptor = $obj.containerDescriptor;
+                                                SubjectDescriptor = $_.user.descriptor; 
                                             }
                                         }
                                     }
@@ -1831,6 +1833,11 @@ class Project: ADOSVTBase
                     }
                     if($formattedData.Count -gt 0)
                     {
+                        if ($this.ControlFixBackupRequired)
+                        {
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $formattedData
+                        }
                         $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}
                         $groups = $formattedData | Group-Object "Principal Name"
                         $results = @()
@@ -1868,6 +1875,60 @@ class Project: ADOSVTBase
             $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting guest accounts is not defined in control setting of your organization.");
         }
 
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckGuestUsersAccessInAdminRolesAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = @(([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject)
+
+            if ($this.InvocationContext.BoundParameters["ExcludePrincipalId"])
+            {
+                $excludePrincipalId = $this.InvocationContext.BoundParameters["ExcludePrincipalId"]
+                $excludePrincipalId = $excludePrincipalId -Split ','
+                $RawDataObjForControlFix = @($RawDataObjForControlFix | where-object {$excludePrincipalId  -notcontains $_.PrincipalName })
+            }
+
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+
+            if ($RawDataObjForControlFix.Count -gt 0)
+            {
+                if (-not $this.UndoFix)
+                {
+                    foreach ($user in $RawDataObjForControlFix) 
+                    {
+                        $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.SubjectDescriptor , $user.ContainerDescriptor
+                        $webRequestResult = Invoke-WebRequest -Uri $uri -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                    }
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Admin permission for these users has been removed: ");
+                }
+                else
+                {
+                    foreach ($user in $RawDataObjForControlFix) 
+                    {
+                        $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.SubjectDescriptor , $user.ContainerDescriptor
+                        $webRequestResult = Invoke-RestMethod -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } #-Body $body				
+                    }
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Admin permission for these users has been restored: ");
+                }
+
+                $display = ($RawDataObjForControlFix |  FT PrincipalName,Name,Group -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
+
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Manual,  "No guest users found.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
         return $controlResult
     }
 
@@ -1909,17 +1970,21 @@ class Project: ADOSVTBase
                         $groupMembers = @();
 
                         if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($currentGroup.descriptor) -and [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor].count -gt 0) {
-                            $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                            $member = [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                            $member | Add-Member -NotePropertyName subjectDescriptor -NotePropertyValue $currentGroup.descriptor
+                            $groupMembers  += $member
                         }
                         else
                         {
                             [ControlHelper]::FindGroupMembers($currentGroup.descriptor, $this.OrganizationContext.OrganizationName,"")
-                            $groupMembers += [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                            $member =  [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                            $member | Add-Member -NotePropertyName subjectDescriptor -NotePropertyValue $currentGroup.descriptor
+                            $groupMembers  += $member
                         }
 
                         if($groupMembers.count -gt 0)
                         {
-                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor } )}
+                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor ; subjectdescriptor = $_.subjectDescriptor } )}
                         }
                     }
 
@@ -1935,7 +2000,8 @@ class Project: ADOSVTBase
                                                   $DisplayName = $grpobj.group.name | select -Unique
                                                   $date = ""
                                                   $descriptor = $grpobj.group.descriptor | select -Unique
-                                                  [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date ; Descriptor = $descriptor}
+                                                  $subDescriptor = $grpobj.group.subjectdescriptor | select -Unique
+                                                  [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date ; Descriptor = $descriptor; subjectdescriptor = $subDescriptor }
                                                 }
 
                         $inactiveUsersWithAdminAccess =@()
@@ -1994,6 +2060,11 @@ class Project: ADOSVTBase
                     }
                     elseif($inactiveUsersWithAdminAccess.count -gt 0)
                     {
+                        if ($this.ControlFixBackupRequired)
+                        {
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $inactiveUsersWithAdminAccess | Select-Object -property PrincipalName,DisplayName,Group,Descriptor,SubjectDescriptor
+                        }
                         $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive users in admin roles: $($inactiveUsersWithAdminAccess.count) ");
                         $controlResult.AddMessage("`nInactive admin user details:")
                         $display = ($inactiveUsersWithAdminAccess|FT PrincipalName,DisplayName,Group,LastAccessedDate  -AutoSize | Out-String -Width 512)
@@ -2019,6 +2090,70 @@ class Project: ADOSVTBase
             $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting inactive accounts is not defined in control setting of your organization.");
         }
         return $controlResult;
+    }
+
+    hidden [ControlResult] CheckInactiveUsersInAdminRolesAutomatedFix([ControlResult] $controlResult)
+    {
+        $this.PublishCustomMessage("Note: Users which are part of admin groups via AAD group will not be fixed using this command.`n",[MessageType]::Warning);
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = @(([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject)
+
+            if ($this.InvocationContext.BoundParameters["ExcludePrincipalId"])
+            {
+                $excludePrincipalId = $this.InvocationContext.BoundParameters["ExcludePrincipalId"]
+                $excludePrincipalId = $excludePrincipalId -Split ','
+                $RawDataObjForControlFix = @($RawDataObjForControlFix | where-object {$excludePrincipalId  -notcontains $_.PrincipalName })
+            }
+
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+
+            if ($RawDataObjForControlFix.Count -gt 0)
+            {
+                if (-not $this.UndoFix)
+                {
+                    foreach ($user in $RawDataObjForControlFix) 
+                    {
+                        foreach($groupDescriptor in $user.subjectDescriptor)
+                        {
+                            $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor , $groupDescriptor
+                            $webRequestResult = Invoke-WebRequest -Uri $uri -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                        }
+                    }
+                    $controlResult.AddMessage([VerificationResult]::Fixed, "Admin permissions for these users has been removed: ");
+                }
+                else
+                {
+                    foreach ($user in $RawDataObjForControlFix) 
+                    {
+                        foreach($groupDescriptor in $user.subjectDescriptor)
+                        {
+                            
+                            $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor , $groupDescriptor
+                            $webRequestResult = Invoke-RestMethod -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
+                        }
+                    }
+                    $controlResult.AddMessage([VerificationResult]::Fixed,"Admin permissions for these users has been restored: ");
+                }
+
+                $display = ($RawDataObjForControlFix |  FT PrincipalName,Group,DisplayName -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
+                $controlResult.AddMessage("Note: Users which are part of admin groups via AAD group will need to be modified manually.");
+                #Note: api does not fail even if the user is getting flagged from a team foundation group, but the user does not get deleted from the group
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Manual,  "No guest users found.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+
     }
 
     hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForBuild([ControlResult] $controlResult)

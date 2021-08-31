@@ -256,7 +256,8 @@
           "TCP",
           "Automated",
           "AuthZ",
-          "MSW"
+          "MSW",
+          "AutomatedFix"
         ],
         "Enabled": true
     },
@@ -368,7 +369,8 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
