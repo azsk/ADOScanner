@@ -1364,18 +1364,19 @@ class Organization: ADOSVTBase
             {
                 $controlResult.AddMessage([Constants]::graphWarningMessage+"`n");
                 $PCAMembers = @($PCAMembers | Select-Object displayName,mailAddress)
+                $controlResult.AdditionalInfoInCSV += "NumPCAs: $($TotalPCAMembers) ; ";
+                $controlResult.AdditionalInfoInCSV += "MinPCAReqd: $($this.ControlSettings.Organization.MinPCAMembersPermissible) ; ";
+
                 if($TotalPCAMembers -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");                    
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");                                        
                 }
                 if($TotalPCAMembers -gt 0){
                     $display=($PCAMembers |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("Current set of Project Collection Administrators: `n",$display)
-                    $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;
-                    $controlResult.AdditionalInfoInCSV += "TotalPCAAdmins: $($TotalPCAMembers) ; ";
-                    $controlResult.AdditionalInfoInCSV += "MinPCARequired: $($this.ControlSettings.Organization.MinPCAMembersPermissible) ; ";
+                    $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;                                        
                 }
             }
         }
@@ -1625,6 +1626,8 @@ class Organization: ADOSVTBase
                         $controlResult.AdditionalInfo += "Count of guest users who are inactive from last $($GuestUserInactivePeriodInDays) days: " + $inactiveUsersWithDaysCount;
                     }
                     
+                    $domainsInfo = $inactiveguestUsers | ForEach-Object { $_.user.mailaddress.Split("@")[1]} | select-object -Unique -First 10
+                    $controlResult.AdditionalInfoInCSV  += "First 10 domains of inactive guest users: $($domainsInfo -join ', ')"
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found to be inactive from last $($GuestUserInactivePeriodInDays) days.")
@@ -1944,7 +1947,7 @@ class Organization: ADOSVTBase
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
                         $inactiveUsers = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName + ': '+$_.PrincipalName+': ' + $_.Group +': ' +$_.LastAccessedDate }
-                        $controlResult.AdditionalInfoInCSV = "NumInactiveAdmins: $($inactiveUsersWithAdminAccess.count);" + (($inactiveUsers | Select -First 10) -join '; ' )
+                        $controlResult.AdditionalInfoInCSV = "First 10 inactive users: $($inactiveUsersWithAdminAccess.count);" + (($inactiveUsers | Select -First 10) -join '; ' )
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No users in org admin roles have been inactive for $($inactivityThresholdInDays) days.");
