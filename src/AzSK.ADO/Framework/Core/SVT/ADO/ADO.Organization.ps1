@@ -319,7 +319,8 @@ class Organization: ADOSVTBase
                                             $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                             $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
                                             $formatedSCMembers = $nonSCMembers | ForEach-Object { $_.name + ': '+ $_.mailAddress + ': ' + $_.groupName }
-                                            $controlResult.AdditionalInfoInCSV = "NumAdmins: $($totalAdminCount); NumNonALTAdmins: $($nonSCCount); NonAltAdminList: $(($formatedSCMembers | Select -First 10) -join '; ')"
+                                            $controlResult.AdditionalInfoInCSV = "NumAdmins: $($totalAdminCount); NumNonALTAdmins: $($nonSCCount); First 10 non-ALT admins: $(($formatedSCMembers | Select -First 10) -join '; ')"                                            
+                                            $controlResult.AdditionalInfo += "First 10 non-ALT admins: $($formatedSCMembers -join '; ')"
                                         }
                                         else 
                                         {
@@ -1340,6 +1341,7 @@ class Organization: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed,"No auto-injected tasks found at organization level");
+                $controlResult.AdditionalInfoInCSV = "NA";
             }
         }
         catch
