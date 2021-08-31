@@ -1043,6 +1043,9 @@ class SVTResourceResolver: AzSKRoot {
                         if ($this.ExcludeResourceNames.count -gt 0) {
                             $this.SVTResources = @($this.SVTResources | Where-Object {$this.ExcludeResourceNames -notcontains $_.ResourceName})
                         }
+
+                        #Filter backup of only applicable resources
+                        [ControlHelper]::ControlFixBackup = @([ControlHelper]::ControlFixBackup | Where-Object {$this.SVTResources.ResourceId -contains $_.ResourceId})
                     }
 
                     # getting all the resources count
