@@ -1331,7 +1331,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckMinPCACount([ControlResult] $controlResult)
     {
-        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $controlResult.VerificationResult = [VerificationResult]::Failed    
         try{
             $TotalPCAMembers=0
             if ($this.PCAMembersList.Count -eq 0) {
@@ -1356,26 +1356,27 @@ class Organization: ADOSVTBase
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured meet the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
                 }
-                $controlResult.AdditionalInfoInCSV += "TotalPCAAdmins: $($TotalPCAMembers) ; ";
-                $controlResult.AdditionalInfoInCSV += "MinPCARequired: $($this.ControlSettings.Organization.MinPCAMembersPermissible) ; ";
+                $controlResult.AdditionalInfoInCSV += "NumPCAs: $($TotalPCAMembers) ; ";
+                $controlResult.AdditionalInfoInCSV += "MinPCAReqd: $($this.ControlSettings.Organization.MinPCAMembersPermissible) ; ";
                 [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
             }
             else
             {
                 $controlResult.AddMessage([Constants]::graphWarningMessage+"`n");
                 $PCAMembers = @($PCAMembers | Select-Object displayName,mailAddress)
+                $controlResult.AdditionalInfoInCSV += "NumPCAs: $($TotalPCAMembers) ; ";
+                $controlResult.AdditionalInfoInCSV += "MinPCAReqd: $($this.ControlSettings.Organization.MinPCAMembersPermissible) ; ";
+
                 if($TotalPCAMembers -lt $this.ControlSettings.Organization.MinPCAMembersPermissible){
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");                    
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Organization.MinPCAMembersPermissible)");                                        
                 }
                 if($TotalPCAMembers -gt 0){
                     $display=($PCAMembers |  FT displayName, mailAddress -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("Current set of Project Collection Administrators: `n",$display)
-                    $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;
-                    $controlResult.AdditionalInfoInCSV += "TotalPCAAdmins: $($TotalPCAMembers) ; ";
-                    $controlResult.AdditionalInfoInCSV += "MinPCARequired: $($this.ControlSettings.Organization.MinPCAMembersPermissible) ; ";
+                    $controlResult.AdditionalInfo = "Count of Project Collection Administrators: " + $TotalPCAMembers;                                        
                 }
             }
         }
@@ -1389,7 +1390,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckMaxPCACount([ControlResult] $controlResult)
     {
-        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $controlResult.VerificationResult = [VerificationResult]::Failed        
         try{
             $TotalPCAMembers=0
             
@@ -1412,10 +1413,11 @@ class Organization: ADOSVTBase
                 
                 if($humanAccounts.Count -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
-                    $controlResult.AdditionalInfoInCSV = "TotalPCA: $TotalPCAMembers; MaxAdminApprovedLimit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)"
+                    $controlResult.AdditionalInfoInCSV = "NumPCAs: $TotalPCAMembers; MaxAdminApprovedLimit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)"
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are within the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured are within the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)")
+                    $controlResult.AdditionalInfoInCSV ="NA"
                 }
                 [AdministratorHelper]::PopulatePCAResultsToControl($humanAccounts, $svcAccounts, $controlResult)
             }
@@ -1425,10 +1427,11 @@ class Organization: ADOSVTBase
                 $PCAMembers = @($PCAMembers | Select-Object displayName,mailAddress)
                 if($TotalPCAMembers -gt $this.ControlSettings.Organization.MaxPCAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are more than the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
-                    $controlResult.AdditionalInfoInCSV = "TotalPCA: $TotalPCAMembers; MaxAdminApprovedLimit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)"
+                    $controlResult.AdditionalInfoInCSV = "NumPCAs: $TotalPCAMembers; MaxAdminApprovedLimit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)"
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within the approved limit: $($this.ControlSettings.Organization.MaxPCAMembersPermissible)");
+                    $controlResult.AdditionalInfoInCSV ="NA"
                 }
                  
                 if($TotalPCAMembers -gt 0){
@@ -1612,30 +1615,30 @@ class Organization: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive guest users in the organization: $($inactiveGuestUsersCount)");
                     $controlResult.AdditionalInfo += "Count of inactive guest users in the organization: " + $inactiveGuestUsersCount;
                     $controlResult.SetStateData("Inactive guest users list: ", $inactiveUsersStateData);
-                    $controlResult.AdditionalInfoInCSV = "GuestUsers: $($users.Count); InactiveGuestUsers: $($inactiveGuestUsersCount); "
+                    $controlResult.AdditionalInfoInCSV = "NumGuests: $($users.Count);"
 
 
                     $inactiveUsersWithDays = $inactiveUsers | Where-Object {$_.InactiveFromDays -ne "User was never active."}
                     $inactiveUsersWithDaysCount = ($inactiveUsersWithDays | Measure-Object).Count
                     if($inactiveUsersWithDaysCount -gt 0) {
                         $controlResult.AddMessage("`nCount of guest users who are inactive from last $($GuestUserInactivePeriodInDays) days: $($inactiveUsersWithDaysCount)");
-                        $inactiveUsersTable = ($inactiveUsersWithDays | FT | Out-String)
+                        $inactiveUsersTable = ($inactiveUsersWithDays | Sort-Object InactiveFromDays -Descending | FT  | Out-String)
                         $controlResult.AddMessage("Inactive guest users list: `n$inactiveUsersTable");
                         $controlResult.AdditionalInfo += "Count of guest users who are inactive from last $($GuestUserInactivePeriodInDays) days: " + $inactiveUsersWithDaysCount;
                     }
-
+                    
                     $domainsInfo = $inactiveguestUsers | ForEach-Object { $_.user.mailaddress.Split("@")[1]} | select-object -Unique -First 10
-                    $controlResult.AdditionalInfoInCSV  += "DifferentDomains: $($domainsInfo -join ', ')"
+                    $controlResult.AdditionalInfoInCSV  += "First 10 domains of inactive guest users: $($domainsInfo -join ', ')"
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found to be inactive from last $($GuestUserInactivePeriodInDays) days.")
-                    $controlResult.AdditionalInfoInCSV = "GuestUsers: $($users.Count); InactiveGuestUsers: 0"
+                    $controlResult.AdditionalInfoInCSV = "NumGuests: $($users.Count);"
                 }
             }
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in organization.");
-                $controlResult.AdditionalInfoInCSV = "GuestUsers: 0"
+                $controlResult.AdditionalInfoInCSV = "NumGuests: 0"
             }
         }
         catch {
@@ -1791,15 +1794,17 @@ class Organization: ADOSVTBase
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of guest users: ", $results);
                         $guestUsers = $results | ForEach-Object { $_.DisplayName + ': '+$_.PrincipalName+': ' + $_.Group }
-                        $controlResult.AdditionalInfoInCSV = "TotalAdminGuestUser: $($results.count); GuestUsersList: " + (($guestUsers | Select -First 10) -join '; ' )
+                        $controlResult.AdditionalInfoInCSV = "First 10 guest users in admin role: $($results.count);" + (($guestUsers | Select -First 10) -join '; ' )
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No guest users have admin roles in the organization.");
+                        $controlResult.AdditionalInfoInCSV ="NA"
                     }
 
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in organization.");
+                    $controlResult.AdditionalInfoInCSV ="NA"
                 }
                 $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");
             }
@@ -1928,6 +1933,7 @@ class Organization: ADOSVTBase
                     }
                     else {
                        $controlResult.AddMessage([VerificationResult]::Passed, "No user found with admin roles in the organization.")
+                       $controlResult.AdditionalInfoInCSV ="NA"
                     }
 
                     if($null -eq (Compare-Object -ReferenceObject $AdminUsersMasterList -DifferenceObject $AdminUsersFailureCases))
@@ -1942,14 +1948,16 @@ class Organization: ADOSVTBase
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
                         $inactiveUsers = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName + ': '+$_.PrincipalName+': ' + $_.Group +': ' +$_.LastAccessedDate }
-                        $controlResult.AdditionalInfoInCSV = "TotalInactiveAdmin: $($inactiveUsersWithAdminAccess.count); InactiveAdminList: " + (($inactiveUsers | Select -First 10) -join '; ' )
+                        $controlResult.AdditionalInfoInCSV = "First 10 inactive users: $($inactiveUsersWithAdminAccess.count);" + (($inactiveUsers | Select -First 10) -join '; ' )
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No users in org admin roles have been inactive for $($inactivityThresholdInDays) days.");
+                        $controlResult.AdditionalInfoInCSV ="NA"
                     }
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Not able to fetch Org level collection groups")
+                    $controlResult.AdditionalInfoInCSV ="NA"
                 }
                 $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForInactiveUser|FT|Out-String)");
             }
