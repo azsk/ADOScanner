@@ -66,6 +66,7 @@ class Project: ADOSVTBase
         try
         {
             $controlResult.VerificationResult = [VerificationResult]::Failed
+            $controlResult.AdditionalInfoInCSV ="NA"
             if([Helpers]::CheckMember($this.ResourceContext.ResourceDetails,"visibility"))
             {
                 $visibility = $this.ResourceContext.ResourceDetails.visibility;
@@ -115,6 +116,7 @@ class Project: ADOSVTBase
     hidden [ControlResult] CheckSettableQueueTime([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
+        $controlResult.AdditionalInfoInCSV ="NA"
         if($this.PipelineSettingsObj)
         {
             if($this.PipelineSettingsObj.enforceSettableVar.enabled -eq $true )
@@ -138,6 +140,7 @@ class Project: ADOSVTBase
         {
             $orgLevelScope = $this.PipelineSettingsObj.enforceJobAuthScope.orgEnabled;
             $prjLevelScope = $this.PipelineSettingsObj.enforceJobAuthScope.enabled;
+            $controlResult.AdditionalInfoInCSV ="NA"
 
             if($prjLevelScope -eq $true )
             {
@@ -154,7 +157,7 @@ class Project: ADOSVTBase
             }
             else
             {
-                $controlResult.AddMessage("This setting is disabled (set to project collection) at organization level.");
+                $controlResult.AddMessage("This setting is disabled (set to project collection) at organization level.");                
             }
         }
         else
