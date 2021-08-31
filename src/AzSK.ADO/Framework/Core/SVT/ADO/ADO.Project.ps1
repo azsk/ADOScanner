@@ -672,6 +672,7 @@ class Project: ADOSVTBase
                                             else
                                             {
                                                 $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                                $controlResult.AdditionalInfoInCSV += 'NA' ;
                                             }
                                             if ($SCCount -gt 0)
                                             {
@@ -2015,9 +2016,7 @@ class Project: ADOSVTBase
                     }
                     else {
                        $controlResult.AddMessage([VerificationResult]::Passed, "No user found with admin roles in the project.")
-                       $controlResult.AdditionalInfoInCSV += "NumAdminGuests: $($inactiveUsersWithAdminAccess.count) ; ";
-                       $UserList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName} | select-object -Unique -First 10;
-                       $controlResult.AdditionalInfoInCSV += "InactiveUsersList: $($UserList -join ' ; ');";
+                       $controlResult.AdditionalInfoInCSV += 'NA' ;
                     }
 
                     if($null -eq (Compare-Object -ReferenceObject $AdminUsersMasterList -DifferenceObject $AdminUsersFailureCases))
