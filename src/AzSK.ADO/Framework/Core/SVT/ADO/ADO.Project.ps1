@@ -391,11 +391,15 @@ class Project: ADOSVTBase
                 # In case of graph access we will only evaluate the control on the basis of human accounts
                 if($humanAccounts.count -lt $this.ControlSettings.Project.MinPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
-                    $controlResult.AdditionalInfoInCSV += "TotalPA: $($TotalPAMembers); ";
-                    $controlResult.AdditionalInfoInCSV += "MinPA: $($this.ControlSettings.project.MinPAMembersPermissible); ";
+                    $controlResult.AdditionalInfoInCSV += "NumPAs: $($TotalPAMembers); ";
+                    $controlResult.AdditionalInfoInCSV += "MaxPAAllowed: $($this.ControlSettings.project.MaxPAMembersPermissible); ";
+                    $controlResult.AdditionalInfoInCSV += "MinPAReqd: $($this.ControlSettings.project.MinPAMembersPermissible); ";
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured meet the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                    $controlResult.AdditionalInfoInCSV += "NumPAs: $($TotalPAMembers); ";
+                    $controlResult.AdditionalInfoInCSV += "MaxPAAllowed: $($this.ControlSettings.project.MaxPAMembersPermissible); ";
+                    $controlResult.AdditionalInfoInCSV += "MinPAReqd: $($this.ControlSettings.project.MinPAMembersPermissible);";
                 }
                 if($TotalPAMembers -gt 0){
                     $controlResult.AddMessage("Current set of Project Administrators: ")
@@ -420,11 +424,15 @@ class Project: ADOSVTBase
                 $this.PAMembers = @($this.PAMembers | Select-Object displayName,mailAddress)
                 if($TotalPAMembers -lt $this.ControlSettings.Project.MinPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
-                    $controlResult.AdditionalInfoInCSV += "TotalPA: $($TotalPAMembers); ";
-                    $controlResult.AdditionalInfoInCSV += "MinPA: $($this.ControlSettings.project.MinPAMembersPermissible);";
+                    $controlResult.AdditionalInfoInCSV += "NumPAs: $($TotalPAMembers); ";
+                    $controlResult.AdditionalInfoInCSV += "MaxPAAllowed: $($this.ControlSettings.project.MaxPAMembersPermissible); ";
+                    $controlResult.AdditionalInfoInCSV += "MinPAReqd: $($this.ControlSettings.project.MinPAMembersPermissible);";
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                    $controlResult.AdditionalInfoInCSV += "NumPAs: $($TotalPAMembers); ";
+                    $controlResult.AdditionalInfoInCSV += "MaxPAAllowed: $($this.ControlSettings.project.MaxPAMembersPermissible); ";
+                    $controlResult.AdditionalInfoInCSV += "MinPAReqd: $($this.ControlSettings.project.MinPAMembersPermissible);";
                 }
                 if($TotalPAMembers -gt 0){
                     $controlResult.AddMessage("Current set of Project Administrators: ")
@@ -591,7 +599,7 @@ class Project: ADOSVTBase
                                     }
                                 }
                                 
-                                $controlResult.AdditionalInfoInCSV += "TotalAccount: $($allAdminMembers.Count); "
+                                $controlResult.AdditionalInfoInCSV += "NumAccounts: $($allAdminMembers.Count); "
                                 if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
                                 {
                                     if ([IdentityHelpers]::hasGraphAccess)
@@ -602,7 +610,7 @@ class Project: ADOSVTBase
 
                                         $nonSCCount = $nonSCMembers.Count
                                         $SCCount = $SCMembers.Count
-                                        $controlResult.AdditionalInfoInCSV += "NonALTAccounts: $($nonSCCount); "
+                                        $controlResult.AdditionalInfoInCSV += "NumNonALTAccounts: $($nonSCCount); "
                                         $totalAdminCount = $nonSCCount+$SCCount
                                         $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
                                         if ($nonSCCount -gt 0)
@@ -614,8 +622,8 @@ class Project: ADOSVTBase
                                             $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
                                             $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                             $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
-                                            $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress } | select-object -Unique -First 10
-                                            $controlResult.AdditionalInfoInCSV += "NonALTAccountsList: " + $nonSCaccounts -join ' ; '
+                                            $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress + ';' } | select-object -Unique -First 10
+                                            $controlResult.AdditionalInfoInCSV += "NonALTAccounts: " + $nonSCaccounts -join ' ; '
                                         }
                                         else
                                         {
@@ -1869,17 +1877,20 @@ class Project: ADOSVTBase
                         $display = ($results | FT PrincipalName, DisplayName, Group  -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("Guest users list : ", $results);
-                        $controlResult.AdditionalInfoInCSV += "GuestUsers: $($results.count); ";
+                        $controlResult.AdditionalInfoInCSV += "NumAdminGuests: $($results.count); ";
                         $UserList = $results | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName } | select-object -Unique -First 10;
-                        $controlResult.AdditionalInfoInCSV += "GuestUsersList: $($UserList -join ' ; ');";
+                        $controlResult.AdditionalInfoInCSV += "AdminGuestsList: $($UserList -join ' ; ');";
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No guest users have admin roles in the project.");
+                        $controlResult.AdditionalInfoInCSV += "NA";
+                       
                     }
 
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in organization.");
+                    
                 }
                 $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");
             }
@@ -2011,6 +2022,9 @@ class Project: ADOSVTBase
                     }
                     else {
                        $controlResult.AddMessage([VerificationResult]::Passed, "No user found with admin roles in the project.")
+                       $controlResult.AdditionalInfoInCSV += "NumAdminGuests: $($inactiveUsersWithAdminAccess.count) ; ";
+                       $UserList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName} | select-object -Unique -First 10;
+                       $controlResult.AdditionalInfoInCSV += "InactiveUsersList: $($UserList -join ' ; ');";
                     }
 
                     if($null -eq (Compare-Object -ReferenceObject $AdminUsersMasterList -DifferenceObject $AdminUsersFailureCases))
@@ -2025,7 +2039,7 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
                        
-                        $controlResult.AdditionalInfoInCSV += "InactiveUsers: $($inactiveUsersWithAdminAccess.count) ; ";
+                        $controlResult.AdditionalInfoInCSV += "NumInactiveUsers: $($inactiveUsersWithAdminAccess.count) ; ";
                         $UserList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName} | select-object -Unique -First 10;
                         $controlResult.AdditionalInfoInCSV += "InactiveUsersList: $($UserList -join ' ; ');";
                 
@@ -2033,6 +2047,9 @@ class Project: ADOSVTBase
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No users in project admin roles found to be inactive for $($inactivityPeriodInDays) days.");
+                        $controlResult.AdditionalInfoInCSV += "NumInactiveUsers: $($inactiveUsersWithAdminAccess.count) ; ";
+                        $UserList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName} | select-object -Unique -First 10;
+                        $controlResult.AdditionalInfoInCSV += "InactiveUsersList: $($UserList -join ' ; ');";
                     }
                 }
                 else {
