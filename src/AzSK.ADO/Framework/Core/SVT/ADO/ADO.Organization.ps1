@@ -2087,11 +2087,10 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckInactiveUsersInAdminRolesAutomatedFix([ControlResult] $controlResult)
     {
+        $this.PublishCustomMessage("Note: Users which are part of admin groups via AAD group will not be fixed using this command.`n",[MessageType]::Warning);
         try{
             $RawDataObjForControlFix = @();
             $RawDataObjForControlFix = @(([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject)
-            $fixedNotAppliedToUsers = @();
-            $fixedAppliedToUsers = @();
 
             if ($this.InvocationContext.BoundParameters["ExcludePrincipalId"])
             {
@@ -2123,23 +2122,17 @@ class Organization: ADOSVTBase
                     {
                         foreach($groupDescriptor in $user.subjectDescriptor)
                         {
-                            try
-                            {
-                                $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor , $groupDescriptor
-                                $webRequestResult = Invoke-RestMethod -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
-                                $fixedAppliedToUsers += $user
-                            }
-                            catch 
-                            {
-                                $fixedNotAppliedToUsers += $user
-                            }
+                            
+                            $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor , $groupDescriptor
+                            $webRequestResult = Invoke-RestMethod -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
                         }
                     }
                     $controlResult.AddMessage([VerificationResult]::Fixed,"Admin permissions for these users has been reverted: ");
                 }
 
-                $display = ($fixedAppliedToUsers |  FT PrincipalName,Group,DisplayName -AutoSize | Out-String -Width 512)
+                $display = ($user |  FT PrincipalName,Group,DisplayName -AutoSize | Out-String -Width 512)
                 $controlResult.AddMessage("Note: Users which are part of admin groups via AAD group will need to be modified manually.");
+                #Note: api does not fail even if the user is getting flagged from a team foundation group, but the user is not deleted from the group
             }
             else
             {
