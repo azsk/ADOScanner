@@ -267,11 +267,13 @@ class Organization: ADOSVTBase
                                         $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                         $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
                                         $formatedSCMembers = $nonSCMembers | ForEach-Object { $_.name + ': '+ $_.mailAddress + ': ' + $_.groupName }
-                                        $controlResult.AdditionalInfoInCSV = "TotalAdmin: $($totalAdminCount); TotalNonALTAdmin: $($nonSCCount); NonAltAdminList: $(($formatedSCMembers | Select -First 10) -join '; ')"
+                                        $controlResult.AdditionalInfoInCSV = "NumAdmins: $($totalAdminCount); NumNonALTAdmins: $($nonSCCount); First 10 non-ALT admins: $(($formatedSCMembers | Select -First 10) -join '; ')"
+                                        $controlResult.AdditionalInfo += "First 10 non-ALT admins: $($formatedSCMembers -join '; ')"
                                     }
                                     else
                                     {
                                         $controlResult.AddMessage([VerificationResult]::Passed, "All user accounts with admin privilege are SC-ALT accounts.");
+                                        $controlResult.AdditionalInfoInCSV = "NumAdmins: $($totalAdminCount); `nNumNonALTAdmins: NA;"
                                     }
                                     if ($SCCount -gt 0)
                                     {
@@ -522,12 +524,14 @@ class Organization: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of installed extensions: " + $extCount;
                     $this.ExtensionControlHelper($controlResult, $extensionList, 'Installed')
 
-                    $extString = $extensionList | Select-Object -First 10 | ForEach-Object { $_.extensionName + ' by ' + $_.publisherName } 
-                    $controlResult.AdditionalInfoInCSV = "InstalledExtensions: $($extCount) ; `n$($extString -join ' ; ')"
+                    $extString = $extensionList | Select-Object -First 10 | ForEach-Object { $_.extensionName + ': ' + $_.publisherName } 
+                    $controlResult.AdditionalInfoInCSV = "InstalledExtensions: $($extCount) ; List of first 10 extensions: $($extString -join '; ')"
+                    $controlResult.AdditionalInfo += "List of first 10 extensions: $($extString -join '; ')"
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No installed extensions found.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
             }
             else
@@ -569,12 +573,14 @@ class Organization: ADOSVTBase
                     $sharedExtList = $sharedExtensions | Select-Object extensionId, extensionName, isCertifiedPublisher, @{Name="lastPublished";Expression={$_.lastUpdated}}, publisherId, publisherName, version, scopes
                     $this.ExtensionControlHelper($controlResult, $sharedExtList, 'Shared')
 
-                    $extString = $sharedExtensions | Select-Object -First 10 | ForEach-Object { $_.extensionName + ' by ' + $_.publisherName } 
-                    $controlResult.AdditionalInfoInCSV = "SharedExtensions: $($sharedCount) ; `n$($extString -join ' ; ')"                    
+                    $extString = $sharedExtensions | Select-Object -First 10 | ForEach-Object { $_.extensionName + ': ' + $_.publisherName } 
+                    $controlResult.AdditionalInfoInCSV = "SharedExtensions: $($sharedCount) ; List of first 10 extensions: $($extString -join ' ; ')"                    
+                    $controlResult.AdditionalInfo += "List of first 10 extensions: $($extString -join '; ')"
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No shared extensions found.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
             }
             else
@@ -649,13 +655,15 @@ class Organization: ADOSVTBase
                     }
                     $controlResult.AddMessage($display)
                     $formatedGuestUsers = ($activeGuestUsers | Sort-Object -Property InactiveFromDays -Descending) | ForEach-Object { $_.DisplayName + ': ' +$_.MailAddress +': '+ $_.InactiveFromDays }
-                    $controlResult.AdditionalInfoInCSV = "TotalGuestUsers: $($activeCount); UsersList: " + (($formatedGuestUsers | Select -First 10) -join '; ' )
+                    $controlResult.AdditionalInfoInCSV = "NumGuests: $($activeCount); List of first 10 users: " + (($formatedGuestUsers | Select -First 10) -join '; ' )
+                    $controlResult.AdditionalInfo += "List of first 10 users: " + ($formatedGuestUsers | Select -First 10) -join '; ';
                 }
                 $controlResult.SetStateData("Guest users list: ", $stateData);
             }
             else #external guest access notion is not applicable when AAD is not configured. Instead GitHub user notion is available in non-AAD backed orgs.
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "There are no guest users in the organization.");
+                $controlResult.AdditionalInfoInCSV = "NA";
             }
         }
         catch
@@ -683,6 +691,7 @@ class Organization: ADOSVTBase
             if(([Helpers]::CheckMember($responseObj[0],"count",$false)) -and ($responseObj[0].count -eq 0))
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "No extension managers assigned.");
+                $controlResult.AdditionalInfoInCSV = "NA"
             }
              # When there are managers - the below condition will be true.
             elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0))
@@ -692,10 +701,14 @@ class Organization: ADOSVTBase
                 $extensionManagerList =  @($responseObj | Select-Object @{Name="IdentityName"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}})
                 $controlResult.AddMessage([VerificationResult]::Verify, "Review the list of extension managers as under: `n",$($extensionManagerList | FT | out-string));
                 $controlResult.SetStateData("List of extension managers: ", $extensionManagerList);
+                $ExtManagerList = $extensionManagerList.IdentityName | select-object -Unique -First 10;
+                $controlResult.AdditionalInfoInCSV = "NumExtensionManager: $($extensionManagerList.Count); List of first 10 managers: " + $($ExtManagerList -join '; ');
+                $controlResult.AdditionalInfo += "List of first 10 managers: " + $($ExtManagerList -join '; ');
             }
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "No extension managers assigned.");
+                $controlResult.AdditionalInfoInCSV = "NA"
             }
         }
         catch
@@ -1030,6 +1043,7 @@ class Organization: ADOSVTBase
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "All variables can be set at queue time.");
             }
+            $controlResult.AdditionalInfoInCSV = "NA";
         }
         else{
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
@@ -1051,6 +1065,7 @@ class Organization: ADOSVTBase
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope is set to project collection for non-release pipelines at organization level.");
             }
+            $controlResult.AdditionalInfoInCSV = "NA";
        }
        else{
              $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
@@ -1072,6 +1087,7 @@ class Organization: ADOSVTBase
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope is set to project collection for release pipelines at organization level.");
             }
+            $controlResult.AdditionalInfoInCSV = "NA";
        }
        else{
              $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
@@ -1093,6 +1109,7 @@ class Organization: ADOSVTBase
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope of pipelines is set to all Azure DevOps repositories in the authorized projects at organization level.");
             }
+            $controlResult.AdditionalInfoInCSV = "NA";
         }
         else{
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
@@ -1307,12 +1324,14 @@ class Organization: ADOSVTBase
                     $this.ExtensionControlHelper($controlResult, $autoInjExt, 'AutoInjected')
                    
                     $controlResult.AdditionalInfoInCSV += "AutoInjectedExtensions: $($extCount) ; ";
-                    $ExtList = $unknown | ForEach-Object { $_.extensionName + ' by ' + $_.publisherName } | select-object -Unique -First 10;
-                    $controlResult.AdditionalInfoInCSV += "UnknownPublisher: $($ExtList -join ' ; ');";
+                    $ExtList = $autoInjExt | ForEach-Object { $_.extensionName + ': ' + $_.publisherName } | select-object -Unique -First 10;
+                    $controlResult.AdditionalInfoInCSV += "List of first 10 extensions: $($ExtList -join ' ; ');";
+                    $controlResult.AdditionalInfo += "List of first 10 extensions: " + $($ExtList -join ' ; ');
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No auto-injected extensions found.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
             }
             else
