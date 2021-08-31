@@ -696,6 +696,7 @@ class Project: ADOSVTBase
                             else
                             { #count is 0 then there is no members added in the admin groups
                                 $controlResult.AddMessage([VerificationResult]::Passed, "Admin groups does not have any members.");
+                                $controlResult.AdditionalInfoInCSV += 'NA' ;
                             }
                         }
                         else
