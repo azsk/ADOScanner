@@ -319,11 +319,12 @@ class Organization: ADOSVTBase
                                             $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                             $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
                                             $formatedSCMembers = $nonSCMembers | ForEach-Object { $_.name + ': '+ $_.mailAddress + ': ' + $_.groupName }
-                                            $controlResult.AdditionalInfoInCSV = "TotalAdmin: $($totalAdminCount); TotalNonALTAdmin: $($nonSCCount); NonAltAdminList: $(($formatedSCMembers | Select -First 10) -join '; ')"
+                                            $controlResult.AdditionalInfoInCSV = "NumAdmins: $($totalAdminCount); NumNonALTAdmins: $($nonSCCount); NonAltAdminList: $(($formatedSCMembers | Select -First 10) -join '; ')"
                                         }
                                         else 
                                         {
                                             $controlResult.AddMessage([VerificationResult]::Passed, "All user accounts with admin privilege are SC-ALT accounts.");
+                                            $controlResult.AdditionalInfoInCSV = "NumAdmins: $($totalAdminCount); NumNonALTAdmins: NA"
                                         }
                                         if ($SCCount -gt 0) 
                                         {
@@ -348,6 +349,7 @@ class Organization: ADOSVTBase
                         else
                         { #count is 0 then there is no members added in the admin groups
                             $controlResult.AddMessage([VerificationResult]::Passed, "Admin groups does not have any members.");
+                            $controlResult.AdditionalInfoInCSV = "NA"
                         }
                     }
                     else
@@ -525,7 +527,7 @@ class Organization: ADOSVTBase
                     $this.ExtensionControlHelper($controlResult, $extensionList, 'Installed')
 
                     $extString = $extensionList | Select-Object -First 10 | ForEach-Object { $_.extensionName + ': ' + $_.publisherName } 
-                    $controlResult.AdditionalInfoInCSV = "InstalledExtensions: $($extCount) ; List of first 10 extensions: $($extString -join '; ')"
+                    $controlResult.AdditionalInfoInCSV = "NumInstalledExtensions: $($extCount) ; List of first 10 extensions: $($extString -join '; ')"
                     $controlResult.AdditionalInfo += "List of first 10 extensions: $($extString -join '; ')"
                 }
                 else
@@ -537,6 +539,7 @@ class Organization: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "No installed extensions found.");
+                $controlResult.AdditionalInfoInCSV = "NA";
             }
         }
         catch
@@ -574,7 +577,7 @@ class Organization: ADOSVTBase
                     $this.ExtensionControlHelper($controlResult, $sharedExtList, 'Shared')
 
                     $extString = $sharedExtensions | Select-Object -First 10 | ForEach-Object { $_.extensionName + ': ' + $_.publisherName } 
-                    $controlResult.AdditionalInfoInCSV = "SharedExtensions: $($sharedCount) ; List of first 10 extensions: $($extString -join ' ; ')"                    
+                    $controlResult.AdditionalInfoInCSV = "NumSharedExtensions: $($sharedCount) ; List of first 10 extensions: $($extString -join ' ; ')"                    
                     $controlResult.AdditionalInfo += "List of first 10 extensions: $($extString -join '; ')"
                 }
                 else
