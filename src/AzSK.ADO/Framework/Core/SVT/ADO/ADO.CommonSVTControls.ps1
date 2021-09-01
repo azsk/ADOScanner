@@ -287,6 +287,7 @@ class CommonSVTControls: ADOSVTBase {
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with administrator/contributor/collaborator permission to broad groups.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
                 $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($restrictedBroaderGroupsForFeeds | FT | out-string)");
             }
@@ -556,7 +557,7 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.SetStateData("List of groups: ", $feedWithBuildSvcAcc);
 
                 $groups = $feedWithBuildSvcAcc | ForEach-Object { $_.DisplayName + ': ' + $_.Role } 
-                $controlResult.AdditionalInfoInCSV = "* $($groups -join ' ; ')"
+                $controlResult.AdditionalInfoInCSV = "$($groups -join ' ; ')"
 
                 #Fetching identity used to publish last 10 packages
                 $accUsedToPublishPackage = $this.ValidateBuildSvcAccInPackage($scope, $true);
@@ -565,7 +566,7 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AddMessage("`nList of last 10 published packages and identity used to publish: ", ($accUsedToPublishPackage.packagesInfo | FT | Out-String -Width 512))
                     $uniqueIdentities = $accUsedToPublishPackage.packagesInfo | select-object -Property IdentityName -Unique
                     $controlResult.AdditionalInfo += "List of identities used to publish last 10 packages: $($uniqueIdentities.IdentityName -join ', ')";
-                    $controlResult.AdditionalInfoInCSV += "; Identities used to publish last 10 packages: $($uniqueIdentities.IdentityName -join ', ')";
+                    $controlResult.AdditionalInfoInCSV += "; Last 10 publishers: $($uniqueIdentities.IdentityName -join ', ')";
                 }
                 else
                 {
@@ -585,6 +586,7 @@ class CommonSVTControls: ADOSVTBase {
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with administrator/contributor/collaborator permission to build service accounts.");
+                $controlResult.AdditionalInfoInCSV = "NA";
             }            
         }
         catch
@@ -779,9 +781,11 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AddMessage("`nList of 'Build Service' Accounts: ", $($buildServieAccountOnRepo | FT | Out-String))
                     $controlResult.SetStateData("List of 'Build Service' Accounts: ", $buildServieAccountOnRepo)
                     $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)";
+                    $controlResult.AdditionalInfoInCSV = $buildServieAccountOnRepo -join ' ; '
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the repository.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
 
             }

@@ -425,6 +425,7 @@ class ServiceConnection: ADOSVTBase
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the service connection.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
 
                 $controlResult.AddMessage("`nNote:`nThe following 'Build Service' accounts should not have access to service connection: `nProject Collection Build Service Account`n$($this.ResourceContext.ResourceGroupName) Build Service ($($this.OrganizationContext.OrganizationName))");
@@ -465,6 +466,7 @@ class ServiceConnection: ADOSVTBase
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not accessible to all pipelines.");
             }
+            $controlResult.AdditionalInfoInCSV = "NA";
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch service connection details. $($_) Please verify from portal that you are not granting all pipeline access to service connections");
@@ -584,12 +586,13 @@ class ServiceConnection: ADOSVTBase
                 $controlResult.AddMessage("Last usage date of service connection: $($this.SvcConnActivityDetail.svcConnLastRunDate)");
                 $controlResult.AdditionalInfo += "Last usage date of service connection: " + $this.SvcConnActivityDetail.svcConnLastRunDate;
                 $SvcConnInactivePeriod = ((Get-Date) - $this.SvcConnActivityDetail.svcConnLastRunDate).Days
-                $controlResult.AdditionalInfoInCSV += "InactiveFromDays: $($SvcConnInactivePeriod)";                               
+                $controlResult.AdditionalInfoInCSV += "InactiveDays: $($SvcConnInactivePeriod)";                               
                 $controlResult.AddMessage("The service connection was inactive from last $($SvcConnInactivePeriod) days.");
             }
             elseif ($this.SvcConnActivityDetail.isSvcConnActive)
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, $this.SvcConnActivityDetail.message);
+                $controlResult.AdditionalInfoInCSV = "NA";
             }
             else
             {
@@ -920,10 +923,12 @@ class ServiceConnection: ADOSVTBase
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection.");
+                        $controlResult.AdditionalInfoInCSV = "NA";
                     }
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
                 $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForSvcConn | FT | out-string )`n");
 
