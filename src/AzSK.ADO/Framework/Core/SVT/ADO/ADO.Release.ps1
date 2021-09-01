@@ -1343,6 +1343,7 @@ class Release: ADOSVTBase
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"`nContributors do not have edit permissions on variable groups used in release definition.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
             }
             catch
@@ -1544,6 +1545,7 @@ class Release: ADOSVTBase
                             }
                             else {
                                 $controlResult.AddMessage([VerificationResult]::Passed, "Broader Groups do not have excessive permissions on the release pipeline.");
+                                $controlResult.AdditionalInfoInCSV += "NA"
                             }
                         }
                         else

@@ -56,11 +56,13 @@ class VariableGroup: ADOSVTBase
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "Variable group does not contain secret.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
             }
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Variable group is not accessible to all pipelines.");
+                $controlResult.AdditionalInfoInCSV += "NA"
             }
 
         }
@@ -323,6 +325,7 @@ class VariableGroup: ADOSVTBase
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
                 $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$( $restrictedBroaderGroupsForVarGrp| FT | out-string)");
             }
@@ -465,7 +468,7 @@ class VariableGroup: ADOSVTBase
                         else
                         {
                             $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to variable group.");
-                            $controlResult.AdditionalInfoInCSV = "NumVarsWithSecret: $($secretVarList.Count); BroadGroupAccess: 0"
+                            $controlResult.AdditionalInfoInCSV += "NA"
                         }
 
                         $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' and should not have user/administrator privileges: `n$( $restrictedBroaderGroupsForVarGrp| FT | out-string)");
@@ -473,13 +476,13 @@ class VariableGroup: ADOSVTBase
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No secrets found in variable group.");
-                        $controlResult.AdditionalInfoInCSV = "NumVGsWithSecret: 0"
+                        $controlResult.AdditionalInfoInCSV += "NA"
                     }
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No variables found in variable group.");
-                    $controlResult.AdditionalInfoInCSV = "NumVGs: 0"
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
             }
             else

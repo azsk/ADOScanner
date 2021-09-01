@@ -1204,7 +1204,7 @@ class Build: ADOSVTBase
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any variable groups used in build definition.");
-                    $controlResult.AdditionalInfoInCSV = "NumVGs: 0";
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
             }
             catch
@@ -1217,7 +1217,7 @@ class Build: ADOSVTBase
         else
         {
             $controlResult.AddMessage([VerificationResult]::Passed,"No variable groups found in build definition.");
-            $controlResult.AdditionalInfo = "NA";
+            $controlResult.AdditionalInfoInCSV += "NA"
         }
 
         return $controlResult
@@ -1291,6 +1291,7 @@ class Build: ADOSVTBase
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the build pipeline.");
+                        $controlResult.AdditionalInfoInCSV += "NA"
                     }
 
                 }
@@ -1431,10 +1432,12 @@ class Build: ADOSVTBase
                             }
                             else {
                                 $controlResult.AddMessage([VerificationResult]::Passed, "Broader Groups do not have excessive permissions on the build pipeline.");
+                                $controlResult.AdditionalInfoInCSV += "NA"
                             }
                         }
                         else {
                             $controlResult.AddMessage([VerificationResult]::Passed, "Broader groups do not have access to the build pipeline.");
+                            $controlResult.AdditionalInfoInCSV += "NA"
                         }
                     }
                     else {
