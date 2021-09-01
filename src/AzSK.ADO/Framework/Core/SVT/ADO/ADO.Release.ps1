@@ -1356,6 +1356,7 @@ class Release: ADOSVTBase
         else
         {
             $controlResult.AddMessage([VerificationResult]::Passed,"`nNo variable groups found in release definition.");
+            $controlResult.AdditionalInfoInCSV += "NA"
         }
 
         return $controlResult
