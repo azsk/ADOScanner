@@ -1093,15 +1093,16 @@ class Build: ADOSVTBase
                         if($editableTaskGroupsCount -gt 0)
                         {
                             $controlResult.AddMessage("Count of task groups on which contributors have edit permissions in build definition: $editableTaskGroupsCount");
-                            $controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in build definition: " + $editableTaskGroupsCount;
+                            #$controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in build definition: " + $editableTaskGroupsCount;
                             $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in build definition: ");
                             $display = $editableTaskGroups|FT  -AutoSize | Out-String -Width 512
                             $controlResult.AddMessage($display)
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
                             
                             $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName } 
-                            $controlResult.AdditionalInfoInCSV += "NumTaskGroups: $($taskGroups.Count); NumTaskGroupsWithEditPerm: $($editableTaskGroupsCount); "
-                            $controlResult.AdditionalInfoInCSV += "List: $($groups -join '; ')"
+                            $addInfo = "NumTaskGroups: $($taskGroups.Count); NumTaskGroupsWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
+                            $controlResult.AdditionalInfo += $addInfo;
+                            $controlResult.AdditionalInfoInCSV += $addInfo;
 
                         }
                         else
