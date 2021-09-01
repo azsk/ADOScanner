@@ -1095,6 +1095,7 @@ class Release: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in release definition.");
                         $controlResult.AdditionalInfoInCSV = "NumTaskGroups: 0;"
+                        $controlResult.AdditionalInfo = "NA"
                     }
                 }
                 catch
@@ -1107,6 +1108,7 @@ class Release: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in release definition.");
+                $controlResult.AdditionalInfo += "NA";
             }
         }
         else
@@ -1233,7 +1235,7 @@ class Release: ADOSVTBase
                     else
                     {
                         $controlResult.AdditionalInfoInCSV += "NumTaskGroups: $(($taskGroups | Measure-Object).Count); NumTaskGroupWithEditPerm: 0;"
-                        $controlResult.AdditionalInfo += "Contributors do not have edit permissions on any task groups used in release definition."
+                        $controlResult.AdditionalInfo += "NA"
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in release definition.");
                     }
                     if(($taskGroups | Measure-Object).Count -ne $editableTaskGroups.Count)
@@ -1248,6 +1250,7 @@ class Release: ADOSVTBase
                         }                        
                         $groups = $nonEditableTaskGroups | ForEach-Object { $_.name } 
                         $controlResult.AdditionalInfoInCSV += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
+                        $controlResult.AdditionalInfo += "NonEditableTaskGroupsList: $($groups -join '; '); "
                     }
                 }
                 catch
@@ -1260,7 +1263,7 @@ class Release: ADOSVTBase
             else
             {
                 $controlResult.AdditionalInfoInCSV += "NumTaskGroups: 0"
-                $controlResult.AdditionalInfo += "No task groups found in release definition.";
+                $controlResult.AdditionalInfo += "NA";
                 $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in release definition.");
             }
         }

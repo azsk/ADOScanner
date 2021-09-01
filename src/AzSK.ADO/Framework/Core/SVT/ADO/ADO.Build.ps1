@@ -1108,7 +1108,7 @@ class Build: ADOSVTBase
                         else
                         {
                             $controlResult.AdditionalInfoInCSV += "NumTaskGroups: $($taskGroups.Count); NumTaskGroupsWithEditPerm: 0; "
-                            $controlResult.AdditionalInfo += "Contributors do not have edit permissions on any task groups used in build definition."
+                            $controlResult.AdditionalInfo += "NA"
                             $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in build definition.");
                         }
                         if($taskGroups.Count -ne $editableTaskGroups.Count)
@@ -1123,6 +1123,7 @@ class Build: ADOSVTBase
                             }
                             $groups = $nonEditableTaskGroups | ForEach-Object { $_.DisplayName } 
                             $controlResult.AdditionalInfoInCSV += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
+                            $controlResult.AdditionalInfo += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
                         }
                     }
                     catch
@@ -1135,7 +1136,7 @@ class Build: ADOSVTBase
                 else
                 {
                     $controlResult.AdditionalInfoInCSV += "NumTaskGroups: 0"
-                    $controlResult.AdditionalInfo += "No task groups found in build definition.";
+                    $controlResult.AdditionalInfo += "NA";
                     $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in build definition.");
                 }
         }
@@ -1208,6 +1209,7 @@ class Build: ADOSVTBase
         else
         {
             $controlResult.AddMessage([VerificationResult]::Passed,"No variable groups found in build definition.");
+            $controlResult.AdditionalInfo = "NA";
         }
 
         return $controlResult
