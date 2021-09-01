@@ -1100,13 +1100,13 @@ class Build: ADOSVTBase
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
                             
                             $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName } 
-                            $controlResult.AdditionalInfoInCSV += "TaskGroupsFound: $($taskGroups.Count); TaskGroupsWithEditPerm: $($editableTaskGroupsCount) ; "
-                            $controlResult.AdditionalInfoInCSV += "EditableTaskGroupsList: $($groups -join ' ; ') ; "
+                            $controlResult.AdditionalInfoInCSV += "NumTaskGroups: $($taskGroups.Count); NumTaskGroupsWithEditPerm: $($editableTaskGroupsCount); "
+                            $controlResult.AdditionalInfoInCSV += "List: $($groups -join '; ')"
 
                         }
                         else
                         {
-                            $controlResult.AdditionalInfoInCSV += "TaskGroupsFound: $($taskGroups.Count); TaskGroupsWithEditPerm: 0 ; "
+                            $controlResult.AdditionalInfoInCSV += "NumTaskGroups: $($taskGroups.Count); NumTaskGroupsWithEditPerm: 0; "
                             $controlResult.AdditionalInfo += "Contributors do not have edit permissions on any task groups used in build definition."
                             $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in build definition.");
                         }
@@ -1189,11 +1189,12 @@ class Build: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of variable groups on which contributors have edit permissions: " + $editableVarGrpsCount;
                     $controlResult.AddMessage([VerificationResult]::Failed, "`nVariable groups list: `n$($editableVarGrps | FT | Out-String)");
                     $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
-                    $controlResult.AdditionalInfoInCSV =  $editableVarGrps -join ' ; '
+                    $controlResult.AdditionalInfoInCSV = "NumVGs: $editableVarGrpsCount; List: $($editableVarGrps -join '; ')";
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any variable groups used in build definition.");
+                    $controlResult.AdditionalInfoInCSV = "NumVGs: 0";
                 }
             }
             catch

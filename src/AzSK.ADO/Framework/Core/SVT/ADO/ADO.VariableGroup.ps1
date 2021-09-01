@@ -30,6 +30,7 @@ class VariableGroup: ADOSVTBase
             if([Helpers]::CheckMember($responseObj[0],"authorized") -and $responseObj[0].authorized -eq $true )
             {
                 $isSecretFound = $false
+                $secretVarList = @();
 
                 # Check if variable group has any secret or linked to KV
                 if ($this.VarGrp.Type -eq 'AzureKeyVault')
@@ -42,6 +43,7 @@ class VariableGroup: ADOSVTBase
                         if([Helpers]::CheckMember($this.VarGrp.variables.$($_.Name),"isSecret") -and ($this.VarGrp.variables.$($_.Name).isSecret -eq $true))
                         {
                             $isSecretFound = $true
+                            $secretVarList += $this.VarGrp.variables.$($_.Name);
                         }
                     }
                 }
@@ -49,6 +51,7 @@ class VariableGroup: ADOSVTBase
                 if ($isSecretFound -eq $true)
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Variable group contains secrets accessible to all pipelines.");
+                    $controlResult.AdditionalInfoInCSV = "SecretVarsList: $($secretVarList -join '; ')";
                 }
                 else
                 {
@@ -456,9 +459,8 @@ class VariableGroup: ADOSVTBase
                             $controlResult.AddMessage("`nList of variables with secret: ",$secretVarList)
                             $controlResult.SetStateData("List of broader groups: ", $restrictedGroups)
 
-                            $controlResult.AdditionalInfoInCSV = "VariablesWithSecret: $($secretVarList.Count); "
                             $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role } 
-                            $controlResult.AdditionalInfoInCSV += $groups -join ' ; '
+                            $controlResult.AdditionalInfoInCSV = "NumVarsWithSecret: $($secretVarList.Count); List: $($groups -join '; '); SecretVarsList: $($secretVarList -join '; ')";
                         }
                         else
                         {

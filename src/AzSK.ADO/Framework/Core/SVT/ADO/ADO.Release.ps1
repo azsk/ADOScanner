@@ -1085,7 +1085,7 @@ class Release: ADOSVTBase
                         $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", $editableTaskGroupsCount);
                         $controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;
                         $formatedTaskGroups = $editableTaskGroups | ForEach-Object { $_.DisplayName }
-                        $controlResult.AdditionalInfoInCSV =  $formatedTaskGroups -join ';';
+                        $controlResult.AdditionalInfoInCSV = "NumTaskGroups: $editableTaskGroupsCount; List: $($formatedTaskGroups -join ';')"
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ", $editableTaskGroups);
                         $controlResult.SetStateData("List of task groups used in release definition that contributors can edit: ", $editableTaskGroups);
                     }
