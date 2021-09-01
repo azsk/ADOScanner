@@ -893,11 +893,11 @@ class PartialScanManager
 			if (($results | measure-object).Count -gt 0) {
 				if ($results[0].FeatureName -eq "Project") {
 					$controlsDataObject = @($results  | Where-Object {$_.ControlItem.Tags -contains 'AutomatedFix' -and $_.ControlResults.VerificationResult -eq 'Failed' -and $null -ne $_.ControlResults.BackupControlState} `
-					| Select-Object @{Name="ProjectName"; Expression={$_.ResourceContext.ResourceName}}, @{Name="ResourceId"; Expression={$_.ResourceContext.ResourceId}}, @{Name="InternalId"; Expression={$_.ControlItem.id}}, @{Name="DataObject"; Expression={$_.ControlResults.BackupControlState}}); 
+					| Select-Object @{Name="ProjectName"; Expression={$_.ResourceContext.ResourceName}}, @{Name="ResourceName"; Expression={$_.ResourceContext.ResourceName}}, @{Name="ResourceId"; Expression={$_.ResourceContext.ResourceId}}, @{Name="InternalId"; Expression={$_.ControlItem.id}}, @{Name="DataObject"; Expression={$_.ControlResults.BackupControlState}}); 
 				}
 				else {
 					$controlsDataObject = @($results  | Where-Object {$_.ControlItem.Tags -contains 'AutomatedFix' -and $_.ControlResults.VerificationResult -eq 'Failed' -and $null -ne $_.ControlResults.BackupControlState} `
-					| Select-Object @{Name="ProjectName"; Expression={$_.ResourceContext.ResourceGroupName}}, @{Name="ResourceId"; Expression={$_.ResourceContext.ResourceId}}, @{Name="InternalId"; Expression={$_.ControlItem.id}}, @{Name="DataObject"; Expression={$_.ControlResults.BackupControlState}}); 
+					| Select-Object @{Name="ProjectName"; Expression={$_.ResourceContext.ResourceGroupName}}, @{Name="ResourceName"; Expression={$_.ResourceContext.ResourceName}}, @{Name="ResourceId"; Expression={$_.ResourceContext.ResourceId}}, @{Name="InternalId"; Expression={$_.ControlItem.id}}, @{Name="DataObject"; Expression={$_.ControlResults.BackupControlState}}); 
 				}
 			}
 			if($null -ne $controlsDataObject -and $controlsDataObject.Count -gt 0)
@@ -927,7 +927,7 @@ class PartialScanManager
 						}
 					}
 
-					$applicableControls += $controlsDataObject |  select-object -property Date,ResourceId,DataObject,ScannedBy
+					$applicableControls += $controlsDataObject |  select-object -property Date,ResourceId,ResourceName,DataObject,ScannedBy
 					$this.StateOfControlsToBeFixed += $applicableControls
 					[JsonHelper]::ConvertToJsonCustom($this.StateOfControlsToBeFixed) | Out-File (Join-Path $this.BackupControlStateFilePath $fileName) -Force
 				}
