@@ -119,7 +119,22 @@ function Get-AzSKADOSecurityStatusBatchMode
         try
         {
 
+            $projects=@()
+            if(-not [string]::IsNullOrWhiteSpace($ProjectName))
+            {
+                $projects += $ProjectName.Split(',', [StringSplitOptions]::RemoveEmptyEntries) | 
+                                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                                    ForEach-Object { $_.Trim() } |
+                                    Select-Object -Unique;
+            }
 
+            if($ProjectName -eq "*" -or $projects.Count -gt 1){
+                [BatchScanManagerForMultipleProjects]::ClearInstance()
+            }
+            else {
+                [BatchScanManager]::ClearInstance()
+            }
+            
             if (-not [String]::IsNullOrEmpty($PATTokenURL))
 			{
 				
@@ -187,14 +202,7 @@ function Get-AzSKADOSecurityStatusBatchMode
                 Write-Host "Could not access PATToken of the user. Stopping the command. " -ForegroundColor Red;
                 return;
             }
-            $projects=@()
-            if(-not [string]::IsNullOrWhiteSpace($ProjectName))
-            {
-                $projects += $ProjectName.Split(',', [StringSplitOptions]::RemoveEmptyEntries) | 
-                                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-                                    ForEach-Object { $_.Trim() } |
-                                    Select-Object -Unique;
-            }
+            
                
             
             if($ProjectName -eq "*" -or $projects.Count -gt 1){
@@ -253,7 +261,7 @@ function Get-AzSKADOSecurityStatusBatchMode
                 $projects = $batchScanMngr.GetProjectsForCurrentScan();
                 if([string]::IsNullOrEmpty($projects)){
                     $batchScanMngr.RemoveBatchScanData();
-                    start-process powershell.exe -argument "Write-Host 'No unscanned resources found. Scan is fully complete. You can use GADSBMR command to combine CSVs from all batch results.'; Read-Host" 
+                    Write-Host 'No unscanned resources found. All projects have been fully scanned. You can use GADSBMR command to combine CSVs from all batch results.'; Read-Host
                     return;
                 }
                 $parametersForGads.Remove("ProjectName") | Out-Null;
