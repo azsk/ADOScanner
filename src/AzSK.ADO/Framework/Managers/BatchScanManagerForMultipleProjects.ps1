@@ -3,7 +3,6 @@ Set-StrictMode -Version Latest
 class BatchScanManagerForMultipleProjects 
 {
     hidden [string] $OrgName = $null;
-	hidden [string] $ProjectName = $null;
     [PSObject] $ControlSettings;
     hidden [string] $BatchScanTrackerFileName=$null;
     hidden [string] $AzSKTempStatePath = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState" | Join-Path -ChildPath "BatchScanData");
@@ -176,7 +175,7 @@ class BatchScanManagerForMultipleProjects
             
         }
         $projects=@()
-        if($PSCmdlet.MyInvocation.BoundParameters.ProjectName -eq "*"){
+        if($PSCmdlet.MyInvocation.BoundParameters.ProjectNames -eq "*"){
         $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=6.0' -f $($this.OrgName);
         $responseObj = "";
         try {
@@ -188,7 +187,7 @@ class BatchScanManagerForMultipleProjects
         }
         }
         else {
-            $projects += $PSCmdlet.MyInvocation.BoundParameters.ProjectName.Split(',', [StringSplitOptions]::RemoveEmptyEntries) | 
+            $projects += $PSCmdlet.MyInvocation.BoundParameters.ProjectNames.Split(',', [StringSplitOptions]::RemoveEmptyEntries) | 
                                     Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
                                     ForEach-Object { $_.Trim() } |
                                     Select-Object -Unique;

@@ -15,8 +15,8 @@ function Get-AzSKADOSecurityStatusBatchMode
         [string]
         [Parameter(Mandatory = $true, HelpMessage="Project name for which the security evaluation has to be performed.")]
         [ValidateNotNullOrEmpty()]
-        [Alias("pn")]
-        $ProjectName,
+        [Alias("pns", "ProjectName", "pn")]
+		$ProjectNames,
 
         [string]
         [Parameter(Mandatory =$false, HelpMessage = "Folder path of builds to be scanned.")]
@@ -120,15 +120,15 @@ function Get-AzSKADOSecurityStatusBatchMode
         {
 
             $projects=@()
-            if(-not [string]::IsNullOrWhiteSpace($ProjectName))
+            if(-not [string]::IsNullOrWhiteSpace($ProjectNames))
             {
-                $projects += $ProjectName.Split(',', [StringSplitOptions]::RemoveEmptyEntries) | 
+                $projects += $ProjectNames.Split(',', [StringSplitOptions]::RemoveEmptyEntries) | 
                                     Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
                                     ForEach-Object { $_.Trim() } |
                                     Select-Object -Unique;
             }
 
-            if($ProjectName -eq "*" -or $projects.Count -gt 1){
+            if($ProjectNames -eq "*" -or $projects.Count -gt 1){
                 [BatchScanManagerForMultipleProjects]::ClearInstance()
             }
             else {
@@ -205,15 +205,15 @@ function Get-AzSKADOSecurityStatusBatchMode
             
                
             
-            if($ProjectName -eq "*" -or $projects.Count -gt 1){
+            if($ProjectNames -eq "*" -or $projects.Count -gt 1){
                 [BatchScanManagerForMultipleProjects] $batchScanMngr = [BatchScanManagerForMultipleProjects]:: GetInstance($Context.OrganizationName)
             }
             else {
-                [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance($Context.OrganizationName,$ProjectName)
+                [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance($Context.OrganizationName,$ProjectNames)
             }
 
 
-            if($ProjectName -eq "*" -or $projects.Count -gt 1){
+            if($ProjectNames -eq "*" -or $projects.Count -gt 1){
                 if($batchScanMngr.isBatchScanInProgress($Context.OrganizationName) -eq $false){
                     $batchScanMngr.CreateBatchMasterList();
                 }
@@ -222,7 +222,7 @@ function Get-AzSKADOSecurityStatusBatchMode
                 }
             }
             else {
-                if($batchScanMngr.isBatchScanInProgress($Context.OrganizationName,$ProjectName) -eq $false){
+                if($batchScanMngr.isBatchScanInProgress($Context.OrganizationName,$ProjectNames) -eq $false){
                     $batchScanMngr.CreateBatchMasterList();
                 }
                 else {
@@ -257,15 +257,15 @@ function Get-AzSKADOSecurityStatusBatchMode
             {
                 $commandForNextBatch+= '; Read-Host '
             }
-            if($ProjectName -eq "*" -or $projects.Count -gt 1){
+            if($ProjectNames -eq "*" -or $projects.Count -gt 1){
                 $projects = $batchScanMngr.GetProjectsForCurrentScan();
                 if([string]::IsNullOrEmpty($projects)){
                     $batchScanMngr.RemoveBatchScanData();
                     Write-Host 'No unscanned resources found. All projects have been fully scanned. You can use GADSBMR command to combine CSVs from all batch results.'; Read-Host
                     return;
                 }
-                $parametersForGads.Remove("ProjectName") | Out-Null;
-                $parametersForGads.Add("ProjectName",$projects) 
+                $parametersForGads.Remove("ProjectNames") | Out-Null;
+                $parametersForGads.Add("ProjectNames",$projects) 
                 $parametersForGads.Add("BatchScanMultipleProjects",$true) 
             }
             GADS @parametersForGads
