@@ -963,13 +963,19 @@ class Build: ADOSVTBase
                         if(($editableTaskGroups | Measure-Object).Count -gt 0)
                         {
                             $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in build definition: ", ($editableTaskGroups | Measure-Object).Count);
-                            $controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in build definition: " + ($editableTaskGroups | Measure-Object).Count;
+                            #$controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in build definition: " + ($editableTaskGroups | Measure-Object).Count;
                             $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in build definition: ", $editableTaskGroups);
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
+
+                            $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName } 
+                            $addInfo = "NumTaskGroups: $($taskGroups.Count); List: $($groups -join '; ')"
+                            $controlResult.AdditionalInfo += $addInfo;
+                            $controlResult.AdditionalInfoInCSV += $addInfo;
                         }
                         else
                         {
                             $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in build definition.");
+                            $controlResult.AdditionalInfoInCSV = "NA";
                         }
                     }
                     catch
@@ -982,6 +988,7 @@ class Build: ADOSVTBase
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in build definition.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
             }
             else
@@ -989,6 +996,7 @@ class Build: ADOSVTBase
                 if([Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename")) #if the pipeline is YAML-based - control should pass as task groups are not supported for YAML pipelines.
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Task groups are not supported in YAML pipelines.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
                 else
                 {
@@ -1093,21 +1101,22 @@ class Build: ADOSVTBase
                         if($editableTaskGroupsCount -gt 0)
                         {
                             $controlResult.AddMessage("Count of task groups on which contributors have edit permissions in build definition: $editableTaskGroupsCount");
-                            $controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in build definition: " + $editableTaskGroupsCount;
+                            #$controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in build definition: " + $editableTaskGroupsCount;
                             $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in build definition: ");
                             $display = $editableTaskGroups|FT  -AutoSize | Out-String -Width 512
                             $controlResult.AddMessage($display)
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
                             
                             $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName } 
-                            $controlResult.AdditionalInfoInCSV += "TaskGroupsFound: $($taskGroups.Count); TaskGroupsWithEditPerm: $($editableTaskGroupsCount) ; "
-                            $controlResult.AdditionalInfoInCSV += "EditableTaskGroupsList: $($groups -join ' ; ') ; "
+                            $addInfo = "NumTaskGroups: $($taskGroups.Count); NumTaskGroupsWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
+                            $controlResult.AdditionalInfo += $addInfo;
+                            $controlResult.AdditionalInfoInCSV += $addInfo;
 
                         }
                         else
                         {
-                            $controlResult.AdditionalInfoInCSV += "TaskGroupsFound: $($taskGroups.Count); TaskGroupsWithEditPerm: 0 ; "
-                            $controlResult.AdditionalInfo += "Contributors do not have edit permissions on any task groups used in build definition."
+                            $controlResult.AdditionalInfoInCSV += "NA"
+                            $controlResult.AdditionalInfo += "NA"
                             $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in build definition.");
                         }
                         if($taskGroups.Count -ne $editableTaskGroups.Count)
@@ -1122,6 +1131,7 @@ class Build: ADOSVTBase
                             }
                             $groups = $nonEditableTaskGroups | ForEach-Object { $_.DisplayName } 
                             $controlResult.AdditionalInfoInCSV += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
+                            $controlResult.AdditionalInfo += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
                         }
                     }
                     catch
@@ -1133,8 +1143,8 @@ class Build: ADOSVTBase
                 }
                 else
                 {
-                    $controlResult.AdditionalInfoInCSV += "TaskGroupsFound: 0"
-                    $controlResult.AdditionalInfo += "No task groups found in build definition.";
+                    $controlResult.AdditionalInfoInCSV += "NA"
+                    $controlResult.AdditionalInfo += "NA";
                     $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in build definition.");
                 }
         }
@@ -1189,11 +1199,12 @@ class Build: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of variable groups on which contributors have edit permissions: " + $editableVarGrpsCount;
                     $controlResult.AddMessage([VerificationResult]::Failed, "`nVariable groups list: `n$($editableVarGrps | FT | Out-String)");
                     $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
-                    $controlResult.AdditionalInfoInCSV =  $editableVarGrps -join ' ; '
+                    $controlResult.AdditionalInfoInCSV = "NumVGs: $editableVarGrpsCount; List: $($editableVarGrps -join '; ')";
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any variable groups used in build definition.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
             }
             catch
@@ -1206,6 +1217,7 @@ class Build: ADOSVTBase
         else
         {
             $controlResult.AddMessage([VerificationResult]::Passed,"No variable groups found in build definition.");
+            $controlResult.AdditionalInfoInCSV += "NA"
         }
 
         return $controlResult
@@ -1279,6 +1291,7 @@ class Build: ADOSVTBase
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on the build pipeline.");
+                        $controlResult.AdditionalInfoInCSV += "NA"
                     }
 
                 }
@@ -1419,10 +1432,12 @@ class Build: ADOSVTBase
                             }
                             else {
                                 $controlResult.AddMessage([VerificationResult]::Passed, "Broader Groups do not have excessive permissions on the build pipeline.");
+                                $controlResult.AdditionalInfoInCSV += "NA"
                             }
                         }
                         else {
                             $controlResult.AddMessage([VerificationResult]::Passed, "Broader groups do not have access to the build pipeline.");
+                            $controlResult.AdditionalInfoInCSV += "NA"
                         }
                     }
                     else {
