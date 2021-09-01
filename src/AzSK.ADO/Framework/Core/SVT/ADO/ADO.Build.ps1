@@ -1133,7 +1133,7 @@ class Build: ADOSVTBase
                 }
                 else
                 {
-                    $controlResult.AdditionalInfoInCSV += "TaskGroupsFound: 0"
+                    $controlResult.AdditionalInfoInCSV += "NumTaskGroups: 0"
                     $controlResult.AdditionalInfo += "No task groups found in build definition.";
                     $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in build definition.");
                 }
