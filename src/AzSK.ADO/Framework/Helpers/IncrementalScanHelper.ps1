@@ -316,19 +316,20 @@ class IncrementalScanHelper
     [System.Object[]] GetAuditTrailsForBuilds(){
         $latestBuildScan = $this.GetThresholdTime("Build")
         $latestBuildScan=$latestBuildScan.ToUniversalTime();
+        $latestBuildScan =Get-Date $latestBuildScan -Format s
         $buildIds = @();
         if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0){
             return $buildIds;   
         }
         $auditUrl = "https://auditservice.dev.azure.com/{0}/_apis/audit/auditlog?startTime={1}&api-version=6.0-preview.1" -f $this.OrganizationName, $latestBuildScan
         try {
-            $response = [WebRequestHelper]::InvokeWebRequestForAudits($auditUrl);
+            $response = [WebRequestHelper]::InvokeGetWebRequest($auditUrl);
             $auditTrails = $response.decoratedAuditLogEntries;
             $modifiedBuilds = $auditTrails | Where-Object {$_.actionId  -eq 'Security.ModifyPermission' -and $_.data.NamespaceName -eq 'Build' -and $_.data.Token -match $this.ProjectId+"/" }
             $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
             $excessivePermissions = $this.ControlSettings.Build.ExcessivePermissionsForBroadGroups
             $modifiedBuilds | foreach {
-                if($_.data.ChangedPermission -in $excessivePermissions -and $_.data.PermissionModifiedTo -eq "allow"){
+                if($_.data.ChangedPermission -in $excessivePermissions){
                     $group = ($_.data.SubjectDisplayName -split("\\"))[1]
                     if($group -in $broaderGroups){
                         $buildIds += (($_.data.Token -split("/"))[1])
@@ -397,6 +398,7 @@ class IncrementalScanHelper
     [System.Object[]] GetAuditTrailsForReleases(){
         $latestReleaseScan = $this.GetThresholdTime("Release");
         $latestReleaseScan=$latestReleaseScan.ToUniversalTime();
+        $latestReleaseScan = Get-Date $latestReleaseScan -Format s
         $releaseIds = @();
         if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0){
             return $releaseIds;   
@@ -409,7 +411,7 @@ class IncrementalScanHelper
             $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
             $excessivePermissions = $this.ControlSettings.Release.ExcessivePermissionsForBroadGroups
             $modifiedReleases | foreach {
-                if($_.data.ChangedPermission -in $excessivePermissions -and $_.data.PermissionModifiedTo -eq "allow"){
+                if($_.data.ChangedPermission -in $excessivePermissions){
                     $group = ($_.data.SubjectDisplayName -split("\\"))[1]
                     if($group -in $broaderGroups){
                         $releaseIds += (($_.data.Token -split("/"))[1])

@@ -375,6 +375,9 @@ class WebRequestHelper {
 									elseif ($uri.Contains("projects")){
 										$uri= $orginalUri + "&continuationToken="+$nPKey
 									}
+									elseif($uri.Contains("auditservice")){
+										$uri = $orginalUri+"&continuationToken="+$json.continuationToken
+									}
 									else {
 										$uri = [string]::Empty;
 									}
@@ -409,90 +412,9 @@ class WebRequestHelper {
 							
 						}
 						elseif([Helpers]::CheckMember($_,"Exception.Response.StatusCode") -and  $_.Exception.Response.StatusCode -eq "Forbidden"){
-							throw ([SuppressedException]::new(("You do not have permission to view the requested resource."), [SuppressedExceptionType]::InvalidOperation))
-						}
-						elseif ([Helpers]::CheckMember($_,"Exception.Message")){
-							throw ([SuppressedException]::new(($_.Exception.Message.ToString()), [SuppressedExceptionType]::InvalidOperation))
-						}
-						
-						else {
-							throw;
-						}
-					}					
-				}
-			}
-        }
-
-        return $outputValues;
-	}
-	
-	static [System.Object[]] InvokeWebRequestForAudits([string] $uri) 
-	{
-        $outputValues = @();
-		[System.Uri] $validatedUri = $null;
-		$orginalUri = "";
-		$isRetryRequired = $true;
-        while ([System.Uri]::TryCreate($uri, [System.UriKind]::Absolute, [ref] $validatedUri)) 
-		{
-			[int] $retryCount = 1
-			if($isRetryRequired)
-			{
-				$retryCount = 3
-			}
-			if([string]::IsNullOrWhiteSpace($orginalUri))
-			{
-				$orginalUri = $validatedUri.AbsoluteUri;
-			}
-			
-			$success = $false;
-			while($retryCount -gt 0 -and -not $success)
-			{
-				$retryCount = $retryCount -1;
-				try
-				{
-					$requestResult = $null;
-			
-					$headers=[WebRequestHelper]::GetAuthHeaderFromUri($validatedUri)
-					$requestResult = Invoke-WebRequest -Method Get -Uri $validatedUri -Headers $headers -UseBasicParsing
-					
-					
-					
-					if ($null -ne $requestResult -and $requestResult.StatusCode -ge 200 -and $requestResult.StatusCode -le 399) {
-						if (!$success -and $null -ne $requestResult.Content) {
-							$json = ConvertFrom-Json $requestResult.Content
-							if ($null -ne $json) {
-								if (($json | Get-Member -Name "value") -and $json.value) {
-									$outputValues += $json.value;
-								}
-								else {
-									$outputValues += $json;
-								}
-
-								if([string]::IsNullOrEmpty($json.continuationToken)){
-									$uri = [string]::Empty
-								}
-								else {
-									$uri = $orginalUri+"&continuationToken="+$json.continuationToken
-								}
-						
-								
+							if($uri.Contains("auditservice")){
+								Write-Host "You do not have the permissions to view audit logs. Results from incremental scan may not be accurate." -ForegroundColor Yellow
 							}
-						}
-					}
-					$success = $true;
-				}
-				catch
-				{
-					#eat the exception until it is in retry mode and throw once the retry is done
-					if($retryCount -eq 0)
-					{
-						if ($uri.Contains("mspim") -and [Helpers]::CheckMember($_,"ErrorDetails.Message"))
-						{							
-							$err = $_.ErrorDetails.Message| ConvertFrom-Json
-							throw ([SuppressedException]::new(($err), [SuppressedExceptionType]::Generic))						
-						}
-						elseif([Helpers]::CheckMember($_,"Exception.Response.StatusCode") -and  $_.Exception.Response.StatusCode -eq "Forbidden"){
-							Write-Host "You do not have the permissions to view audit logs. Results from incremental scan may not be accurate." -ForegroundColor Yellow
 							throw ([SuppressedException]::new(("You do not have permission to view the requested resource."), [SuppressedExceptionType]::InvalidOperation))
 						}
 						elseif ([Helpers]::CheckMember($_,"Exception.Message")){
@@ -508,8 +430,8 @@ class WebRequestHelper {
         }
 
         return $outputValues;
-	}
-
+	}	
+	
 	#only for builds and releases as of now
 	static [System.Object[]] InvokeWebRequestForResourcesInBatch([string] $validatedUri,[string]$originalUri,[int] $skipCount,[string] $resourceType){
 		$outputValues = @();

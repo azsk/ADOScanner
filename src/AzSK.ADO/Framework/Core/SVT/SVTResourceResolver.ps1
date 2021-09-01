@@ -1366,13 +1366,13 @@ class SVTResourceResolver: AzSKRoot {
             
             if($resourceType -eq "build"){
                 $buildIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForBuilds());
-                if($buildIdsFromAudit.Count -gt 0){
+                if($null -ne $buildIdsFromAudit[0]){
                     $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedBuildsFromAudit($buildIdsFromAudit,$projectName))
                 }
             }
             else {
                 $releaseIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForReleases());
-                if($releaseIdsFromAudit.Count -gt 0){
+                if($null -ne $releaseIdsFromAudit[0]){
                     $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedReleasesFromAudit($releaseIdsFromAudit,$projectName))
                 }
             }
