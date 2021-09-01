@@ -1094,7 +1094,7 @@ class Release: ADOSVTBase
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in release definition.");
-                        $controlResult.AdditionalInfoInCSV = "NumTaskGroups: 0;"
+                        $controlResult.AdditionalInfoInCSV = "NA"
                         $controlResult.AdditionalInfo = "NA"
                     }
                 }
@@ -1108,7 +1108,7 @@ class Release: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in release definition.");
-                $controlResult.AdditionalInfo += "NA";
+                $controlResult.AdditionalInfoInCSV += "NA";
             }
         }
         else
@@ -1234,7 +1234,7 @@ class Release: ADOSVTBase
                     }
                     else
                     {
-                        $controlResult.AdditionalInfoInCSV += "NumTaskGroups: $(($taskGroups | Measure-Object).Count); NumTaskGroupWithEditPerm: 0;"
+                        $controlResult.AdditionalInfoInCSV += "NA"
                         $controlResult.AdditionalInfo += "NA"
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in release definition.");
                     }
@@ -1262,7 +1262,7 @@ class Release: ADOSVTBase
             }
             else
             {
-                $controlResult.AdditionalInfoInCSV += "NumTaskGroups: 0"
+                $controlResult.AdditionalInfoInCSV += "NA"
                 $controlResult.AdditionalInfo += "NA";
                 $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in release definition.");
             }
