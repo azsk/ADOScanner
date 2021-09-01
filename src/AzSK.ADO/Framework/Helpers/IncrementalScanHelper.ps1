@@ -171,11 +171,22 @@ class IncrementalScanHelper
                 # Not a first time scan for the current resource
                 $this.ResourceTimestamps = Get-ChildItem -Path $this.MasterFilePath -Force | Get-Content | ConvertFrom-Json
                 $previousScanTime = $this.ResourceTimestamps.$resourceType;
-                if($resourceType -eq 'Build'){                    
-                    $this.ResourceTimestamps.BuildPreviousTime = $previousScanTime;
+                if($resourceType -eq 'Build'){
+                    if('BuildPreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
+                        $this.ResourceTimestamps.BuildPreviousTime = $previousScanTime;
+                    }     
+                    else {
+                        $this.ResourceTimestamps | Add-Member -NotePropertyName BuildPreviousTime -NotePropertyValue $previousScanTime
+                    }             
+                    
                 }
                 else{
-                    $this.ResourceTimestamps.ReleasePreviousTime = $previousScanTime;
+                    if('ReleasePreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
+                        $this.ResourceTimestamps.ReleasePreviousTime = $previousScanTime;
+                    }     
+                    else {
+                        $this.ResourceTimestamps | Add-Member -NotePropertyName ReleasePreviousTime -NotePropertyValue $previousScanTime
+                    } 
                 }
                 $this.ResourceTimestamps.$resourceType = $this.Timestamp
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force
@@ -220,11 +231,22 @@ class IncrementalScanHelper
                 Get-AzStorageBlobContent -CloudBlob $this.ControlStateBlob.ICloudBlob -Context $this.StorageContext -Destination $tempPath -Force                
 				$this.ResourceTimestamps  = Get-ChildItem -Path $tempPath -Force | Get-Content | ConvertFrom-Json
                 $previousScanTime = $this.ResourceTimestamps.$resourceType;
-                if($resourceType -eq 'Build'){                    
-                    $this.ResourceTimestamps.BuildPreviousTime = $previousScanTime;
+                if($resourceType -eq 'Build'){
+                    if('BuildPreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
+                        $this.ResourceTimestamps.BuildPreviousTime = $previousScanTime;
+                    }     
+                    else {
+                        $this.ResourceTimestamps | Add-Member -NotePropertyName BuildPreviousTime -NotePropertyValue $previousScanTime
+                    }             
+                    
                 }
                 else{
-                    $this.ResourceTimestamps.ReleasePreviousTime = $previousScanTime;
+                    if('ReleasePreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
+                        $this.ResourceTimestamps.ReleasePreviousTime = $previousScanTime;
+                    }     
+                    else {
+                        $this.ResourceTimestamps | Add-Member -NotePropertyName ReleasePreviousTime -NotePropertyValue $previousScanTime
+                    } 
                 }
 				# Delete the local file
                 Remove-Item -Path $tempPath
