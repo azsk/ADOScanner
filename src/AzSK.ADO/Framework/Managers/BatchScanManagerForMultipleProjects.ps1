@@ -193,6 +193,7 @@ class BatchScanManagerForMultipleProjects
                                     Select-Object -Unique;
         }
         $batchStatus | Add-Member -NotePropertyName Projects -NotePropertyValue $projects
+        $batchStatus | Add-Member -NotePropertyName ProjectsCount -NotePropertyValue $projects.Count
         $this.BatchScanTrackerObj=$batchStatus;
         $this.WriteToBatchTrackerFile()
         
@@ -308,7 +309,7 @@ class BatchScanManagerForMultipleProjects
                             $batchStatus.BuildCurrentContinuationToken=$null;
                         }
                         
-                        Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Continuing the scan from start `n " -ForegroundColor Green
+                        Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Scanned $($batchStatus.ProjectsCount - $batchStatus.Projects.Count) out of $($batchStatus.ProjectsCount) projects. Continuing the scan from start for project $($batchStatus.Projects[0]) `n " -ForegroundColor Green
                         
                     }
                     else
@@ -327,7 +328,7 @@ class BatchScanManagerForMultipleProjects
                             
 
                         }
-                        Write-Host "Found a previous batch scan in progress with $($batchStatus.ResourceCount) resources scanned. Resuming the scan from last batch. `n " -ForegroundColor Green
+                        Write-Host "Found a previous batch scan in progress with $($batchStatus.ResourceCount) resources scanned. Scanned $($batchStatus.ProjectsCount - $batchStatus.Projects.Count) out of $($batchStatus.ProjectsCount) projects. Resuming the scan from last batch for $($batchStatus.Projects[0]). `n " -ForegroundColor Green
                         
                         if($this.CheckContTokenValidity($batchStatus.TokenLastModifiedTime)){
                             return;
@@ -360,6 +361,7 @@ class BatchScanManagerForMultipleProjects
                         $batchStatus.BuildCurrentContinuationToken=$batchStatus.BuildNextContinuationToken
                         $batchStatus.SkipMarker = "False"
                         $batchStatus.BatchScanState=[BatchScanState]::INIT
+                        Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Scanned $($batchStatus.ProjectsCount - $batchStatus.Projects.Count) out of $($batchStatus.ProjectsCount) projects. Starting fresh scan for the next batch. `n " -ForegroundColor Green
                     }
                     elseif($isReleaseScan -and $isBuildScan -eq $false -and [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken)){
                         if($batchStatus.Projects.Length -eq 1){
@@ -371,6 +373,7 @@ class BatchScanManagerForMultipleProjects
                         $batchStatus.Skip=0
                         $batchStatus.ReleaseCurrentContinuationToken=$batchStatus.ReleaseNextContinuationToken
                         $batchStatus.BatchScanState=[BatchScanState]::INIT
+                        Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Scanned $($batchStatus.ProjectsCount - $batchStatus.Projects.Count) out of $($batchStatus.ProjectsCount) projects. Starting fresh scan for the next batch. `n " -ForegroundColor Green
                     }
                     elseif($isBuildScan -and $isReleaseScan -eq $false -and [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken)) {
                         if($batchStatus.Projects.Length -eq 1){
@@ -382,7 +385,7 @@ class BatchScanManagerForMultipleProjects
                         $batchStatus.Skip=0;
                         $batchStatus.BuildCurrentContinuationToken=$batchStatus.BuildNextContinuationToken
                         $batchStatus.BatchScanState=[BatchScanState]::INIT
-                        
+                        Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Scanned $($batchStatus.ProjectsCount - $batchStatus.Projects.Count) out of $($batchStatus.ProjectsCount) projects. Starting fresh scan for the next batch. `n " -ForegroundColor Green
                     }
 
                     else {
@@ -398,7 +401,7 @@ class BatchScanManagerForMultipleProjects
                             $this.BatchSize=$this.BatchSize-1
                         }  
                     }
-                    Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Starting fresh scan for the next batch. `n " -ForegroundColor Green
+                    Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Scanned $($batchStatus.ProjectsCount - $batchStatus.Projects.Count) projects out of $($batchStatus.ProjectsCount). Starting fresh scan for the next batch. `n " -ForegroundColor Green
                     #anyone of the resource has been completely scanned need to update skip by original batch size. However for the first time skip should only be updated by half
                     if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build_Release' -and $batchStatus.SkipMarker -eq "False" -and $this.isPreviousScanPartiallyComplete() ){
                         
@@ -486,6 +489,33 @@ class BatchScanManagerForMultipleProjects
             }
         }
         return $null
+    }
+
+    [bool] IsCurrentProjectComplete(){
+        if(![string]::isnullorwhitespace($this.OrgName)){
+            if(Test-Path $this.MasterFilePath){
+                $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
+                $isReleaseScan=$false;
+                $isBuildScan=$false;
+                if($batchStatus.PSobject.Properties.name -match "ReleaseCurrentContinuationToken") {
+                    $isReleaseScan=$true;
+                }
+                if($batchStatus.PSobject.Properties.name -match "BuildCurrentContinuationToken") {
+                    $isBuildScan=$true;
+                }
+                if($isBuildScan -and $isReleaseScan -and [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken) -and [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken)){
+                    return $true
+                }
+                elseif($isReleaseScan -and $isBuildScan -eq $false -and [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken)){
+                    return $true
+                }
+                elseif($isBuildScan -and $isReleaseScan -eq $false -and [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken)) {
+                    return $true
+                }
+
+            }
+        }
+        return $false;
     }
 
     [string] GetBuildContinuationToken(){
