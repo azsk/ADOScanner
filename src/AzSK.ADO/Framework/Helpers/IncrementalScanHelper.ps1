@@ -126,6 +126,9 @@ class IncrementalScanHelper
         {
             # user input of incremental date to be used for scanning incrementally.
             $latestScan = $this.IncrementalDate
+            if($this.ScanSource -eq 'CA'){
+                $latestScan = $latestScan.ToUniversalTime()
+            }
         }
         return $latestScan
     }
@@ -315,7 +318,9 @@ class IncrementalScanHelper
 
     [System.Object[]] GetAuditTrailsForBuilds(){
         $latestBuildScan = $this.GetThresholdTime("Build")
-        $latestBuildScan=$latestBuildScan.ToUniversalTime();
+        if($this.ScanSource -ne 'CA'){
+            $latestBuildScan=$latestBuildScan.ToUniversalTime();
+        }        
         $latestBuildScan =Get-Date $latestBuildScan -Format s
         $buildIds = @();
         if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0){
@@ -397,7 +402,9 @@ class IncrementalScanHelper
 
     [System.Object[]] GetAuditTrailsForReleases(){
         $latestReleaseScan = $this.GetThresholdTime("Release");
-        $latestReleaseScan=$latestReleaseScan.ToUniversalTime();
+        if($this.ScanSource -ne 'CA'){
+            $latestReleaseScan=$latestReleaseScan.ToUniversalTime();
+        } 
         $latestReleaseScan = Get-Date $latestReleaseScan -Format s
         $releaseIds = @();
         if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0){
