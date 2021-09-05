@@ -960,11 +960,6 @@ class Build: ADOSVTBase
                             $controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in build definition: " + ($editableTaskGroups | Measure-Object).Count;
                             $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in build definition: ", $editableTaskGroups);
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
-                            if ($this.ControlFixBackupRequired)
-                            {
-                                #Data object that will be required to fix the control
-                                $controlResult.BackupControlState = $editableTaskGroups;
-                            }
                         }
                         else
                         {
