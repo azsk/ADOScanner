@@ -341,7 +341,7 @@ class PartialScanManager
 		{
 			[System.Collections.Generic.List[PartialScanResource]] $resourceIdMap = @();
 			$progressCount=1
-			$resourceIds | foreach {			
+			$resourceIds | ForEach-Object {			
 				$resourceValue = [PartialScanResource]@{
 					Id = $_.ResourceId;
 					State = [ScanState]::INIT;
@@ -355,7 +355,7 @@ class PartialScanManager
 				}
 
 				#We dont need to store project name if -dnrr not given or the resource is not release/agentpool
-				if($PSCmdlet.MyInvocation.BoundParameters['DoNotRefetchResources']){
+				if($PSCmdlet.MyInvocation.BoundParameters['DoNotRefetchResources']){ 
 					if($_.ResourceType -ne "ADO.Release" -and $_.ResourceType -ne "ADO.AgentPool"){
 						$resourceValue = $resourceValue | Select-Object -Property * -ExcludeProperty ProjectName						
 					}
@@ -365,7 +365,7 @@ class PartialScanManager
 				}
 				
 				#$resourceIdMap.Add($hashId,$resourceValue);
-				$resourceIdMap.Add($resourceValue)
+				$resourceIdMap.Add([PartialScanResource] $resourceValue)
 				if ($progressCount%100 -eq 0) {				
 					Write-Progress -Activity "Tracking $($progressCount) of $($resourceIds.Count) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $resourceIds.Count * 100)
 				}
