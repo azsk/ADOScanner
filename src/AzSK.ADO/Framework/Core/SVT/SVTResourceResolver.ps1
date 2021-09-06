@@ -1362,13 +1362,13 @@ class SVTResourceResolver: AzSKRoot {
             
             if($resourceType -eq "build"){
                 $buildIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForBuilds());
-                if($null -ne $buildIdsFromAudit[0]){
+                if($buildIdsFromAudit.Count -eq 0 -or $null -ne $buildIdsFromAudit[0]){
                     $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedBuildsFromAudit($buildIdsFromAudit,$projectName))
                 }
             }
             else {
                 $releaseIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForReleases());
-                if($null -ne $releaseIdsFromAudit[0]){
+                if($releaseIdsFromAudit.Count -eq 0 -or $null -ne $releaseIdsFromAudit[0]){
                     $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedReleasesFromAudit($releaseIdsFromAudit,$projectName))
                 }
             }
@@ -1436,7 +1436,7 @@ class SVTResourceResolver: AzSKRoot {
                     }
                     if($modifiedResources.Count -gt 0 -and $resourcesFromAuditAdded -eq $false){
                         $applicableDefnsObj+=$modifiedResources;
-                        $resourcesFromAuditAdded -eq $true;
+                        $resourcesFromAuditAdded = $true;
                     }
                 }
                 if($applicableDefnsObj.Count -lt $nObj.Value)

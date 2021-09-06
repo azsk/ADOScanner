@@ -127,7 +127,10 @@ class IncrementalScanHelper
             # user input of incremental date to be used for scanning incrementally.
             $latestScan = $this.IncrementalDate
             if($this.ScanSource -eq 'CA'){
-                $latestScan = $latestScan.ToUniversalTime()
+                $FromTimeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("Asia/Kolkata")
+                $latestScan = [DateTime]::SpecifyKind((Get-Date $latestScan), [DateTimeKind]::Unspecified)
+                $latestScan = [System.TimeZoneInfo]::ConvertTimeToUtc($latestScan, $FromTimeZone)
+
             }
         }
         return $latestScan
@@ -404,7 +407,7 @@ class IncrementalScanHelper
         $latestReleaseScan = $this.GetThresholdTime("Release");
         if($this.ScanSource -ne 'CA'){
             $latestReleaseScan=$latestReleaseScan.ToUniversalTime();
-        } 
+        }
         $latestReleaseScan = Get-Date $latestReleaseScan -Format s
         $releaseIds = @();
         if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0){
