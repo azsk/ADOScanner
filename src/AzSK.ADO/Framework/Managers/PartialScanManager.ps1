@@ -350,9 +350,21 @@ class PartialScanManager
 					CreatedDate = [DateTime]::UtcNow;
 					ModifiedDate = [DateTime]::UtcNow;
 					Name=$_.ResourceName;
+					ProjectName = $_.ResourceGroupName
 					#ResourceDetails=$_.ResourceDetails
 					
 				}
+
+				#We dont need to store project name if -dnrr not given or the resource is not release/agentpool
+				if($PSCmdlet.MyInvocation.BoundParameters['DoNotRefetchResources']){
+					if($_.ResourceType -ne "ADO.Release" -and $_.ResourceType -ne "ADO.AgentPool"){
+						$resourceValue = $resourceValue | Select-Object -Property * -ExcludeProperty ProjectName						
+					}
+				}
+				else {
+					$resourceValue = $resourceValue | Select-Object -Property * -ExcludeProperty ProjectName
+				}
+				
 				#$resourceIdMap.Add($hashId,$resourceValue);
 				$resourceIdMap +=$resourceValue
 				

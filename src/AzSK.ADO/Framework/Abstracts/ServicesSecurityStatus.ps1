@@ -672,6 +672,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 							$resourceList=[PSCustomObject]@{
 								ResourceId = $svtResource.ResourceId
 								ResourceName=$svtResource.ResourceName
+								ResourceGroupName = $svtResource.ResourceGroupName
+								ResourceType = $svtResource.ResourceType
 								#ResourceDetails=$svtResource.ResourceDetails
 							}
 							$resourceLists+=$resourceList
