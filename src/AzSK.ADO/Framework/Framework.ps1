@@ -2,21 +2,21 @@ Set-StrictMode -Version Latest
 
 $libraryPath = (Get-Item $PSScriptRoot).Parent.FullName+ "\Lib";
 $RequiredAssemblies = $null;
-if($Global:PSEdition -eq 'Desktop') {
-    $path = "$libraryPath\Microsoft.Identity.Client.4.2.1\net45\Microsoft.Identity.Client.dll";
-    $RequiredAssemblies = $Path
-}
-else {
-    $path = "$libraryPath\Microsoft.Identity.Client.4.32.1\net45\Microsoft.Identity.Client.dll";
-    $RequiredAssemblies = $Path
-}
-
+#if($Global:PSEdition -eq 'Desktop') {
+#    $path = "$libraryPath\Microsoft.Identity.Client.4.2.1\net45\Microsoft.Identity.Client.dll";
+#    $RequiredAssemblies = $Path
+#}
+#else {
+#    $path = "$libraryPath\Microsoft.Identity.Client.4.32.1\net45\Microsoft.Identity.Client.dll";
+#    $RequiredAssemblies = $Path
+#}
 
 ## Load correct assemblies for the PowerShell platform
 try {
-    Add-Type -Path $RequiredAssemblies
+    Add-Type -Path "$libraryPath\Microsoft.Identity.Client.dll";
 }
-catch { throw }
+catch {
+}
 
 $FrameworkPath = $PSScriptRoot
 
