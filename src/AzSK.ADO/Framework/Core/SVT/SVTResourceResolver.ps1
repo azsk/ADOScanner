@@ -237,12 +237,8 @@ class SVTResourceResolver: AzSKRoot {
         }
         if($this.UseIncrementalScan -eq $true)
         {
-            $this.PublishCustomMessage("Incremental Scan is currently supported only for Builds and Releases. `n ", [MessageType]::Warning);
-        
-            if($this.UsePartialCommits -ne $true)
-            {
-                $this.PublishCustomMessage("Using Incremental Scan without Partial Scan. In case of incomplete scan, the latest updated timestamp will be used for consequent incremental scans. `n ", [MessageType]::Warning);
-            }
+            $this.PublishCustomMessage("Incremental Scan is currently supported only for Builds and Releases. `n ", [MessageType]::Warning);        
+            
         }
     }
 
@@ -1348,6 +1344,27 @@ class SVTResourceResolver: AzSKRoot {
         $timestamp = (Get-Date)
         # to break out from looping and making further API calls after first call, when not all resources in first fetch are modified after threshold date
         $breakLoop = $false 
+        $resourcesFromAuditAdded = $false;
+        $modifiedResources = @()
+        if($this.UseIncrementalScan -eq $true){
+            $incrementalScanHelperObjAudit = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectId,$projectName, $this.IncrementalDate);
+            
+            if($resourceType -eq "build"){
+                $buildIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForBuilds());
+                if($buildIdsFromAudit.Count -eq 0 -or $null -ne $buildIdsFromAudit[0]){
+                    $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedBuildsFromAudit($buildIdsFromAudit,$projectName))
+                }
+            }
+            else {
+                $releaseIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForReleases());
+                if($releaseIdsFromAudit.Count -eq 0 -or $null -ne $releaseIdsFromAudit[0]){
+                    $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedReleasesFromAudit($releaseIdsFromAudit,$projectName))
+                }
+            }
+            
+
+        }
+
 
         while ([System.Uri]::TryCreate($resourceDfnUrl, [System.UriKind]::Absolute, [ref] $validatedUri)) {
             if ([string]::IsNullOrWhiteSpace($orginalUri)) {
@@ -1405,6 +1422,10 @@ class SVTResourceResolver: AzSKRoot {
                     else 
                     {
                         $applicableDefnsObj = @($incrementalScanHelperObj.GetModifiedReleases($applicableDefnsObj))    
+                    }
+                    if($modifiedResources.Count -gt 0 -and $resourcesFromAuditAdded -eq $false){
+                        $applicableDefnsObj+=$modifiedResources;
+                        $resourcesFromAuditAdded = $true;
                     }
                 }
                 if($applicableDefnsObj.Count -lt $nObj.Value)
