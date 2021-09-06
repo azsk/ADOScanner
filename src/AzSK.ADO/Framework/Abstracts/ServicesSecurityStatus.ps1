@@ -574,7 +574,12 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 
 	[void] UpdateBatchScanCount($currentCount,$totalResources) {
 		$ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
-		[BatchScanManager] $batchScanMngr = [BatchScanManager]::GetInstance()
+		if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("BatchScanMultipleProjects")){
+            [BatchScanManagerForMultipleProjects] $batchScanMngr = [BatchScanManagerForMultipleProjects]:: GetInstance();
+        }
+        else {
+            [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
+        }
 		$batchStatus = $batchScanMngr.GetBatchStatus();
 		if($currentCount % $ControlSettings.PartialScan.LocalScanUpdateFrequency -eq 0){
 			$batchStatus.ResourceCount += $ControlSettings.PartialScan.LocalScanUpdateFrequency;
@@ -672,6 +677,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 							$resourceList=[PSCustomObject]@{
 								ResourceId = $svtResource.ResourceId
 								ResourceName=$svtResource.ResourceName
+								ResourceGroupName = $svtResource.ResourceGroupName
+								ResourceType = $svtResource.ResourceType
 								#ResourceDetails=$svtResource.ResourceDetails
 							}
 							$resourceLists.Add($resourceList)

@@ -346,6 +346,12 @@ function Get-AzSKADOSecurityStatus
 		[Alias("bs")]
 		$BatchScan,
 
+		[switch]
+		[switch]
+		[Parameter()]
+		[Alias("bsmp")]
+		$BatchScanMultipleProjects,
+
 		[string]
 		[Parameter()]
 		[Alias("fn")]

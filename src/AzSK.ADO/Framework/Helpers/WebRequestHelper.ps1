@@ -375,6 +375,9 @@ class WebRequestHelper {
 									elseif ($uri.Contains("projects")){
 										$uri= $orginalUri + "&continuationToken="+$nPKey
 									}
+									elseif($uri.Contains("auditservice")){
+										$uri = $orginalUri+"&continuationToken="+$json.continuationToken
+									}
 									else {
 										$uri = [string]::Empty;
 									}
@@ -409,6 +412,9 @@ class WebRequestHelper {
 							
 						}
 						elseif([Helpers]::CheckMember($_,"Exception.Response.StatusCode") -and  $_.Exception.Response.StatusCode -eq "Forbidden"){
+							if($uri.Contains("auditservice")){
+								Write-Host "You do not have the permissions to view audit logs. Results from incremental scan may not be accurate." -ForegroundColor Yellow
+							}
 							throw ([SuppressedException]::new(("You do not have permission to view the requested resource."), [SuppressedExceptionType]::InvalidOperation))
 						}
 						elseif ([Helpers]::CheckMember($_,"Exception.Message")){
@@ -424,8 +430,8 @@ class WebRequestHelper {
         }
 
         return $outputValues;
-	}
-
+	}	
+	
 	#only for builds and releases as of now
 	static [System.Object[]] InvokeWebRequestForResourcesInBatch([string] $validatedUri,[string]$originalUri,[int] $skipCount,[string] $resourceType){
 		$outputValues = @();
