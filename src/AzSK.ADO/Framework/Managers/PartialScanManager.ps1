@@ -339,10 +339,9 @@ class PartialScanManager
 	{
 		if(($resourceIds | Measure-Object).Count -gt 0)
 		{
-			$resourceIdMap = @();
+			[System.Collections.Generic.List[PartialScanResource]] $resourceIdMap = @();
 			$progressCount=1
-			$resourceIds | ForEach-Object {
-				
+			$resourceIds | foreach {			
 				$resourceValue = [PartialScanResource]@{
 					Id = $_.ResourceId;
 					State = [ScanState]::INIT;
@@ -354,9 +353,10 @@ class PartialScanManager
 					
 				}
 				#$resourceIdMap.Add($hashId,$resourceValue);
-				$resourceIdMap +=$resourceValue
-				
-				Write-Progress -Activity "Tracking $($progressCount) of $($resourceIds.Length) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $resourceIds.Length * 100)
+				$resourceIdMap.Add($resourceValue)
+				if ($progressCount%100 -eq 0) {				
+					Write-Progress -Activity "Tracking $($progressCount) of $($resourceIds.Count) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $resourceIds.Count * 100)
+				}
 				$progressCount++;
 			}
 			Write-Progress -Activity "Tracked all resources" -Status "Ready" -Completed
@@ -561,7 +561,7 @@ class PartialScanManager
 
 	[PSObject] GetNonScannedResources()
 	{
-		$nonScannedResources = @();
+		[System.Collections.Generic.List[PartialScanResource]] $nonScannedResources = @();
         $this.GetResourceScanTrackerObject();
 		if($this.IsListAvailableAndActive())
 		{
@@ -575,7 +575,7 @@ class PartialScanManager
 
 	[PSObject] GetAllListedResources()
 	{
-		$nonScannedResources = @();
+		[System.Collections.Generic.List[PartialScanResource]] $nonScannedResources = @();
 		$this.GetResourceScanTrackerObject();
 		if($this.IsListAvailableAndActive())
 		{

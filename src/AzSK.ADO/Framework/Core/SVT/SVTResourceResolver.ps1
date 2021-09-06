@@ -10,9 +10,9 @@ class SVTResourceResolver: AzSKRoot {
     hidden [string[]] $ResourceGroups = @();
     [ResourceTypeName] $ExcludeResourceTypeName = [ResourceTypeName]::All;
     [string[]] $ExcludeResourceNames = @();
-    [SVTResource[]] $ExcludedResources = @();
+    [System.Collections.Generic.List[SVTResource]] $ExcludedResources = @();
     [int] $MaxObjectsToScan;
-    [SVTResource[]] $SVTResources = @();
+    [System.Collections.Generic.List[SVTResource]] $SVTResources = @();
     [int] $SVTResourcesFoundCount = 0;
 
     [bool] $IsAIEnabled = $false;
@@ -490,8 +490,9 @@ class SVTResourceResolver: AzSKRoot {
                             elseif($nonScannedResourceType -eq "ADO.Release" -or $nonScannedResourceType -eq "ADO.AgentPool"){
                                 $this.AddSVTResource($nonScannedResource.Name,$projectName,$nonScannedResourceType, $nonScannedResource.Id,$null , $nonScannedresourceLink)
                             }
-                            
-                            Write-Progress -Activity "Fetching $($progressCount) of $($this.nonScannedResources.Length) unscanned resources " -Status "Progress: " -PercentComplete ($progressCount / $this.nonScannedResources.Length * 100)
+                            if ($progressCount%100 -eq 0) {
+                                Write-Progress -Activity "Fetching $($progressCount) of $($this.nonScannedResources.Count) unscanned resources " -Status "Progress: " -PercentComplete ($progressCount / $this.nonScannedResources.Count * 100)
+                            }
                             $progressCount++;
                             
 
@@ -1120,7 +1121,7 @@ class SVTResourceResolver: AzSKRoot {
             $svtResource.ResourceDetails = New-Object -TypeName psobject -Property @{ ResourceLink = $resourceLink }
         }
 
-        $this.SVTResources += $svtResource
+        $this.SVTResources.Add($svtResource)
     }
 
     [void] FetchServiceAssociatedResources($svcId, $projectName,$inputBuildNames,$inputReleaseNames,$inputSvcNames,$inputAgentPoolNames,$inputVargrpNames,$inputRepoNames,$inputFeedNames,$inputEnvNames,$inputSecFileNames)
@@ -1434,8 +1435,9 @@ class SVTResourceResolver: AzSKRoot {
                         $this.AddSVTResource($resourceDef.name, $projectName, "ADO.Release", $resourceId, $null, $link);
 
                     }
-                                        
-                    Write-Progress -Activity "Fetching $($resourceType)s in batches. This may take time. Fetched $($progressCount) of $(($applicableDefnsObj | Measure-Object).Count) $($resourceType)s of batch $($batchCount) " -Status "Progress: " -PercentComplete ($progressCount / ($applicableDefnsObj | Measure-Object).Count * 100)
+                    if ($progressCount%100 -eq 0) {                                        
+                        Write-Progress -Activity "Fetching $($resourceType)s in batches. This may take time. Fetched $($progressCount) of $(($applicableDefnsObj | Measure-Object).Count) $($resourceType)s of batch $($batchCount) " -Status "Progress: " -PercentComplete ($progressCount / ($applicableDefnsObj | Measure-Object).Count * 100)
+                    }
                     $progressCount = $progressCount + 1;
                     if (--$nObj.Value -eq 0) { break; }
                 }
@@ -1683,7 +1685,9 @@ class SVTResourceResolver: AzSKRoot {
                 $link = $bldDef.url.split('?')[0].replace('_apis/build/Definitions/', '_build?definitionId=');
                 $buildResourceId = "organization/$($this.OrganizationContext.OrganizationId)/project/$ProjectId/build/$($bldDef.id)";
                 $this.AddSVTResource($bldDef.name, $bldDef.project.name, "ADO.Build", $buildResourceId, $bldDef, $link);
-                Write-Progress -Activity "Fetched $($progressCount) out of $(($buildDefnsObj | Measure-Object).Count) builds " -Status "Progress: " -PercentComplete ($progressCount / ($buildDefnsObj | Measure-Object).Count * 100)
+                if ($progressCount%100 -eq 0) {                
+                    Write-Progress -Activity "Fetched $($progressCount) out of $(($buildDefnsObj | Measure-Object).Count) builds " -Status "Progress: " -PercentComplete ($progressCount / ($buildDefnsObj | Measure-Object).Count * 100)
+                }
                 $progressCount+=1
             }
             $buildDefnsObj = $null;
@@ -1728,7 +1732,9 @@ class SVTResourceResolver: AzSKRoot {
                 $link = $tempLink+$releaseDef.id
                 $releaseResourceId = "organization/$($this.OrganizationContext.OrganizationId)/project/$ProjectId/release/$($releaseDef.id)";
                 $this.AddSVTResource($releaseDef.name, $ProjectName, "ADO.Release", $releaseResourceId, $null, $link);
-                Write-Progress -Activity "Fetched $($progressCount) out of $(($releaseDefnsObj | Measure-Object).Count) releases " -Status "Progress: " -PercentComplete ($progressCount / ($releaseDefnsObj | Measure-Object).Count * 100)
+                if ($progressCount%100 -eq 0){
+                    Write-Progress -Activity "Fetched $($progressCount) out of $(($releaseDefnsObj | Measure-Object).Count) releases " -Status "Progress: " -PercentComplete ($progressCount / ($releaseDefnsObj | Measure-Object).Count * 100)
+                }
                 $progressCount+=1
             }
             $releaseDefnsObj = $null;
