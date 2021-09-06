@@ -16,7 +16,7 @@ class CommonSVTResourceResolver {
 
     [SVTResource[]] LoadResourcesForScan($projectName, $repoNames, $secureFileNames, $feedNames, $environmentNames, $ResourceTypeName, $MaxObjectsToScan, $isServiceIdBasedScan) {
         #Get resources    
-        [SVTResource[]] $SVTResources = @();
+        [System.Collections.Generic.List[SVTResource]] $SVTResources = @();
         if ($repoNames.Count -gt 0 -or ($ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::All, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan) ) {
             #Write-Host "Getting repository configurations..." -ForegroundColor cyan
             if ($ResourceTypeName -eq [ResourceTypeName]::Repository -and $repoNames.Count -eq 0) {
@@ -28,7 +28,7 @@ class CommonSVTResourceResolver {
                 $maxObjScan = $MaxObjectsToScan
                 foreach ($repo in $repoObjList) {
                     $resourceId = "organization/{0}/project/{1}/repository/{2}" -f $this.organizationId, $this.projectId, $repo.id;
-                    $SVTResources += $this.AddSVTResource($repo.name, $projectName, "ADO.Repository", $resourceId, $repo, $repo.webUrl);
+                    $SVTResources.Add($this.AddSVTResource($repo.name, $projectName, "ADO.Repository", $resourceId, $repo, $repo.webUrl));
                     if (--$maxObjScan -eq 0) { break; }
                 }
 
@@ -49,7 +49,7 @@ class CommonSVTResourceResolver {
                 foreach ($securefile in $secureFileObjList) {
                     $resourceId = "organization/{0}/project/{1}/securefile/{2}" -f $this.organizationId, $this.projectId, $securefile.Id;
                     $secureFileLink = "https://dev.azure.com/{0}/{1}/_library?itemType=SecureFiles&view=SecureFileView&secureFileId={2}&path={3}" -f $this.organizationName, $projectName, $securefile.Id, $securefile.Name;
-                    $SVTResources += $this.AddSVTResource($securefile.Name, $projectName, "ADO.SecureFile", $resourceId, $securefile, $secureFileLink);
+                    $SVTResources.Add($this.AddSVTResource($securefile.Name, $projectName, "ADO.SecureFile", $resourceId, $securefile, $secureFileLink));
                     if (--$maxObjScan -eq 0) { break; }
                 }
 
@@ -71,7 +71,7 @@ class CommonSVTResourceResolver {
                 foreach ($feed in $feedObjList) {
                     $resourceId = "organization/{0}/project/{1}/feed/{2}" -f $this.organizationId, $this.projectId, $feed.id;
                     $resourceLink = "https://dev.azure.com/{0}/{1}/_packaging?_a=feed&feed={2}" -f $this.organizationName, $projectName, $feed.name;
-                    $SVTResources += $this.AddSVTResource($feed.name, $projectName, "ADO.Feed", $resourceId, $feed, $resourceLink);
+                    $SVTResources.Add($this.AddSVTResource($feed.name, $projectName, "ADO.Feed", $resourceId, $feed, $resourceLink));
                     if (--$maxObjScan -eq 0) { break; }
                 }
 
@@ -93,7 +93,7 @@ class CommonSVTResourceResolver {
                 foreach ($environment in $environmentObjList) {
                     $resourceId = "organization/{0}/project/{1}/environment/{2}" -f $this.organizationId, $this.projectId, $environment.id;
                     $resourceLink = "https://dev.azure.com/{0}/{1}/_environments/{2}?view=resources" -f $this.organizationName, $environment.project.id, $environment.id;
-                    $SVTResources += $this.AddSVTResource($environment.name, $projectName, "ADO.Environment", $resourceId, $environment, $resourceLink);
+                    $SVTResources.Add($this.AddSVTResource($environment.name, $projectName, "ADO.Environment", $resourceId, $environment, $resourceLink));
                     if (--$maxObjScan -eq 0) { break; }
                 }
 
