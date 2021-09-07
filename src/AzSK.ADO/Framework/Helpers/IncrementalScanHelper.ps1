@@ -182,6 +182,23 @@ class IncrementalScanHelper
                     # File exists for Organization and Project but first time scan for current resource type
                     $this.ResourceTimestamps = Get-ChildItem -Path $this.MasterFilePath -Force | Get-Content | ConvertFrom-Json
                     $this.ResourceTimestamps.$resourceType = $this.Timestamp
+                    if($resourceType -eq 'Build'){
+                        if('BuildPreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
+                            $this.ResourceTimestamps.BuildPreviousTime = "0001-01-01T00:00:00.0000000";
+                        }     
+                        else {
+                            $this.ResourceTimestamps | Add-Member -NotePropertyName BuildPreviousTime -NotePropertyValue "0001-01-01T00:00:00.0000000"
+                        }             
+                        
+                    }
+                    else{
+                        if('ReleasePreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
+                            $this.ResourceTimestamps.ReleasePreviousTime = "0001-01-01T00:00:00.0000000";
+                        }     
+                        else {
+                            $this.ResourceTimestamps | Add-Member -NotePropertyName ReleasePreviousTime -NotePropertyValue "0001-01-01T00:00:00.0000000"
+                        } 
+                    }
                     [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force    
                 }
             }
@@ -241,6 +258,23 @@ class IncrementalScanHelper
 
                 }
                 $this.ResourceTimestamps.$resourceType = $this.Timestamp
+                if($resourceType -eq 'Build'){
+                    if('BuildPreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
+                        $this.ResourceTimestamps.BuildPreviousTime = "0001-01-01T00:00:00.0000000";
+                    }     
+                    else {
+                        $this.ResourceTimestamps | Add-Member -NotePropertyName BuildPreviousTime -NotePropertyValue "0001-01-01T00:00:00.0000000"
+                    }             
+                    
+                }
+                else{
+                    if('ReleasePreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
+                        $this.ResourceTimestamps.ReleasePreviousTime = "0001-01-01T00:00:00.0000000";
+                    }     
+                    else {
+                        $this.ResourceTimestamps | Add-Member -NotePropertyName ReleasePreviousTime -NotePropertyValue "0001-01-01T00:00:00.0000000"
+                    } 
+                }
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $tempPath -Force
                 Set-AzStorageBlobContent -File $tempPath -Container $this.ContainerObject.Name -Blob $blobPath -Context $this.StorageContext -Force
                 Remove-Item -Path $tempPath
