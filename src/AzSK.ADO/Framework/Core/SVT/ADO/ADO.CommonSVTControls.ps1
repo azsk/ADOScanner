@@ -272,6 +272,9 @@ class CommonSVTControls: ADOSVTBase {
                     $display = ($feedWithBroaderGroup |  FT FeedName, Role, DisplayName -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
                     $controlResult.SetStateData("List of groups: ", $feedWithBroaderGroup);
+                    $groups = $feedWithBroaderGroup | ForEach-Object { $_.DisplayName + ': ' + $_.Role } 
+                    $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+
                     if ($this.ControlFixBackupRequired)
                     {
                         #Data object that will be required to fix the control
@@ -284,6 +287,7 @@ class CommonSVTControls: ADOSVTBase {
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with administrator/contributor/collaborator permission to broad groups.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
                 $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($restrictedBroaderGroupsForFeeds | FT | out-string)");
             }
@@ -420,10 +424,14 @@ class CommonSVTControls: ADOSVTBase {
 
                     $display = ($secureFileWithBroaderGroup |  FT SecureFileName, Role, DisplayName -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
+
                     if ($this.ControlFixBackupRequired) {
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $secureFileWithBroaderGroup;
                     }
+
+                    $groups = $secureFileWithBroaderGroup | ForEach-Object { $_.DisplayName + ': ' + $_.Role } 
+                    $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                 }
                 else
                 {
@@ -609,6 +617,25 @@ class CommonSVTControls: ADOSVTBase {
                 $display = ($feedWithBuildSvcAcc |  FT Role, DisplayName -AutoSize | Out-String -Width 512)
                 $controlResult.AddMessage("`nList of groups: ", $display)
                 $controlResult.SetStateData("List of groups: ", $feedWithBuildSvcAcc);
+
+                $groups = $feedWithBuildSvcAcc | ForEach-Object { $_.DisplayName + ': ' + $_.Role } 
+                $controlResult.AdditionalInfoInCSV = "$($groups -join ' ; ')"
+
+                #Fetching identity used to publish last 10 packages
+                $accUsedToPublishPackage = $this.ValidateBuildSvcAccInPackage($scope, $true);
+                if ($accUsedToPublishPackage.packagesInfo.count -gt 0)
+                {
+                    $controlResult.AddMessage("`nList of last 10 published packages and identity used to publish: ", ($accUsedToPublishPackage.packagesInfo | FT | Out-String -Width 512))
+                    $uniqueIdentities = $accUsedToPublishPackage.packagesInfo | select-object -Property IdentityName -Unique
+                    $controlResult.AdditionalInfo += "List of identities used to publish last 10 packages: $($uniqueIdentities.IdentityName -join ', ')";
+                    $controlResult.AdditionalInfoInCSV += "; Last 10 publishers: $($uniqueIdentities.IdentityName -join ', ')";
+                }
+                else
+                {
+                    $controlResult.AdditionalInfo += "No package found";
+                    $controlResult.AdditionalInfoInCSV += "; No package found";
+                }
+
                 if ($this.ControlFixBackupRequired)
                 {
                     #Data object that will be required to fix the control
@@ -621,6 +648,7 @@ class CommonSVTControls: ADOSVTBase {
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with administrator/contributor/collaborator permission to build service accounts.");
+                $controlResult.AdditionalInfoInCSV = "NA";
             }            
         }
         catch
@@ -646,10 +674,10 @@ class CommonSVTControls: ADOSVTBase {
                 #If last 10 published packages are published via Build service accounts, user should provide -Force switch in the command
                 if (-not $this.invocationContext.BoundParameters["Force"])
                 {
-                    $isBuildSVcAccUsedToPublishPackage = $this.ValidateBuildSvcAccInPackage($scope);
+                    $isBuildSVcAccUsedToPublishPackage = $this.ValidateBuildSvcAccInPackage($scope, $false);
                 }
 
-                if ($isBuildSVcAccUsedToPublishPackage -eq $false)
+                if ($isBuildSVcAccUsedToPublishPackage.isBuildSvcAccUsed -eq $false)
                 {
                     foreach ($identity in $RawDataObjForControlFix) 
                     {
@@ -717,9 +745,10 @@ class CommonSVTControls: ADOSVTBase {
         return $controlResult
     }
 
-    hidden [boolean] ValidateBuildSvcAccInPackage($scope)
+    hidden [psobject] ValidateBuildSvcAccInPackage($scope, $detailedList)
     {
         $isBuildSvsAccUsed = $false
+        $packagesInfo = @()
         try 
         {
             if ($scope -eq "Organization")
@@ -732,24 +761,36 @@ class CommonSVTControls: ADOSVTBase {
             }
             $packageList = @([WebRequestHelper]::InvokeGetWebRequest($url));
 
-            #Get top 10 published packages 
-            $recentPackages = $packageList | Sort-Object -Property @{Expression={$_.versions.publishdate}; Descending = $true } | Select-Object -First 10
-            foreach ($package in $recentPackages)
+            if ( $packageList.Count -gt 0 -and [Helpers]::CheckMember($packageList[0],"Id"))
             {
-                if ($scope -eq "Organization")
+                #Get top 10 published packages 
+                $recentPackages = $packageList | Sort-Object -Property @{Expression={$_.versions.publishdate}; Descending = $true } | Select-Object -First 10
+                foreach ($package in $recentPackages)
                 {
-                    $provenanceURL = "https://feeds.dev.azure.com/{0}/_apis/packaging/Feeds/{1}/Packages/{2}/Versions/{3}/provenance?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id, $package.id, $package.versions.id ;
-                }
-                else
-                {
-                    $provenanceURL = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/Packages/{3}/Versions/{4}/provenance?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id, $package.id, $package.versions.id ;
-                }
-                $provenanceDetails = @([WebRequestHelper]::InvokeGetWebRequest($provenanceURL));
+                    if ($scope -eq "Organization")
+                    {
+                        $provenanceURL = "https://feeds.dev.azure.com/{0}/_apis/packaging/Feeds/{1}/Packages/{2}/Versions/{3}/provenance?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id, $package.id, $package.versions.id ;
+                    }
+                    else
+                    {
+                        $provenanceURL = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/Packages/{3}/Versions/{4}/provenance?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id, $package.id, $package.versions.id ;
+                    }
+                    $provenanceDetails = @([WebRequestHelper]::InvokeGetWebRequest($provenanceURL));
 
-                if ($provenanceDetails.provenance.data.'Common.IdentityDisplayName' -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $provenanceDetails.provenance.data.'Common.IdentityDisplayName' -like "*Build Service ($($this.OrganizationContext.OrganizationName))")
-                {
-                    $isBuildSvsAccUsed = $true
-                    break;
+                    $pkgDetails = New-Object -TypeName PSObject
+                    $pkgDetails | Add-Member -NotePropertyName PackageName -NotePropertyValue $package.name
+                    $pkgDetails | Add-Member -NotePropertyName IdentityName -NotePropertyValue $provenanceDetails.provenance.data.'Common.IdentityDisplayName'
+
+                    $packagesInfo += $pkgDetails 
+
+                    if (-not $detailedList)
+                    {
+                        if ($provenanceDetails.provenance.data.'Common.IdentityDisplayName' -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $provenanceDetails.provenance.data.'Common.IdentityDisplayName' -like "*Build Service ($($this.OrganizationContext.OrganizationName))")
+                        {
+                            $isBuildSvsAccUsed = $true
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -757,7 +798,11 @@ class CommonSVTControls: ADOSVTBase {
         {
             #eat exception
         }
-        return $isBuildSvsAccUsed
+        $returnObj = New-Object -TypeName PSObject
+        $returnObj | Add-Member -NotePropertyName isBuildSvcAccUsed -NotePropertyValue $isBuildSvsAccUsed
+        $returnObj | Add-Member -NotePropertyName packagesInfo -NotePropertyValue $packagesInfo 
+
+        return $returnObj
     }
 
     hidden [ControlResult] CheckBuildSvcAcctAccessOnRepository([ControlResult] $controlResult)
@@ -798,9 +843,11 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AddMessage("`nList of 'Build Service' Accounts: ", $($buildServieAccountOnRepo | FT | Out-String))
                     $controlResult.SetStateData("List of 'Build Service' Accounts: ", $buildServieAccountOnRepo)
                     $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)";
+                    $controlResult.AdditionalInfoInCSV = $buildServieAccountOnRepo -join ' ; '
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the repository.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
 
             }

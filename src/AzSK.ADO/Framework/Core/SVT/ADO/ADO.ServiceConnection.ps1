@@ -401,11 +401,11 @@ class ServiceConnection: ADOSVTBase
             }
             if(($this.serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity[0],"identity"))
             {
-                foreach ($identity in $this.serviceEndPointIdentity.identity)
+                foreach ($endPointidentity in $this.serviceEndPointIdentity)
                 {
-                    if ($identity.displayName -like '*Project Collection Build Service Accounts' -or $identity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))")
+                    if ($endPointidentity.identity.displayName -like '*Project Collection Build Service Accounts' -or $endPointidentity.identity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))")
                     {
-                        $buildServieAccountOnSvc += $identity.displayName;
+                        $buildServieAccountOnSvc += $endPointidentity;
                         #$isBuildSvcAccGrpFound = $true;
                         #break;
                     }
@@ -415,14 +415,17 @@ class ServiceConnection: ADOSVTBase
                 if($restrictedBuildSVCAcctCount -gt 0)
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)")
-                    $formattedBSAData = $($buildServieAccountOnSvc | FT | out-string )
+                    $formattedBSAData = $($buildServieAccountOnSvc.identity.displayName | FT | out-string )
                     #$formattedGroupsTable = ($formattedGroupsData | Out-String)
                     $controlResult.AddMessage("`nList of 'Build Service' Accounts: ", $formattedBSAData)
                     $controlResult.SetStateData("List of 'Build Service' Accounts: ", $formattedBSAData)
                     $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)";
+                    $formatedMembers = $buildServieAccountOnSvc | ForEach-Object { $_.identity.displayName + ': ' + $_.role.displayName }
+                    $controlResult.AdditionalInfoInCSV = $(($formatedMembers) -join '; ')
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the service connection.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
 
                 $controlResult.AddMessage("`nNote:`nThe following 'Build Service' accounts should not have access to service connection: `nProject Collection Build Service Account`n$($this.ResourceContext.ResourceGroupName) Build Service ($($this.OrganizationContext.OrganizationName))");
@@ -463,6 +466,7 @@ class ServiceConnection: ADOSVTBase
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not accessible to all pipelines.");
             }
+            $controlResult.AdditionalInfoInCSV = "NA";
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch service connection details. $($_) Please verify from portal that you are not granting all pipeline access to service connections");
@@ -582,15 +586,18 @@ class ServiceConnection: ADOSVTBase
                 $controlResult.AddMessage("Last usage date of service connection: $($this.SvcConnActivityDetail.svcConnLastRunDate)");
                 $controlResult.AdditionalInfo += "Last usage date of service connection: " + $this.SvcConnActivityDetail.svcConnLastRunDate;
                 $SvcConnInactivePeriod = ((Get-Date) - $this.SvcConnActivityDetail.svcConnLastRunDate).Days
+                $controlResult.AdditionalInfoInCSV += "InactiveDays: $($SvcConnInactivePeriod)";                               
                 $controlResult.AddMessage("The service connection was inactive from last $($SvcConnInactivePeriod) days.");
             }
             elseif ($this.SvcConnActivityDetail.isSvcConnActive)
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, $this.SvcConnActivityDetail.message);
+                $controlResult.AdditionalInfoInCSV = "NA";
             }
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, $this.SvcConnActivityDetail.message);
+                $controlResult.AdditionalInfoInCSV += "Serivce connection last run date not found.";   
             }
         }
         catch
@@ -911,13 +918,17 @@ class ServiceConnection: ADOSVTBase
                             #Data object that will be required to fix the control
                             $controlResult.BackupControlState = $backupDataObject;
                         }
+                        $restrictedGroupsAccess = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role }
+                        $controlResult.AdditionalInfoInCSV = $restrictedGroupsAccess -join '; '
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection.");
+                        $controlResult.AdditionalInfoInCSV = "NA";
                     }
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
                 $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForSvcConn | FT | out-string )`n");
 
