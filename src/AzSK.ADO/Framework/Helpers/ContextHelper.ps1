@@ -68,8 +68,7 @@ class ContextHelper {
                 if ([ContextHelper]::PSVersion -gt 5) {
                     [string[]] $Scopes = "$adoResourceId/.default";
                     [Microsoft.Identity.Client.IPublicClientApplication] $app = [Microsoft.Identity.Client.PublicClientApplicationBuilder]::Create($ClientId).Build();
-                    if(![ContextHelper]::appObj)
-                    {
+                    if(![ContextHelper]::appObj) {
                         [ContextHelper]::appObj = $app
                     }
 
