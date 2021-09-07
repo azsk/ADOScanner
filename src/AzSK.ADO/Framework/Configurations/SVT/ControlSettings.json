@@ -504,14 +504,16 @@
       "Project Collection Build Service Accounts",
       "Project Build Service"
     ],
-    "TestBranches":[
+    "BranchesToCheck":[
       "main",
       "master",
       "develop"
     ],
     "ExcessivePermissionsForBranch":[
       "Contribute",
-      "Bypass policies when pushing"
+      "Bypass policies when pushing",
+      "Force push (rewrite history, delete branches and tags)",
+      "Bypass policies when completing pull requests"
     ],
     "RestrictedRolesForBuildSvcAccountsInRepo": [
       "Bypass policies when completing pull requests",
