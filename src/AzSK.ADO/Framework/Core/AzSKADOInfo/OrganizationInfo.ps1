@@ -25,7 +25,7 @@ class OrganizationInfo: CommandBase {
             $returnMsgs += [MessageData]::new("Resource inventory for the organization: $($this.organizationName)`n")
             $projectsList = $this.projects | Select-Object @{Name="Projects"; Expression = {$_.name}}
             $projectsList = $projectsList | Out-String
-            $this.PublishCustomMessage("Fetching resource inventory for below projects : $($projectsList)`n")
+            $this.PublishCustomMessage("Fetching resource inventory for below projects: $($projectsList)`n")
             $returnMsgs += [MessageData]::new("Fetching resource inventory for below projects: $($projectsList)`n")
             $outputFolder = ([WriteFolderPath]::GetInstance().FolderPath)
             $inventorySummary = @()
