@@ -473,6 +473,24 @@ function Get-AzSKADOSecurityStatus
 				[ContextHelper]::PromptForLogin =$false
 			}
 
+			if(![string]::IsNullOrEmpty($BuildsFolderPath))
+			{
+				if($ResourceTypeName -notin([ResourceTypeName]::All,[ResourceTypeName]::Build))
+				{
+					Write-Host "Parameters '-BuildsFolderPath' and '-rtn'(values except 'All','Build') can not be used simultaneously in the scan command." -ForegroundColor Red
+					return;
+				}
+			}
+
+			if(![string]::IsNullOrEmpty($ReleasesFolderPath))
+			{
+				if($ResourceTypeName -notin([ResourceTypeName]::All,[ResourceTypeName]::Release))
+				{
+					Write-Host "Parameters '-ReleasesFolderPath' and '-rtn'(values except 'All','Release') can not be used simultaneously in the scan command." -ForegroundColor Red
+					return;
+				}
+			}
+
 			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceIds, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan, $IncrementalScan, $IncrementalDate);
 
 			$secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
