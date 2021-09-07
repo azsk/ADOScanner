@@ -774,7 +774,7 @@ class CommonSVTControls: ADOSVTBase {
                                     {
                                         $buildServiceAccountIdentities = $response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
                                         foreach ($eachIdentity in $buildServiceAccountIdentities) {
-                                            if ($eachIdentity.displayName -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $identity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))") {
+                                            if ($eachIdentity.displayName -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $eachIdentity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))") {
                                                 $groupFoundWithExcessivePermissions = $true                                          
                                             }                                        
                                         }
