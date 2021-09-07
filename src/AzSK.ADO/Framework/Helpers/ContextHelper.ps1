@@ -25,7 +25,6 @@ class ContextHelper {
         }
         if (![ContextHelper]::PSVersion) {
             [ContextHelper]::PSVersion = ($global:PSVersionTable).PSVersion.major 
-            #[ContextHelper]::appObj = [Microsoft.Identity.Client.PublicClientApplicationBuilder]::Create([Constants]::DefaultClientId).Build();
         }
     }
 
@@ -57,7 +56,6 @@ class ContextHelper {
 
             $ctx = [AuthenticationContext]::new("https://login.windows.net/common");
 
-            #[AuthenticationResult] $result = $null;
             $result = $null;
 
             if([ContextHelper]::IsOAuthScan) { # this if block will be executed for OAuth based scan
