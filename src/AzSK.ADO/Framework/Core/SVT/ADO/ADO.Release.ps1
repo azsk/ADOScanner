@@ -895,11 +895,16 @@ class Release: ADOSVTBase
                     $controlResult.AddMessage($display)
                     $controlResult.SetStateData("Pipeline contains artifacts from trusted sources: ", $stateData);
                }
-               
-               $sourceObj = $null;
-               $nonAdoResource = $null;
+                $resource = $stateData | ForEach-Object { $_.ArtifactSourceAlias + ': ' + $_.ArtifactSourceType } 
+                $controlResult.AdditionalInfoInCSV = $resource -join ' ; '
+                $controlResult.AdditionalInfo = $resource -join ' ; '
+            
+                $sourceObj = $null;
+                $nonAdoResource = $null;
            }
            else {
+
+            $controlResult.AdditionalInfoInCSV = "No source repository found."
             $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline does not contain any source repositories.");
            }
         }
@@ -1073,14 +1078,21 @@ class Release: ADOSVTBase
 
                     if(($editableTaskGroups | Measure-Object).Count -gt 0)
                     {
-                        $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", ($editableTaskGroups | Measure-Object).Count);
-                        $controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + ($editableTaskGroups | Measure-Object).Count;
+                        $editableTaskGroupsCount = ($editableTaskGroups | Measure-Object).Count;
+                        $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", $editableTaskGroupsCount);
+                        #$controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;
+                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object { $_.DisplayName }
+                        $addInfo = "NumTaskGroups: $editableTaskGroupsCount; List: $($formatedTaskGroups -join ';')"
+                        $controlResult.AdditionalInfo += $addInfo;
+                        $controlResult.AdditionalInfoInCSV = $addInfo;
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ", $editableTaskGroups);
                         $controlResult.SetStateData("List of task groups used in release definition that contributors can edit: ", $editableTaskGroups);
                     }
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in release definition.");
+                        $controlResult.AdditionalInfoInCSV = "NA"
+                        $controlResult.AdditionalInfo = "NA"
                     }
                 }
                 catch
@@ -1093,6 +1105,7 @@ class Release: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in release definition.");
+                $controlResult.AdditionalInfoInCSV += "NA";
             }
         }
         else
@@ -1215,7 +1228,13 @@ class Release: ADOSVTBase
                     if($editableTaskGroupsCount -gt 0)
                     {
                         $controlResult.AddMessage("Count of task groups on which contributors have edit permissions in release definition: $editableTaskGroupsCount");
-                        $controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;
+                        #$controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;                                                
+                        $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName } 
+
+                        $addInfo = "NumTaskGroups: $(($taskGroups | Measure-Object).Count); NumTaskGroupWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
+                        $controlResult.AdditionalInfo += $addInfo;
+                        $controlResult.AdditionalInfoInCSV += $addInfo;
+                        
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ");
                         $display = $editableTaskGroups|FT  -AutoSize | Out-String -Width 512
                         $controlResult.AddMessage($display)
@@ -1227,8 +1246,23 @@ class Release: ADOSVTBase
                     }
                     else
                     {
-                        $controlResult.AdditionalInfo += "Contributors do not have edit permissions on any task groups used in release definition."
+                        $controlResult.AdditionalInfoInCSV += "NA"
+                        $controlResult.AdditionalInfo += "NA"
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in release definition.");
+                    }
+                    if(($taskGroups | Measure-Object).Count -ne $editableTaskGroups.Count)
+                    {
+                        if ($editableTaskGroups.Count -gt 0)
+                        {                            
+                            $nonEditableTaskGroups = $taskGroups | where-object {$editableTaskGroups.DisplayName -notcontains $_.name}
+                        }
+                        else
+                        {
+                            $nonEditableTaskGroups = $taskGroups
+                        }                        
+                        $groups = $nonEditableTaskGroups | ForEach-Object { $_.name } 
+                        $controlResult.AdditionalInfoInCSV += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
+                        $controlResult.AdditionalInfo += "NonEditableTaskGroupsList: $($groups -join '; '); "
                     }
                 }
                 catch
@@ -1240,7 +1274,8 @@ class Release: ADOSVTBase
             }
             else
             {
-                $controlResult.AdditionalInfo += "No task groups found in release definition.";
+                $controlResult.AdditionalInfoInCSV += "NA"
+                $controlResult.AdditionalInfo += "NA";
                 $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in release definition.");
             }
         }
@@ -1387,13 +1422,15 @@ class Release: ADOSVTBase
                 if($editableVarGrpsCount -gt 0)
                 {
                     $controlResult.AddMessage("`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount `n");
-                    $controlResult.AdditionalInfo += "`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount";
+                    $controlResult.AdditionalInfo += "`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount";                    
+                    $controlResult.AdditionalInfoInCSV = "NumVGs: $editableVarGrpsCount; List: $($editableVarGrps -join '; ')";
                     $controlResult.AddMessage([VerificationResult]::Failed,"Variable groups list: `n$($editableVarGrps | FT | Out-String)");
                     $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"`nContributors do not have edit permissions on variable groups used in release definition.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
             }
             catch
@@ -1406,6 +1443,7 @@ class Release: ADOSVTBase
         else
         {
             $controlResult.AddMessage([VerificationResult]::Passed,"`nNo variable groups found in release definition.");
+            $controlResult.AdditionalInfoInCSV += "NA"
         }
 
         return $controlResult
@@ -1583,6 +1621,8 @@ class Release: ADOSVTBase
                                 $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                                 $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                                 $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
+                                $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions }
+                                $controlResult.AdditionalInfoInCSV = $groups -join ';'
                                 
                                 if ($this.ControlFixBackupRequired)
                                 {
@@ -1593,6 +1633,7 @@ class Release: ADOSVTBase
                             }
                             else {
                                 $controlResult.AddMessage([VerificationResult]::Passed, "Broader Groups do not have excessive permissions on the release pipeline.");
+                                $controlResult.AdditionalInfoInCSV += "NA"
                             }
                         }
                         else

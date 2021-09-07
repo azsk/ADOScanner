@@ -30,6 +30,7 @@ class VariableGroup: ADOSVTBase
             if([Helpers]::CheckMember($responseObj[0],"authorized") -and $responseObj[0].authorized -eq $true )
             {
                 $isSecretFound = $false
+                $secretVarList = @();
 
                 # Check if variable group has any secret or linked to KV
                 if ($this.VarGrp.Type -eq 'AzureKeyVault')
@@ -42,6 +43,7 @@ class VariableGroup: ADOSVTBase
                         if([Helpers]::CheckMember($this.VarGrp.variables.$($_.Name),"isSecret") -and ($this.VarGrp.variables.$($_.Name).isSecret -eq $true))
                         {
                             $isSecretFound = $true
+                            $secretVarList += $_.Name
                         }
                     }
                 }
@@ -49,15 +51,18 @@ class VariableGroup: ADOSVTBase
                 if ($isSecretFound -eq $true)
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Variable group contains secrets accessible to all pipelines.");
+                    $controlResult.AdditionalInfoInCSV = "SecretVarsList: $($secretVarList -join '; ')";
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "Variable group does not contain secret.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
             }
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Variable group is not accessible to all pipelines.");
+                $controlResult.AdditionalInfoInCSV += "NA"
             }
 
         }
@@ -315,9 +320,12 @@ class VariableGroup: ADOSVTBase
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $backupDataObject;
                     }
+                    $formatedRestrictedGroups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role }
+                    $controlResult.AdditionalInfoInCSV = ($formatedRestrictedGroups -join '; ' )
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
                 $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$( $restrictedBroaderGroupsForVarGrp| FT | out-string)");
             }
@@ -453,10 +461,14 @@ class VariableGroup: ADOSVTBase
                             $controlResult.AddMessage("`nList of broader groups: ",$($restrictedGroups | FT | Out-String))
                             $controlResult.AddMessage("`nList of variables with secret: ",$secretVarList)
                             $controlResult.SetStateData("List of broader groups: ", $restrictedGroups)
+
+                            $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role } 
+                            $controlResult.AdditionalInfoInCSV = $($groups -join '; ')+"; SecretVarsList: $($secretVarList -join '; ')";
                         }
                         else
                         {
                             $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to variable group.");
+                            $controlResult.AdditionalInfoInCSV += "NA"
                         }
 
                         $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' and should not have user/administrator privileges: `n$( $restrictedBroaderGroupsForVarGrp| FT | out-string)");
@@ -464,11 +476,13 @@ class VariableGroup: ADOSVTBase
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No secrets found in variable group.");
+                        $controlResult.AdditionalInfoInCSV += "NA"
                     }
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No variables found in variable group.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
             }
             else
