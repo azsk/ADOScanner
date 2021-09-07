@@ -513,6 +513,19 @@
       "Contribute",
       "Bypass policies when pushing"
     ],
+    "RestrictedRolesForBuildSvcAccountsInRepo": [
+      "Bypass policies when completing pull requests",
+      "Bypass policies when pushing",
+      "Contribute",
+      "Contribute to pull requests",
+      "Create branch",
+      "Delete repository",
+      "Edit policies",
+      "Force push (rewrite history, delete branches and tags)",
+      "Manage permissions",
+      "Remove others' locks",
+      "Rename repository"
+    ],
     "CheckForInheritedPermissions": false
   },
   "ServiceConnection": {
