@@ -404,7 +404,7 @@ class ContextHelper {
             $contextObj.AccessToken = $context.AccessToken
             $contextObj.TokenExpireTimeLocal = $context.ExpiresOn
         }
-        elseif($context) {
+        else {
             if ([ContextHelper]::PSVersion -gt 5) {
                 $contextObj.Account.Id = $context.Account.username
             }
