@@ -573,26 +573,28 @@ class PartialScanManager
 
 	[PSObject] GetNonScannedResources()
 	{
-		[System.Collections.Generic.List[PartialScanResource]] $nonScannedResources = @();
+		#[System.Collections.Generic.List[PartialScanResource]] $nonScannedResources = @();
+		$nonScannedResources = @()
         $this.GetResourceScanTrackerObject();
 		if($this.IsListAvailableAndActive())
 		{
 			
 
 			$nonScannedResources +=[PartialScanResource[]] $this.ResourceScanTrackerObj.ResourceMapTable | Where-Object {$_.State -eq [ScanState]::INIT}
-			return $nonScannedResources;
+			return [PartialScanResource[]] $nonScannedResources;
 		}
 		return $null;
 	}
 
 	[PSObject] GetAllListedResources()
 	{
-		[System.Collections.Generic.List[PartialScanResource]] $nonScannedResources = @();
+		#[System.Collections.Generic.List[PartialScanResource]] $nonScannedResources = @();
+		$nonScannedResources = @()
 		$this.GetResourceScanTrackerObject();
 		if($this.IsListAvailableAndActive())
 		{
-			$nonScannedResources += $this.ResourceScanTrackerObj.ResourceMapTable
-			return $nonScannedResources;
+			$nonScannedResources +=[PartialScanResource[]]  $this.ResourceScanTrackerObj.ResourceMapTable
+			return [PartialScanResource[]] $nonScannedResources;
 		}
 		return $null;
 	}
