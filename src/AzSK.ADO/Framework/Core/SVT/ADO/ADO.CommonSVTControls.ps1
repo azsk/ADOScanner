@@ -730,6 +730,7 @@ class CommonSVTControls: ADOSVTBase {
 
             if($repositoryIdentities.Count -gt 0)
             {
+                # fetch the groups that have access to the repo
                 $excessivePermissions = $this.ControlSettings.Repo.RestrictedRolesForBuildSvcAccountsInRepo
                 $groupPermissionsBody = '{"contributionIds":["ms.vss-admin-web.security-view-permissions-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","permissionSetId":"2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","accountName":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
                 $groupPermissionsBody.dataProviderContext.properties.sourcePage.url = $refererUrl
@@ -755,6 +756,7 @@ class CommonSVTControls: ADOSVTBase {
                         }   
                         if ($excessivePermissionsPerGroup.Count -gt 0) {
                             $groupFoundWithExcessivePermissions = $true
+                            # For PCBSA, resolve the group and check if PBS, PCBS are part of it
                             if ($identity.displayName -like '*Project Collection Build Service Accounts') {
                                 $groupFoundWithExcessivePermissions = $false
                                 $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($this.OrganizationContext.OrganizationName);                                
