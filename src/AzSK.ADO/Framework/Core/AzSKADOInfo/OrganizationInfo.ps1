@@ -42,6 +42,9 @@ class OrganizationInfo: CommandBase {
                     AgentPools         =  0;
                     VariableGroups     =  0;
                     ServiceConnections =  0;
+                    SecureFiles        =  0;
+                    Environments       =  0;
+                    Feeds              =  0;
                 };
                 [InventoryHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $resourceInventoryData);
                 # Change the hashtable headers to resource type and resource count
@@ -55,6 +58,9 @@ class OrganizationInfo: CommandBase {
                     TaskGroups = $resourceInventoryData['TaskGroups']
                     Repositories = $resourceInventoryData['Repositories']
                     TestPlans = $resourceInventoryData['TestPlans'] 
+                    Feeds = $resourceInventoryData['Feeds'] 
+                    SecureFiles = $resourceInventoryData['SecureFiles'] 
+                    Environments = $resourceInventoryData['Environments'] 
                 }
                 $tempObj | Add-Member -Name 'ProjectName' -Type NoteProperty -Value $projectName
                 $inventorySummary += $tempObj
