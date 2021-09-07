@@ -179,6 +179,7 @@ class AgentPool: ADOSVTBase
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed,"Agent pool is not marked as accessible to all pipelines.");
             }
+            $controlResult.AdditionalInfoInCSV = "NA";
             $agentPoolsObj =$null;
         }
         catch{
@@ -430,6 +431,9 @@ class AgentPool: ADOSVTBase
                         $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)";
+                        $groups = $restrictedGroups | ForEach-Object { $_.name + ': ' + $_.role } 
+                        $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+                        
                         if ($this.ControlFixBackupRequired) {
                             #Data object that will be required to fix the control
                             $controlResult.BackupControlState = $backupDataObject;
@@ -437,10 +441,12 @@ class AgentPool: ADOSVTBase
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to agent pool.");
+                        $controlResult.AdditionalInfoInCSV = "NA";
                     }
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No groups have given access to agent pool.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
                 $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForAgentPool | FT | out-string )`n");
             }

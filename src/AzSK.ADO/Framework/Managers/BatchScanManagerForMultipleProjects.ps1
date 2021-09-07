@@ -37,6 +37,10 @@ class BatchScanManagerForMultipleProjects
     BatchScanManagerForMultipleProjects([string] $OrganizationName){
         $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
 		$this.OrgName = $OrganizationName;
+        if($this.CheckIfProjectValid($PSCmdlet.MyInvocation.BoundParameters.ProjectNames) -eq $false){
+            Write-Host "You have supplied one or more invalid project name. Re run the command with correct project." -ForegroundColor Red
+            throw;
+        }
         if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("BatchSize")){
             $this.BatchSize = $PSCmdlet.MyInvocation.BoundParameters["BatchSize"]
         }
@@ -67,6 +71,35 @@ class BatchScanManagerForMultipleProjects
         }
 		$this.GetBatchScanTrackerObject();
 	}
+
+    [bool] CheckIfProjectValid($ProjectNames){
+        $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=6.0' -f $($this.OrgName);
+        $responseObj = "";
+        try {
+            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL) ;
+        }
+        catch {
+            Write-Host 'Project not found: Incorrect project name or you do not have necessary permission to access the project.' -ForegroundColor Red
+            throw;
+        }
+        if (([Helpers]::CheckMember($responseObj, "count") -and $responseObj[0].count -gt 0) -or (($responseObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($responseObj[0], "name")))
+        {
+            if($ProjectNames -ne "*"){
+                $Projects += $ProjectNames.Split(',', [StringSplitOptions]::RemoveEmptyEntries) | 
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                ForEach-Object { $_.Trim() } |
+                Select-Object -Unique;
+
+                $projects = $responseObj | Where-Object { $Projects -contains $_.name }
+
+                if (!$projects) {
+                    return $false;                  
+                }
+            }
+            
+        }
+        return $true;
+    }
 
     [int] GetBatchSize()
     {
@@ -175,7 +208,7 @@ class BatchScanManagerForMultipleProjects
             
         }
         $projects=@()
-        if($PSCmdlet.MyInvocation.BoundParameters.ProjectNames -eq "*"){
+        
         $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=6.0' -f $($this.OrgName);
         $responseObj = "";
         try {
@@ -185,12 +218,16 @@ class BatchScanManagerForMultipleProjects
         catch {
 
         }
-        }
-        else {
-            $projects += $PSCmdlet.MyInvocation.BoundParameters.ProjectNames.Split(',', [StringSplitOptions]::RemoveEmptyEntries) | 
+        if($PSCmdlet.MyInvocation.BoundParameters.ProjectNames -ne "*"){
+            $projectsFromUser=@()
+            $projectsFromUser += $PSCmdlet.MyInvocation.BoundParameters.ProjectNames.Split(',', [StringSplitOptions]::RemoveEmptyEntries) | 
                                     Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
                                     ForEach-Object { $_.Trim() } |
                                     Select-Object -Unique;
+            $validProjects = $responseObj | Where-Object { $projectsFromUser -contains $_.name }
+            $projects = @()
+            $projects += $validProjects.name
+            
         }
         $batchStatus | Add-Member -NotePropertyName Projects -NotePropertyValue $projects
         $batchStatus | Add-Member -NotePropertyName ProjectsCount -NotePropertyValue $projects.Count
@@ -474,6 +511,16 @@ class BatchScanManagerForMultipleProjects
         }
         elseif($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build_Release' -and [string]::IsNullOrEmpty($this.GetReleaseContinuationToken()) -and [string]::IsNullOrEmpty($this.GetBuildContinuationToken()) -and [string]::IsNullOrEmpty($this.GetProjectsForCurrentScan())) {
             return $true;
+        }
+        else{
+            $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
+            if($batchStatus.UpcError -eq 'False'){
+                Write-Host "Another project seems to be in partial commit. Therefore the scan for this project cannot be completed. Either complete the scan for the previous project using the GADS command or delete the file %LOCALAPPDATA%/Microsoft/AzSK.ADO/TempState/PartialScanData/[org_name]" -ForegroundColor Yellow
+                return $true;
+            }
+            else{
+                return $false;
+            }
         }
         return $false;
     }

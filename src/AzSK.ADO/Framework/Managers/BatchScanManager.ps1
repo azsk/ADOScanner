@@ -39,6 +39,10 @@ class BatchScanManager
     BatchScanManager([string] $OrganizationName,[string] $ProjectName){
         $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
 		$this.OrgName = $OrganizationName;
+        if($this.CheckIfProjectValid($ProjectName) -eq $false){
+            Write-Host "You have supplied an invalid project name. Re run the command with correct project." -ForegroundColor Red
+            throw;
+        }
         $this.ProjectName=$ProjectName;
         if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("BatchSize")){
             $this.BatchSize = $PSCmdlet.MyInvocation.BoundParameters["BatchSize"]
@@ -73,6 +77,27 @@ class BatchScanManager
         }
 		$this.GetBatchScanTrackerObject();
 	}
+
+    [bool] CheckIfProjectValid($ProjectName){
+        $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=6.0' -f $($this.OrgName);
+        $responseObj = "";
+        try {
+            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL) ;
+        }
+        catch {
+            Write-Host 'Project not found: Incorrect project name or you do not have necessary permission to access the project.' -ForegroundColor Red
+            throw;
+        }
+        if (([Helpers]::CheckMember($responseObj, "count") -and $responseObj[0].count -gt 0) -or (($responseObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($responseObj[0], "name")))
+        {
+            $projects = $responseObj | Where-Object { $ProjectName -contains $_.name }
+
+            if (!$projects) {
+                return $false;                  
+            }
+        }
+        return $true;
+    }
 
     [int] GetBatchSize()
     {
@@ -166,7 +191,8 @@ class BatchScanManager
             BatchScanState= [BatchScanState]::INIT;
             TokenLastModifiedTime = [DateTime]:: UtcNow;
             ResourceCount=0;
-            SkipMarker = 'False'
+            SkipMarker = 'False';
+            UpcError = 'False'
            
         }
         if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq "Build"){
@@ -409,6 +435,16 @@ class BatchScanManager
         }
         elseif($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build_Release' -and [string]::IsNullOrEmpty($this.GetReleaseContinuationToken()) -and [string]::IsNullOrEmpty($this.GetBuildContinuationToken()) -and $this.GetBatchScanState() -eq [BatchScanState]::COMP) {
             return $true;
+        }
+        else{
+            $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
+            if($batchStatus.UpcError -eq 'False'){
+                Write-Host "Another project seems to be in partial commit. Therefore the scan for this project cannot be completed. Either complete the scan for the previous project using the GADS command or delete the file %LOCALAPPDATA%/Microsoft/AzSK.ADO/TempState/PartialScanData/[org_name]" -ForegroundColor Yellow
+                return $true;
+            }
+            else{
+                return $false;
+            }
         }
         return $false;
     }

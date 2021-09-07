@@ -73,6 +73,16 @@ function Get-AzSKADOSecurityStatusBatchMode
 		[Alias("pp")]
 		$PolicyProject,
 
+        [switch]
+        [Parameter(Mandatory = $false)]
+		[Alias("dnof")]
+		$DoNotOpenOutputFolder,
+
+        [switch]
+        [Parameter(Mandatory = $false)]
+		[Alias("kco")]
+		$KeepConsoleOpen,
+
         [ValidateSet("All","BaselineControls", "Custom")]
 		[Parameter(Mandatory = $false)]
 		[Alias("abl")]
@@ -250,10 +260,11 @@ function Get-AzSKADOSecurityStatusBatchMode
             $parametersForGads.Remove("BatchSize") | Out-Null;
             $parametersForGads.Remove("ModulePath") | Out-Null;
             $parametersForGads.Remove("PATTokenURL") | Out-Null;
+            $parametersForGads.Remove("KeepConsoleOpen") | Out-Null;
 
 
-            $rh = $true #Whether to keep each console open after gads completes.
-            if ($rh)
+            #Whether to keep each console open after gads completes.
+            if ($KeepConsoleOpen.IsPresent)
             {
                 $commandForNextBatch+= '; Read-Host '
             }
@@ -283,6 +294,9 @@ function Get-AzSKADOSecurityStatusBatchMode
         catch
         {
             [EventBase]::PublishGenericException($_);
+            if($_.FullyQualifiedErrorId -eq "VariableIsUndefined"){
+                Write-Host "Two different versions of the same module seems to have been imported in the same session. Close this session and import the correct module."
+            }
         }
     }
 

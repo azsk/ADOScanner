@@ -764,8 +764,9 @@ class PartialScanManager
                         ControlSeverity = $item.ControlItem.ControlSeverity;
                         Description = $item.ControlItem.Description;
                         FeatureName = $item.FeatureName;
-						Recommendation = $item.ControlItem.Recommendation;	
-				        Rationale = $item.ControlItem.Rationale
+                        Recommendation = $item.ControlItem.Recommendation;	
+                        Rationale = $item.ControlItem.Rationale;
+                        AdditionalInfo = $_.AdditionalInfoInCSV
                     };
 					if($_.VerificationResult -ne [VerificationResult]::NotScanned)
 					{
