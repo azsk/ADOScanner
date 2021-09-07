@@ -4,6 +4,7 @@ class IncrementalScanHelper
 {
     hidden [string] $OrganizationName = $null;
     hidden [string] $ProjectName = $null;
+    hidden [string] $ProjectId = $null;
     [PSObject] $ControlSettings;
     hidden [string] $AzSKTempStatePath = (Join-Path $([Constants]::AzSKAppFolderPath) "IncrementalScan");
     hidden [string] $CAScanProgressSnapshotsContainerName = [Constants]::CAScanProgressSnapshotsContainerName;
@@ -19,6 +20,7 @@ class IncrementalScanHelper
     hidden [datetime] $IncrementalDate = 0;
     [bool] $UpdateTime = $true;
     hidden [datetime] $Timestamp = 0; 
+    [bool] $isPartialScanActive = $false;
     
     IncrementalScanHelper([string] $organizationName, [string] $projectName, [datetime] $incrementalDate, [bool] $updateTimestamp, [datetime] $timestamp)
     {
@@ -31,8 +33,26 @@ class IncrementalScanHelper
         $this.MasterFilePath = (Join-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName) $this.projectName) $this.IncrementalScanTimestampFile)
         $this.UpdateTime = $updateTimestamp
         $this.Timestamp = $timestamp
+        if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("UsePartialCommits")){
+            [PartialScanManager] $partialScanMngr = [PartialScanManager]::GetInstance();
+            if(($partialScanMngr.IsPartialScanInProgress($this.OrganizationName, $false) -eq [ActiveStatus]::Yes)){
+                $this.isPartialScanActive = $true
+            }
+        }        
     }
-    
+    IncrementalScanHelper([string] $organizationName, [string] $projectId,[string] $projectName, [datetime] $incrementalDate)
+    {
+        $this.OrganizationName = $organizationName
+        $this.ProjectId = $projectId
+        $this.IncrementalScanTimestampFile = $([Constants]::IncrementalScanTimeStampFile)
+        $this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource()
+        $this.CATempFile = "CATempLocal.json" # temporary file to store Json Data to upload to container (in CA)
+        $this.IncrementalDate = $incrementalDate
+        $this.ProjectName = $projectName 
+        $this.MasterFilePath = (Join-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName) $this.projectName) $this.IncrementalScanTimestampFile)
+        $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+               
+    }
     hidden [datetime] GetThresholdTime([string] $resourceType)
     {
         # function to retrieve threshold time from storage, based on scan source.
@@ -107,12 +127,29 @@ class IncrementalScanHelper
         }
         if(-not $this.FirstScan)
         {
-            $latestScan = [datetime]$this.ResourceTimestamps.$resourceType
+            if($this.isPartialScanActive){
+                if($resourceType -eq 'Build'){
+                    $latestScan = [datetime]$this.ResourceTimestamps.BuildPreviousTime
+                }
+                else {
+                    $latestScan = [datetime]$this.ResourceTimestamps.ReleasePreviousTime
+                }
+            }
+            else {
+                $latestScan = [datetime]$this.ResourceTimestamps.$resourceType
+            }
+            
         }
         if($this.IncrementalDate -ne 0)
         {
             # user input of incremental date to be used for scanning incrementally.
             $latestScan = $this.IncrementalDate
+            if($this.ScanSource -eq 'CA'){
+                $FromTimeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("Asia/Kolkata")
+                $latestScan = [DateTime]::SpecifyKind((Get-Date $latestScan), [DateTimeKind]::Unspecified)
+                $latestScan = [System.TimeZoneInfo]::ConvertTimeToUtc($latestScan, $FromTimeZone)
+
+            }
         }
         return $latestScan
     }
@@ -122,6 +159,9 @@ class IncrementalScanHelper
         # Updates timestamp of current scan to storage, based on scan source.
         if($this.UpdateTime -ne $true)
         {
+            return;
+        }
+        if($this.isPartialScanActive){
             return;
         }
         if($this.ScanSource -ne "CA" -and $this.ScanSource -ne "CICD")
@@ -149,6 +189,24 @@ class IncrementalScanHelper
             {
                 # Not a first time scan for the current resource
                 $this.ResourceTimestamps = Get-ChildItem -Path $this.MasterFilePath -Force | Get-Content | ConvertFrom-Json
+                $previousScanTime = $this.ResourceTimestamps.$resourceType;
+                if($resourceType -eq 'Build'){
+                    if('BuildPreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
+                        $this.ResourceTimestamps.BuildPreviousTime = $previousScanTime;
+                    }     
+                    else {
+                        $this.ResourceTimestamps | Add-Member -NotePropertyName BuildPreviousTime -NotePropertyValue $previousScanTime
+                    }             
+                    
+                }
+                else{
+                    if('ReleasePreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
+                        $this.ResourceTimestamps.ReleasePreviousTime = $previousScanTime;
+                    }     
+                    else {
+                        $this.ResourceTimestamps | Add-Member -NotePropertyName ReleasePreviousTime -NotePropertyValue $previousScanTime
+                    } 
+                }
                 $this.ResourceTimestamps.$resourceType = $this.Timestamp
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force
             }
@@ -191,6 +249,24 @@ class IncrementalScanHelper
             {
                 Get-AzStorageBlobContent -CloudBlob $this.ControlStateBlob.ICloudBlob -Context $this.StorageContext -Destination $tempPath -Force                
 				$this.ResourceTimestamps  = Get-ChildItem -Path $tempPath -Force | Get-Content | ConvertFrom-Json
+                $previousScanTime = $this.ResourceTimestamps.$resourceType;
+                if($resourceType -eq 'Build'){
+                    if('BuildPreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
+                        $this.ResourceTimestamps.BuildPreviousTime = $previousScanTime;
+                    }     
+                    else {
+                        $this.ResourceTimestamps | Add-Member -NotePropertyName BuildPreviousTime -NotePropertyValue $previousScanTime
+                    }             
+                    
+                }
+                else{
+                    if('ReleasePreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
+                        $this.ResourceTimestamps.ReleasePreviousTime = $previousScanTime;
+                    }     
+                    else {
+                        $this.ResourceTimestamps | Add-Member -NotePropertyName ReleasePreviousTime -NotePropertyValue $previousScanTime
+                    } 
+                }
 				# Delete the local file
                 Remove-Item -Path $tempPath
                 $this.ResourceTimestamps.$resourceType = $this.Timestamp
@@ -207,6 +283,9 @@ class IncrementalScanHelper
         if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0)
         {
             $this.UpdateTimeStamp("Build")
+            return $buildDefnsObj
+        }
+        if($this.isPartialScanActive -and $latestBuildScan -eq 0){
             return $buildDefnsObj
         }
         $newBuildDefns = @()
@@ -287,6 +366,9 @@ class IncrementalScanHelper
             $this.UpdateTimeStamp("Release")
             return $releaseDefnsObj
         }
+        if($this.isPartialScanActive -and $latestReleaseScan -eq 0){
+            return $releaseDefnsObj
+        }
         $newReleaseDefns = @()
         # Searching Linearly
         foreach ($releaseDefn in $releaseDefnsObj)
@@ -299,4 +381,173 @@ class IncrementalScanHelper
         $this.UpdateTimeStamp("Release")
         return $newReleaseDefns                
     }
+
+    [System.Object[]] GetAuditTrailsForBuilds(){
+        $latestBuildScan = $this.GetThresholdTime("Build")
+        if($this.ScanSource -ne 'CA'){
+            $latestBuildScan=$latestBuildScan.ToUniversalTime();
+        }        
+        $latestBuildScan =Get-Date $latestBuildScan -Format s
+        $buildIds = @();
+        if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0){
+            return $buildIds;   
+        }
+        $auditUrl = "https://auditservice.dev.azure.com/{0}/_apis/audit/auditlog?startTime={1}&api-version=6.0-preview.1" -f $this.OrganizationName, $latestBuildScan
+        try {
+            $response = [WebRequestHelper]::InvokeGetWebRequest($auditUrl);
+            $auditTrails = $response.decoratedAuditLogEntries;
+            $modifiedBuilds = $auditTrails | Where-Object {$_.actionId  -eq 'Security.ModifyPermission' -and $_.data.NamespaceName -eq 'Build' -and $_.data.Token -match $this.ProjectId+"/" }
+            $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
+            $excessivePermissions = $this.ControlSettings.Build.ExcessivePermissionsForBroadGroups
+            $modifiedBuilds | foreach {
+                if($_.data.ChangedPermission -in $excessivePermissions){
+                    $group = ($_.data.SubjectDisplayName -split("\\"))[1]
+                    if($group -in $broaderGroups){
+                        $buildIds += (($_.data.Token -split("/"))[1])
+                    }              
+                }
+            }
+            $buildIds = $buildIds | Select -Unique
+        }
+        catch {
+
+        }
+        return $buildIds;
+    }
+    
+    [System.Object[]] GetModifiedBuildsFromAudit($buildIds, $projectName){
+        $totalBuilds = $buildIds.Count
+        $buildDefnObj =@()
+        $newBuildDefns = @();
+        $queryIdCount = 0;
+        $currentbuildIds = ""
+        $buildIds | foreach {
+            
+            if($totalBuilds -lt 100){
+                $queryIdCount++;
+                $currentbuildIds=$currentbuildIds+$_+","
+                if($queryIdCount -eq $totalBuilds){
+                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=6.0" -f $($this.OrganizationName), $projectName, $currentbuildIds;
+                    try {
+                        $buildDefnObj += ([WebRequestHelper]::InvokeGetWebRequest($buildDefnURL));
+                    }
+                    catch {
+
+                    }
+                }
+            }
+            else {
+                $queryIdCount++;
+                $currentbuildIds=$currentbuildIds+$_+",";
+                if($queryIdCount -eq 100){
+                    $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=6.0" -f $($this.OrganizationName), $projectName, $currentbuildIds;
+                    try {
+                        $buildDefnObj += ([WebRequestHelper]::InvokeGetWebRequest($buildDefnURL));
+                        $queryIdCount =0;
+                        $currentbuildIds="";
+                        $totalBuilds -=100;                        
+                    }
+                    catch {
+
+                    }
+                }
+
+            }
+        }
+        $latestBuildScan = $this.GetThresholdTime("Build");              
+        foreach ($buildDefn in $buildDefnObj)
+        {
+            if ([datetime]($buildDefn.CreatedDate) -lt $latestBuildScan) 
+            {
+                $newBuildDefns += @($buildDefn)    
+            }
+        }
+     
+        return $newBuildDefns;
+    }
+
+    [System.Object[]] GetAuditTrailsForReleases(){
+        $latestReleaseScan = $this.GetThresholdTime("Release");
+        if($this.ScanSource -ne 'CA'){
+            $latestReleaseScan=$latestReleaseScan.ToUniversalTime();
+        }
+        $latestReleaseScan = Get-Date $latestReleaseScan -Format s
+        $releaseIds = @();
+        if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0){
+            return $releaseIds;   
+        }
+        $auditUrl = "https://auditservice.dev.azure.com/{0}/_apis/audit/auditlog?startTime={1}&api-version=6.0-preview.1" -f $this.OrganizationName, $latestReleaseScan
+        try {
+            $response = [WebRequestHelper]::InvokeGetWebRequest($auditUrl);
+            $auditTrails = $response.decoratedAuditLogEntries;
+            $modifiedReleases = $auditTrails | Where-Object {$_.actionId  -eq 'Security.ModifyPermission' -and $_.data.NamespaceName -eq 'ReleaseManagement' -and $_.data.Token -match $this.ProjectId+"/" }
+            $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
+            $excessivePermissions = $this.ControlSettings.Release.ExcessivePermissionsForBroadGroups
+            $modifiedReleases | foreach {
+                if($_.data.ChangedPermission -in $excessivePermissions){
+                    $group = ($_.data.SubjectDisplayName -split("\\"))[1]
+                    if($group -in $broaderGroups){
+                        $releaseIds += (($_.data.Token -split("/"))[1])
+                    }              
+                }
+            }
+            $releaseIds = $releaseIds | Select -Unique
+        }
+        catch {
+
+        }
+        return $releaseIds;
+    }
+    
+    [System.Object[]] GetModifiedReleasesFromAudit($releaseIds, $projectName){
+        $totalReleases = $releaseIds.Count
+        $newReleaseDefns = @();
+        $releaseDefnObj =@()
+        $queryIdCount = 0;
+        $currentReleaseIds = ""
+        $releaseIds | foreach {
+            
+            if($totalReleases -lt 100){
+                $queryIdCount++;
+                $currentReleaseIds=$currentReleaseIds+$_+","
+                if($queryIdCount -eq $totalReleases){
+                    $releaseDefnURL = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?definitionIdFilter={2}&api-version=6.0" -f $($this.OrganizationName), $projectName, $currentReleaseIds;
+                    try {
+                        $releaseDefnObj += ([WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL));
+                    }
+                    catch {
+
+                    }
+                }
+            }
+            else {
+                $queryIdCount++;
+                $currentReleaseIds=$currentReleaseIds+$_+",";
+                if($queryIdCount -eq 100){
+                    $releaseDefnURL = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?definitionIdFilter={2}&api-version=6.0" -f $($this.OrganizationName), $projectName, $currentReleaseIds;
+                    try {
+                        $releaseDefnObj += ([WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL));
+                        $queryIdCount =0;
+                        $currentReleaseIds="";
+                        $totalReleases -=100;                        
+                    }
+                    catch {
+
+                    }
+                }
+
+            }
+        }   
+        $latestReleaseScan = $this.GetThresholdTime("Release");              
+        foreach ($releaseDefn in $releaseDefnObj)
+        {
+            if ([datetime]($releaseDefn.modifiedOn) -lt $latestReleaseScan) 
+            {
+                $newReleaseDefns += @($releaseDefn)    
+            }
+        }       
+      
+        return $newReleaseDefns;
+    }
+
 }

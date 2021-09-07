@@ -14,13 +14,6 @@ function Get-AzSKADOSecurityStatusBatchModeResults
 
         [string]
         [Parameter(Mandatory = $true)]
-        [ValidateNotNullOrEmpty()]
-        [Alias("pn")]
-        $ProjectName,
-
-
-        [string]
-        [Parameter(Mandatory = $true)]
         [Alias("fn")]
         $FolderName
         )

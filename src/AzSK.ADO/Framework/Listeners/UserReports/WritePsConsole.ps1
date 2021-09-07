@@ -259,10 +259,25 @@ class WritePsConsole: FileOutputBase
 
 				#change batch scan state to COMP
 				if($currentInstance.InvocationContext.BoundParameters.ContainsKey('BatchScan')){
-				$CurrentResourceCount = $currentInstance.UpdateCurrentBatch();
+					$CurrentResourceCount = $currentInstance.UpdateCurrentBatch();
 					$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Update)
-					$currentInstance.WriteMessage("Execution completed for current batch. Scanned $($CurrentResourceCount) resources. Next scan will take place in a fresh PS Console. You may close this window now.", [MessageType]::Update)
-                	$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Update)
+					if($currentInstance.InvocationContext.BoundParameters.ContainsKey('BatchScanMultipleProjects')){
+						$currentProjectDetails = $currentInstance.GetProjectCurrentBatch()
+						$CurrentProjectCount = $currentProjectDetails[0];
+						$TotalProjectCount = $currentProjectDetails[1];
+						$CurrentProject = $currentProjectDetails[2];
+						if($null -ne $CurrentProject){
+							$currentInstance.WriteMessage("Execution completed for current batch. Scanned $($CurrentResourceCount) resources. $($CurrentProjectCount) out of $($TotalProjectCount) projects have been completely scanned. Scan for $($CurrentProject) is in progress and will be scanned in next batch. Next scan will take place in a fresh PS Console. You may close this window now.", [MessageType]::Update)
+						}
+						else {
+							$currentInstance.WriteMessage("Execution completed for current batch. Scanned $($CurrentResourceCount) resources. $($CurrentProjectCount) out of $($TotalProjectCount) projects have been completely scanned. Next scan will take place in a fresh PS Console. You may close this window now.", [MessageType]::Update)
+						}						
+					}
+					else {
+						$currentInstance.WriteMessage("Execution completed for current batch. Scanned $($CurrentResourceCount) resources. Next scan will take place in a fresh PS Console. You may close this window now.", [MessageType]::Update)
+					}			
+					
+					$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Update)
 				}
                 $currentInstance.FilePath = "";
             }
@@ -688,7 +703,12 @@ class WritePsConsole: FileOutputBase
 	}
 
 	hidden [int] UpdateCurrentBatch(){
-		[BatchScanManager] $batchScanMngr=[BatchScanManager]::GetInstance();
+		if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("BatchScanMultipleProjects")){
+            [BatchScanManagerForMultipleProjects] $batchScanMngr = [BatchScanManagerForMultipleProjects]:: GetInstance();
+        }
+        else {
+            [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
+        }
 		$batchStatus= $batchScanMngr.GetBatchStatus();
 		$batchStatus.BatchScanState=[BatchScanState]::COMP;
 		$batchScanMngr.BatchScanTrackerObj = $batchStatus;
@@ -696,6 +716,18 @@ class WritePsConsole: FileOutputBase
 		return $batchStatus.ResourceCount;
 	}
 
+	hidden [System.Object[]] GetProjectCurrentBatch(){
+		
+        [BatchScanManagerForMultipleProjects] $batchScanMngr = [BatchScanManagerForMultipleProjects]:: GetInstance();
+        
+		$batchStatus= $batchScanMngr.GetBatchStatus();
+		$isCurrentProjectComplete = $batchScanMngr.IsCurrentProjectComplete()
+		$currentProject = $batchStatus.ProjectsCount - $batchStatus.Projects.Count
+		if($isCurrentProjectComplete){
+			return $($currentProject+1), $batchStatus.ProjectsCount,$null;
+		}
+		return $currentProject, $batchStatus.ProjectsCount,$batchStatus.Projects[0];
+	}
 
 
 	hidden [void] CommandStartedAction($event)

@@ -53,17 +53,18 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Helpers\ConfigOverride.ps1
 . $FrameworkPath\Helpers\ControlHelper.ps1
 . $PSScriptRoot\Helpers\AdministratorHelper.ps1
-. $FrameworkPath\Helpers\IncrementalScanHelper.ps1
 . $FrameworkPath\Models\Common\ResourceInventory.ps1
 
 
 #Managers
 . $FrameworkPath\Managers\BatchScanManager.ps1
+. $FrameworkPath\Managers\BatchScanManagerForMultipleProjects.ps1
 . $FrameworkPath\Managers\FeatureFlightingManager.ps1
 . $PSScriptRoot\Managers\ControlStateExtension.ps1
 . $FrameworkPath\Managers\AzSKPDFExtension.ps1
 . $PSScriptRoot\Managers\PartialScanManager.ps1
 
+. $FrameworkPath\Helpers\IncrementalScanHelper.ps1
 . $FrameworkPath\Helpers\LogAnalyticsHelper.ps1
 . $FrameworkPath\Helpers\RemoteReportHelper.ps1
 . $FrameworkPath\Helpers\RemoteApiHelper.ps1

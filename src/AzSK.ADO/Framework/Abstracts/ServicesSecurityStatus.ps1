@@ -574,7 +574,12 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 
 	[void] UpdateBatchScanCount($currentCount,$totalResources) {
 		$ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
-		[BatchScanManager] $batchScanMngr = [BatchScanManager]::GetInstance()
+		if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("BatchScanMultipleProjects")){
+            [BatchScanManagerForMultipleProjects] $batchScanMngr = [BatchScanManagerForMultipleProjects]:: GetInstance();
+        }
+        else {
+            [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
+        }
 		$batchStatus = $batchScanMngr.GetBatchStatus();
 		if($currentCount % $ControlSettings.PartialScan.LocalScanUpdateFrequency -eq 0){
 			$batchStatus.ResourceCount += $ControlSettings.PartialScan.LocalScanUpdateFrequency;
@@ -664,7 +669,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                 }
                 else{
                     $this.IsPartialCommitScanActive = $false;
-					$resourceLists=@()
+					[System.Collections.Generic.List[PSCustomObject]] $resourceLists=@()
 					$progressCount=1
 					foreach ($svtResource in $this.Resolver.SVTResources) {
 						
@@ -672,11 +677,14 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 							$resourceList=[PSCustomObject]@{
 								ResourceId = $svtResource.ResourceId
 								ResourceName=$svtResource.ResourceName
+								ResourceGroupName = $svtResource.ResourceGroupName
+								ResourceType = $svtResource.ResourceType
 								#ResourceDetails=$svtResource.ResourceDetails
 							}
-							$resourceLists+=$resourceList
-							
-							Write-Progress -Activity "Processed $($progressCount) of $($this.Resolver.SVTResources.Length) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $this.Resolver.SVTResources.Length * 100)
+							$resourceLists.Add($resourceList)
+							if ($progressCount%100 -eq 0) {							
+								Write-Progress -Activity "Processed $($progressCount) of $($this.Resolver.SVTResources.Count) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $this.Resolver.SVTResources.Count * 100)
+							}
 							$progressCount++;
 						}
 					}
@@ -700,7 +708,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                     $InErrorResources = 0;
                     $ScanResourcesList = $partialScanMngr.GetAllListedResources() 
                     $progressCount=1
-                    $ScanResourcesList | Group-Object -Property State | Select-Object Name,Count | ForEach-Object{
+                    $ScanResourcesList | Group-Object -Property State | Select-Object Name,Count | foreach {
                         if($_.Name -eq "COMP")
                         {
                             $CompletedResources = $_.Count
@@ -711,8 +719,9 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                         elseif ($_.Name -eq "ERR") {
                             $InErrorResources = $_.Count
                         }
-						
-						Write-Progress -Activity "Computed status of $($progressCount) of $($ScanResourcesList.Length) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $ScanResourcesList.Length * 100)
+						if ($progressCount%100 -eq 0) {
+							Write-Progress -Activity "Computed status of $($progressCount) of $($ScanResourcesList.Count) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $ScanResourcesList.Count * 100)
+						}
 						$progressCount++;
                           
                     }  
