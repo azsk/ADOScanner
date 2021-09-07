@@ -433,7 +433,7 @@ class SVTResourceResolver: AzSKRoot {
 
                 $nProj = $this.MaxObjectsToScan;
                 if (!$projects) {
-                    Write-Host 'No project found to perform the scan.' -ForegroundColor Red
+                    Write-Host 'No project found to perform the scan.' -ForegroundColor Red                    
                 }
                 $TotalSvc = 0;
                 $ScannableSvc = 0;
@@ -1661,6 +1661,9 @@ class SVTResourceResolver: AzSKRoot {
         
         $batchStatus= $batchScanMngr.GetBatchStatus();
 
+        if(-not("BuildCurrentContinuationToken" -in $batchStatus.PSobject.Properties.Name)){
+            Write-Error -Message "A previous batch with different resource type was found to still be in progress. You can either run the command with the same parameters as the previous batch or if you wish to scan with the current new command you should clear the given folders: %LOCALAPPDATA%/Microsoft/AzSK.ADO/Tempstate/BatchScanData/[org_name] and %LOCALAPPDATA%/Microsoft/AzSK.ADO/Tempstate/PartialScanData/[org_name]" -Category InvalidArgument
+        }
         #all builds have been scanned
         if([string]::IsNullOrEmpty($batchStatus.BuildCurrentContinuationToken) -and $batchStatus.Skip -gt 0){
            
@@ -1711,7 +1714,9 @@ class SVTResourceResolver: AzSKRoot {
             [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance();
         }
         $batchStatus= $batchScanMngr.GetBatchStatus();
-
+        if(-not("ReleaseCurrentContinuationToken" -in $batchStatus.PSobject.Properties.Name)){
+            Write-Error -Message "A previous batch with different resource type was found to still be in progress. You can either run the command with the same parameters as the previous batch or if you wish to scan with the current new command you should clear the given folders: %LOCALAPPDATA%/Microsoft/AzSK.ADO/Tempstate/BatchScanData/[org_name] and %LOCALAPPDATA%/Microsoft/AzSK.ADO/Tempstate/PartialScanData/[org_name]" -Category InvalidArgument
+        }
         #all releases have been scanned
         if([string]::IsNullOrEmpty($batchStatus.ReleaseCurrentContinuationToken) -and $batchStatus.Skip -gt 0){
             return;

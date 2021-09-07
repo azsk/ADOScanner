@@ -711,6 +711,9 @@ class WritePsConsole: FileOutputBase
         }
 		$batchStatus= $batchScanMngr.GetBatchStatus();
 		$batchStatus.BatchScanState=[BatchScanState]::COMP;
+		if($batchStatus.UpcError -eq 'False'){
+			$batchStatus.UpcError = 'True';
+		}
 		$batchScanMngr.BatchScanTrackerObj = $batchStatus;
         $batchScanMngr.WriteToBatchTrackerFile();
 		return $batchStatus.ResourceCount;
