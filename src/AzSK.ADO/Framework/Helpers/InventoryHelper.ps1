@@ -91,6 +91,42 @@ class InventoryHelper {
                 }
             }
             catch {}
+
+            # fetch the secure files count
+            try {
+                if ($projectData["SecureFiles"] -eq 0) {
+                    $secureFileDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/securefiles?api-version=6.1-preview.1") -f $($organizationName), $projectName;
+                    $secureFileObj = [WebRequestHelper]::InvokeGetWebRequest($secureFileDefnURL)
+                    if (([Helpers]::CheckMember($secureFileObj, "count") -and $secureFileObj[0].count -gt 0) -or (($secureFileObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($secureFileObj[0], "name"))) {
+                        $projectData["SecureFiles"] = ($secureFileObj | Measure-Object).Count
+                    }
+                }
+            }
+            catch {}
+
+            # fetch the feeds count
+            try {
+                if ($projectData["Feeds"] -eq 0) {
+                    $feedDefnURL = ("https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds?api-version=6.0-preview.1") -f $organizationName, $projectName
+                    $feedDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($feedDefnURL);
+                    if (([Helpers]::CheckMember($feedDefnsObj, "count") -and $feedDefnsObj[0].count -gt 0) -or (($feedDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($feedDefnsObj[0], "name"))) {
+                        $projectData["Feeds"] = ($feedDefnsObj | Measure-Object).Count
+                    }
+                }
+            }
+            catch {}
+
+            # fetch the environments count
+            try {
+                if ($projectData["Environments"] -eq 0) {
+                    $environmentDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1") -f $organizationName, $projectName;
+                    $environmentDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($environmentDefnURL);
+                    if (([Helpers]::CheckMember($environmentDefnsObj, "count") -and $environmentDefnsObj[0].count -gt 0) -or (($environmentDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($environmentDefnsObj[0], "name"))) {
+                        $projectData["Environments"] = ($environmentDefnsObj | Measure-Object).Count
+                    }
+                }
+            }
+            catch {}
         }
         catch {
         }

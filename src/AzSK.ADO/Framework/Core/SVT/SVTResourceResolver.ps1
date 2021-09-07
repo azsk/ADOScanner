@@ -168,7 +168,7 @@ class SVTResourceResolver: AzSKRoot {
                 throw [SuppressedException] "The parameter 'ServiceConnectionNames' does not contain any string."
             }
         }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::ServiceConnection) {
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::ServiceConnection -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) {
             $this.ServiceConnections = "*"
         }
 
@@ -178,7 +178,7 @@ class SVTResourceResolver: AzSKRoot {
                 throw [SuppressedException] "The parameter 'AgentPools' does not contain any string."
             }
         }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::AgentPool) {
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::AgentPool -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) {
             $this.AgentPools = "*"
         }
 
@@ -189,7 +189,7 @@ class SVTResourceResolver: AzSKRoot {
                 throw [SuppressedException] "The parameter 'VariableGroupNames' does not contain any string."
             }
         }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::VariableGroup) {
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::VariableGroup -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) {
             $this.VariableGroups = "*"
         }
 
@@ -390,7 +390,7 @@ class SVTResourceResolver: AzSKRoot {
             }
         }
         if (-not $this.skipOrgUserControls) {
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::User, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User)) {
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::User, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources)) {
 
                 $link = "https://dev.azure.com/$($this.organizationName)/_settings/users"
                 $this.AddSVTResource($this.organizationName, $null,"ADO.User", "organization/$($organizationId)/user", $null, $link);
@@ -468,10 +468,10 @@ class SVTResourceResolver: AzSKRoot {
 
                     if($this.IsPartialScanActive -and $this.nonScannedResources.Count -ne 0){
                         #$this.PublishCustomMessage("Resuming scan from last commit")
-                        if ($this.BuildNames.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))) {
+                        if ($this.BuildNames.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources))) {
                             $this.createBuildSVTResource($projectName,$organizationId,$projectId);
                         }
-                        if ($this.ServiceConnections.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))){
+                        if ($this.ServiceConnections.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources))){
                             $this.createServiceConnectionSVTResource($projectName,$organizationId,$projectId,$projectData)
                         }
                         $progressCount=1
@@ -571,7 +571,7 @@ class SVTResourceResolver: AzSKRoot {
                         }                      
                     }
 
-                    if ($this.BuildNames.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))) {
+                    if ($this.BuildNames.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources))) {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting build configurations...");
                         }
@@ -702,7 +702,7 @@ class SVTResourceResolver: AzSKRoot {
                     {
                         return;
                     }
-                    if ($this.ReleaseNames.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User)))
+                    if ($this.ReleaseNames.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources)))
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting release configurations...");
@@ -823,7 +823,7 @@ class SVTResourceResolver: AzSKRoot {
                     }
 
                     #Note: $topNQueryString is currently not supported in the SvcConn and AgentPool APIs.
-                    if ($this.ServiceConnections.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources)))
+                    if ($this.ServiceConnections.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources)))
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting service endpoint configurations...");
@@ -873,7 +873,7 @@ class SVTResourceResolver: AzSKRoot {
                     {
                         return;
                     }
-                    if ($this.AgentPools.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources)))
+                    if ($this.AgentPools.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources)))
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting agent pools configurations...");
@@ -975,7 +975,7 @@ class SVTResourceResolver: AzSKRoot {
                     {
                         return;
                     }
-                    if ($this.VariableGroups.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources)))
+                    if ($this.VariableGroups.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources)))
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting variable group configurations...");
@@ -1028,7 +1028,7 @@ class SVTResourceResolver: AzSKRoot {
                     }
 
                     #Creating resource in common resource resolver
-                    if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -gt 0 -or $this.FeedNames.count -gt 0 -or $this.EnvironmentNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed, [ResourceTypeName]::Environment, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))) {
+                    if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -gt 0 -or $this.FeedNames.count -gt 0 -or $this.EnvironmentNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed, [ResourceTypeName]::Environment,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))) {
                         $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName, $organizationId, $projectId);
                         $this.SVTResources += $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.EnvironmentNames, $this.ResourceTypeName, $this.MaxObjectsToScan, $this.isServiceIdBasedScan);
                     }
@@ -1135,7 +1135,7 @@ class SVTResourceResolver: AzSKRoot {
         if ($null -ne $rsrcList)
         {
             $this.isServiceIdBasedScan = $true;
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
             {
                 if ($rsrcList.Builds -and $rsrcList.Builds.Count -gt 0)
                 {
@@ -1149,7 +1149,7 @@ class SVTResourceResolver: AzSKRoot {
                     }                   
                 }
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
             {
                 if ($rsrcList.Releases -and $rsrcList.Releases.Count -gt 0)
                 {
@@ -1163,7 +1163,7 @@ class SVTResourceResolver: AzSKRoot {
                     }                 
                 }
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources,[ResourceTypeName]::SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
             {
                 if ($rsrcList.ServiceConnections -and $rsrcList.ServiceConnections.Count -gt 0)
                 {
@@ -1177,7 +1177,7 @@ class SVTResourceResolver: AzSKRoot {
                     }                  
                 }
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources,[ResourceTypeName]::SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
             {
                 if ($rsrcList.AgentPools -and $rsrcList.AgentPools.Count -gt 0)
                 {
@@ -1191,7 +1191,7 @@ class SVTResourceResolver: AzSKRoot {
                     }                 
                 }
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources,[ResourceTypeName]::SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
             {
                 if ($rsrcList.VariableGroups -and $rsrcList.VariableGroups.Count -gt 0)
                 {
@@ -1208,7 +1208,7 @@ class SVTResourceResolver: AzSKRoot {
             #TODO: Remove this try catch in 2110
             try
             {
-                if ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::All))
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))
                 {
                     if ($rsrcList.Repositories -and $rsrcList.Repositories.Count -gt 0)
                     {
@@ -1221,7 +1221,7 @@ class SVTResourceResolver: AzSKRoot {
                         }                      
                     }
                 }
-                if ($this.ResourceTypeName -in ([ResourceTypeName]::Feed, [ResourceTypeName]::All))
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::Feed, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))
                 {
                     if ($rsrcList.Feeds -and $rsrcList.Feeds.Count -gt 0)
                     {
@@ -1234,7 +1234,7 @@ class SVTResourceResolver: AzSKRoot {
                         }                     
                     }
                 }
-                if ($this.ResourceTypeName -in ([ResourceTypeName]::SecureFile, [ResourceTypeName]::All))
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::SecureFile, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))
                 {
                     if ($rsrcList.SecureFiles -and $rsrcList.SecureFiles.Count -gt 0)
                     {
@@ -1247,7 +1247,7 @@ class SVTResourceResolver: AzSKRoot {
                         }                    
                     }
                 }
-                if ($this.ResourceTypeName -in ([ResourceTypeName]::Environment, [ResourceTypeName]::All))
+                if ($this.ResourceTypeName -in ([ResourceTypeName]::Environment, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))
                 {
                     if ($rsrcList.Environments -and $rsrcList.Environments.Count -gt 0)
                     {

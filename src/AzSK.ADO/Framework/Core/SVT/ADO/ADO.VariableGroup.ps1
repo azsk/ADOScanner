@@ -30,6 +30,7 @@ class VariableGroup: ADOSVTBase
             if([Helpers]::CheckMember($responseObj[0],"authorized") -and $responseObj[0].authorized -eq $true )
             {
                 $isSecretFound = $false
+                $secretVarList = @();
 
                 # Check if variable group has any secret or linked to KV
                 if ($this.VarGrp.Type -eq 'AzureKeyVault')
@@ -42,6 +43,7 @@ class VariableGroup: ADOSVTBase
                         if([Helpers]::CheckMember($this.VarGrp.variables.$($_.Name),"isSecret") -and ($this.VarGrp.variables.$($_.Name).isSecret -eq $true))
                         {
                             $isSecretFound = $true
+                            $secretVarList += $_.Name
                         }
                     }
                 }
@@ -49,15 +51,18 @@ class VariableGroup: ADOSVTBase
                 if ($isSecretFound -eq $true)
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Variable group contains secrets accessible to all pipelines.");
+                    $controlResult.AdditionalInfoInCSV = "SecretVarsList: $($secretVarList -join '; ')";
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "Variable group does not contain secret.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
             }
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Variable group is not accessible to all pipelines.");
+                $controlResult.AdditionalInfoInCSV += "NA"
             }
 
         }
@@ -315,9 +320,12 @@ class VariableGroup: ADOSVTBase
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $backupDataObject;
                     }
+                    $formatedRestrictedGroups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role }
+                    $controlResult.AdditionalInfoInCSV = ($formatedRestrictedGroups -join '; ' )
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
                 $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$( $restrictedBroaderGroupsForVarGrp| FT | out-string)");
             }
@@ -437,7 +445,7 @@ class VariableGroup: ADOSVTBase
                             if ($this.checkInheritedPermissionsPerVarGrp -eq $false) {
                                 $responseObj = $responseObj  | where-object { $_.access -ne "inherited" }
                             }
-                            $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                            $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}}, @{Name="Id"; Expression = {$_.identity.id}});
                         }
 
                         # Checking whether the broader groups have User/Admin permissions
@@ -453,10 +461,20 @@ class VariableGroup: ADOSVTBase
                             $controlResult.AddMessage("`nList of broader groups: ",$($restrictedGroups | FT | Out-String))
                             $controlResult.AddMessage("`nList of variables with secret: ",$secretVarList)
                             $controlResult.SetStateData("List of broader groups: ", $restrictedGroups)
+
+                            if ($this.ControlFixBackupRequired) {
+                                #Data object that will be required to fix the control
+                                $controlResult.BackupControlState = $restrictedGroups;
+                            }
+
+
+                            $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role } 
+                            $controlResult.AdditionalInfoInCSV = $($groups -join '; ')+"; SecretVarsList: $($secretVarList -join '; ')";
                         }
                         else
                         {
                             $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to variable group.");
+                            $controlResult.AdditionalInfoInCSV += "NA"
                         }
 
                         $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' and should not have user/administrator privileges: `n$( $restrictedBroaderGroupsForVarGrp| FT | out-string)");
@@ -464,11 +482,13 @@ class VariableGroup: ADOSVTBase
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No secrets found in variable group.");
+                        $controlResult.AdditionalInfoInCSV += "NA"
                     }
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No variables found in variable group.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
             }
             else
@@ -481,6 +501,63 @@ class VariableGroup: ADOSVTBase
             $controlResult.LogException($_)
         }
 
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupAccessForVarGrpWithSecretsAutomatedFix ([ControlResult] $controlResult) 
+    {
+        try 
+        {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $body = "["
+
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {                    
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                        {
+                            "userId": "$($identity.id)",
+                            "roleName": "Reader"                                                   
+                        }
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {                    
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                        {
+                            "userId": "$($identity.id)",
+                            "roleName": "$($identity.role)"                            
+                        }
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+            }            
+            $body += "]"
+            #Put request
+
+            $url = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.VarGrpId);          
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+			$webRequestResult = Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -Body $body							    
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
+            $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }        
         return $controlResult;
     }
 }
