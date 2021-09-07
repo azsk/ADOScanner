@@ -6,6 +6,7 @@ class CommonSVTControls: ADOSVTBase {
     hidden [string] $checkInheritedPermissionsSecureFile = $false
     hidden [string] $checkInheritedPermissionsEnvironment = $false
     hidden [object] $repoInheritePermissions = @{};
+    hidden [PSObject] $excessivePermissionBits = @(1)
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
@@ -15,6 +16,10 @@ class CommonSVTControls: ADOSVTBase {
 
         if ([Helpers]::CheckMember($this.ControlSettings, "Environment.CheckForInheritedPermissions") -and $this.ControlSettings.Environment.CheckForInheritedPermissions) {
             $this.checkInheritedPermissionsEnvironment = $true
+        }
+        
+        if ($this.ControlSettings.Repo.CheckForInheritedPermissions) {
+            $this.excessivePermissionBits = @(1,3)
         }
     }
 
@@ -83,6 +88,121 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.LogException($_)
         }
        return $controlResult
+    }
+    hidden [ControlResult] CheckBroaderGroupAccessOnBranch([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $isControlPassing = $true
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $broaderGroups = $this.ControlSettings.Repo.RestrictedBroaderGroupsForBranch
+            $excessivePermissions = $this.ControlSettings.Repo.ExcessivePermissionsForBranch
+            $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+            $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+            $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceGroupName;
+            #for all branches
+            $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads/"            
+            $excessivePermissionsListOnAllBranches = $this.CheckPermsOnBranch($url,$inputBody,$projectId,$null)
+            if ($null -ne $excessivePermissionsListOnAllBranches -and $excessivePermissionsListOnAllBranches.count -gt 0) {
+                $isControlPassing = $false        
+                $controlResult.AddMessage([VerificationResult]::Failed, "Broader groups have excessive permissions on 'all branch' level of the repository.");
+                $formattedGroupsData = $excessivePermissionsListOnAllBranches | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
+                $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
+                $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
+                $controlResult.AdditionalInfo += "List of excessive permissions on which contributors have access:  $($excessivePermissionsListOnAllBranches.Group).";                       
+            }
+            else {
+                $controlResult.AddMessage("Broader Groups do not have excessive permissions on 'all branch' level of the repository.");
+            }
+
+            $individualBranches = $this.ControlSettings.Repo.TestBranches
+            $individualBranches | foreach {
+                $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads^$($_)/"
+                $excessivePermissionsListOnBranch = $this.CheckPermsOnBranch($url,$inputBody,$projectId,$_)
+                if ($null -ne $excessivePermissionsListOnBranch -and $excessivePermissionsListOnBranch.count -gt 0) {
+                    if($isControlPassing){
+                        $isControlPassing = $false
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Broader groups have excessive permissions on '$($_)' branch of the repository.");
+                    }
+                    else{
+                        $controlResult.AddMessage("Broader groups have excessive permissions on $($_) branch of the repository.");
+                    }                  
+                    
+                    $formattedGroupsData = $excessivePermissionsListOnBranch | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
+                    $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
+                    $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
+                    $controlResult.AdditionalInfo += "List of excessive permissions on which contributors have access:  $($excessivePermissionsListOnBranch.Group).";                       
+                }
+                else {
+                    $controlResult.AddMessage("Broader Groups do not have excessive permissions on '$($_)' branch of the repository.");
+                }
+            }
+
+            if($isControlPassing){
+                $controlResult.AddMessage([VerificationResult]::Passed, "Broader groups do not have excessive permissions on either 'all branch' level or individual branches in the repository");
+            } 
+            
+            $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT | Out-String)");
+            $controlResult.AddMessage("Following permissions are considered 'excessive':`n$($excessivePermissions | FT | Out-String)");
+        
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository permissions.");
+            $controlResult.LogException($_)
+        }
+       return $controlResult
+    }
+
+    hidden [Object] CheckPermsOnBranch($url,$inputBody,$projectId,$branch){
+        $broaderGroups = $this.ControlSettings.Repo.RestrictedBroaderGroupsForBranch
+        $excessivePermissions = $this.ControlSettings.Repo.ExcessivePermissionsForBranch
+        $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+        if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+            {
+                
+            $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $broaderGroups -contains $_.displayName})
+            $broaderGroupsList+=@($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'user' -and ($_.displayName -match "Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $_.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))" )})
+            if ($broaderGroupsList.Count) {
+                $groupsWithExcessivePermissionsList = @()
+                foreach ($broaderGroup in $broaderGroupsList) {
+                    $broaderGroupInputbody = "{'contributionIds':['ms.vss-admin-web.security-view-permissions-data-provider'],'dataProviderContext':{'properties':{'subjectDescriptor':'','permissionSetId':'2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87','permissionSetToken':'','accountName':'','sourcePage':{'routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'PrivateProjectWithRepo','adminPivot':'repositories','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                    $broaderGroupInputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceGroupName;
+                    if($null -eq $branch){
+                        $broaderGroupInputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads/"
+                    }
+                    else {
+                        $broaderGroupInputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads^$($branch)/"
+                    }
+                    
+                    $broaderGroupInputbody.dataProviderContext.properties.subjectDescriptor = $broaderGroup.descriptor
+                    $broaderGroupResponseObj = @([WebRequestHelper]::InvokePostWebRequest($url, $broaderGroupInputbody));
+                    $broaderGroupRBACObj = @($broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions)
+                    $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
+                    $excessivePermissionsPerGroup = @()
+                    $excessivePermissionList | ForEach-Object {                                
+                        if ([Helpers]::CheckMember($_, "effectivePermissionValue")) {
+                            if ($this.excessivePermissionBits -contains $_.effectivePermissionValue) {
+                                $excessivePermissionsPerGroup += $_
+                            }
+                        }
+                    }
+                    if ($excessivePermissionsPerGroup.Count -gt 0) {
+                        $excessivePermissionsGroupObj = @{}
+                        $excessivePermissionsGroupObj['Group'] = $broaderGroup.displayName
+                        $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join ', ')                            
+                        $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
+                    }
+                }
+                return $groupsWithExcessivePermissionsList;                
+
+            }
+            else{
+                return $null;
+            }
+        }
+        return $null;
     }
 
     hidden [ControlResult] CheckRepoRBACAccess([ControlResult] $controlResult) {

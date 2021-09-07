@@ -369,7 +369,7 @@
       "User"
     ],
     "CheckForInheritedPermissions": false
-  },
+  },  
   "WorkItems":{
     "ThreshHoldDaysForWorkItemInactivity":180
   },
@@ -497,6 +497,21 @@
       "Contribute",
       "Delete repository",
       "Manage permissions"
+    ],
+    "RestrictedBroaderGroupsForBranch":[
+      "Project Collection Valid Users",
+      "Project Collection Build Service",
+      "Project Collection Build Service Accounts",
+      "Project Build Service"
+    ],
+    "TestBranches":[
+      "main",
+      "master",
+      "develop"
+    ],
+    "ExcessivePermissionsForBranch":[
+      "Contribute",
+      "Bypass policies when pushing"
     ],
     "CheckForInheritedPermissions": false
   },
