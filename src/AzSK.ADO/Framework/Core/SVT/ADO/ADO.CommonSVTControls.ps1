@@ -5,7 +5,9 @@ class CommonSVTControls: ADOSVTBase {
     #hidden [PSObject] $ProjectId;
     hidden [string] $checkInheritedPermissionsSecureFile = $false
     hidden [string] $checkInheritedPermissionsEnvironment = $false
+    hidden [string] $checkInheritedPermissionsRepo = $false
     hidden [object] $repoInheritePermissions = @{};
+    hidden [PSObject] $excessivePermissionBitsForRepo = @(1)
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
@@ -15,6 +17,12 @@ class CommonSVTControls: ADOSVTBase {
 
         if ([Helpers]::CheckMember($this.ControlSettings, "Environment.CheckForInheritedPermissions") -and $this.ControlSettings.Environment.CheckForInheritedPermissions) {
             $this.checkInheritedPermissionsEnvironment = $true
+        }
+
+        if ([Helpers]::CheckMember($this.ControlSettings, "Repo.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions) {
+            #allow permission bit for inherited permission is '3'
+            $this.checkInheritedPermissionsRepo = $true
+            $this.excessivePermissionBitsForRepo = @(1,3)
         }
     }
 
@@ -722,26 +730,79 @@ class CommonSVTControls: ADOSVTBase {
 
             if($repositoryIdentities.Count -gt 0)
             {
+                $excessivePermissions = $this.ControlSettings.Repo.RestrictedRolesForBuildSvcAccountsInRepo
+                $groupPermissionsBody = '{"contributionIds":["ms.vss-admin-web.security-view-permissions-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","permissionSetId":"2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","accountName":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $groupPermissionsBody.dataProviderContext.properties.sourcePage.url = $refererUrl
+                $groupPermissionsBody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceGroupName;
+                $groupPermissionsBody.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.Project.id)/$($this.ResourceContext.ResourceDetails.id)"
                 $buildServieAccountOnRepo = @()
+                $groupsWithExcessivePermissionsList = @()
                 foreach ($identity in $repositoryIdentities)
                 {
-                    if ($identity.displayName -like '*Project Collection Build Service Accounts' -or $identity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))")
-                    {
-                        $buildServieAccountOnRepo += $identity.displayName;
+                    if ($identity.displayName -like '*Project Collection Build Service Accounts' -or $identity.displayName -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $identity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))") {
+                        $groupPermissionsBody.dataProviderContext.properties.subjectDescriptor = $identity.descriptor    
+                        $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $groupPermissionsBody);
+                        $buildServiceAccountRbacObj = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions)
+                        $excessivePermissionList = $buildServiceAccountRbacObj | Where-Object { $_.displayName -in $excessivePermissions }
+                        $excessivePermissionsPerGroup = @()
+                        $excessivePermissionList | ForEach-Object {
+                            #effectivePermissionValue equals to 1 implies edit build pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
+                            if ([Helpers]::CheckMember($_, "effectivePermissionValue")) {
+                                if ($this.excessivePermissionBitsForRepo -contains $_.effectivePermissionValue) {
+                                    $excessivePermissionsPerGroup += $_
+                                }
+                            }
+                        }   
+                        if ($excessivePermissionsPerGroup.Count -gt 0) {
+                            $groupFoundWithExcessivePermissions = $true
+                            if ($identity.displayName -like '*Project Collection Build Service Accounts') {
+                                $groupFoundWithExcessivePermissions = $false
+                                $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($this.OrganizationContext.OrganizationName);                                
+                                $postbody=@'
+                                {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/_settings/groups?subjectDescriptor={1}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
+'@
+                                $postbody=$postbody.Replace("{0}",$identity.descriptor )
+                                $postbody=$postbody.Replace("{1}",$this.OrganizationContext.OrganizationName)
+                                $rmContext = [ContextHelper]::GetCurrentContext();
+                                $user = "";
+                                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))   
+                                try {
+                                    $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
+                                    if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
+                                    {
+                                        $buildServiceAccountIdentities = $response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
+                                        foreach ($eachIdentity in $buildServiceAccountIdentities) {
+                                            if ($eachIdentity.displayName -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $identity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))") {
+                                                $groupFoundWithExcessivePermissions = $true                                          
+                                            }                                        
+                                        }
+                                    } 
+                                }    
+                                catch {}                    
+                            }
+                            if ($groupFoundWithExcessivePermissions -eq $true) {
+                                $excessivePermissionsGroupObj = @{}
+                                $excessivePermissionsGroupObj['Group'] = $identity.displayName
+                                $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join ', ')
+                                $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
+                            }
+                        }                 
                     }
+
                 }
-                $restrictedBuildSVCAcctCount = $buildServieAccountOnRepo.Count;
-                if($restrictedBuildSVCAcctCount -gt 0)
-                {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of restricted Build Service groups that have access to repository: $($restrictedBuildSVCAcctCount)")
-                    $controlResult.AddMessage("`nList of 'Build Service' Accounts: ", $($buildServieAccountOnRepo | FT | Out-String))
-                    $controlResult.SetStateData("List of 'Build Service' Accounts: ", $buildServieAccountOnRepo)
-                    $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)";
+                if ($groupsWithExcessivePermissionsList.count -gt 0) {
+                    #TODO: Do we need to put state object?
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of restricted Build Service groups that have access to repository: $($groupsWithExcessivePermissionsList.count)");
+                    $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
+                    $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
+                    $controlResult.AddMessage("`nList of 'Build Service' Accounts: $formattedBroaderGrpTable");
+                    $controlResult.SetStateData("List of 'Build Service' Accounts: ", $formattedGroupsData)
+                    $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($groupsWithExcessivePermissionsList.Count)";
+
                 }
-                else{
+                else {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the repository.");
                 }
-
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch repository permission details.");
