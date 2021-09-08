@@ -613,6 +613,7 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckCrossProjectSharing([ControlResult] $controlResult)
 	{
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         if ([ServiceConnection]::IsOAuthScan -eq $true)
         {
             if($this.serviceendpointsobj -and [Helpers]::CheckMember($this.serviceendpointsobj, "serviceEndpointProjectReferences") )
@@ -624,10 +625,11 @@ class ServiceConnection: ADOSVTBase
                     $stateData = @();
                     $stateData += $svcProjectReferences | Select-Object name, projectReference
 
-                    $controlResult.AddMessage("Total number of projects that have access to the service connection: ", ($stateData | Measure-Object).Count);
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Review the list of projects that have access to the service connection: ", $stateData);
+                    $controlResult.AddMessage("`nCount of projects that have access to the service connection: $($stateData.Count)") ;
+                    $display = $stateData.projectReference | FT @{l='ProjectId';e={$_.id}},@{l='ProjectName';e={$_.name}}  -AutoSize | Out-String -Width 512
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Review the list of projects that have access to the service connection: ", $display);
                     $controlResult.SetStateData("List of projects that have access to the service connection: ", $stateData);
-                    $controlResult.AdditionalInfo += "Total number of projects that have access to the service connection: " + ($stateData | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Count of projects that have access to the service connection: $($stateData.Count)";
                     $controlResult.AdditionalInfo += "List of projects that have access to the service connection: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
                 }
                 else
@@ -646,15 +648,16 @@ class ServiceConnection: ADOSVTBase
             {
                 #Get the project list which are accessible to the service connection.
                 $svcProjectReferences = $this.ServiceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences
-                if (($svcProjectReferences | Measure-Object).Count -gt 1)
+                if (($svcProjectReferences.Count -gt 1))
                 {
                     $stateData = @();
                     $stateData += $svcProjectReferences | Select-Object name, projectReference
 
-                    $controlResult.AddMessage("Total number of projects that have access to the service connection: ", ($stateData | Measure-Object).Count);
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Review the list of projects that have access to the service connection: ", $stateData);
+                    $controlResult.AddMessage("`nCount of projects that have access to the service connection: $($stateData.Count)") ;
+                    $display = $stateData.projectReference | FT @{l='ProjectId';e={$_.id}},@{l='ProjectName';e={$_.name}}  -AutoSize | Out-String -Width 512
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Review the list of projects that have access to the service connection:`n ", $display);
                     $controlResult.SetStateData("List of projects that have access to the service connection: ", $stateData);
-                    $controlResult.AdditionalInfo += "Total number of projects that have access to the service connection: " + ($stateData | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Count of projects that have access to the service connection: $($stateData.Count)";
                     $controlResult.AdditionalInfo += "List of projects that have access to the service connection: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
                 }
                 else
