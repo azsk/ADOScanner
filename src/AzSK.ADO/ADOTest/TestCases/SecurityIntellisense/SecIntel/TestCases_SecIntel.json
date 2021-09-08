@@ -1,0 +1,32 @@
+{
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "Test-Install-SecIntel-On-VS2015",
+        "Priority": "1",
+        "Feature": "SecurityIntellisense",
+        "ModuleName": "SecIntel",
+        "Type": "BVT",
+        "Enabled":  false,
+        "TestMethod": "",
+        "ManualSteps":  "Install the SecIntel extension on VS2015 and verify whether It installed properly or not.",
+        "AutomationStatus": "Manual",
+        "Description": "Install 'security Intellisense-Preview' extension on Visual Studio 2015."
+        
+      },
+      {
+        "TestCaseID": "Test-Install-SecIntel-On-VS2017",
+        "Priority": "1",
+        "Feature": "SecurityIntellisense",
+        "ModuleName": "SecIntel",
+        "Type": "BVT",
+        "Enabled": false,
+        "TestMethod": "",
+        "ManualSteps":  "Install the SecIntel extension on VS2017 and verify whether It installed properly or not.",
+        "AutomationStatus": "Manual",
+        "Description": "Install SecIntel extension from https://marketplace.visualstudio.com/items?itemName=AzSKTeam.SecurityIntelliSense-Preview on Visual Studio 2017."
+        
+      }
+    ]
+  }
+}

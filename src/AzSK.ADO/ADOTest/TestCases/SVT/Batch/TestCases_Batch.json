@@ -1,0 +1,31 @@
+{
+
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_Batch_Verify_All_Compliant",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "Batch",
+        "TemplateFileName": "Template_Batch_All_Compliant.json",
+        "BaselineOutput": "BaseControlStatus_Batch_All_Compliant.csv",
+        "PresetMethods": "",
+        "Enabled":  false,
+        "Type": "FVT",
+        "Description": "Verify SVTs on a compliant Batch account."
+      },
+      {
+        "TestCaseID": "TC_Batch_Verify_All_Non_Compliant",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "Batch",
+        "Enabled":  false,
+        "TemplateFileName": "Template_Batch_All_Non_Compliant.json",
+        "BaselineOutput": "BaseControlStatus_Batch_All_Non_Compliant.csv",
+        "PresetMethods": "",
+        "Type": "FVT",
+        "Description": "Verify SVTs on a non compliant Batch account."
+      }
+    ]
+  }
+}

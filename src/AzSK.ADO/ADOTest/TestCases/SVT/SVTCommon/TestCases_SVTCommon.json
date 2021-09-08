@@ -1,0 +1,66 @@
+{
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "Test_SVT_DefaultParams",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "SVTCommon",
+        "Type": "BVT",
+        "Description": "Run 'Get-AzSKAzureServicesSecurityStatus' command with only mandatory parameters",
+        "Enabled": false,
+        "TestMethod": "TestSVTDefaultParams"
+      },
+      {
+        "TestCaseID": "Test_SVT_TagParamSet",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "SVTCommon",
+        "Type": "BVT",
+        "Description": "Run 'Get-AzSKAzureServicesSecurityStatus' command with Tag parameter set",
+        "Enabled": false,
+        "TestMethod": "TestSVTTagParamSet"
+      },
+      {
+        "TestCaseID": "Test_SVT_ResourceParamSet",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "SVTCommon",
+        "Type": "BVT",
+        "Description": "Run 'Get-AzSKAzureServicesSecurityStatus' command with resource filter parameters",
+        "Enabled": false,
+        "TestMethod": "TestSVTResourceParamSet"
+      },
+      {
+        "TestCaseID": "Test_SVTSubscriptionCoreCommonCommand",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "SVTCommon",
+        "Type": "BVT",
+        "Description": "Run 'Get-AzSKControlsStatus' command with resource filter parameters",
+        "Enabled": false,
+        "TestMethod": "TestSVTSubscriptionCoreCommonCommand"
+      },
+      {
+        "TestCaseID": "Test_SetOnlinePolicy",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "SVTCommon",
+        "Type": "BVT",
+        "Description": "Run 'Set-AzSKPolicySettings' to check if online policy is set successfully",
+        "Enabled": false,
+        "TestMethod": "TestSetOnlinePolicy"
+      },
+      {
+        "TestCaseID": "Test_DisableOnlinePolicy",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "SVTCommon",
+        "Type": "BVT",
+        "Description": "Run 'Set-AzSKPolicySettings' to check if online policy is getting disabled successfully",
+        "Enabled": false,
+        "TestMethod": "TestDisableOnlinePolicy"
+      }
+    ]
+  }
+}

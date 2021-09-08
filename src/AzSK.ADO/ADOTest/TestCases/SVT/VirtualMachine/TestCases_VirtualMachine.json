@@ -1,0 +1,19 @@
+{
+
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_VirtualMachine_01",
+        "Enabled": false,
+        "Priority": "0", 
+        "Feature":"SVT",
+        "ModuleName":"VirtualMachine",      
+        "ParamFileName": "",
+        "TemplateFileName": "",
+        "BaselineOutput": "",     
+        "Type": "FVT", 
+        "Description": ""
+      }
+    ]
+  }
+}

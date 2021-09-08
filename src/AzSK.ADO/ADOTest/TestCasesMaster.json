@@ -1,0 +1,2287 @@
+[
+    {
+        "TestCaseID":  "Test-Set-AzSKOMSSettings",
+        "Priority":  "1",
+        "Feature":  "AlertMonitoring",
+        "ModuleName":  "OMS",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "",
+        "TestMethod":  "TestSetAzSKOMSSettings",
+        "Description":  "Command should be able to set OMS settings."
+    },
+    {
+        "TestCaseID":  "Test-Set-AzSKOMSSettings-WithSource",
+        "Priority":  "1",
+        "Feature":  "AlertMonitoring",
+        "ModuleName":  "OMS",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "",
+        "TestMethod":  "TestSetAzSKOMSSettingsWithSource",
+        "Description":  "Command should be able to set OMS settings with source."
+    },
+    {
+        "TestCaseID":  "Test-Set-AzSKOMSSettings-Disable",
+        "Priority":  "1",
+        "Feature":  "AlertMonitoring",
+        "ModuleName":  "OMS",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "",
+        "TestMethod":  "TestSetAzSKOMSSettingsDisable",
+        "Description":  "Command should be able to disbale OMS settings."
+    },
+    {
+        "TestCaseID":  "Test-Install-AzSKOMSSolution-All",
+        "Priority":  "1",
+        "Feature":  "AlertMonitoring",
+        "ModuleName":  "OMS",
+        "Type":  "BVT",
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "",
+        "Enabled":  false,
+        "TestMethod":  "TestInstallAzSKOMSSolutionAll",
+        "Description":  "Command should install OMS sample view, queries and alerts."
+    },
+    {
+        "TestCaseID":  "Test-Install-AzSKOMSSolution-Queries",
+        "Priority":  "1",
+        "Feature":  "AlertMonitoring",
+        "ModuleName":  "OMS",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "",
+        "TestMethod":  "TestInstallAzSKOMSSolutionQueries",
+        "Description":  "Command should install only OMS queries."
+    },
+    {
+        "TestCaseID":  "Test-Install-AzSKOMSSolution-Alerts",
+        "Priority":  "1",
+        "Feature":  "AlertMonitoring",
+        "ModuleName":  "OMS",
+        "Type":  "FVT",
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "",
+        "Enabled":  false,
+        "TestMethod":  "TestInstallAzSKOMSSolutionAlerts",
+        "Description":  "Command should install only OMS alerts."
+    },
+    {
+        "TestCaseID":  "Test-Install-AzSKOMSSolution-SampleView",
+        "Priority":  "1",
+        "Feature":  "AlertMonitoring",
+        "ModuleName":  "OMS",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "",
+        "TestMethod":  "TestInstallAzSKOMSSolutionSampleView",
+        "Description":  "Command should install only OMS sample view."
+    },
+    {
+        "TestCaseID":  "Test-Uninstall-AzSKOMSetup",
+        "Priority":  "1",
+        "Feature":  "AlertMonitoring",
+        "ModuleName":  "OMS",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "",
+        "TestMethod":  "TestUninstallAzSKOMSetup",
+        "Description":  "Command should uninstall OMS queries and alerts."
+    },
+    {
+        "TestCaseID":  "Test_ARMChecker_Error_On_FileSkip",
+        "Priority":  "1",
+        "Feature":  "ARMChecker",
+        "ModuleName":  "ARMChecker",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "ErrorOnFileSkip",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "ARMChecker should give error if any file is skipped."
+    },
+    {
+        "TestCaseID":  "Test_ARMChecker_Skip_Controls_From_File",
+        "Priority":  "1",
+        "Feature":  "ARMChecker",
+        "ModuleName":  "ARMChecker",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "SkipControlsFromFile",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "ARMChecker should skip all failed/verified controls from scan."
+    },
+    {
+        "TestCaseID":  "Test_ARMChecker_Validate_Compliant_Templates",
+        "Priority":  "1",
+        "Feature":  "ARMChecker",
+        "ModuleName":  "ARMChecker",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "ValidateCompliantTemplates",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "ARMChecker should return \u0027Passed\u0027 status for all controls."
+    },
+    {
+        "TestCaseID":  "Test_ARMChecker_With_Multiple_Recourses",
+        "Priority":  "1",
+        "Feature":  "ARMChecker",
+        "ModuleName":  "ARMChecker",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "ScanMultiResourceTemplates",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "ARMChecker should be able to scan template with multiple resources."
+    },
+    {
+        "TestCaseID":  "Test_ARMChecker_With_Recurse_Switch",
+        "Priority":  "1",
+        "Feature":  "ARMChecker",
+        "ModuleName":  "ARMChecker",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "ValidateRecurseSwitch",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "ARM Checker should scan the files recursively."
+    },
+    {
+        "TestCaseID":  "Test_ARMChecker_Without_Recurse_Switch",
+        "Priority":  "1",
+        "Feature":  "ARMChecker",
+        "ModuleName":  "ARMChecker",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "ValidateFalseRecurseSwitch",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "ARM Checker should scan the files at root level only."
+    },
+    {
+        "TestCaseID":  "Test_ARMChecker_Validate_Exclude_Files",
+        "Priority":  "1",
+        "Feature":  "ARMChecker",
+        "ModuleName":  "ARMChecker",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "ValidateExcludeFiles",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "ARMChecker should skip all file(s) provided as list to -ExcludeFiles parameter."
+    },
+    {
+        "TestCaseID":  "Test_ARMChecker_Use_Default_Parameter_Value",
+        "Priority":  "1",
+        "Feature":  "ARMChecker",
+        "ModuleName":  "ARMChecker",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "ValidateDefaultParameter",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "ARM Checker should respect default value of parameters provided within ARM template."
+    },
+    {
+        "TestCaseID":  "Test_ARMChecker_Use_External_Parameter_File",
+        "Priority":  "1",
+        "Feature":  "ARMChecker",
+        "ModuleName":  "ARMChecker",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "ValidateExternalParameterFile",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "ARM Checker should support external parameter file during scan."
+    },
+    {
+        "TestCaseID":  "Test_ARMChecker_Scan_Baseline_Controls",
+        "Priority":  "1",
+        "Feature":  "ARMChecker",
+        "ModuleName":  "ARMChecker",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "ValidateBaselineControls",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "ARM Checker should scan only baseline controls if \u0027UBC\u0027 flag is enabled."
+    },
+    {
+        "TestCaseID":  "Test_ARMChecker_Scan_Preview_Baseline_Controls",
+        "Priority":  "1",
+        "Feature":  "ARMChecker",
+        "ModuleName":  "ARMChecker",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "ValidatePreviewBaselineControls",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "ARM Checker should scan only preview baseline controls if \u0027UPBC\u0027 flag is enabled."
+    },
+    {
+        "TestCaseID":  "Test_ARMChecker_Scan_Both_UBC_and_UPBC_Controls",
+        "Priority":  "1",
+        "Feature":  "ARMChecker",
+        "ModuleName":  "ARMChecker",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "ValidateBothUBCandUPBCControls",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "ARM Checker should scan both baseline and preview baseline controls if \u0027UPBC\u0027 and \u0027UBC\u0027 both flags are enabled."
+    },
+    {
+        "TestCaseID":  "Test_GAI_Control_Information",
+        "Priority":  "1",
+        "Feature":  "AzSKInfo",
+        "ModuleName":  "ControlInfo",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "",
+        "ManualSteps":  "",
+        "AutomationStatus":  "Automated",
+        "Description":  "Test AzSK supported control list given by GAI ControlInfo"
+    },
+    {
+        "TestCaseID":  "Test_GAI_Control_Information_Baseline",
+        "Priority":  "1",
+        "Feature":  "AzSKInfo",
+        "ModuleName":  "ControlInfo",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "",
+        "ManualSteps":  "",
+        "AutomationStatus":  "Automated",
+        "Description":  "Test GAI ControlInfo with baseline list"
+    },
+    {
+        "TestCaseID":  "GAI_Control_Information_PreviewBaseline",
+        "Priority":  "1",
+        "Feature":  "AzSKInfo",
+        "ModuleName":  "ControlInfo",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "",
+        "ManualSteps":  "",
+        "AutomationStatus":  "Automated",
+        "Description":  "Test GAI ControlInfo with preview baseline list"
+    },
+    {
+        "TestCaseID":  "GAI_Control_Information_UBC_UPBC",
+        "Priority":  "1",
+        "Feature":  "AzSKInfo",
+        "ModuleName":  "ControlInfo",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "",
+        "ManualSteps":  "",
+        "AutomationStatus":  "Automated",
+        "Description":  "Test GAI ControlInfo with preview and standard baseline list"
+    },
+    {
+        "TestCaseID":  "GAI_Host_information",
+        "Priority":  "1",
+        "Feature":  "AzSKInfo",
+        "ModuleName":  "ControlInfo",
+        "Type":  "SVT",
+        "Enabled":  true,
+        "TestMethod":  "GAI_Host_information",
+        "ManualSteps":  "",
+        "AutomationStatus":  "Automated",
+        "Description":  "Test AzSK GAI HostInfo"
+    },
+    {
+        "TestCaseID":  "Test-Run-CICDTask-On-Hosted-Agent",
+        "Priority":  "1",
+        "Feature":  "CICDPipeline",
+        "ModuleName":  "CICD",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "",
+        "ManualSteps":  "Add AzSK_SVT Task to your release definition.From agent phase select Hosted agent. Save and queue the release.",
+        "AutomationStatus":  "Manual",
+        "Description":  "Verify if CICD task is running successfully on a hosted agent."
+    },
+    {
+        "TestCaseID":  "Test-Run-CICDTask-On-NonHosted-Agent",
+        "Priority":  "1",
+        "Feature":  "CICDPipeline",
+        "ModuleName":  "CICD",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "",
+        "ManualSteps":  "Add AzSK_SVT Task to your release definition.Create a non-hosted agent.From agent phase select your non-Hosted agent. Save and queue the release",
+        "AutomationStatus":  "Manual",
+        "Description":  "Verify if CICD task is running successfully on a non-hosted agent."
+    },
+    {
+        "TestCaseID":  "Test-Run-CICDTask-On-HostedVS2017-Agent",
+        "Priority":  "1",
+        "Feature":  "CICDPipeline",
+        "ModuleName":  "CICD",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "",
+        "ManualSteps":  "Add AzSK_SVT Task to your release definition.From agent phase select Hosted VS2017 agent. Save and queue the release.",
+        "AutomationStatus":  "Manual",
+        "Description":  "Verify if CICD task is running successfully on a hosted agent."
+    },
+    {
+        "TestCaseID":  "Test-Install-CA-Internal-Latest-Module-Solo",
+        "Priority":  "1",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "New",
+        "Enabled":  true,
+        "TestMethod":  "TestICAInternalLatestModuleSolo",
+        "PresetMethods":  "RunInstallCAInternalPrerequisiteSolo;TriggerCAScanRunbookSolo",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "Install CA --\u003e Trigger Runbook --\u003e Verify AzSK Module status and version",
+        "Description":  "Test AzSK module version in CA on fresh installation."
+    },
+    {
+        "TestCaseID":  "Test-Install-CA-Internal-Runbooks-Solo",
+        "Priority":  "1",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "New",
+        "Enabled":  true,
+        "TestMethod":  "TestICAInternalRunbooksSolo",
+        "PresetMethods":  "RunInstallCAInternalPrerequisiteSolo",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "Install CA --\u003e Verify all the expected runbooks are created.",
+        "Description":  "Test runbooks created in CA on fresh installation."
+    },
+    {
+        "TestCaseID":  "Test-Install-CA-Internal-Schedules-Solo",
+        "Priority":  "1",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "New",
+        "Enabled":  true,
+        "TestMethod":  "TestICAInternalSchedulesSolo",
+        "PresetMethods":  "RunInstallCAInternalPrerequisiteSolo;TriggerCAScanRunbookSolo",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "Install CA --\u003e Verify all the expected schedules are created.",
+        "Description":  "Test schedules created in CA on fresh installation"
+    },
+    {
+        "TestCaseID":  "Test-Install-CA-Internal-SPN-RBAC-Access-Solo",
+        "Priority":  "1",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "New",
+        "Enabled":  true,
+        "TestMethod":  "TestICAInternalSPNAccessSolo",
+        "PresetMethods":  "RunInstallCAInternalPrerequisiteSolo",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "Install CA --\u003e Verify RunAsAccount SPN has \u0027Reader\u0027 access at subscription and \u0027Contributor\u0027 access at rg level.",
+        "Description":  "Test CA SPN RBAC access at subscription and rg level after fresh installation"
+    },
+    {
+        "TestCaseID":  "Test-CA-FullFlow-DefaultParams",
+        "Priority":  "1",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "TestCAFullFlowDefaultParams",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "Run Remove+Install+Update CA commands on subscription.",
+        "Description":  "This will test common flow of CA. Run Get+Remove+Install+Update CA commands on subscription."
+    },
+    {
+        "TestCaseID":  "Test-CA-Central-Multi-FullFlow-DefaultParams",
+        "Priority":  "1",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "TestCACentralMultiFullFlowDefaultParams",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "Run Remove+Install+Update CA commands on subscription in Central Scan mode (multiple Automation accounts option).",
+        "Description":  "This will test common flow of CA. Run Get+Remove+Install+Update CA commands on subscription in Central Scan mode (multiple Automation accounts option)."
+    },
+    {
+        "TestCaseID":  "Test-CA-FullFlow-AllParams",
+        "Priority":  "1",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "TestCAFullFlowAllParams",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "Run Install-CA followed by Update-CA command with maximum possible params.",
+        "Description":  "This will test complex scenarios in Update-CA."
+    },
+    {
+        "TestCaseID":  "Test-Remove-CA-DefaultParams",
+        "Priority":  "2",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "TestRemoveCADefaultParams",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "Run Install CA followed by Remove-CA with default params.",
+        "Description":  "This will test Remove-CA command with default params."
+    },
+    {
+        "TestCaseID":  "Test-Remove-CA-WithLogs",
+        "Priority":  "2",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "TestRemoveCAWithLogs",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "Run Install-CA followed by Remove-CA by adding switch param to remove storage reports too.",
+        "Description":  "This will test Remove-CA command with extra params."
+    },
+    {
+        "TestCaseID":  "Test-Install-CA-InvalidParameters",
+        "Priority":  "2",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "",
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "Please verify this test case manually until we have it automated.",
+        "Description":  "Run Install-AzSKContinuousAssurance command on subscription with 1 or 2 invalid parameters."
+    },
+    {
+        "TestCaseID":  "Test-Install-CA-InvalidSubscriptionId",
+        "Priority":  "2",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "",
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "Run Install-CA with invalid subscription Id.",
+        "Description":  "This will test Install-CA command with invalid subscription id."
+    },
+    {
+        "TestCaseID":  "Test-Update-CA-BeforeInstall",
+        "Priority":  "1",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "",
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "Run Install-CA followed by Update-CA. Check if proper user message is displayed.",
+        "Description":  "This will test whether Update-CA command displays proper message if CA is not installed already."
+    },
+    {
+        "TestCaseID":  "Test-Update-CA-InvalidSubscriptionId",
+        "Priority":  "2",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "",
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "Run Update-CA with invalid subscription id.",
+        "Description":  "This will test Update-CA command with invalid subscription id."
+    },
+    {
+        "TestCaseID":  "Test-Remove-CA-BeforeInstall",
+        "Priority":  "2",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "Run Remove-CA in the subscription where CA is not installed.",
+        "TestMethod":  "",
+        "Description":  "Remove command when CA account does not exist."
+    },
+    {
+        "TestCaseID":  "Test-Update-CA-RenewCertificate",
+        "Priority":  "2",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "TestUpdateCARenewCert",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "Run Update-CA with -RenewCertificate switch.",
+        "Description":  "This will test Update-CA command for certificate renewal."
+    },
+    {
+        "TestCaseID":  "Test-Update-CA-NewRunTimeAccount",
+        "Priority":  "2",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "TestUpdateNewRunTimeAccount",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "Run Update-CA with -NewRuntimeAccount switch.",
+        "Description":  "This will test Update-CA command for creating new runtime account."
+    },
+    {
+        "TestCaseID":  "Test-Update-CA-FixRunTimeAccount",
+        "Priority":  "2",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "TestUpdateFixRunTimeAccount",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "Run Update-CA with -FixRuntimeAccount switch.",
+        "Description":  "This will test Update-CA command for fixing missing permissions on the CA runtime account."
+    },
+    {
+        "TestCaseID":  "Test-Update-CA-FixModules",
+        "Priority":  "2",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "TestUpdateFixModules",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "Run Update-CA with -FixModules switch.",
+        "Description":  "This will test Update-CA command for fixing missing modules in the CA runtime account."
+    },
+    {
+        "TestCaseID":  "Test-Update-CA-AzureADAppName",
+        "Priority":  "2",
+        "Feature":  "ContinuousAssurance",
+        "ModuleName":  "ContinuousAssurance",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "TestUpdateAzureADAppName",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "Run Update-CA with -AzureADAppName switch.",
+        "Description":  "This will test Update-CA command for configuring CA account with the Azure AD app name."
+    },
+    {
+        "TestCaseID":  "Test-Install-SecIntel-On-VS2015",
+        "Priority":  "1",
+        "Feature":  "SecurityIntellisense",
+        "ModuleName":  "SecIntel",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "",
+        "ManualSteps":  "Install the SecIntel extension on VS2015 and verify whether It installed properly or not.",
+        "AutomationStatus":  "Manual",
+        "Description":  "Install \u0027security Intellisense-Preview\u0027 extension on Visual Studio 2015."
+    },
+    {
+        "TestCaseID":  "Test-Install-SecIntel-On-VS2017",
+        "Priority":  "1",
+        "Feature":  "SecurityIntellisense",
+        "ModuleName":  "SecIntel",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "",
+        "ManualSteps":  "Install the SecIntel extension on VS2017 and verify whether It installed properly or not.",
+        "AutomationStatus":  "Manual",
+        "Description":  "Install SecIntel extension from https://marketplace.visualstudio.com/items?itemName=AzSKTeam.SecurityIntelliSense-Preview on Visual Studio 2017."
+    },
+    {
+        "TestCaseID":  "Test-InstallAzSK-OSS",
+        "Priority":  "1",
+        "Feature":  "Setup",
+        "ModuleName":  "Installation",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "TestMethod":  "TestInstallAzSKOSS",
+        "ManualSteps":  "Run command \u0027Install-Module AzSK -Scope CurrentUser -AllowClobber\u0027. Verify if it installs OSS version of AzSK.",
+        "AutomationStatus":  "Manual",
+        "Description":  "Verify the command successfully installs the AzSK OSS version for a new user."
+    },
+    {
+        "TestCaseID":  "Test-InstallAzSK-Org",
+        "Priority":  "1",
+        "Feature":  "Setup",
+        "ModuleName":  "Installation",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "ManualSteps":  "Run command \u0027iwr \u0027https://aka.ms/azsk/install.ps1\u0027 -UseBasicParsing | iex\u0027. Verify if it installs Org version of AzSK.",
+        "AutomationStatus":  "Manual",
+        "TestMethod":  "TestAzSKOrgInstallation",
+        "Description":  "Verify the command successfully installs the AzSK Org version for a new user."
+    },
+    {
+        "TestCaseID":  "Test-UpdateAzSK",
+        "Priority":  "1",
+        "Feature":  "Setup",
+        "ModuleName":  "Installation",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "ManualSteps":  "Try installing AzSK on a machine having an earlier version of AzSK installed already. It should successfully install the newer version. ",
+        "AutomationStatus":  "Manual",
+        "TestMethod":  "TestUpdateAzSK",
+        "Description":  "Verify if you are able to install the AzSK successfully and required modules are installed on a machine having earlier version of AzSK."
+    },
+    {
+        "TestCaseID":  "Test-InstallAzSK-PreExisting-AzurePowershell",
+        "Priority":  "2",
+        "Feature":  "Setup",
+        "ModuleName":  "Installation",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "ManualSteps":  "Install Azure Powershell on your machine using the web platform installer. Then try instlling the AzSK. Verify that it is able to install all the modules successfully.",
+        "AutomationStatus":  "Manual",
+        "TestMethod":  "TestInstallAzSKOrg",
+        "Description":  "Verify if you are able to install the AzSK in case where system has pre-existing Azure Powershell modules which are installed via Web Platform Installer."
+    },
+    {
+        "TestCaseID":  "Test-UninstallAzSK",
+        "Priority":  "2",
+        "Feature":  "Setup",
+        "ModuleName":  "Installation",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "ManualSteps":  "First have the AzSK installed on your machine. Then run command \u0027Uninstall-Module AzSK\u0027. Verify if removes all the AzSK modules from your computer.",
+        "AutomationStatus":  "Manual",
+        "TestMethod":  "",
+        "Description":  "Verify if you are able to uninstall AzSK successfully."
+    },
+    {
+        "TestCaseID":  "Test-InstallAzSK-UnrestrictedPolicy",
+        "Priority":  "2",
+        "Feature":  "Setup",
+        "ModuleName":  "Installation",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "ManualSteps":  "Run command \u0027Set-ExecutionPolicy -ExecutionPolicy Unrestricted\u0027. Then run command \u0027Install-Module AzSK -Scope CurrentUser -AllowClobber\u0027. Verify if it installs all the AzSK modules successfully.",
+        "AutomationStatus":  "Manual",
+        "TestMethod":  "",
+        "Description":  "Verify if you are able to uninstall AzSK successfully."
+    },
+    {
+        "TestCaseID":  "Test-InstallAzSK-Az38",
+        "Priority":  "2",
+        "Feature":  "Setup",
+        "ModuleName":  "Installation",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "ManualSteps":  "First install AzureRM version 3.8 on your machine. Then install AzSK. Verify that it installs latest supported version of AzureRM along with AzSK successfully.",
+        "AutomationStatus":  "Manual",
+        "TestMethod":  "",
+        "Description":  "Verify if you are able to install AzSK successfully on a system having AzureRM version 3.8"
+    },
+    {
+        "TestCaseID":  "Test-InstallAzSK-Az41",
+        "Priority":  "2",
+        "Feature":  "Setup",
+        "ModuleName":  "Installation",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "ManualSteps":  "First install AzureRM version 4.1 on your machine. Then install AzSK. Verify that it installs AzSK successfully without installing the Azure RM again.",
+        "AutomationStatus":  "Manual",
+        "TestMethod":  "",
+        "Description":  "Verify if you are able to install AzSK successfully on a system having AzureRM version 4.1"
+    },
+    {
+        "TestCaseID":  "Test-InstallAzSK-Az42",
+        "Priority":  "2",
+        "Feature":  "Setup",
+        "ModuleName":  "Installation",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "ManualSteps":  "First install AzureRM version 4.2 on your machine. Then install AzSK. Verify that it installs Azure RM 4.1 along with AzSK successfully.",
+        "AutomationStatus":  "Manual",
+        "TestMethod":  "",
+        "Description":  "Verify if you are able to install AzSK successfully on a system having AzureRM version 4.2"
+    },
+    {
+        "TestCaseID":  "Test-InstallAzSK-AllSignedPolicy",
+        "Priority":  "2",
+        "Feature":  "Setup",
+        "ModuleName":  "Installation",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "ManualSteps":  "Run command \u0027Set-ExecutionPolicy -ExecutionPolicy AllSigned\u0027. Then run command \u0027Install-Module AzSK -Scope CurrentUser -AllowClobber\u0027. The dialogue should appear for changing policy to RemoteSigned. Verify that if the change is confirmed then it installs all the AzSK modules successfully.",
+        "AutomationStatus":  "Manual",
+        "TestMethod":  "",
+        "Description":  "Verify if you are able to install AzSK successfully on a system having execution policy set to AllSigned."
+    },
+    {
+        "TestCaseID":  "Test-InstallAzSK-RemoteSignedPolicy",
+        "Priority":  "2",
+        "Feature":  "Setup",
+        "ModuleName":  "Installation",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "ManualSteps":  "Run command \u0027Set-ExecutionPolicy -ExecutionPolicy RemoteSigned\u0027. Then run command \u0027Install-Module AzSK -Scope CurrentUser -AllowClobber\u0027. Verify that it installs all the AzSK modules successfully without asking for change in policy.",
+        "AutomationStatus":  "Manual",
+        "TestMethod":  "",
+        "Description":  "Verify if you are able to install AzSK successfully on a system having execution policy set to RemoteSigned."
+    },
+    {
+        "TestCaseID":  "Test-InstallAzSK-Version230",
+        "Priority":  "2",
+        "Feature":  "Setup",
+        "ModuleName":  "Installation",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "ManualSteps":  "Run command \u0027Install-Module AzSK -RequiredVersion 2.3.0 -Scope CurrentUser\u0027. It should install AzSK version 2.3.0. Then again run command \u0027Install-Module AzSK -Scope CurrentUser\u0027. It should uninstall version 2.3.0 and install version 2.3.1",
+        "AutomationStatus":  "Manual",
+        "TestMethod":  "",
+        "Description":  "Verify if you are able to install AzSK successfully on a system having AzSK version 2.3.0 pre-installed."
+    },
+    {
+        "TestCaseID":  "Test-Get-AzSKSubscriptionSecurityStatus-WithLogin",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "ModuleName":  "SSHealth",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "TestGetAzSKSubscriptionSecurityStatus",
+        "Description":  "Command should run the subscription health scan without any error in case executed within active Azure session."
+    },
+    {
+        "TestCaseID":  "Test-Get-AzSKSubscriptionSecurityStatus-WithControlIds",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "ModuleName":  "SSHealth",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "TestGetAzSKSubscriptionSecurityStatusWithControlIds",
+        "Description":  "Command should run the subscription health scan without any error in case executed with control id parameter."
+    },
+    {
+        "TestCaseID":  "Test-Get-AzSKSubscriptionSecurityStatus-Withoutlogin",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "ModuleName":  "SSHealth",
+        "Type":  "BVT",
+        "AzureLoginRequired":  false,
+        "Enabled":  true,
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "Logout from your Azure powershell session and then run command \u0027Get-AzSKSubscriptionSecurityStatus -SubscriptionId \u003csubscriptionid\u003e\u0027. It should initialize the login workflow and then should scan the subscription successfully.",
+        "TestMethod":  "TestGetAzSKSubscriptionSecurityStatus",
+        "Description":  "Command should run the subscription health scan without any error in case executed without logging into Azure."
+    },
+    {
+        "TestCaseID":  "Test-Get-AzSKSubscriptionSecurityStatus-WithFilterTags",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "ModuleName":  "SSHealth",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "TestGetAzSKSubscriptionSecurityStatusWithFilterTags",
+        "Description":  "Command should run the subscription health scan without any error in case executed with filter tags."
+    },
+    {
+        "TestCaseID":  "Test-Get-AzSKSubscriptionSecurityStatus-WithExcludeTags",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "ModuleName":  "SSHealth",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "TestGetAzSKSubscriptionSecurityStatusWithExcludeTags",
+        "Description":  "Command should run the subscription health scan without any error in case executed with exclude tags."
+    },
+    {
+        "TestCaseID":  "Test-Set-AzSKSubscriptionSecurity-WithLogin",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "ModuleName":  "SSHealth",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "BaselineOutput":  "",
+        "TestMethod":  "TestSetAzSKSubscriptionSecurity",
+        "Description":  "Command should setup the subscription security without any error.",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_Subscription_Config_ARM_Policy",
+                                     "ControlStatus":  "Passed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_Subscription_Audit_Configure_Critical_Alerts",
+                                     "ControlStatus":  "Passed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_Subscription_Config_Azure_Security_Center",
+                                     "ControlStatus":  "Passed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_Subscription_AuthZ_Add_Required_Central_Accounts",
+                                     "ControlStatus":  "Passed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_Subscription_AuthZ_Remove_Deprecated_Accounts",
+                                     "ControlStatus":  "Passed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "Test-Set-AzSKSubscriptionSecurity-WithoutLogin",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "ModuleName":  "SSHealth",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "AzureLoginRequired":  false,
+        "TestMethod":  "TestSetAzSKSubscriptionSecurity",
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "Logout from your Azure powershell session and then run command \u0027Set-AzSKSubscriptionSecurity -SubscriptionId \u003csubscriptionid\u003e -SecurityContactEmails \u003cEmails\u003e -SecurityPhoneNumber \u003cPhoneNo\u003e\u0027. It should initialize the login workflow and then should set the subscription security successfully.",
+        "Description":  "Command should setup the subscription security without any error."
+    },
+    {
+        "TestCaseID":  "Test-Remove-AzSKSubscriptionSecurity-WithLogin",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "ModuleName":  "SSHealth",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "TestRemoveAzSKSubscriptionSecurity",
+        "Description":  "Command should remove the subscription security without any error."
+    },
+    {
+        "TestCaseID":  "Test-Remove-AzSKSubscriptionSecurity-WithoutLogin",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "ModuleName":  "SSHealth",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "AzureLoginRequired":  false,
+        "TestMethod":  "TestRemoveAzSKSubscriptionSecurity",
+        "AutomationStatus":  "Manual",
+        "ManualSteps":  "Logout from your Azure powershell session and then run command \u0027Remove-AzSKSubscriptionSecurity -SubscriptionId \u003csubscriptionid\u003e -Tags \u003ctags\u003e. It should remove the subscription security successfully.\u0027",
+        "Description":  "Command should remove the subscription security without any error."
+    },
+    {
+        "TestCaseID":  "Test-Set-AzSKAlerts",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "ModuleName":  "SSProvisioning",
+        "Enabled":  true,
+        "Type":  "BVT",
+        "TestMethod":  "TestSetAzSKAlerts",
+        "Description":  "Set-AzSKAlerts must register AzSK alerts."
+    },
+    {
+        "TestCaseID":  "Test-Remove-AzSKAlerts",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "Enabled":  true,
+        "ModuleName":  "SSProvisioning",
+        "Type":  "BVT",
+        "TestMethod":  "TestRemoveAzSKAlerts",
+        "Description":  "Remove-AzSKAlerts must remove all AzSK alerts"
+    },
+    {
+        "TestCaseID":  "Test-Set-AzSKARMPolicies",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "Enabled":  true,
+        "ModuleName":  "SSProvisioning",
+        "Type":  "BVT",
+        "TestMethod":  "TestSetAzSKARMPolicies",
+        "Description":  "Set-AzSKARMPolicies must add AzSK policies"
+    },
+    {
+        "TestCaseID":  "Test-Remove-AzSKARMPolicies",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "Enabled":  true,
+        "ModuleName":  "SSProvisioning",
+        "Type":  "BVT",
+        "TestMethod":  "TestRemoveAzSKARMPolicies",
+        "Description":  "Remove-AzSKARMPolicies must remove AzSK policies"
+    },
+    {
+        "TestCaseID":  "Test-Set-AzSKRBAC",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "Enabled":  true,
+        "ModuleName":  "SSProvisioning",
+        "Type":  "BVT",
+        "TestMethod":  "TestSetAzSKRBAC",
+        "Description":  "Set RBAC role assignement on subscription"
+    },
+    {
+        "TestCaseID":  "Test-Remove-AzSKRBAC",
+        "Priority":  "1",
+        "Feature":  "SubscriptionSecurity",
+        "Enabled":  true,
+        "ModuleName":  "SSProvisioning",
+        "Type":  "BVT",
+        "TestMethod":  "TestRemoveAzSKRBAC",
+        "Description":  "Remove RBAC role assignment on subscription"
+    },
+    {
+        "TestCaseID":  "TC_ADLA_PossiblePassed",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "ADLA",
+        "ParamFileName":  "",
+        "Type":  "BVT",
+        "TemplateFileName":  "",
+        "Enabled":  false,
+        "BaselineOutput":  "BaseControlStatus_ADLA_PossiblePassed.csv",
+        "PresetMethods":  "SetADLADiagnosticsOn",
+        "Description":  "Verify ADLA SVTs with encryption enabled on default ADLS, diagnostics turned on."
+    },
+    {
+        "TestCaseID":  "TC_ADLA_PossibleFailed",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "ADLA",
+        "ParamFileName":  "",
+        "TemplateFileName":  "",
+        "Enabled":  false,
+        "Type":  "FVT",
+        "BaselineOutput":  "BaseControlStatus_ADLA_PossibleFailed.csv",
+        "PresetMethods":  "",
+        "ResetMethods":  "",
+        "Description":  "Verify ADLA SVTs with encryption disabled on default ADLS, diagnostics turned off."
+    },
+    {
+        "TestCaseID":  "TC_ADLS_PossiblePassed",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "ADLS",
+        "ParamFileName":  "",
+        "Enabled":  false,
+        "TemplateFileName":  "",
+        "BaselineOutput":  "",
+        "Type":  "BVT",
+        "PresetMethods":  "SetDiagnosticsOn;EnableFirewall",
+        "Description":  "Verify SVTs on ADLS with proper diagnostics, firewall and encryption.",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_DataLakeStore_Audit_Enable_Diagnostics_Log",
+                                     "ControlStatus":  "Passed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_DataLakeStore_AuthZ_Enable_Firewall",
+                                     "ControlStatus":  "Passed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_DataLakeStore_DP_Encrypt_At_Rest",
+                                     "ControlStatus":  "Passed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_ADLS_PossibleFailed",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "ADLS",
+        "ParamFileName":  "",
+        "Enabled":  false,
+        "TemplateFileName":  "",
+        "BaselineOutput":  "",
+        "PresetMethods":  "",
+        "Type":  "FVT",
+        "Description":  "Verify SVTs on ADLS with diagnostics off, firewall disabled, encryption disabled",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_DataLakeStore_Audit_Enable_Diagnostics_Log",
+                                     "ControlStatus":  "Failed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_DataLakeStore_AuthZ_Enable_Firewall",
+                                     "ControlStatus":  "Failed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_DataLakeStore_DP_Encrypt_At_Rest",
+                                     "ControlStatus":  "Failed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_ADLS_PossibleVerify",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "ADLS",
+        "ParamFileName":  "",
+        "TemplateFileName":  "",
+        "Enabled":  false,
+        "BaselineOutput":  "",
+        "Type":  "FVT",
+        "PresetMethods":  "SetFirewallRule",
+        "Description":  "Verify SVTs on ADLS with firewall rule set.",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_DataLakeStore_AuthZ_Enable_Firewall",
+                                     "ControlStatus":  "Verify"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_AnalysisSvc_VerifyDefaultCompliance",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "AnalysisServices",
+        "Enabled":  false,
+        "Type":  "FVT",
+        "ParamFileName":  "Params_AnalysisSvc_Default.json",
+        "TemplateFileName":  "Template_AnalysisSvc_Default.json",
+        "BaselineOutput":  "BaseControlStatus_AnalysisSvc_DefaultCompliance.csv",
+        "Description":  "Verify SVTs on a security compliant for Blank Analysis Services Resource",
+        "PresetMethods":  "StartAnalysisServices"
+    },
+    {
+        "TestCaseID":  "TC_AnalysisSvc_Verify_2Admins_RBAC",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "AnalysisServices",
+        "Enabled":  false,
+        "Type":  "FVT",
+        "ParamFileName":  "Params_AnalysisSvc_Default.json",
+        "TemplateFileName":  "Template_AnalysisSvc_Default.json",
+        "BaselineOutput":  "BaseControlStatus_AnalysisSvc_2Admins_RBAC.csv",
+        "PresetMethods":  "AddTwoAnalysisServiceAdmin",
+        "ResetMethods":  "StartAnalysisServices;AddDefaultAnalysisServiceAdmin",
+        "Description":  "Verify SVTs on an analysis services with 2 admins and inherited RBAC access."
+    },
+    {
+        "TestCaseID":  "TC_AnalysisSvc_Verify_3Admins",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "AnalysisServices",
+        "Enabled":  false,
+        "Type":  "FVT",
+        "ParamFileName":  "Params_AnalysisSvc_Default.json",
+        "TemplateFileName":  "Template_AnalysisSvc_Default.json",
+        "Description":  "Verify Analysis Services Admin control check fails in case of no. of admins defined as 3",
+        "PresetMethods":  "AddThreeAnalysisServiceAdmin",
+        "ResetMethods":  "StartAnalysisServices;AddDefaultAnalysisServiceAdmin",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_AnalysisServices_AuthZ_Min_Admin",
+                                     "ControlStatus":  "Failed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_AnalysisSvc_Verify_PausedState",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "AnalysisServices",
+        "Enabled":  false,
+        "Type":  "FVT",
+        "ParamFileName":  "Params_AnalysisSvc_Default.json",
+        "TemplateFileName":  "Template_AnalysisSvc_Default.json",
+        "Description":  "Verify Analysis Services Admin control check in case of Analysis Services state is \u0027Paused\u0027",
+        "PresetMethods":  "PauseAnalysisServices",
+        "ResetMethods":  "StartAnalysisServices",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_AnalysisServices_AuthZ_Min_Admin",
+                                     "ControlStatus":  "Manual"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_AppSvc_Verify_All_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "AppService",
+        "Enabled":  false,
+        "TemplateFileName":  "Template_AppSvc_All_Compliant.json",
+        "BaselineOutput":  "BaseControlStatus_AppSvc_All_Compliant.csv",
+        "Type":  "FVT",
+        "PresetMethods":  "SetAppBackup",
+        "Description":  "Verify SVTs on a compliant App Service. This will not verify custom domain and HTTPs redirect controls."
+    },
+    {
+        "TestCaseID":  "TC_AppSvc_Verify_All_Non_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "Enabled":  false,
+        "ModuleName":  "AppService",
+        "TemplateFileName":  "Template_AppSvc_All_Non_Compliant.json",
+        "BaselineOutput":  "BaseControlStatus_AppSvc_All_Non_Compliant.csv",
+        "Type":  "FVT",
+        "PresetMethods":  "AddWebsiteLoadCertificates",
+        "Description":  "Verify SVTs on a non-compliant App Service."
+    },
+    {
+        "TestCaseID":  "TC_Automation_PositiveResult_Controls",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "Automation",
+        "ParamFileName":  "",
+        "TemplateFileName":  "",
+        "BaselineOutput":  "",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "PresetMethods":  "SetValidWebhook;SetEncryptedVariables",
+        "Description":  "Verify SVTs on Azure Automation with valid webhook and variables",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_Automation_DP_Review_Webhook_Usage",
+                                     "ControlStatus":  "Verify"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_Automation_DP_Minimal_Webhook_Validity",
+                                     "ControlStatus":  "Passed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_Automation_DP_Use_Encrypted_Variables",
+                                     "ControlStatus":  "Passed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_Automation_NegativeResult_Controls",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "Automation",
+        "ParamFileName":  "",
+        "TemplateFileName":  "",
+        "BaselineOutput":  "",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "PresetMethods":  "SetInvalidWebhook;SetUnencryptedVariables",
+        "Description":  "Verify SVTs on Azure Automation with invalid webhook and variables",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_Automation_DP_Minimal_Webhook_Validity",
+                                     "ControlStatus":  "Failed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_Automation_DP_Use_Encrypted_Variables",
+                                     "ControlStatus":  "Verify"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_Batch_Verify_All_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "Batch",
+        "TemplateFileName":  "Template_Batch_All_Compliant.json",
+        "BaselineOutput":  "BaseControlStatus_Batch_All_Compliant.csv",
+        "PresetMethods":  "",
+        "Enabled":  false,
+        "Type":  "FVT",
+        "Description":  "Verify SVTs on a compliant Batch account."
+    },
+    {
+        "TestCaseID":  "TC_Batch_Verify_All_Non_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "Batch",
+        "Enabled":  false,
+        "TemplateFileName":  "Template_Batch_All_Non_Compliant.json",
+        "BaselineOutput":  "BaseControlStatus_Batch_All_Non_Compliant.csv",
+        "PresetMethods":  "",
+        "Type":  "FVT",
+        "Description":  "Verify SVTs on a non compliant Batch account."
+    },
+    {
+        "TestCaseID":  "TC_CDN_Verify_All_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "CDN",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "TemplateFileName":  "Template_CDN_All_Compliant.json",
+        "BaselineOutput":  "BaseControlStatus_CDN_All_Compliant.csv",
+        "PresetMethods":  "",
+        "ResetMethods":  "",
+        "Description":  "Verify SVTs on a compliant CDN account."
+    },
+    {
+        "TestCaseID":  "TC_CDN_Verify_All_Non_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "Type":  "FVT",
+        "ModuleName":  "CDN",
+        "Enabled":  false,
+        "TemplateFileName":  "Template_CDN_All_Non_Compliant.json",
+        "BaselineOutput":  "BaseControlStatus_CDN_All_Non_Compliant.csv",
+        "PresetMethods":  "",
+        "ResetMethods":  "",
+        "Description":  "Verify SVTs on a non compliant CDN account."
+    },
+    {
+        "TestCaseID":  "Test_Basic_Scenarios",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "Common",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "RunAzSKCommandsAsJobOnLocal",
+        "PropertiesFileName":  "ParallelScanData.ps1",
+        "Description":  "Run AzSK commands in parallel.\n\nTest Scenarios covered:\n1. Check if all the artifacts were generated in output folder.\n2. Verify that there are no errors or exceptions in output files (ScanError, CSVError, LogError, LogWarning).\n3. Verify if command runs with correct policy - CSE/Org-neutral"
+    },
+    {
+        "TestCaseID":  "Test_StateDrift_ProdVsNonProd",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "Common",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "CompareResultProdVsNonProd",
+        "PropertiesFileName":  "StateDrift_WhiteListed_Controls.json",
+        "ScanType":  "",
+        "Description":  "Run GSS and GRS and compare CSV files of production with local environment."
+    },
+    {
+        "TestCaseID":  "TC_CosmosDb_Verify_All_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "CosmosDb",
+        "Type":  "FVT",
+        "TemplateFileName":  "Template_CosmosDb_All_Compliant.json",
+        "Enabled":  false,
+        "BaselineOutput":  "BaseControlStatus_CosmosDb_All_Compliant.csv",
+        "PresetMethods":  "",
+        "ResetMethods":  "",
+        "Description":  "Verify SVTs on a compliant CosmosDb resource."
+    },
+    {
+        "TestCaseID":  "TC_CosmosDb_Verify_All_Non_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "Type":  "FVT",
+        "ModuleName":  "CosmosDb",
+        "Enabled":  false,
+        "TemplateFileName":  "Template_CosmosDb_All_Non_Compliant.json",
+        "BaselineOutput":  "BaseControlStatus_CosmosDb_All_Non_Compliant.csv",
+        "PresetMethods":  "",
+        "ResetMethods":  "",
+        "Description":  "Verify SVTs on a non compliant CosmosDb resource."
+    },
+    {
+        "TestCaseID":  "TC_DataFactory_Verify_LinkedSvc",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "DataFactory",
+        "Enabled":  false,
+        "BaselineOutput":  "BaseControlStatus_DataFactory_LinkedSvc.csv",
+        "PresetMethods":  "SetLinkedService",
+        "Type":  "FVT",
+        "Description":  "Verify SVTs on a Data Factory having linked services with secured connection strings."
+    },
+    {
+        "TestCaseID":  "TC_DataFactory_Verify_NoLinkedSvc",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "DataFactory",
+        "Enabled":  false,
+        "BaselineOutput":  "BaseControlStatus_DataFactory_NoLinkedSvc.csv",
+        "PresetMethods":  "RemoveLinkedService",
+        "Type":  "FVT",
+        "Description":  "Verify SVTs on a Data Factory having no linked services."
+    },
+    {
+        "TestCaseID":  "TC_EventHub_Verify_EH_Policies",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "EventHub",
+        "Enabled":  false,
+        "BaselineOutput":  "BaseControlStatus_EventHub_EH_Policies.csv",
+        "PresetMethods":  "AddEventHubAccessPolicies",
+        "Type":  "FVT",
+        "Description":  "Verify SVTs on a Event Hub having access policies at Event Hub level."
+    },
+    {
+        "TestCaseID":  "TC_EventHub_Verify_EH_No_Policies",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "EventHub",
+        "Enabled":  false,
+        "BaselineOutput":  "BaseControlStatus_EventHub_EH_No_Policies.csv",
+        "PresetMethods":  "RemoveEventHubAccessPolicies",
+        "Type":  "FVT",
+        "Description":  "Verify SVTs on a Event Hub having no access policies at Event Hub level."
+    },
+    {
+        "TestCaseID":  "TC_Functions_Verify_All_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "Functions",
+        "Enabled":  false,
+        "TemplateFileName":  "Template_TC_Functions_Possible_Passed.json",
+        "BaselineOutput":  "BaseControlStatus_Functions_Possible_Passed.csv",
+        "Type":  "FVT",
+        "PresetMethods":  "ChangeFunctionsEditMode",
+        "Description":  "Verify SVTs on a compliant Azure Functions service. This will not verify custom domain and AAD related controls."
+    },
+    {
+        "TestCaseID":  "TC_Functions_Verify_All_NonCompliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "Functions",
+        "Enabled":  false,
+        "TemplateFileName":  "Template_TC_Functions_Possible_Failed.json",
+        "BaselineOutput":  "BaseControlStatus_Functions_Possible_Failed.csv",
+        "Type":  "FVT",
+        "PresetMethods":  "AddWebsiteLoadCertificates",
+        "Description":  "Verify SVTs on a non-compliant Azure Functions service. This will not verify custom domain, AAD related and function authorization level controls."
+    },
+    {
+        "TestCaseID":  "TC_KeyVault_Verify_DefaultCompliance",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "KeyVault",
+        "Enabled":  false,
+        "ParamFileName":  "Params_KeyVault_DefaultCompliance.json",
+        "TemplateFileName":  "Template_KeyVault_DefaultCompliance.json",
+        "BaselineOutput":  "BaseControlStatus_KeyVault_DefaultCompliance.csv",
+        "Description":  "Verify SVTs on a default KeyVault Resource",
+        "Type":  "FVT",
+        "PresetMethods":  "GetReadAcessOnKey"
+    },
+    {
+        "TestCaseID":  "TC_KeyVault_Verify_Diagnostics_Log_On",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "Enabled":  false,
+        "ModuleName":  "KeyVault",
+        "ParamFileName":  "Params_KeyVault_DefaultCompliance.json",
+        "TemplateFileName":  "Template_KeyVault_DefaultCompliance.json",
+        "BaselineOutput":  "BaseControlStatus_KeyVault_DefaultCompliance.csv",
+        "Description":  "Verify SVT on KeyVault Resource for Daignostics settings",
+        "PresetMethods":  "SetKVDiagnosticsOn",
+        "ResetMethods":  "SetKVDiagnosticsOff",
+        "Type":  "FVT",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_KeyVault_Audit_Enable_Diagnostics_Log",
+                                     "ControlStatus":  "Passed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_KeyVault_Verify_AdvancedAccessPolicies_AllEnabled",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "Enabled":  false,
+        "ModuleName":  "KeyVault",
+        "ParamFileName":  "Params_KeyVault_DefaultCompliance.json",
+        "TemplateFileName":  "Template_KeyVault_DefaultCompliance.json",
+        "BaselineOutput":  "BaseControlStatus_KeyVault_DefaultCompliance.csv",
+        "Description":  "Verify SVT on KeyVault Resource for Advanced Access Policies all enabled",
+        "PresetMethods":  "SetAllAdvanceAcessPolicies",
+        "ResetMethods":  "ResetAllAdvanceAcessPolicies",
+        "Type":  "FVT",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_KeyVault_AuthZ_Configure_Advanced_Access_Policies",
+                                     "ControlStatus":  "Failed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_KeyVault_Verify_AccessPolicies_AllEnabled",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "KeyVault",
+        "Enabled":  false,
+        "ParamFileName":  "Params_KeyVault_DefaultCompliance.json",
+        "TemplateFileName":  "Template_KeyVault_DefaultCompliance.json",
+        "BaselineOutput":  "BaseControlStatus_KeyVault_DefaultCompliance.csv",
+        "Description":  "Verify SVT on KeyVault Resource for Access Policies all enabled",
+        "PresetMethods":  "SetAllAcessPolicies",
+        "ResetMethods":  "ResetAllAcessPolicies",
+        "Type":  "FVT",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_KeyVault_AuthZ_Grant_Min_Access_policies",
+                                     "ControlStatus":  "Verify"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_KeyVault_Verify_NonHSMKeyWithExpiryDate",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "Enabled":  false,
+        "ModuleName":  "KeyVault",
+        "ParamFileName":  "Params_KeyVault_DefaultCompliance.json",
+        "TemplateFileName":  "Template_KeyVault_DefaultCompliance.json",
+        "BaselineOutput":  "BaseControlStatus_KeyVault_DefaultCompliance.csv",
+        "Description":  "Verify SVT on KeyVault Resource for non HSM keys with expiry date",
+        "PresetMethods":  "AddNonHSMKeyWithExpiryDate",
+        "Type":  "FVT",
+        "ResetMethods":  "RemoveResource",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_KeyVault_DP_Keys_Protect_By_HSM",
+                                     "ControlStatus":  "Failed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_KeyVault_DP_Keys_Secrets_Check_Expiry_Date",
+                                     "ControlStatus":  "Passed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_KeyVault_AuthN_Key_Min_Operation",
+                                     "ControlStatus":  "Verify"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_KeyVault_Verify_SVTs_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "KeyVault",
+        "Enabled":  false,
+        "ParamFileName":  "Params_TC_KeyVault_Compliant.json",
+        "TemplateFileName":  "Template_TC_KeyVault_Compliant.json",
+        "BaselineOutput":  "BaseControlStatus_TC_KeyVault_Compliant.csv",
+        "Description":  "Verify SVTs on a security compliant KeyVault.",
+        "PresetMethods":  "GetReadAcessOnKey;SetKVDiagnosticsOn",
+        "Type":  "FVT",
+        "ResetMethods":  "RemoveResource"
+    },
+    {
+        "TestCaseID":  "TC_LoadBalancer_Verify_PublicIP",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "LoadBalancer",
+        "Enabled":  false,
+        "BaselineOutput":  "BaseControlStatus_LoadBalancer_Public_IP.csv",
+        "PresetMethods":  "AddPublicIpAddress",
+        "Type":  "FVT",
+        "Description":  "Verify SVT on a Load Balancer having access public IP."
+    },
+    {
+        "TestCaseID":  "TC_LoadBalancer_Verify_No_PublicIP",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "LoadBalancer",
+        "Enabled":  false,
+        "BaselineOutput":  "BaseControlStatus_LoadBalancer_No_Public_IP.csv",
+        "PresetMethods":  "RemovePublicIpAddress",
+        "Type":  "FVT",
+        "Description":  "Verify SVTs on a Load Balancer having no public IP."
+    },
+    {
+        "TestCaseID":  "TC_LogicApps_PossiblePassed",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "LogicApps",
+        "ParamFileName":  "Params_LogicApps_Default.json",
+        "TemplateFileName":  "Template_LogicApps_Default.json",
+        "BaselineOutput":  "",
+        "PresetMethods":  "SetLogicAppDiagnosticsOn",
+        "ResetMethods":  "SetLogicAppDiagnosticsOff",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "Description":  "Verify Logic apps SVTs with diagnostics turned on and access control configured.",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_LogicApps_Audit_Enable_Diagnostics_Log",
+                                     "ControlStatus":  "Passed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_LogicApps_PossibleFailed",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "LogicApps",
+        "ParamFileName":  "Params_LogicApps_Default.json",
+        "TemplateFileName":  "Template_LogicApps_Default.json",
+        "BaselineOutput":  "",
+        "PresetMethods":  "SetLogicAppInvalidAccessControl;SetLogicAppDiagnosticsOff",
+        "ResetMethods":  "RemoveLogicAppAccessControl",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "Description":  "Verify Logic apps SVTs with diagnostics,access control off/any to any rule.",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_LogicApps_Audit_Enable_diagnostics_Log",
+                                     "ControlStatus":  "Failed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_LogicApps_AuthZ_Provide_Triggers_Access_Control",
+                                     "ControlStatus":  "Failed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_LogicApps_AuthZ_Provide_Contents_Access_Control",
+                                     "ControlStatus":  "Failed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_LogicApps_PossibleVerify",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "LogicApps",
+        "ParamFileName":  "Params_LogicApps_Default.json",
+        "TemplateFileName":  "Template_LogicApps_Default.json",
+        "BaselineOutput":  "",
+        "PresetMethods":  "SetLogicAppValidAccessControl",
+        "ResetMethods":  "RemoveLogicAppAccessControl",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "Description":  "Verify Logic apps SVTs with diagnostics turned on and access control configured.",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_LogicApps_AuthZ_Provide_Triggers_Access_Control",
+                                     "ControlStatus":  "Verify"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_LogicApps_AuthZ_Provide_Contents_Access_Control",
+                                     "ControlStatus":  "Verify"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_NotificationHub_AllPassed",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "NotificationHub",
+        "ParamFileName":  "Params_TC_NotificationHub.json",
+        "TemplateFileName":  "Template_TC_NotificationHub.json",
+        "BaselineOutput":  "BaseControlStatus_NotificationHub_PossiblePassed.csv",
+        "PresetMethods":  "RemoveDefaultNotificationPolicy",
+        "ResetMethods":  "RemoveNotificationHubResource",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "Description":  "Verify SVTs on a security compliant Notification Hub resource."
+    },
+    {
+        "TestCaseID":  "TC_NotificationHub_AllFailed",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "NotificationHub",
+        "ParamFileName":  "Params_TC_NotificationHub.json",
+        "TemplateFileName":  "Template_TC_NotificationHub.json",
+        "BaselineOutput":  "BaseControlStatus_NotificationHub_PossibleFailed.csv",
+        "PresetMethods":  "",
+        "ResetMethods":  "RemoveNotificationHubResource",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "Description":  "Verify SVTs on a security non-compliant Notification Hub resource."
+    },
+    {
+        "TestCaseID":  "TC_RedisCache_VerifyDefaultCompliance",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "RedisCache",
+        "Enabled":  false,
+        "Type":  "FVT",
+        "ParamFileName":  "Params_RedisCache_Default.json",
+        "TemplateFileName":  "Template_RedisCache_Default.json",
+        "BaselineOutput":  "BaseControlStatus_RedisCache_DefaultCompliance.csv",
+        "Description":  "Verify SVTs on a security compliant for Blank Premium Redis Cache",
+        "PresetMethods":  ""
+    },
+    {
+        "TestCaseID":  "TC_RedisCache_NonSSLPortCheck",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "RedisCache",
+        "Enabled":  false,
+        "Type":  "FVT",
+        "ParamFileName":  "Params_RedisCache_Default.json",
+        "TemplateFileName":  "Template_RedisCache_Default.json",
+        "BaselineOutput":  "BaseControlStatus_RedisCache_DefaultCompliance.csv",
+        "Description":  "Verify Analysis Non-SSL control check fails in case of Non-SSL port is enabled",
+        "PresetMethods":  "EnableNonSSLPort",
+        "ResetMethods":  "DisableNonSSLPort",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_RedisCache_DP_Use_SSL_Port",
+                                     "ControlStatus":  "Failed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_RedisCache_VerifyBackUpEnabled",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "RedisCache",
+        "Enabled":  false,
+        "Type":  "FVT",
+        "ParamFileName":  "Params_RedisCache_Default.json",
+        "TemplateFileName":  "Template_RedisCache_Default.json",
+        "BaselineOutput":  "BaseControlStatus_RedisCache_DefaultCompliance.csv",
+        "Description":  "Verify Redis Cache Back up is enabled",
+        "PresetMethods":  "EnableRedisBackUp",
+        "ResetMethods":  "DisableRedisBackUp",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_RedisCache_BCDR_Use_RDB_Backup",
+                                     "ControlStatus":  "Passed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_Search_Verify_All_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "Search",
+        "TemplateFileName":  "Template_Search_All_Compliant.json",
+        "BaselineOutput":  "BaseControlStatus_Search_All_Compliant.csv",
+        "PresetMethods":  "",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "Description":  "Verify SVTs on a compliant Search service."
+    },
+    {
+        "TestCaseID":  "TC_Search_Verify_All_Non_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "Search",
+        "TemplateFileName":  "Template_Search_All_Non_Compliant.json",
+        "BaselineOutput":  "BaseControlStatus_Search_All_Non_Compliant.csv",
+        "PresetMethods":  "",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "Description":  "Verify SVTs on a non compliant Search service."
+    },
+    {
+        "TestCaseID":  "TC_ServiceBus_Verify_Queue_Policies",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "ServiceBus",
+        "BaselineOutput":  "BaseControlStatus_ServiceBus_Queue_Policies.csv",
+        "PresetMethods":  "AddQueueAccessPolicies",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "Description":  "Verify SVTs on a Service Bus having access policies on Queue."
+    },
+    {
+        "TestCaseID":  "TC_ServiceBus_Verify_Queue_No_Policies",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "ServiceBus",
+        "BaselineOutput":  "BaseControlStatus_ServiceBus_Queue_No_Policies.csv",
+        "PresetMethods":  "RemoveQueueAccessPolicies",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "Description":  "Verify SVTs on a Service Bus having no access policies in Queue."
+    },
+    {
+        "TestCaseID":  "TC_SQLDB_Verify_DefaultCompliance",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "SQLDB",
+        "ParamFileName":  "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName":  "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput":  "BaseControlStatus_SQLDB_DefaultCompliance.csv",
+        "Enabled":  false,
+        "Type":  "FVT",
+        "Description":  "Verify SQL Server SVT on a default SQLDB Resource"
+    },
+    {
+        "TestCaseID":  "TC_SQLDB_Verify_SqlServerAuditing",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "Enabled":  false,
+        "ModuleName":  "SQLDB",
+        "ParamFileName":  "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName":  "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput":  "",
+        "Description":  "Verify SQL Server SVT on a Sql Server Auditing enaled",
+        "PresetMethods":  "EnableSqlServerAuditing",
+        "ResetMethods":  "DisableSqlServerAuditing",
+        "Type":  "FVT",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_SQLDatabase_Audit_Enable_Logging_and_Monitoring_Server",
+                                     "ControlStatus":  "Passed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_SQLDB_Verify_SqlServerThreatDetectionPolicy",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "SQLDB",
+        "Enabled":  false,
+        "ParamFileName":  "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName":  "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput":  "",
+        "Description":  "Verify SQL Server SVT on a Sql Server Threat Detection Policy enaled",
+        "PresetMethods":  "EnableSqlServerThreatDetectionPolicy",
+        "ResetMethods":  "DisableSqlServerThreatDetectionPolicy",
+        "Type":  "FVT",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_SQLDatabase_Audit_Enable_Threat_Detection_Server",
+                                     "ControlStatus":  "Passed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_SQLDB_Verify_SqlServerActiveDirectoryAdmin",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "SQLDB",
+        "Enabled":  false,
+        "ParamFileName":  "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName":  "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput":  "",
+        "Description":  "Verify SQL Server SVT on a Sql Server Active Directory Administrator(s) present",
+        "PresetMethods":  "SetSqlServerActiveDirectoryAdmin",
+        "ResetMethods":  "RemoveSqlServerActiveDirectoryAdmin",
+        "Type":  "FVT",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_SQLDatabase_AuthZ_Use_AAD_Admin",
+                                     "ControlStatus":  "Passed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_SQLDB_Verify_FirewallIPAddressRanges",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "SQLDB",
+        "Enabled":  false,
+        "ParamFileName":  "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName":  "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput":  "",
+        "Description":  "Verify SQL Server SVT on a Sql Server Firewall IP Address Ranges",
+        "PresetMethods":  "SetSqlServerFirewallIPAddressRanges",
+        "ResetMethods":  "RemoveSqlServerFirewallIPAddressRanges",
+        "Type":  "FVT",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_SQLDatabase_AuthZ_Enable_Firewall",
+                                     "ControlStatus":  "Passed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_SQLDatabase_AuthZ_Configure_IP_Range",
+                                     "ControlStatus":  "Verify"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_SQLDB_Verify_AnytoAnyFirewallRule",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "Enabled":  false,
+        "ModuleName":  "SQLDB",
+        "ParamFileName":  "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName":  "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput":  "",
+        "Description":  "Verify SQL Server SVT on a Sql Server Any to Any FirewallRule",
+        "PresetMethods":  "SetSqlServerAnyToAnyFirewallRule",
+        "ResetMethods":  "RemoveSqlServerAnyToAnyFirewallRule",
+        "Type":  "FVT",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_SQLDatabase_AuthZ_Enable_Firewall",
+                                     "ControlStatus":  "Passed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_SQLDatabase_AuthZ_Configure_IP_Range",
+                                     "ControlStatus":  "Failed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_SQLDB_Verify_SingleDB",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "SQLDB",
+        "Enabled":  false,
+        "ParamFileName":  "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName":  "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput":  "",
+        "Description":  "Verify SQL Server SVT\u0027s on a Sql Server contains single database with Auditing,Threat Detection Policy setting is inherited from parent sql server",
+        "PresetMethods":  "AddDataBase;EnableSqlServerAuditing;EnableSqlServerThreatDetectionPolicy",
+        "ResetMethods":  "RemoveDatabase;DisableSqlServerAuditing;DisableSqlServerThreatDetectionPolicy",
+        "Type":  "FVT",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_SQLDatabase_Audit_Enable_Logging_and_Monitoring_DB",
+                                     "ControlStatus":  "Passed"
+                                 },
+                                 {
+                                     "ControlID":  "Azure_SQLDatabase_Audit_Enable_Threat_Detection_Server",
+                                     "ControlStatus":  "Passed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_SQLDB_Verify_DBTransparentDataEncryption",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "SQLDB",
+        "Enabled":  false,
+        "ParamFileName":  "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName":  "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput":  "",
+        "Description":  "Verify SQL Server SVT on a Transparent Data Encryption for database present inside sql server",
+        "PresetMethods":  "AddDataBase;EnableSqlDatabaseTransparentDataEncryption",
+        "ResetMethods":  "RemoveDatabase;DisableSqlServerAuditing;DisableSqlServerThreatDetectionPolicy",
+        "Type":  "FVT",
+        "ControlResultSet":  [
+                                 {
+                                     "ControlID":  "Azure_SQLDatabase_DP_Enable_TDE",
+                                     "ControlStatus":  "Passed"
+                                 }
+                             ]
+    },
+    {
+        "TestCaseID":  "TC_Storage_Verify_DefaultCompliance",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "Storage",
+        "ParamFileName":  "Params_Storage_DefaultCompliance.json",
+        "TemplateFileName":  "Template_Storage_DefaultCompliance.json",
+        "BaselineOutput":  "BaseControlStatus_Storage_DefaultCompliance.csv",
+        "PresetMethods":  "RemoveAzSKTestStorageContainer;RemoveAzSKTestStorageAlerts",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "Description":  "Verify SVTs on a default Storage Resource"
+    },
+    {
+        "TestCaseID":  "TC_Storage_Verify_Non_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "Storage",
+        "ParamFileName":  "Params_Storage_DefaultCompliance.json",
+        "TemplateFileName":  "Template_Storage_DefaultCompliance.json",
+        "BaselineOutput":  "BaseControlStatus_Storage_Non_Compliant.csv",
+        "Description":  "Verify SVTs on a storage with diagnostics off, alerts not configured, storage encryption disabled and account type is not Geo-Reundant",
+        "PresetMethods":  "AddContainerWithPublicAcess",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "ResetMethods":  "RemoveAzSKTestStorageContainer"
+    },
+    {
+        "TestCaseID":  "TC_Storage_Verify_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "Storage",
+        "ParamFileName":  "Params_TC_Storage_StdGRS_Encyption_On.json",
+        "TemplateFileName":  "Template_Storage_DefaultCompliance.json",
+        "BaselineOutput":  "BaseControlStatus_Storage_Compliant.csv",
+        "Description":  "Verify SVTs on a storage with diagnostics on, alerts configured, storage encryption enabled and account type is Geo-Reundant",
+        "PresetMethods":  "SetStorageDiagnisticsOn;AddAzSKTestStorageAlerts;SetFileEncryptionAtRest;SetEnableHttpsTrafficOnly",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "ResetMethods":  "RemoveAzSKTestStorageContainer;RemoveAzSKTestStorageAlerts"
+    },
+    {
+        "TestCaseID":  "Test_SVT_DefaultParams",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "SVTCommon",
+        "Type":  "BVT",
+        "Description":  "Run \u0027Get-AzSKAzureServicesSecurityStatus\u0027 command with only mandatory parameters",
+        "Enabled":  false,
+        "TestMethod":  "TestSVTDefaultParams"
+    },
+    {
+        "TestCaseID":  "Test_SVT_TagParamSet",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "SVTCommon",
+        "Type":  "BVT",
+        "Description":  "Run \u0027Get-AzSKAzureServicesSecurityStatus\u0027 command with Tag parameter set",
+        "Enabled":  false,
+        "TestMethod":  "TestSVTTagParamSet"
+    },
+    {
+        "TestCaseID":  "Test_SVT_ResourceParamSet",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "SVTCommon",
+        "Type":  "BVT",
+        "Description":  "Run \u0027Get-AzSKAzureServicesSecurityStatus\u0027 command with resource filter parameters",
+        "Enabled":  false,
+        "TestMethod":  "TestSVTResourceParamSet"
+    },
+    {
+        "TestCaseID":  "Test_SVTSubscriptionCoreCommonCommand",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "SVTCommon",
+        "Type":  "BVT",
+        "Description":  "Run \u0027Get-AzSKControlsStatus\u0027 command with resource filter parameters",
+        "Enabled":  false,
+        "TestMethod":  "TestSVTSubscriptionCoreCommonCommand"
+    },
+    {
+        "TestCaseID":  "Test_SetOnlinePolicy",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "SVTCommon",
+        "Type":  "BVT",
+        "Description":  "Run \u0027Set-AzSKPolicySettings\u0027 to check if online policy is set successfully",
+        "Enabled":  false,
+        "TestMethod":  "TestSetOnlinePolicy"
+    },
+    {
+        "TestCaseID":  "Test_DisableOnlinePolicy",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "ModuleName":  "SVTCommon",
+        "Type":  "BVT",
+        "Description":  "Run \u0027Set-AzSKPolicySettings\u0027 to check if online policy is getting disabled successfully",
+        "Enabled":  false,
+        "TestMethod":  "TestDisableOnlinePolicy"
+    },
+    {
+        "TestCaseID":  "TC_TrafficManager_Verify_All_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "Type":  "BVT",
+        "Enabled":  false,
+        "ModuleName":  "TrafficManager",
+        "TemplateFileName":  "Template_TrafficManager_All_Compliant.json",
+        "BaselineOutput":  "BaseControlStatus_TrafficManager_All_Compliant.csv",
+        "PresetMethods":  "",
+        "ResetMethods":  "",
+        "Description":  "Verify SVTs on a compliant Traffic Manager Profile."
+    },
+    {
+        "TestCaseID":  "TC_TrafficManager_Verify_All_Non_Compliant",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "Type":  "FVT",
+        "Enabled":  false,
+        "ModuleName":  "TrafficManager",
+        "TemplateFileName":  "Template_TrafficManager_All_Non_Compliant.json",
+        "BaselineOutput":  "BaseControlStatus_TrafficManager_All_Non_Compliant.csv",
+        "PresetMethods":  "",
+        "ResetMethods":  "",
+        "Description":  "Verify SVTs on a non compliant Traffic Manager Profile."
+    },
+    {
+        "TestCaseID":  "TC_VirtualMachine_01",
+        "Enabled":  false,
+        "Priority":  "0",
+        "Feature":  "SVT",
+        "ModuleName":  "VirtualMachine",
+        "ParamFileName":  "",
+        "TemplateFileName":  "",
+        "BaselineOutput":  "",
+        "Type":  "FVT",
+        "Description":  ""
+    },
+    {
+        "TestCaseID":  "TC_VirtualNetwork_WithoutPeering",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "Enabled":  false,
+        "ModuleName":  "VirtualNetwork",
+        "BaselineOutput":  "BaseControlStatus_VirtualNetwork_WithoutPeer.csv",
+        "PresetMethods":  "ResetConfigurationBase",
+        "Type":  "FVT",
+        "Description":  "Verify SVTs on a Virtual Network without peering."
+    },
+    {
+        "TestCaseID":  "TC_VirtualNetwork_WithPeering",
+        "Priority":  "1",
+        "Feature":  "SVT",
+        "Enabled":  false,
+        "ModuleName":  "VirtualNetwork",
+        "BaselineOutput":  "BaseControlStatus_VirtualNetwork_WithPeer.csv",
+        "PresetMethods":  "AddVnetPeer",
+        "Type":  "FVT",
+        "Description":  "Verify SVTs on a Virtual Network with peering."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Tgt-RsrcNames-for-Sub",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_GRS_Tgt_RsrcNames_for_Sub",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan some resources from sub at random using resource names."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Exc-RsrcTypeName-for-RGs",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_GRS_Exc_RsrcTypeName_for_RGs",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan multiple RGs but exclude a particular resource type name."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Swt-Ubc-Single-RG",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_GRS_Swt_Ubc_Single_RG",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan with -ubc switch at RG scope."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Tag-FilterTags-for-Sub",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_Tag_FilterTags_for_Sub",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan using one or more \u0027filtertags\u0027 at subscription scope."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Tag-ExcludeTags-for-Sub",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_GRS_Tag_ExcludeTags_for_Sub",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan using one or more \u0027excludeTags\u0027 at subscription scope."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Tgt-ControlIds-for-Sub",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_GRS_Tgt_ControlIds_for_Sub",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan using a few selected controls at sub scope."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Tgt-ControlIds-Single-Rsrc",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_GRS_Tgt_ControlIds_Single_Rsrc",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan a particular resource for selected controls."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Tgt-RsrcType-for-Sub",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_GRS_Tgt_RsrcType_for_Sub",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan all resources of a particular resource type name in the sub."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Tgt-RsrcType-for-RGs",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_GRS_Tgt_RsrcType_for_RGs",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan all resources of a particular resource type name across specified RGs."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Exc-RGs-for-Sub",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_GRS_Exc_RGs_for_Sub",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan entire sub but exclude some RGs."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Tgt-RGs-for-Sub",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_GRS_Tgt_RGs_for_Sub",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan only specific RGs in a sub."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Tag-TagName-TagVal-for-Sub",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_GRS_Tag_TagName_TagVal_for_Sub",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan resources with specific Azure tag name and value."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Swt-Severity-Valid",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_Swt_Severity_Valid",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan for one or more valid severity values passed in -Severity at subscription scope."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Swt-Severity-ValidInvalid",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_Swt_Severity_ValidInvalid",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan for combination of valid and invalid severity values passed in -Severity at subscription scope."
+    },
+    {
+        "TestCaseID":  "Test-GRS-Swt-Severity-Invalid",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_Swt_Severity_Invalid",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan for all invalid severity values passed in -Severity at subscription scope."
+    },
+    {
+        "TestCaseID":  "Test-GSS-Tgt-ControlIds-for-Sub",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GSS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_GSS_Tgt_ControlIds_for_Sub",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan using a few selected controls."
+    },
+    {
+        "TestCaseID":  "Test-GSS-Swt-Ubc",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GSS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_GSS_Swt_Ubc",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan subscription controls with -ubc switch."
+    },
+    {
+        "TestCaseID":  "Test-GSS-Tag-FilterTags-for-Sub",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GRS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_Tag_FilterTags_for_Sub",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan using one or more \u0027filtertags\u0027 at subscription scope."
+    },
+    {
+        "TestCaseID":  "Test-GSS-Swt-Severity-Valid",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GSS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_Swt_Severity_Valid",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan for one or more valid severity values passed in -Severity at subscription scope."
+    },
+    {
+        "TestCaseID":  "Test-GSS-Swt-Severity-ValidInvalid",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GSS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_Swt_Severity_ValidInvalid",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan for combination of valid and invalid severity values passed in -Severity at subscription scope."
+    },
+    {
+        "TestCaseID":  "Test-GSS-Swt-Severity-Invalid",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GSS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_Swt_Severity_Invalid",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan for all invalid severity values passed in -Severity at subscription scope."
+    },
+    {
+        "TestCaseID":  "Test-GACS-Swt-Severity-Valid",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GACS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_Swt_Severity_Valid",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan for one or more valid severity values passed in -Severity at subscription scope."
+    },
+    {
+        "TestCaseID":  "Test-GACS-Swt-Severity-ValidInvalid",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GACS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_Swt_Severity_ValidInvalid",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan for combination of valid and invalid severity values passed in -Severity at subscription scope."
+    },
+    {
+        "TestCaseID":  "Test-GACS-Swt-Severity-Invalid",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GACS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_Swt_Severity_Invalid",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan for all invalid severity values passed in -Severity at subscription scope."
+    },
+    {
+        "TestCaseID":  "Test-GACS-Tag-FilterTags-for-Sub",
+        "Priority":  "1",
+        "Feature":  "SVTCore",
+        "ModuleName":  "GACS",
+        "Type":  "BVT",
+        "Enabled":  true,
+        "TestMethod":  "Test_Tag_FilterTags_for_Sub",
+        "AutomationStatus":  "Automated",
+        "ManualSteps":  "",
+        "Description":  "Scan using one or more \u0027filtertags\u0027 at subscription scope."
+    }
+]

@@ -1,0 +1,3 @@
+ControlID,Status
+Azure_TrafficManager_AuthZ_Grant_Min_RBAC_Access,Verify
+Azure_TrafficManager_DP_Enable_Https,Failed

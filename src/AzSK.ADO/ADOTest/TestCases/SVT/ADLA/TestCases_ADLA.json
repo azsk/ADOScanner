@@ -1,0 +1,33 @@
+{
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_ADLA_PossiblePassed",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "ADLA",
+        "ParamFileName": "",
+        "Type": "BVT",
+        "TemplateFileName": "",
+        "Enabled":  false,
+        "BaselineOutput": "BaseControlStatus_ADLA_PossiblePassed.csv",        
+        "PresetMethods": "SetADLADiagnosticsOn",
+        "Description": "Verify ADLA SVTs with encryption enabled on default ADLS, diagnostics turned on."
+      },
+      {
+        "TestCaseID": "TC_ADLA_PossibleFailed",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "ADLA",
+        "ParamFileName": "",
+        "TemplateFileName": "",
+        "Enabled":  false,
+        "Type": "FVT",
+        "BaselineOutput": "BaseControlStatus_ADLA_PossibleFailed.csv",        
+        "PresetMethods": "",
+        "ResetMethods": "",
+        "Description": "Verify ADLA SVTs with encryption disabled on default ADLS, diagnostics turned off."
+      }
+    ]
+  }
+}

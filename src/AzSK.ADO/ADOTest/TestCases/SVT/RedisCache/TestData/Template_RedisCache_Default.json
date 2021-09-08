@@ -1,0 +1,28 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "ResName": {
+            "defaultValue": "azsktestrediscache",
+            "type": "string"
+        }
+    },
+   "resources": [
+        {
+            "apiVersion": "2016-04-01",
+            "type": "Microsoft.Cache/Redis",
+            "name": "[parameters('ResName')]",
+            "location": "eastus2",
+            "properties": {
+                "sku": {
+                    "name": "Premium",
+                    "family": "P",
+                    "capacity": 1
+                },
+                "redisConfiguration": {},
+                "enableNonSslPort": false
+            }
+        }
+    ]
+
+}

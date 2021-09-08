@@ -1,0 +1,16 @@
+﻿{
+  "Commands": [
+    {
+      "Name": "GSS",
+      "Command": "Get-AzSKSubscriptionSecurityStatus -SubscriptionId #SubscriptionId# -UseBaselineControls"  
+    },
+    {
+      "Name": "GRS",
+      "Command": [
+            "$AzureRmResourceList = Get-AzResource;",
+            "[PSCustomObject] $RList = $AzureRmResourceList | Select-Object Kind,ResourceGroupName, Name,ResourceType | Group-Object ResourceType, Kind| ForEach-Object {$_ | Select-Object -ExpandProperty Group | Select-Object -First 1} | Sort-Object ResourceType",
+            "Get-AzSKAzureServicesSecurityStatus -SubscriptionId (Get-AzContext).Subscription.Id -ResourceNames $($RList.Name -join \",\")"
+        ]
+    }
+  ]
+}

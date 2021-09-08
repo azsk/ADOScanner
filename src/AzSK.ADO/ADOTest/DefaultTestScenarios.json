@@ -1,0 +1,26 @@
+{
+  "TestScenarios": {
+    "TestScenario": [
+      {
+        "TestScenarioID": "TS_All",
+        "Scenario": "All Test Cases",
+        "Query": ""
+      },
+      {
+        "TestScenarioID": "TS_BVTs",
+        "Scenario": "All Build Verification Tests",
+        "Query": "$_.Type -eq \"BVT\" -and $_.Priority -eq \"1\""
+      },
+      {
+        "TestScenarioID": "TS_AllP1s",
+        "Scenario": "All P1 test cases",
+        "Query": "$_.Priority -eq \"1\""
+      },
+      {
+        "TestScenarioID": "TS_AllP1s_ExceptSVTs",
+        "Scenario": "All P1 test cases except SVTs",
+        "Query": "$_.Priority -eq \"1\" -and $_.Feature -ne \"SVT\""
+      }
+    ]
+  }
+}

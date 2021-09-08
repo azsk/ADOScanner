@@ -1,0 +1,56 @@
+{
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_Automation_PositiveResult_Controls",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "Automation",
+        "ParamFileName": "",
+        "TemplateFileName": "",
+        "BaselineOutput": "",
+        "Type": "BVT",
+        "Enabled":  false,
+        "PresetMethods": "SetValidWebhook;SetEncryptedVariables",
+        "Description": "Verify SVTs on Azure Automation with valid webhook and variables",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_Automation_DP_Review_Webhook_Usage",
+            "ControlStatus": "Verify"
+          },
+          {
+            "ControlID": "Azure_Automation_DP_Minimal_Webhook_Validity",
+            "ControlStatus": "Passed"
+          },
+          {
+            "ControlID": "Azure_Automation_DP_Use_Encrypted_Variables",
+            "ControlStatus": "Passed"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_Automation_NegativeResult_Controls",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "Automation",
+        "ParamFileName": "",
+        "TemplateFileName": "",
+        "BaselineOutput": "",
+        "Type": "BVT",
+        "Enabled":  false,
+        "PresetMethods": "SetInvalidWebhook;SetUnencryptedVariables",
+        "Description": "Verify SVTs on Azure Automation with invalid webhook and variables",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_Automation_DP_Minimal_Webhook_Validity",
+            "ControlStatus": "Failed"
+          },
+          {
+            "ControlID": "Azure_Automation_DP_Use_Encrypted_Variables",
+            "ControlStatus": "Verify"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,74 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "ResourceName": {
+            "defaultValue": "azsktestcdn",
+            "type": "string"
+        },
+        "storageAccountForCDN": {
+            "defaultValue": "azskteststoragecommon",
+            "type": "string"
+        },
+        "endpointForCDN": {
+            "defaultValue": "azsktestcdn/azsktestcdnendpoint",
+            "type": "string"
+        },
+        "originForCDN": {
+            "defaultValue": "azsktestcdn/azsktestcdnendpoint/azskteststoragecommon-blob-core-windows-net",
+            "type": "string"
+        },
+        "location": {
+          "type": "string",
+          "defaultValue": "eastus2"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Cdn/profiles",
+            "sku": {
+                "name": "Premium_Verizon"
+            },
+            "name": "[parameters('ResourceName')]",
+            "apiVersion": "2016-04-02",
+            "location": "[parameters('location')]",
+            "tags": {},
+            "properties": {
+                "provisioningState": "Succeeded",
+                "resourceState": "Active"
+            },
+            "dependsOn": []
+        },
+        {
+            "type": "Microsoft.Cdn/profiles/endpoints",
+            "name": "[parameters('endpointForCDN')]",
+            "apiVersion": "2016-04-02",
+            "location": "[parameters('location')]",
+            "tags": {},
+            "properties": {
+                "originHostHeader": "azskteststoragecommon.blob.core.windows.net",
+                "isHttpAllowed": false,
+                "isHttpsAllowed": true,
+                "queryStringCachingBehavior": "NotSet",
+                "originPath": null,
+                "origins": [
+                    {
+                        "name": "azskteststoragecommon-blob-core-windows-net",
+                        "properties": {
+                            "hostName": "azskteststoragecommon.blob.core.windows.net",
+                            "httpPort": null,
+                            "httpsPort": null
+                         }
+                    }
+                  ],
+                "contentTypesToCompress": [],
+                "isCompressionEnabled": false
+            },
+          "dependsOn": [
+            "[resourceId('Microsoft.Cdn/profiles', parameters('ResourceName'))]"
+          ]
+            
+        }
+    ]
+}

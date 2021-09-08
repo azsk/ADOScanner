@@ -1,0 +1,29 @@
+{
+
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_VirtualNetwork_WithoutPeering",
+        "Priority": "1",
+        "Feature": "SVT",
+        "Enabled":  false,
+        "ModuleName": "VirtualNetwork",
+        "BaselineOutput": "BaseControlStatus_VirtualNetwork_WithoutPeer.csv",
+        "PresetMethods": "ResetConfigurationBase",
+        "Type": "FVT",
+        "Description": "Verify SVTs on a Virtual Network without peering."
+      },
+      {
+        "TestCaseID": "TC_VirtualNetwork_WithPeering",
+        "Priority": "1",
+        "Feature":"SVT",
+        "Enabled":  false,
+        "ModuleName": "VirtualNetwork", 
+        "BaselineOutput":"BaseControlStatus_VirtualNetwork_WithPeer.csv",
+        "PresetMethods": "AddVnetPeer",
+        "Type": "FVT",
+        "Description": "Verify SVTs on a Virtual Network with peering."
+      }
+    ]
+  }
+}

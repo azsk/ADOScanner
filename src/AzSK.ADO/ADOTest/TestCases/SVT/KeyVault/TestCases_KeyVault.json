@@ -1,0 +1,123 @@
+{
+  "TestCases": {
+    "TestCase": [
+
+      {
+        "TestCaseID": "TC_KeyVault_Verify_DefaultCompliance",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "KeyVault",
+        "Enabled":  false,
+        "ParamFileName": "Params_KeyVault_DefaultCompliance.json",
+        "TemplateFileName": "Template_KeyVault_DefaultCompliance.json",
+        "BaselineOutput": "BaseControlStatus_KeyVault_DefaultCompliance.csv",
+        "Description": "Verify SVTs on a default KeyVault Resource",
+        "Type": "FVT",
+        "PresetMethods":"GetReadAcessOnKey"
+      },   
+       {
+        "TestCaseID": "TC_KeyVault_Verify_Diagnostics_Log_On",
+        "Priority": "1",
+        "Feature": "SVT",
+        "Enabled":  false,
+        "ModuleName": "KeyVault",
+        "ParamFileName": "Params_KeyVault_DefaultCompliance.json",
+        "TemplateFileName": "Template_KeyVault_DefaultCompliance.json",
+        "BaselineOutput": "BaseControlStatus_KeyVault_DefaultCompliance.csv",
+        "Description": "Verify SVT on KeyVault Resource for Daignostics settings",
+        "PresetMethods": "SetKVDiagnosticsOn",
+        "ResetMethods": "SetKVDiagnosticsOff",
+        "Type": "FVT",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_KeyVault_Audit_Enable_Diagnostics_Log",
+            "ControlStatus": "Passed"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_KeyVault_Verify_AdvancedAccessPolicies_AllEnabled",
+        "Priority": "1",
+        "Feature": "SVT",
+        "Enabled":  false,
+        "ModuleName": "KeyVault",
+        "ParamFileName": "Params_KeyVault_DefaultCompliance.json",
+        "TemplateFileName": "Template_KeyVault_DefaultCompliance.json",
+        "BaselineOutput": "BaseControlStatus_KeyVault_DefaultCompliance.csv",
+        "Description": "Verify SVT on KeyVault Resource for Advanced Access Policies all enabled",
+        "PresetMethods": "SetAllAdvanceAcessPolicies",
+        "ResetMethods": "ResetAllAdvanceAcessPolicies",
+        "Type": "FVT",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_KeyVault_AuthZ_Configure_Advanced_Access_Policies",
+            "ControlStatus": "Failed"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_KeyVault_Verify_AccessPolicies_AllEnabled",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "KeyVault",
+        "Enabled":  false,
+        "ParamFileName": "Params_KeyVault_DefaultCompliance.json",
+        "TemplateFileName": "Template_KeyVault_DefaultCompliance.json",
+        "BaselineOutput": "BaseControlStatus_KeyVault_DefaultCompliance.csv",
+        "Description": "Verify SVT on KeyVault Resource for Access Policies all enabled",
+        "PresetMethods": "SetAllAcessPolicies",
+        "ResetMethods": "ResetAllAcessPolicies",
+        "Type": "FVT",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_KeyVault_AuthZ_Grant_Min_Access_policies",
+            "ControlStatus": "Verify"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_KeyVault_Verify_NonHSMKeyWithExpiryDate",
+        "Priority": "1",
+        "Feature": "SVT",
+        "Enabled":  false,
+        "ModuleName": "KeyVault",
+        "ParamFileName": "Params_KeyVault_DefaultCompliance.json",
+        "TemplateFileName": "Template_KeyVault_DefaultCompliance.json",
+        "BaselineOutput": "BaseControlStatus_KeyVault_DefaultCompliance.csv",
+        "Description": "Verify SVT on KeyVault Resource for non HSM keys with expiry date",
+        "PresetMethods": "AddNonHSMKeyWithExpiryDate",
+        "Type": "FVT",
+        "ResetMethods": "RemoveResource",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_KeyVault_DP_Keys_Protect_By_HSM",
+            "ControlStatus": "Failed"
+          },
+          {
+            "ControlID": "Azure_KeyVault_DP_Keys_Secrets_Check_Expiry_Date",
+            "ControlStatus": "Passed"
+          },
+          {
+            "ControlID": "Azure_KeyVault_AuthN_Key_Min_Operation",
+            "ControlStatus": "Verify"
+          }
+        ]
+      },
+      
+      {
+        "TestCaseID": "TC_KeyVault_Verify_SVTs_Compliant",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "KeyVault",
+        "Enabled":  false,
+        "ParamFileName": "Params_TC_KeyVault_Compliant.json",
+        "TemplateFileName": "Template_TC_KeyVault_Compliant.json",
+        "BaselineOutput": "BaseControlStatus_TC_KeyVault_Compliant.csv",
+        "Description": "Verify SVTs on a security compliant KeyVault.",
+        "PresetMethods": "GetReadAcessOnKey;SetKVDiagnosticsOn",
+        "Type": "FVT",
+        "ResetMethods": "RemoveResource"
+      }
+    ]
+  }
+}

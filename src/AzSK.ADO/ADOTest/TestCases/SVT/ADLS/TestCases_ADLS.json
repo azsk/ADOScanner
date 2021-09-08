@@ -1,0 +1,79 @@
+{
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_ADLS_PossiblePassed",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "ADLS",
+        "ParamFileName": "",
+        "Enabled":  false,
+        "TemplateFileName": "",
+        "BaselineOutput": "",
+        "Type": "BVT",
+        "PresetMethods": "SetDiagnosticsOn;EnableFirewall",
+        "Description": "Verify SVTs on ADLS with proper diagnostics, firewall and encryption.",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_DataLakeStore_Audit_Enable_Diagnostics_Log",
+            "ControlStatus": "Passed"
+          },
+          {
+            "ControlID": "Azure_DataLakeStore_AuthZ_Enable_Firewall",
+            "ControlStatus": "Passed"
+          },
+          {
+            "ControlID": "Azure_DataLakeStore_DP_Encrypt_At_Rest",
+            "ControlStatus": "Passed"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_ADLS_PossibleFailed",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "ADLS",
+        "ParamFileName": "",
+        "Enabled":  false,
+        "TemplateFileName": "",
+        "BaselineOutput": "",
+        "PresetMethods": "",
+        "Type": "FVT",
+        "Description": "Verify SVTs on ADLS with diagnostics off, firewall disabled, encryption disabled",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_DataLakeStore_Audit_Enable_Diagnostics_Log",
+            "ControlStatus": "Failed"
+          },
+          {
+            "ControlID": "Azure_DataLakeStore_AuthZ_Enable_Firewall",
+            "ControlStatus": "Failed"
+          },
+          {
+            "ControlID": "Azure_DataLakeStore_DP_Encrypt_At_Rest",
+            "ControlStatus": "Failed"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_ADLS_PossibleVerify",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "ADLS",
+        "ParamFileName": "",
+        "TemplateFileName": "",
+        "Enabled":  false,
+        "BaselineOutput": "",
+        "Type": "FVT",
+        "PresetMethods": "SetFirewallRule",
+        "Description": "Verify SVTs on ADLS with firewall rule set.",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_DataLakeStore_AuthZ_Enable_Firewall",
+            "ControlStatus": "Verify"
+          }
+        ]
+      }
+    ]
+  }
+}

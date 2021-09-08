@@ -1,0 +1,72 @@
+{
+
+  "TestCases": {
+    "TestCase": [
+      {        
+        "TestCaseID": "TC_AnalysisSvc_VerifyDefaultCompliance",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "AnalysisServices",
+         "Enabled":  false,
+        "Type": "FVT",
+        "ParamFileName": "Params_AnalysisSvc_Default.json",
+        "TemplateFileName": "Template_AnalysisSvc_Default.json",
+        "BaselineOutput": "BaseControlStatus_AnalysisSvc_DefaultCompliance.csv",
+        "Description": "Verify SVTs on a security compliant for Blank Analysis Services Resource",
+        "PresetMethods" : "StartAnalysisServices"
+      },
+      {
+        "TestCaseID": "TC_AnalysisSvc_Verify_2Admins_RBAC",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "AnalysisServices",
+         "Enabled":  false,
+        "Type": "FVT",
+        "ParamFileName": "Params_AnalysisSvc_Default.json",
+        "TemplateFileName": "Template_AnalysisSvc_Default.json",
+        "BaselineOutput": "BaseControlStatus_AnalysisSvc_2Admins_RBAC.csv",
+        "PresetMethods": "AddTwoAnalysisServiceAdmin",
+        "ResetMethods": "StartAnalysisServices;AddDefaultAnalysisServiceAdmin",
+        "Description": "Verify SVTs on an analysis services with 2 admins and inherited RBAC access."
+      },
+      {        
+        "TestCaseID": "TC_AnalysisSvc_Verify_3Admins",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "AnalysisServices",
+         "Enabled":  false,
+        "Type": "FVT",
+        "ParamFileName": "Params_AnalysisSvc_Default.json",
+        "TemplateFileName": "Template_AnalysisSvc_Default.json",
+        "Description": "Verify Analysis Services Admin control check fails in case of no. of admins defined as 3",
+        "PresetMethods": "AddThreeAnalysisServiceAdmin",
+        "ResetMethods": "StartAnalysisServices;AddDefaultAnalysisServiceAdmin",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_AnalysisServices_AuthZ_Min_Admin",
+            "ControlStatus": "Failed"
+          }
+        ]
+      },
+      {        
+        "TestCaseID": "TC_AnalysisSvc_Verify_PausedState",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "AnalysisServices",
+         "Enabled":  false,
+        "Type": "FVT",
+        "ParamFileName": "Params_AnalysisSvc_Default.json",
+        "TemplateFileName": "Template_AnalysisSvc_Default.json",
+        "Description": "Verify Analysis Services Admin control check in case of Analysis Services state is 'Paused'",
+        "PresetMethods": "PauseAnalysisServices",
+        "ResetMethods": "StartAnalysisServices",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_AnalysisServices_AuthZ_Min_Admin",
+            "ControlStatus": "Manual"
+          }
+        ]
+      }
+    ]
+  }
+}

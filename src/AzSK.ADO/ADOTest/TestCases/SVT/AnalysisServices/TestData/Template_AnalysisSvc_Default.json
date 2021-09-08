@@ -1,0 +1,48 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "ResName": {
+            "defaultValue": "azsktestanalysisservice",
+            "type": "string"
+        },
+        "analysisserviceslocation": {
+            "defaultValue": "southeastasia",
+            "type": "string"
+        },
+        "analysisservicessku": {
+            "defaultValue": "D1",
+            "type": "string",
+            "allowedValues": [
+                "D1",
+                "B0",
+                "S0",
+                "S1",
+                "S2",
+                "S4"
+            ]
+        },
+        "analysisservicesadmin": {
+            "defaultValue": "",
+            "type": "string"
+        }
+    },
+    "resources": [
+        {
+            "apiVersion": "2016-05-16",
+            "name": "[parameters('ResName')]",
+            "location": "[parameters('analysisserviceslocation')]",
+            "type": "Microsoft.AnalysisServices/servers",
+            "sku": {
+                "name": "[parameters('analysisservicessku')]"
+            },
+            "properties": {
+                "asAdministrators": {
+                    "members": [
+                        "[parameters('analysisservicesadmin')]"
+                    ]
+                }
+            }
+        }
+    ]
+}

@@ -1,0 +1,31 @@
+﻿{
+  "ExpectedPowershellOutput": {
+   "Command": [
+    {
+        "CommandName": "SOS",
+        "ExpectedOutput": [
+            "Successfully changed policy settings"
+        ]
+    },
+    {
+        "CommandName": "SPS",
+        "ExpectedOutput": [
+            "Successfully configured policy settings.",
+            "Start a fresh PS console/session to ensure any policy updates are (re-)loaded."
+        ]
+    },
+    {
+        "CommandName": "SUTL",
+        "ExpectedOutput": [
+            "Successfully set usage telemetry level"
+        ]
+    },
+    {
+        "CommandName": "SUP",
+        "ExpectedOutput": [
+            "Successfully set user preference"
+        ]
+    }
+   ]
+  }
+}

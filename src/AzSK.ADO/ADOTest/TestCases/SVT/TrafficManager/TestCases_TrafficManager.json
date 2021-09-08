@@ -1,0 +1,33 @@
+{
+
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_TrafficManager_Verify_All_Compliant",
+        "Priority": "1",
+        "Feature": "SVT",
+        "Type": "BVT",
+        "Enabled":  false,
+        "ModuleName": "TrafficManager",
+        "TemplateFileName": "Template_TrafficManager_All_Compliant.json",
+        "BaselineOutput": "BaseControlStatus_TrafficManager_All_Compliant.csv",
+        "PresetMethods": "",
+        "ResetMethods": "",
+        "Description": "Verify SVTs on a compliant Traffic Manager Profile."
+      },
+      {
+        "TestCaseID": "TC_TrafficManager_Verify_All_Non_Compliant",
+        "Priority": "1",
+        "Feature": "SVT",
+        "Type": "FVT",
+        "Enabled":  false,
+        "ModuleName": "TrafficManager",
+        "TemplateFileName": "Template_TrafficManager_All_Non_Compliant.json",
+        "BaselineOutput": "BaseControlStatus_TrafficManager_All_Non_Compliant.csv",
+        "PresetMethods": "",
+        "ResetMethods": "",
+        "Description": "Verify SVTs on a non compliant Traffic Manager Profile."
+      }
+    ]
+  }
+}

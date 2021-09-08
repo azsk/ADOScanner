@@ -1,0 +1,66 @@
+﻿{
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "Test-Set-AzSKAlerts",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "ModuleName": "SSProvisioning",
+        "Enabled": true,
+        "Type": "BVT",
+        "TestMethod": "TestSetAzSKAlerts",
+        "Description": "Set-AzSKAlerts must register AzSK alerts."
+      },
+      {
+        "TestCaseID": "Test-Remove-AzSKAlerts",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "Enabled": true,
+        "ModuleName": "SSProvisioning",
+        "Type": "BVT",
+        "TestMethod": "TestRemoveAzSKAlerts",
+        "Description": "Remove-AzSKAlerts must remove all AzSK alerts"
+      },      
+      {
+        "TestCaseID": "Test-Set-AzSKARMPolicies",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "Enabled": true,
+        "ModuleName": "SSProvisioning",
+        "Type": "BVT",
+        "TestMethod": "TestSetAzSKARMPolicies",
+        "Description": "Set-AzSKARMPolicies must add AzSK policies"
+      },
+      {
+        "TestCaseID": "Test-Remove-AzSKARMPolicies",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "Enabled": true,
+        "ModuleName": "SSProvisioning",
+        "Type": "BVT",
+        "TestMethod": "TestRemoveAzSKARMPolicies",
+        "Description": "Remove-AzSKARMPolicies must remove AzSK policies"
+      },
+      {
+        "TestCaseID": "Test-Set-AzSKRBAC",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "Enabled": true,
+        "ModuleName": "SSProvisioning",
+        "Type": "BVT",
+        "TestMethod": "TestSetAzSKRBAC",
+        "Description": "Set RBAC role assignement on subscription"
+      },
+      {
+        "TestCaseID": "Test-Remove-AzSKRBAC",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "Enabled": true,
+        "ModuleName": "SSProvisioning",
+        "Type": "BVT",
+        "TestMethod": "TestRemoveAzSKRBAC",
+        "Description": "Remove RBAC role assignment on subscription"
+      }
+    ]
+  }
+}

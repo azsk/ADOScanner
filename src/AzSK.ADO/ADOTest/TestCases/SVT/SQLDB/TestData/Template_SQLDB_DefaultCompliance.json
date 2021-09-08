@@ -1,0 +1,39 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+       "contentVersion": "1.0.0.0", 
+     "parameters": {
+      "ResName": {
+        "defaultValue": "azsktestsqldb",
+        "type": "string"
+      },
+
+      "administratorLogin": {
+        "type": "string"
+      },
+      "administratorLoginPassword": {
+        "type": "securestring"
+
+      },
+      "location": {
+        "type": "string"
+      }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "comments": "Test storage",
+            "type": "Microsoft.Sql/servers",
+            "kind": "v12.0",
+            "name": "[parameters('ResName')]",
+            "apiVersion": "2014-04-01-preview",
+            "location": "[parameters('location')]",
+            "properties": {
+                "administratorLogin": "[parameters('administratorLogin')]",
+                "administratorLoginPassword": "[parameters('administratorLoginPassword')]",
+                "version": "12.0"
+            },
+            "resources": [],
+            "dependsOn": []
+        }
+    ]
+}

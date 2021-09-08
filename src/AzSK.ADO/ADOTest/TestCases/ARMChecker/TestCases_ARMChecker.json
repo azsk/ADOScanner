@@ -1,0 +1,150 @@
+{
+    "TestCases": {
+      "TestCase": [
+        {
+          "TestCaseID": "Test_ARMChecker_Error_On_FileSkip",
+          "Priority": "1",
+          "Feature": "ARMChecker",
+          "ModuleName": "ARMChecker",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "ErrorOnFileSkip",
+          "AutomationStatus": "Automated",
+          "ManualSteps": "",
+          "Description": "ARMChecker should give error if any file is skipped."
+        },
+        {
+          "TestCaseID": "Test_ARMChecker_Skip_Controls_From_File",
+          "Priority": "1",
+          "Feature": "ARMChecker",
+          "ModuleName": "ARMChecker",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "SkipControlsFromFile",
+          "AutomationStatus": "Automated",
+          "ManualSteps": "",
+          "Description": "ARMChecker should skip all failed/verified controls from scan."
+        },
+        {
+          "TestCaseID": "Test_ARMChecker_Validate_Compliant_Templates",
+          "Priority": "1",
+          "Feature": "ARMChecker",
+          "ModuleName": "ARMChecker",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "ValidateCompliantTemplates",
+          "AutomationStatus": "Automated",
+          "ManualSteps": "",
+          "Description": "ARMChecker should return 'Passed' status for all controls."
+        },
+        {
+          "TestCaseID": "Test_ARMChecker_With_Multiple_Recourses",
+          "Priority": "1",
+          "Feature": "ARMChecker",
+          "ModuleName": "ARMChecker",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "ScanMultiResourceTemplates",
+          "AutomationStatus": "Automated",
+          "ManualSteps": "",
+          "Description": "ARMChecker should be able to scan template with multiple resources."
+        },
+        {
+          "TestCaseID": "Test_ARMChecker_With_Recurse_Switch",
+          "Priority": "1",
+          "Feature": "ARMChecker",
+          "ModuleName": "ARMChecker",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "ValidateRecurseSwitch",
+          "AutomationStatus": "Automated",
+          "ManualSteps": "",
+          "Description": "ARM Checker should scan the files recursively."
+        },
+        {
+          "TestCaseID": "Test_ARMChecker_Without_Recurse_Switch",
+          "Priority": "1",
+          "Feature": "ARMChecker",
+          "ModuleName": "ARMChecker",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "ValidateFalseRecurseSwitch",
+          "AutomationStatus": "Automated",
+          "ManualSteps": "",
+          "Description": "ARM Checker should scan the files at root level only."
+        },
+        {
+          "TestCaseID": "Test_ARMChecker_Validate_Exclude_Files",
+          "Priority": "1",
+          "Feature": "ARMChecker",
+          "ModuleName": "ARMChecker",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "ValidateExcludeFiles",
+          "AutomationStatus": "Automated",
+          "ManualSteps": "",
+          "Description": "ARMChecker should skip all file(s) provided as list to -ExcludeFiles parameter."
+        },
+        {
+          "TestCaseID": "Test_ARMChecker_Use_Default_Parameter_Value",
+          "Priority": "1",
+          "Feature": "ARMChecker",
+          "ModuleName": "ARMChecker",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "ValidateDefaultParameter",
+          "AutomationStatus": "Automated",
+          "ManualSteps": "",
+          "Description": "ARM Checker should respect default value of parameters provided within ARM template."
+        },
+        {
+          "TestCaseID": "Test_ARMChecker_Use_External_Parameter_File",
+          "Priority": "1",
+          "Feature": "ARMChecker",
+          "ModuleName": "ARMChecker",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "ValidateExternalParameterFile",
+          "AutomationStatus": "Automated",
+          "ManualSteps": "",
+          "Description": "ARM Checker should support external parameter file during scan."
+        },
+        {
+          "TestCaseID": "Test_ARMChecker_Scan_Baseline_Controls",
+          "Priority": "1",
+          "Feature": "ARMChecker",
+          "ModuleName": "ARMChecker",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "ValidateBaselineControls",
+          "AutomationStatus": "Automated",
+          "ManualSteps": "",
+          "Description": "ARM Checker should scan only baseline controls if 'UBC' flag is enabled."
+        },
+        {
+          "TestCaseID": "Test_ARMChecker_Scan_Preview_Baseline_Controls",
+          "Priority": "1",
+          "Feature": "ARMChecker",
+          "ModuleName": "ARMChecker",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "ValidatePreviewBaselineControls",
+          "AutomationStatus": "Automated",
+          "ManualSteps": "",
+          "Description": "ARM Checker should scan only preview baseline controls if 'UPBC' flag is enabled."
+        },
+        {
+          "TestCaseID": "Test_ARMChecker_Scan_Both_UBC_and_UPBC_Controls",
+          "Priority": "1",
+          "Feature": "ARMChecker",
+          "ModuleName": "ARMChecker",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "ValidateBothUBCandUPBCControls",
+          "AutomationStatus": "Automated",
+          "ManualSteps": "",
+          "Description": "ARM Checker should scan both baseline and preview baseline controls if 'UPBC' and 'UBC' both flags are enabled."
+        }
+      ]
+    }
+  }

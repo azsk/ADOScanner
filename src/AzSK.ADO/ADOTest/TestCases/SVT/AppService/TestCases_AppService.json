@@ -1,0 +1,31 @@
+{
+
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_AppSvc_Verify_All_Compliant",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "AppService",
+        "Enabled": false,
+        "TemplateFileName": "Template_AppSvc_All_Compliant.json",
+        "BaselineOutput": "BaseControlStatus_AppSvc_All_Compliant.csv",
+        "Type": "FVT",
+        "PresetMethods": "SetAppBackup",
+        "Description": "Verify SVTs on a compliant App Service. This will not verify custom domain and HTTPs redirect controls."
+      },
+      {
+        "TestCaseID": "TC_AppSvc_Verify_All_Non_Compliant",
+        "Priority": "1",
+        "Feature": "SVT",
+        "Enabled": false,
+        "ModuleName": "AppService",
+        "TemplateFileName": "Template_AppSvc_All_Non_Compliant.json",
+        "BaselineOutput": "BaseControlStatus_AppSvc_All_Non_Compliant.csv",
+        "Type": "FVT",
+        "PresetMethods": "AddWebsiteLoadCertificates",
+        "Description": "Verify SVTs on a non-compliant App Service."
+      }
+    ]
+  }
+}

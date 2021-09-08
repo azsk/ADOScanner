@@ -1,0 +1,5 @@
+﻿{
+    "Description": "Use this Json file to add comma seperated list of control Ids to be whitelisted. Eg: 'Azure_Subscription_Audit_Resolve_Azure_Security_Center_Alerts','Azure_Subscription_Config_Azure_Security_Center'",
+    "WhitelistedControlIds": [
+    ]
+}

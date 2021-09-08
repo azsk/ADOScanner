@@ -1,0 +1,44 @@
+{
+    "Properties" : [
+        {
+            "Type": "Solo",
+            "Runbooks": [
+                "Alert_Runbook",
+                "Continuous_Assurance_Runbook"
+            ],
+            "Schedules": {
+                "Primary" : "CA_Scan_Schedule",
+                "Secondary" : "CA_Helper_Schedule"
+            },
+            "AutomationAccountName" : "AzSKContinuousAssurance",
+            "AutomationAccountRGName" : "AzSKRG",
+            "AutomationAccountLocation": "East US"
+        },
+        {
+            "Type": "Central",
+            "Runbooks": [
+                "Continuous_Assurance_Runbook"
+            ],
+            "Schedules": {
+                "Primary" : "CA_Scan_Schedule",
+                "Secondary" : "CA_Helper_Schedule"
+            },
+            "AutomationAccountName" : "AzSKContinuousAssurance",
+            "AutomationAccountRGName" : "AzSKRG",
+            "AutomationAccountLocation" : "East US"
+        },
+        {
+            "Type": "MultiCentral",
+            "Runbooks": [
+                "Continuous_Assurance_Runbook"
+            ],
+            "Schedules": {
+                "Primary" : "CA_Scan_Schedule",
+                "Secondary" : "CA_Helper_Schedule"
+            },
+            "AutomationAccountName" : "AzSKContinuousAssuranceMultiCentral",
+            "AutomationAccountRGName" : "AzSK-MultiCentral-RG",
+            "AutomationAccountLocation": "East US"
+        }
+    ]
+}

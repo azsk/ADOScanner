@@ -1,0 +1,78 @@
+{
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_LogicApps_PossiblePassed",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "LogicApps",
+        "ParamFileName": "Params_LogicApps_Default.json",
+        "TemplateFileName": "Template_LogicApps_Default.json",
+        "BaselineOutput": "",
+        "PresetMethods": "SetLogicAppDiagnosticsOn",
+        "ResetMethods": "SetLogicAppDiagnosticsOff",
+        "Type": "FVT",
+        "Enabled":  false,
+        "Description": "Verify Logic apps SVTs with diagnostics turned on and access control configured.",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_LogicApps_Audit_Enable_Diagnostics_Log",
+            "ControlStatus": "Passed"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_LogicApps_PossibleFailed",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "LogicApps",
+        "ParamFileName": "Params_LogicApps_Default.json",
+        "TemplateFileName": "Template_LogicApps_Default.json",
+        "BaselineOutput": "",
+        "PresetMethods": "SetLogicAppInvalidAccessControl;SetLogicAppDiagnosticsOff",
+        "ResetMethods": "RemoveLogicAppAccessControl",
+        "Type": "FVT",
+        "Enabled":  false,
+        "Description": "Verify Logic apps SVTs with diagnostics,access control off/any to any rule.",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_LogicApps_Audit_Enable_diagnostics_Log",
+            "ControlStatus": "Failed"
+          },
+          {
+            "ControlID": "Azure_LogicApps_AuthZ_Provide_Triggers_Access_Control",
+            "ControlStatus": "Failed"
+          },
+          {
+            "ControlID": "Azure_LogicApps_AuthZ_Provide_Contents_Access_Control",
+            "ControlStatus": "Failed"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_LogicApps_PossibleVerify",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "LogicApps",
+        "ParamFileName": "Params_LogicApps_Default.json",
+        "TemplateFileName": "Template_LogicApps_Default.json",
+        "BaselineOutput": "",
+        "PresetMethods": "SetLogicAppValidAccessControl",
+        "ResetMethods": "RemoveLogicAppAccessControl",
+        "Type": "FVT",
+        "Enabled":  false,
+        "Description": "Verify Logic apps SVTs with diagnostics turned on and access control configured.",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_LogicApps_AuthZ_Provide_Triggers_Access_Control",
+            "ControlStatus": "Verify"
+          },
+          {
+            "ControlID": "Azure_LogicApps_AuthZ_Provide_Contents_Access_Control",
+            "ControlStatus": "Verify"
+          }
+        ]
+      }
+    ]
+  }
+}

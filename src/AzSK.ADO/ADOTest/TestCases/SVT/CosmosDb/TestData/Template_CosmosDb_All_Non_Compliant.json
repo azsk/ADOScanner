@@ -1,0 +1,35 @@
+{
+   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+   "contentVersion": "1.0.0.0",
+   "parameters": {
+      "ResourceName": {
+         "defaultValue": "azsdktestcosmosdb",
+         "type": "string"
+      },
+      "location": {
+         "type": "string",
+         "defaultValue": "eastus2"
+      }
+   },
+   "variables": {},
+   "resources": [
+      {
+         "type": "Microsoft.DocumentDB/databaseAccounts",
+         "name": "[parameters('ResourceName')]",
+         "kind": "GlobalDocumentDB",
+         "tags": {
+            "defaultExperience": "DocumentDB"
+         },
+         "apiVersion": "2015-04-08",
+         "location": "[parameters('location')]",
+         "properties": {
+            "name": "[parameters('ResourceName')]",
+            "databaseAccountOfferType": "Standard",
+            "consistencyPolicy": {
+               "defaultConsistencyLevel": "Eventual"
+            }
+         },
+         "dependsOn": []
+      }
+   ]
+}

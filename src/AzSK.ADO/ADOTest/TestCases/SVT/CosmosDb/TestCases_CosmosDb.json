@@ -1,0 +1,32 @@
+{
+   "TestCases": {
+      "TestCase": [
+         {
+            "TestCaseID": "TC_CosmosDb_Verify_All_Compliant",
+            "Priority": "1",
+            "Feature": "SVT",
+            "ModuleName": "CosmosDb",
+            "Type": "FVT",
+            "TemplateFileName": "Template_CosmosDb_All_Compliant.json",
+            "Enabled":  false,
+            "BaselineOutput": "BaseControlStatus_CosmosDb_All_Compliant.csv",
+            "PresetMethods": "",
+            "ResetMethods": "",
+            "Description": "Verify SVTs on a compliant CosmosDb resource."
+         },
+         {
+            "TestCaseID": "TC_CosmosDb_Verify_All_Non_Compliant",
+            "Priority": "1",
+            "Feature": "SVT",
+            "Type": "FVT",
+            "ModuleName": "CosmosDb",
+            "Enabled":  false,
+            "TemplateFileName": "Template_CosmosDb_All_Non_Compliant.json",
+            "BaselineOutput": "BaseControlStatus_CosmosDb_All_Non_Compliant.csv",
+            "PresetMethods": "",
+            "ResetMethods": "",
+            "Description": "Verify SVTs on a non compliant CosmosDb resource."
+         }
+      ]
+   }
+}

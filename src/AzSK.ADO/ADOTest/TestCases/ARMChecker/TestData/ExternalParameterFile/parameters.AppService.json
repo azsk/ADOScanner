@@ -1,0 +1,22 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "sites_test82669_name": {
+            "value": "tarun"
+        },
+        "serverfarms_test_name": {
+            "value": "tashuk"
+        },
+        "netFrameworkVersion": {
+           "value": "v4.7"
+     
+        },
+        "sku_capacity": {
+            "value": 3
+        },
+        "enable_https": {
+            "value": true
+        }
+    }
+}

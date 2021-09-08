@@ -1,0 +1,151 @@
+﻿{
+  "TestCases": {
+   "TestCase": [
+    {
+      "TestCaseID": "Test-InstallAzSK-OSS",
+      "Priority": "1",
+      "Feature": "Setup",
+      "ModuleName": "Installation",
+      "Type": "BVT",
+      "Enabled":  false,
+      "TestMethod": "TestInstallAzSKOSS",
+      "ManualSteps":  "Run command 'Install-Module AzSK -Scope CurrentUser -AllowClobber'. Verify if it installs OSS version of AzSK.",
+      "AutomationStatus": "Manual",
+      "Description": "Verify the command successfully installs the AzSK OSS version for a new user."
+    },
+    {
+      "TestCaseID": "Test-InstallAzSK-Org",
+      "Priority": "1",
+      "Feature": "Setup",
+      "ModuleName": "Installation",
+      "Type": "BVT",
+      "Enabled":  false,
+      "ManualSteps":  "Run command 'iwr 'https://aka.ms/azsk/install.ps1' -UseBasicParsing | iex'. Verify if it installs Org version of AzSK.",
+      "AutomationStatus": "Manual",
+      "TestMethod": "TestAzSKOrgInstallation",
+      "Description": "Verify the command successfully installs the AzSK Org version for a new user."
+    },
+    {
+      "TestCaseID": "Test-UpdateAzSK",
+      "Priority": "1",
+      "Feature": "Setup",
+      "ModuleName": "Installation",
+      "Type": "FVT",
+      "Enabled":  false,
+      "ManualSteps": "Try installing AzSK on a machine having an earlier version of AzSK installed already. It should successfully install the newer version. ",
+      "AutomationStatus": "Manual",
+      "TestMethod": "TestUpdateAzSK",
+      "Description": "Verify if you are able to install the AzSK successfully and required modules are installed on a machine having earlier version of AzSK."
+    },
+    {
+      "TestCaseID": "Test-InstallAzSK-PreExisting-AzurePowershell",
+      "Priority": "2",
+      "Feature": "Setup",
+      "ModuleName": "Installation",
+      "Type": "FVT",
+      "Enabled":  false,
+      "ManualSteps": "Install Azure Powershell on your machine using the web platform installer. Then try instlling the AzSK. Verify that it is able to install all the modules successfully.",
+      "AutomationStatus": "Manual",
+      "TestMethod": "TestInstallAzSKOrg",
+      "Description": "Verify if you are able to install the AzSK in case where system has pre-existing Azure Powershell modules which are installed via Web Platform Installer."
+    },
+    {
+      "TestCaseID": "Test-UninstallAzSK",
+      "Priority": "2",
+      "Feature": "Setup",
+      "ModuleName": "Installation",
+      "Type": "FVT",
+      "Enabled":  false,
+      "ManualSteps": "First have the AzSK installed on your machine. Then run command 'Uninstall-Module AzSK'. Verify if removes all the AzSK modules from your computer.",
+      "AutomationStatus": "Manual",
+      "TestMethod": "",
+      "Description": "Verify if you are able to uninstall AzSK successfully."
+    },
+    {
+      "TestCaseID": "Test-InstallAzSK-UnrestrictedPolicy",
+      "Priority": "2",
+      "Feature": "Setup",
+      "ModuleName": "Installation",
+      "Type": "FVT",
+      "Enabled":  false,
+      "ManualSteps": "Run command 'Set-ExecutionPolicy -ExecutionPolicy Unrestricted'. Then run command 'Install-Module AzSK -Scope CurrentUser -AllowClobber'. Verify if it installs all the AzSK modules successfully.",
+      "AutomationStatus": "Manual",
+      "TestMethod": "",
+      "Description": "Verify if you are able to uninstall AzSK successfully."
+    },
+    {
+      "TestCaseID": "Test-InstallAzSK-Az38",
+      "Priority": "2",
+      "Feature": "Setup",
+      "ModuleName": "Installation",
+      "Type": "FVT",
+      "Enabled":  false,
+      "ManualSteps": "First install AzureRM version 3.8 on your machine. Then install AzSK. Verify that it installs latest supported version of AzureRM along with AzSK successfully.",
+      "AutomationStatus": "Manual",
+      "TestMethod": "",
+      "Description": "Verify if you are able to install AzSK successfully on a system having AzureRM version 3.8"
+    },
+    {
+      "TestCaseID": "Test-InstallAzSK-Az41",
+      "Priority": "2",
+      "Feature": "Setup",
+      "ModuleName": "Installation",
+      "Type": "FVT",
+      "Enabled":  false,
+      "ManualSteps": "First install AzureRM version 4.1 on your machine. Then install AzSK. Verify that it installs AzSK successfully without installing the Azure RM again.",
+      "AutomationStatus": "Manual",
+      "TestMethod": "",
+      "Description": "Verify if you are able to install AzSK successfully on a system having AzureRM version 4.1"
+    },
+    {
+      "TestCaseID": "Test-InstallAzSK-Az42",
+      "Priority": "2",
+      "Feature": "Setup",
+      "ModuleName": "Installation",
+      "Type": "FVT",
+      "Enabled":  false,
+      "ManualSteps": "First install AzureRM version 4.2 on your machine. Then install AzSK. Verify that it installs Azure RM 4.1 along with AzSK successfully.",
+      "AutomationStatus": "Manual",
+      "TestMethod": "",
+      "Description": "Verify if you are able to install AzSK successfully on a system having AzureRM version 4.2"
+    },
+    {
+      "TestCaseID": "Test-InstallAzSK-AllSignedPolicy",
+      "Priority": "2",
+      "Feature": "Setup",
+      "ModuleName": "Installation",
+      "Type": "FVT",
+      "Enabled":  false,
+      "ManualSteps": "Run command 'Set-ExecutionPolicy -ExecutionPolicy AllSigned'. Then run command 'Install-Module AzSK -Scope CurrentUser -AllowClobber'. The dialogue should appear for changing policy to RemoteSigned. Verify that if the change is confirmed then it installs all the AzSK modules successfully.",
+      "AutomationStatus": "Manual",
+      "TestMethod": "",
+      "Description": "Verify if you are able to install AzSK successfully on a system having execution policy set to AllSigned."
+    },
+    {
+      "TestCaseID": "Test-InstallAzSK-RemoteSignedPolicy",
+      "Priority": "2",
+      "Feature": "Setup",
+      "ModuleName": "Installation",
+      "Type": "FVT",
+      "Enabled":  false,
+      "ManualSteps": "Run command 'Set-ExecutionPolicy -ExecutionPolicy RemoteSigned'. Then run command 'Install-Module AzSK -Scope CurrentUser -AllowClobber'. Verify that it installs all the AzSK modules successfully without asking for change in policy.",
+      "AutomationStatus": "Manual",
+      "TestMethod": "",
+      "Description": "Verify if you are able to install AzSK successfully on a system having execution policy set to RemoteSigned."
+    },
+    {
+      "TestCaseID": "Test-InstallAzSK-Version230",
+      "Priority": "2",
+      "Feature": "Setup",
+      "ModuleName": "Installation",
+      "Type": "FVT",
+      "Enabled":  false,
+      "ManualSteps":  "Run command 'Install-Module AzSK -RequiredVersion 2.3.0 -Scope CurrentUser'. It should install AzSK version 2.3.0. Then again run command 'Install-Module AzSK -Scope CurrentUser'. It should uninstall version 2.3.0 and install version 2.3.1",
+      "AutomationStatus": "Manual",
+      "TestMethod": "",
+      "Description": "Verify if you are able to install AzSK successfully on a system having AzSK version 2.3.0 pre-installed."
+    }
+
+   ]
+  }
+}

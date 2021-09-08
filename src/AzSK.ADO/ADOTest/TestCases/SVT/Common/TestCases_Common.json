@@ -1,0 +1,29 @@
+﻿{
+  "TestCases": {
+   "TestCase": [
+     {
+         "TestCaseID": "Test_Basic_Scenarios",
+         "Priority": "1",
+         "Feature": "SVT",
+         "ModuleName": "Common",
+         "Type": "BVT",
+         "Enabled": true,
+         "TestMethod": "RunAzSKCommandsAsJobOnLocal",
+         "PropertiesFileName": "ParallelScanData.ps1",
+         "Description": "Run AzSK commands in parallel.\n\nTest Scenarios covered:\n1. Check if all the artifacts were generated in output folder.\n2. Verify that there are no errors or exceptions in output files (ScanError, CSVError, LogError, LogWarning).\n3. Verify if command runs with correct policy - CSE/Org-neutral"
+     },
+     {
+        "TestCaseID": "Test_StateDrift_ProdVsNonProd",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "Common",
+        "Type": "BVT",
+        "Enabled": true,
+        "TestMethod": "CompareResultProdVsNonProd",
+        "PropertiesFileName": "StateDrift_WhiteListed_Controls.json",
+        "ScanType" : "",
+        "Description": "Run GSS and GRS and compare CSV files of production with local environment."
+    }
+   ]
+  }
+}

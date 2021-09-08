@@ -1,0 +1,238 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+      "sites_test82669_name": {
+          "type": "string"
+      },
+      "serverfarms_test_name": {
+          "type": "string"
+      },
+      "config_web_name": {
+          "type": "string"
+      },
+      "hostNameBindings_test82669.azurewebsites.net_name": {
+          "type": "string"
+      },
+      "netFrameworkVersion": {
+          "type": "string"
+      },
+      "sku_capacity": {
+          "type": "int"
+      },
+      "enable_https": {
+        "type": "bool"
+        }
+  },
+  "variables": {},
+  "resources": [
+      {
+          "comments": "Generalized from resource: '/subscriptions/abb5301a-22a4-41f9-9e5f-99badff261f8/resourceGroups/tashuk-arm-app/providers/Microsoft.Web/serverfarms/test'.",
+          "type": "Microsoft.Web/serverfarms",
+          "sku": {
+              "name": "S1",
+              "tier": "Standard",
+              "size": "S1",
+              "family": "S",
+              "capacity":"[parameters('sku_capacity')]"
+          },
+          "kind": "app",
+          "name": "[parameters('serverfarms_test_name')]",
+          "apiVersion": "2016-09-01",
+          "location": "South Central US",
+          "scale": null,
+          "properties": {
+              "name": "[parameters('serverfarms_test_name')]",
+              "workerTierName": null,
+              "adminSiteName": null,
+              "hostingEnvironmentProfile": null,
+              "perSiteScaling": false,
+              "reserved": false,
+              "targetWorkerCount": 0,
+              "targetWorkerSizeId": 0
+          },
+          "dependsOn": []
+      },
+      {
+          "comments": "Generalized from resource: '/subscriptions/abb5301a-22a4-41f9-9e5f-99badff261f8/resourceGroups/tashuk-arm-app/providers/Microsoft.Web/sites/test82669'.",
+          "type": "Microsoft.Web/sites",
+          "kind": "app",
+          "name": "[parameters('sites_test82669_name')]",
+          "apiVersion": "2016-08-01",
+          "location": "South Central US",
+          "scale": null,
+          "properties": {
+              "enabled": true,
+              "hostNameSslStates": [
+                  {
+                      "name": "[concat(parameters('sites_test82669_name'),'.azurewebsites.net')]",
+                      "sslState": "Disabled",
+                      "virtualIP": null,
+                      "thumbprint": null,
+                      "toUpdate": null,
+                      "hostType": "Standard"
+                  },
+                  {
+                      "name": "[concat(parameters('sites_test82669_name'),'.scm.azurewebsites.net')]",
+                      "sslState": "Disabled",
+                      "virtualIP": null,
+                      "thumbprint": null,
+                      "toUpdate": null,
+                      "hostType": "Repository"
+                  }
+              ],
+              "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_test_name'))]",
+              "reserved": false,
+              "siteConfig": null,
+              "scmSiteAlsoStopped": false,
+              "hostingEnvironmentProfile": null,
+              "clientAffinityEnabled": true,
+              "clientCertEnabled": false,
+              "hostNamesDisabled": false,
+              "containerSize": 0,
+              "dailyMemoryTimeQuota": 0,
+              "cloningInfo": null,
+              "httpsOnly": "[parameters('enable_https')]"
+          },
+          "dependsOn": [
+              "[resourceId('Microsoft.Web/serverfarms', parameters('serverfarms_test_name'))]"
+          ]
+      },
+      {
+          "comments": "Generalized from resource: '/subscriptions/abb5301a-22a4-41f9-9e5f-99badff261f8/resourceGroups/tashuk-arm-app/providers/Microsoft.Web/sites/test82669/config/web'.",
+          "type": "Microsoft.Web/sites/config",
+          "name": "[concat(parameters('sites_test82669_name'), '/', parameters('config_web_name'))]",
+          "apiVersion": "2016-08-01",
+          "location": "South Central US",
+          "scale": null,
+          "properties": {
+              "numberOfWorkers": 1,
+              "defaultDocuments": [
+                  "Default.htm",
+                  "Default.html",
+                  "Default.asp",
+                  "index.htm",
+                  "index.html",
+                  "iisstart.htm",
+                  "default.aspx",
+                  "index.php",
+                  "hostingstart.html"
+              ],
+              "netFrameworkVersion": "[parameters('netFrameworkVersion')]",
+              "phpVersion": "5.6",
+              "pythonVersion": "",
+              "nodeVersion": "",
+              "linuxFxVersion": "",
+              "windowsFxVersion": null,
+              "requestTracingEnabled": true,
+              "requestTracingExpirationTime": "9999-12-31T23:59:00Z",
+              "remoteDebuggingEnabled": false,
+              "remoteDebuggingVersion": "VS2017",
+              "httpLoggingEnabled": true,
+              "logsDirectorySizeLimit": 35,
+              "detailedErrorLoggingEnabled": true,
+              "publishingUsername": "$test82669",
+              "publishingPassword": null,
+              "appSettings": null,
+              "azureStorageAccounts": {},
+              "metadata": null,
+              "connectionStrings": null,
+              "machineKey": null,
+              "handlerMappings": null,
+              "documentRoot": null,
+              "scmType": "None",
+              "use32BitWorkerProcess": false,
+              "webSocketsEnabled": false,
+              "alwaysOn": true,
+              "javaVersion": null,
+              "javaContainer": null,
+              "javaContainerVersion": null,
+              "appCommandLine": "",
+              "managedPipelineMode": "Integrated",
+              "virtualApplications": [
+                  {
+                      "virtualPath": "/",
+                      "physicalPath": "site\\wwwroot",
+                      "preloadEnabled": true,
+                      "virtualDirectories": null
+                  }
+              ],
+              "winAuthAdminState": 0,
+              "winAuthTenantState": 0,
+              "customAppPoolIdentityAdminState": false,
+              "customAppPoolIdentityTenantState": false,
+              "runtimeADUser": null,
+              "runtimeADUserPassword": null,
+              "loadBalancing": "LeastRequests",
+              "routingRules": [],
+              "experiments": {
+                  "rampUpRules": []
+              },
+              "limits": null,
+              "autoHealEnabled": false,
+              "autoHealRules": null,
+              "tracingOptions": null,
+              "vnetName": "",
+              "siteAuthEnabled": true,
+              "siteAuthSettings": {
+                  "enabled": null,
+                  "unauthenticatedClientAction": null,
+                  "tokenStoreEnabled": null,
+                  "allowedExternalRedirectUrls": null,
+                  "defaultProvider": null,
+                  "clientId": "***********ClientId*********",
+                  "clientSecret": null,
+                  "clientSecretCertificateThumbprint": null,
+                  "issuer": null,
+                  "allowedAudiences": null,
+                  "additionalLoginParams": null,
+                  "isAadAutoProvisioned": false,
+                  "googleClientId": null,
+                  "googleClientSecret": null,
+                  "googleOAuthScopes": null,
+                  "facebookAppId": null,
+                  "facebookAppSecret": null,
+                  "facebookOAuthScopes": null,
+                  "twitterConsumerKey": null,
+                  "twitterConsumerSecret": null,
+                  "microsoftAccountClientId": null,
+                  "microsoftAccountClientSecret": null,
+                  "microsoftAccountOAuthScopes": null
+              },
+              "cors": null,
+              "push": null,
+              "apiDefinition": null,
+              "autoSwapSlotName": null,
+              "localMySqlEnabled": false,
+              "managedServiceIdentityId": null,
+              "xManagedServiceIdentityId": null,
+              "ipSecurityRestrictions": null,
+              "scmIpSecurityRestrictions": null,
+              "scmIpSecurityRestrictionsUseMain": null,
+              "http20Enabled": false,
+              "minTlsVersion": "1.2",
+              "ftpsState": "AllAllowed",
+              "reservedInstanceCount": 0
+          },
+          "dependsOn": [
+              "[resourceId('Microsoft.Web/sites', parameters('sites_test82669_name'))]"
+          ]
+      },
+      {
+          "comments": "Generalized from resource: '/subscriptions/abb5301a-22a4-41f9-9e5f-99badff261f8/resourceGroups/tashuk-arm-app/providers/Microsoft.Web/sites/test82669/hostNameBindings/test82669.azurewebsites.net'.",
+          "type": "Microsoft.Web/sites/hostNameBindings",
+          "name": "[concat(parameters('sites_test82669_name'), '/', parameters('hostNameBindings_test82669.azurewebsites.net_name'))]",
+          "apiVersion": "2016-08-01",
+          "location": "South Central US",
+          "scale": null,
+          "properties": {
+              "siteName": "test82669",
+              "domainId": null,
+              "hostNameType": "Verified"
+          },
+          "dependsOn": [
+              "[resourceId('Microsoft.Web/sites', parameters('sites_test82669_name'))]"
+          ]
+      }
+  ]
+}

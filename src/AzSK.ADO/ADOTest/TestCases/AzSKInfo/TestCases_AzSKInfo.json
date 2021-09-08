@@ -1,0 +1,69 @@
+{
+  "TestCases": 
+  {
+    "TestCase": [
+      {
+        "TestCaseID": "Test_GAI_Control_Information",
+        "Priority": "1",
+        "Feature": "AzSKInfo",
+        "ModuleName": "ControlInfo",
+        "Type": "SVT",
+        "Enabled": true,
+        "TestMethod": "",
+        "ManualSteps":  "",
+        "AutomationStatus": "Automated",
+        "Description": "Test AzSK supported control list given by GAI ControlInfo"          
+      },
+      {
+          "TestCaseID": "Test_GAI_Control_Information_Baseline",
+          "Priority": "1",
+          "Feature": "AzSKInfo",
+          "ModuleName": "ControlInfo",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "",
+          "ManualSteps":  "",
+          "AutomationStatus": "Automated",
+          "Description": "Test GAI ControlInfo with baseline list"          
+        },
+        {
+          "TestCaseID": "GAI_Control_Information_PreviewBaseline",
+          "Priority": "1",
+          "Feature": "AzSKInfo",
+          "ModuleName": "ControlInfo",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "",
+          "ManualSteps":  "",
+          "AutomationStatus": "Automated",
+          "Description": "Test GAI ControlInfo with preview baseline list"          
+        },
+        {
+          "TestCaseID": "GAI_Control_Information_UBC_UPBC",
+          "Priority": "1",
+          "Feature": "AzSKInfo",
+          "ModuleName": "ControlInfo",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "",
+          "ManualSteps":  "",
+          "AutomationStatus": "Automated",
+          "Description": "Test GAI ControlInfo with preview and standard baseline list"          
+        },
+        {
+          "TestCaseID": "GAI_Host_information",
+          "Priority": "1",
+          "Feature": "AzSKInfo",
+          "ModuleName": "ControlInfo",
+          "Type": "SVT",
+          "Enabled": true,
+          "TestMethod": "GAI_Host_information",
+          "ManualSteps":  "",
+          "AutomationStatus": "Automated",
+          "Description": "Test AzSK GAI HostInfo"          
+        }
+
+  ]
+  }
+
+}

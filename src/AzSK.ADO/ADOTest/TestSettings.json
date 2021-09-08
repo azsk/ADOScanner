@@ -1,0 +1,97 @@
+﻿{
+  "AlertName": "AzSK_SQL_Alert",
+  "AzSKResourceGroupName": "AzSKRG",
+  "CAAutomationAccountName": "AzSKContinuousAssurance",
+  "CAStorageContainerName": "azskexecutionlogs",
+  "CAConnectionName": "AzureRunAsConnection",
+  "OrgPolicyURL": "",
+  "AzSKAppFolderPath": "$Env:LOCALAPPDATA\\Microsoft\\#AzSKModule#\\AzSKSettings.json",
+  "CommonKeyVaultName": "AzSKDevKeyVault",
+  "CommonStorageAcctName": "azskteststoragecommon",
+  "EmailAccounts": "xyz@contoso.com",
+  "LAWSSharedKey": "",
+  "LAWSId": "",
+  "LAResourceGroup": "AzSKTestRG",
+  "LAViewName": "MyApp-View-Test-Suite",
+  "ResourceGroupName": "AzSKTestRG",
+  "SecurityPhoneNo": "",
+  "SecurityPOCEmail": "",
+  "StorageAlertName": "azsktestalert",
+  "AzSKModule": "",
+  "ADOSettings" : {
+    "Scanning" : {
+      "ProjectNames" : ["ADOScannerTestNegative", "ADOScannerTestPositive"],
+      "BuildNames" : ["ADOScannerTestNegative-CI","ADOScannerTestPositive-CI"],
+      "AgentPoolNames" : ["PositiveAgentPool", "NegativeAgentPool"],
+      "ControlID" : "ADO_Organization_AuthZ_Min_RBAC_Access",
+      "Builds" : ["ADOScannerTestPositive-CI", "ADOScannerTestNegative-CI"],
+      "ReleaseNames" : ["Positive Release","Negative Release"],
+      "ServiceConnections" : ["ADOScannerSvcConn", "ClassicSvcConnection"]
+    },
+    "ControlCorrectness" : {
+      "Organization" : {
+        "OrgName" : "sragala",
+        "IncludedControls" :["ADO_Organization_AuthN_Use_AAD_Auth","ADO_Organization_AuthN_Disable_External_Guest_Users", "ADO_Organization_DP_Dont_Allow_Public_Projects",
+        "ADO_Organization_AuthZ_Justify_Guest_Identities", "ADO_Organization_SI_Review_Shared_Extensions", "ADO_Organization_SI_Limit_Variables_Settable_At_Queue_Time",
+        "ADO_Organization_AuthZ_Limit_Non_Release_Pipeline_Access", "ADO_Organization_AuthZ_Limit_Release_Pipeline_Access", "ADO_Organization_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos", 
+        "ADO_Organization_BCDR_Min_Admin_Count"],
+        "ExcludedControls" : ["ADO_Organization_SI_Review_Installed_Extensions", "ADO_Organization_SI_Review_Shared_Extensions",
+        "ADO_Organization_AuthZ_Review_Extension_Managers", "ADO_Organization_AuthZ_Use_SC_ALT_Account_For_Admin",
+        "ADO_Organization_AuthZ_Review_Project_Collection_Service_Accounts", "ADO_Organization_SI_Review_Auto_Injected_Extensions",
+        "ADO_Organization_Enable_Audit_Stream"]
+      },
+      "Project"  : {
+        "PassedProjectName" : "ADOScannerTestPositive",
+        "FailedProjectName" : "ADOScannerTestNegative",
+        "IncludedControls" :["ADO_Project_SI_Limit_Variables_Settable_At_Queue_Time", "ADO_Project_AuthZ_Limit_Non_Release_Pipeline_Access", "ADO_Project_AuthZ_Limit_Release_Pipeline_Access",
+        "ADO_Project_AuthZ_Limit_Pipeline_Access_To_Referenced_Repos", "ADO_Project_BCDR_Min_Admin_Count", "ADO_ServiceConnection_AuthZ_Grant_Min_RBAC_Access", "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secure_Files",
+      "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Environment", "ADO_Project_AuthZ_Dont_Grant_All_Pipelines_Access_To_Secure_Files"],
+        "ExcludedControls" : ["ADO_Project_AuthZ_Use_SC_ALT_Account_For_Admin","ADO_Project_AuthZ_Set_Visibility_Private_Or_Enterprise"]
+      },
+      "Release"  : {
+        "PassedProjectName" : "ADOScannerTestPositive",
+        "FailedProjectName" : "ADOScannerTestNegative",
+        "PassedRelease" : "Positive Release",
+        "FailedRelease" : "Negative Release",
+        "IncludedControls" : [ "ADO_Release_AuthZ_Disable_Inherited_Permissions", "ADO_Release_SI_Review_URL_Variables_Settable_At_Release_Time",
+        "ADO_Release_SI_Disable_Task_Group_Edit_Permission", "ADO_Release_SI_Disable_Variable_Group_Edit_Permission", "ADO_Release_SI_Disable_Pipeline_Edit_Permission"],
+        "ExcludedControls" : ["ADO_Release_SI_Disable_Variable_Group_Edit_Permission","ADO_Release_SI_Review_External_Sources", "ADO_Release_DP_No_PlainText_Secrets_In_Definition"]
+      },
+      "Build"  : {
+        "PassedProjectName" : "ADOScannerTestPositive",
+        "FailedProjectName" : "ADOScannerTestNegative",
+        "PassedBuild" : "ADOScannerTestPositive-CI",
+        "FailedBuild" : "ADOScannerTestNegative-CI",
+        "IncludedControls":["ADO_Build_DP_No_PlainText_Secrets_In_Definition","ADO_Build_AuthZ_Disable_Inherited_Permissions", "ADO_Build_SI_Review_URL_Variables_Settable_At_Queue_Time",
+        "ADO_Build_SI_Disable_Task_Group_Edit_Permission", "ADO_Build_SI_Disable_Variable_Group_Edit_Permission", "ADO_Build_SI_Disable_Pipeline_Edit_Permission", "ADO_Build_DP_Disable_CI_On_External_Sources"],
+        "ExcludedControls" : ["ADO_Build_AuthZ_Limit_Pipeline_Access", "ADO_Build_SI_Disable_Variable_Group_Edit_Permission"]
+      },
+      "AgentPool"  : {
+        "PassedProjectName" : "ADOScannerTestPositive",
+        "FailedProjectName" : "ADOScannerTestNegative",
+        "PassedAgentPool" : "PositiveAgentPool",
+        "FailedAgentPool" : "NegativeAgentPool",
+        "IncludedControls" :["ADO_AgentPool_AuthZ_Disable_Inherited_Permissions", "ADO_AgentPool_AuthZ_Dont_Enable_Auto_Provisioning", "ADO_AgentPool_AuthZ_Project_Dont_Grant_All_Pipeline_Access",
+        "ADO_AgentPool_DP_No_Secrets_In_Capabilities"],
+        "ExcludedControls" : ["ADO_AgentPool_DP_Review_Inactive_Pool", "ADO_AgentPool_DP_Enable_Auto_Update"]
+      },
+      "ServiceConnection"  : {
+        "PassedProjectName" : "ADOScannerTestPositive",
+        "FailedProjectName" : "ADOScannerTestNegative",
+        "PassedSvc" : "ADOScannerSvcConn",
+        "FailedSvc" : "ClassicSvcConnection",
+        "IncludedControls" : ["ADO_ServiceConnection_AuthZ_Dont_Use_Classic_Connections", "ADO_ServiceConnection_AuthZ_Disable_Inherited_Permissions","ADO_ServiceConnection_AuthZ_Dont_Allow_Global_Groups",
+        "ADO_ServiceConnection_AuthZ_Dont_Grant_All_Pipelines_Access", "ADO_ServiceConnection_DP_Review_Inactive_Connection","ADO_ServiceConnection_SI_Dont_Share_Across_Projects"],
+        "ExcludedControls" : ["ADO_ServiceConnection_AuthZ_Grant_Min_RBAC_Access"]
+      },
+      "VariableGroup"  : {
+        "PassedProjectName" : "ADOScannerTestPositive",
+        "FailedProjectName" : "ADOScannerTestNegative",
+        "PassedVarGroup" : "PositiveVarGroup",
+        "FailedVarGroup" : "NegativeVarGroup",
+        "IncludedControls" : ["ADO_VariableGroup_AuthZ_Dont_Grant_All_Pipelines_Access", "ADO_VariableGroup_AuthZ_Disable_Inherited_Permissions", "ADO_VariableGroup_DP_No_PlainText_Secrets_In_Variables"],
+        "ExcludedControls" : []
+      }
+    }
+  }  
+}

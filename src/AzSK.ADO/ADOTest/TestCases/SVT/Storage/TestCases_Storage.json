@@ -1,0 +1,48 @@
+{
+  "TestCases": {
+    "TestCase": [
+
+      {
+        "TestCaseID": "TC_Storage_Verify_DefaultCompliance",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "Storage",
+        "ParamFileName": "Params_Storage_DefaultCompliance.json",
+        "TemplateFileName": "Template_Storage_DefaultCompliance.json",
+        "BaselineOutput": "BaseControlStatus_Storage_DefaultCompliance.csv",
+        "PresetMethods": "RemoveAzSKTestStorageContainer;RemoveAzSKTestStorageAlerts",
+        "Type": "FVT",
+        "Enabled":  false,
+        "Description": "Verify SVTs on a default Storage Resource"
+      },
+      {
+        "TestCaseID": "TC_Storage_Verify_Non_Compliant",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "Storage",
+        "ParamFileName": "Params_Storage_DefaultCompliance.json",
+        "TemplateFileName": "Template_Storage_DefaultCompliance.json",
+        "BaselineOutput": "BaseControlStatus_Storage_Non_Compliant.csv",
+        "Description": "Verify SVTs on a storage with diagnostics off, alerts not configured, storage encryption disabled and account type is not Geo-Reundant",
+        "PresetMethods": "AddContainerWithPublicAcess",
+        "Type": "FVT",
+        "Enabled":  false,
+        "ResetMethods":"RemoveAzSKTestStorageContainer"
+      },
+      {
+        "TestCaseID": "TC_Storage_Verify_Compliant",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "Storage",
+        "ParamFileName": "Params_TC_Storage_StdGRS_Encyption_On.json",
+        "TemplateFileName": "Template_Storage_DefaultCompliance.json",
+        "BaselineOutput": "BaseControlStatus_Storage_Compliant.csv",
+        "Description": "Verify SVTs on a storage with diagnostics on, alerts configured, storage encryption enabled and account type is Geo-Reundant",
+        "PresetMethods": "SetStorageDiagnisticsOn;AddAzSKTestStorageAlerts;SetFileEncryptionAtRest;SetEnableHttpsTrafficOnly",
+        "Type": "FVT",
+        "Enabled":  false,
+        "ResetMethods":"RemoveAzSKTestStorageContainer;RemoveAzSKTestStorageAlerts"
+      }
+    ]
+  }
+}

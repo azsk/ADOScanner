@@ -1,0 +1,59 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+      "ResourceName": {
+            "defaultValue": "azsktestappservicecomplaint",
+            "type": "String"
+        },
+      "serviceplanname": {
+            "defaultValue": "complaintappserviceplan",
+            "type": "String"
+    },
+    "location": {
+            "defaultValue": "South Central US",
+            "type": "String"
+        }
+  },
+  "variables": { },
+  "resources": [
+    {
+      "name": "[parameters('serviceplanname')]",
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2016-09-01",
+      "location": "[parameters('location')]",
+      "properties": {
+
+      },
+      "sku": {
+        "name": "S1",
+        "tier": "Standard",
+        "size": "S1",
+        "capacity": 2
+
+      }
+
+    },
+    {
+      "name": "[parameters('ResourceName')]",
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2016-08-01",
+      "location": "[parameters('location')]",
+      "properties": {
+         "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('serviceplanname'))]",
+         "siteConfig": {
+            "alwaysOn": true, 
+            "use32BitWorkerProcess": false, 
+            "requestTracingEnabled": true, 
+            "httpLoggingEnabled": true, 
+            "detailedErrorLoggingEnabled": true
+      
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', parameters('serviceplanname'))]"
+      ]
+    }
+
+  ]
+}

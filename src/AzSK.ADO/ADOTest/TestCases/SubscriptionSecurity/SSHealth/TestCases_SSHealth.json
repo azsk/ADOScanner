@@ -1,0 +1,129 @@
+{
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "Test-Get-AzSKSubscriptionSecurityStatus-WithLogin",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "ModuleName": "SSHealth",
+        "Type": "BVT",
+        "Enabled": true,
+        "TestMethod": "TestGetAzSKSubscriptionSecurityStatus",
+        "Description": "Command should run the subscription health scan without any error in case executed within active Azure session."
+      },
+      {
+        "TestCaseID": "Test-Get-AzSKSubscriptionSecurityStatus-WithControlIds",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "ModuleName": "SSHealth",
+        "Type": "BVT",
+        "Enabled": true,
+        "TestMethod": "TestGetAzSKSubscriptionSecurityStatusWithControlIds",
+        "Description": "Command should run the subscription health scan without any error in case executed with control id parameter."
+      },
+      {
+        "TestCaseID": "Test-Get-AzSKSubscriptionSecurityStatus-Withoutlogin",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "ModuleName": "SSHealth",
+        "Type": "BVT",
+        "AzureLoginRequired": false,
+        "Enabled": true,
+        "AutomationStatus": "Manual",
+        "ManualSteps":  "Logout from your Azure powershell session and then run command 'Get-AzSKSubscriptionSecurityStatus -SubscriptionId <subscriptionid>'. It should initialize the login workflow and then should scan the subscription successfully.",
+        "TestMethod": "TestGetAzSKSubscriptionSecurityStatus",
+        "Description": "Command should run the subscription health scan without any error in case executed without logging into Azure."
+      },
+      {
+        "TestCaseID": "Test-Get-AzSKSubscriptionSecurityStatus-WithFilterTags",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "ModuleName": "SSHealth",
+        "Type": "BVT",
+        "Enabled": true,
+        "TestMethod": "TestGetAzSKSubscriptionSecurityStatusWithFilterTags",
+        "Description": "Command should run the subscription health scan without any error in case executed with filter tags."
+      },
+      {
+        "TestCaseID": "Test-Get-AzSKSubscriptionSecurityStatus-WithExcludeTags",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "ModuleName": "SSHealth",
+        "Type": "BVT",
+        "Enabled": true,
+        "TestMethod": "TestGetAzSKSubscriptionSecurityStatusWithExcludeTags",
+        "Description": "Command should run the subscription health scan without any error in case executed with exclude tags."
+      },
+      {
+        "TestCaseID": "Test-Set-AzSKSubscriptionSecurity-WithLogin",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "ModuleName": "SSHealth",
+        "Type": "BVT",
+        "Enabled": true,
+        "BaselineOutput": "",
+        "TestMethod": "TestSetAzSKSubscriptionSecurity",
+        "Description": "Command should setup the subscription security without any error.",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_Subscription_Config_ARM_Policy",
+            "ControlStatus": "Passed"
+          },
+          {
+            "ControlID": "Azure_Subscription_Audit_Configure_Critical_Alerts",
+            "ControlStatus": "Passed"
+          },
+          {
+            "ControlID": "Azure_Subscription_Config_Azure_Security_Center",
+            "ControlStatus": "Passed"
+          },
+          {
+            "ControlID": "Azure_Subscription_AuthZ_Add_Required_Central_Accounts",
+            "ControlStatus": "Passed"
+          },
+          {
+            "ControlID": "Azure_Subscription_AuthZ_Remove_Deprecated_Accounts",
+            "ControlStatus": "Passed"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "Test-Set-AzSKSubscriptionSecurity-WithoutLogin",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "ModuleName": "SSHealth",
+        "Type": "BVT",
+        "Enabled": true,
+        "AzureLoginRequired": false,
+        "TestMethod": "TestSetAzSKSubscriptionSecurity",
+        "AutomationStatus": "Manual",
+        "ManualSteps":  "Logout from your Azure powershell session and then run command 'Set-AzSKSubscriptionSecurity -SubscriptionId <subscriptionid> -SecurityContactEmails <Emails> -SecurityPhoneNumber <PhoneNo>'. It should initialize the login workflow and then should set the subscription security successfully.",
+        "Description": "Command should setup the subscription security without any error."
+      },
+      {
+        "TestCaseID": "Test-Remove-AzSKSubscriptionSecurity-WithLogin",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "ModuleName": "SSHealth",
+        "Type": "BVT",
+        "Enabled": true,
+        "TestMethod": "TestRemoveAzSKSubscriptionSecurity",
+        "Description": "Command should remove the subscription security without any error."
+      },
+      {
+        "TestCaseID": "Test-Remove-AzSKSubscriptionSecurity-WithoutLogin",
+        "Priority": "1",
+        "Feature": "SubscriptionSecurity",
+        "ModuleName": "SSHealth",
+        "Type": "BVT",
+        "Enabled": true,
+        "AzureLoginRequired": false,
+        "TestMethod": "TestRemoveAzSKSubscriptionSecurity",
+        "AutomationStatus": "Manual",
+        "ManualSteps": "Logout from your Azure powershell session and then run command 'Remove-AzSKSubscriptionSecurity -SubscriptionId <subscriptionid> -Tags <tags>. It should remove the subscription security successfully.'",
+        "Description": "Command should remove the subscription security without any error."
+      }
+
+    ]
+  }
+}

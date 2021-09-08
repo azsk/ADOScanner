@@ -1,0 +1,7 @@
+ControlID,Status
+Azure_CDN_AuthZ_Grant_Min_RBAC_Access,Verify
+Azure_CDN_DP_Enable_Https,Failed
+Azure_CDN_AuthN_Config_Token_AuthN,Manual
+Azure_CDN_DP_TokenKey_Protection,Manual
+Azure_CDN_DP_Use_Only_For_Public_Data,Manual
+Azure_CDN_Audit_Configure_Real_Time_Alerts,Manual

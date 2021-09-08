@@ -1,0 +1,60 @@
+{
+
+  "TestCases": {
+    "TestCase": [
+      {        
+        "TestCaseID": "TC_RedisCache_VerifyDefaultCompliance",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "RedisCache",
+        "Enabled": false,
+        "Type": "FVT",
+        "ParamFileName": "Params_RedisCache_Default.json",
+        "TemplateFileName": "Template_RedisCache_Default.json",
+        "BaselineOutput": "BaseControlStatus_RedisCache_DefaultCompliance.csv",
+        "Description": "Verify SVTs on a security compliant for Blank Premium Redis Cache",
+        "PresetMethods" : ""
+      },
+      {
+        "TestCaseID": "TC_RedisCache_NonSSLPortCheck",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "RedisCache",
+        "Enabled": false,
+        "Type": "FVT",
+        "ParamFileName": "Params_RedisCache_Default.json",
+        "TemplateFileName": "Template_RedisCache_Default.json",
+        "BaselineOutput": "BaseControlStatus_RedisCache_DefaultCompliance.csv",
+        "Description": "Verify Analysis Non-SSL control check fails in case of Non-SSL port is enabled",
+        "PresetMethods": "EnableNonSSLPort",
+        "ResetMethods": "DisableNonSSLPort",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_RedisCache_DP_Use_SSL_Port",
+            "ControlStatus": "Failed"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_RedisCache_VerifyBackUpEnabled",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "RedisCache",
+        "Enabled": false,
+        "Type": "FVT",
+        "ParamFileName": "Params_RedisCache_Default.json",
+        "TemplateFileName": "Template_RedisCache_Default.json",
+        "BaselineOutput": "BaseControlStatus_RedisCache_DefaultCompliance.csv",
+        "Description": "Verify Redis Cache Back up is enabled",
+        "PresetMethods": "EnableRedisBackUp",
+        "ResetMethods": "DisableRedisBackUp",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_RedisCache_BCDR_Use_RDB_Backup",
+            "ControlStatus": "Passed"
+          }
+        ]
+      }
+    ]
+  }
+}

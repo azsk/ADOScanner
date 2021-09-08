@@ -1,0 +1,296 @@
+﻿{
+  "OutputDirectoryStucture": {
+   "Command": [
+    {
+        "CommandName": "GSS",
+        "DefaultFilesList": [
+            "README.txt",
+            "SecurityReport-*.csv",
+            "Etc\\EnvironmentDetails.LOG",
+            "Etc\\PowerShellOutput.LOG",
+            "#SubscrptionName#\\SubscriptionCore.LOG"
+        ],
+        "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+      "CommandName": "GRS",
+      "DefaultFilesList": [
+          "README.txt",
+          "SecurityReport-*.csv",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG"
+      ],
+      "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+      "CommandName": "GACS",
+      "DefaultFilesList": [
+          "README.txt",
+          "SecurityReport-*.csv",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "Etc\\SecurityEvaluationData-*.json",
+          "#SubscrptionName#\\SubscriptionCore.LOG"
+      ],
+      "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+      "CommandName": "GES",
+      "DefaultFilesList": [
+          "README.txt",
+          "SecurityReport-*.csv",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "Etc\\SecurityEvaluationData-*.json",
+          "#SubscrptionName#\\SubscriptionCore.LOG"
+      ],
+      "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "GAI_SubscriptionInfo",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "GAI_ControlInfo",
+       "DefaultFilesList": [
+          "Control Details.csv",
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "GAI_AttestationInfo",
+       "DefaultFilesList": [
+           "AttestationReport-*.csv",
+           "README.txt",
+           "Etc\\EnvironmentDetails.LOG",
+           "Etc\\PowerShellOutput.LOG",
+           "Etc\\SecurityEvaluationData-*.json",
+           "#SubscrptionName#\\SubscriptionCore.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "GAI_HostInfo",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "GAI_ComplianceInfo",
+       "DefaultFilesList": [
+          "ComplianceDetails-*.csv",
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "GCA",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "#SubscrptionName#\\Detailed.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "SAA",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "#SubscrptionName#\\Detailed.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "SAP",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "#SubscrptionName#\\Detailed.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "SSC",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "SEHS",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "#SubscrptionName#\\Detailed.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "SOS",
+       "DefaultFilesList": [
+          "None"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "SPS",
+       "DefaultFilesList": [
+          "None"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "SRB",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "#SubscrptionName#\\Detailed.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "SSS",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "#SubscrptionName#\\Detailed.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "SUTL",
+       "DefaultFilesList": [
+          "None"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "SUP",
+       "DefaultFilesList": [
+         "None"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "USS",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "#SubscrptionName#\\Detailed.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "UCA",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "#SubscrptionName#\\Detailed.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "IOM",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },  
+    {
+      "CommandName": "ICA",
+      "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "#SubscrptionName#\\Detailed.LOG"
+      ],
+      "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "RCA",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "#SubscrptionName#\\Detailed.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "RAL",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "#SubscrptionName#\\Detailed.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "RAP",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "#SubscrptionName#\\Detailed.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "RRB",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "#SubscrptionName#\\Detailed.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "RSS",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG",
+          "#SubscrptionName#\\Detailed.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    },
+    {
+       "CommandName": "Default",
+       "DefaultFilesList": [
+          "README.txt",
+          "Etc\\EnvironmentDetails.LOG",
+          "Etc\\PowerShellOutput.LOG"
+       ],
+       "Description": "Verify that the scan generates all the expected files respective to the type of scan."
+    }
+   ]
+  }
+}

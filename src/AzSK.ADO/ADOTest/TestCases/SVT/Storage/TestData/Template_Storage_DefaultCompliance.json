@@ -1,0 +1,46 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0", 
+    "parameters": {
+        "ResName": {
+             "defaultValue": "azskteststgdefault",
+            "type": "string"
+        },
+        "storage_accountType": {
+             "defaultValue": "Standard_LRS",
+            "type": "string"
+        },
+        "storage_location": {
+             "defaultValue": "centralindia",
+            "type": "string"
+        },
+        "storage_encryptionEnabled": {
+            "defaultValue": false,
+            "type": "bool"
+            
+        }
+    },
+    "resources": [
+        {
+            "apiVersion": "2016-01-01",
+            "name": "[parameters('ResName')]",
+            "location": "[parameters('storage_location')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "sku": {
+                "name": "[parameters('storage_accountType')]"
+            },
+            "kind": "Storage",
+            "properties": {
+                "encryption": {
+                    "services": {
+                        "blob": {
+                            "enabled": "[parameters('storage_encryptionEnabled')]"
+                        },
+                        "file": null
+                    },
+                    "keySource": "Microsoft.Storage"
+                }
+            }
+        }
+    ]
+}

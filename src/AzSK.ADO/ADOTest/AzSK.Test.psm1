@@ -1,0 +1,1 @@
+. $PSScriptRoot\TestStartup.ps1

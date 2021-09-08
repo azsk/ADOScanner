@@ -1,0 +1,171 @@
+{
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_SQLDB_Verify_DefaultCompliance",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "SQLDB",
+        "ParamFileName": "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName": "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput": "BaseControlStatus_SQLDB_DefaultCompliance.csv",
+         "Enabled": false,
+        "Type": "FVT",
+        "Description": "Verify SQL Server SVT on a default SQLDB Resource"
+        
+      },
+      {
+        "TestCaseID": "TC_SQLDB_Verify_SqlServerAuditing",
+        "Priority": "1",
+        "Feature": "SVT",
+        "Enabled": false,
+        "ModuleName": "SQLDB",
+        "ParamFileName": "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName": "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput": "",
+        "Description": "Verify SQL Server SVT on a Sql Server Auditing enaled",
+        "PresetMethods": "EnableSqlServerAuditing",
+        "ResetMethods": "DisableSqlServerAuditing",
+        "Type": "FVT",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_SQLDatabase_Audit_Enable_Logging_and_Monitoring_Server",
+            "ControlStatus": "Passed"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_SQLDB_Verify_SqlServerThreatDetectionPolicy",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "SQLDB",
+        "Enabled": false,
+        "ParamFileName": "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName": "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput": "",
+        "Description": "Verify SQL Server SVT on a Sql Server Threat Detection Policy enaled",
+        "PresetMethods": "EnableSqlServerThreatDetectionPolicy",
+        "ResetMethods": "DisableSqlServerThreatDetectionPolicy",
+        "Type": "FVT",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_SQLDatabase_Audit_Enable_Threat_Detection_Server",
+            "ControlStatus": "Passed"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_SQLDB_Verify_SqlServerActiveDirectoryAdmin",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "SQLDB",
+        "Enabled": false,
+        "ParamFileName": "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName": "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput": "",
+        "Description": "Verify SQL Server SVT on a Sql Server Active Directory Administrator(s) present",
+        "PresetMethods": "SetSqlServerActiveDirectoryAdmin",
+        "ResetMethods": "RemoveSqlServerActiveDirectoryAdmin",
+        "Type": "FVT",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_SQLDatabase_AuthZ_Use_AAD_Admin",
+            "ControlStatus": "Passed"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_SQLDB_Verify_FirewallIPAddressRanges",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "SQLDB",
+        "Enabled": false,
+        "ParamFileName": "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName": "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput": "",
+        "Description": "Verify SQL Server SVT on a Sql Server Firewall IP Address Ranges",
+        "PresetMethods": "SetSqlServerFirewallIPAddressRanges",
+        "ResetMethods": "RemoveSqlServerFirewallIPAddressRanges",
+        "Type": "FVT",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_SQLDatabase_AuthZ_Enable_Firewall",
+            "ControlStatus": "Passed"
+          },
+          {
+            "ControlID": "Azure_SQLDatabase_AuthZ_Configure_IP_Range",
+            "ControlStatus": "Verify"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_SQLDB_Verify_AnytoAnyFirewallRule",
+        "Priority": "1",
+        "Feature": "SVT",
+        "Enabled": false,
+        "ModuleName": "SQLDB",
+        "ParamFileName": "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName": "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput": "",
+        "Description": "Verify SQL Server SVT on a Sql Server Any to Any FirewallRule",
+        "PresetMethods": "SetSqlServerAnyToAnyFirewallRule",
+        "ResetMethods": "RemoveSqlServerAnyToAnyFirewallRule",
+        "Type": "FVT",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_SQLDatabase_AuthZ_Enable_Firewall",
+            "ControlStatus": "Passed"
+          },
+          {
+            "ControlID": "Azure_SQLDatabase_AuthZ_Configure_IP_Range",
+            "ControlStatus": "Failed"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_SQLDB_Verify_SingleDB",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "SQLDB",
+        "Enabled": false,
+        "ParamFileName": "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName": "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput": "",
+        "Description": "Verify SQL Server SVT's on a Sql Server contains single database with Auditing,Threat Detection Policy setting is inherited from parent sql server",
+        "PresetMethods": "AddDataBase;EnableSqlServerAuditing;EnableSqlServerThreatDetectionPolicy",
+        "ResetMethods": "RemoveDatabase;DisableSqlServerAuditing;DisableSqlServerThreatDetectionPolicy",
+        "Type": "FVT",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_SQLDatabase_Audit_Enable_Logging_and_Monitoring_DB",
+            "ControlStatus": "Passed"
+          },
+          {
+            "ControlID": "Azure_SQLDatabase_Audit_Enable_Threat_Detection_Server",
+            "ControlStatus": "Passed"
+          }
+        ]
+      },
+      {
+        "TestCaseID": "TC_SQLDB_Verify_DBTransparentDataEncryption",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "SQLDB",
+        "Enabled": false,
+        "ParamFileName": "Params_SQLDB_DefaultCompliance.json",
+        "TemplateFileName": "Template_SQLDB_DefaultCompliance.json",
+        "BaselineOutput": "",
+        "Description": "Verify SQL Server SVT on a Transparent Data Encryption for database present inside sql server",
+        "PresetMethods": "AddDataBase;EnableSqlDatabaseTransparentDataEncryption",
+        "ResetMethods": "RemoveDatabase;DisableSqlServerAuditing;DisableSqlServerThreatDetectionPolicy",
+        "Type": "FVT",
+        "ControlResultSet": [
+          {
+            "ControlID": "Azure_SQLDatabase_DP_Enable_TDE",
+            "ControlStatus": "Passed"
+          }
+        ]
+      }
+    ]
+  }
+}

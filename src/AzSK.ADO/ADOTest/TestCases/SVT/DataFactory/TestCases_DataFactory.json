@@ -1,0 +1,29 @@
+{
+
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_DataFactory_Verify_LinkedSvc",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "DataFactory",
+        "Enabled":  false,
+        "BaselineOutput": "BaseControlStatus_DataFactory_LinkedSvc.csv",
+        "PresetMethods": "SetLinkedService",
+        "Type": "FVT",
+        "Description": "Verify SVTs on a Data Factory having linked services with secured connection strings."
+      },
+      {
+        "TestCaseID": "TC_DataFactory_Verify_NoLinkedSvc",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "DataFactory",
+        "Enabled": false,
+        "BaselineOutput": "BaseControlStatus_DataFactory_NoLinkedSvc.csv",
+        "PresetMethods": "RemoveLinkedService",
+        "Type": "FVT",
+        "Description": "Verify SVTs on a Data Factory having no linked services."
+      }
+    ]
+  }
+}

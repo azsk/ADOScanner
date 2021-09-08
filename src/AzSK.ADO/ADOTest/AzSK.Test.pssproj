@@ -1,0 +1,288 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{f1248d01-4a7d-4e13-bce1-638ac7c48dee}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>MyApplication</RootNamespace>
+    <AssemblyName>MyApplication</AssemblyName>
+    <Name>AzSK.Test</Name>
+    <StartupFile>.\InvokeTest.ps1</StartupFile>
+    <ProjectHome />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="Controllers\" />
+    <Folder Include="Core\" />
+    <Folder Include="Core\Abstracts\" />
+    <Folder Include="Core\Helpers\" />
+    <Folder Include="Core\Models\" />
+    <Folder Include="Core\Settings\" />
+    <Folder Include="TestCases\" />
+    <Folder Include="TestCases\AlertMonitoring\" />
+    <Folder Include="TestCases\AlertMonitoring\OMS\" />
+    <Folder Include="TestCases\CICDPipeline\CICD\" />
+    <Folder Include="TestCases\ContinuousAssurance\" />
+    <Folder Include="TestCases\ARMChecker\" />
+    <Folder Include="TestCases\CICDPipeline\" />
+    <Folder Include="TestCases\SecurityIntellisense\" />
+    <Folder Include="TestCases\SecurityIntellisense\SecIntel\" />
+    <Folder Include="TestCases\Setup\" />
+    <Folder Include="TestCases\Setup\Installation\" />
+    <Folder Include="TestCases\SubscriptionSecurity\" />
+    <Folder Include="TestCases\SubscriptionSecurity\SSHealth\" />
+    <Folder Include="TestCases\SubscriptionSecurity\SSHealth\TestData\" />
+    <Folder Include="TestCases\SubscriptionSecurity\SSProvisioning\" />
+    <Folder Include="TestCases\SVT\" />
+    <Folder Include="TestCases\SVT\ADLA\" />
+    <Folder Include="TestCases\SVT\ADLA\TestData\" />
+    <Folder Include="TestCases\SVT\ADLS\" />
+    <Folder Include="TestCases\SVT\ADLS\TestData\" />
+    <Folder Include="TestCases\SVT\AnalysisServices\" />
+    <Folder Include="TestCases\SVT\AnalysisServices\TestData\" />
+    <Folder Include="TestCases\SVT\AppService\" />
+    <Folder Include="TestCases\SVT\AppService\TestData\" />
+    <Folder Include="TestCases\SVT\Automation\" />
+    <Folder Include="TestCases\SVT\Batch\TestData\" />
+    <Folder Include="TestCases\SVT\Common\" />
+    <Folder Include="TestCases\SVT\Common\TestData\" />
+    <Folder Include="TestCases\SVT\CDN\" />
+    <Folder Include="TestCases\SVT\CDN\TestData\" />
+    <Folder Include="TestCases\SVT\CloudService\" />
+    <Folder Include="TestCases\SVT\DataFactory\" />
+    <Folder Include="TestCases\SVT\DataFactory\TestData\" />
+    <Folder Include="TestCases\SVT\EventHub\TestData\" />
+    <Folder Include="TestCases\SVT\Functions\TestData\" />
+    <Folder Include="TestCases\SVT\KeyVault\" />
+    <Folder Include="TestCases\SVT\KeyVault\TestData\" />
+    <Folder Include="TestCases\SVT\LoadBalancer\TestData\" />
+    <Folder Include="TestCases\SVT\LogicApps\" />
+    <Folder Include="TestCases\SVT\Batch\" />
+    <Folder Include="TestCases\SVT\LogicApps\TestData\" />
+    <Folder Include="TestCases\SVT\LoadBalancer\" />
+    <Folder Include="TestCases\SVT\Functions\" />
+    <Folder Include="TestCases\SVT\SQLDB\" />
+    <Folder Include="TestCases\SVT\SQLDB\TestData\" />
+    <Folder Include="TestCases\SVT\SVTCommon\" />
+    <Folder Include="TestCases\SVT\TrafficManager\" />
+    <Folder Include="TestCases\SVT\EventHub\" />
+    <Folder Include="TestCases\SVT\RedisCache\" />
+    <Folder Include="TestCases\SVT\RedisCache\TestData\" />
+    <Folder Include="TestCases\SVT\ServiceBus\" />
+    <Folder Include="TestCases\SVT\NotificationHub\" />
+    <Folder Include="TestCases\SVT\NotificationHub\TestData\" />
+    <Folder Include="TestCases\SVT\Search\" />
+    <Folder Include="TestCases\SVT\Search\TestData\" />
+    <Folder Include="TestCases\SVT\ServiceBus\TestData\" />
+    <Folder Include="TestCases\SVT\Storage\" />
+    <Folder Include="TestCases\SVT\Storage\TestData\" />
+    <Folder Include="TestCases\SVT\TrafficManager\TestData\" />
+    <Folder Include="TestCases\SVT\VirtualMachine\" />
+    <Folder Include="TestCases\SVT\VirtualMachine\TestData\" />
+    <Folder Include="TestCases\SVT\VirtualNetwork\" />
+    <Folder Include="TestCases\SVT\VirtualNetwork\TestData\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AzSK.Test.psd1" />
+    <Compile Include="AzSK.Test.psm1" />
+    <Compile Include="Controllers\TestController.ps1" />
+    <Compile Include="Controllers\TestRunner.ps1" />
+    <Compile Include="Core\Abstracts\AzSKTestBase.ps1" />
+    <Compile Include="Core\Abstracts\SVTTestBase.ps1" />
+    <Compile Include="Core\Helpers\Assert.ps1" />
+    <Compile Include="Core\Helpers\CommonHelper.ps1" />
+    <Compile Include="Core\Helpers\ConfigurationHelper.ps1" />    
+    <Compile Include="Core\Helpers\Constants.ps1" />
+    <Compile Include="Core\Helpers\TestHelper.ps1" />
+    <Compile Include="Core\Models\Enums.ps1" />
+    <Compile Include="Core\Models\ParamSet.ps1" />
+    <Compile Include="Core\Models\SVTControlTestResource.ps1" />
+    <Compile Include="Core\Models\TestCase.ps1" />
+    <Compile Include="Core\Models\TestCaseResult.ps1" />
+    <Compile Include="Core\Models\TestScenario.ps1" />
+    <Compile Include="Core\Settings\TestSettings.ps1" />
+    <Compile Include="DefaultTestScenarios.json" />
+    <Compile Include="InvokeTest.ps1" />
+    <Compile Include="Paramsets.json" />
+    <Compile Include="TestCases\AlertMonitoring\OMS\OMSTest.ps1" />
+    <Compile Include="TestCases\CICDPipeline\CICD\CICDTest.ps1" />
+    <Compile Include="TestCases\SecurityIntellisense\SecIntel\SecIntelTest.ps1" />
+    <Compile Include="TestCases\Setup\Installation\InstallationTest.ps1" />
+    <Compile Include="TestCases\SubscriptionSecurity\SSHealth\SSHealthTest.ps1" />
+    <Compile Include="TestCases\ContinuousAssurance\ContinuousAssurance.ps1" />
+    <Compile Include="TestCases\ARMChecker\ARMChecker.ps1" />
+    <Compile Include="TestCases\SubscriptionSecurity\SSProvisioning\SSProvisioningTest.ps1" />
+    <Compile Include="TestCases\SubscriptionSecurity\SSProvisioning\TestCases_SSProvisioning.json" />
+    <Compile Include="TestCases\SVT\ADLA\ADLAResource.ps1" />
+    <Compile Include="TestCases\SVT\ADLA\TestData\BaseControlStatus_ADLA_PossibleFailed.csv" />
+    <Compile Include="TestCases\SVT\ADLA\TestData\BaseControlStatus_ADLA_PossiblePassed.csv" />
+    <Compile Include="TestCases\SVT\ADLS\ADLSResource.ps1" />
+    <Compile Include="TestCases\SVT\ADLS\TestData\BaseControlStatus_ADLS_PossibleFailed.csv" />
+    <Compile Include="TestCases\SVT\ADLS\TestData\BaseControlStatus_ADLS_PossiblePassed.csv" />
+    <Compile Include="TestCases\SVT\AnalysisServices\AnalysisServicesResource.ps1" />
+    <Compile Include="TestCases\SVT\AnalysisServices\TestData\BaseControlStatus_AnalysisSvc_2Admins_RBAC.csv" />
+    <Compile Include="TestCases\SVT\AnalysisServices\TestData\BaseControlStatus_AnalysisSvc_DefaultCompliance.csv" />
+    <Compile Include="TestCases\SVT\AnalysisServices\TestData\Params_AnalysisSvc_Default.json" />
+    <Compile Include="TestCases\SVT\AnalysisServices\TestData\Template_AnalysisSvc_Default.json" />
+    <Compile Include="TestCases\SVT\AppService\AppServiceResource.ps1" />
+    <Compile Include="TestCases\SVT\AppService\AppServiceTest.ps1" />
+    <Compile Include="TestCases\SVT\AppService\TestData\BaseControlStatus_AppSvc_All_Compliant.csv" />
+    <Compile Include="TestCases\SVT\AppService\TestData\BaseControlStatus_AppSvc_All_Non_Compliant.csv" />
+    <Compile Include="TestCases\SVT\AppService\TestData\Template_AppSvc_All_Compliant.json" />
+    <Compile Include="TestCases\SVT\AppService\TestData\Template_AppSvc_All_Non_Compliant.json" />
+    <Compile Include="TestCases\SVT\Automation\AutomationResource.ps1" />
+    <Compile Include="TestCases\SVT\Automation\AutomationTest.ps1" />
+    <Compile Include="TestCases\SVT\Batch\BatchResource.ps1" />
+    <Compile Include="TestCases\SVT\Batch\BatchTest.ps1" />
+    <Compile Include="TestCases\SVT\Batch\TestCases_Batch.json" />
+    <Compile Include="TestCases\SVT\Batch\TestData\BaseControlStatus_Batch_All_Compliant.csv" />
+    <Compile Include="TestCases\SVT\Batch\TestData\BaseControlStatus_Batch_All_Non_Compliant.csv" />
+    <Compile Include="TestCases\SVT\Batch\TestData\Template_Batch_All_Compliant.json" />
+    <Compile Include="TestCases\SVT\Batch\TestData\Template_Batch_All_Non_Compliant.json" />
+    <Compile Include="TestCases\SVT\CDN\CDNResource.ps1" />
+    <Compile Include="TestCases\SVT\CDN\CDNTest.ps1" />
+    <Compile Include="TestCases\SVT\Common\CommonTest.ps1" />
+    <Compile Include="TestCases\SVT\Common\ParallelScanData.ps1" />
+    <Compile Include="TestCases\SVT\Functions\FunctionsResource.ps1" />
+    <Compile Include="TestCases\SVT\Functions\FunctionsTest.ps1" />
+    <Compile Include="TestCases\SVT\LoadBalancer\LoadBalancerResource.ps1" />
+    <Compile Include="TestCases\SVT\LoadBalancer\LoadBalancerTest.ps1" />
+    <Compile Include="TestCases\SVT\SQLDB\SQLDBResource.ps1" />
+    <Compile Include="TestCases\SVT\SQLDB\SQLDBTest.ps1" />
+    <Compile Include="TestCases\SVT\SVTCommon\SVTCommonTest.ps1" />
+    <Compile Include="TestCases\SVT\DataFactory\DataFactoryResource.ps1" />
+    <Compile Include="TestCases\SVT\DataFactory\TestData\BaseControlStatus_DataFactory_LinkedSvc.csv" />
+    <Compile Include="TestCases\SVT\DataFactory\TestData\BaseControlStatus_DataFactory_NoLinkedSvc.csv" />
+    <Compile Include="TestCases\SVT\DataFactory\TestData\DataFactoryStorageLinkedService.json" />
+    <Compile Include="TestCases\SVT\EventHub\EventHubResource.ps1" />
+    <Compile Include="TestCases\SVT\EventHub\EventHubTest.ps1" />
+    <Compile Include="TestCases\SVT\KeyVault\KeyVaultResource.ps1" />
+    <Compile Include="TestCases\SVT\KeyVault\TestData\BaseControlStatus_KeyVault_DefaultCompliance.csv" />
+    <Compile Include="TestCases\SVT\KeyVault\TestData\BaseControlStatus_TC_KeyVault_Compliant.csv" />
+    <Compile Include="TestCases\SVT\KeyVault\TestData\Params_KeyVault_DefaultCompliance.json" />
+    <Compile Include="TestCases\SVT\KeyVault\TestData\Params_TC_KeyVault_Compliant.json" />
+    <Compile Include="TestCases\SVT\KeyVault\TestData\Template_KeyVault_DefaultCompliance.json" />
+    <Compile Include="TestCases\SVT\KeyVault\TestData\Template_TC_KeyVault_Compliant.json" />
+    <Compile Include="TestCases\SVT\LogicApps\LogicAppsResource.ps1" />
+    <Compile Include="TestCases\SVT\LogicApps\LogicAppsTest.ps1" />
+    <Compile Include="TestCases\SVT\LogicApps\TestCases_LogicApps.json" />
+    <Compile Include="TestCases\SVT\LogicApps\TestData\Params_LogicApps_Default.json" />
+    <Compile Include="TestCases\SVT\LogicApps\TestData\Template_LogicApps_Default.json" />
+    <Compile Include="TestCases\SVT\NotificationHub\NotificationHubResource.ps1" />
+    <Compile Include="TestCases\SVT\NotificationHub\NotificationHubTest.ps1" />
+    <Compile Include="TestCases\SVT\NotificationHub\TestCases_NotificationHub.json" />
+    <Compile Include="TestCases\SVT\NotificationHub\TestData\BaseControlStatus_NotificationHub_PossibleFailed.csv" />
+    <Compile Include="TestCases\SVT\NotificationHub\TestData\Params_TC_NotificationHub.json" />
+    <Compile Include="TestCases\SVT\NotificationHub\TestData\Template_TC_NotificationHub.json" />
+    <Compile Include="TestCases\SVT\RedisCache\RedisCacheResource.ps1" />
+    <Compile Include="TestCases\SVT\RedisCache\RedisCacheTest.ps1" />
+    <Compile Include="TestCases\SVT\RedisCache\TestCases_RedisCache.json" />
+    <Compile Include="TestCases\SVT\RedisCache\TestData\BaseControlStatus_RedisCache_DefaultCompliance.csv" />
+    <Compile Include="TestCases\SVT\RedisCache\TestData\Params_RedisCache_Default.json" />
+    <Compile Include="TestCases\SVT\RedisCache\TestData\Template_RedisCache_Default.json" />
+    <Compile Include="TestCases\SVT\Search\SearchResource.ps1" />
+    <Compile Include="TestCases\SVT\Search\SearchTest.ps1" />
+    <Compile Include="TestCases\SVT\Search\TestCases_Search.json" />
+    <Compile Include="TestCases\SVT\Search\TestData\BaseControlStatus_Search_All_Compliant.csv" />
+    <Compile Include="TestCases\SVT\Search\TestData\BaseControlStatus_Search_All_Non_Compliant.csv" />
+    <Compile Include="TestCases\SVT\Search\TestData\Template_Search_All_Compliant.json" />
+    <Compile Include="TestCases\SVT\Search\TestData\Template_Search_All_Non_Compliant.json" />
+    <Compile Include="TestCases\SVT\ServiceBus\ServiceBusResource.ps1" />
+    <Compile Include="TestCases\SVT\ServiceBus\ServiceBusTest.ps1" />
+    <Compile Include="TestCases\SVT\Storage\StorageResource.ps1" />
+    <Compile Include="TestCases\SVT\Storage\TestData\BaseControlStatus_Storage_Compliant.csv" />
+    <Compile Include="TestCases\SVT\Storage\TestData\BaseControlStatus_Storage_Non_Compliant.csv" />
+    <Compile Include="TestCases\SVT\Storage\TestData\BaseControlStatus_Storage_DefaultCompliance.csv" />
+    <Compile Include="TestCases\SVT\Storage\TestData\Params_Storage_DefaultCompliance.json" />
+    <Compile Include="TestCases\SVT\Storage\TestData\Template_Storage_DefaultCompliance.json" />
+    <Compile Include="TestCases\SVT\TrafficManager\TestData\BaseControlStatus_TrafficManager_All_Compliant.csv" />
+    <Compile Include="TestCases\SVT\TrafficManager\TrafficManagerResource.ps1" />
+    <Compile Include="TestCases\SVT\TrafficManager\TrafficManagerTest.ps1" />
+    <Compile Include="TestCases\SVT\VirtualMachine\VirtualMachineResource.ps1" />
+    <Compile Include="TestCases\SVT\VirtualMachine\VirtualMachineTest.ps1" />
+    <Compile Include="TestCases\SVT\VirtualNetwork\TestCases_VirtualNetwork.json" />
+    <Compile Include="TestCases\SVT\VirtualNetwork\TestData\BaseControlStatus_VirtualNetwork_WithoutPeer.csv" />
+    <Compile Include="TestCases\SVT\VirtualNetwork\TestData\BaseControlStatus_VirtualNetwork_WithPeer.csv" />
+    <Compile Include="TestCases\SVT\VirtualNetwork\VirtualNetworkResource.ps1" />
+    <Compile Include="TestSettings.json" />
+    <Compile Include="TestStartup.ps1" />
+    <Compile Include="TestCases\SVT\ADLA\ADLATest.ps1" />
+    <Compile Include="TestCases\SVT\ADLA\TestCases_ADLA.json" />
+    <Compile Include="TestCases\SVT\ADLS\ADLSTest.ps1" />
+    <Compile Include="TestCases\SVT\ADLS\TestCases_ADLS.json" />
+    <Compile Include="TestCases\SVT\ADLS\TestData\BaseControlStatus_ADLS_PossibleVerify.csv" />
+    <Compile Include="TestCases\SVT\AnalysisServices\AnalysisServicesTest.ps1" />
+    <Compile Include="TestCases\SVT\AnalysisServices\TestCases_AnalysisServices.json" />
+    <Compile Include="TestCases\SVT\AppService\TestCases_AppService.json" />
+    <Compile Include="TestCases\SVT\DataFactory\DataFactoryTest.ps1" />
+    <Compile Include="TestCases\SVT\DataFactory\TestCases_DataFactory.json" />
+    <Compile Include="TestCases\SVT\KeyVault\KeyVaultTest.ps1" />
+    <Compile Include="TestCases\SVT\KeyVault\TestCases_KeyVault.json" />
+    <Compile Include="TestCases\SVT\Storage\StorageTest.ps1" />
+    <Compile Include="TestCases\SVT\Storage\TestCases_Storage.json" />
+    <Compile Include="TestCases\SVT\VirtualMachine\TestCases_VirtualMachine.json" />
+    <Compile Include="TestCases\SVT\Storage\TestData\Params_TC_Storage_StdGRS_Encyption_On.json" />
+    <Compile Include="TestCases\SVT\VirtualNetwork\VirtualNetworkTest.ps1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Core\Models\Default_Output_Directory_Stucture.json" />
+    <Content Include="TestCases\AlertMonitoring\OMS\TestCases_OMS.json" />
+    <Content Include="TestCases\CICDPipeline\CICD\TestCases_CICD.json" />
+    <Content Include="TestCases\SecurityIntellisense\SecIntel\TestCases_SecIntel.json" />
+    <Content Include="TestCases\Setup\Installation\TestCases_Installation.json" />
+    <Content Include="TestCases\SubscriptionSecurity\SSHealth\TestCases_SSHealth.json" />
+    <Content Include="TestCases\ContinuousAssurance\TestCases_ContinuousAssurance.json" />
+    <Content Include="TestCases\SVT\Automation\TestCases_Automation.json" />
+    <Content Include="TestCases\SVT\CDN\TestCases_CDN.json" />
+    <Content Include="TestCases\SVT\CDN\TestData\BaseControlStatus_CDN_All_Compliant.csv" />
+    <Content Include="TestCases\SVT\CDN\TestData\BaseControlStatus_CDN_All_Non_Compliant.csv" />
+    <Content Include="TestCases\SVT\CDN\TestData\Template_CDN_All_Compliant.json" />
+    <Content Include="TestCases\SVT\CDN\TestData\Template_CDN_All_Non_Compliant.json" />
+    <Content Include="TestCases\SVT\Common\TestCases_Common.json" />
+    <Content Include="TestCases\SVT\Common\TestData\ParallelScanCommands.json" />
+    <Content Include="TestCases\SVT\Common\TestData\StateDrift_WhiteListed_Controls.json" />
+    <Content Include="TestCases\SVT\Functions\TestCases_Functions.json" />
+    <Content Include="TestCases\SVT\Functions\TestData\BaseControlStatus_Functions_Possible_Failed.csv" />
+    <Content Include="TestCases\SVT\Functions\TestData\BaseControlStatus_Functions_Possible_Passed.csv" />
+    <Content Include="TestCases\SVT\Functions\TestData\Template_TC_Functions_Possible_Failed.json" />
+    <Content Include="TestCases\SVT\Functions\TestData\Template_TC_Functions_Possible_Passed.json" />
+    <Content Include="TestCases\SVT\LoadBalancer\TestCases_LoadBalancer.json" />
+    <Content Include="TestCases\SVT\LoadBalancer\TestData\BaseControlStatus_LoadBalancer_No_Public_IP.csv" />
+    <Content Include="TestCases\SVT\LoadBalancer\TestData\BaseControlStatus_LoadBalancer_Public_IP.csv" />
+    <Content Include="TestCases\SVT\SQLDB\TestCases_SQLDB.json" />
+    <Content Include="TestCases\SVT\SQLDB\TestData\BaseControlStatus_SQLDB_DefaultCompliance.csv" />
+    <Content Include="TestCases\SVT\SQLDB\TestData\Params_SQLDB_DefaultCompliance.json" />
+    <Content Include="TestCases\SVT\SQLDB\TestData\Template_SQLDB_DefaultCompliance.json" />
+    <Content Include="TestCases\SVT\SVTCommon\TestCases_SVTCommon.json" />
+    <Content Include="TestCases\SVT\EventHub\TestCases_EventHub.json" />
+    <Content Include="TestCases\SVT\EventHub\TestData\BaseControlStatus_EventHub_EH_No_Policies.csv" />
+    <Content Include="TestCases\SVT\EventHub\TestData\BaseControlStatus_EventHub_EH_Policies.csv" />
+    <Content Include="TestCases\SVT\NotificationHub\TestData\BaseControlStatus_NotificationHub_PossiblePassed.csv" />
+    <Content Include="TestCases\SVT\ServiceBus\TestCases_ServiceBus.json" />
+    <Content Include="TestCases\SVT\ServiceBus\TestData\BaseControlStatus_ServiceBus_Queue_No_Policies.csv" />
+    <Content Include="TestCases\SVT\ServiceBus\TestData\BaseControlStatus_ServiceBus_Queue_Policies.csv" />
+    <Content Include="TestCases\SVT\TrafficManager\TestCases_TrafficManager.json" />
+    <Content Include="TestCases\SVT\TrafficManager\TestData\BaseControlStatus_TrafficManager_All_Non_Compliant.csv" />
+    <Content Include="TestCases\SVT\TrafficManager\TestData\Template_TrafficManager_All_Compliant.json" />
+    <Content Include="TestCases\SVT\TrafficManager\TestData\Template_TrafficManager_All_Non_Compliant.json" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Target Name="Build" />
+</Project>

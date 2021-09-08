@@ -1,0 +1,102 @@
+﻿{
+  "TestCases": {
+   "TestCase": [
+      {
+         "TestCaseID": "Test-Set-AzSKOMSSettings",
+         "Priority": "1",
+         "Feature": "AlertMonitoring",
+         "ModuleName": "OMS",
+         "Type": "BVT",
+        "Enabled":  false,
+        "AutomationStatus": "Manual",
+          "ManualSteps": "",
+         "TestMethod": "TestSetAzSKOMSSettings",
+         "Description": "Command should be able to set OMS settings."
+      },
+      {
+         "TestCaseID": "Test-Set-AzSKOMSSettings-WithSource",
+         "Priority": "1",
+         "Feature": "AlertMonitoring",
+         "ModuleName": "OMS",
+         "Type": "BVT",
+          "Enabled":  false,
+          "AutomationStatus": "Manual",
+          "ManualSteps": "",
+         "TestMethod": "TestSetAzSKOMSSettingsWithSource",
+         "Description": "Command should be able to set OMS settings with source."
+      },
+      {
+         "TestCaseID": "Test-Set-AzSKOMSSettings-Disable",
+         "Priority": "1",
+         "Feature": "AlertMonitoring",
+         "ModuleName": "OMS",
+         "Type": "BVT",
+        "Enabled":  false,
+        "AutomationStatus": "Manual",
+          "ManualSteps": "",
+         "TestMethod": "TestSetAzSKOMSSettingsDisable",
+         "Description": "Command should be able to disbale OMS settings."
+      },
+      {
+         "TestCaseID": "Test-Install-AzSKOMSSolution-All",
+         "Priority": "1",
+         "Feature": "AlertMonitoring",
+         "ModuleName": "OMS",
+        "Type": "BVT",
+        "AutomationStatus": "Manual",
+          "ManualSteps": "",
+         "Enabled":  false,
+         "TestMethod": "TestInstallAzSKOMSSolutionAll",
+         "Description": "Command should install OMS sample view, queries and alerts."
+      },
+      {
+         "TestCaseID": "Test-Install-AzSKOMSSolution-Queries",
+         "Priority": "1",
+         "Feature": "AlertMonitoring",
+         "ModuleName": "OMS",
+         "Type": "FVT",
+        "Enabled":  false,
+        "AutomationStatus": "Manual",
+          "ManualSteps": "",
+         "TestMethod": "TestInstallAzSKOMSSolutionQueries",
+         "Description": "Command should install only OMS queries."
+      },
+      {
+         "TestCaseID": "Test-Install-AzSKOMSSolution-Alerts",
+         "Priority": "1",
+         "Feature": "AlertMonitoring",
+         "ModuleName": "OMS",
+        "Type": "FVT",
+        "AutomationStatus": "Manual",
+          "ManualSteps": "",
+         "Enabled":  false,
+         "TestMethod": "TestInstallAzSKOMSSolutionAlerts",
+         "Description": "Command should install only OMS alerts."
+      },
+      {
+         "TestCaseID": "Test-Install-AzSKOMSSolution-SampleView",
+         "Priority": "1",
+         "Feature": "AlertMonitoring",
+         "ModuleName": "OMS",
+         "Type": "FVT",
+        "Enabled":  false,
+        "AutomationStatus": "Manual",
+          "ManualSteps": "",
+         "TestMethod": "TestInstallAzSKOMSSolutionSampleView",
+         "Description": "Command should install only OMS sample view."
+      },
+      {
+         "TestCaseID": "Test-Uninstall-AzSKOMSetup",
+         "Priority": "1",
+         "Feature": "AlertMonitoring",
+         "ModuleName": "OMS",
+         "Type": "BVT",
+        "Enabled":  false,
+        "AutomationStatus": "Manual",
+          "ManualSteps": "",
+         "TestMethod": "TestUninstallAzSKOMSetup",
+         "Description": "Command should uninstall OMS queries and alerts."
+      }
+   ]
+  }
+}

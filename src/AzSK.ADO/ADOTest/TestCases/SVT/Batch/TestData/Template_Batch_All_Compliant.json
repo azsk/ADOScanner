@@ -1,0 +1,150 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "ResourceName": {
+      "type": "String",
+      "defaultValue": "azsktestbatch"
+    },
+    "alertrules_name1": {
+      "type": "String",
+      "defaultValue": "rule_PoolDeleteStartEvent"
+    },
+    "alertrules_name2": {
+      "type": "String",
+      "defaultValue": "rule_PoolDeleteCompleteEvent"
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "eastus2"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "defaultValue": "azsktestlinkedstorage"
+    },
+    "storageAccountType": {
+      "type": "string",
+      "defaultValue": "Standard_LRS"
+    },
+    "storageAccountNameForDiagnosticLogs": {
+      "type": "string",
+      "defaultValue": "azsktestlinkedstorage"
+    }
+  },
+  "variables": { },
+  "resources": [
+    {
+      "type": "Microsoft.Batch/batchAccounts",
+      "name": "[parameters('ResourceName')]",
+      "apiVersion": "2015-12-01",
+      "location": "[parameters('location')]",
+      "properties": {
+        "autoStorage": {
+          "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+        }
+      },
+      "resources": [ ],
+      "dependsOn": [ ]
+    },
+    {
+      "type": "microsoft.insights/alertrules",
+      "name": "[parameters('alertrules_name1')]",
+      "apiVersion": "2014-04-01",
+      "location": "[parameters('location')]",
+      "properties": {
+        "name": "[parameters('alertrules_name1')]",
+        "description": "This metric alert rule was created from Powershell version: 2.2.0",
+        "isEnabled": true,
+        "condition": {
+          "odata.type": "Microsoft.Azure.Management.Insights.Models.ThresholdRuleCondition",
+          "dataSource": {
+            "odata.type": "Microsoft.Azure.Management.Insights.Models.RuleMetricDataSource",
+            "resourceUri": "[resourceId('Microsoft.Batch/batchAccounts', parameters('ResourceName'))]",
+            "metricName": "PoolDeleteCompleteEvent"
+          },
+          "windowSize": "PT1H"
+        },
+        "action": {
+          "odata.type": "Microsoft.Azure.Management.Insights.Models.RuleEmailAction",
+          "sendToServiceOwners": true,
+          "customEmails": [ ]
+        }
+      },
+      "resources": [ ],
+      "dependsOn": [
+        "[resourceId('Microsoft.Batch/batchAccounts', parameters('ResourceName'))]"
+      ]
+    },
+    {
+      "type": "microsoft.insights/alertrules",
+      "name": "[parameters('alertrules_name2')]",
+      "apiVersion": "2014-04-01",
+      "location": "[parameters('location')]",
+      "properties": {
+        "name": "[parameters('alertrules_name2')]",
+        "description": "This metric alert rule was created from Powershell version: 2.2.0",
+        "isEnabled": true,
+        "condition": {
+          "odata.type": "Microsoft.Azure.Management.Insights.Models.ThresholdRuleCondition",
+          "dataSource": {
+            "odata.type": "Microsoft.Azure.Management.Insights.Models.RuleMetricDataSource",
+            "resourceUri": "[resourceId('Microsoft.Batch/batchAccounts', parameters('ResourceName'))]",
+            "metricName": "PoolDeleteStartEvent"
+          },
+          "windowSize": "PT1H"
+        },
+        "action": {
+          "odata.type": "Microsoft.Azure.Management.Insights.Models.RuleEmailAction",
+          "sendToServiceOwners": true,
+          "customEmails": [ ]
+        }
+      },
+      "resources": [ ],
+      "dependsOn": [
+        "[resourceId('Microsoft.Batch/batchAccounts', parameters('ResourceName'))]"
+      ]
+    },
+    {
+      "apiVersion": "2016-01-01",
+      "name": "[parameters('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "sku": {
+        "name": "[parameters('storageAccountType')]"
+      },
+      "kind": "Storage",
+      "properties": {
+        "encryption": {
+          "services": {
+            "blob": {
+              "Enabled": false
+            },
+            "file": null
+          },
+          "keySource": "Microsoft.Storage"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Batch/batchAccounts/providers/diagnosticSettings",
+      "name": "[concat(parameters('ResourceName'), '/', 'Microsoft.Insights/service')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Batch/batchAccounts', parameters('ResourceName'))]"
+      ],
+      "apiVersion": "2015-07-01",
+      "properties": {
+        "storageAccountId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountNameForDiagnosticLogs'))]",
+        "logs": [
+          {
+            "category": "ServiceLog",
+            "Enabled": false,
+            "retentionPolicy": {
+              "days": 365,
+              "Enabled": false
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

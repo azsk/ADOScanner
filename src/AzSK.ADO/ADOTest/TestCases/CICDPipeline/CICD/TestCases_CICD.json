@@ -1,0 +1,45 @@
+{
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "Test-Run-CICDTask-On-Hosted-Agent",
+        "Priority": "1",
+        "Feature": "CICDPipeline",
+        "ModuleName": "CICD",
+        "Type": "BVT",
+        "Enabled":  false,
+        "TestMethod": "",
+        "ManualSteps":  "Add AzSK_SVT Task to your release definition.From agent phase select Hosted agent. Save and queue the release.",
+        "AutomationStatus": "Manual",
+        "Description": "Verify if CICD task is running successfully on a hosted agent."
+        
+      },
+      {
+
+        "TestCaseID": "Test-Run-CICDTask-On-NonHosted-Agent",
+        "Priority": "1",
+        "Feature": "CICDPipeline",
+        "ModuleName": "CICD",
+        "Type": "BVT",
+        "Enabled":  false,
+        "TestMethod": "",
+        "ManualSteps": "Add AzSK_SVT Task to your release definition.Create a non-hosted agent.From agent phase select your non-Hosted agent. Save and queue the release",
+        "AutomationStatus": "Manual",
+        "Description": "Verify if CICD task is running successfully on a non-hosted agent."
+      },
+         {
+        "TestCaseID": "Test-Run-CICDTask-On-HostedVS2017-Agent",
+        "Priority": "1",
+        "Feature": "CICDPipeline",
+        "ModuleName": "CICD",
+        "Type": "BVT",
+        "Enabled":  false,
+        "TestMethod": "",
+        "ManualSteps":  "Add AzSK_SVT Task to your release definition.From agent phase select Hosted VS2017 agent. Save and queue the release.",
+        "AutomationStatus": "Manual",
+        "Description": "Verify if CICD task is running successfully on a hosted agent."
+        
+      }
+    ]
+  }
+}

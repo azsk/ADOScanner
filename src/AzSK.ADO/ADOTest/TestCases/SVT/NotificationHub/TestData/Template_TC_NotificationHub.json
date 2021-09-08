@@ -1,0 +1,51 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
+  "contentVersion": "0.9.0.0",
+  "parameters": {
+    "resourceName": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+
+    "newTier": {
+      "type": "string"
+    },
+    "NameSpace": {
+      "type": "string"
+    }
+  },
+    "resources": [
+      {
+        "type": "Microsoft.NotificationHubs/namespaces",
+        "sku": {
+          "name": "[parameters('newTier')]"
+        },
+        "kind": "NotificationHub",
+        "name": "[parameters('NameSpace')]",
+        "apiVersion": "2014-09-01",
+        "location": "[parameters('location')]",
+        "tags": { },
+        "scale": null,
+        "properties": {
+          "namespaceType": "NotificationHub"
+        },
+        "dependsOn": []
+      },
+      {
+            "type": "Microsoft.NotificationHubs/namespaces/notificationHubs",
+            "name": "[parameters('resourceName')]",
+            "apiVersion": "2014-09-01",
+            "location": "[parameters('location')]",
+            "scale": null,
+            "properties": {
+                "authorizationRules":[]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.NotificationHubs/namespaces', parameters('NameSpace'))]"
+            ]
+        }
+
+    ]
+}

@@ -1,0 +1,34 @@
+{
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_NotificationHub_AllPassed",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "NotificationHub",
+        "ParamFileName": "Params_TC_NotificationHub.json",
+        "TemplateFileName": "Template_TC_NotificationHub.json",
+        "BaselineOutput": "BaseControlStatus_NotificationHub_PossiblePassed.csv",
+        "PresetMethods": "RemoveDefaultNotificationPolicy",
+        "ResetMethods": "RemoveNotificationHubResource",
+        "Type": "FVT",
+        "Enabled":  false,
+        "Description": "Verify SVTs on a security compliant Notification Hub resource."
+      },
+      {
+        "TestCaseID": "TC_NotificationHub_AllFailed",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "NotificationHub",
+        "ParamFileName": "Params_TC_NotificationHub.json",
+        "TemplateFileName": "Template_TC_NotificationHub.json",
+        "BaselineOutput": "BaseControlStatus_NotificationHub_PossibleFailed.csv",
+        "PresetMethods": "",
+        "ResetMethods": "RemoveNotificationHubResource",
+        "Type": "FVT",
+        "Enabled":  false,
+        "Description": "Verify SVTs on a security non-compliant Notification Hub resource."
+      }
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "TestCases": 
+  {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_LoadBalancer_Verify_PublicIP",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "LoadBalancer",
+        "Enabled":  false,
+        "BaselineOutput": "BaseControlStatus_LoadBalancer_Public_IP.csv",
+        "PresetMethods": "AddPublicIpAddress",
+        "Type": "FVT",
+        "Description": "Verify SVT on a Load Balancer having access public IP."
+      },
+      {
+        "TestCaseID": "TC_LoadBalancer_Verify_No_PublicIP",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "LoadBalancer",
+        "Enabled":  false,
+        "BaselineOutput": "BaseControlStatus_LoadBalancer_No_Public_IP.csv",
+        "PresetMethods": "RemovePublicIpAddress",
+        "Type": "FVT",
+        "Description": "Verify SVTs on a Load Balancer having no public IP."
+      }
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+ControlID,Status
+Azure_LoadBalancer_AuthZ_Grant_Min_RBAC_Access,Verify
+Azure_LoadBalancer_Audit_Enable_Diagnostics_Log,Failed
+Azure_LoadBalancer_NetSec_Justify_PublicIPs,Passed

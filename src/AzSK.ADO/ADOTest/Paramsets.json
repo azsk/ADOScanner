@@ -1,0 +1,24 @@
+﻿{
+  "ParamSets": {
+    "ParamSet": [
+      {
+        "ParamSetID": "AllValidParams",
+        "SubscriptionID": "",
+        "SecurityPOCEmail": "",
+        "LAWSId": "",
+        "LAWSSharedKey": "",
+        "SecurityPhoneNo": "",
+        "AdminEmailAccounts": ""
+      },
+      {
+        "ParamSetID": "AllInvalidParams",
+        "SubscriptionID": "",
+        "SecurityPOCEmail": "",
+        "LAWSId": "",
+        "LAWSSharedKey": "",
+        "SecurityPhoneNo": "",
+        "AdminEmailAccounts": ""
+      }
+    ]
+  }
+}

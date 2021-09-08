@@ -1,0 +1,29 @@
+{
+  "TestCases": 
+  {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_EventHub_Verify_EH_Policies",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "EventHub",
+        "Enabled":  false,
+        "BaselineOutput": "BaseControlStatus_EventHub_EH_Policies.csv",
+        "PresetMethods": "AddEventHubAccessPolicies",
+        "Type": "FVT",
+        "Description": "Verify SVTs on a Event Hub having access policies at Event Hub level."
+      },
+      {
+        "TestCaseID": "TC_EventHub_Verify_EH_No_Policies",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "EventHub",
+        "Enabled":  false,
+        "BaselineOutput": "BaseControlStatus_EventHub_EH_No_Policies.csv",
+        "PresetMethods": "RemoveEventHubAccessPolicies",
+        "Type": "FVT",
+        "Description": "Verify SVTs on a Event Hub having no access policies at Event Hub level."
+      }
+    ]
+  }
+}

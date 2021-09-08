@@ -1,0 +1,31 @@
+{
+
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_Search_Verify_All_Compliant",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "Search",
+        "TemplateFileName": "Template_Search_All_Compliant.json",
+        "BaselineOutput": "BaseControlStatus_Search_All_Compliant.csv",
+        "PresetMethods": "",
+        "Type": "BVT",
+        "Enabled":  false,
+        "Description": "Verify SVTs on a compliant Search service."
+      },
+      {
+        "TestCaseID": "TC_Search_Verify_All_Non_Compliant",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "Search",
+        "TemplateFileName": "Template_Search_All_Non_Compliant.json",
+        "BaselineOutput": "BaseControlStatus_Search_All_Non_Compliant.csv",
+        "PresetMethods": "",
+        "Type": "FVT",
+        "Enabled":  false,
+        "Description": "Verify SVTs on a non compliant Search service."
+      }
+    ]
+  }
+}

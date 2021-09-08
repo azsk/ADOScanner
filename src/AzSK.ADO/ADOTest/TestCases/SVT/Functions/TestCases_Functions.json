@@ -1,0 +1,31 @@
+{
+
+  "TestCases": {
+    "TestCase": [
+      {
+        "TestCaseID": "TC_Functions_Verify_All_Compliant",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "Functions",
+        "Enabled": false,
+        "TemplateFileName": "Template_TC_Functions_Possible_Passed.json",
+        "BaselineOutput": "BaseControlStatus_Functions_Possible_Passed.csv",
+        "Type": "FVT",
+        "PresetMethods": "ChangeFunctionsEditMode",
+        "Description": "Verify SVTs on a compliant Azure Functions service. This will not verify custom domain and AAD related controls."
+      },
+        {
+        "TestCaseID": "TC_Functions_Verify_All_NonCompliant",
+        "Priority": "1",
+        "Feature": "SVT",
+        "ModuleName": "Functions",
+        "Enabled": false,
+        "TemplateFileName": "Template_TC_Functions_Possible_Failed.json",
+        "BaselineOutput": "BaseControlStatus_Functions_Possible_Failed.csv",
+        "Type": "FVT",
+        "PresetMethods": "AddWebsiteLoadCertificates",
+        "Description": "Verify SVTs on a non-compliant Azure Functions service. This will not verify custom domain, AAD related and function authorization level controls."
+      }
+    ]
+  }
+}
