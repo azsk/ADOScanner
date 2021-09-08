@@ -218,11 +218,11 @@ class VariableGroup: ADOSVTBase
                 {
                     $varList = @();
                     $noOfCredFound = 0;
-                    $patterns = $this.ControlSettings.Patterns | where-object {$_.RegexCode -eq "SecretsInVariables"} | Select-Object -Property RegexList;
+                    $patterns = @($this.ControlSettings.Patterns | where-object {$_.RegexCode -eq "SecretsInVariables"} | Select-Object -Property RegexList);
                     $exclusions = $this.ControlSettings.Build.ExcludeFromSecretsCheck;
                     $exclusions += $this.ControlSettings.Release.ExcludeFromSecretsCheck; 
                     $exclusions = @($exclusions | select-object -unique)
-                    if(($patterns | Measure-Object).Count -gt 0)
+                    if($patterns.Count -gt 0)
                     {
                         #Compare all non-secret variables with regex 
                         Get-Member -InputObject $this.VarGrp[0].variables -MemberType Properties | ForEach-Object {
@@ -249,7 +249,7 @@ class VariableGroup: ADOSVTBase
                                         #If regex is in text form, the match will be case-sensitive.
                                         if ($varValue -cmatch $patterns.RegexList[$i]) {
                                             $noOfCredFound +=1
-                                            $varList += " $varName";
+                                            $varList += $varName;
                                             break
                                             }
                                         }
@@ -261,7 +261,7 @@ class VariableGroup: ADOSVTBase
                             $varList = @($varList | Select-Object -Unique)
                             $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in variable group.`nList of variables: ", $varList );
                             $controlResult.SetStateData("List of variable name containing secret: ", $varList);
-                            $controlResult.AdditionalInfo += "Count of variable(s) containing secret: " + ($varList | Measure-Object).Count;
+                            $controlResult.AdditionalInfo += "Count of variable(s) containing secret: " + $varList.Count;
                         }
                         else
                         {
