@@ -192,7 +192,8 @@ class BatchScanManagerForMultipleProjects
             BatchScanState= [BatchScanState]::INIT;
             TokenLastModifiedTime = [DateTime]:: UtcNow;
             ResourceCount=0;
-            SkipMarker = 'False'
+            SkipMarker = 'False';
+            UpcError = 'False'
            
         }
         if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq "Build"){
