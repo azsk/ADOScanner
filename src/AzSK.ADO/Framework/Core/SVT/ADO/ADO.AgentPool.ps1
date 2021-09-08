@@ -410,52 +410,54 @@ class AgentPool: ADOSVTBase
     hidden [ControlResult] CheckBroaderGroupAccess ([ControlResult] $controlResult) {
         try {
             $controlResult.VerificationResult = [VerificationResult]::Failed
+            $restrictedBroaderGroups = @{}
+            $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
+            $restrictedBroaderGroupsForAgentPool.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
+            if (($this.AgentObj.Count -gt 0) -and [Helpers]::CheckMember($this.AgentObj, "identity")) {
+                # match all the identities added on agentpool with defined restricted list
+                $roleAssignmentsToCheck = $this.AgentObj
+                $restrictedGroups = @()
+                if ($this.checkInheritedPermissionsPerAgentPool -eq $false) {
+                    $roleAssignmentsToCheck = $this.AgentObj | where-object { $_.access -ne "inherited" }
+                }
+                $roleAssignments = @($roleAssignmentsToCheck | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.id}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                # Checking whether the broader groups have User/Admin permissions
+                $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1] -and ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]])})
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool")) {
-
-                $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
-                if (($this.AgentObj.Count -gt 0) -and [Helpers]::CheckMember($this.AgentObj, "identity")) {
-                    # match all the identities added on agentpool with defined restricted list
-                    $roleAssignmentsToCheck = $this.AgentObj
-                    if ($this.checkInheritedPermissionsPerAgentPool -eq $false) {
-                        $roleAssignmentsToCheck = $this.AgentObj | where-object { $_.access -ne "inherited" }
-                    }
-                    $roleAssignments = @($roleAssignmentsToCheck | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.id}}, @{Name="Role"; Expression = {$_.role.displayName}});
-                    # Checking whether the broader groups have User/Admin permissions
-                    $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
-
-                    $restrictedGroupsCount = $restrictedGroups.Count
-                    # fail the control if restricted group found on agentpool
-                    if ($restrictedGroupsCount -gt 0) {
-                        $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)");
-                        $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
-                        $backupDataObject = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id } }, @{l = 'Role'; e = { $_.Role } }
-                        $formattedGroupsTable = ($formattedGroupsData | Out-String)
-                        $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
-                        $controlResult.SetStateData("List of groups: ", $restrictedGroups)
-                        $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)";
-                        $groups = $restrictedGroups | ForEach-Object { $_.name + ': ' + $_.role } 
+                if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $restrictedGroups.Count -gt 0)
+                {
+                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($restrictedGroups, $true))
+                    $restrictedGroups = @($restrictedGroups | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
+                }
+                $restrictedGroupsCount = $restrictedGroups.Count
+                # fail the control if restricted group found on agentpool
+                if ($restrictedGroupsCount -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have excessive permissions on agent pool: $($restrictedGroupsCount)");
+                    $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
+                    $backupDataObject = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id } }, @{l = 'Role'; e = { $_.Role } }
+                    $formattedGroupsTable = ($formattedGroupsData | Out-String)
+                    $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
+                    $controlResult.SetStateData("List of groups: ", $restrictedGroups)
+                    $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions on agent pool: $($restrictedGroupsCount)";
+                    $groups = $restrictedGroups | ForEach-Object { $_.name + ': ' + $_.role } 
                         $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
-                        
-                        if ($this.ControlFixBackupRequired) {
-                            #Data object that will be required to fix the control
-                            $controlResult.BackupControlState = $backupDataObject;
-                        }
-                    }
-                    else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to agent pool.");
-                        $controlResult.AdditionalInfoInCSV = "NA";
+
+                    if ($this.ControlFixBackupRequired) {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $backupDataObject;
                     }
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No groups have given access to agent pool.");
-                    $controlResult.AdditionalInfoInCSV = "NA";
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have excessive permissions on agent pool.");
+                        $controlResult.AdditionalInfoInCSV = "NA";
                 }
-                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForAgentPool | FT | out-string )`n");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups for agent pool is not defined in control settings for your organization.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "No groups have given access to agent pool.");
+                $controlResult.AdditionalInfoInCSV = "NA";
             }
+            $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+            $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' which should not excessive permissions: `n$($displayObj | FT | out-string -width 512)");
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the agent pool permissions.");

@@ -277,19 +277,35 @@
         "Environment",
         "SolutionName"
     ],
-    "RestrictedBroaderGroupsForBuild" : [
-      "Contributors",
-      "Readers",
-      "Project Collection Valid Users",
-      "Project Valid Users"
-    ],
-    "ExcessivePermissionsForBroadGroups": [
-      "Administer build permissions",
-      "Delete build pipeline",
-      "Delete builds ",
-      "Destroy builds",
-      "Edit build pipeline"
-    ],
+    "RestrictedBroaderGroupsForBuild" : {
+      "Contributors":[
+        "Administer build permissions",
+        "Delete build pipeline",
+        "Delete builds ",
+        "Destroy builds"
+      ],
+      "Readers":[
+        "Administer build permissions",
+        "Delete build pipeline",
+        "Delete builds ",
+        "Destroy builds",
+        "Edit build pipeline"
+      ],
+      "Project Collection Valid Users":[
+        "Administer build permissions",
+        "Delete build pipeline",
+        "Delete builds ",
+        "Destroy builds",
+        "Edit build pipeline"
+      ],
+      "Project Valid Users":[
+        "Administer build permissions",
+        "Delete build pipeline",
+        "Delete builds ",
+        "Destroy builds",
+        "Edit build pipeline"
+      ]
+    },
     "CheckForInheritedPermissions" : false,
     "RegexForOAuthTokenInYAMLScript" : "\\s*:\\s*\\$\\s*\\(\\s*System\\.AccessToken\\s*\\)",
     "BranchesToCheckForYAMLScript": ["master","main","develop"]
@@ -322,48 +338,89 @@
         "System.debug",
         "BuildConfiguration"
     ],
-    "RestrictedBroaderGroupsForRelease": [
-      "Contributors",
-      "Readers",
-      "Project Collection Valid Users",
-      "Project Valid Users"
-    ],
-    "ExcessivePermissionsForBroadGroups": [
-      "Administer release permissions",
-      "Delete release pipeline",
-      "Delete releases",
-      "Edit release pipeline",
-      "Delete release stage",      
-      "Edit release stage",
-      "Manage release approvers",
-      "Manage releases"
-    ],
+    "RestrictedBroaderGroupsForRelease" : {
+      "Contributors":[
+        "Administer release permissions",
+        "Delete release pipeline",
+        "Delete releases",
+        "Delete release stage",      
+        "Manage release approvers",
+        "Manage releases"
+      ],
+      "Readers":[
+        "Administer release permissions",
+        "Delete release pipeline",
+        "Delete releases",
+        "Edit release pipeline",
+        "Delete release stage",      
+        "Edit release stage",
+        "Manage release approvers",
+        "Manage releases"
+      ],
+      "Project Collection Valid Users":[
+        "Administer release permissions",
+        "Delete release pipeline",
+        "Delete releases",
+        "Edit release pipeline",
+        "Delete release stage",      
+        "Edit release stage",
+        "Manage release approvers",
+        "Manage releases"
+      ],
+      "Project Valid Users":[
+        "Administer release permissions",
+        "Delete release pipeline",
+        "Delete releases",
+        "Edit release pipeline",
+        "Delete release stage",      
+        "Edit release stage",
+        "Manage release approvers",
+        "Manage releases"
+      ]
+    },
     "CheckForInheritedPermissions": false
   },
   "AgentPool": {
     "AgentPoolHistoryPeriodInDays": 180 ,
-    "RestrictedBroaderGroupsForAgentPool": [
-        "Project Collection Valid Users",
-        "Contributors",
-        "Readers",
-        "Project Valid Users"
-    ],
-    "RestrictedRolesForBroaderGroupsInAgentPool": [
-      "Administrator",
-      "User"
-    ],
+    "RestrictedBroaderGroupsForAgentPool" : {
+      "Contributors":[
+        "Administrator",
+        "User"
+      ],
+      "Readers":[
+        "Administrator",
+        "User"
+      ],
+      "Project Collection Valid Users":[
+        "Administrator",
+        "User"
+      ],
+      "Project Valid Users":[
+        "Administrator",
+        "User"
+      ]
+    },
     "CheckForInheritedPermissions": false
   },
   "VariableGroup": {
-    "RestrictedBroaderGroupsForVariableGroup": [
-        "Project Collection Valid Users",
-        "Contributors",
-        "Readers",
-        "Project Valid Users"
-    ],
-    "RestrictedRolesForBroaderGroupsInVariableGroup": [
-        "Administrator"
-    ],
+    "RestrictedBroaderGroupsForVariableGroup" : {
+      "Contributors":[
+        "Administrator",
+        "User"
+      ],
+      "Readers":[
+        "Administrator",
+        "User"
+      ],
+      "Project Collection Valid Users":[
+        "Administrator",
+        "User"
+      ],
+      "Project Valid Users":[
+        "Administrator",
+        "User"
+      ]
+    },
     "RestrictedRolesForBroaderGroupsInVariableGroupContainingSecrets": [
       "Administrator",
       "User"
@@ -382,6 +439,15 @@
   "Wikis":{
     "ThreshHoldDaysForWikisInactivity":180
   }  ,
+  "BroaderGroupsToExpand":[
+    "Contributors"
+  ],
+  "VeryLargeGroups":[],
+  "CheckForBroadGroupMemberCount": true,
+  "AllowedMemberCountPerBroadGroup": {
+    "Contributors": 50,
+    "Project Valid Users": 40
+  },
   "AlernateAccountRegularExpressionForOrg": "^sc-\\w+@(?:\\w+\\.)*microsoft\\.com$|^\\w+.*@gme\\.gbl$",
   "ALTControlEvaluationMethod": "GraphThenRegEx",
   "Organization": {
@@ -440,41 +506,69 @@
     "AdminInactivityThresholdInDays": 90
   },
   "Feed":{
-  "RestrictedBroaderGroupsForFeeds": [
-    "Project Collection Valid Users",
-    "Contributors",
-    "Readers",
-    "Project Valid Users"
-    ],
-    "RestrictedRolesForBroaderGroupsInFeeds": [
-        "administrator",
-        "collaborator",
-        "contributor"
-    ]
+    "RestrictedBroaderGroupsForFeeds" : {
+      "Contributors":[
+        "Administrator",
+        "Collaborator",
+        "Contributor"
+      ],
+      "Readers":[
+        "Administrator",
+        "Collaborator",
+        "Contributor"
+      ],
+      "Project Collection Valid Users":[
+        "Administrator",
+        "Collaborator",
+        "Contributor"
+      ],
+      "Project Valid Users":[
+        "Administrator",
+        "Collaborator",
+        "Contributor"
+      ]
+    }
   },
   "SecureFile":{
-    "RestrictedBroaderGroupsForSecureFile": [
-      "Project Collection Valid Users",
-      "Contributors",
-      "Readers",
-      "Project Valid Users"
-    ],
-    "RestrictedRolesForBroaderGroupsInSecureFile": [
-      "administrator"       
-    ],
+    "RestrictedBroaderGroupsForSecureFile" : {
+      "Contributors":[
+        "Administrator",
+        "User"
+      ],
+      "Readers":[
+        "Administrator",
+        "User"
+      ],
+      "Project Collection Valid Users":[
+        "Administrator",
+        "User"
+      ],
+      "Project Valid Users":[
+        "Administrator",
+        "User"
+      ]
+    },
     "CheckForInheritedPermissions": false
   },
   "Environment":{
-    "RestrictedBroaderGroupsForEnvironment": [
-      "Project Collection Valid Users",
-      "Contributors",
-      "Readers",
-      "Project Valid Users"
-    ],
-    "RestrictedRolesForBroaderGroupsInEnv": [
-      "Administrator",
-      "User"       
-    ],
+    "RestrictedBroaderGroupsForEnvironment" : {
+      "Contributors":[
+        "Administrator",
+        "User"
+      ],
+      "Readers":[
+        "Administrator",
+        "User"
+      ],
+      "Project Collection Valid Users":[
+        "Administrator",
+        "User"
+      ],
+      "Project Valid Users":[
+        "Administrator",
+        "User"
+      ]
+    },
     "CheckForInheritedPermissions": false
   },
   "Repo": {
@@ -535,12 +629,24 @@
       "Contributors",
       "Readers"
     ],
-    "RestrictedBroaderGroupsForSvcConn": [
-      "Project Collection Valid Users",
-      "Contributors",
-      "Readers",
-      "Project Valid Users"
-    ],
+    "RestrictedBroaderGroupsForSvcConn" : {
+      "Contributors":[
+        "Administrator",
+        "User"
+      ],
+      "Readers":[
+        "Administrator",
+        "User"
+      ],
+      "Project Collection Valid Users":[
+        "Administrator",
+        "User"
+      ],
+      "Project Valid Users":[
+        "Administrator",
+        "User"
+      ]
+    },
     "CheckForInheritedPermissions": false
   },
   "Patterns": [
