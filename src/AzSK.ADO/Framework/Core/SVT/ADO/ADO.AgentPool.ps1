@@ -115,7 +115,7 @@ class AgentPool: ADOSVTBase
             if($null -eq $this.AgentPoolOrgObj)
             {
                 $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
-                $this.AgentPoolOrgObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
+                $this.AgentPoolOrgObj = @([WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL));
             }
 
             if($this.AgentPoolOrgObj.Count -gt 0)
@@ -148,7 +148,7 @@ class AgentPool: ADOSVTBase
             {
                 #autoUpdate setting is available only at org level settings.
                 $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
-                $this.AgentPoolOrgObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
+                $this.AgentPoolOrgObj = @([WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL));
             }
 
             if($this.AgentPoolOrgObj.Count -gt 0)
