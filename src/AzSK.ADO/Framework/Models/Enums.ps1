@@ -214,3 +214,9 @@ enum BuildPermissions {
 	Deletebuildpipeline = 4096
 	Destroybuilds = 32
 }
+
+enum RepoPermissions {
+	Contribute = 4
+    Deleterepository = 512
+    Managepermissions = 8192
+}
