@@ -142,7 +142,7 @@
     },
     {
       "ControlID": "ADO_AgentPool_AuthZ_Restrict_Broader_Group_Access",
-      "Description": "Broader groups (contributors, project valid users, etc.) should not have user/administrator privileges on agent pool.",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not have excessive permissions on agent pool.",
       "Id": "AgentPool200",
       "ControlSeverity": "High",
       "Automated": "Yes",

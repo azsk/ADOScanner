@@ -74,7 +74,7 @@
           },
           {
             "ControlID": "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access",
-            "Description": "Broader groups (contributors, project valid users, etc.) should not have administrator privileges on variable group.",
+            "Description": "Broader groups (contributors, project valid users, etc.) should not have excessive permissions on variable group.",
             "Id": "VariableGroup160",
             "ControlSeverity": "High",
             "Automated": "Yes",
