@@ -372,8 +372,7 @@ class ServiceConnection: ADOSVTBase
             $restrictedGroups = $null;
             $restrictedGlobalGroupsForSerConn = $null;
         }
-        catch {
-            $failMsg = $_
+        catch {            
             $controlResult.LogException($_)
         }       
         return $controlResult;
