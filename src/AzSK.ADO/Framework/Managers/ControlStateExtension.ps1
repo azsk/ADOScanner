@@ -498,11 +498,11 @@ class ControlStateExtension
 							$printCentralOrgPolicyMessage = $true;
 						}
 					}
-					if([string]::IsNullOrEmpty($projectName) -and $printCentralOrgPolicyMessage -eq $true)
+					$enableOrgControlAttestation = $this.AzSKSettings.EnableOrgControlAttestation
+					if([string]::IsNullOrEmpty($projectName) -and $printCentralOrgPolicyMessage -eq $true -and $enableOrgControlAttestation)
 					{
 						Write-Host "Attestation is not enabled for centralized org policy." -ForegroundColor Red
 					}
-					$enableOrgControlAttestation = $this.AzSKSettings.EnableOrgControlAttestation
 
 					if([string]::IsNullOrEmpty($projectName))
 					{

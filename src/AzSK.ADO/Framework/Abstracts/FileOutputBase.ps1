@@ -80,7 +80,27 @@ class FileOutputBase: ListenerBase
 					$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) | Join-Path -ChildPath "BatchScan" | Join-Path -ChildPath $batchScanSanitizedPath |Join-Path -ChildPath $runPath ;
 				}
 				else {
+					if ($this.invocationContext.BoundParameters["ServiceIds"]) {
+						$runPath += "_SVCIdBased";
+					}
+					if ($this.invocationContext.BoundParameters["UsePartialCommit"]) {
+						$runPath += "_UPC";
+					}
+					if ($this.invocationContext.BoundParameters["UseBaselineControls"]) {
+						$runPath += "_UBC";
+					}
+					if ($this.invocationContext.BoundParameters["ResourceTypeName"]) {
+						$runPath += "_" + $this.invocationContext.BoundParameters["ResourceTypeName"];
+					}
+					if ($this.invocationContext.BoundParameters["FilterTags"]) {
+						$runPath += "_FT_"+ $this.invocationContext.BoundParameters["FilterTags"];
+					}
+					#if ($this.invocationContext.BoundParameters["MaxObj"]) {
+					#	$runPath += "_" +"MO"+ $this.invocationContext.BoundParameters["MaxObj"];
+					#}FilterTags
+					
 					$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) |Join-Path -ChildPath $runPath ;
+					
 				}
 				            
 			}
