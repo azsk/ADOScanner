@@ -25,7 +25,7 @@ class OrganizationInfo: CommandBase {
             $returnMsgs += [MessageData]::new("Resource inventory for the organization: $($this.organizationName)`n")
             $projectsList = $this.projects | Select-Object @{Name="Projects"; Expression = {$_.name}}
             $projectsList = $projectsList | Out-String
-            $this.PublishCustomMessage("Fetching resource inventory for below projects : $($projectsList)`n")
+            $this.PublishCustomMessage("Fetching resource inventory for below projects: $($projectsList)`n")
             $returnMsgs += [MessageData]::new("Fetching resource inventory for below projects: $($projectsList)`n")
             $outputFolder = ([WriteFolderPath]::GetInstance().FolderPath)
             $inventorySummary = @()
@@ -42,6 +42,9 @@ class OrganizationInfo: CommandBase {
                     AgentPools         =  0;
                     VariableGroups     =  0;
                     ServiceConnections =  0;
+                    SecureFiles        =  0;
+                    Environments       =  0;
+                    Feeds              =  0;
                 };
                 [InventoryHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $resourceInventoryData);
                 # Change the hashtable headers to resource type and resource count
@@ -55,6 +58,9 @@ class OrganizationInfo: CommandBase {
                     TaskGroups = $resourceInventoryData['TaskGroups']
                     Repositories = $resourceInventoryData['Repositories']
                     TestPlans = $resourceInventoryData['TestPlans'] 
+                    Feeds = $resourceInventoryData['Feeds'] 
+                    SecureFiles = $resourceInventoryData['SecureFiles'] 
+                    Environments = $resourceInventoryData['Environments'] 
                 }
                 $tempObj | Add-Member -Name 'ProjectName' -Type NoteProperty -Value $projectName
                 $inventorySummary += $tempObj

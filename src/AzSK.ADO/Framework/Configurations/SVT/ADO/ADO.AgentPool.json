@@ -62,7 +62,7 @@
       "Automated": "Yes",
       "MethodName": "CheckOrgAgtAutoProvisioning",
       "Rationale": "By enabling auto-provisioning the organization agent pool is imported in all your new team projects and is accessible there immediately. Therefore, a vulnerability in components used by one project can be leveraged by an attacker to attack other projects.",
-      "Recommendation": "To change auto-provision settings: 1.Navigate to the Organization settings. 2. Open Agent pools. 3. Select Settings. 4. Change the settings for 'Auto-provisioning' this agent pools in new projects'",
+      "Recommendation": "1.Navigate to the Organization settings. --> 2. Select agent pool. --> 3. Select Settings. --> 4. Change the settings for 'Auto-provisioning this agent pools in new projects'",
       "Tags": [
         "SDL",
         "TCP",
@@ -95,9 +95,9 @@
       "Id": "AgentPool170",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
-      "MethodName": "CheckInActiveAgentPool",
-      "Rationale": "Each additional agent pool being used by pipelines to access repositories increases the attack surface. To minimize this risk ensure that only active and legitimate agent pools are present in organization.",
-      "Recommendation": "To remove inactive agent pool: 1. Navigate to the agent pool settings using resource link -> 2. Click on Delete.",
+      "MethodName": "CheckInactiveAgentPool",
+      "Rationale": "Agent pools may contain potentially sensitive information (such as code, secrets, pre-release information and logs) from previously run pipelines. Thus each inactive agent pool can increase the exposure of such important information to a malicious user. To minimize this risk ensure that inactive agent pools are proactively deleted.",
+      "Recommendation": "To remove inactive agent pool: 1. Navigate to the agent pools from the project settings --> 2. Locate the inactive agent pool --> 3. Click on the 'Delete' icon",
       "Tags": [
         "SDL",
         "TCP",

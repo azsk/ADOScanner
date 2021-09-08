@@ -8,8 +8,11 @@ class AgentPool: ADOSVTBase
     hidden [PSObject] $agentPool; # This is used to fetch agent details in pool
     hidden [PSObject] $agentPoolActivityDetail = @{isAgentPoolActive = $true; agentPoolLastRunDate = $null; agentPoolCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [string] $checkInheritedPermissionsPerAgentPool = $false
+
     hidden static [PSObject] $regexListForSecrets;
-    
+
+    hidden [PSObject] $AgentPoolOrgObj; #This will contain org level agent pool details
+
     AgentPool([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         $this.AgentPoolId =  ($this.ResourceContext.ResourceId -split "agentpool/")[-1]
@@ -111,22 +114,31 @@ class AgentPool: ADOSVTBase
 
     hidden [ControlResult] CheckOrgAgtAutoProvisioning([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try {
             #Only agent pools created from org setting has this settings..
-            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
-            $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-
-            if ((($agentPoolsObj | Measure-Object).Count -gt 0) -and $agentPoolsObj.autoProvision -eq $true) {
-                $controlResult.AddMessage([VerificationResult]::Failed,"Auto-provisioning is enabled for the $($agentPoolsObj.name) agent pool.");
-            }
-            else {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Auto-provisioning is not enabled for the agent pool.");
+            if($null -eq $this.AgentPoolOrgObj)
+            {
+                $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
+                $this.AgentPoolOrgObj = @([WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL));
             }
 
-            $agentPoolsObj =$null;
+            if($this.AgentPoolOrgObj.Count -gt 0)
+            {
+                if ($this.AgentPoolOrgObj.autoProvision -eq $true) {
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Auto-provisioning is enabled for the $($this.AgentPoolOrgObj.name) agent pool.");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Auto-provisioning is not enabled for the agent pool.");
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch auto-update details of agent pool.");
+            }
         }
         catch{
-            $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch agent pool details.");
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch agent pool details.");
             $controlResult.LogException($_)
         }
         return $controlResult
@@ -134,21 +146,25 @@ class AgentPool: ADOSVTBase
 
     hidden [ControlResult] CheckAutoUpdate([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            #autoUpdate setting is available only at org level settings.
-            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
-            $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-
-            if([Helpers]::CheckMember($agentPoolsObj,"autoUpdate"))
+            if($null -eq $this.AgentPoolOrgObj)
             {
-                if($agentPoolsObj.autoUpdate -eq $true)
+                #autoUpdate setting is available only at org level settings.
+                $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
+                $this.AgentPoolOrgObj = @([WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL));
+            }
+
+            if($this.AgentPoolOrgObj.Count -gt 0)
+            {
+                if($this.AgentPoolOrgObj.autoUpdate -eq $true)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Auto-update of agents is enabled for [$($agentPoolsObj.name)] agent pool.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Auto-update of agents is enabled for [$($this.AgentPoolOrgObj.name)] agent pool.");
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Auto-update of agents is disabled for [$($agentPoolsObj.name)] agent pool.");
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Auto-update of agents is disabled for [$($this.AgentPoolOrgObj.name)] agent pool.");
                 }
 
             }
@@ -156,8 +172,6 @@ class AgentPool: ADOSVTBase
             {
                 $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch auto-update details of agent pool.");
             }
-
-            $agentPoolsObj =$null;
         }
         catch
         {
@@ -182,6 +196,7 @@ class AgentPool: ADOSVTBase
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed,"Agent pool is not marked as accessible to all pipelines.");
             }
+            $controlResult.AdditionalInfoInCSV = "NA";
             $agentPoolsObj =$null;
         }
         catch{
@@ -192,8 +207,9 @@ class AgentPool: ADOSVTBase
         return $controlResult
     }
 
-    hidden [ControlResult] CheckInActiveAgentPool([ControlResult] $controlResult)
+    hidden [ControlResult] CheckInactiveAgentPool([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
             if ($this.agentPoolActivityDetail.message -eq 'Could not fetch agent pool details.')
@@ -221,8 +237,9 @@ class AgentPool: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Agent pool has not been queued from last $inactiveLimit days.");
                     }
-                    $controlResult.AddMessage("The agent pool was created on: $($this.agentPoolActivityDetail.agentPoolCreationDate)");
-                    $controlResult.AdditionalInfo += "The agent pool was created on: " + $this.agentPoolActivityDetail.agentPoolCreationDate;
+                    $formattedDate = $this.agentPoolActivityDetail.agentPoolCreationDate.ToString("d MMM yyyy")
+                    $controlResult.AddMessage("The agent pool was created on: $($formattedDate)");
+                    $controlResult.AdditionalInfo += "The agent pool was created on: " + $formattedDate;
                 }
                 else
                 {
@@ -232,10 +249,11 @@ class AgentPool: ADOSVTBase
 
             if ($null -ne $this.agentPoolActivityDetail.agentPoolLastRunDate)
             {
-                $controlResult.AddMessage("Last queue date of agent pool: $($this.agentPoolActivityDetail.agentPoolLastRunDate)");
-                $controlResult.AdditionalInfo += "Last queue date of agent pool: " + $this.agentPoolActivityDetail.agentPoolLastRunDate;
+                $formattedDate = $this.agentPoolActivityDetail.agentPoolLastRunDate.ToString("d MMM yyyy")
+                $controlResult.AddMessage("Last queue date of agent pool: $($formattedDate)");
+                $controlResult.AdditionalInfo += "Last queue date of agent pool: " + $formattedDate;
                 $agentPoolInactivePeriod = ((Get-Date) - $this.agentPoolActivityDetail.agentPoolLastRunDate).Days
-                $controlResult.AddMessage("The agent pool was inactive from last $($agentPoolInactivePeriod) days.");
+                $controlResult.AddMessage("The agent pool has been inactive from last $($agentPoolInactivePeriod) days.");
             }
         }
         catch
@@ -423,6 +441,9 @@ class AgentPool: ADOSVTBase
                         $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool: $($restrictedGroupsCount)";
+                        $groups = $restrictedGroups | ForEach-Object { $_.name + ': ' + $_.role } 
+                        $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+                        
                         if ($this.ControlFixBackupRequired) {
                             #Data object that will be required to fix the control
                             $controlResult.BackupControlState = $backupDataObject;
@@ -430,10 +451,12 @@ class AgentPool: ADOSVTBase
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to agent pool.");
+                        $controlResult.AdditionalInfoInCSV = "NA";
                     }
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No groups have given access to agent pool.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
                 $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForAgentPool | FT | out-string )`n");
             }
