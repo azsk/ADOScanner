@@ -562,6 +562,7 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckInactiveConnection([ControlResult] $controlResult)
 	{
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
             if ($this.SvcConnActivityDetail.message -eq 'Could not fetch the service connection details.') {
@@ -579,10 +580,11 @@ class ServiceConnection: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Failed, $this.SvcConnActivityDetail.message);
                 }
-                $controlResult.AddMessage("Last usage date of service connection: $($this.SvcConnActivityDetail.svcConnLastRunDate)");
-                $controlResult.AdditionalInfo += "Last usage date of service connection: " + $this.SvcConnActivityDetail.svcConnLastRunDate;
+                $formattedDate = $this.SvcConnActivityDetail.svcConnLastRunDate.ToString("d MMM yyyy")
+                $controlResult.AddMessage("Last usage date of service connection: $($formattedDate )");
+                $controlResult.AdditionalInfo += "Last usage date of service connection: " + $formattedDate ;
                 $SvcConnInactivePeriod = ((Get-Date) - $this.SvcConnActivityDetail.svcConnLastRunDate).Days
-                $controlResult.AddMessage("The service connection was inactive from last $($SvcConnInactivePeriod) days.");
+                $controlResult.AddMessage("The service connection has been inactive from last $($SvcConnInactivePeriod) days.");
             }
             elseif ($this.SvcConnActivityDetail.isSvcConnActive)
             {

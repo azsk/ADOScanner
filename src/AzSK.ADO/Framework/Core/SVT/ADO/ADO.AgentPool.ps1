@@ -189,8 +189,9 @@ class AgentPool: ADOSVTBase
         return $controlResult
     }
 
-    hidden [ControlResult] CheckInActiveAgentPool([ControlResult] $controlResult)
+    hidden [ControlResult] CheckInactiveAgentPool([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
             if ($this.agentPoolActivityDetail.message -eq 'Could not fetch agent pool details.')
@@ -218,8 +219,9 @@ class AgentPool: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Agent pool has not been queued from last $inactiveLimit days.");
                     }
-                    $controlResult.AddMessage("The agent pool was created on: $($this.agentPoolActivityDetail.agentPoolCreationDate)");
-                    $controlResult.AdditionalInfo += "The agent pool was created on: " + $this.agentPoolActivityDetail.agentPoolCreationDate;
+                    $formattedDate = $this.agentPoolActivityDetail.agentPoolCreationDate.ToString("d MMM yyyy")
+                    $controlResult.AddMessage("The agent pool was created on: $($formattedDate)");
+                    $controlResult.AdditionalInfo += "The agent pool was created on: " + $formattedDate;
                 }
                 else
                 {
@@ -229,10 +231,11 @@ class AgentPool: ADOSVTBase
 
             if ($null -ne $this.agentPoolActivityDetail.agentPoolLastRunDate)
             {
-                $controlResult.AddMessage("Last queue date of agent pool: $($this.agentPoolActivityDetail.agentPoolLastRunDate)");
-                $controlResult.AdditionalInfo += "Last queue date of agent pool: " + $this.agentPoolActivityDetail.agentPoolLastRunDate;
+                $formattedDate = $this.agentPoolActivityDetail.agentPoolLastRunDate.ToString("d MMM yyyy")
+                $controlResult.AddMessage("Last queue date of agent pool: $($formattedDate)");
+                $controlResult.AdditionalInfo += "Last queue date of agent pool: " + $formattedDate;
                 $agentPoolInactivePeriod = ((Get-Date) - $this.agentPoolActivityDetail.agentPoolLastRunDate).Days
-                $controlResult.AddMessage("The agent pool was inactive from last $($agentPoolInactivePeriod) days.");
+                $controlResult.AddMessage("The agent pool has been inactive from last $($agentPoolInactivePeriod) days.");
             }
         }
         catch
