@@ -9,7 +9,7 @@ class CommonSVTControls: ADOSVTBase {
     hidden [object] $repoInheritePermissions = @{};
     hidden [PSObject] $excessivePermissionBitsForRepo = @(1)
     hidden [PSObject] $excessivePermissionsForRepoBranch = $null;
-    hidden [string] $repoPermissionSetId = $null;
+    hidden [string] $repoPermissionSetId = "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87";
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
@@ -27,9 +27,7 @@ class CommonSVTControls: ADOSVTBase {
             $this.excessivePermissionBitsForRepo = @(1,3)
         }
 
-        $this.excessivePermissionsForRepoBranch = $this.ControlSettings.Repo.ExcessivePermissionsForBranch
-        #standard namespace id
-        $this.repoPermissionSetId = "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87"
+        $this.excessivePermissionsForRepoBranch = $this.ControlSettings.Repo.ExcessivePermissionsForBranch        
 
     }
 
@@ -118,7 +116,7 @@ class CommonSVTControls: ADOSVTBase {
                 $isControlPassing = $false        
                 $controlResult.AddMessage([VerificationResult]::Failed, "Build service groups have excessive permissions on 'All Branches' level of the repository.");
                 $formattedGroupsData = $excessivePermissionsListOnAllBranches | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
-                $formattedBuildServiceGrpTable = ($formattedGroupsData | Out-String)
+                $formattedBuildServiceGrpTable = ($formattedGroupsData | Out-String -Width 512)
                 $controlResult.AddMessage("`nList of groups : `n$formattedBuildServiceGrpTable");
                 $controlResult.AdditionalInfo += "List of excessive permissions on 'All Branches' level:  $($formattedGroupsData).";                       
             }
@@ -126,7 +124,7 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.AddMessage("Build service groups do not have excessive permissions on 'All Branches' level of the repository.");
             }
             #get all eligible branches from settings and check for each of them
-            $individualBranches = $this.ControlSettings.Repo.BranchesToCheck
+            $individualBranches = $this.ControlSettings.Repo.BranchesToCheckForExcessivePermissions
             $individualBranches | foreach {
                 $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads^$($_)/"
                 $excessivePermissionsListOnBranch = $this.CheckPermsOnBranch($url,$inputBody,$projectId,$_)
@@ -140,7 +138,7 @@ class CommonSVTControls: ADOSVTBase {
                     }                  
                     
                     $formattedGroupsData = $excessivePermissionsListOnBranch | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
-                    $formattedBuildServiceGrpTable = ($formattedGroupsData | Out-String)
+                    $formattedBuildServiceGrpTable = ($formattedGroupsData | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups : `n$formattedBuildServiceGrpTable");
                     $controlResult.AdditionalInfo += "List of Build service groups  with excessive permission on $($_) branch:  $($formattedGroupsData).";                          
                 }

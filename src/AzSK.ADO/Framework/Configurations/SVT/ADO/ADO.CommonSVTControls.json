@@ -45,13 +45,14 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckBuildServiceAccessOnBranch",
-      "Rationale": "If 'Project Collection Build Service' or 'Project Build Service' groups have excessive permissions on important branches of a repository, then a malicious user can access the repository and tamper its contents, bypassing any defined policies.",
+      "Rationale": "If 'Project Collection Build Service' or 'Project Build Service' groups have excessive permissions on important branches of a repository, then a malicious user can access the repository and tamper its contents by bypassing any defined policies.",
       "Recommendation": "1. Navigate to Project Settings. --> 2. Click on Repository under Repos. --> 3. Select your repository. --> 4. Click on 'Security'. --> 5. Click on 'All Branches' under 'Git refs permissions'. --> 6. Ensure 'Excessive' permissions of broader groups is not set to 'Allow'. Refer to detailed scan log (Repository.LOG) for broader groups and excessive permissions list. --> 5. Repeat this for any other groups for other individual branches that should not have excessive permissions.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "MSW"
       ],
       "Enabled": true
     },

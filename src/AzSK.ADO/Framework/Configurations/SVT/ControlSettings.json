@@ -129,7 +129,8 @@
       {
         "ResourceType": "Repository",
         "ControlIds": [
-          "ADO_Repository_AuthZ_Dont_Grant_BuildSvcAcct_Permission"
+          "ADO_Repository_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
+          "ADO_Repository_AuthZ_Dont_Grant_BuildSvc_Permission_On_Branch"
         ]
       }
     ]
@@ -498,7 +499,7 @@
       "Delete repository",
       "Manage permissions"
     ],
-    "BranchesToCheck":[
+    "BranchesToCheckForExcessivePermissions":[
       "main",
       "master",
       "develop"
