@@ -19,6 +19,8 @@ class AADGroupsInfo: CommandBase
 	
 	[MessageData[]] GetAADGroupsList()
 	{
+        $settings = [ConfigurationManager]::GetAzSKSettings()
+
         #Get AAD Groups at organization level
         $this.GetAADGroupsListForOrg()
 
@@ -41,8 +43,20 @@ class AADGroupsInfo: CommandBase
 			$AADgroupsCSV.FileName = 'AAD_Groups_'+ $timestamp
 			$AADgroupsCSV.FileExtension = 'csv'
 			$AADgroupsCSV.FolderPath = ''
-			#$AADgroupsCSV.MessageData = $this.aadGroupsList| Select-Object -Property IdentityId, PrincipalName, SubjectKind, IsAADgroup, Domain, DisplayName, OriginId
-			$AADgroupsCSV.MessageData = $this.aadGroupsList| Select-Object -Property IdentityId
+			$AADgroupsCSV.MessageData = $this.aadGroupsList| Select-Object -Property IdentityId, PrincipalName, SubjectKind, IsAADgroup, Domain, DisplayName, OriginId
+			#$AADgroupsCSV.MessageData = $this.aadGroupsList| Select-Object -Property IdentityId
+
+            #publish to primary workspace
+            if(-not [string]::IsNullOrWhiteSpace($settings.LAWSId) -and [LogAnalyticsHelper]::IsLAWSSettingValid -ne -1)
+            {
+                $laInventoryData = @()
+                $AADgroupsCSV.MessageData | Add-Member -NotePropertyName OrganizationName -NotePropertyValue $this.organizationName
+                $laInventoryData += $AADgroupsCSV.MessageData
+                $body = $laInventoryData | ConvertTo-Json
+                $lawsBodyByteArray = ([System.Text.Encoding]::UTF8.GetBytes($body))
+                [LogAnalyticsHelper]::PostLAWSData($settings.LAWSId, $settings.LAWSSharedKey, $lawsBodyByteArray, 'AzSK_ADO_AAD_Groups', 'LAWS') 
+            }
+            
 			$this.PublishAzSKRootEvent([AzSKRootEvent]::WriteCSV, $AADgroupsCSV);
             
 			$this.PublishCustomMessage("Total number of AAD groups found: $groupCount", [MessageType]::Warning);

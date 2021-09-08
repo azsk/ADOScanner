@@ -215,8 +215,9 @@ class WriteSummaryFile: FileOutputBase
                         Description = $item.ControlItem.Description;
                         FeatureName = $item.FeatureName;
                         ChildResourceName = $_.ChildResourceName;
-						Recommendation = $item.ControlItem.Recommendation;	
-				        Rationale = $item.ControlItem.Rationale
+                        Recommendation = $item.ControlItem.Recommendation;	
+                        Rationale = $item.ControlItem.Rationale;
+                        AdditionalInfo = $_.AdditionalInfoInCSV;
                     };
 					if($_.VerificationResult -ne [VerificationResult]::NotScanned)
 					{
