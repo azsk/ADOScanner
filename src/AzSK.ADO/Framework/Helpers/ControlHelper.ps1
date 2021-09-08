@@ -298,7 +298,7 @@ class ControlHelper: EventBase{
             }
             else
             {
-                $broaderGroupsWithExcessiveMembers = $groupObj.principalName
+                $broaderGroupsWithExcessiveMembers += $groupObj.principalName
             }
         }
         return $broaderGroupsWithExcessiveMembers

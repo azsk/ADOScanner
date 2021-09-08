@@ -19,8 +19,6 @@ class Build: ADOSVTBase
     hidden [string] $BackupFolderPath = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState" | Join-Path -ChildPath "BackupControlState" )
     hidden [string] $BackupFilePath;
     hidden static [bool] $IsPathValidated = $false;
-    hidden static [bool] $BroaderGroupMemberCountCheckEnabled = $false;
-    hidden static $AllowedMemberCountInBroaderGroups = $null;
 
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -134,14 +132,6 @@ class Build: ADOSVTBase
         }
         if ($null -eq [Build]::SecretsScanToolEnabled) {
             [Build]::SecretsScanToolEnabled = [Helpers]::CheckMember([ConfigurationManager]::GetAzSKSettings(),"SecretsScanToolFolder")
-        }
-
-        if ($null -eq [Build]::AllowedMemberCountInBroaderGroups)
-        {
-            if ([Helpers]::CheckMember($this.ControlSettings, "Build.CheckForBroadGroupMemberCount") -and [Helpers]::CheckMember($this.ControlSettings, "Build.AllowedBroadGroupMemberCount")) {
-                [Build]::BroaderGroupMemberCountCheckEnabled = $this.ControlSettings.Build.CheckForBroadGroupMemberCount
-                [Build]::AllowedMemberCountInBroaderGroups = $this.ControlSettings.Build.AllowedBroadGroupMemberCount
-            }
         }
     }
 
@@ -1390,9 +1380,9 @@ class Build: ADOSVTBase
                                 }
                             }
 
-                            if ([Build]::BroaderGroupMemberCountCheckEnabled -and $filteredBroaderGroupList.Count -gt 0)
+                            if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $filteredBroaderGroupList.Count -gt 0)
                             {
-                                $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($filteredBroaderGroupList, [Build]::AllowedMemberCountInBroaderGroups, $false))
+                                $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($filteredBroaderGroupList, $false))
                                 $groupsWithExcessivePermissionsList = @($groupsWithExcessivePermissionsList | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Group})
                             }
 

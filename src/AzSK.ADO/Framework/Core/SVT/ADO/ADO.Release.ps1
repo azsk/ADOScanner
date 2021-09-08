@@ -1505,9 +1505,9 @@ class Release: ADOSVTBase
                                 }
                             }
 
-                            if ([Release]::BroaderGroupMemberCountCheckEnabled -and $filteredBroaderGroupList.Count -gt 0)
+                            if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $filteredBroaderGroupList.Count -gt 0)
                             {
-                                $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($filteredBroaderGroupList, [Release]::AllowedMemberCountInBroaderGroups, $false))
+                                $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($filteredBroaderGroupList, $false))
                                 $groupsWithExcessivePermissionsList = @($groupsWithExcessivePermissionsList | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Group})
                             }
 

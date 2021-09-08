@@ -6,12 +6,6 @@ class CommonSVTControls: ADOSVTBase {
     hidden [string] $checkInheritedPermissionsSecureFile = $false
     hidden [string] $checkInheritedPermissionsEnvironment = $false
     hidden [object] $repoInheritePermissions = @{};
-    hidden static [bool] $BroaderGroupMemberCountCheckEnabledFeed = $false;
-    hidden static [bool] $BroaderGroupMemberCountCheckEnabledEnvironment = $false;
-    hidden static [bool] $BroaderGroupMemberCountCheckEnabledSecureFile = $false;
-    hidden static $AllowedMemberCountInBroaderGroupsFeed = $null;
-    hidden static $AllowedMemberCountInBroaderGroupsEnvironment = $null;
-    hidden static $AllowedMemberCountInBroaderGroupsSecureFile = $null;
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
@@ -21,30 +15,6 @@ class CommonSVTControls: ADOSVTBase {
 
         if ([Helpers]::CheckMember($this.ControlSettings, "Environment.CheckForInheritedPermissions") -and $this.ControlSettings.Environment.CheckForInheritedPermissions) {
             $this.checkInheritedPermissionsEnvironment = $true
-        }
-
-        if ($null -eq [CommonSVTControls]::AllowedMemberCountInBroaderGroupsFeed)
-        {
-            if ([Helpers]::CheckMember($this.ControlSettings, "Feed.CheckForBroadGroupMemberCount") -and [Helpers]::CheckMember($this.ControlSettings, "Feed.AllowedBroadGroupMemberCount")) {
-                [CommonSVTControls]::BroaderGroupMemberCountCheckEnabledFeed = $this.ControlSettings.Feed.CheckForBroadGroupMemberCount
-                [CommonSVTControls]::AllowedMemberCountInBroaderGroupsFeed = $this.ControlSettings.Feed.AllowedBroadGroupMemberCount
-            }
-        }
-
-        if ($null -eq [CommonSVTControls]::AllowedMemberCountInBroaderGroupsEnvironment)
-        {
-            if ([Helpers]::CheckMember($this.ControlSettings, "Environment.CheckForBroadGroupMemberCount") -and [Helpers]::CheckMember($this.ControlSettings, "Environment.AllowedBroadGroupMemberCount")) {
-                [CommonSVTControls]::BroaderGroupMemberCountCheckEnabledEnvironment = $this.ControlSettings.Environment.CheckForBroadGroupMemberCount
-                [CommonSVTControls]::AllowedMemberCountInBroaderGroupsEnvironment = $this.ControlSettings.Environment.AllowedBroadGroupMemberCount
-            }
-        }
-
-        if ($null -eq [CommonSVTControls]::AllowedMemberCountInBroaderGroupsSecureFile)
-        {
-            if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.CheckForBroadGroupMemberCount") -and [Helpers]::CheckMember($this.ControlSettings, "SecureFile.AllowedBroadGroupMemberCount")) {
-                [CommonSVTControls]::BroaderGroupMemberCountCheckEnabledSecureFile = $this.ControlSettings.SecureFile.CheckForBroadGroupMemberCount
-                [CommonSVTControls]::AllowedMemberCountInBroaderGroupsSecureFile = $this.ControlSettings.SecureFile.AllowedBroadGroupMemberCount
-            }
         }
     }
 
@@ -295,9 +265,9 @@ class CommonSVTControls: ADOSVTBase {
                 $excesiveFeedsPermissions = @($feedPermissionList | Where-Object { $restrictedBroaderGroups.keys -contains $_.displayName.split('\')[-1] -and ($_.role -in $restrictedBroaderGroups[$_.displayName.split('\')[-1]])})
                 $feedWithBroaderGroup = @($excesiveFeedsPermissions | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="Name"; Expression = {$_.displayName}}) ;
 
-                if ([CommonSVTControls]::BroaderGroupMemberCountCheckEnabledFeed -and $feedWithBroaderGroup.Count -gt 0)
+                if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $feedWithBroaderGroup.Count -gt 0)
                 {
-                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($feedWithBroaderGroup, [CommonSVTControls]::AllowedMemberCountInBroaderGroupsFeed, $true))
+                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($feedWithBroaderGroup, $true))
                     $feedWithBroaderGroup = @($feedWithBroaderGroup | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
                 }
 
@@ -454,9 +424,9 @@ class CommonSVTControls: ADOSVTBase {
                 $excesiveSecureFilePermissions = @($roleAssignmentsToCheck | Where-Object { $restrictedBroaderGroups.keys -contains $_.identity.displayName.split('\')[-1] -and ($_.role.name -in $restrictedBroaderGroups[$_.identity.displayName.split('\')[-1]])})
                 $secureFileWithBroaderGroup = @($excesiveSecureFilePermissions | Select-Object -Property @{Name="SecureFileName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role.name}},@{Name="Name"; Expression = {$_.identity.displayName}}) ;
 
-                if ([CommonSVTControls]::BroaderGroupMemberCountCheckEnabledSecureFile -and $secureFileWithBroaderGroup.Count -gt 0)
+                if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $secureFileWithBroaderGroup.Count -gt 0)
                 {
-                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($secureFileWithBroaderGroup, [CommonSVTControls]::AllowedMemberCountInBroaderGroupsSecureFile, $true))
+                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($secureFileWithBroaderGroup, $true))
                     $secureFileWithBroaderGroup = @($secureFileWithBroaderGroup | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
                 }
 
@@ -539,9 +509,9 @@ class CommonSVTControls: ADOSVTBase {
                 $excesiveEnvironmentPermissions = @($roleAssignmentsToCheck | Where-Object { $restrictedBroaderGroups.keys -contains $_.identity.displayName.split('\')[-1] -and ($_.role.name -in $restrictedBroaderGroups[$_.identity.displayName.split('\')[-1]])})
                 $environmentWithBroaderGroup = @($excesiveEnvironmentPermissions | Select-Object -Property @{Name="SecureFileName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role.name}},@{Name="Name"; Expression = {$_.identity.displayName}}) ;
 
-                if ([CommonSVTControls]::BroaderGroupMemberCountCheckEnabledEnvironment -and $environmentWithBroaderGroup.Count -gt 0)
+                if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $environmentWithBroaderGroup.Count -gt 0)
                 {
-                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($environmentWithBroaderGroup, [CommonSVTControls]::AllowedMemberCountInBroaderGroupsEnvironment, $true))
+                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($environmentWithBroaderGroup, $true))
                     $environmentWithBroaderGroup = @($environmentWithBroaderGroup | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
                 }
                 

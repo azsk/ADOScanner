@@ -310,9 +310,6 @@
     "RegexForOAuthTokenInYAMLScript" : "\\s*:\\s*\\$\\s*\\(\\s*System\\.AccessToken\\s*\\)",
     "BranchesToCheckForYAMLScript": ["master","main","develop"]
   },
-  "VeryLargeGroups":[
-    "[TEAM FOUNDATION]\\Microsoft All FTE"
-  ],
   "Release": {
     "ReleaseHistoryPeriodInDays": 180,
     "ExemptedUserIdentities": [
@@ -443,6 +440,9 @@
   "BroaderGroupsToExpand":[
     "Contributors",
     "Project Valid Users"
+  ],
+  "VeryLargeGroups":[
+    "[TEAM FOUNDATION]\\Microsoft All FTE"
   ],
   "CheckForBroadGroupMemberCount": true,
   "AllowedMemberCountPerBroadGroup": {
