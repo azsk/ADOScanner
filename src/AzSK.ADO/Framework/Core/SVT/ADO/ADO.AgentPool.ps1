@@ -418,7 +418,7 @@ class AgentPool: ADOSVTBase
                 $roleAssignmentsToCheck = $this.AgentObj
                 $restrictedGroups = @()
                 if ($this.checkInheritedPermissionsPerAgentPool -eq $false) {
-                    $roleAssignmentsToCheck = $this.AgentObj | where-object { $_.access -ne "inherited" }
+                    $roleAssignmentsToCheck = @($this.AgentObj | where-object { $_.access -ne "inherited" })
                 }
                 $roleAssignments = @($roleAssignmentsToCheck | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.id}}, @{Name="Role"; Expression = {$_.role.displayName}});
                 # Checking whether the broader groups have User/Admin permissions
@@ -435,7 +435,7 @@ class AgentPool: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have excessive permissions on agent pool: $($restrictedGroupsCount)");
                     $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
                     $backupDataObject = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id } }, @{l = 'Role'; e = { $_.Role } }
-                    $formattedGroupsTable = ($formattedGroupsData | Out-String)
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions on agent pool: $($restrictedGroupsCount)";
@@ -457,7 +457,7 @@ class AgentPool: ADOSVTBase
                 $controlResult.AdditionalInfoInCSV = "NA";
             }
             $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
-            $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' which should not excessive permissions: `n$($displayObj | FT | out-string -width 512)");
+            $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' which should not excessive permissions: `n$($displayObj | FT -AutoSize| out-string -width 512)");
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the agent pool permissions.");
