@@ -8,6 +8,8 @@ class CommonSVTControls: ADOSVTBase {
     hidden [string] $checkInheritedPermissionsRepo = $false
     hidden [object] $repoInheritePermissions = @{};
     hidden [PSObject] $excessivePermissionBitsForRepo = @(1)
+    hidden [PSObject] $excessivePermissionsForRepoBranch = $null;
+    hidden [string] $repoPermissionSetId = "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87";
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
@@ -24,6 +26,9 @@ class CommonSVTControls: ADOSVTBase {
             $this.checkInheritedPermissionsRepo = $true
             $this.excessivePermissionBitsForRepo = @(1,3)
         }
+
+        $this.excessivePermissionsForRepoBranch = $this.ControlSettings.Repo.ExcessivePermissionsForBranch        
+
     }
 
     hidden [ControlResult] CheckInactiveRepo([ControlResult] $controlResult)
@@ -91,6 +96,146 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.LogException($_)
         }
        return $controlResult
+    }
+    hidden [ControlResult] CheckBuildServiceAccessOnBranch([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $isControlPassing = $true
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]           
+            $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+            $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+            $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceGroupName;
+            $inputbody.dataProviderContext.properties.permissionSetId = $this.repoPermissionSetId
+            #first check permissions for all branches
+            $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads/" 
+            #calling the common method to get permissions object on this level           
+            $excessivePermissionsListOnAllBranches = $this.CheckPermsOnBranch($url,$inputBody,$projectId,$null)
+            if ($null -ne $excessivePermissionsListOnAllBranches -and $excessivePermissionsListOnAllBranches.count -gt 0) {
+                $isControlPassing = $false        
+                $controlResult.AddMessage([VerificationResult]::Failed, "Build service groups have excessive permissions on 'All Branches' level of the repository.");
+                $formattedGroupsData = $excessivePermissionsListOnAllBranches | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
+                $formattedBuildServiceGrpTable = ($formattedGroupsData | Out-String -Width 512)
+                $controlResult.AddMessage("`nList of groups : `n$formattedBuildServiceGrpTable");
+                $controlResult.AdditionalInfo += "List of excessive permissions on 'All Branches' level:  $($formattedGroupsData).";                       
+            }
+            else {
+                $controlResult.AddMessage("Build service groups do not have excessive permissions on 'All Branches' level of the repository.");
+            }
+            #get all eligible branches from settings and check for each of them
+            $individualBranches = $this.ControlSettings.Repo.BranchesToCheckForExcessivePermissions
+            $individualBranches | foreach {
+                $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads^$($_)/"
+                $excessivePermissionsListOnBranch = $this.CheckPermsOnBranch($url,$inputBody,$projectId,$_)
+                if ($null -ne $excessivePermissionsListOnBranch -and $excessivePermissionsListOnBranch.count -gt 0) {
+                    if($isControlPassing){
+                        $isControlPassing = $false
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Build service groups  have excessive permissions on '$($_)' branch of the repository.");
+                    }
+                    else{
+                        $controlResult.AddMessage("Build service groups  have excessive permissions on '$($_)' branch of the repository.");
+                    }                  
+                    
+                    $formattedGroupsData = $excessivePermissionsListOnBranch | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
+                    $formattedBuildServiceGrpTable = ($formattedGroupsData | Out-String -Width 512)
+                    $controlResult.AddMessage("`nList of groups : `n$formattedBuildServiceGrpTable");
+                    $controlResult.AdditionalInfo += "List of Build service groups  with excessive permission on $($_) branch:  $($formattedGroupsData).";                          
+                }
+                else {
+                    $controlResult.AddMessage("Build service groups  do not have excessive permissions on '$($_)' branch of the repository.");
+                }
+            }
+            #only when all the branches are passing, this controls will be passed
+            if($isControlPassing){
+                $controlResult.AddMessage([VerificationResult]::Passed, "Build service groups do not have excessive permissions on either 'all branch' level or individual branches in the repository");
+            } 
+
+            $controlResult.AddMessage("Following permissions are considered 'excessive':`n$($this.excessivePermissionsForRepoBranch | FT | Out-String)");
+        
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository permissions.");
+            $controlResult.LogException($_)
+        }
+       return $controlResult
+    }
+
+    #common method to get excessive permisions for every group for a branch
+    hidden [Object] CheckPermsOnBranch($url,$inputBody,$projectId,$branch){
+        $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+        if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+            {
+                
+            $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $_.displayName -like "*Project Collection Build Service Accounts" })
+            $broaderGroupsList+=@($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'user' -and ($_.displayName -match "Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $_.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))" )})
+            if ($broaderGroupsList.Count) {
+                $groupsWithExcessivePermissionsList = @()
+                foreach ($broaderGroup in $broaderGroupsList) {
+                    $broaderGroupInputbody = "{'contributionIds':['ms.vss-admin-web.security-view-permissions-data-provider'],'dataProviderContext':{'properties':{'subjectDescriptor':'','permissionSetId':'','permissionSetToken':'','accountName':'','sourcePage':{'routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'PrivateProjectWithRepo','adminPivot':'repositories','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                    $broaderGroupInputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceGroupName;
+                    $broaderGroupInputbody.dataProviderContext.properties.permissionSetId = $this.repoPermissionSetId
+                    if($null -eq $branch){
+                        $broaderGroupInputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads/"
+                    }
+                    else {
+                        $broaderGroupInputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads^$($branch)/"
+                    }
+                    
+                    $broaderGroupInputbody.dataProviderContext.properties.subjectDescriptor = $broaderGroup.descriptor
+                    $broaderGroupResponseObj = @([WebRequestHelper]::InvokePostWebRequest($url, $broaderGroupInputbody));
+                    $broaderGroupRBACObj = @($broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions)
+                    $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $this.excessivePermissionsForRepoBranch }
+                    $excessivePermissionsPerGroup = @()
+                    $excessivePermissionList | ForEach-Object {                                
+                        if ([Helpers]::CheckMember($_, "effectivePermissionValue")) {
+                            if ($this.excessivePermissionBitsForRepo -contains $_.effectivePermissionValue) {
+                                $excessivePermissionsPerGroup += $_
+                            }
+                        }
+                    }
+                    if ($excessivePermissionsPerGroup.Count -gt 0) {
+                        $groupFoundWithExcessivePermissions = $true
+                            # For PCBSA, resolve the group and check if PBS, PCBS are part of it
+                        if ($broaderGroup.displayName -like '*Project Collection Build Service Accounts') {
+                            $groupFoundWithExcessivePermissions = $false
+                            $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($this.OrganizationContext.OrganizationName);                                
+                            $postbody="{'contributionIds':['ms.vss-admin-web.org-admin-members-data-provider'],'dataProviderContext':{'properties':{'subjectDescriptor':'','sourcePage':{'url':'','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'groups','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                            $postbody.dataProviderContext.properties.subjectDescriptor = $broaderGroup.descriptor
+                            $bodyUrl = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_settings/groups?subjectDescriptor=$($broaderGroup.descriptor)"
+                            $postbody.dataProviderContext.properties.sourcePage.url = $bodyUrl                               
+                            try {
+                                $response = [WebRequestHelper]::InvokePostWebRequest($url, $postbody)
+                                if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
+                                {
+                                    $buildServiceAccountIdentities = $response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
+                                    foreach ($eachIdentity in $buildServiceAccountIdentities) {
+                                        if ($eachIdentity.displayName -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $eachIdentity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))") {
+                                            $groupFoundWithExcessivePermissions = $true                                          
+                                        }                                        
+                                    }
+                                } 
+                            }    
+                            catch {}                            
+                                               
+                        }
+                        if ($groupFoundWithExcessivePermissions -eq $true) {
+                            $excessivePermissionsGroupObj = @{}
+                            $excessivePermissionsGroupObj['Group'] = $broaderGroup.displayName
+                            $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join ', ')                            
+                            $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
+                        }
+                    }
+                }
+                return $groupsWithExcessivePermissionsList;                
+
+            }
+            else{
+                return $null;
+            }
+        }
+        return $null;
     }
 
     hidden [ControlResult] CheckRepoRBACAccess([ControlResult] $controlResult) {
@@ -880,7 +1025,8 @@ class CommonSVTControls: ADOSVTBase {
                                     {
                                         $buildServiceAccountIdentities = $response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
                                         foreach ($eachIdentity in $buildServiceAccountIdentities) {
-                                            if ($eachIdentity.displayName -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $eachIdentity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))") {
+                                          if ($eachIdentity.displayName -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $eachIdentity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))") {
+
                                                 $groupFoundWithExcessivePermissions = $true                                          
                                             }                                        
                                         }
@@ -905,8 +1051,10 @@ class CommonSVTControls: ADOSVTBase {
                     $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                     $controlResult.AddMessage("`nList of 'Build Service' Accounts: $formattedBroaderGrpTable");
                     $controlResult.SetStateData("List of 'Build Service' Accounts: ", $formattedGroupsData)
+
                     $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to repository: $($groupsWithExcessivePermissionsList.Count)";
                 }
+
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the repository.");
                     $controlResult.AdditionalInfoInCSV = "NA";

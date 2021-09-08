@@ -129,7 +129,8 @@
       {
         "ResourceType": "Repository",
         "ControlIds": [
-          "ADO_Repository_AuthZ_Dont_Grant_BuildSvcAcct_Permission"
+          "ADO_Repository_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
+          "ADO_Repository_AuthZ_Dont_Grant_BuildSvc_Permission_On_Branch"
         ]
       }
     ]
@@ -369,7 +370,7 @@
       "User"
     ],
     "CheckForInheritedPermissions": false
-  },
+  },  
   "WorkItems":{
     "ThreshHoldDaysForWorkItemInactivity":180
   },
@@ -497,6 +498,21 @@
       "Contribute",
       "Delete repository",
       "Manage permissions"
+    ],
+    "BranchesToCheckForExcessivePermissions":[
+      "main",
+      "master",
+      "develop"
+    ],
+    "ExcessivePermissionsForBranch":[
+      "Contribute",
+      "Bypass policies when pushing",
+      "Force push (rewrite history, delete branches and tags)",
+      "Bypass policies when completing pull requests",
+      "Create branch",
+      "Edit policies",
+      "Manage permissions",
+      "Remove others' locks"
     ],
     "RestrictedRolesForBuildSvcAccountsInRepo": [
       "Bypass policies when completing pull requests",
