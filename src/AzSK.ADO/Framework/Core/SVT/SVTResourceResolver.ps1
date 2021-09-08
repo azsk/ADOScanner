@@ -466,7 +466,7 @@ class SVTResourceResolver: AzSKRoot {
 
                     if($this.IsPartialScanActive -and $this.nonScannedResources.Count -ne 0 -and $this.isDnrrAllProject -eq $false){
                         #The tracker is loaded in one go, so no need to load it again when we are looping through multiple projects
-                        if($this.ProjectNames -eq "*"){
+                        if($null -ne $projects -and ($projects | Measure-Object).Count -gt 1){
                             $this.isDnrrAllProject = $true;
                         }
                         $progressCount=1
