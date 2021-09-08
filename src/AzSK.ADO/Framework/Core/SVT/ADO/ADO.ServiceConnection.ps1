@@ -336,8 +336,7 @@ class ServiceConnection: ADOSVTBase
     hidden [ControlResult] CheckGlobalGroupsAddedToServiceConnections ([ControlResult] $controlResult)
 	{
         # Any identity other than teams identity needs to be verified manually as it's details cannot be retrived using API
-        $controlResult.VerificationResult = [VerificationResult]::Failed
-        $failMsg = $null
+        $controlResult.VerificationResult = [VerificationResult]::Failed        
         try
         {
             if ($null -eq $this.serviceEndPointIdentity) {
@@ -372,7 +371,8 @@ class ServiceConnection: ADOSVTBase
             $restrictedGroups = $null;
             $restrictedGlobalGroupsForSerConn = $null;
         }
-        catch {            
+        catch {        
+            $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch service connections details.")    
             $controlResult.LogException($_)
         }       
         return $controlResult;
