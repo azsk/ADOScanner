@@ -152,8 +152,11 @@ class VariableGroup: ADOSVTBase
         }
         return $controlResult
     }
+
     hidden [ControlResult] CheckCredInVarGrp([ControlResult] $controlResult)
 	{
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+
         if([Helpers]::CheckMember([ConfigurationManager]::GetAzSKSettings(),"SecretsScanToolFolder"))
         {
             $ToolFolderPath = [ConfigurationManager]::GetAzSKSettings().SecretsScanToolFolder
@@ -215,10 +218,13 @@ class VariableGroup: ADOSVTBase
                 {
                     $varList = @();
                     $noOfCredFound = 0;
-                    $patterns = $this.ControlSettings.Patterns | where {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList;
+                    $patterns = $this.ControlSettings.Patterns | where-object {$_.RegexCode -eq "SecretsInVariables"} | Select-Object -Property RegexList;
                     $exclusions = $this.ControlSettings.Build.ExcludeFromSecretsCheck;
+                    $exclusions += $this.ControlSettings.Release.ExcludeFromSecretsCheck; 
+                    $exclusions = @($exclusions | select-object -unique)
                     if(($patterns | Measure-Object).Count -gt 0)
                     {
+                        #Compare all non-secret variables with regex 
                         Get-Member -InputObject $this.VarGrp[0].variables -MemberType Properties | ForEach-Object {
                             if([Helpers]::CheckMember($this.VarGrp[0].variables.$($_.Name),"value") -and  (-not [Helpers]::CheckMember($this.VarGrp[0].variables.$($_.Name),"isSecret")))
                             {
@@ -252,10 +258,10 @@ class VariableGroup: ADOSVTBase
                         }
                         if($noOfCredFound -gt 0)
                         {
-                            $varList = $varList | select -Unique
-                            $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in variable group. Variables name: $varList" );
+                            $varList = @($varList | Select-Object -Unique)
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in variable group.`nList of variables: ", $varList );
                             $controlResult.SetStateData("List of variable name containing secret: ", $varList);
-                            $controlResult.AdditionalInfo += "Total number of variable(s) containing secret: " + ($varList | Measure-Object).Count;
+                            $controlResult.AdditionalInfo += "Count of variable(s) containing secret: " + ($varList | Measure-Object).Count;
                         }
                         else
                         {
@@ -265,7 +271,7 @@ class VariableGroup: ADOSVTBase
                     }
                     else
                     {
-                        $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting credentials in variable groups are not defined in your organization.");
+                        $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting credentials in variable groups are not defined in your organization.");
                     }
                 }
                 else
@@ -274,7 +280,7 @@ class VariableGroup: ADOSVTBase
                 }
             }
             catch {
-                $controlResult.AddMessage([VerificationResult]::Manual, "Could not fetch the variable group definition.");
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group definition.");
                 $controlResult.AddMessage($_);
                 $controlResult.LogException($_)
             }
