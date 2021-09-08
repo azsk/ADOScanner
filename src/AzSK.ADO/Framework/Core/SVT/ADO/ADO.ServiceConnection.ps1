@@ -342,12 +342,12 @@ class ServiceConnection: ADOSVTBase
         {
             if ($null -eq $this.serviceEndPointIdentity) {
                 $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
-                $this.serviceEndPointIdentity = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
+                $this.serviceEndPointIdentity = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));                
             }
             $restrictedGroups = @();
            
             $restrictedGlobalGroupsForSerConn = $this.ControlSettings.ServiceConnection.RestrictedGlobalGroupsForSerConn;
-            if((@($this.serviceEndPointIdentity).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity,"identity"))
+            if([Helpers]::CheckMember($this.serviceEndPointIdentity,"identity"))
             {
                 # match all the identities added on service connection with defined restricted list
                 $restrictedGroups = $this.serviceEndPointIdentity.identity | Where-Object { $restrictedGlobalGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
@@ -355,11 +355,11 @@ class ServiceConnection: ADOSVTBase
                 # fail the control if restricted group found on service connection
                 if($restrictedGroups)
                 {
-                    $controlResult.AddMessage("Total number of global groups that have access to service connection: ", @($restrictedGroups).Count)
+                    $controlResult.AddMessage("Count of global groups that have access to service connection: ", @($restrictedGroups).Count)
                     $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant global groups access to service connections. Granting elevated permissions to these groups can risk exposure of service connections to unwarranted individuals.");
                     $controlResult.AddMessage("Global groups that have access to service connection.",$restrictedGroups)
                     $controlResult.SetStateData("Global groups that have access to service connection",$restrictedGroups)
-                    $controlResult.AdditionalInfo += "Total number of global groups that have access to service connection: " + @($restrictedGroups).Count;
+                    $controlResult.AdditionalInfo += "Count of global groups that have access to service connection: " + @($restrictedGroups).Count;
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"No global groups have access to service connection.");
@@ -375,12 +375,7 @@ class ServiceConnection: ADOSVTBase
         catch {
             $failMsg = $_
             $controlResult.LogException($_)
-        }
-
-        if(![string]::IsNullOrEmpty($failMsg))
-        {
-            $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connections details. $($failMsg)Please verify from portal that you are not granting global security groups access to service connections");
-        }
+        }       
         return $controlResult;
     }
 
