@@ -155,7 +155,8 @@
         "Automated",
         "SI",
         "MSW",
-        "SkipYAML"
+        "SkipYAML",
+        "AutomatedFix"
       ],
       "Enabled": true
     },

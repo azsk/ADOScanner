@@ -108,7 +108,8 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },

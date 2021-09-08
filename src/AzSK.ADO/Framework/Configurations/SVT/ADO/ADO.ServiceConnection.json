@@ -170,8 +170,8 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckInactiveConnection",
-      "Rationale": "Each additional service connection being used by pipelines to access repositories increases the attack surface. To minimize this risk ensure that only active and legitimate service connections are present in the organization.",
-      "Recommendation": "To remove inactive service connection: 1.Navigate to the service connection settings using resource link -> 2. Select service connection -> 3. Click on the three dots (top right) -> 4. Click on Delete.",
+      "Rationale": "Each inactive service connection increases the window of attack for a malicious user who can use a service connection to access an underlying target resource such as repositories, storage account, azure subscriptions or a CI environment. To minimize this risk ensure that inactive service connections are proactively deleted.",
+      "Recommendation": "To remove inactive service connection: 1. Navigate to the service connection settings using resource link --> 2. Click on the three dots (top right) --> 3. Click on Delete.",
       "Tags": [
         "SDL",
         "Best Practice",
