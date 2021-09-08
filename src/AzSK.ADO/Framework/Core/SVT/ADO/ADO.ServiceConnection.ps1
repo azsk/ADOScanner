@@ -336,53 +336,45 @@ class ServiceConnection: ADOSVTBase
     hidden [ControlResult] CheckGlobalGroupsAddedToServiceConnections ([ControlResult] $controlResult)
 	{
         # Any identity other than teams identity needs to be verified manually as it's details cannot be retrived using API
-        $failMsg = $null
+        $controlResult.VerificationResult = [VerificationResult]::Failed        
         try
         {
             if ($null -eq $this.serviceEndPointIdentity) {
                 $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
-                $this.serviceEndPointIdentity = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
+                $this.serviceEndPointIdentity = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));                
             }
             $restrictedGroups = @();
-
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.RestrictedGlobalGroupsForSerConn") )
+           
+            $restrictedGlobalGroupsForSerConn = $this.ControlSettings.ServiceConnection.RestrictedGlobalGroupsForSerConn;
+            if([Helpers]::CheckMember($this.serviceEndPointIdentity,"identity"))
             {
-                $restrictedGlobalGroupsForSerConn = $this.ControlSettings.ServiceConnection.RestrictedGlobalGroupsForSerConn;
-                if((($this.serviceEndPointIdentity | Measure-Object).Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity,"identity"))
-                {
-                    # match all the identities added on service connection with defined restricted list
-                    $restrictedGroups = $this.serviceEndPointIdentity.identity | Where-Object { $restrictedGlobalGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
+                # match all the identities added on service connection with defined restricted list
+                $restrictedGroups = $this.serviceEndPointIdentity.identity | Where-Object { $restrictedGlobalGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
 
-                    # fail the control if restricted group found on service connection
-                    if($restrictedGroups)
-                    {
-                        $controlResult.AddMessage("Total number of global groups that have access to service connection: ", ($restrictedGroups | Measure-Object).Count)
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant global groups access to service connections. Granting elevated permissions to these groups can risk exposure of service connections to unwarranted individuals.");
-                        $controlResult.AddMessage("Global groups that have access to service connection.",$restrictedGroups)
-                        $controlResult.SetStateData("Global groups that have access to service connection",$restrictedGroups)
-                        $controlResult.AdditionalInfo += "Total number of global groups that have access to service connection: " + ($restrictedGroups | Measure-Object).Count;
-                    }
-                    else{
-                        $controlResult.AddMessage([VerificationResult]::Passed,"No global groups have access to service connection.");
-                    }
+                # fail the control if restricted group found on service connection
+                if($restrictedGroups)
+                {
+                    $controlResult.AddMessage("Count of global groups that have access to service connection: ", @($restrictedGroups).Count)
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant global groups access to service connections. Granting elevated permissions to these groups can risk exposure of service connections to unwarranted individuals.");
+                    $controlResult.AddMessage("Global groups that have access to service connection.",$restrictedGroups)
+                    $controlResult.SetStateData("Global groups that have access to service connection",$restrictedGroups)
+                    $controlResult.AdditionalInfo += "Count of global groups that have access to service connection: " + @($restrictedGroups).Count;
                 }
-                else {
+                else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"No global groups have access to service connection.");
                 }
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Manual,"List of restricted global groups for service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
-            }
-        }
-        catch {
-            $failMsg = $_
-            $controlResult.LogException($_)
-        }
+                $controlResult.AddMessage([VerificationResult]::Passed,"No global groups have access to service connection.");
+            }                   
 
-        if(![string]::IsNullOrEmpty($failMsg))
-        {
-            $controlResult.AddMessage([VerificationResult]::Manual,"Unable to fetch service connections details. $($failMsg)Please verify from portal that you are not granting global security groups access to service connections");
+            $restrictedGroups = $null;
+            $restrictedGlobalGroupsForSerConn = $null;
         }
+        catch {        
+            $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch service connections details.")    
+            $controlResult.LogException($_)
+        }       
         return $controlResult;
     }
 
