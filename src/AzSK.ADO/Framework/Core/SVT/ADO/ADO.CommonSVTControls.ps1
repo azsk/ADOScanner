@@ -799,7 +799,7 @@ class CommonSVTControls: ADOSVTBase {
                     $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                     $controlResult.AddMessage("`nList of 'Build Service' Accounts: $formattedBroaderGrpTable");
                     $controlResult.SetStateData("List of 'Build Service' Accounts: ", $formattedGroupsData)
-                    $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($groupsWithExcessivePermissionsList.Count)";
+                    $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to repository: $($groupsWithExcessivePermissionsList.Count)";
 
                 }
                 else {
