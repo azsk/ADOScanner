@@ -302,12 +302,12 @@ class AgentPool: ADOSVTBase
                     else {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in user-defined capabilities of agents.");
                         $count = $agentsWithSecretsInEnv.Count
-                        $controlResult.AddMessage("`nTotal number of agents that contain secrets in user-defined capabilities: $count")
-                        $controlResult.AdditionalInfo += "Total number of agents that contain secrets in user-defined capabilities: "+ $count;
-                        $controlResult.AddMessage("`nAgent wise list of user-defined capabilities containing secret: ");
+                        $controlResult.AddMessage("`nCount of agents that contain secrets: $count")
+                        $controlResult.AdditionalInfo += "Count of agents that contain secrets: "+ $count;
+                        $controlResult.AddMessage("`nAgent-wise list of user-defined capabilities with secrets: ");
                         $display=($agentsWithSecretsInEnv | FT AgentName,Capabilities -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage($display)
-                        $controlResult.SetStateData("Agent wise list of user-defined capabilities containing secret: ", $agentsWithSecretsInEnv );
+                        $controlResult.SetStateData("Agent-wise list of user-defined capabilities with secrets: ", $agentsWithSecretsInEnv );
                     }
                 }
                 else
