@@ -8,6 +8,9 @@ class AgentPool: ADOSVTBase
     hidden [PSObject] $agentPool; # This is used to fetch agent details in pool
     hidden [PSObject] $agentPoolActivityDetail = @{isAgentPoolActive = $true; agentPoolLastRunDate = $null; agentPoolCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [string] $checkInheritedPermissionsPerAgentPool = $false
+
+    hidden static [PSObject] $regexListForSecrets;
+
     hidden [PSObject] $AgentPoolOrgObj; #This will contain org level agent pool details
 
     AgentPool([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
@@ -43,6 +46,8 @@ class AgentPool: ADOSVTBase
         if ([Helpers]::CheckMember($this.ControlSettings, "Agentpool.CheckForInheritedPermissions") -and $this.ControlSettings.Agentpool.CheckForInheritedPermissions) {
             $this.checkInheritedPermissionsPerAgentPool = $true
         }
+
+        [AgentPool]::regexListForSecrets = @($this.ControlSettings.Patterns | Where-Object {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList);
     }
 
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
@@ -263,6 +268,7 @@ class AgentPool: ADOSVTBase
 
     hidden [ControlResult] CheckCredInEnvironmentVariables([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed;
         try
         {
             if($null -eq  $this.agentPool)
@@ -270,84 +276,73 @@ class AgentPool: ADOSVTBase
                 $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.OrganizationContext.OrganizationName), $this.ProjectId ,$this.AgentPoolId;
                 $this.agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
             }
-
-                $patterns = $this.ControlSettings.Patterns | Where-Object {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList;
-                if(($patterns | Measure-Object).Count -gt 0)
+            $patterns = [AgentPool]::regexListForSecrets
+            if($patterns.RegexList.Count -gt 0)
+            {
+                $noOfCredFound = 0;
+                $agentsWithSecretsInEnv=@()
+                if (([Helpers]::CheckMember($this.agentPool[0],"fps.dataproviders.data") ) -and ($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider") -and [Helpers]::CheckMember($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider","agents") )
                 {
-                    $noOfCredFound = 0;
-                    $AgentsWithSecretsInEnv=@()
-                    if (([Helpers]::CheckMember($this.agentPool[0],"fps.dataproviders.data") ) -and ($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider") -and [Helpers]::CheckMember($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider","agents") )
-                    {
-                        $Agents = $this.agentpool.fps.dataproviders.data."ms.vss-build-web.agent-pool-data-provider".agents
-
-                        $Agents | ForEach-Object {
-                            $RefAgent = "" | Select-Object "AgentName","Capabilities"
-                            $RefAgent.AgentName = $_.name
-                            $EnvVariablesContainingSecret=@()
-                            if([Helpers]::CheckMember($_,"userCapabilities"))
-                            {
-                                $EnvVariable=$_.userCapabilities
-                                $refHashTable=@{}
-                                $EnvVariable.PSObject.properties | ForEach-Object { $refHashTable[$_.Name] = $_.Value }
-                                $refHashTable.Keys | Where-Object {
-                                    for ($i = 0; $i -lt $patterns.RegexList.Count; $i++)
+                    $agents = $this.agentpool.fps.dataproviders.data."ms.vss-build-web.agent-pool-data-provider".agents
+                    $agents | ForEach-Object {
+                        $currentAgent = "" | Select-Object "AgentName","Capabilities"
+                        $currentAgent.AgentName = $_.name
+                        $envVariablesContainingSecret=@()
+                        $secretsFoundInCurrentAgent = $false
+                        if([Helpers]::CheckMember($_,"userCapabilities"))
+                        {
+                            $userCapabilities=$_.userCapabilities
+                            $secretsHashTable=@{}
+                            $userCapabilities.PSObject.properties | ForEach-Object { $secretsHashTable[$_.Name] = $_.Value }
+                            $secretsHashTable.Keys | ForEach-Object {
+                                for ($i = 0; $i -lt $patterns.RegexList.Count; $i++)
+                                {
+                                    if($secretsHashTable.Item($_) -cmatch $patterns.RegexList[$i])
                                     {
-                                        # Using -cmatch as same logic we had applied in build and release controls
-                                        if($refHashTable.Item($_) -cmatch $patterns.RegexList[$i])
-                                        {
-                                            $noOfCredFound += 1
-                                            $EnvVariablesContainingSecret += $_
-                                            break
-                                        }
+                                        $noOfCredFound += 1
+                                        $secretsFoundInCurrentAgent = $true
+                                        $envVariablesContainingSecret += $_
+                                        break;
                                     }
                                 }
                             }
-                            $RefAgent.Capabilities = $EnvVariablesContainingSecret
-                            $AgentsWithSecretsInEnv += $RefAgent
                         }
-
-                        if($noOfCredFound -eq 0)
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Passed, "No secrets found in user-defined capabilities of agents.");
-                        }
-                        else {
-                            $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in user-defined capabilities of agents.");
-
-                            $count = ($AgentsWithSecretsInEnv | Measure-Object).Count
-                            if($count -gt 0 )
-                            {
-                                #$varList = $EnvVariablesContainingSecret | select -Unique | Sort-object
-                               # $stateData.AgentsWithCred += $AgentsWithSecretsInEnv.AgentName
-                                $controlResult.AddMessage("`nTotal number of agents that contain secrets in user-defined capabilities: $count")
-                                $controlResult.AdditionalInfo += "Total number of agents that contain secrets in user-defined capabilities: "+ $count;
-                                $controlResult.AddMessage("`nAgent wise list of user-defined capabilities containing secret: ");
-                                $display=($AgentsWithSecretsInEnv | FT AgentName,Capabilities -AutoSize | Out-String -Width 512)
-                                $controlResult.AddMessage($display)
-                                #$controlResult.AdditionalInfo += "Total number of variable(s) containing secret: " + ($varList | Measure-Object).Count;
-                            }
-                            $controlResult.SetStateData("Agent wise list of user-defined capabilities containing secret: ", $AgentsWithSecretsInEnv );
+                        $currentAgent.Capabilities = $envVariablesContainingSecret
+                        if ($secretsFoundInCurrentAgent -eq $true) {
+                            $agentsWithSecretsInEnv += $currentAgent
                         }
                     }
-                    else
+
+                    if($noOfCredFound -eq 0)
                     {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "There are no agents in the pool.");
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No secrets found in user-defined capabilities of agents.");
                     }
-                    $patterns = $null;
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in user-defined capabilities of agents.");
+                        $count = $agentsWithSecretsInEnv.Count
+                        $controlResult.AddMessage("`nCount of agents that contain secrets: $count")
+                        $controlResult.AdditionalInfo += "Count of agents that contain secrets: "+ $count;
+                        $controlResult.AddMessage("`nAgent-wise list of user-defined capabilities with secrets: ");
+                        $display=($agentsWithSecretsInEnv | FT AgentName,Capabilities -AutoSize | Out-String -Width 512)
+                        $controlResult.AddMessage($display)
+                        $controlResult.SetStateData("Agent-wise list of user-defined capabilities with secrets: ", $agentsWithSecretsInEnv );
+                    }
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting credentials in environment variables for agents are not defined in your organization.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "There are no agents in the pool.");
                 }
-
-
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting credentials in environment variables for agents are not defined in your organization.");
+            }
         }
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch details of user-defined capabilities of agents.");
             $controlResult.LogException($_)
         }
-        #clearing memory space.
-        $this.agentPool = $null;
         return $controlResult
     }
 
