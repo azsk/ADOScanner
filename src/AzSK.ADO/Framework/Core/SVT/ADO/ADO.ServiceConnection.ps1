@@ -393,7 +393,6 @@ class ServiceConnection: ADOSVTBase
 
         try
         {
-            #$isBuildSvcAccGrpFound = $false
             $buildServieAccountOnSvc = @();
             if ($null -eq $this.serviceEndPointIdentity) {
                 $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
@@ -406,17 +405,14 @@ class ServiceConnection: ADOSVTBase
                     if ($identity.displayName -like '*Project Collection Build Service Accounts' -or $identity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))")
                     {
                         $buildServieAccountOnSvc += $identity.displayName;
-                        #$isBuildSvcAccGrpFound = $true;
-                        #break;
                     }
                 }
-                #Faile the control if prj coll Buil Ser Acc Group Found added on serv conn
+                #Fail the control if Project Collection Build Service Accounts Group Found added on serv conn
                 $restrictedBuildSVCAcctCount = $buildServieAccountOnSvc.Count;
                 if($restrictedBuildSVCAcctCount -gt 0)
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)")
-                    $formattedBSAData = $($buildServieAccountOnSvc | FT | out-string )
-                    #$formattedGroupsTable = ($formattedGroupsData | Out-String)
+                    $formattedBSAData = $buildServieAccountOnSvc | FT | out-string
                     $controlResult.AddMessage("`nList of 'Build Service' Accounts: ", $formattedBSAData)
                     $controlResult.SetStateData("List of 'Build Service' Accounts: ", $formattedBSAData)
                     $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)";
@@ -604,6 +600,7 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckCrossProjectSharing([ControlResult] $controlResult)
 	{
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         if ([ServiceConnection]::IsOAuthScan -eq $true)
         {
             if($this.serviceendpointsobj -and [Helpers]::CheckMember($this.serviceendpointsobj, "serviceEndpointProjectReferences") )
@@ -615,10 +612,11 @@ class ServiceConnection: ADOSVTBase
                     $stateData = @();
                     $stateData += $svcProjectReferences | Select-Object name, projectReference
 
-                    $controlResult.AddMessage("Total number of projects that have access to the service connection: ", ($stateData | Measure-Object).Count);
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Review the list of projects that have access to the service connection: ", $stateData);
+                    $controlResult.AddMessage("`nCount of projects that have access to the service connection: $($stateData.Count)") ;
+                    $display = $stateData.projectReference | FT @{l='ProjectId';e={$_.id}},@{l='ProjectName';e={$_.name}}  -AutoSize | Out-String -Width 512
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Review the list of projects that have access to the service connection: ", $display);
                     $controlResult.SetStateData("List of projects that have access to the service connection: ", $stateData);
-                    $controlResult.AdditionalInfo += "Total number of projects that have access to the service connection: " + ($stateData | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Count of projects that have access to the service connection: $($stateData.Count)";
                     $controlResult.AdditionalInfo += "List of projects that have access to the service connection: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
                 }
                 else
@@ -637,15 +635,16 @@ class ServiceConnection: ADOSVTBase
             {
                 #Get the project list which are accessible to the service connection.
                 $svcProjectReferences = $this.ServiceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences
-                if (($svcProjectReferences | Measure-Object).Count -gt 1)
+                if (($svcProjectReferences.Count -gt 1))
                 {
                     $stateData = @();
                     $stateData += $svcProjectReferences | Select-Object name, projectReference
 
-                    $controlResult.AddMessage("Total number of projects that have access to the service connection: ", ($stateData | Measure-Object).Count);
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Review the list of projects that have access to the service connection: ", $stateData);
+                    $controlResult.AddMessage("`nCount of projects that have access to the service connection: $($stateData.Count)") ;
+                    $display = $stateData.projectReference | FT @{l='ProjectId';e={$_.id}},@{l='ProjectName';e={$_.name}}  -AutoSize | Out-String -Width 512
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Review the list of projects that have access to the service connection:`n ", $display);
                     $controlResult.SetStateData("List of projects that have access to the service connection: ", $stateData);
-                    $controlResult.AdditionalInfo += "Total number of projects that have access to the service connection: " + ($stateData | Measure-Object).Count;
+                    $controlResult.AdditionalInfo += "Count of projects that have access to the service connection: $($stateData.Count)";
                     $controlResult.AdditionalInfo += "List of projects that have access to the service connection: " + [JsonHelper]::ConvertToJsonCustomCompressed($stateData);
                 }
                 else

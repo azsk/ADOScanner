@@ -62,7 +62,7 @@
       "Automated": "Yes",
       "MethodName": "CheckOrgAgtAutoProvisioning",
       "Rationale": "By enabling auto-provisioning the organization agent pool is imported in all your new team projects and is accessible there immediately. Therefore, a vulnerability in components used by one project can be leveraged by an attacker to attack other projects.",
-      "Recommendation": "To change auto-provision settings: 1.Navigate to the Organization settings. 2. Open Agent pools. 3. Select Settings. 4. Change the settings for 'Auto-provisioning' this agent pools in new projects'",
+      "Recommendation": "1.Navigate to the Organization settings. --> 2. Select agent pool. --> 3. Select Settings. --> 4. Change the settings for 'Auto-provisioning this agent pools in new projects'",
       "Tags": [
         "SDL",
         "TCP",
@@ -114,7 +114,7 @@
       "Automated": "Yes",
       "MethodName": "CheckAutoUpdate",
       "Rationale": "Unpatched agents are easy targets for compromise from various malware/trojan attacks that exploit known vulnerabilities in operating systems and related software. Being on the latest OS version significantly reduces risks from security design issues and security bugs that may be present in older versions.",
-      "Recommendation": "To enable auto-update settings: 1.Navigate to the Organization settings. 2. Open Agent pools. 3. Select Settings. 4. Enable 'Allow agents in this pool to automatically update'.",
+      "Recommendation": "1. Navigate to the Organization settings. --> 2. Select the agent pool. -->  3. Select Settings. --> 4. Enable 'Allow agents in this pool to automatically update'.",
       "Tags": [
         "SDL",
         "TCP",
