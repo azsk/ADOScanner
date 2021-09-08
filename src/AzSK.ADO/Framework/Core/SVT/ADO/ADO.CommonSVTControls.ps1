@@ -9,6 +9,7 @@ class CommonSVTControls: ADOSVTBase {
     hidden [object] $repoInheritePermissions = @{};
     hidden [PSObject] $excessivePermissionBitsForRepo = @(1)
     hidden [PSObject] $excessivePermissionsForRepoBranch = $null;
+    hidden [string] $repoPermissionSetId = $null;
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
@@ -27,6 +28,8 @@ class CommonSVTControls: ADOSVTBase {
         }
 
         $this.excessivePermissionsForRepoBranch = $this.ControlSettings.Repo.ExcessivePermissionsForBranch
+        #standard namespace id
+        $this.repoPermissionSetId = "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87"
 
     }
 
@@ -104,9 +107,9 @@ class CommonSVTControls: ADOSVTBase {
             $isControlPassing = $true
             $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]           
             $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
-            $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+            $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
             $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceGroupName;
-
+            $inputbody.dataProviderContext.properties.permissionSetId = $this.repoPermissionSetId
             #first check permissions for all branches
             $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads/" 
             #calling the common method to get permissions object on this level           
@@ -172,8 +175,9 @@ class CommonSVTControls: ADOSVTBase {
             if ($broaderGroupsList.Count) {
                 $groupsWithExcessivePermissionsList = @()
                 foreach ($broaderGroup in $broaderGroupsList) {
-                    $broaderGroupInputbody = "{'contributionIds':['ms.vss-admin-web.security-view-permissions-data-provider'],'dataProviderContext':{'properties':{'subjectDescriptor':'','permissionSetId':'2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87','permissionSetToken':'','accountName':'','sourcePage':{'routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'PrivateProjectWithRepo','adminPivot':'repositories','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                    $broaderGroupInputbody = "{'contributionIds':['ms.vss-admin-web.security-view-permissions-data-provider'],'dataProviderContext':{'properties':{'subjectDescriptor':'','permissionSetId':'','permissionSetToken':'','accountName':'','sourcePage':{'routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'PrivateProjectWithRepo','adminPivot':'repositories','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
                     $broaderGroupInputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceGroupName;
+                    $broaderGroupInputbody.dataProviderContext.properties.permissionSetId = $this.repoPermissionSetId
                     if($null -eq $branch){
                         $broaderGroupInputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads/"
                     }
@@ -199,16 +203,12 @@ class CommonSVTControls: ADOSVTBase {
                         if ($broaderGroup.displayName -like '*Project Collection Build Service Accounts') {
                             $groupFoundWithExcessivePermissions = $false
                             $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($this.OrganizationContext.OrganizationName);                                
-                            $postbody=@'
-                            {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/_settings/groups?subjectDescriptor={1}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
-'@
-                            $postbody=$postbody.Replace("{0}",$broaderGroup.descriptor )
-                            $postbody=$postbody.Replace("{1}",$this.OrganizationContext.OrganizationName)
-                            $rmContext = [ContextHelper]::GetCurrentContext();
-                            $user = "";
-                            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))   
+                            $postbody="{'contributionIds':['ms.vss-admin-web.org-admin-members-data-provider'],'dataProviderContext':{'properties':{'subjectDescriptor':'','sourcePage':{'url':'','routeId':'ms.vss-admin-web.collection-admin-hub-route','routeValues':{'adminPivot':'groups','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                            $postbody.dataProviderContext.properties.subjectDescriptor = $broaderGroup.descriptor
+                            $bodyUrl = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_settings/groups?subjectDescriptor=$($broaderGroup.descriptor)"
+                            $postbody.dataProviderContext.properties.sourcePage.url = $bodyUrl                               
                             try {
-                                $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
+                                $response = [WebRequestHelper]::InvokePostWebRequest($url, $postbody)
                                 if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
                                 {
                                     $buildServiceAccountIdentities = $response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
@@ -219,7 +219,8 @@ class CommonSVTControls: ADOSVTBase {
                                     }
                                 } 
                             }    
-                            catch {}                    
+                            catch {}                            
+                                               
                         }
                         if ($groupFoundWithExcessivePermissions -eq $true) {
                             $excessivePermissionsGroupObj = @{}
