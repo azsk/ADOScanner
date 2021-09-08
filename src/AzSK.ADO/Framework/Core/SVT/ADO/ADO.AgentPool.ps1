@@ -8,6 +8,7 @@ class AgentPool: ADOSVTBase
     hidden [PSObject] $agentPool; # This is used to fetch agent details in pool
     hidden [PSObject] $agentPoolActivityDetail = @{isAgentPoolActive = $true; agentPoolLastRunDate = $null; agentPoolCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [string] $checkInheritedPermissionsPerAgentPool = $false
+    hidden [PSObject] $AgentPoolOrgObj; #This will contain org level agent pool details
 
     AgentPool([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -108,22 +109,31 @@ class AgentPool: ADOSVTBase
 
     hidden [ControlResult] CheckOrgAgtAutoProvisioning([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try {
             #Only agent pools created from org setting has this settings..
-            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
-            $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-
-            if ((($agentPoolsObj | Measure-Object).Count -gt 0) -and $agentPoolsObj.autoProvision -eq $true) {
-                $controlResult.AddMessage([VerificationResult]::Failed,"Auto-provisioning is enabled for the $($agentPoolsObj.name) agent pool.");
+            if($null -eq $this.AgentPoolOrgObj)
+            {
+                $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
+                $this.AgentPoolOrgObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
             }
-            else {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Auto-provisioning is not enabled for the agent pool.");
+            
+            if($this.AgentPoolOrgObj.Count -gt 0)
+            {
+                if (($this.AgentPoolOrgObj.Count -gt 0) -and $this.AgentPoolOrgObj.autoProvision -eq $true) {
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Auto-provisioning is enabled for the $($this.AgentPoolOrgObj.name) agent pool.");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Auto-provisioning is not enabled for the agent pool.");
+                }
             }
-
-            $agentPoolsObj =$null;
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch auto-update details of agent pool.");
+            }
         }
         catch{
-            $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch agent pool details.");
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch agent pool details.");
             $controlResult.LogException($_)
         }
         return $controlResult
@@ -131,21 +141,25 @@ class AgentPool: ADOSVTBase
 
     hidden [ControlResult] CheckAutoUpdate([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            #autoUpdate setting is available only at org level settings.
-            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
-            $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-
-            if([Helpers]::CheckMember($agentPoolsObj,"autoUpdate"))
+            if($null -eq $this.AgentPoolOrgObj)
             {
-                if($agentPoolsObj.autoUpdate -eq $true)
+                #autoUpdate setting is available only at org level settings.
+                $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
+                $this.AgentPoolOrgObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
+            }
+
+            if($this.AgentPoolOrgObj.Count -gt 0)
+            {
+                if($this.AgentPoolOrgObj.autoUpdate -eq $true)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Auto-update of agents is enabled for [$($agentPoolsObj.name)] agent pool.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Auto-update of agents is enabled for [$($this.AgentPoolOrgObj.name)] agent pool.");
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Auto-update of agents is disabled for [$($agentPoolsObj.name)] agent pool.");
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Auto-update of agents is disabled for [$($this.AgentPoolOrgObj.name)] agent pool.");
                 }
 
             }
@@ -153,8 +167,6 @@ class AgentPool: ADOSVTBase
             {
                 $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch auto-update details of agent pool.");
             }
-
-            $agentPoolsObj =$null;
         }
         catch
         {
