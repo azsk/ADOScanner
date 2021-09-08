@@ -443,10 +443,9 @@
     "Contributors"
   ],
   "VeryLargeGroups":[],
-  "CheckForBroadGroupMemberCount": true,
+  "CheckForBroadGroupMemberCount": false,
   "AllowedMemberCountPerBroadGroup": {
-    "Contributors": 50,
-    "Project Valid Users": 40
+    "Contributors": 50
   },
   "AlernateAccountRegularExpressionForOrg": "^sc-\\w+@(?:\\w+\\.)*microsoft\\.com$|^\\w+.*@gme\\.gbl$",
   "ALTControlEvaluationMethod": "GraphThenRegEx",
