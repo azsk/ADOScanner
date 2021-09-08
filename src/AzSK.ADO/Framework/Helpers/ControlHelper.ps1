@@ -4,20 +4,13 @@ class ControlHelper: EventBase{
     static [psobject] $ControlFixBackup = @()
     static $GroupMembersResolutionObj = @{} #Caching group resolution
     static $ResolvedBroaderGroups = @{}
-    static $GroupsWithCriticalBroaderGroup = @()
-    static $CriticalBroadGroups = @()
+    static $GroupsWithNumerousMembers = @()
+    static $VeryLargeGroups = @()
+    static $IsGroupDetailsFetchedFromPolicy = $false
+    static $AllowedMemberCountPerBroadGroup = @()
+    static $GroupsToExpand = @()
+    static $GroupsWithDescriptor = @{}
       
-    ControlHelper()
-    {
-        if ([ControlHelper]::CriticalBroadGroups.Count -eq 0) 
-        {
-            $ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
-            if([Helpers]::CheckMember($ControlSettings, 'CriticalBroadGroups'))
-            {
-                [ControlHelper]::CriticalBroadGroups = @($ControlSettings.CriticalBroadGroups)
-            }
-        }
-    }
     #Checks if the severities passed by user are valid and filter out invalid ones
    hidden static [string []] CheckValidSeverities([string []] $ParamSeverities)
    {
@@ -204,8 +197,8 @@ class ControlHelper: EventBase{
             $memberslist | ForEach-Object {
                 if($_.subjectKind -eq "Group")
                 {
-                    if ([ControlHelper]::CriticalBroadGroups -contains $_.principalName) {
-                        [ControlHelper]::GroupsWithCriticalBroaderGroup += $_.principalName
+                    if ([ControlHelper]::VeryLargeGroups -contains $_.principalName) {
+                        [ControlHelper]::GroupsWithNumerousMembers += $_.principalName
                     }
                     else
                     {
@@ -255,29 +248,59 @@ class ControlHelper: EventBase{
         return $groupObj
     }
 
-    static [PSObject] FilterBroadGroupMembers([PSObject] $groupList, [int] $allowedMemberCount, [bool] $fetchDescriptor)
+    hidden static FetchControlSettingDetails()
+    {
+        $ControlSettingsObj = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+        [ControlHelper]::VeryLargeGroups = @($ControlSettingsObj.VeryLargeGroups)
+        [ControlHelper]::AllowedMemberCountPerBroadGroup = @($ControlSettingsObj.AllowedMemberCountPerBroadGroup)
+        [ControlHelper]::GroupsToExpand = @($ControlSettingsObj.BroaderGroupsToExpand)
+        [ControlHelper]::IsGroupDetailsFetchedFromPolicy = $true
+    }
+
+    static [PSObject] FilterBroadGroupMembers([PSObject] $groupList, [bool] $fetchDescriptor)
     {
         $broaderGroupsWithExcessiveMembers = @()
+        if ([ControlHelper]::IsGroupDetailsFetchedFromPolicy -eq $false) {
+            [ControlHelper]::FetchControlSettingDetails()
+        }
         $groupList | Foreach-Object {
             # In some cases, group object doesn't contains descriptor key which requires to expand the groups.
             if ($fetchDescriptor) {
-                $groupObj = [ControlHelper]::GetBroaderGroupDescriptorObj($this.OrganizationContext.OrganizationName, $_.Name)
+                if (-not ([ControlHelper]::GroupsWithDescriptor -contains $_.Name)) {
+                    [ControlHelper]::GroupsWithDescriptor[$_.Name] += [ControlHelper]::GetBroaderGroupDescriptorObj($this.OrganizationContext.OrganizationName, $_.Name)
+                }
+                $groupObj = [ControlHelper]::GroupsWithDescriptor[$_.Name]
             }
             else {
                 $groupObj = $_
             }
-            if (-not [ControlHelper]::ResolvedBroaderGroups.ContainsKey($groupObj.principalName)) {
-                $groupMembers = @([ControlHelper]::ResolveNestedBroaderGroupMembers($groupObj, $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName))
-            }
-            else {
-                $groupMembers = @([ControlHelper]::ResolvedBroaderGroups[$groupObj.principalName])
-            }
-            $groupMembersCount = @($groupMembers | Select-Object -property mailAddress -Unique).Count
-            if (($groupMembersCount -gt $allowedMemberCount) -or ([ControlHelper]::GroupsWithCriticalBroaderGroup -contains $groupObj.principalName))
+            $groupName = $groupObj.principalName.split('\')[-1]
+            if ([ControlHelper]::GroupsToExpand -contains $groupName) 
             {
-                $broaderGroupsWithExcessiveMembers += $groupObj.principalName
+                if (-not [ControlHelper]::ResolvedBroaderGroups.ContainsKey($groupObj.principalName)) {
+                    $groupMembers = @([ControlHelper]::ResolveNestedBroaderGroupMembers($groupObj, $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName))
+                }
+                else {
+                    $groupMembers = @([ControlHelper]::ResolvedBroaderGroups[$groupObj.principalName])
+                }
+                $groupMembersCount = @($groupMembers | Select-Object -property mailAddress -Unique).Count
+                if ([Helpers]::CheckMember([ControlHelper]::AllowedMemberCountPerBroadGroup, $groupName))
+                {
+                    $allowedMemberCount = [ControlHelper]::AllowedMemberCountPerBroadGroup.$groupName
+                    if (($groupMembersCount -gt $allowedMemberCount) -or ([ControlHelper]::GroupsWithNumerousMembers -contains $groupObj.principalName))
+                    {
+                        $broaderGroupsWithExcessiveMembers += $groupObj.principalName
+                    }
+                }
+                else {
+                    $broaderGroupsWithExcessiveMembers += $groupObj.principalName
+                }
+            }
+            else
+            {
+                $broaderGroupsWithExcessiveMembers = $groupObj.principalName
             }
         }
         return $broaderGroupsWithExcessiveMembers
-    }
+    } 
 }

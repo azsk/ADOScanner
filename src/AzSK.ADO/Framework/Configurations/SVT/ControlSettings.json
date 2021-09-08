@@ -308,11 +308,9 @@
     },
     "CheckForInheritedPermissions" : false,
     "RegexForOAuthTokenInYAMLScript" : "\\s*:\\s*\\$\\s*\\(\\s*System\\.AccessToken\\s*\\)",
-    "BranchesToCheckForYAMLScript": ["master","main","develop"],
-    "CheckForBroadGroupMemberCount": false,
-    "AllowedBroadGroupMemberCount": 50
+    "BranchesToCheckForYAMLScript": ["master","main","develop"]
   },
-  "CriticalBroadGroups":[
+  "VeryLargeGroups":[
     "[TEAM FOUNDATION]\\Microsoft All FTE"
   ],
   "Release": {
@@ -383,9 +381,7 @@
         "Manage releases"
       ]
     },
-    "CheckForInheritedPermissions": false,
-    "CheckForBroadGroupMemberCount": false,
-    "AllowedBroadGroupMemberCount": 50
+    "CheckForInheritedPermissions": false
   },
   "AgentPool": {
     "AgentPoolHistoryPeriodInDays": 180 ,
@@ -406,9 +402,7 @@
         "User"
       ]
     },
-    "CheckForInheritedPermissions": false,
-    "CheckForBroadGroupMemberCount": false,
-    "AllowedBroadGroupMemberCount": 50
+    "CheckForInheritedPermissions": false
   },
   "VariableGroup": {
     "RestrictedBroaderGroupsForVariableGroup" : {
@@ -432,9 +426,7 @@
       "Administrator",
       "User"
     ],
-    "CheckForInheritedPermissions": false,
-    "CheckForBroadGroupMemberCount": false,
-    "AllowedBroadGroupMemberCount": 50
+    "CheckForInheritedPermissions": false
   },
   "WorkItems":{
     "ThreshHoldDaysForWorkItemInactivity":180
@@ -448,6 +440,15 @@
   "Wikis":{
     "ThreshHoldDaysForWikisInactivity":180
   }  ,
+  "BroaderGroupsToExpand":[
+    "Contributors",
+    "Project Valid Users"
+  ],
+  "CheckForBroadGroupMemberCount": true,
+  "AllowedMemberCountPerBroadGroup": {
+    "Contributors": 50,
+    "Project Valid Users": 40
+  },
   "AlernateAccountRegularExpressionForOrg": "^sc-\\w+@(?:\\w+\\.)*microsoft\\.com$|^\\w+.*@gme\\.gbl$",
   "ALTControlEvaluationMethod": "GraphThenRegEx",
   "Organization": {
@@ -525,9 +526,7 @@
         "Collaborator",
         "Contributor"
       ]
-    },
-    "CheckForBroadGroupMemberCount": false,
-    "AllowedBroadGroupMemberCount": 50
+    }
   },
   "SecureFile":{
     "RestrictedBroaderGroupsForSecureFile" : {
@@ -547,9 +546,7 @@
         "User"
       ]
     },
-    "CheckForInheritedPermissions": false,
-    "CheckForBroadGroupMemberCount": false,
-    "AllowedBroadGroupMemberCount": 50
+    "CheckForInheritedPermissions": false
   },
   "Environment":{
     "RestrictedBroaderGroupsForEnvironment" : {
@@ -569,9 +566,7 @@
         "User"
       ]
     },
-    "CheckForInheritedPermissions": false,
-    "CheckForBroadGroupMemberCount": false,
-    "AllowedBroadGroupMemberCount": 50
+    "CheckForInheritedPermissions": false
   },
   "Repo": {
     "RepoHistoryPeriodInDays": 180,
@@ -620,7 +615,8 @@
     ],
     "RestrictedBroaderGroupsForSvcConn" : {
       "Contributors":[
-        "Administrator"
+        "Administrator",
+        "User"
       ],
       "Readers":[
         "Administrator",
@@ -635,9 +631,7 @@
         "User"
       ]
     },
-    "CheckForInheritedPermissions": false,
-    "CheckForBroadGroupMemberCount": false,
-    "AllowedBroadGroupMemberCount": 50
+    "CheckForInheritedPermissions": false
   },
   "Patterns": [
     {

@@ -6,8 +6,8 @@ class VariableGroup: ADOSVTBase
     hidden [PSObject] $ProjectId;
     hidden [PSObject] $VarGrpId;
     hidden [string] $checkInheritedPermissionsPerVarGrp = $false
-    hidden static [bool] $BroaderGroupMemberCountCheckEnabled = $false;
-    hidden static $AllowedMemberCountInBroaderGroups = $null;
+    hidden [PSObject] $variableGroupIdentities = $null;
+
     VariableGroup([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0];
@@ -17,14 +17,6 @@ class VariableGroup: ADOSVTBase
 
         if ([Helpers]::CheckMember($this.ControlSettings, "VariableGroup.CheckForInheritedPermissions") -and $this.ControlSettings.VariableGroup.CheckForInheritedPermissions) {
             $this.checkInheritedPermissionsPerVarGrp = $true
-        }
-
-        if ($null -eq [VariableGroup]::AllowedMemberCountInBroaderGroups)
-        {
-            if ([Helpers]::CheckMember($this.ControlSettings, "VariableGroup.CheckForBroadGroupMemberCount") -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.AllowedBroadGroupMemberCount")) {
-                [VariableGroup]::BroaderGroupMemberCountCheckEnabled = $this.ControlSettings.VariableGroup.CheckForBroadGroupMemberCount
-                [VariableGroup]::AllowedMemberCountInBroaderGroups = $this.ControlSettings.VariableGroup.AllowedBroadGroupMemberCount
-            }
         }
     }
     hidden [ControlResult] CheckPipelineAccess([ControlResult] $controlResult)
@@ -292,58 +284,53 @@ class VariableGroup: ADOSVTBase
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try 
         {
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedBroaderGroupsForVariableGroup"))
+            $restrictedBroaderGroups = @{}
+            $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup;
+            $restrictedBroaderGroupsForVarGrp.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
+
+            #Fetch variable group RBAC
+            $roleAssignments = @();
+            if ($null -eq $this.variableGroupIdentities) 
             {
-                $restrictedBroaderGroups = @{}
-                $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup;
-                #$restrictedRolesForBroaderGroupsInvarGrp = $this.ControlSettings.VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroup;
-                $restrictedBroaderGroupsForVarGrp.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
-
-                #Fetch variable group RBAC
-                $roleAssignments = @();
-
                 $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId);
-                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                if($responseObj.Count -gt 0)
-                {
-                    if ($this.checkInheritedPermissionsPerVarGrp -eq $false) {
-                        $responseObj = $responseObj  | where-object { $_.access -ne "inherited" }
-                    }
-                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.id}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                $this.variableGroupIdentities = @([WebRequestHelper]::InvokeGetWebRequest($url));
+            }
+            if($this.variableGroupIdentities.Count -gt 0)
+            {
+                if ($this.checkInheritedPermissionsPerVarGrp -eq $false) {
+                    $roleAssignments = @($this.variableGroupIdentities  | where-object { $_.access -ne "inherited" })
                 }
+                $roleAssignments = @($roleAssignments  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.id}}, @{Name="Role"; Expression = {$_.role.displayName}});
+            }
 
-                # Checking whether the broader groups have User/Admin permissions
-                $backupDataObject = @($roleAssignments | Where-Object { $restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1] -and ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]])})
-                $restrictedGroups = @($backupDataObject | Select-Object Name,role)
-                
-                if ([VariableGroup]::BroaderGroupMemberCountCheckEnabled -and $restrictedGroups.Count -gt 0)
-                {
-                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($restrictedGroups, [VariableGroup]::AllowedMemberCountInBroaderGroups, $true))
-                    $restrictedGroups = @($restrictedGroups | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
-                }
+            # Checking whether the broader groups have User/Admin permissions
+            $backupDataObject = @($roleAssignments | Where-Object { $restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1] -and ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]])})
+            $restrictedGroups = @($backupDataObject | Select-Object Name,role)
+            
+            if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $restrictedGroups.Count -gt 0)
+            {
+                $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($restrictedGroups, $true))
+                $restrictedGroups = @($restrictedGroups | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
+            }
 
-                $restrictedGroupsCount = $restrictedGroups.Count
-                if ($restrictedGroupsCount -gt 0)
-                {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to variable group: $($restrictedGroupsCount)");
-                    $controlResult.AddMessage("`nList of groups: ")
-                    $controlResult.AddMessage(($restrictedGroups | FT Name,Role -AutoSize | Out-String -Width 512));
-                    $controlResult.SetStateData("List of groups: ", $restrictedGroups)
-                    $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group: $($restrictedGroupsCount)";
-                    if ($this.ControlFixBackupRequired) {
-                        #Data object that will be required to fix the control
-                        $controlResult.BackupControlState = $backupDataObject;
-                    }
+            $restrictedGroupsCount = $restrictedGroups.Count
+            if ($restrictedGroupsCount -gt 0)
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have excessive permissions on variable group: $($restrictedGroupsCount)");
+                $controlResult.AddMessage("`nList of groups: ")
+                $controlResult.AddMessage(($restrictedGroups | FT Name,Role -AutoSize | Out-String -Width 512));
+                $controlResult.SetStateData("List of groups: ", $restrictedGroups)
+                $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions on variable group: $($restrictedGroupsCount)";
+                if ($this.ControlFixBackupRequired) {
+                    #Data object that will be required to fix the control
+                    $controlResult.BackupControlState = $backupDataObject;
                 }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group.");
-                }
-                $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
-                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$( $displayObj| FT | out-string)");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have excessive permissions on variable group.");
             }
+            $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+            $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have excessive permissions: `n$( $displayObj| FT | out-string)");
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions.");
