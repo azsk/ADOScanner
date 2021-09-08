@@ -25,7 +25,9 @@ class CommonSVTControls: ADOSVTBase {
             $this.checkInheritedPermissionsRepo = $true
             $this.excessivePermissionBitsForRepo = @(1,3)
         }
+
         $this.excessivePermissionsForRepoBranch = $this.ControlSettings.Repo.ExcessivePermissionsForBranch
+
     }
 
     hidden [ControlResult] CheckInactiveRepo([ControlResult] $controlResult)
@@ -1024,7 +1026,8 @@ class CommonSVTControls: ADOSVTBase {
                                     {
                                         $buildServiceAccountIdentities = $response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
                                         foreach ($eachIdentity in $buildServiceAccountIdentities) {
-                                            if ($eachIdentity.displayName -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $identity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))") {
+                                          if ($eachIdentity.displayName -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $eachIdentity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))") {
+
                                                 $groupFoundWithExcessivePermissions = $true                                          
                                             }                                        
                                         }
@@ -1049,10 +1052,10 @@ class CommonSVTControls: ADOSVTBase {
                     $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
                     $controlResult.AddMessage("`nList of 'Build Service' Accounts: $formattedBroaderGrpTable");
                     $controlResult.SetStateData("List of 'Build Service' Accounts: ", $formattedGroupsData)
-                    $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($groupsWithExcessivePermissionsList.Count)";
 
+                    $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to repository: $($groupsWithExcessivePermissionsList.Count)";
                 }
-               
+
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the repository.");
                     $controlResult.AdditionalInfoInCSV = "NA";
