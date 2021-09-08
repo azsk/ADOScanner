@@ -189,7 +189,7 @@
       "Automated": "Yes",
       "MethodName": "CheckCrossProjectSharing",
       "Rationale": "If a service connection is shared across multiple projects, then a user in another project can access data/components that they were otherwise not supposed to access. So, in keeping with principle of least privilege, it is best to limit access to the service connection to your (current) project.",
-      "Recommendation": "Steps to remediate: 1. Navigate to the service connection settings using resource link -> 2. Select service connection -> 3. Click Security -> 4. Under 'Project Permissions', remove projects that service connection no more requires access to.",
+      "Recommendation": "1. Navigate to the project settings --> 2. Go to service connections, select service connection -> 3. Click Security -> 4. Under 'Project Permissions', remove projects that service connection no more requires access to.",
       "Tags": [
         "SDL",
         "TCP",
