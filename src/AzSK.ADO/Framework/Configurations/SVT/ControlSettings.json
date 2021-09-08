@@ -498,12 +498,6 @@
       "Delete repository",
       "Manage permissions"
     ],
-    "RestrictedBroaderGroupsForBranch":[
-      "Project Collection Valid Users",
-      "Project Collection Build Service",
-      "Project Collection Build Service Accounts",
-      "Project Build Service"
-    ],
     "BranchesToCheck":[
       "main",
       "master",
@@ -513,7 +507,11 @@
       "Contribute",
       "Bypass policies when pushing",
       "Force push (rewrite history, delete branches and tags)",
-      "Bypass policies when completing pull requests"
+      "Bypass policies when completing pull requests",
+      "Create branch",
+      "Edit policies",
+      "Manage permissions",
+      "Remove others' locks"
     ],
     "RestrictedRolesForBuildSvcAccountsInRepo": [
       "Bypass policies when completing pull requests",
