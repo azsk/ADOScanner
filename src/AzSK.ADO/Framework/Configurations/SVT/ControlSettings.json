@@ -583,24 +583,42 @@
     ],
     "RestrictedBroaderGroupsForRepo" : {
       "Contributors":[
-        "Contribute",
         "Delete repository",
-        "Manage permissions"
+        "Manage permissions",
+        "Bypass policies when completing pull requests",
+        "Bypass policies when pushing",
+        "Edit policies",
+        "Force push (rewrite history, delete branches and tags)"
       ],
       "Readers":[
         "Contribute",
         "Delete repository",
-        "Manage permissions"
+        "Manage permissions",
+        "Bypass policies when completing pull requests",
+        "Bypass policies when pushing",
+        "Edit policies",
+        "Force push (rewrite history, delete branches and tags)",
+        "Rename repository"
       ],
       "Project Collection Valid Users":[
         "Contribute",
         "Delete repository",
-        "Manage permissions"
+        "Manage permissions",
+        "Bypass policies when completing pull requests",
+        "Bypass policies when pushing",
+        "Edit policies",
+        "Force push (rewrite history, delete branches and tags)",
+        "Rename repository"
       ],
       "Project Valid Users":[
         "Contribute",
         "Delete repository",
-        "Manage permissions"
+        "Manage permissions",
+        "Bypass policies when completing pull requests",
+        "Bypass policies when pushing",
+        "Edit policies",
+        "Force push (rewrite history, delete branches and tags)",
+        "Rename repository"
       ]
     },
     "BranchesToCheckForExcessivePermissions":[
