@@ -1916,6 +1916,7 @@ class Project: ADOSVTBase
                 $AdminGroupsToCheckForInactiveUser = @($this.ControlSettings.Project.AdminGroupsToCheckForInactiveUser)
 
                 $inactiveUsersWithAdminAccess = @()
+                $neverActiveUsers = @()
                 $inactivityPeriodInDays = 90
                 if([Helpers]::CheckMember($this.ControlSettings,"Project.AdminInactivityThresholdInDays"))
                 {
@@ -2001,11 +2002,12 @@ class Project: ADOSVTBase
                                                 if(($formatLastRunTimeSpan).Days -gt 10000)
                                                 {
                                                     $_.LastAccessedDate = "User was never active"
+                                                    $neverActiveUsers += $_
                                                 }
                                                 else {
-                                                    $_.LastAccessedDate = $dateobj.ToString("d MMM yyyy")
+                                                    $_.LastAccessedDate = $dateobj #.ToString("d MMM yyyy"), only date object is needed to sort users based on datetime.
+                                                    $inactiveUsersWithAdminAccess += $_
                                                 }
-                                                $inactiveUsersWithAdminAccess += $_
                                             }
                                         }
                                     }
@@ -2027,8 +2029,11 @@ class Project: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Error, "Unable to fetch details of inactive users in admin role. Please run the scan with admin priveleges.")
                     }
-                    elseif($inactiveUsersWithAdminAccess.count -gt 0)
+                    elseif(($inactiveUsersWithAdminAccess.count -gt 0) -or ($neverActiveUsers.Count -gt 0))
                     {
+                        $inactiveUsersWithAdminAccess = @($inactiveUsersWithAdminAccess | Sort-Object LastAccessedDate)
+                        $inactiveUsersWithAdminAccess = @($inactiveUsersWithAdminAccess | Select-Object PrincipalName,DisplayName,Group, @{Name="LastAccessedDate";Expression = {$_.LastAccessedDate.ToString("d MMM yyyy")}})
+                        $inactiveUsersWithAdminAccess += $neverActiveUsers | Select-Object PrincipalName,DisplayName,Group, LastAccessedDate
                         $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive users in admin roles: $($inactiveUsersWithAdminAccess.count) ");
                         $controlResult.AddMessage("`nInactive admin user details:")
                         $display = ($inactiveUsersWithAdminAccess|FT PrincipalName,DisplayName,Group,LastAccessedDate  -AutoSize | Out-String -Width 512)
@@ -2036,7 +2041,7 @@ class Project: ADOSVTBase
                         $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
                        
                         $controlResult.AdditionalInfoInCSV += "NumInactiveUsers: $($inactiveUsersWithAdminAccess.count) ; ";
-                        $UserList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName} | select-object -Unique -First 10;
+                        $UserList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName +': '+ $(if($_.LastAccessedDate -eq 'User was never active'){ "NeverActive"} else { (((Get-Date) - [DateTime]$_.LastAccessedDate).Days).ToString() + ' days'})} | select-object -Unique -First 10;
                         $controlResult.AdditionalInfoInCSV += "First 10 InactiveUsers: $($UserList -join ' ; ');";
                 
                     
