@@ -214,3 +214,14 @@ enum BuildPermissions {
 	Deletebuildpipeline = 4096
 	Destroybuilds = 32
 }
+
+enum RepoPermissions {
+	Contribute = 4
+    Deleterepository = 512
+    Managepermissions = 8192
+	Bypasspolicieswhencompletingpullrequests = 32768
+	Bypasspolicieswhenpushing = 128
+	Editpolicies = 2048
+	Forcepush(rewritehistory,deletebranchesandtags) = 8
+	Renamerepository = 1024
+}

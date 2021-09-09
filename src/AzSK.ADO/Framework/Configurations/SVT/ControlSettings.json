@@ -581,17 +581,46 @@
       "*@ntdev.microsoft.com",
       "*@microsoftfederal.com"
     ],
-    "RestrictedBroaderGroupsForRepo": [
-      "Project Collection Valid Users",
-      "Contributors",
-      "Readers",
-      "Project Valid Users"
-    ],
-    "RestrictedRolesForBroaderGroupsInRepo": [
-      "Contribute",
-      "Delete repository",
-      "Manage permissions"
-    ],
+    "RestrictedBroaderGroupsForRepo" : {
+      "Contributors":[
+        "Delete repository",
+        "Manage permissions",
+        "Bypass policies when completing pull requests",
+        "Bypass policies when pushing",
+        "Edit policies",
+        "Force push (rewrite history, delete branches and tags)"
+      ],
+      "Readers":[
+        "Contribute",
+        "Delete repository",
+        "Manage permissions",
+        "Bypass policies when completing pull requests",
+        "Bypass policies when pushing",
+        "Edit policies",
+        "Force push (rewrite history, delete branches and tags)",
+        "Rename repository"
+      ],
+      "Project Collection Valid Users":[
+        "Contribute",
+        "Delete repository",
+        "Manage permissions",
+        "Bypass policies when completing pull requests",
+        "Bypass policies when pushing",
+        "Edit policies",
+        "Force push (rewrite history, delete branches and tags)",
+        "Rename repository"
+      ],
+      "Project Valid Users":[
+        "Contribute",
+        "Delete repository",
+        "Manage permissions",
+        "Bypass policies when completing pull requests",
+        "Bypass policies when pushing",
+        "Edit policies",
+        "Force push (rewrite history, delete branches and tags)",
+        "Rename repository"
+      ]
+    },
     "BranchesToCheckForExcessivePermissions":[
       "main",
       "master",
