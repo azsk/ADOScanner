@@ -93,7 +93,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
                     }
                     if ($oldBackupResourcesFound)
                     {
-		                $this.PublishCustomMessage("`nOne or more resources have backup older than $($backupLimit) days. `nRun Gads with -PrepareForFix parameter to take backup again.`nOr use -Force in the Srt-AzSKADOSecurityStatus command to proceed with the same backup.",[MessageType]::Warning);
+		                $this.PublishCustomMessage("`nOne or more resources have backup older than $($backupLimit) days. `nRun Gads with -PrepareForFix parameter to take backup again.`nOr use -Force in the Set-AzSKADOSecurityStatus command to proceed with the same backup.",[MessageType]::Warning);
                         break;
                     }
                 }
