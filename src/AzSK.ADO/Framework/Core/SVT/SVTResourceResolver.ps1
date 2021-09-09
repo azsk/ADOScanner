@@ -1030,12 +1030,12 @@ class SVTResourceResolver: AzSKRoot {
                     #Fetch only those resources for which data obj backup is available in local 
                     if([ControlHelper]::ControlFixBackup.Count -gt 0)
                     {
-                        $this.SVTResources = @($this.SVTResources | Where-Object {[ControlHelper]::ControlFixBackup.ResourceId -contains $_.ResourceId})
+                        $this.SVTResources = $this.SVTResources | Where-Object {[ControlHelper]::ControlFixBackup.ResourceId -contains $_.ResourceId}
                         if ($this.ResourceNames.count -gt 0) {
-                            $this.SVTResources = @($this.SVTResources | Where-Object {$this.ResourceNames -contains $_.ResourceName})
+                            $this.SVTResources = $this.SVTResources | Where-Object {$this.ResourceNames -contains $_.ResourceName}
                         }
                         if ($this.ExcludeResourceNames.count -gt 0) {
-                            $this.SVTResources = @($this.SVTResources | Where-Object {$this.ExcludeResourceNames -notcontains $_.ResourceName})
+                            $this.SVTResources = $this.SVTResources | Where-Object {$this.ExcludeResourceNames -notcontains $_.ResourceName}
                         }
 
                         #Filter backup of only applicable resources
