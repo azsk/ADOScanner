@@ -46,7 +46,7 @@
             "Automated": "Yes",
             "MethodName": "CheckCredInVarGrp",
             "Rationale": "Keeping secrets such as connection strings, passwords, keys, etc. in plain text can expose the credentials to a wider audience and can lead to credential theft. Marking them as secret protects them from unitended disclosure and/or misuse.",
-            "Recommendation": "Refer: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables?view=vsts&tabs=yaml%2Cbatch#secret-variables",
+            "Recommendation": "1. Navigate to the variable group --> 2. Go to variables --> 3. Lock the variables which contain secret using 'Change variable type to secret' option denoted by lock symbol against each variable.",
             "Tags": [
               "SDL",
               "TCP",
