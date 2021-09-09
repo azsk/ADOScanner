@@ -73,6 +73,12 @@ class InventoryHelper {
                     $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
                     if (([Helpers]::CheckMember($agentPoolsDefnsObj, "fps.dataProviders.data") ) -and (($agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider") -and $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues)) {
                         $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues;
+                        
+                        # We need to filter out legacy agent pools (Hosted, Hosted VS 2017 etc.) as they are not visible to user on the portal. As a result, they won't be able to remediate their respective controls
+                        $taskAgentQueues = $taskAgentQueues | where-object{$_.pool.isLegacy -eq $false};
+                        
+                        #Filtering out "Azure Pipelines" agent pool from scan as it is created by ADO by default and some of its settings are not editable (grant access to all pipelines, auto-provisioning etc.)
+                        $taskAgentQueues = $taskAgentQueues | where-object{$_.name -ne "Azure Pipelines"};
                         $projectData["AgentPools"] = ($taskAgentQueues | Measure-Object).Count
                     }
                 }
