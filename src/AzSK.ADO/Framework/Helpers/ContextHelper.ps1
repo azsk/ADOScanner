@@ -13,12 +13,18 @@ class ContextHelper {
     #This will be used to carry current org under current context.
     static hidden [string] $orgName;
     static hidden [bool] $IsBatchScan;
+    static hidden [int] $PSVersion = $null;
+    static hidden $appObj = $null;
+    static hidden $Account = $null;
 
     ContextHelper()
     {
         if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret))  # this if block will be executed for OAuth based scan
         {
             [ContextHelper]::IsOAuthScan = $true
+        }
+        if (![ContextHelper]::PSVersion) {
+            [ContextHelper]::PSVersion = ($global:PSVersionTable).PSVersion.major 
         }
     }
 
@@ -29,6 +35,9 @@ class ContextHelper {
             [ContextHelper]::IsOAuthScan = $true
         }
         [ContextHelper]::IsBatchScan=$true;
+        if (![ContextHelper]::PSVersion) {
+            [ContextHelper]::PSVersion = ($global:PSVersionTable).PSVersion.major 
+        }
     }
 
     hidden static [PSObject] GetCurrentContext()
@@ -47,19 +56,77 @@ class ContextHelper {
 
             $ctx = [AuthenticationContext]::new("https://login.windows.net/common");
 
-            [AuthenticationResult] $result = $null;
+            $result = $null;
 
             if([ContextHelper]::IsOAuthScan) { # this if block will be executed for OAuth based scan
                 $tokenInfo = [ContextHelper]::GetOAuthAccessToken()
                 [ContextHelper]::ConvertToContextObject($tokenInfo)
             }
             else {
-                if ( !$authNRefresh -and [ContextHelper]::PromptForLogin) {
-                    if ([ContextHelper]::PromptForLogin) {
+                if ([ContextHelper]::PSVersion -gt 5) {
+                    [string[]] $Scopes = "$adoResourceId/.default";
+                    [Microsoft.Identity.Client.IPublicClientApplication] $app = [Microsoft.Identity.Client.PublicClientApplicationBuilder]::Create($ClientId).Build();
+                    if(![ContextHelper]::appObj) {
+                        [ContextHelper]::appObj = $app
+                    }
+
+                    if (![ContextHelper]::Account) {
+                        [ContextHelper]::Account = $app.GetAccountsAsync().GetAwaiter().GetResult() | Select-Object -First 1
+                    }
+                    $tokenSource = New-Object System.Threading.CancellationTokenSource
+                    $taskAuthenticationResult=$null
+                    try {
+                        if ( !$authNRefresh -and [ContextHelper]::PromptForLogin)
+                        {
+                            if ([ContextHelper]::PromptForLogin)
+                            {
+                                $AquireTokenParameters = $app.AcquireTokenInteractive($Scopes)
+                                $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
+                            }
+                            else {
+                                $AquireTokenParameters = $app.AcquireTokenSilent($Scopes, [ContextHelper]::Account)
+                                $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
+                                if ($taskAuthenticationResult.exception.message -like "*errors occurred*") {
+                                    $AquireTokenParameters = $app.AcquireTokenInteractive($Scopes)
+                                    $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
+                                }
+                            }
+                        }
+                        else {
+                            $AquireTokenParameters = $app.AcquireTokenSilent($Scopes, [ContextHelper]::Account)
+                            $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
+                            if ($taskAuthenticationResult.exception.message -like "*errors occurred*") {
+                                $AquireTokenParameters = $app.AcquireTokenInteractive($Scopes)
+                                $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
+                            }
+                        }
+                    }
+                    catch {
+                        $AquireTokenParameters = $app.AcquireTokenInteractive($Scopes)
+                        $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
+                    }
+                    if ($taskAuthenticationResult.Result) {
+                        $result = $taskAuthenticationResult.Result;
+                    }
+                    
+                    if (![ContextHelper]::Account) {
+                        [ContextHelper]::Account = $app.GetAccountsAsync().GetAwaiter().GetResult() | Select-Object -First 1
+                    }
+                    [ContextHelper]::appObj = $app;
+                }
+                else {
+                    if ( !$authNRefresh -and [ContextHelper]::PromptForLogin) {
+                        if ([ContextHelper]::PromptForLogin) {
                         $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Always
                         $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
                         $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
                         [ContextHelper]::PromptForLogin = $false
+                        }
+                        else {
+                        $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
+                        $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
+                        $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+                        }
                     }
                     else {
                         $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
@@ -67,12 +134,6 @@ class ContextHelper {
                         $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
                     }
                 }
-                else {
-                    $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
-                    $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
-                    $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
-                }
-
                 [ContextHelper]::ConvertToContextObject($result)
             }
         }
@@ -231,12 +292,17 @@ class ContextHelper {
                 $clientId = [Constants]::DefaultClientId;          
                 $replyUri = [Constants]::DefaultReplyUri; 
                 $adoResourceId = "https://graph.microsoft.com/";
-                [AuthenticationContext] $ctx = [AuthenticationContext]::new("https://login.windows.net/common");
-                [AuthenticationResult] $result = $null;
 
-                $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
-                $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
-                $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+                if ([ContextHelper]::PSVersion -gt 5) {
+                    $result = [ContextHelper]::GetGraphAccess()
+                }
+                else {
+                    [AuthenticationContext] $ctx = [AuthenticationContext]::new("https://login.windows.net/common");
+                    [AuthenticationResult] $result = $null;
+                    $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
+                    $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
+                    $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+                }
                 $accessToken = $result.AccessToken
                 Write-Host "Successfully acquired graph access token." -ForegroundColor Cyan
             }
@@ -250,6 +316,35 @@ class ContextHelper {
 
 		return $accessToken;
 	}
+
+    hidden static [PSobject] GetGraphAccess()
+    {
+
+        $ClientId = [Constants]::DefaultClientId
+        [Microsoft.Identity.Client.IPublicClientApplication] $appGrapth = [Microsoft.Identity.Client.PublicClientApplicationBuilder]::Create($ClientId).Build();
+        if (![ContextHelper]::Account) {
+            [ContextHelper]::Account = $appGrapth.GetAccountsAsync().GetAwaiter().GetResult() | Select-Object -First 1
+        }
+        $tokenSource = New-Object System.Threading.CancellationTokenSource
+        $taskAuthenticationResult=$null
+        $AquireTokenParameters = $null;
+        [string[]] $Scopes = "https://graph.microsoft.com/.default";
+
+        $AquireTokenParameters = [ContextHelper]::appObj.AcquireTokenSilent($Scopes, [ContextHelper]::Account)
+        try {
+            $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
+            if ( [Helpers]::CheckMember($taskAuthenticationResult, "exception.message") -and ($taskAuthenticationResult.exception.message -like "*errors occurred*")) {
+                $AquireTokenParameters = $appGrapth.AcquireTokenInteractive($Scopes)
+                $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
+            }
+        }
+        catch {
+            $AquireTokenParameters = $appGrapth.AcquireTokenInteractive($Scopes)
+            $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
+        }
+        
+        return $taskAuthenticationResult.result;
+    }
 
     hidden [OrganizationContext] SetContext([string] $organizationName)
     {
@@ -310,7 +405,12 @@ class ContextHelper {
             $contextObj.TokenExpireTimeLocal = $context.ExpiresOn
         }
         else {
-            $contextObj.Account.Id = $context.UserInfo.DisplayableId
+            if ([ContextHelper]::PSVersion -gt 5) {
+                $contextObj.Account.Id = $context.Account.username
+            }
+            else {
+                $contextObj.Account.Id = $context.UserInfo.DisplayableId
+            }
             $contextObj.Tenant.Id = $context.TenantId
             $contextObj.AccessToken = $context.AccessToken
 

@@ -1,6 +1,14 @@
 Set-StrictMode -Version Latest
 
 $libraryPath = (Get-Item $PSScriptRoot).Parent.FullName+ "\Lib";
+
+## Load correct assemblies for the PowerShell platform
+try {
+    Add-Type -Path "$libraryPath\Microsoft.Identity.Client.dll";
+}
+catch {
+}
+
 $FrameworkPath = $PSScriptRoot
 
 . $FrameworkPath\Models\Enums.ps1
