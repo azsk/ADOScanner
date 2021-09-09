@@ -988,6 +988,7 @@ class CommonSVTControls: ADOSVTBase {
     hidden [ControlResult] CheckBuildSvcAcctAccessOnRepository([ControlResult] $controlResult)
 	{
         $controlResult.VerificationResult = [VerificationResult]::Failed
+        $excessivePermissions = $this.ControlSettings.Repo.RestrictedRolesForBuildSvcAccountsInRepo
         try
         {
             # Fetching repository RBAC using portal api's because no documented api present for this purpose.
@@ -1009,7 +1010,6 @@ class CommonSVTControls: ADOSVTBase {
             if($repositoryIdentities.Count -gt 0)
             {
                 # fetch the groups that have access to the repo
-                $excessivePermissions = $this.ControlSettings.Repo.RestrictedRolesForBuildSvcAccountsInRepo
                 $groupPermissionsBody = '{"contributionIds":["ms.vss-admin-web.security-view-permissions-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","permissionSetId":"2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","accountName":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
                 $groupPermissionsBody.dataProviderContext.properties.sourcePage.url = $refererUrl
                 $groupPermissionsBody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceGroupName;
@@ -1090,6 +1090,7 @@ class CommonSVTControls: ADOSVTBase {
             else{
                 $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch repository permission details.");
             }
+            $controlResult.AddMessage("`nNote:`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT -AutoSize | Out-String -Width 512)");
         }
         catch
         {
