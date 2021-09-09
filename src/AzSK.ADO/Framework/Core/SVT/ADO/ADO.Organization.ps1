@@ -2073,7 +2073,7 @@ class Organization: ADOSVTBase
                                                 if(($formatLastRunTimeSpan).Days -gt 10000)
                                                 {
                                                     $_.LastAccessedDate = "User was never active"
-                                                    $neverActiveUsersWithAdminAccess += $-
+                                                    $neverActiveUsersWithAdminAccess += $_
                                                 }
                                                 else {
                                                     $_.LastAccessedDate = $dateobj #.ToString("d MMM yyyy"), date object is needed to sort users based on datetime.
