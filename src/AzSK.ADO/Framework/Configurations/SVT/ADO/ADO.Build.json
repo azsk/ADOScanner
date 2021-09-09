@@ -192,7 +192,8 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "SkipYAML"
+        "SkipYAML",
+        "AutomatedFix"
       ],
       "Enabled": true
     },

@@ -1322,6 +1322,11 @@ class Build: ADOSVTBase
             $jobAuthorizationScope = $this.BuildObj[0].jobAuthorizationScope
             if ($jobAuthorizationScope -eq "projectCollection") {
                 $controlResult.AddMessage([VerificationResult]::Failed,"Access token of build pipeline is scoped to project collection.");
+                if ($this.ControlFixBackupRequired)
+                {
+                    #Data object that will be required to fix the control
+                    $controlResult.BackupControlState = $jobAuthorizationScope;
+                }
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed,"Access token of build pipeline is scoped to current project.");
@@ -1333,6 +1338,33 @@ class Build: ADOSVTBase
         }
 
         return  $controlResult
+    }
+    hidden [ControlResult] CheckBuildAuthZScopeAutomatedFix([ControlResult] $controlResult)
+    {   
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            
+            $uri = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=5.0-preview.6" -f ($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $($this.BuildObj.id) 
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+            if (-not $this.UndoFix) {
+                $this.BuildObj[0].jobAuthorizationScope = 2;
+                $body = $this.BuildObj[0] | ConvertTo-Json -Depth 10
+                $buildDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
+                $controlResult.AddMessage([VerificationResult]::Fixed,"Access token of build pipeline has been changed to current project.");
+            }
+            else {
+                $this.BuildObj[0].jobAuthorizationScope = 1;
+                $body = $this.BuildObj[0] | ConvertTo-Json -Depth 10
+                $buildDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
+                $controlResult.AddMessage([VerificationResult]::Fixed,"Access token of build pipeline has been changed to project collection.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
     hidden [ControlResult] CheckBroaderGroupAccess([ControlResult] $controlResult)
     {
