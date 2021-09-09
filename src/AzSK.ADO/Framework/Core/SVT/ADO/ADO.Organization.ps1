@@ -651,14 +651,14 @@ class Organization: ADOSVTBase
                     if([AzSKRoot]::IsDetailedScanRequired -eq $true)
                     {
                         $activeGuestUsers= $activeGuestUsers | Select-Object @{Name="DisplayName"; Expression = {$_.DisplayName}},@{Name="MailAddress"; Expression = {$_.MailAddress}}, @{Name="InactiveFromDays"; Expression = {$_.InactiveFromDays}}, @{Name="ProjectReference"; Expression = {$_.ProjectEntitlements.projectref.name}}, @{Name="ProjectPermission"; Expression = {$_.ProjectEntitlements.group.displayName}}, @{Name="AccessLevel"; Expression = {$_.AccessLevel}}
-                        $display = ($activeGuestUsers |FT -AutoSize | Out-String -Width 512)
+                        $display = ($activeGuestUsers| Sort-Object -Property InactiveFromDays -Descending |FT -AutoSize | Out-String -Width 512)
                     }
                     else
                     {
-                        $display = ($activeGuestUsers |FT DisplayName,MailAddress,InactiveFromDays -AutoSize | Out-String -Width 512)
+                        $display = ($activeGuestUsers| Sort-Object -Property InactiveFromDays -Descending |FT DisplayName,MailAddress,InactiveFromDays -AutoSize | Out-String -Width 512)
                     }
                     $controlResult.AddMessage($display)
-                    $formatedGuestUsers = ($activeGuestUsers | Sort-Object -Property InactiveFromDays -Descending) | ForEach-Object { $_.DisplayName + ': ' +$_.MailAddress +': '+ $_.InactiveFromDays }
+                    $formatedGuestUsers = ($activeGuestUsers | Sort-Object -Property InactiveFromDays -Descending) | ForEach-Object { $_.DisplayName + ': ' +$_.MailAddress +': '+ $_.InactiveFromDays+" days" }
                     $controlResult.AdditionalInfoInCSV = "NumGuests: $($activeCount); List of first 10 users: " + (($formatedGuestUsers | Select -First 10) -join '; ' )
                     $controlResult.AdditionalInfo += "List of first 10 users: " + ($formatedGuestUsers | Select -First 10) -join '; ';
                 }
@@ -767,7 +767,7 @@ class Organization: ADOSVTBase
                         $controlResult.AddMessage("`nTotal number of users who were never active: $($neverActiveUsersCount)");
                         #$controlResult.AddMessage("Review users present in the organization who were never active: ",$neverActiveUsers);
                         $ftWidth = 512 #To avoid "..." truncation
-                        $display = ($neverActiveUsers | Sort-Object InactiveFromDays -Descending |  FT mailAddress, Name, InactiveFromDays -AutoSize | Out-String -Width $ftWidth)
+                        $display = ($neverActiveUsers |  FT mailAddress, Name, InactiveFromDays -AutoSize | Out-String -Width $ftWidth)
                         $controlResult.AddMessage("Review users present in the organization who were never active: ",$display);
                         $controlResult.AdditionalInfo += "Total number of users who were never active: " + $neverActiveUsersCount;
                         $controlResult.AdditionalInfo += "List of users who were never active: " + [JsonHelper]::ConvertToJsonCustomCompressed($neverActiveUsers);
@@ -775,21 +775,29 @@ class Organization: ADOSVTBase
 
                     $inactiveUsersWithDaysCount = ($inactiveUsersWithDays | Measure-Object).Count
                     if($inactiveUsersWithDaysCount -gt 0) {
+                        $inactiveUsersWithDays = $inactiveUsersWithDays | Sort-Object InactiveFromDays -Descending 
                         $controlResult.AddMessage("`nTotal number of users who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: $($inactiveUsersWithDaysCount)");
                         #$controlResult.AddMessage("Review users present in the organization who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: ",$inactiveUsersWithDays);
                         $ftWidth = 512 #To avoid "..." truncation
-                        $display = ($inactiveUsersWithDays | Sort-Object InactiveFromDays -Descending |  FT mailAddress, Name, InactiveFromDays -AutoSize | Out-String -Width $ftWidth)
+                        $display = ($inactiveUsersWithDays |  FT mailAddress, Name, InactiveFromDays -AutoSize | Out-String -Width $ftWidth)
                         $controlResult.AddMessage("Review users present in the organization who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: ",$display);
                         $controlResult.AdditionalInfo += "Total number of users who are inactive from last $($this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays) days: " + $inactiveUsersWithDaysCount;
                     }
+
+                    $controlResult.AdditionalInfoInCSV += "NumInactiveUsers: $($inactiveUsersCount) ; ";
+                    $inactiveUsersWithDays += $neverActiveUsers
+                    $UserList = $inactiveUsersWithDays | ForEach-Object { $_.Name +': '+ $_.mailAddress +': '+ $_.InactiveFromDays +" days"} | select-object -Unique -First 10;
+                    $controlResult.AdditionalInfoInCSV += "First 10 InactiveUsers: $($UserList -join ' ; ');";
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No users found to be inactive for last $($inactivityThresholdInDays) days.")
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
             }
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "No users found in the org.");
+                $controlResult.AdditionalInfoInCSV = "NA";
             }
         }
         catch {
@@ -1639,7 +1647,7 @@ class Organization: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive guest users in the organization: $($inactiveGuestUsersCount)");
                     $controlResult.AdditionalInfo += "Count of inactive guest users in the organization: " + $inactiveGuestUsersCount;
                     $controlResult.SetStateData("Inactive guest users list: ", $inactiveUsersStateData);
-                    $controlResult.AdditionalInfoInCSV = "NumGuests: $($users.Count);"
+                    $controlResult.AdditionalInfoInCSV = "NumGuests: $($users.Count) ;"
 
 
                     $inactiveUsersWithDays = $inactiveUsers | Where-Object {$_.InactiveFromDays -ne "User was never active."}
@@ -1855,6 +1863,7 @@ class Organization: ADOSVTBase
                 $AdminGroupsToCheckForInactiveUser = @($this.ControlSettings.Organization.AdminGroupsToCheckForInactiveUser)
 
                 $inactiveUsersWithAdminAccess = @()
+                $neverActiveUsersWithAdminAccess = @()
                 $inactivityThresholdInDays = 90
                 if([Helpers]::CheckMember($this.ControlSettings,"Organization.AdminInactivityThresholdInDays"))
                 {
@@ -1938,11 +1947,12 @@ class Organization: ADOSVTBase
                                                 if(($formatLastRunTimeSpan).Days -gt 10000)
                                                 {
                                                     $_.LastAccessedDate = "User was never active"
+                                                    $neverActiveUsersWithAdminAccess += $-
                                                 }
                                                 else {
-                                                    $_.LastAccessedDate = $dateobj.ToString("d MMM yyyy")
+                                                    $_.LastAccessedDate = $dateobj #.ToString("d MMM yyyy"), date object is needed to sort users based on datetime.
+                                                    $inactiveUsersWithAdminAccess += $_
                                                 }
-                                                $inactiveUsersWithAdminAccess += $_
                                             }
                                         }
                                     }
@@ -1964,15 +1974,19 @@ class Organization: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Error, "Unable to fetch details of inactive users in admin role. Please run the scan with admin priveleges.")
                     }
-                    elseif($inactiveUsersWithAdminAccess.count -gt 0)
+                    elseif(($inactiveUsersWithAdminAccess.count -gt 0) -or ($neverActiveUsersWithAdminAccess.Count -gt 0))
                     {
+                        $inactiveUsersWithAdminAccess = @($inactiveUsersWithAdminAccess | Sort-Object LastAccessedDate)
+                        $inactiveUsersWithAdminAccess = @($inactiveUsersWithAdminAccess | Select-Object PrincipalName,DisplayName,Group, @{Name="LastAccessedDate";Expression = {$_.LastAccessedDate.ToString("d MMM yyyy")}})
+                        $inactiveUsersWithAdminAccess += $neverActiveUsersWithAdminAccess | Select-Object PrincipalName,DisplayName,Group, LastAccessedDate
                         $controlResult.AddMessage([VerificationResult]::Failed,"Count of users found inactive for $($inactivityThresholdInDays) days in admin roles: $($inactiveUsersWithAdminAccess.count) ");
                         $controlResult.AddMessage("`nInactive admin user details:")
                         $display = ($inactiveUsersWithAdminAccess|FT PrincipalName,DisplayName,Group,LastAccessedDate  -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
-                        $inactiveUsers = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName + ': '+$_.PrincipalName+': ' + $_.Group +': ' +$_.LastAccessedDate }
-                        $controlResult.AdditionalInfoInCSV = "First 10 inactive users: $($inactiveUsersWithAdminAccess.count);" + (($inactiveUsers | Select -First 10) -join '; ' )
+                        $usersList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName +': '+ $(if($_.LastAccessedDate -eq 'User was never active'){ "NeverActive"} else { (((Get-Date) - [DateTime]$_.LastAccessedDate).Days).ToString() + ' days'})} | select-object -Unique -First 10;
+                        $controlResult.AdditionalInfoInCSV += "NumInactiveUsers: $($inactiveUsersWithAdminAccess.Count) ; ";
+                        $controlResult.AdditionalInfoInCSV += "First 10 InactiveUsers: $($usersList -join ' ; ');";
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No users in org admin roles have been inactive for $($inactivityThresholdInDays) days.");
