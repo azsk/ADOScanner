@@ -9,6 +9,10 @@ class AgentPool: ADOSVTBase
     hidden [PSObject] $agentPoolActivityDetail = @{isAgentPoolActive = $true; agentPoolLastRunDate = $null; agentPoolCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [string] $checkInheritedPermissionsPerAgentPool = $false
 
+    hidden static [PSObject] $regexListForSecrets;
+
+    hidden [PSObject] $AgentPoolOrgObj; #This will contain org level agent pool details
+
     AgentPool([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         $this.AgentPoolId =  ($this.ResourceContext.ResourceId -split "agentpool/")[-1]
@@ -42,6 +46,8 @@ class AgentPool: ADOSVTBase
         if ([Helpers]::CheckMember($this.ControlSettings, "Agentpool.CheckForInheritedPermissions") -and $this.ControlSettings.Agentpool.CheckForInheritedPermissions) {
             $this.checkInheritedPermissionsPerAgentPool = $true
         }
+
+        [AgentPool]::regexListForSecrets = @($this.ControlSettings.Patterns | Where-Object {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList);
     }
 
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
@@ -108,22 +114,31 @@ class AgentPool: ADOSVTBase
 
     hidden [ControlResult] CheckOrgAgtAutoProvisioning([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try {
             #Only agent pools created from org setting has this settings..
-            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
-            $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-
-            if ((($agentPoolsObj | Measure-Object).Count -gt 0) -and $agentPoolsObj.autoProvision -eq $true) {
-                $controlResult.AddMessage([VerificationResult]::Failed,"Auto-provisioning is enabled for the $($agentPoolsObj.name) agent pool.");
-            }
-            else {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Auto-provisioning is not enabled for the agent pool.");
+            if($null -eq $this.AgentPoolOrgObj)
+            {
+                $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
+                $this.AgentPoolOrgObj = @([WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL));
             }
 
-            $agentPoolsObj =$null;
+            if($this.AgentPoolOrgObj.Count -gt 0)
+            {
+                if ($this.AgentPoolOrgObj.autoProvision -eq $true) {
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Auto-provisioning is enabled for the $($this.AgentPoolOrgObj.name) agent pool.");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Auto-provisioning is not enabled for the agent pool.");
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch auto-update details of agent pool.");
+            }
         }
         catch{
-            $controlResult.AddMessage([VerificationResult]::Manual,"Could not fetch agent pool details.");
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch agent pool details.");
             $controlResult.LogException($_)
         }
         return $controlResult
@@ -131,21 +146,25 @@ class AgentPool: ADOSVTBase
 
     hidden [ControlResult] CheckAutoUpdate([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            #autoUpdate setting is available only at org level settings.
-            $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
-            $agentPoolsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-
-            if([Helpers]::CheckMember($agentPoolsObj,"autoUpdate"))
+            if($null -eq $this.AgentPoolOrgObj)
             {
-                if($agentPoolsObj.autoUpdate -eq $true)
+                #autoUpdate setting is available only at org level settings.
+                $agentPoolsURL = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.resourcename;
+                $this.AgentPoolOrgObj = @([WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL));
+            }
+
+            if($this.AgentPoolOrgObj.Count -gt 0)
+            {
+                if($this.AgentPoolOrgObj.autoUpdate -eq $true)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Auto-update of agents is enabled for [$($agentPoolsObj.name)] agent pool.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Auto-update of agents is enabled for [$($this.AgentPoolOrgObj.name)] agent pool.");
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Auto-update of agents is disabled for [$($agentPoolsObj.name)] agent pool.");
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Auto-update of agents is disabled for [$($this.AgentPoolOrgObj.name)] agent pool.");
                 }
 
             }
@@ -153,8 +172,6 @@ class AgentPool: ADOSVTBase
             {
                 $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch auto-update details of agent pool.");
             }
-
-            $agentPoolsObj =$null;
         }
         catch
         {
@@ -251,6 +268,7 @@ class AgentPool: ADOSVTBase
 
     hidden [ControlResult] CheckCredInEnvironmentVariables([ControlResult] $controlResult)
     {
+        $controlResult.VerificationResult = [VerificationResult]::Failed;
         try
         {
             if($null -eq  $this.agentPool)
@@ -258,84 +276,73 @@ class AgentPool: ADOSVTBase
                 $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $($this.OrganizationContext.OrganizationName), $this.ProjectId ,$this.AgentPoolId;
                 $this.agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
             }
-
-                $patterns = $this.ControlSettings.Patterns | Where-Object {$_.RegexCode -eq "SecretsInBuild"} | Select-Object -Property RegexList;
-                if(($patterns | Measure-Object).Count -gt 0)
+            $patterns = [AgentPool]::regexListForSecrets
+            if($patterns.RegexList.Count -gt 0)
+            {
+                $noOfCredFound = 0;
+                $agentsWithSecretsInEnv=@()
+                if (([Helpers]::CheckMember($this.agentPool[0],"fps.dataproviders.data") ) -and ($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider") -and [Helpers]::CheckMember($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider","agents") )
                 {
-                    $noOfCredFound = 0;
-                    $AgentsWithSecretsInEnv=@()
-                    if (([Helpers]::CheckMember($this.agentPool[0],"fps.dataproviders.data") ) -and ($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider") -and [Helpers]::CheckMember($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider","agents") )
-                    {
-                        $Agents = $this.agentpool.fps.dataproviders.data."ms.vss-build-web.agent-pool-data-provider".agents
-
-                        $Agents | ForEach-Object {
-                            $RefAgent = "" | Select-Object "AgentName","Capabilities"
-                            $RefAgent.AgentName = $_.name
-                            $EnvVariablesContainingSecret=@()
-                            if([Helpers]::CheckMember($_,"userCapabilities"))
-                            {
-                                $EnvVariable=$_.userCapabilities
-                                $refHashTable=@{}
-                                $EnvVariable.PSObject.properties | ForEach-Object { $refHashTable[$_.Name] = $_.Value }
-                                $refHashTable.Keys | Where-Object {
-                                    for ($i = 0; $i -lt $patterns.RegexList.Count; $i++)
+                    $agents = $this.agentpool.fps.dataproviders.data."ms.vss-build-web.agent-pool-data-provider".agents
+                    $agents | ForEach-Object {
+                        $currentAgent = "" | Select-Object "AgentName","Capabilities"
+                        $currentAgent.AgentName = $_.name
+                        $envVariablesContainingSecret=@()
+                        $secretsFoundInCurrentAgent = $false
+                        if([Helpers]::CheckMember($_,"userCapabilities"))
+                        {
+                            $userCapabilities=$_.userCapabilities
+                            $secretsHashTable=@{}
+                            $userCapabilities.PSObject.properties | ForEach-Object { $secretsHashTable[$_.Name] = $_.Value }
+                            $secretsHashTable.Keys | ForEach-Object {
+                                for ($i = 0; $i -lt $patterns.RegexList.Count; $i++)
+                                {
+                                    if($secretsHashTable.Item($_) -cmatch $patterns.RegexList[$i])
                                     {
-                                        # Using -cmatch as same logic we had applied in build and release controls
-                                        if($refHashTable.Item($_) -cmatch $patterns.RegexList[$i])
-                                        {
-                                            $noOfCredFound += 1
-                                            $EnvVariablesContainingSecret += $_
-                                            break
-                                        }
+                                        $noOfCredFound += 1
+                                        $secretsFoundInCurrentAgent = $true
+                                        $envVariablesContainingSecret += $_
+                                        break;
                                     }
                                 }
                             }
-                            $RefAgent.Capabilities = $EnvVariablesContainingSecret
-                            $AgentsWithSecretsInEnv += $RefAgent
                         }
-
-                        if($noOfCredFound -eq 0)
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Passed, "No secrets found in user-defined capabilities of agents.");
-                        }
-                        else {
-                            $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in user-defined capabilities of agents.");
-
-                            $count = ($AgentsWithSecretsInEnv | Measure-Object).Count
-                            if($count -gt 0 )
-                            {
-                                #$varList = $EnvVariablesContainingSecret | select -Unique | Sort-object
-                               # $stateData.AgentsWithCred += $AgentsWithSecretsInEnv.AgentName
-                                $controlResult.AddMessage("`nTotal number of agents that contain secrets in user-defined capabilities: $count")
-                                $controlResult.AdditionalInfo += "Total number of agents that contain secrets in user-defined capabilities: "+ $count;
-                                $controlResult.AddMessage("`nAgent wise list of user-defined capabilities containing secret: ");
-                                $display=($AgentsWithSecretsInEnv | FT AgentName,Capabilities -AutoSize | Out-String -Width 512)
-                                $controlResult.AddMessage($display)
-                                #$controlResult.AdditionalInfo += "Total number of variable(s) containing secret: " + ($varList | Measure-Object).Count;
-                            }
-                            $controlResult.SetStateData("Agent wise list of user-defined capabilities containing secret: ", $AgentsWithSecretsInEnv );
+                        $currentAgent.Capabilities = $envVariablesContainingSecret
+                        if ($secretsFoundInCurrentAgent -eq $true) {
+                            $agentsWithSecretsInEnv += $currentAgent
                         }
                     }
-                    else
+
+                    if($noOfCredFound -eq 0)
                     {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "There are no agents in the pool.");
+                        $controlResult.AddMessage([VerificationResult]::Passed, "No secrets found in user-defined capabilities of agents.");
                     }
-                    $patterns = $null;
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in user-defined capabilities of agents.");
+                        $count = $agentsWithSecretsInEnv.Count
+                        $controlResult.AddMessage("`nCount of agents that contain secrets: $count")
+                        $controlResult.AdditionalInfo += "Count of agents that contain secrets: "+ $count;
+                        $controlResult.AddMessage("`nAgent-wise list of user-defined capabilities with secrets: ");
+                        $display=($agentsWithSecretsInEnv | FT AgentName,Capabilities -AutoSize | Out-String -Width 512)
+                        $controlResult.AddMessage($display)
+                        $controlResult.SetStateData("Agent-wise list of user-defined capabilities with secrets: ", $agentsWithSecretsInEnv );
+                    }
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting credentials in environment variables for agents are not defined in your organization.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "There are no agents in the pool.");
                 }
-
-
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting credentials in environment variables for agents are not defined in your organization.");
+            }
         }
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch details of user-defined capabilities of agents.");
             $controlResult.LogException($_)
         }
-        #clearing memory space.
-        $this.agentPool = $null;
         return $controlResult
     }
 
@@ -418,7 +425,7 @@ class AgentPool: ADOSVTBase
                 $roleAssignmentsToCheck = $this.AgentObj
                 $restrictedGroups = @()
                 if ($this.checkInheritedPermissionsPerAgentPool -eq $false) {
-                    $roleAssignmentsToCheck = $this.AgentObj | where-object { $_.access -ne "inherited" }
+                    $roleAssignmentsToCheck = @($this.AgentObj | where-object { $_.access -ne "inherited" })
                 }
                 $roleAssignments = @($roleAssignmentsToCheck | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.id}}, @{Name="Role"; Expression = {$_.role.displayName}});
                 # Checking whether the broader groups have User/Admin permissions
@@ -435,7 +442,7 @@ class AgentPool: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have excessive permissions on agent pool: $($restrictedGroupsCount)");
                     $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
                     $backupDataObject = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id } }, @{l = 'Role'; e = { $_.Role } }
-                    $formattedGroupsTable = ($formattedGroupsData | Out-String)
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions on agent pool: $($restrictedGroupsCount)";
@@ -457,7 +464,7 @@ class AgentPool: ADOSVTBase
                 $controlResult.AdditionalInfoInCSV = "NA";
             }
             $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
-            $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' which should not excessive permissions: `n$($displayObj | FT | out-string -width 512)");
+            $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' which should not excessive permissions: `n$($displayObj | FT -AutoSize| out-string -width 512)");
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the agent pool permissions.");

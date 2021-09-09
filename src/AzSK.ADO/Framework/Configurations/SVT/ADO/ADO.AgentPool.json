@@ -62,7 +62,7 @@
       "Automated": "Yes",
       "MethodName": "CheckOrgAgtAutoProvisioning",
       "Rationale": "By enabling auto-provisioning the organization agent pool is imported in all your new team projects and is accessible there immediately. Therefore, a vulnerability in components used by one project can be leveraged by an attacker to attack other projects.",
-      "Recommendation": "To change auto-provision settings: 1.Navigate to the Organization settings. 2. Open Agent pools. 3. Select Settings. 4. Change the settings for 'Auto-provisioning' this agent pools in new projects'",
+      "Recommendation": "1.Navigate to the Organization settings. --> 2. Select agent pool. --> 3. Select Settings. --> 4. Change the settings for 'Auto-provisioning this agent pools in new projects'",
       "Tags": [
         "SDL",
         "TCP",
@@ -130,8 +130,8 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckCredInEnvironmentVariables",
-      "Rationale": "Keeping secrets such as connection strings, passwords, keys, etc. in plain text can expose the credentials to a wider audience and can lead to credential theft.",
-      "Recommendation": "1. Go to agent pool -> 2. Agents -> 3. Select each agent -> 4. Capabilities -> 5. Remove all user defined capabilities that contain secret.",
+      "Rationale": "Keeping secrets such as connection strings, passwords, keys, etc. as a plain text in agent capabilities can expose the credentials to a wider audience and lead to credential theft. Any user who can deploy a pipeline to run on such agents can access these secrets and compromise the security of resources involving the secrets.",
+      "Recommendation": "1. Go to agent pool --> 2. Agents --> 3. Select each agent --> 4. Capabilities --> 5. Remove all user defined capabilities that contain secret.",
       "Tags": [
         "SDL",
         "TCP",
@@ -142,7 +142,7 @@
     },
     {
       "ControlID": "ADO_AgentPool_AuthZ_Restrict_Broader_Group_Access",
-      "Description": "Broader groups (contributors, project valid users, etc.) should not have user/administrator privileges on agent pool.",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not have excessive permissions on agent pool.",
       "Id": "AgentPool200",
       "ControlSeverity": "High",
       "Automated": "Yes",

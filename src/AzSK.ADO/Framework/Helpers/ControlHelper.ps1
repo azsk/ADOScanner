@@ -267,18 +267,24 @@ class ControlHelper: EventBase{
         $groupList | Foreach-Object {
             # In some cases, group object doesn't contains descriptor key which requires to expand the groups.
             if ($fetchDescriptor) {
-                if (-not ([ControlHelper]::GroupsWithDescriptor.keys -contains $_.Name)) {
-                    [ControlHelper]::GroupsWithDescriptor[$_.Name] += [ControlHelper]::GetBroaderGroupDescriptorObj($this.OrganizationContext.OrganizationName, $_.Name)
-                }
-                $groupObj = [ControlHelper]::GroupsWithDescriptor[$_.Name]
+                $groupName = $_.Name.split('\')[-1]
             }
             else {
-                $groupObj = $_
+                $groupName = $_.principalName.split('\')[-1]
             }
-            $groupName = $groupObj.principalName.split('\')[-1]
             if ([ControlHelper]::GroupsToExpand -contains $groupName) 
             {
+                if ($fetchDescriptor) {
+                    if (-not ([ControlHelper]::GroupsWithDescriptor.keys -contains $_.Name)) {
+                        [ControlHelper]::GroupsWithDescriptor[$_.Name] += [ControlHelper]::GetBroaderGroupDescriptorObj($this.OrganizationContext.OrganizationName, $_.Name)
+                    }
+                    $groupObj = [ControlHelper]::GroupsWithDescriptor[$_.Name]
+                }
+                else {
+                    $groupObj = $_
+                }
                 [ControlHelper]::parentGroup = $groupObj.principalName
+                #Checking if group is prenet in the dictionary, if not then expand it, else fetch from dictionary
                 if (-not [ControlHelper]::ResolvedBroaderGroups.ContainsKey($groupObj.principalName)) {
                     $groupMembers = @([ControlHelper]::ResolveNestedBroaderGroupMembers($groupObj, $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName))
                 }
@@ -286,6 +292,9 @@ class ControlHelper: EventBase{
                     $groupMembers = @([ControlHelper]::ResolvedBroaderGroups[$groupObj.principalName])
                 }
                 $groupMembersCount = @($groupMembers | Select-Object -property mailAddress -Unique).Count
+
+                # Checking the allowed member count for broader group
+                # Fail only if member count is greater then allowed limit.
                 if ([Helpers]::CheckMember([ControlHelper]::AllowedMemberCountPerBroadGroup, $groupName))
                 {
                     $allowedMemberCount = [ControlHelper]::AllowedMemberCountPerBroadGroup.$groupName
@@ -300,7 +309,12 @@ class ControlHelper: EventBase{
             }
             else
             {
-                $broaderGroupsWithExcessiveMembers += $groupObj.principalName
+                if ($fetchDescriptor) {
+                    $broaderGroupsWithExcessiveMembers += $_.Name
+                }
+                else {
+                    $broaderGroupsWithExcessiveMembers += $_.principalName
+                }
             }
         }
         return $broaderGroupsWithExcessiveMembers

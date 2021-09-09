@@ -1513,13 +1513,12 @@ class Build: ADOSVTBase
                             }
 
                             if ($groupsWithExcessivePermissionsList.count -gt 0) {
-                                #TODO: Do we need to put state object?
                                 $controlResult.AddMessage([VerificationResult]::Failed, "Broader groups have excessive permissions on the build pipeline.");
                                 $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
-                                $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
+                                $formattedBroaderGrpTable = ($formattedGroupsData | FT -AutoSize | Out-String)
                                 $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                                 $controlResult.AdditionalInfo += "List of excessive permissions on which contributors have access:  $($groupsWithExcessivePermissionsList.Group).";
-                                
+                                $controlResult.SetStateData("List of groups: ", $formattedGroupsData)
                                 $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions } 
                                 $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                                 
