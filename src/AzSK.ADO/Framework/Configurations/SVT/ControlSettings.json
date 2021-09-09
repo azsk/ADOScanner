@@ -581,17 +581,28 @@
       "*@ntdev.microsoft.com",
       "*@microsoftfederal.com"
     ],
-    "RestrictedBroaderGroupsForRepo": [
-      "Project Collection Valid Users",
-      "Contributors",
-      "Readers",
-      "Project Valid Users"
-    ],
-    "RestrictedRolesForBroaderGroupsInRepo": [
-      "Contribute",
-      "Delete repository",
-      "Manage permissions"
-    ],
+    "RestrictedBroaderGroupsForRepo" : {
+      "Contributors":[
+        "Contribute",
+        "Delete repository",
+        "Manage permissions"
+      ],
+      "Readers":[
+        "Contribute",
+        "Delete repository",
+        "Manage permissions"
+      ],
+      "Project Collection Valid Users":[
+        "Contribute",
+        "Delete repository",
+        "Manage permissions"
+      ],
+      "Project Valid Users":[
+        "Contribute",
+        "Delete repository",
+        "Manage permissions"
+      ]
+    },
     "BranchesToCheckForExcessivePermissions":[
       "main",
       "master",

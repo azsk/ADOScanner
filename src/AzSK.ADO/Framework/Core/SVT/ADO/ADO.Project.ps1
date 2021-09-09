@@ -3150,98 +3150,113 @@ class Project: ADOSVTBase
     }
 
     hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForRepo ([ControlResult] $controlResult) {        
-        $accessList = @() 
         $controlResult.VerificationResult = [VerificationResult]::Failed       
         try{
 
-            if ([Helpers]::CheckMember($this.ControlSettings, "Repo.RestrictedBroaderGroupsForRepo") -and [Helpers]::CheckMember($this.ControlSettings, "Repo.RestrictedRolesForBroaderGroupsInRepo")) {
-                $restrictedBroaderGroupsForRepo = $this.ControlSettings.Repo.RestrictedBroaderGroupsForRepo;  
-                $restrictedRolesForBroaderGroupsInRepo = $this.ControlSettings.Repo.RestrictedRolesForBroaderGroupsInRepo;  
+            $restrictedBroaderGroups = @{}
+            $restrictedBroaderGroupsForRepo = $this.ControlSettings.Repo.RestrictedBroaderGroupsForRepo;
+            $restrictedBroaderGroupsForRepo.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }  
 
-                $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
-                $refererUrl = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=permissions";
-                $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
-                $inputbody.dataProviderContext.properties.sourcePage.url = $refererUrl
-                $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
-                $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.id)"
+            #permissionSetId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
+            $permissionSetToken = $this.ResourceContext.ResourceDetails.id
+            $repoSecurityNamespaceId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87'
 
-                # Get list of all users and groups granted permissions on all repositories
-                $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+            $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+            $refererUrl = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=permissions";
+            $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+            $inputbody.dataProviderContext.properties.sourcePage.url = $refererUrl
+            $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
+            $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($permissionSetToken)"
 
-                # Iterate through each user/group to fetch detailed permissions list
-                if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+            # Checking if Inherited permissions are allowed or not.
+            $allowPermissionBits = @(1)
+            if ([Helpers]::CheckMember($this.ControlSettings, "Repo.CheckForInheritedPermissions") -and $this.ControlSettings.Repo.CheckForInheritedPermissions) {
+                #allow permission bit for inherited permission is '3'
+                $allowPermissionBits = @(1,3)
+            }
+
+            # Get list of all users and groups granted permissions on all repositories
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+
+            # Iterate through each user/group to fetch detailed permissions list
+            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+            {
+                $body = '{"contributionIds":["ms.vss-admin-web.security-view-permissions-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","accountName":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $body.dataProviderContext.properties.sourcePage.url = $refererUrl
+                $body.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
+                $body.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.id)"
+
+                $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $restrictedBroaderGroups.keys -contains $_.displayName })
+                if ($broaderGroupsList.Count -gt 0)
                 {
-                    $body = '{"contributionIds":["ms.vss-admin-web.security-view-permissions-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","accountName":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
-                    $body.dataProviderContext.properties.sourcePage.url = $refererUrl
-                    $body.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
-                    $body.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.id)"
-
-                    $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { $_.subjectKind -eq "group" } | ForEach-Object {
-                        $identity = $_
-                        $body.dataProviderContext.properties.accountName = $_.principalName
-                        $body.dataProviderContext.properties.subjectDescriptor = $_.descriptor
-
+                    $groupsWithExcessivePermissionsList = @()
+                    $filteredBroaderGroupList = @()
+                    foreach ($broderGroup in $broaderGroupsList)
+                    {
+                        $body.dataProviderContext.properties.accountName = $broderGroup.principalName
+                        $body.dataProviderContext.properties.subjectDescriptor = $broderGroup.descriptor
                         $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body);
-                        $configuredPermissions = $identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
-                        return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.subjectKind; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
-                    }
-
-                    $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { $_.subjectKind -eq "user" } | ForEach-Object {
-                        $identity = $_
-                        $body.dataProviderContext.properties.subjectDescriptor = $_.descriptor
-
-                        $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body);
-                        $configuredPermissions = $identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
-                        return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.subjectKind; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
-                    }
-                }
-
-                # Checking if Inherited permissions are allowed or not.
-                $allowPermission = @("Allow")
-                if ([Helpers]::CheckMember($this.ControlSettings, "Repo.CheckForInheritedPermissions") -and $this.ControlSettings.Repo.CheckForInheritedPermissions) {
-                    #allow permission bit for inherited permission is '3'
-                    $allowPermission = @("Allow", "Allow (Inherited)")
-                }
-
-                # Checking whether the broader groups have User/Admin permissions
-                $restrictedBroaderGroups = $accessList| Where-Object { ($restrictedBroaderGroupsForRepo -contains $_.IdentityName)}
-                $restrictedGroups = @()
-                $foundRestrictedPermissions = $false
-                $restrictedBroaderGroups | Foreach-Object {
-                    $group = $_
-                    $group.Permissions | Foreach-Object {
-                        #Where-Object {$_.Name -in $restrictedRolesForBroaderGroupsInRepo -and $_.Permission -in $allowPermission}
-                        if ($_.Name -in $restrictedRolesForBroaderGroupsInRepo -and $_.Permission -in $allowPermission) {
-                            $foundRestrictedPermissions = $true
+                        $broaderGroupRBACObj = $identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions
+                        $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $restrictedBroaderGroups[$broderGroup.principalName.split('\')[-1]] }
+                        $excessiveEditPermissions = @()
+                        $excessivePermissionList | ForEach-Object {
+                            #effectivePermissionValue equals to 1 implies repo perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
+                            if ([Helpers]::CheckMember($_, "effectivePermissionValue")) {
+                                if ($allowPermissionBits -contains $_.effectivePermissionValue) {
+                                    $excessiveEditPermissions += $_
+                                }
+                            }
+                        }
+                        if ($excessiveEditPermissions.Count -gt 0) {
+                            $excessivePermissionsGroupObj = @{}
+                            $excessivePermissionsGroupObj['Group'] = $broderGroup.principalName
+                            $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessiveEditPermissions.displayName -join ', ')
+                            $excessivePermissionsGroupObj['Descriptor'] = $broderGroup.sid
+                            $excessivePermissionsGroupObj['PermissionSetToken'] = $permissionSetToken
+                            $excessivePermissionsGroupObj['PermissionSetId'] = $repoSecurityNamespaceId
+                            $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
+                            $filteredBroaderGroupList += $broderGroup
                         }
                     }
-                    if ($foundRestrictedPermissions) {
-                        $restrictedGroups += $group
+
+                    if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $filteredBroaderGroupList.Count -gt 0)
+                    {
+                        $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($filteredBroaderGroupList, $false))
+                        $groupsWithExcessivePermissionsList = @($groupsWithExcessivePermissionsList | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Group})
                     }
-                    $foundRestrictedPermissions = $false
-                }
 
-                if($restrictedGroups.Count -ne 0)
-                {
-                    $accessList = $restrictedGroups | Select-Object -Property @{Name="Name"; Expression = {$_.IdentityName}}, @{Name="Type"; Expression = {$_.IdentityType}}, @{Name="Permissions"; Expression = {$_.Permissions.Name}}
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Count of broader groups that have excessive permissions to repository at a project level: $($restrictedGroups.Count)");
-                    $controlResult.AddMessage("Validate that the following broader groups that have excessive permissions to repositories: `n", $($accessList | FT -AutoSize | Out-String -Width 512));
-                    $stateData = ($responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Select-Object -Property @{Name="Name"; Expression = {$_.displayName}},@{Name="Type"; Expression = {$_.subjectKind}},@{Name="Scope"; Expression = {$_.Scope}}) 
-                    $controlResult.SetStateData("List of broader groups having access to repositories: ", $stateData);
-                    $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions to repository at a project level: $($restrictedGroups.Count)";
-
+                    if ($groupsWithExcessivePermissionsList.count -gt 0) 
+                    {
+                        $accessList = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Count of broader groups that have excessive permissions to repository at a project level: $($groupsWithExcessivePermissionsList.Count)");
+                        $controlResult.AddMessage("Validate that the following broader groups that have excessive permissions to repositories: `n", $($accessList | FT -AutoSize | Out-String -Width 512));
+                        $controlResult.SetStateData("List of broader groups having access to repositories: ", $accessList);
+                        $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions to repository at a project level: $($groupsWithExcessivePermissionsList.Count)";
+                        if ($this.ControlFixBackupRequired)
+                        {
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                        }
+                        $groups = $groupsWithExcessivePermissionsList | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions -join ',' } 
+                        $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Repositories are not allowed to inherit excessive permissions for a broad group of users at project level.");
+                    }
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have excessive access to repository at a project level.");
                 }
-                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' and should not have excessive privileges: `n$($restrictedBroaderGroupsForRepo | FT | out-string)");
-                $responseObj = $null;
             }
-            else 
+            else
             {
-                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for repository is not defined in the control settings for your organization policy.");
+                $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch repositories permission details at a project level.");
             }
+            $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+            $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -Width 512)");
+            $responseObj = $null;
+            
         }
         catch
         {
@@ -3249,6 +3264,82 @@ class Project: ADOSVTBase
             $controlResult.LogException($_)
         }
 
+        return $controlResult
+    }  
+    
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForRepoAutomatedFix([ControlResult] $controlResult)
+    {
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    
+                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","");
+                        #need to invoke a post request which does not accept all permissions added in the body at once
+                        #hence need to call invoke seperately for each permission
+                         $body = "{
+                            'token': 'repoV2/$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
+                                'allow':0,
+                                'deny':$($roleId)                              
+                            }]
+                        }" | ConvertFrom-Json
+                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$RawDataObjForControlFix[0].PermissionSetId
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Allow"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Deny"
+
+                }              
+                
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                   
+                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","");
+                        
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
+                                'allow':$($roleId),
+                                'deny':0                              
+                            }]
+                        }" | ConvertFrom-Json
+                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $RawDataObjForControlFix[0].PermissionSetId
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Allow"
+                }
+
+            }
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permissions for broader groups have been changed as below: ");
+            $formattedGroupsData = $RawDataObjForControlFix | Select @{l = 'Group'; e = { $_.Group } }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions }}, @{l = 'OldPermission'; e = { $_.OldPermission }}, @{l = 'NewPermission'; e = { $_.NewPermission } }
+            $display = ($formattedGroupsData |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
         return $controlResult
     }   
         
