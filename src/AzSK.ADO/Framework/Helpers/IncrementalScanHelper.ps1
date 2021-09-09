@@ -431,14 +431,15 @@ class IncrementalScanHelper
             $response = [WebRequestHelper]::InvokeGetWebRequest($auditUrl);
             $auditTrails = $response.decoratedAuditLogEntries;
             $modifiedBuilds = $auditTrails | Where-Object {$_.actionId  -eq 'Security.ModifyPermission' -and $_.data.NamespaceName -eq 'Build' -and $_.data.Token -match $this.ProjectId+"/" }
+            $restrictedBroaderGroups = @{}
             $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
-            $excessivePermissions = $this.ControlSettings.Build.ExcessivePermissionsForBroadGroups
+            $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
             $modifiedBuilds | foreach {
-                if($_.data.ChangedPermission -in $excessivePermissions){
-                    $group = ($_.data.SubjectDisplayName -split("\\"))[1]
-                    if($group -in $broaderGroups){
+                $group = ($_.data.SubjectDisplayName -split("\\"))[1]
+                if($group -in $restrictedBroaderGroups.keys ){
+                    if($_.data.ChangedPermission -in $restrictedBroaderGroups[$group]){
                         $buildIds += (($_.data.Token -split("/"))[1])
-                    }              
+                    }
                 }
             }
             $buildIds = $buildIds | Select -Unique
@@ -515,14 +516,15 @@ class IncrementalScanHelper
             $response = [WebRequestHelper]::InvokeGetWebRequest($auditUrl);
             $auditTrails = $response.decoratedAuditLogEntries;
             $modifiedReleases = $auditTrails | Where-Object {$_.actionId  -eq 'Security.ModifyPermission' -and $_.data.NamespaceName -eq 'ReleaseManagement' -and $_.data.Token -match $this.ProjectId+"/" }
+            $restrictedBroaderGroups = @{}
             $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
-            $excessivePermissions = $this.ControlSettings.Release.ExcessivePermissionsForBroadGroups
-            $modifiedReleases | foreach {
-                if($_.data.ChangedPermission -in $excessivePermissions){
-                    $group = ($_.data.SubjectDisplayName -split("\\"))[1]
-                    if($group -in $broaderGroups){
+            $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
+            $modifiedReleases| foreach {
+                $group = ($_.data.SubjectDisplayName -split("\\"))[1]
+                if($group -in $restrictedBroaderGroups.keys ){
+                    if($_.data.ChangedPermission -in $restrictedBroaderGroups[$group]){
                         $releaseIds += (($_.data.Token -split("/"))[1])
-                    }              
+                    }
                 }
             }
             $releaseIds = $releaseIds | Select -Unique
