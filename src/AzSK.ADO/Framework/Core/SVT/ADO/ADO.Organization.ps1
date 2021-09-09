@@ -1977,16 +1977,22 @@ class Organization: ADOSVTBase
                     elseif(($inactiveUsersWithAdminAccess.count -gt 0) -or ($neverActiveUsersWithAdminAccess.Count -gt 0))
                     {
                         $inactiveUsersWithAdminAccess = @($inactiveUsersWithAdminAccess | Sort-Object LastAccessedDate)
-                        $inactiveUsersWithAdminAccess = @($inactiveUsersWithAdminAccess | Select-Object PrincipalName,DisplayName,Group, @{Name="LastAccessedDate";Expression = {$_.LastAccessedDate.ToString("d MMM yyyy")}})
-                        $inactiveUsersWithAdminAccess += $neverActiveUsersWithAdminAccess | Select-Object PrincipalName,DisplayName,Group, LastAccessedDate
+                        $inactiveUsersWithAdminAccess = @($inactiveUsersWithAdminAccess | Select-Object PrincipalName,DisplayName,Group, @{Name="LastAccessedDate";Expression = {$_.LastAccessedDate.ToString("d MMM yyyy")}},Descriptor,SubjectDescriptor)
+                        $inactiveUsersWithAdminAccess += $neverActiveUsersWithAdminAccess | Select-Object PrincipalName,DisplayName,Group, LastAccessedDate, Descriptor,SubjectDescriptor
+                        if ($this.ControlFixBackupRequired)
+                        {
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $inactiveUsersWithAdminAccess | Select-Object -property PrincipalName,DisplayName,Group,Descriptor,SubjectDescriptor
+                        }
+                        $inactiveUsersWithAdminAccess = $inactiveUsersWithAdminAccess| Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate
                         $controlResult.AddMessage([VerificationResult]::Failed,"Count of users found inactive for $($inactivityThresholdInDays) days in admin roles: $($inactiveUsersWithAdminAccess.count) ");
                         $controlResult.AddMessage("`nInactive admin user details:")
-                        $display = ($inactiveUsersWithAdminAccess|FT PrincipalName,DisplayName,Group,LastAccessedDate  -AutoSize | Out-String -Width 512)
+                        $display = ($inactiveUsersWithAdminAccess|FT -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
                         $usersList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName +': '+ $(if($_.LastAccessedDate -eq 'User was never active'){ "NeverActive"} else { (((Get-Date) - [DateTime]$_.LastAccessedDate).Days).ToString() + ' days'})} | select-object -Unique -First 10;
                         $controlResult.AdditionalInfoInCSV += "NumInactiveUsers: $($inactiveUsersWithAdminAccess.Count) ; ";
-                        $controlResult.AdditionalInfoInCSV += "First 10 InactiveUsers: $($usersList -join ' ; ');";
+                        $controlResult.AdditionalInfoInCSV += "First 10 inactiveUsers: $($usersList -join ' ; ');";
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No users in org admin roles have been inactive for $($inactivityThresholdInDays) days.");
