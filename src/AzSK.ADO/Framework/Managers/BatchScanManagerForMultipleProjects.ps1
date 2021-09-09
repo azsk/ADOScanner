@@ -1,65 +1,59 @@
 Set-StrictMode -Version Latest
 
-class BatchScanManager 
+class BatchScanManagerForMultipleProjects 
 {
     hidden [string] $OrgName = $null;
-	hidden [string] $ProjectName = $null;
     [PSObject] $ControlSettings;
     hidden [string] $BatchScanTrackerFileName=$null;
     hidden [string] $AzSKTempStatePath = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState" | Join-Path -ChildPath "BatchScanData");
     hidden [string] $MasterFilePath;
     hidden [PSObject] $BatchScanTrackerObj = $null;
     hidden [PSObject] $ScanPendingForBatch = $null;
-    hidden static [BatchScanManager] $Instance =$null;
+    hidden static [BatchScanManagerForMultipleProjects] $Instance =$null;
     hidden [int] $BatchSize = 0;
     hidden [bool] $isUpdated = $false;
 
-    static [BatchScanManager] GetInstance( [string] $OrganizationName,[string] $ProjectName)
+    static [BatchScanManagerForMultipleProjects] GetInstance( [string] $OrganizationName)
     {
-        if ( $null -eq  [BatchScanManager]::Instance)
+        if ( $null -eq  [BatchScanManagerForMultipleProjects]::Instance)
         {
-			[BatchScanManager]::Instance = [BatchScanManager]::new($OrganizationName,$ProjectName);
+			[BatchScanManagerForMultipleProjects]::Instance = [BatchScanManagerForMultipleProjects]::new($OrganizationName);
 		}
-		[BatchScanManager]::Instance.OrgName = $OrganizationName;
-        [BatchScanManager]::Instance.ProjectName = $ProjectName;
-        return [BatchScanManager]::Instance
+		[BatchScanManagerForMultipleProjects]::Instance.OrgName = $OrganizationName;
+        return [BatchScanManagerForMultipleProjects]::Instance
     }
-    static [BatchScanManager] GetInstance()
+    static [BatchScanManagerForMultipleProjects] GetInstance()
     {
-        if ( $null -eq  [BatchScanManager]::Instance)
+        if ( $null -eq  [BatchScanManagerForMultipleProjects]::Instance)
         {
-            [BatchScanManager]::Instance = [BatchScanManager]::new();
+            [BatchScanManagerForMultipleProjects]::Instance = [BatchScanManagerForMultipleProjects]::new();
         }
-        return [BatchScanManager]::Instance
+        return [BatchScanManagerForMultipleProjects]::Instance
     }
 	static [void] ClearInstance()
     {
-       [BatchScanManager]::Instance = $null
+       [BatchScanManagerForMultipleProjects]::Instance = $null
     }
-    BatchScanManager([string] $OrganizationName,[string] $ProjectName){
+    BatchScanManagerForMultipleProjects([string] $OrganizationName){
         $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
 		$this.OrgName = $OrganizationName;
-        if($this.CheckIfProjectValid($ProjectName) -eq $false){
-            Write-Host "You have supplied an invalid project name. Re run the command with correct project." -ForegroundColor Red
+        if($this.CheckIfProjectValid($PSCmdlet.MyInvocation.BoundParameters.ProjectNames) -eq $false){
+            Write-Host "You have supplied one or more invalid project name. Re run the command with correct project." -ForegroundColor Red
             throw;
         }
-        $this.ProjectName=$ProjectName;
         if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("BatchSize")){
             $this.BatchSize = $PSCmdlet.MyInvocation.BoundParameters["BatchSize"]
         }
         else {
             $this.BatchSize = $this.ControlSettings.BatchScan.BatchTrackerUpdateFrequency
         }
-
-        #need to make batch size half as both builds and releases will be scanned
         if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq "Build_Release"){
             if($this.BatchSize%2 -eq 0){
                 $this.BatchSize=$this.BatchSize/2;
             }
             else {
                 $this.BatchSize=($this.BatchSize-1)/2;
-            }
-            
+            }           
             
         }
         if ([string]::isnullorwhitespace($this.BatchScanTrackerFileName))
@@ -68,7 +62,7 @@ class BatchScanManager
         }
 		$this.GetBatchScanTrackerObject();
     }
-    BatchScanManager()
+    BatchScanManagerForMultipleProjects()
 	{
 		$this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
 		if ([string]::isnullorwhitespace($this.BatchScanTrackerFileName))
@@ -78,7 +72,7 @@ class BatchScanManager
 		$this.GetBatchScanTrackerObject();
 	}
 
-    [bool] CheckIfProjectValid($ProjectName){
+    [bool] CheckIfProjectValid($ProjectNames){
         $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=6.0' -f $($this.OrgName);
         $responseObj = "";
         try {
@@ -90,11 +84,19 @@ class BatchScanManager
         }
         if (([Helpers]::CheckMember($responseObj, "count") -and $responseObj[0].count -gt 0) -or (($responseObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($responseObj[0], "name")))
         {
-            $projects = $responseObj | Where-Object { $ProjectName -contains $_.name }
+            if($ProjectNames -ne "*"){
+                $Projects += $ProjectNames.Split(',', [StringSplitOptions]::RemoveEmptyEntries) | 
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                ForEach-Object { $_.Trim() } |
+                Select-Object -Unique;
 
-            if (!$projects) {
-                return $false;                  
+                $projects = $responseObj | Where-Object { $Projects -contains $_.name }
+
+                if (!$projects) {
+                    return $false;                  
+                }
             }
+            
         }
         return $true;
     }
@@ -105,10 +107,10 @@ class BatchScanManager
     }
 
     hidden [void] GetBatchScanTrackerObject(){
-        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
-            if(-not (Test-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrgName) $this.ProjectName)))
+        if(![string]::isnullorwhitespace($this.OrgName)){
+            if(-not (Test-Path (Join-Path $this.AzSKTempStatePath $this.OrgName)))
             {
-                New-Item -ItemType Directory -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrgName) $this.ProjectName) -ErrorAction Stop | Out-Null
+                New-Item -ItemType Directory -Path (Join-Path $this.AzSKTempStatePath $this.OrgName) -ErrorAction Stop | Out-Null
             }
         }
         else{
@@ -130,15 +132,14 @@ class BatchScanManager
         return Get-content $this.MasterFilePath | ConvertFrom-Json;
     }
 
-    hidden [void] GetBatchTrackerFile($OrgName,$ProjectName){
+    hidden [void] GetBatchTrackerFile($OrgName){
         $this.OrgName=$OrgName;
-        $this.ProjectName=$ProjectName;
-        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+        if(![string]::isnullorwhitespace($this.OrgName)){
             if(Test-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrgName) $this.BatchScanTrackerFileName))	
             {
-                $this.ScanPendingForBatch = Get-Content (Join-Path (Join-Path $this.AzSKTempStatePath (Join-Path $this.OrgName $this.ProjectName)) $this.BatchScanTrackerFileName) -Raw
+                $this.ScanPendingForBatch = Get-Content (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrgName) $this.BatchScanTrackerFileName) -Raw
             }
-            $this.MasterFilePath = (Join-Path (Join-Path $this.AzSKTempStatePath (Join-Path $this.OrgName $this.ProjectName)) $this.BatchScanTrackerFileName)
+            $this.MasterFilePath = (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrgName) $this.BatchScanTrackerFileName)
         }
         else {
             $this.MasterFilePath = (Join-Path $this.AzSKTempStatePath $this.BatchScanTrackerFileName)
@@ -146,18 +147,18 @@ class BatchScanManager
     }
     [void] RemoveBatchScanData(){
         if($null -ne $this.BatchScanTrackerObj){
-            if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
-                if(Test-Path (Join-Path $this.AzSKTempStatePath (Join-Path $this.OrgName $this.ProjectName)))
+            if(![string]::isnullorwhitespace($this.OrgName)){
+                if(Test-Path (Join-Path $this.AzSKTempStatePath $this.OrgName))
                 {
-                    Remove-Item -Path (Join-Path (Join-Path $this.AzSKTempStatePath (Join-Path $this.OrgName $this.ProjectName)) $this.BatchScanTrackerFileName)
+                    Remove-Item -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrgName) $this.BatchScanTrackerFileName)
                     
                 }
             }
             $this.BatchScanTrackerObj=$null;
         }
     }
-    hidden[bool] IsBatchScanInProgress($OrgName,$ProjectName){
-        $this.GetBatchTrackerFile($OrgName,$ProjectName);
+    hidden[bool] IsBatchScanInProgress($OrgName){
+        $this.GetBatchTrackerFile($OrgName);
         if($null -ne $this.ControlSettings.BatchScan){
             $batchTrackerFileValidForDays = [Int32]::Parse($this.ControlSettings.BatchScan.BatchTrackerValidforDays);
             $this.GetBatchScanTrackerObject();
@@ -207,6 +208,30 @@ class BatchScanManager
             $batchStatus = $batchStatus | Select-Object -Property * -ExcludeProperty SkipMarker             
             
         }
+        $projects=@()
+        
+        $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=6.0' -f $($this.OrgName);
+        $responseObj = "";
+        try {
+                $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                $projects = $responseObj.name
+        }
+        catch {
+
+        }
+        if($PSCmdlet.MyInvocation.BoundParameters.ProjectNames -ne "*"){
+            $projectsFromUser=@()
+            $projectsFromUser += $PSCmdlet.MyInvocation.BoundParameters.ProjectNames.Split(',', [StringSplitOptions]::RemoveEmptyEntries) | 
+                                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                                    ForEach-Object { $_.Trim() } |
+                                    Select-Object -Unique;
+            $validProjects = $responseObj | Where-Object { $projectsFromUser -contains $_.name }
+            $projects = @()
+            $projects += $validProjects.name
+            
+        }
+        $batchStatus | Add-Member -NotePropertyName Projects -NotePropertyValue $projects
+        $batchStatus | Add-Member -NotePropertyName ProjectsCount -NotePropertyValue $projects.Count
         $this.BatchScanTrackerObj=$batchStatus;
         $this.WriteToBatchTrackerFile()
         
@@ -214,10 +239,10 @@ class BatchScanManager
 
     [void] WriteToBatchTrackerFile() {
         if($null -ne $this.BatchScanTrackerObj){
-            if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
-                if(-not (Test-Path (Join-Path $this.AzSKTempStatePath (Join-Path $this.OrgName $this.ProjectName))))
+            if(![string]::isnullorwhitespace($this.OrgName)){
+                if(-not (Test-Path (Join-Path $this.AzSKTempStatePath $this.OrgName)))
                 {
-                    New-Item -ItemType Directory -Path (Join-Path $this.AzSKTempStatePath (Join-Path $this.OrgName $this.ProjectName)) -ErrorAction Stop | Out-Null
+                    New-Item -ItemType Directory -Path (Join-Path $this.AzSKTempStatePath $this.OrgName) -ErrorAction Stop | Out-Null
                 }	
             }
             else{
@@ -235,21 +260,21 @@ class BatchScanManager
 
     #to check if anyone either builds or releases have been scanned and other resource is still left, is useful only when build_release is resource type
     [bool] isPreviousScanPartiallyComplete(){
-        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+        if(![string]::isnullorwhitespace($this.OrgName)){
             if( ($null -ne $this.MasterFilePath) -and (Test-Path $this.MasterFilePath)){
                 $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
-                if($batchStatus.Skip -gt 0 -and [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken) -and $batchStatus.BatchScanState -eq [BatchScanState]::COMP) {
+                if($batchStatus.ResourceCount -gt 0 -and [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken) -and $batchStatus.BatchScanState -eq [BatchScanState]::COMP) {
                    return $true;
                     
                 }
-                if($batchStatus.Skip -gt 0 -and [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken) -and $batchStatus.BatchScanState -eq [BatchScanState]::COMP) {
+                if($batchStatus.ResourceCount -gt 0 -and [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken) -and $batchStatus.BatchScanState -eq [BatchScanState]::COMP) {
                     return $true;
                 }
-                if($batchStatus.Skip -gt 0 -and [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken) -and [string]::IsNullOrEmpty($batchStatus.ReleaseCurrentContinuationToken)) {
+                if($batchStatus.ResourceCount -gt 0 -and [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken) -and [string]::IsNullOrEmpty($batchStatus.ReleaseCurrentContinuationToken)) {
                     return $true;
                      
                 }
-                 if($batchStatus.Skip -gt 0 -and [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken) -and [string]::IsNullOrEmpty($batchStatus.BuildCurrentContinuationToken)) {
+                 if($batchStatus.ResourceCount -gt 0 -and [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken) -and [string]::IsNullOrEmpty($batchStatus.BuildCurrentContinuationToken)) {
                      return $true;
                 }
 
@@ -274,7 +299,7 @@ class BatchScanManager
         $fileName = $fileName.Split('\')[-1]
         $extension = [System.IO.Path]::GetExtension($fileName);
  
-        $basePath = [BatchScanManager]::GetBaseFrameworkPath()
+        $basePath = [BatchScanManagerForMultipleProjects]::GetBaseFrameworkPath()
         $rootConfigPath = $basePath | Join-Path -ChildPath "Configurations";
  
         $filePath = (Get-ChildItem $rootConfigPath -Name -Recurse -Include $fileName) | Select-Object -First 1
@@ -302,7 +327,7 @@ class BatchScanManager
     }
 
     [void] UpdateBatchMasterList(){
-        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+        if(![string]::isnullorwhitespace($this.OrgName)){
             if(Test-Path $this.MasterFilePath){
                 $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
                 $isReleaseScan=$false;
@@ -322,7 +347,7 @@ class BatchScanManager
                             $batchStatus.BuildCurrentContinuationToken=$null;
                         }
                         
-                        Write-Host "Found a previous batch scan with no scanned resources. Continuing the scan from start `n " -ForegroundColor Green
+                        Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Scanned $($batchStatus.ProjectsCount - $batchStatus.Projects.Count) out of $($batchStatus.ProjectsCount) projects. Continuing the scan from start for project $($batchStatus.Projects[0]) `n " -ForegroundColor Green
                         
                     }
                     else
@@ -341,7 +366,7 @@ class BatchScanManager
                             
 
                         }
-                        Write-Host "Found a previous batch scan in progress with $($batchStatus.ResourceCount) resources scanned. Resuming the scan from last batch. `n " -ForegroundColor Green
+                        Write-Host "Found a previous batch scan in progress with $($batchStatus.ResourceCount) resources scanned. Scanned $($batchStatus.ProjectsCount - $batchStatus.Projects.Count) out of $($batchStatus.ProjectsCount) projects. Resuming the scan from last batch for $($batchStatus.Projects[0]). `n " -ForegroundColor Green
                         
                         if($this.CheckContTokenValidity($batchStatus.TokenLastModifiedTime)){
                             return;
@@ -360,6 +385,48 @@ class BatchScanManager
                     }
                 }
                 else {
+                    
+
+                    if($isBuildScan -and $isReleaseScan -and [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken) -and [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken)){
+                        if($batchStatus.Projects.Length -eq 1){
+                            $batchStatus.Projects=@()
+                        }
+                        else {
+                            $batchStatus.Projects = $batchStatus.Projects[1..($batchStatus.Projects.Length-1)]
+                        }
+                        $batchStatus.Skip=0
+                        $batchStatus.ReleaseCurrentContinuationToken=$batchStatus.ReleaseNextContinuationToken
+                        $batchStatus.BuildCurrentContinuationToken=$batchStatus.BuildNextContinuationToken
+                        $batchStatus.SkipMarker = "False"
+                        $batchStatus.BatchScanState=[BatchScanState]::INIT
+                        Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Scanned $($batchStatus.ProjectsCount - $batchStatus.Projects.Count) out of $($batchStatus.ProjectsCount) projects. Starting fresh scan for the next batch. `n " -ForegroundColor Green
+                    }
+                    elseif($isReleaseScan -and $isBuildScan -eq $false -and [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken)){
+                        if($batchStatus.Projects.Length -eq 1){
+                            $batchStatus.Projects=@()
+                        }
+                        else {
+                            $batchStatus.Projects = $batchStatus.Projects[1..($batchStatus.Projects.Length-1)]
+                        }
+                        $batchStatus.Skip=0
+                        $batchStatus.ReleaseCurrentContinuationToken=$batchStatus.ReleaseNextContinuationToken
+                        $batchStatus.BatchScanState=[BatchScanState]::INIT
+                        Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Scanned $($batchStatus.ProjectsCount - $batchStatus.Projects.Count) out of $($batchStatus.ProjectsCount) projects. Starting fresh scan for the next batch. `n " -ForegroundColor Green
+                    }
+                    elseif($isBuildScan -and $isReleaseScan -eq $false -and [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken)) {
+                        if($batchStatus.Projects.Length -eq 1){
+                            $batchStatus.Projects=@()
+                        }
+                        else {
+                            $batchStatus.Projects = $batchStatus.Projects[1..($batchStatus.Projects.Length-1)]
+                        }
+                        $batchStatus.Skip=0;
+                        $batchStatus.BuildCurrentContinuationToken=$batchStatus.BuildNextContinuationToken
+                        $batchStatus.BatchScanState=[BatchScanState]::INIT
+                        Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Scanned $($batchStatus.ProjectsCount - $batchStatus.Projects.Count) out of $($batchStatus.ProjectsCount) projects. Starting fresh scan for the next batch. `n " -ForegroundColor Green
+                    }
+
+                    else {
                     #anyone of the resource has been completely scanned need to make batch size double again
                     if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build_Release' -and $this.isPreviousScanPartiallyComplete() ){
                         if ($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("BatchSize")){
@@ -372,7 +439,7 @@ class BatchScanManager
                             $this.BatchSize=$this.BatchSize-1
                         }  
                     }
-                    Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Starting fresh scan for the next batch. `n " -ForegroundColor Green
+                    Write-Host "Found a previous batch scan with $($batchStatus.ResourceCount) resources scanned. Scanned $($batchStatus.ProjectsCount - $batchStatus.Projects.Count) projects out of $($batchStatus.ProjectsCount). Starting fresh scan for the next batch. `n " -ForegroundColor Green
                     #anyone of the resource has been completely scanned need to update skip by original batch size. However for the first time skip should only be updated by half
                     if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build_Release' -and $batchStatus.SkipMarker -eq "False" -and $this.isPreviousScanPartiallyComplete() ){
                         
@@ -417,6 +484,7 @@ class BatchScanManager
                         $batchStatus.TokenLastModifiedTime=[DateTime]::UtcNow;
                         
                     }
+                    }
                    
                 }
                 $this.BatchScanTrackerObj=$batchStatus;
@@ -426,14 +494,23 @@ class BatchScanManager
        
     }
 
+    hidden [bool] CheckContTokenValidity([DateTime] $lastModifiedTime){
+       
+        if($lastModifiedTime.AddHours([INT32]::Parse(15)) -lt [DateTime]::UtcNow){
+            return $false
+        }
+        return $true;
+
+    }
+
     [bool] IsScanComplete(){
-        if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build' -and [string]::IsNullOrEmpty($this.GetBuildContinuationToken()) -and $this.GetBatchScanState() -eq [BatchScanState]::COMP){
+        if($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build' -and [string]::IsNullOrEmpty($this.GetBuildContinuationToken()) -and [string]::IsNullOrEmpty($this.GetProjectsForCurrentScan())){
             return $true;
         }
-        elseif($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Release' -and [string]::IsNullOrEmpty($this.GetReleaseContinuationToken()) -and $this.GetBatchScanState() -eq [BatchScanState]::COMP){
+        elseif($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Release' -and [string]::IsNullOrEmpty($this.GetReleaseContinuationToken()) -and [string]::IsNullOrEmpty($this.GetProjectsForCurrentScan())){
             return $true;            
         }
-        elseif($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build_Release' -and [string]::IsNullOrEmpty($this.GetReleaseContinuationToken()) -and [string]::IsNullOrEmpty($this.GetBuildContinuationToken()) -and $this.GetBatchScanState() -eq [BatchScanState]::COMP) {
+        elseif($PSCmdlet.MyInvocation.BoundParameters.ResourceTypeName -eq 'Build_Release' -and [string]::IsNullOrEmpty($this.GetReleaseContinuationToken()) -and [string]::IsNullOrEmpty($this.GetBuildContinuationToken()) -and [string]::IsNullOrEmpty($this.GetProjectsForCurrentScan())) {
             return $true;
         }
         else{
@@ -449,37 +526,48 @@ class BatchScanManager
         return $false;
     }
 
-    hidden [bool] CheckContTokenValidity([DateTime] $lastModifiedTime){
-       
-        if($lastModifiedTime.AddHours([INT32]::Parse(15)) -lt [DateTime]::UtcNow){
-            return $false
-        }
-        return $true;
-
-    }
-
-    [string] GetSkip(){
-        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+    [string] GetProjectsForCurrentScan(){
+        if(![string]::isnullorwhitespace($this.OrgName)){
             if(Test-Path $this.MasterFilePath){
                 $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
-                return $batchStatus.Skip;
+                if($batchStatus.Projects.Count -eq 0){
+                    return $null;
+                }
+                return $batchStatus.Projects[0]
             }
         }
-        return $null;
+        return $null
     }
 
-    [string] GetTop(){
-        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+    [bool] IsCurrentProjectComplete(){
+        if(![string]::isnullorwhitespace($this.OrgName)){
             if(Test-Path $this.MasterFilePath){
                 $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
-                return $batchStatus.Top;
+                $isReleaseScan=$false;
+                $isBuildScan=$false;
+                if($batchStatus.PSobject.Properties.name -match "ReleaseCurrentContinuationToken") {
+                    $isReleaseScan=$true;
+                }
+                if($batchStatus.PSobject.Properties.name -match "BuildCurrentContinuationToken") {
+                    $isBuildScan=$true;
+                }
+                if($isBuildScan -and $isReleaseScan -and [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken) -and [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken)){
+                    return $true
+                }
+                elseif($isReleaseScan -and $isBuildScan -eq $false -and [string]::IsNullOrEmpty($batchStatus.ReleaseNextContinuationToken)){
+                    return $true
+                }
+                elseif($isBuildScan -and $isReleaseScan -eq $false -and [string]::IsNullOrEmpty($batchStatus.BuildNextContinuationToken)) {
+                    return $true
+                }
+
             }
         }
-        return $null;
+        return $false;
     }
 
     [string] GetBuildContinuationToken(){
-        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+        if(![string]::isnullorwhitespace($this.OrgName)){
             if(Test-Path $this.MasterFilePath){
                 $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
                 return $batchStatus.BuildNextContinuationToken;
@@ -489,7 +577,7 @@ class BatchScanManager
     }
 
     [string] GetReleaseContinuationToken(){
-        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+        if(![string]::isnullorwhitespace($this.OrgName)){
             if(Test-Path $this.MasterFilePath){
                 $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
                 return $batchStatus.ReleaseNextContinuationToken;
@@ -499,7 +587,7 @@ class BatchScanManager
     }
 
     [BatchScanState] GetBatchScanState(){
-        if(![string]::isnullorwhitespace($this.OrgName) -and ![string]::isnullorwhitespace($this.ProjectName)){
+        if(![string]::isnullorwhitespace($this.OrgName)){
             if(Test-Path $this.MasterFilePath){
                 $batchStatus = Get-Content $this.MasterFilePath | ConvertFrom-Json
                 return $batchStatus.BatchScanState;
@@ -518,10 +606,10 @@ class BatchScanManager
         }
         
         if($resourceType -eq 'Build'){
-            $resourceDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $this.OrgName, $this.ProjectName;
+            $resourceDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +$topNQueryString) -f $this.OrgName, $this.GetProjectsForCurrentScan();
         }
         else {
-            $resourceDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString) -f $this.OrgName, $this.ProjectName;
+            $resourceDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString) -f $this.OrgName, $this.GetProjectsForCurrentScan();
         }
         
         $continuationToken=$null;
