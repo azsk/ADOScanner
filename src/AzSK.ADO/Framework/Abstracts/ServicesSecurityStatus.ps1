@@ -74,6 +74,31 @@ class ServicesSecurityStatus: ADOSVTCommandBase
             if (!$this.Resolver.SVTResources) {
                 return;
             }
+            else
+            {
+                if (-not $invocationContext.BoundParameters["Force"])
+                {
+                    $backupLimit = $this.ControlSettings.AutomatedFix.BackupLimitInDays;
+                    $oldBackupResourcesFound = $false
+                    # [ControlHelper]::ControlFixBackup now has only relevant data based on this scan's paramaters
+                    foreach ($resource in [ControlHelper]::ControlFixBackup)
+                    {
+                        $dateDiff = New-TimeSpan -Start ([datetime]$resource.date) -End (GET-DATE)
+                        if($dateDiff.Days -gt $backupLimit)
+                        {
+                            $oldBackupResourcesFound = $true
+                            break;
+                        }
+
+                    }
+                    if ($oldBackupResourcesFound)
+                    {
+		                $this.PublishCustomMessage("`nOne or more resources have backup older than $($backupLimit) days. `nRun Gads with -PrepareForFix parameter to take backup again.`nOr use -Force in the Set-AzSKADOSecurityStatus command to proceed with the same backup.",[MessageType]::Warning);
+                        break;
+                    }
+                }
+            }
+            
             $this.UsePartialCommits = $invocationContext.BoundParameters["UsePartialCommits"];
             $this.UsePartialCommitsCheck();
         }
