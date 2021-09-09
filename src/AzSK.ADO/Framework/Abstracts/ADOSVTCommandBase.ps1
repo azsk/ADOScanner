@@ -58,6 +58,33 @@ class ADOSVTCommandBase: SVTCommandBase {
             #eat exception 
             }
         }
+
+        if($this.invocationContext.MyCommand.Name -eq "Set-AzSKADOSecurityStatus")
+        {
+            try{
+                $folderpath= Join-Path ([WriteFolderPath]::GetInstance().FolderPath) "ControlFixInfo.csv";
+                [ControlHelper]::ControlFixBackup | Select-Object ResourceName,ResourceId, @{Name = "BackupDate"; Expression = { $_.Date} } ,@{Name = "ObjectToBeFixed"; Expression = { $($_.DataObject|convertto-Json)} } | Export-Csv -Path $folderpath -NoTypeInformation #-encoding utf8 #The NoTypeInformation parameter removes the #TYPE information header from the CSV output 
+
+
+                #Export backup for user to confirm
+                $this.PublishCustomMessage( "`nPlease review the control fix data in below file:`n$($folderpath)", [MessageType]::Warning);
+                $input = ""
+                while ($input -ne "y" -and $input -ne "n") {
+                    if (-not [string]::IsNullOrEmpty($input)) {
+                        $this.PublishCustomMessage("Please select an appropriate option.`n",[MessageType]::Warning);
+                    }
+                    $input = Read-Host "Enter 'Y' to continue and 'N' to exit (Y/N)"
+                    $input = $input.Trim()
+                }
+                if ($input -eq "n") {
+                    $this.PublishCustomMessage( "Exiting the control fix process. `n",[MessageType]::Warning);
+			        break;
+                }
+            }
+            catch {
+                $this.CommandError($_);
+            }
+        }
 	}
     [void] PostPolicyComplianceTelemetry()
 	{

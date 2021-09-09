@@ -217,7 +217,7 @@
     },
     {
       "ControlID": "ADO_ServiceConnection_AuthZ_Restrict_Broader_Group_Access",
-      "Description": "Broader groups (contributors, project valid users, etc.) should not have user/administrator privileges on service connection.",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not have excessive permissions on service connection.",
       "Id": "ServiceConnection240",
       "ControlSeverity": "High",
       "Automated": "Yes",

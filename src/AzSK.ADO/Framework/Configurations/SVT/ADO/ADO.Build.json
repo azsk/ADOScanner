@@ -97,7 +97,7 @@
       "Automated": "Yes",
       "MethodName": "CheckSettableAtQueueTime",
       "Rationale": "Pipeline variables that are marked settable at queue time can be changed by anyone who can queue a build. Such variables can be misused for code injection/data theft attacks from pipelines.",
-      "Recommendation": "1. Navigate to the build pipeline. 2. Click on Edit. 3. Select variables. 4. Uncheck 'settable at queue time' for such variables. 5. Save the build pipeline.",
+      "Recommendation": "1. Navigate to the build pipeline. --> 2. Click on Edit. --> 3. Select variables. --> 4. For classic pipeline Uncheck 'settable at queue time' whereas for YAML pipeline uncheck 'Let users override this value when running this pipeline' for such variables --> 5. Save the build pipeline.",
       "Tags": [
         "SDL",
         "TCP",
@@ -114,7 +114,7 @@
       "Automated": "Yes",
       "MethodName": "CheckSettableAtQueueTimeForURL",
       "Rationale": "Pipeline variables that are marked settable at queue time can be changed by anyone who can queue a build. If these variables contain a URL then someone can change the URL to a server that they control and can intercept any secrets used to interact with the intended server by queueing a build.",
-      "Recommendation": "1. Navigate to the build pipeline. --> 2. Click on Edit. --> 3. Select variables. --> 4. Uncheck 'settable at queue time' for such variables. --> 5. Save the build pipeline.",
+      "Recommendation": "1. Navigate to the build pipeline. --> 2. Click on Edit. --> 3. Select variables. --> 4. For classic pipeline Uncheck 'settable at queue time' whereas for YAML pipelines uncheck 'Let users override this value when running this pipeline' for such variables --> 5. Save the build pipeline.",
       "Tags": [
         "SDL",
         "TCP",
@@ -192,7 +192,8 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "SkipYAML"
+        "SkipYAML",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -275,7 +276,7 @@
       "Automated": "Yes",
       "MethodName": "CheckAccessToOAuthToken",
       "Rationale": "Malicious task or extensions can use Oauth access token for stealing project details like builds,releases,agent pools etc.",
-      "Recommendation": "1. Navigate to the build pipeline --> 2. Edit the pipeline  --> 3. Go to Agent Job (Run on Agent) --> 4. Disable the field 'Allow scripts to access the OAuth token'",
+      "Recommendation": "For classic pipeline: 1. Navigate to the build pipeline --> 2. Edit the pipeline  --> 3. Go to Agent Job (Run on Agent) --> 4. Disable the field 'Allow scripts to access the OAuth token'. For YAML pipeline: Do not use System.AccessToken variable. ",
       "Tags": [
         "SDL",
         "TCP",

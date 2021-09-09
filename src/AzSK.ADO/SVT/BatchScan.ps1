@@ -15,8 +15,8 @@ function Get-AzSKADOSecurityStatusBatchMode
         [string]
         [Parameter(Mandatory = $true, HelpMessage="Project name for which the security evaluation has to be performed.")]
         [ValidateNotNullOrEmpty()]
-        [Alias("pn")]
-        $ProjectName,
+        [Alias("pns", "ProjectName", "pn")]
+		$ProjectNames,
 
         [string]
         [Parameter(Mandatory =$false, HelpMessage = "Folder path of builds to be scanned.")]
@@ -73,6 +73,16 @@ function Get-AzSKADOSecurityStatusBatchMode
 		[Alias("pp")]
 		$PolicyProject,
 
+        [switch]
+        [Parameter(Mandatory = $false)]
+		[Alias("dnof")]
+		$DoNotOpenOutputFolder,
+
+        [switch]
+        [Parameter(Mandatory = $false)]
+		[Alias("kco")]
+		$KeepConsoleOpen,
+
         [ValidateSet("All","BaselineControls", "Custom")]
 		[Parameter(Mandatory = $false)]
 		[Alias("abl")]
@@ -119,7 +129,22 @@ function Get-AzSKADOSecurityStatusBatchMode
         try
         {
 
+            $projects=@()
+            if(-not [string]::IsNullOrWhiteSpace($ProjectNames))
+            {
+                $projects += $ProjectNames.Split(',', [StringSplitOptions]::RemoveEmptyEntries) | 
+                                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                                    ForEach-Object { $_.Trim() } |
+                                    Select-Object -Unique;
+            }
 
+            if($ProjectNames -eq "*" -or $projects.Count -gt 1){
+                [BatchScanManagerForMultipleProjects]::ClearInstance()
+            }
+            else {
+                [BatchScanManager]::ClearInstance()
+            }
+            
             if (-not [String]::IsNullOrEmpty($PATTokenURL))
 			{
 				
@@ -187,13 +212,34 @@ function Get-AzSKADOSecurityStatusBatchMode
                 Write-Host "Could not access PATToken of the user. Stopping the command. " -ForegroundColor Red;
                 return;
             }
-            [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance($Context.OrganizationName,$ProjectName)
-            if($batchScanMngr.isBatchScanInProgress($Context.OrganizationName,$ProjectName) -eq $false){
-                $batchScanMngr.CreateBatchMasterList();
+            
+               
+            
+            if($ProjectNames -eq "*" -or $projects.Count -gt 1){
+                [BatchScanManagerForMultipleProjects] $batchScanMngr = [BatchScanManagerForMultipleProjects]:: GetInstance($Context.OrganizationName)
             }
             else {
-                $batchScanMngr.UpdateBatchMasterList();
+                [BatchScanManager] $batchScanMngr = [BatchScanManager]:: GetInstance($Context.OrganizationName,$ProjectNames)
             }
+
+
+            if($ProjectNames -eq "*" -or $projects.Count -gt 1){
+                if($batchScanMngr.isBatchScanInProgress($Context.OrganizationName) -eq $false){
+                    $batchScanMngr.CreateBatchMasterList();
+                }
+                else {
+                    $batchScanMngr.UpdateBatchMasterList();
+                }
+            }
+            else {
+                if($batchScanMngr.isBatchScanInProgress($Context.OrganizationName,$ProjectNames) -eq $false){
+                    $batchScanMngr.CreateBatchMasterList();
+                }
+                else {
+                    $batchScanMngr.UpdateBatchMasterList();
+                }
+            }
+            
             $AzSKContents = [BatchScanManager]::LoadFrameworkConfigFile("AzSKSettings.json", $true);
             $ModulePath= $AzSKContents.BatchScanModule
             
@@ -214,36 +260,32 @@ function Get-AzSKADOSecurityStatusBatchMode
             $parametersForGads.Remove("BatchSize") | Out-Null;
             $parametersForGads.Remove("ModulePath") | Out-Null;
             $parametersForGads.Remove("PATTokenURL") | Out-Null;
+            $parametersForGads.Remove("KeepConsoleOpen") | Out-Null;
 
 
-            $rh = $false #Whether to keep each console open after gads completes.
-            if ($rh)
+            #Whether to keep each console open after gads completes.
+            if ($KeepConsoleOpen.IsPresent)
             {
                 $commandForNextBatch+= '; Read-Host '
             }
-
+            if($ProjectNames -eq "*" -or $projects.Count -gt 1){
+                $projects = $batchScanMngr.GetProjectsForCurrentScan();
+                if([string]::IsNullOrEmpty($projects)){
+                    $batchScanMngr.RemoveBatchScanData();
+                    Write-Host 'No unscanned resources found. All projects have been fully scanned. You can use GADSBMR command to combine CSVs from all batch results.'; Read-Host
+                    return;
+                }
+                $parametersForGads.Remove("ProjectNames") | Out-Null;
+                $parametersForGads.Add("ProjectNames",$projects) 
+                $parametersForGads.Add("BatchScanMultipleProjects",$true) 
+            }
             GADS @parametersForGads
-
-            if($ResourceTypeName -eq "Build" -and [string]::IsNullOrEmpty($batchScanMngr.GetBuildContinuationToken()) -and $batchScanMngr.GetBatchScanState() -eq [BatchScanState]::COMP){
-                #TODO all batches complete
-                Write-Host "No unscanned builds found. Scan is complete. " -ForegroundColor Green
+            if($batchScanMngr.IsScanComplete()){
                 $batchScanMngr.RemoveBatchScanData();
-                start-process powershell.exe -argument "Write-Host 'No unscanned builds found. Scan is fully complete. You can use GADSBMR command to combine CSVs from all batch results.'; Read-Host" 
-            }
-            elseif($ResourceTypeName -eq "Release" -and [string]::IsNullOrEmpty($batchScanMngr.GetReleaseContinuationToken()) -and $batchScanMngr.GetBatchScanState() -eq [BatchScanState]::COMP){
-                Write-Host "No unscanned releases found. Scan is complete. " -ForegroundColor Green
-                $batchScanMngr.RemoveBatchScanData();
-                start-process powershell.exe -argument "Write-Host 'No unscanned releases found. Scan is fully complete. You can use GADSBMR command to combine CSVs from all batch results.'; Read-Host" 
+                start-process powershell.exe -argument "Write-Host 'No unscanned resources found. Scan is fully complete. You can use GADSBMR command to combine CSVs from all batch results.'; Read-Host" 
 
             }
-            elseif($ResourceTypeName -eq "Build_Release" -and [string]::IsNullOrEmpty($batchScanMngr.GetReleaseContinuationToken()) -and [string]::IsNullOrEmpty($batchScanMngr.GetBuildContinuationToken()) -and $batchScanMngr.GetBatchScanState() -eq [BatchScanState]::COMP) {
-                Write-Host "No unscanned builds or releases found. Scan is complete. " -ForegroundColor Green
-                $batchScanMngr.RemoveBatchScanData();
-                start-process powershell.exe -argument "Write-Host 'No unscanned builds or releases found. Scan is fully complete. You can use GADSBMR command to combine CSVs from all batch results.'; Read-Host" 
-
-            }
-            else {
-               
+            else {               
                 start-process powershell.exe -argument $commandForNextBatch 
             }
            
@@ -252,6 +294,9 @@ function Get-AzSKADOSecurityStatusBatchMode
         catch
         {
             [EventBase]::PublishGenericException($_);
+            if($_.FullyQualifiedErrorId -eq "VariableIsUndefined"){
+                Write-Host "Two different versions of the same module seems to have been imported in the same session. Close this session and import the correct module."
+            }
         }
     }
 

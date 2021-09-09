@@ -342,7 +342,7 @@ class AzSKADOServiceMapping: CommandBase
                             if(($secureFiles | Measure-Object).Count -gt 0)
                             {
                                 $secureFiles | ForEach-Object{
-                                if ($secureFileDetails.count -eq 0) {
+                                if (($secureFileDetails | Measure-Object).count -eq 0) {
                                     $secureFilesURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/securefiles?api-version=6.1-preview.1" -f $this.OrgName, $this.projectId;
                                     $secureFileDetails = [WebRequestHelper]::InvokeGetWebRequest($secureFilesURL);
                                 }
@@ -388,6 +388,7 @@ class AzSKADOServiceMapping: CommandBase
 
                     $buildObj = [WebRequestHelper]::InvokeGetWebRequest($bldDef.url.split('?')[0]);
 
+                    $secureFiles = @();
                     #getting secure files added in all the tasks.
                     try {
                         if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
@@ -417,7 +418,7 @@ class AzSKADOServiceMapping: CommandBase
                     if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
                         if([Helpers]::CheckMember($buildObj[0],"variableGroups"))
                         {
-                            $varGrps = $buildObj[0].variableGroups
+                            $varGrps = @($buildObj[0].variableGroups)
                             $varGrps | ForEach-Object{
 
                                 $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $buildObj[0].id) -and ($_.projectName -eq $this.ProjectName) };
@@ -428,12 +429,11 @@ class AzSKADOServiceMapping: CommandBase
                         }
                     }
                     if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
-                        $secureFiles = @();
                         try {
                             if(($secureFiles | Measure-Object).Count -gt 0)
                             {
                             $secureFiles | ForEach-Object{
-                                if ($secureFileDetails.count -eq 0) {
+                                if (($secureFileDetails | Measure-Object).count -eq 0) {
                                     $secureFilesURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/securefiles?api-version=6.1-preview.1" -f $this.OrgName, $this.projectId;
                                     $secureFileDetails = [WebRequestHelper]::InvokeGetWebRequest($secureFilesURL);
                                 }

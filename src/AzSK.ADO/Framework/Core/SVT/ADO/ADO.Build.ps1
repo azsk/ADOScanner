@@ -1322,6 +1322,11 @@ class Build: ADOSVTBase
             $jobAuthorizationScope = $this.BuildObj[0].jobAuthorizationScope
             if ($jobAuthorizationScope -eq "projectCollection") {
                 $controlResult.AddMessage([VerificationResult]::Failed,"Access token of build pipeline is scoped to project collection.");
+                if ($this.ControlFixBackupRequired)
+                {
+                    #Data object that will be required to fix the control
+                    $controlResult.BackupControlState = $jobAuthorizationScope;
+                }
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed,"Access token of build pipeline is scoped to current project.");
@@ -1333,6 +1338,33 @@ class Build: ADOSVTBase
         }
 
         return  $controlResult
+    }
+    hidden [ControlResult] CheckBuildAuthZScopeAutomatedFix([ControlResult] $controlResult)
+    {   
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            
+            $uri = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=5.0-preview.6" -f ($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $($this.BuildObj.id) 
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+            if (-not $this.UndoFix) {
+                $this.BuildObj[0].jobAuthorizationScope = 2;
+                $body = $this.BuildObj[0] | ConvertTo-Json -Depth 10
+                $buildDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
+                $controlResult.AddMessage([VerificationResult]::Fixed,"Access token of build pipeline has been changed to current project.");
+            }
+            else {
+                $this.BuildObj[0].jobAuthorizationScope = 1;
+                $body = $this.BuildObj[0] | ConvertTo-Json -Depth 10
+                $buildDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
+                $controlResult.AddMessage([VerificationResult]::Fixed,"Access token of build pipeline has been changed to project collection.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
     hidden [ControlResult] CheckBroaderGroupAccess([ControlResult] $controlResult)
     {
@@ -1403,9 +1435,10 @@ class Build: ADOSVTBase
                 $projectName = $this.BuildObj.project.name
                 $buildId = $this.BuildObj.id
                 $permissionSetToken = "$projectId/$buildId"
-                if ([Helpers]::CheckMember($this.ControlSettings.Build, "RestrictedBroaderGroupsForBuild") -and [Helpers]::CheckMember($this.ControlSettings.Build, "ExcessivePermissionsForBroadGroups")) {
+                if ([Helpers]::CheckMember($this.ControlSettings.Build, "RestrictedBroaderGroupsForBuild")) {
+                    $restrictedBroaderGroups = @{}
                     $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
-                    $excessivePermissions = $this.ControlSettings.Build.ExcessivePermissionsForBroadGroups
+                    $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
                     $buildURL = "https://dev.azure.com/$orgName/$projectName/_build?definitionId=$buildId"
 
                     $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
@@ -1435,7 +1468,7 @@ class Build: ADOSVTBase
                     $responseObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody));
                     if ([Helpers]::CheckMember($responseObj[0], "dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider', "identities"))) {
 
-                        $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $broaderGroups -contains $_.displayName })
+                        $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $restrictedBroaderGroups.keys -contains $_.displayName })
 
                         <#
                         #Check if inheritance is disabled on build pipeline, if disabled, inherited permissions should be considered irrespective of control settings
@@ -1454,6 +1487,7 @@ class Build: ADOSVTBase
 
                         if ($broaderGroupsList.Count) {
                             $groupsWithExcessivePermissionsList = @()
+                            $filteredBroaderGroupList = @()
                             foreach ($broderGroup in $broaderGroupsList) {
                                 $broaderGroupInputbody = "{
                                     'contributionIds': [
@@ -1482,7 +1516,7 @@ class Build: ADOSVTBase
                                 #Web request to fetch RBAC permissions of broader groups on build.
                                 $broaderGroupResponseObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL, $broaderGroupInputbody));
                                 $broaderGroupRBACObj = @($broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions)
-                                $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
+                                $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $restrictedBroaderGroups[$broderGroup.displayName] }
                                 $excessivePermissionsPerGroup = @()
                                 $excessivePermissionList | ForEach-Object {
                                     #effectivePermissionValue equals to 1 implies edit build pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
@@ -1500,16 +1534,23 @@ class Build: ADOSVTBase
                                     $excessivePermissionsGroupObj['PermissionSetToken'] = $permissionSetToken
                                     $excessivePermissionsGroupObj['PermissionSetId'] = [Build]::SecurityNamespaceId
                                     $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
+                                    $filteredBroaderGroupList += $broderGroup
                                 }
                             }
+
+                            if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $filteredBroaderGroupList.Count -gt 0)
+                            {
+                                $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($filteredBroaderGroupList, $false))
+                                $groupsWithExcessivePermissionsList = @($groupsWithExcessivePermissionsList | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Group})
+                            }
+
                             if ($groupsWithExcessivePermissionsList.count -gt 0) {
-                                #TODO: Do we need to put state object?
                                 $controlResult.AddMessage([VerificationResult]::Failed, "Broader groups have excessive permissions on the build pipeline.");
                                 $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
-                                $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
+                                $formattedBroaderGrpTable = ($formattedGroupsData | FT -AutoSize | Out-String)
                                 $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                                 $controlResult.AdditionalInfo += "List of excessive permissions on which contributors have access:  $($groupsWithExcessivePermissionsList.Group).";
-                                
+                                $controlResult.SetStateData("List of groups: ", $formattedGroupsData)
                                 $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions } 
                                 $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                                 
@@ -1533,10 +1574,10 @@ class Build: ADOSVTBase
                     else {
                         $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the pipeline.");
                     }
-                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT | Out-String)");
-                    $controlResult.AddMessage("Following permissions are considered 'excessive':`n$($excessivePermissions | FT | Out-String)");
+                    $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -Width 512)");
                 }
-            else {
+                else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
                 }
             }
