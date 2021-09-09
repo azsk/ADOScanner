@@ -592,7 +592,7 @@ class ServiceConnection: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, $this.SvcConnActivityDetail.message);
-                $controlResult.AdditionalInfoInCSV += "Serivce connection last run date not found.";   
+                $controlResult.AdditionalInfoInCSV += "Serivce connection last run date not found.";
             }
         }
         catch
@@ -878,7 +878,6 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckBroaderGroupAccess ([ControlResult] $controlResult) {
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        $failMsg = $null
 
         try {
             if ($null -eq $this.serviceEndPointIdentity) {
@@ -886,62 +885,62 @@ class ServiceConnection: ADOSVTBase
                 $this.serviceEndPointIdentity = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
             }
             $restrictedGroups = @();
+            $restrictedBroaderGroups = @{}
+            $restrictedBroaderGroupsForSvcConn = $this.ControlSettings.ServiceConnection.RestrictedBroaderGroupsForSvcConn;
+            #Converting controlsettings broader groups into a hashtable.
+            $restrictedBroaderGroupsForSvcConn.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
 
-            if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.RestrictedBroaderGroupsForSvcConn") ) {
-                $restrictedBroaderGroupsForSvcConn = $this.ControlSettings.ServiceConnection.RestrictedBroaderGroupsForSvcConn;
+            if (($this.serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity, "identity")) {
+                # match all the identities added on service connection with defined restricted list
+                $roleAssignments = @();
+                $roleAssignmentsToCheck = $this.serviceEndPointIdentity
+                if ($this.checkInheritedPermissionsPerSvcConn -eq $false) {
+                    $roleAssignmentsToCheck = $this.serviceEndPointIdentity | where-object { $_.access -ne "inherited" }
+                }
+                $roleAssignments = @($roleAssignmentsToCheck | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.id}},@{Name="AccessDisplayName"; Expression = {$_.accessDisplayName}},@{Name="Role"; Expression = {$_.role.displayName}});
+                #Checking where broader groups have excessive permission on service connection
+                $restrictedGroups += @($roleAssignments | Where-Object { $restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1] -and ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]])})
+                
+                if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $restrictedGroups.Count -gt 0)
+                {
+                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($restrictedGroups, $true))
+                    $restrictedGroups = @($restrictedGroups | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
+                }
 
-                if (($this.serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($this.serviceEndPointIdentity, "identity")) {
-                    # match all the identities added on service connection with defined restricted list
-                    $roleAssignments = @();
-                    $roleAssignmentsToCheck = $this.serviceEndPointIdentity
-                    if ($this.checkInheritedPermissionsPerSvcConn -eq $false) {
-                        $roleAssignmentsToCheck = $this.serviceEndPointIdentity | where-object { $_.access -ne "inherited" }
+                $restrictedGroupsCount = $restrictedGroups.Count
+
+                # fail the control if restricted group found on service connection
+                if ($restrictedGroupsCount -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have excessive permissions on service connection: $($restrictedGroupsCount)")
+                    $backupDataObject = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id} }, @{l = 'Role'; e = { $_.Role } },@{l = 'AccessDisplayName'; e = { $_.AccessDisplayName } }
+                    $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } },@{l = 'AccessDisplayName'; e = { $_.AccessDisplayName } }
+                    $formattedGroupsTable = ($formattedGroupsData | Out-String)
+                    $controlResult.AddMessage("`nList of groups: ", $formattedGroupsTable)
+                    $controlResult.SetStateData("List of groups: ", $formattedGroupsTable)
+                    $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions on service connection:  $($restrictedGroupsCount)";
+                    if ($this.ControlFixBackupRequired) {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $backupDataObject;
                     }
-                    $roleAssignments +=   ($roleAssignmentsToCheck | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.id}},@{Name="AccessDisplayName"; Expression = {$_.accessDisplayName}},@{Name="Role"; Expression = {$_.role.displayName}});
-                    #Checking where broader groups have user/admin permission for service connection
-                    $restrictedGroups += @($roleAssignments | Where-Object { $restrictedBroaderGroupsForSvcConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
-
-                    $restrictedGroupsCount = $restrictedGroups.Count
-
-                    # fail the control if restricted group found on service connection
-                    if ($restrictedGroupsCount -gt 0) {
-                        $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have user/administrator access to service connection: $($restrictedGroupsCount)")
-                        $backupDataObject = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id} }, @{l = 'Role'; e = { $_.Role } },@{l = 'AccessDisplayName'; e = { $_.AccessDisplayName } }
-                        $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } },@{l = 'AccessDisplayName'; e = { $_.AccessDisplayName } }
-                        $formattedGroupsTable = ($formattedGroupsData | Out-String)
-                        $controlResult.AddMessage("`nList of groups: ", $formattedGroupsTable)
-                        $controlResult.SetStateData("List of groups: ", $formattedGroupsTable)
-                        $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to service connection:  $($restrictedGroupsCount)";
-                        if ($this.ControlFixBackupRequired) {
-                            #Data object that will be required to fix the control
-                            $controlResult.BackupControlState = $backupDataObject;
-                        }
-                        $restrictedGroupsAccess = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role }
-                        $controlResult.AdditionalInfoInCSV = $restrictedGroupsAccess -join '; '
-                    }
-                    else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection.");
-                        $controlResult.AdditionalInfoInCSV = "NA";
-                    }
+                    $restrictedGroupsAccess = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role }
+                    $controlResult.AdditionalInfoInCSV = $restrictedGroupsAccess -join '; '
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have excessive permissions on service connection.");
                     $controlResult.AdditionalInfoInCSV = "NA";
                 }
-                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForSvcConn | FT | out-string )`n");
-
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups for service connection is not defined in your organization policy. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have excessive permissions on service connection.");
+                $controlResult.AdditionalInfoInCSV = "NA";
             }
+            $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+            $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have excessive permissions: `n$($displayObj | FT | out-string -width 512)`n");
         }
-        catch {
-            $failMsg = $_
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Unable to fetch service connections details. Please verify from portal that you are not granting global security groups access to service connections");
             $controlResult.LogException($_)
-        }
-
-        if (![string]::IsNullOrEmpty($failMsg)) {
-            $controlResult.AddMessage([VerificationResult]::Error, "Unable to fetch service connections details. $($failMsg)Please verify from portal that you are not granting global security groups access to service connections");
         }
         return $controlResult;
     }
