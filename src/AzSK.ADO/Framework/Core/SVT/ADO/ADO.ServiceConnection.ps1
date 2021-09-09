@@ -109,6 +109,7 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckServiceConnectionAccess([ControlResult] $controlResult)
 	{
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         if ([ServiceConnection]::IsOAuthScan -eq $true)
         {
             if ($this.ServiceEndpointsObj.type -eq "azurerm")

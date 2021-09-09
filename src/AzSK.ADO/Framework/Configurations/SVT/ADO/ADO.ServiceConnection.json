@@ -30,7 +30,7 @@
       "Automated": "Yes",
       "MethodName": "CheckServiceConnectionAccess",
       "Rationale": "SPN-based logins do not have MFA protection. It is important to restrict the access granted to Azure service connections only to specific resource/resource group as needed. This can contain the extent of damage in case of compromise.",
-      "Recommendation": "Make sure you add SPN at the specific permission scope and role required for your scenario. For example, sometimes 'Contributor' access at 'Resource Group' scope might work. Exact permission will vary based on your use case. If you want to remove the SPN, run command Remove-AzRoleAssignment -ObjectId '{objectId}' -Scope '{scope}' -RoleDefinitionName '{role definition name}'. Run 'Get-Help Remove-AzRoleAssignment -full' for more help.",
+      "Recommendation": "1. Navigate to the service connections settings page for your project --> 2. Select your service connection from the list --> 3. Reduce the service connection scope to the appropriate resource group(s) and save. (If a service connection is scoped at Management group or subscription level and is not in use, then delete it using Remove-AzRoleAssignment or equivalent steps in the portal on the Azure side.)",
       "Tags": [
         "SDL",
         "Automated",
