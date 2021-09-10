@@ -412,7 +412,7 @@ class WebRequestHelper {
 							
 						}
 						elseif([Helpers]::CheckMember($_,"Exception.Response.StatusCode") -and  $_.Exception.Response.StatusCode -eq "Forbidden"){
-							if($uri.Contains("auditservice")){
+							if($uri.Contains("auditservice") -and $PSCmdlet.MyInvocation.BoundParameters.ContainsKey('IncrementalScan')){
 								Write-Host "You do not have the permissions to view audit logs. Results from incremental scan may not be accurate." -ForegroundColor Yellow
 							}
 							throw ([SuppressedException]::new(("You do not have permission to view the requested resource."), [SuppressedExceptionType]::InvalidOperation))
