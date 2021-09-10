@@ -1386,35 +1386,43 @@ class Release: ADOSVTBase
         {
             try
             {
+                $failedCount = 0
+                $erroredCount = 0
                 foreach($vgId in $varGrpIds){
                     #Fetch the security role assignments for variable group
-                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
-                    $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                    if($responseObj.Count -gt 0)
-                    {                                       
-                        if([Release]::isInheritedPermissionCheckEnabled)
-                        {
-                            $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
-                        }
-                        else {
-                            $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access -eq "assigned")})                        
-                        }
-
-                        if($contributorsObj.Count -gt 0)
-                        {   
-                            foreach($obj in $contributorsObj){
-                                if($obj.role.name -ne 'Reader')
-                                {
-                                    #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
-                                    $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
-                                    $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
-                                    if ((-not ([Helpers]::CheckMember($varGrpObj[0],"count"))) -and ($varGrpObj.Count -gt 0) -and ([Helpers]::CheckMember($varGrpObj[0],"name"))) {
-                                    $editableVarGrps += $varGrpObj[0].name
-                                    break;
+                    try {
+                        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
+                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                        if($responseObj.Count -gt 0)
+                        {                                       
+                            if([Release]::isInheritedPermissionCheckEnabled)
+                            {
+                                $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
+                            }
+                            else {
+                                $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access -eq "assigned")})                        
+                            }
+    
+                            if($contributorsObj.Count -gt 0)
+                            {   
+                                foreach($obj in $contributorsObj){
+                                    if($obj.role.name -ne 'Reader')
+                                    {
+                                        #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
+                                        $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
+                                        $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
+                                        if ((-not ([Helpers]::CheckMember($varGrpObj[0],"count"))) -and ($varGrpObj.Count -gt 0) -and ([Helpers]::CheckMember($varGrpObj[0],"name"))) {
+                                        $editableVarGrps += $varGrpObj[0].name
+                                        $failedCount = $failedCount +1                                        
+                                        break;
+                                        }
                                     }
-                                }
-                            }                            
+                                }                            
+                            }
                         }
+                    }
+                    catch {
+                        $erroredCount = $erroredCount+1                        
                     }
                 }
 
@@ -1426,6 +1434,9 @@ class Release: ADOSVTBase
                     $controlResult.AdditionalInfoInCSV = "NumVGs: $editableVarGrpsCount; List: $($editableVarGrps -join '; ')";
                     $controlResult.AddMessage([VerificationResult]::Failed,"Variable groups list: `n$($editableVarGrps | FT | Out-String)");
                     $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
+                }
+                elseif($erroredCount -gt 0){
+                    $controlResult.AddMessage([VerificationResult]::Error,"`nCould not fetch the RBAC details of variable groups used in the pipeline.");
                 }
                 else
                 {
