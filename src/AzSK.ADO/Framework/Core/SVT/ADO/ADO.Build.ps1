@@ -1515,7 +1515,7 @@ class Build: ADOSVTBase
                             if ($groupsWithExcessivePermissionsList.count -gt 0) {
                                 $controlResult.AddMessage([VerificationResult]::Failed, "Broader groups have excessive permissions on the build pipeline.");
                                 $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
-                                $formattedBroaderGrpTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                                $formattedBroaderGrpTable = ($formattedGroupsData | FT -AutoSize | Out-String -width 512)
                                 $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                                 $controlResult.AdditionalInfo += "List of excessive permissions on which contributors have access:  $($groupsWithExcessivePermissionsList.Group).";
                                 $controlResult.SetStateData("List of groups: ", $formattedGroupsData)
