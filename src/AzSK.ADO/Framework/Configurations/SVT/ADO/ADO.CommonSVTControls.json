@@ -189,8 +189,8 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBuildSvcAcctAccessOnRepository",
-      "Rationale": "Build service account is default identity used as part every build in project. Providing direct access to this common service account will expose repository details to all build definitions in the project.",
-      "Recommendation": "1. Go to Project Settings --> 2. Repositories --> 3. Select your repository from the list --> 4. Select security --> 5. Remove 'Project Collection Build Service Accounts/[Project] Build Service Account' access from user permission.",
+      "Rationale": "Build service account is default identity used as part every build in project. Configuring these identities with excessive permissions will expose repository details to all build definitions in the project.",
+      "Recommendation": "1. Go to Project Settings --> 2. Repositories --> 3. Select your repository from the list --> 4. Select security --> 5.  4. Ensure 'Excessive' permissions of 'Project Collection Build Service(organization)/[Project] Build Service' groups is not set to 'Allow'. Refer to detailed scan log (Repository.LOG) for excessive permissions list.",
       "Tags": [
         "SDL",
         "TCP",
