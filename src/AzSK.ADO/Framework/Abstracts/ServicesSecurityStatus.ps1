@@ -582,7 +582,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			#Assign baseline filtered resources to SVTResources list (resource list to be scanned)
 			if(($ResourcesWithBaselineFilter | Measure-Object).Count -gt 0)
 			{
-				$this.Resolver.SVTResources = $ResourcesWithBaselineFilter
+				$this.Resolver.SVTResources = [SVTResource[]] $ResourcesWithBaselineFilter
 			}
 		}
 	}
