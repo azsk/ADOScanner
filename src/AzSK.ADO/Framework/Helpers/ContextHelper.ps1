@@ -16,6 +16,7 @@ class ContextHelper {
     static hidden [int] $PSVersion = $null;
     static hidden $appObj = $null;
     static hidden $Account = $null;
+    static hidden $IsPATUsed = $false;
 
     ContextHelper()
     {
@@ -49,6 +50,7 @@ class ContextHelper {
     {
         if( (-not [ContextHelper]::currentContext) -or $authNRefresh -or [ContextHelper]::PromptForLogin)
         {
+            [ContextHelper]::IsPATUsed = $false
             $clientId = [Constants]::DefaultClientId ;          
             $replyUri = [Constants]::DefaultReplyUri; 
             $adoResourceId = [Constants]::DefaultADOResourceId;
@@ -144,6 +146,7 @@ class ContextHelper {
     {
         if(-not [ContextHelper]::currentContext)
         {
+            [ContextHelper]::IsPATUsed = $true;
             [ContextHelper]::ConvertToContextObject($PATToken)
         }
         return [ContextHelper]::currentContext
@@ -319,28 +322,54 @@ class ContextHelper {
 
     hidden static [PSobject] GetGraphAccess()
     {
+        $rootConfigPath = [Constants]::AzSKAppFolderPath;
+        $azskSettings = (Get-Content -Raw -Path (Join-Path $rootConfigPath "AzSKSettings.json")) | ConvertFrom-Json
+        if ([ContextHelper]::IsPATUsed -and $azskSettings -and $azskSettings.LASource -ne "CICD") {
+            $Context = @(Get-AzContext -ErrorAction SilentlyContinue)
+            if ($null -eq $Context -or $Context.count -eq 0) {
+                Connect-AzAccount -ErrorAction Stop
+                $Context = @(Get-AzContext -ErrorAction SilentlyContinue)
+            }
+            if ($null -eq $Context) {
+                throw 
+            }
+            else {
+                $graphUri = "https://graph.microsoft.com"
+                $authResult = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate(
+                $Context.Account,
+                $Context.Environment,
+                $Context.Tenant.Id,
+                [System.Security.SecureString] $null,
+                "Never",
+                $null,
+                $graphUri);
 
-        $ClientId = [Constants]::DefaultClientId
-        [Microsoft.Identity.Client.IPublicClientApplication] $appGrapth = [Microsoft.Identity.Client.PublicClientApplicationBuilder]::Create($ClientId).Build();
-        if (![ContextHelper]::Account) {
-            [ContextHelper]::Account = $appGrapth.GetAccountsAsync().GetAwaiter().GetResult() | Select-Object -First 1
+                return $authResult;
+            }
         }
-        $tokenSource = New-Object System.Threading.CancellationTokenSource
-        $taskAuthenticationResult=$null
-        $AquireTokenParameters = $null;
-        [string[]] $Scopes = "https://graph.microsoft.com/.default";
+        else {
+            $ClientId = [Constants]::DefaultClientId
+            [Microsoft.Identity.Client.IPublicClientApplication] $appGrapth = [Microsoft.Identity.Client.PublicClientApplicationBuilder]::Create($ClientId).Build();
+            if (![ContextHelper]::Account) {
+                [ContextHelper]::Account = $appGrapth.GetAccountsAsync().GetAwaiter().GetResult() | Select-Object -First 1
+            }
+            $tokenSource = New-Object System.Threading.CancellationTokenSource
+            $taskAuthenticationResult=$null
+            $AquireTokenParameters = $null;
+            [string[]] $Scopes = "https://graph.microsoft.com/.default";
 
-        $AquireTokenParameters = [ContextHelper]::appObj.AcquireTokenSilent($Scopes, [ContextHelper]::Account)
-        try {
-            $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
-            if ( [Helpers]::CheckMember($taskAuthenticationResult, "exception.message") -and ($taskAuthenticationResult.exception.message -like "*errors occurred*")) {
+            $AquireTokenParameters = [ContextHelper]::appObj.AcquireTokenSilent($Scopes, [ContextHelper]::Account)
+            try {
+                $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
+                if ( [Helpers]::CheckMember($taskAuthenticationResult, "exception.message") -and ($taskAuthenticationResult.exception.message -like "*errors occurred*")) {
+                    $AquireTokenParameters = $appGrapth.AcquireTokenInteractive($Scopes)
+                    $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
+                }
+            }
+            catch {
                 $AquireTokenParameters = $appGrapth.AcquireTokenInteractive($Scopes)
                 $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
             }
-        }
-        catch {
-            $AquireTokenParameters = $appGrapth.AcquireTokenInteractive($Scopes)
-            $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
         }
         
         return $taskAuthenticationResult.result;
