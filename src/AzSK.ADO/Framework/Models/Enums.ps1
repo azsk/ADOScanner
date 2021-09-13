@@ -222,6 +222,6 @@ enum RepoPermissions {
 	Bypasspolicieswhencompletingpullrequests = 32768
 	Bypasspolicieswhenpushing = 128
 	Editpolicies = 2048
-	Forcepush(rewritehistory,deletebranchesandtags) = 8
+	Forcepush = 8
 	Renamerepository = 1024
 }

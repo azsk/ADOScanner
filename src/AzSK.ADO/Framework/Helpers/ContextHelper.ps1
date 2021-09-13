@@ -251,6 +251,7 @@ class ContextHelper {
         $accessToken = ''
         try
         {   
+            Write-Host "Graph access is required to evaluate some controls. Attempting to acquire graph token." -ForegroundColor Cyan
             # In CA mode, we use azure context to fetch the graph access token.
             if ($useAzContext)
             {
@@ -258,7 +259,6 @@ class ContextHelper {
                 $Context = @(Get-AzContext -ErrorAction SilentlyContinue )
                 if ($Context.count -eq 0)  
                 {
-                    Write-Host "Graph access is required to evaluate some controls. Attempting to acquire Graph token." -ForegroundColor Cyan
                     
                     Connect-AzAccount -ErrorAction Stop
                     $Context = @(Get-AzContext -ErrorAction SilentlyContinue)
@@ -291,7 +291,6 @@ class ContextHelper {
             else 
             {
                 # generating graph access token using default VSTS client.
-                Write-Host "Graph access is required to evaluate some controls. Attempting to acquire graph token." -ForegroundColor Cyan
                 $clientId = [Constants]::DefaultClientId;          
                 $replyUri = [Constants]::DefaultReplyUri; 
                 $adoResourceId = "https://graph.microsoft.com/";
@@ -307,8 +306,8 @@ class ContextHelper {
                     $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
                 }
                 $accessToken = $result.AccessToken
-                Write-Host "Successfully acquired graph access token." -ForegroundColor Cyan
             }
+            Write-Host "Successfully acquired graph access token." -ForegroundColor Cyan
         }
         catch
         {

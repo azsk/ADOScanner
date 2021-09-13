@@ -3210,7 +3210,7 @@ class Project: ADOSVTBase
                         if ($excessiveEditPermissions.Count -gt 0) {
                             $excessivePermissionsGroupObj = @{}
                             $excessivePermissionsGroupObj['Group'] = $broderGroup.principalName
-                            $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessiveEditPermissions.displayName -join ', ')
+                            $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessiveEditPermissions.displayName -join ';')
                             $excessivePermissionsGroupObj['Descriptor'] = $broderGroup.sid
                             $excessivePermissionsGroupObj['PermissionSetToken'] = $permissionSetToken
                             $excessivePermissionsGroupObj['PermissionSetId'] = $repoSecurityNamespaceId
@@ -3278,9 +3278,14 @@ class Project: ADOSVTBase
                 foreach ($identity in $RawDataObjForControlFix) 
                 {
                     
-                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    $excessivePermissions = $identity.ExcessivePermissions -split ";"
                     foreach ($excessivePermission in $excessivePermissions) {
-                        $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","");
+                        if ($excessivePermission -eq 'Force push (rewrite history, delete branches and tags)') {
+                            $roleId = [int][RepoPermissions] 'Forcepush'
+                        }
+                        else {
+                            $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","");
+                        }
                         #need to invoke a post request which does not accept all permissions added in the body at once
                         #hence need to call invoke seperately for each permission
                          $body = "{
