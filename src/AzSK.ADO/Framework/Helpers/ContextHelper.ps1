@@ -253,9 +253,9 @@ class ContextHelper {
             {
                 #getting azure context because graph access token requires azure environment details.
                 $Context = @(Get-AzContext -ErrorAction SilentlyContinue )
+                Write-Host "Graph access is required to evaluate some controls. Attempting to acquire Graph token." -ForegroundColor Cyan
                 if ($Context.count -eq 0)  
                 {
-                    Write-Host "Graph access is required to evaluate some controls. Attempting to acquire Graph token." -ForegroundColor Cyan
                     
                     Connect-AzAccount -ErrorAction Stop
                     $Context = @(Get-AzContext -ErrorAction SilentlyContinue)
@@ -283,6 +283,7 @@ class ContextHelper {
                     }
 
                     $accessToken = $authResult.AccessToken;
+                    Write-Host "Successfully acquired graph access token." -ForegroundColor Cyan
                 }
             }
             else 
