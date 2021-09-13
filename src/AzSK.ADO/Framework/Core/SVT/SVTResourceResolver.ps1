@@ -1024,7 +1024,10 @@ class SVTResourceResolver: AzSKRoot {
                     #Creating resource in common resource resolver
                     if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -gt 0 -or $this.FeedNames.count -gt 0 -or $this.EnvironmentNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed, [ResourceTypeName]::Environment,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))) {
                         $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName, $organizationId, $projectId);
-                        $this.SVTResources +=  [SVTResource[]] $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.EnvironmentNames, $this.ResourceTypeName, $this.MaxObjectsToScan, $this.isServiceIdBasedScan);
+                        $commonSVTResourceList =  $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.EnvironmentNames, $this.ResourceTypeName, $this.MaxObjectsToScan, $this.isServiceIdBasedScan);
+                        foreach ($commonSVTRsrc in $commonSVTResourceList) {
+                            $this.SVTResources.add($commonSVTRsrc)
+                        }
                     }
 
                     #Fetch only those resources for which data obj backup is available in local 
