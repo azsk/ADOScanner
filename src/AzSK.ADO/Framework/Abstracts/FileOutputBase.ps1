@@ -62,7 +62,7 @@ class FileOutputBase: ListenerBase
 
 			#if this is a batch scan, we have to add results to the batch scan folder
 			$batchScanSanitizedPath = $null
-			if($commandMetaData.PSObject.Properties.Name.Contains("BatchScan")){
+			if($this.invocationContext.BoundParameters["BatchScan"]){
 				$batchScanSanitizedPath = [Helpers]::SanitizeFolderName($commandMetadata.BatchScan)
 			}
 			
@@ -76,10 +76,8 @@ class FileOutputBase: ListenerBase
 				$outputPath = Join-Path $outputPath -ChildPath "Default" |Join-Path -ChildPath $runPath ;           
 			}
 			else {
-				if(![string]::IsNullOrEmpty($batchScansanitizedPath)) {
-					$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) | Join-Path -ChildPath "BatchScan" | Join-Path -ChildPath $batchScanSanitizedPath |Join-Path -ChildPath $runPath ;
-				}
-				else {
+				
+				
 					if ($this.invocationContext.BoundParameters["ServiceIds"]) {
 						$runPath += "_SVCIdBased";
 					}
@@ -98,10 +96,13 @@ class FileOutputBase: ListenerBase
 					#if ($this.invocationContext.BoundParameters["MaxObj"]) {
 					#	$runPath += "_" +"MO"+ $this.invocationContext.BoundParameters["MaxObj"];
 					#}FilterTags
-					
-					$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) |Join-Path -ChildPath $runPath ;
-					
-				}
+					if(![string]::IsNullOrEmpty($batchScansanitizedPath)) {
+						$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) | Join-Path -ChildPath "BatchScan" | Join-Path -ChildPath $batchScanSanitizedPath |Join-Path -ChildPath $runPath ;
+					}
+					else {
+						$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) |Join-Path -ChildPath $runPath ;
+					}
+				
 				            
 			}
 

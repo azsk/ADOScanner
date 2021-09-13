@@ -55,6 +55,7 @@ class PartialScanManager
 	static [void] ClearInstance()
     {
        [PartialScanManager]::Instance = $null
+	   [PartialScanManager]::IsCsvUpdatedAtCheckpoint = $false
     }
 	PartialScanManager([string] $OrganizationName)
 	{
