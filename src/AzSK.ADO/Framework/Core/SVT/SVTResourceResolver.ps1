@@ -1157,7 +1157,7 @@ class SVTResourceResolver: AzSKRoot {
                     }                 
                 }
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources,[ResourceTypeName]::SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources,[ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))
             {
                 if ($rsrcList.ServiceConnections -and $rsrcList.ServiceConnections.Count -gt 0)
                 {
@@ -1171,7 +1171,7 @@ class SVTResourceResolver: AzSKRoot {
                     }                  
                 }
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources,[ResourceTypeName]::SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources,[ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))
             {
                 if ($rsrcList.AgentPools -and $rsrcList.AgentPools.Count -gt 0)
                 {
@@ -1185,7 +1185,7 @@ class SVTResourceResolver: AzSKRoot {
                     }                 
                 }
             }
-            if ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources,[ResourceTypeName]::SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
+            if ($this.ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources,[ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))
             {
                 if ($rsrcList.VariableGroups -and $rsrcList.VariableGroups.Count -gt 0)
                 {
