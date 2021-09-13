@@ -78,7 +78,8 @@ class ServicesSecurityStatus: ADOSVTCommandBase
             {
                 if (-not $invocationContext.BoundParameters["Force"])
                 {
-                    $backupLimit = $this.ControlSettings.AutomatedFix.BackupLimitInDays;
+                    $ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+                    $backupLimit = $ControlSettings.AutomatedFix.BackupLimitInDays;
                     $oldBackupResourcesFound = $false
                     # [ControlHelper]::ControlFixBackup now has only relevant data based on this scan's paramaters
                     foreach ($resource in [ControlHelper]::ControlFixBackup)
