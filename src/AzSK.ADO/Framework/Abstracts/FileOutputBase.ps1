@@ -83,7 +83,7 @@ class FileOutputBase: ListenerBase
 					if ($this.invocationContext.BoundParameters["ServiceIds"]) {
 						$runPath += "_SVCIdBased";
 					}
-					if ($this.invocationContext.BoundParameters["UsePartialCommit"]) {
+					if ($this.invocationContext.BoundParameters["UsePartialCommits"]) {
 						$runPath += "_UPC";
 					}
 					if ($this.invocationContext.BoundParameters["UseBaselineControls"]) {
