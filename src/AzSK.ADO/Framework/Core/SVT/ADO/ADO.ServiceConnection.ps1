@@ -914,7 +914,7 @@ class ServiceConnection: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have excessive permissions on service connection: $($restrictedGroupsCount)")
                     $backupDataObject = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id} }, @{l = 'Role'; e = { $_.Role } },@{l = 'AccessDisplayName'; e = { $_.AccessDisplayName } }
                     $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } },@{l = 'AccessDisplayName'; e = { $_.AccessDisplayName } }
-                    $formattedGroupsTable = ($formattedGroupsData | Out-String)
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String -width 512)
                     $controlResult.AddMessage("`nList of groups: ", $formattedGroupsTable)
                     $controlResult.SetStateData("List of groups: ", $formattedGroupsTable)
                     $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions on service connection:  $($restrictedGroupsCount)";

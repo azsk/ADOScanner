@@ -2311,7 +2311,7 @@ class Project: ADOSVTBase
                             #TODO: Do we need to put state object?
                             $controlResult.AddMessage([VerificationResult]::Failed, "Build pipelines are set to inherit excessive permissions for a broad group of users at project level.");
                             $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
-                            $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
+                            $formattedBroaderGrpTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                             $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                             $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
                             if ($this.ControlFixBackupRequired)
@@ -2542,7 +2542,7 @@ class Project: ADOSVTBase
                             #TODO: Do we need to put state object?
                             $controlResult.AddMessage([VerificationResult]::Failed, "Release pipelines are set to inherit excessive permissions for a broad group of users at project level.");
                             $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
-                            $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
+                            $formattedBroaderGrpTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                             $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                             $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
                             if ($this.ControlFixBackupRequired)
@@ -2698,7 +2698,7 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage("Count of broader groups: $($restrictedGroupsCount)`n")
                         $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
                         $formattedGroupsDataForAutoFix = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id } }, @{l = 'Role'; e = { $_.Role } }
-                        $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                        $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage("`nList of groups: ", $formattedGroupsTable)
                         $controlResult.SetStateData("List of groups: ", $formattedGroupsData)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to service connection at a project level:  $($restrictedGroupsCount)";
@@ -2822,7 +2822,7 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage([VerificationResult]::Failed, "Agent pools are set to inherit excessive permissions for a broad group of users at project level.");
                         $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups: $($restrictedGroupsCount)");
                         $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
-                        $formattedGroupsTable = ($formattedGroupsData | Out-String)
+                        $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage("`nList of groups: $formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool at a project level: $($restrictedGroupsCount)";
@@ -2951,7 +2951,7 @@ class Project: ADOSVTBase
                 if ($restrictedGroupsCount -gt 0) {
                     $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)");
                     $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
-                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
@@ -3072,7 +3072,7 @@ class Project: ADOSVTBase
                 if ($restrictedGroupsCount -gt 0) {
                     $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to secure file at a project level: $($restrictedGroupsCount)");
                     $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
-                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to secure file at a project level: $($restrictedGroupsCount)";
