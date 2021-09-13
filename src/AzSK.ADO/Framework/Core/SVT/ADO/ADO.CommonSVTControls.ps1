@@ -781,7 +781,7 @@ class CommonSVTControls: ADOSVTBase {
             }
             $feedPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
 
-            $restrictedRolesForBroaderGroupsInFeeds = $this.ControlSettings.Feed.RestrictedRolesForBroaderGroupsInFeeds;
+            $restrictedRolesForBroaderGroupsInFeeds = $this.ControlSettings.Feed.RestrictedRolesForBuildSvcAccountsInFeed;
 
             $excessiveBuildSvcAccFeedsPerm = @($feedPermissionList | Where-Object {($restrictedRolesForBroaderGroupsInFeeds -contains $_.role) -and `
                 (($_.DisplayName.split('\')[-1] -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))") -or `
