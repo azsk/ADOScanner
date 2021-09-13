@@ -2034,9 +2034,10 @@ class Project: ADOSVTBase
                                                   $OrgGroup = ($grpobj.group.groupName  | select -Unique)-join ','
                                                   $DisplayName = $grpobj.group.name | select -Unique
                                                   $date = ""
+                                                  $createdDate = ""
                                                   $descriptor = $grpobj.group.descriptor | select -Unique
                                                   $subDescriptor = $grpobj.group.subjectdescriptor | select -Unique
-                                                  [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date ; Descriptor = $descriptor; subjectdescriptor = $subDescriptor }
+                                                  [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date ; Descriptor = $descriptor; subjectdescriptor = $subDescriptor; DateCreated = $createdDate }
                                                 }
 
                         $inactiveUsersWithAdminAccess =@()
@@ -2069,6 +2070,11 @@ class Project: ADOSVTBase
                                                 {
                                                     $_.LastAccessedDate = "User was never active"
                                                     $neverActiveUsersWithAdminAccess += $_
+
+                                                    if([Helpers]::CheckMember($members[0],"dateCreated"))
+                                                    {
+                                                        $_.DateCreated = [datetime]::Parse($members[0].dateCreated)
+                                                    }
                                                 }
                                                 else {
                                                     $_.LastAccessedDate = $dateobj #.ToString("d MMM yyyy"), date object is needed to sort users based on datetime.
@@ -2091,38 +2097,64 @@ class Project: ADOSVTBase
                        $controlResult.AdditionalInfoInCSV += 'NA' ;
                     }
 
+                    $inactiveUsersCount = $inactiveUsersWithAdminAccess.count
+                    $neverActiveUsersCount = $neverActiveUsersWithAdminAccess.count
+
                     if($null -eq (Compare-Object -ReferenceObject $AdminUsersMasterList -DifferenceObject $AdminUsersFailureCases))
                     {
                         $controlResult.AddMessage([VerificationResult]::Error, "Unable to fetch details of inactive users in admin role. Please run the scan with admin priveleges.")
                     }
-                    elseif(($inactiveUsersWithAdminAccess.count -gt 0) -or ($neverActiveUsersWithAdminAccess.Count -gt 0))
+                    elseif(($inactiveUsersCount -gt 0) -or ($neverActiveUsersCount -gt 0))
                     {
-                        
-                        $inactiveUsersWithAdminAccess = @($inactiveUsersWithAdminAccess | Sort-Object LastAccessedDate)
-                        $inactiveUsersWithAdminAccess = @($inactiveUsersWithAdminAccess | Select-Object PrincipalName,DisplayName,Group, @{Name="LastAccessedDate";Expression = {$_.LastAccessedDate.ToString("d MMM yyyy")}},Descriptor,SubjectDescriptor)
-                        $inactiveUsersWithAdminAccess += $neverActiveUsersWithAdminAccess | Select-Object PrincipalName,DisplayName,Group, LastAccessedDate, Descriptor,SubjectDescriptor
-                        
+                        $totalInactiveUsers = @()
+                        $totalInactiveUsers += @($inactiveUsersWithAdminAccess | Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate)
+                        $totalInactiveUsers += @($neverActiveUsersWithAdminAccess | Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate)
+                        $totalInactiveUsersCount = $totalInactiveUsers.Count
+
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Total number of inactive users present in the admin roles: $($totalInactiveUsersCount)");
+                        $controlResult.AdditionalInfo += "Total number of inactive users present in the admin toles: " + $totalInactiveUsersCount;
+                        $controlResult.SetStateData("Inactive users list: ", $totalInactiveUsers);
+                        $controlResult.AdditionalInfoInCSV += "NumInactiveUsers: $totalInactiveUsersCount ; ";
+
                         if ($this.ControlFixBackupRequired)
                         {
+                            $backupObj = @()
+                            $backupObj += $inactiveUsersWithAdminAccess
+                            $backupObj += $neverActiveUsersWithAdminAccess | Select-Object PrincipalName,DisplayName,Group, LastAccessedDate, Descriptor,SubjectDescriptor
                             #Data object that will be required to fix the control
-                            $controlResult.BackupControlState = $inactiveUsersWithAdminAccess | Select-Object -property PrincipalName,DisplayName,Group,Descriptor,SubjectDescriptor
+                            $controlResult.BackupControlState = $backupObj | Select-Object -property PrincipalName,DisplayName,Group,Descriptor,SubjectDescriptor
                         }
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive users in admin roles: $($inactiveUsersWithAdminAccess.count) ");
-                        $controlResult.AddMessage("`nInactive admin user details:")
-                        $display = ($inactiveUsersWithAdminAccess|FT PrincipalName,DisplayName,Group,LastAccessedDate  -AutoSize | Out-String -Width 512)
-                        $controlResult.AddMessage($display)
-                        $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
-                       
-                        $controlResult.AdditionalInfoInCSV += "NumInactiveUsers: $($inactiveUsersWithAdminAccess.count) ; ";
-                        $UserList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName +': '+ $(if($_.LastAccessedDate -eq 'User was never active'){ "NeverActive"} else { (((Get-Date) - [DateTime]$_.LastAccessedDate).Days).ToString() + ' days'})} | select-object -Unique -First 10;
-                        $controlResult.AdditionalInfoInCSV += "First 10 InactiveUsers: $($UserList -join ' ; ');";
-                        
-                    
+
+                        if($inactiveUsersCount -gt 0)
+                        {
+                            $inactiveUsersWithAdminAccess = @($inactiveUsersWithAdminAccess | Select-Object  PrincipalName,DisplayName,Group,@{Name="InactiveFromDays"; Expression = {((Get-Date) -($_.LastAccessedDate)).Days}})
+                            $inactiveUsersWithAdminAccess = $inactiveUsersWithAdminAccess| Sort-Object InactiveFromDays -Descending 
+
+                            $controlResult.AddMessage("`nCount of users found inactive for $($inactivityPeriodInDays) days in admin roles: $($inactiveUsersCount) ");
+                            $controlResult.AddMessage("Inactive admin user details:")
+                            $display = $inactiveUsersWithAdminAccess|FT -AutoSize | Out-String -Width 512
+                            $controlResult.AddMessage($display)
+                            $usersList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.PrincipalName +': '+ $_.InactiveFromDays + ' days'} | select-object -Unique -First 5;
+                            $controlResult.AdditionalInfoInCSV += "First 5 InactiveUsers: $($usersList -join ' ; '); ";
+                        }
+
+                        if($neverActiveUsersCount -gt 0)
+                        {
+                            $neverActiveUsersWithAdminAccess = @($neverActiveUsersWithAdminAccess| Sort-Object DateCreated | Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate,@{Name="DateCreated";Expression = {([datetime] $_.DateCreated).ToString("d MMM yyyy")}})
+                            $controlResult.AddMessage("Count of users found never active in admin roles: $($neverActiveUsersCount) ");
+                            $controlResult.AddMessage("Never active admin user details:")
+                            $display = $neverActiveUsersWithAdminAccess|FT -AutoSize | Out-String -Width 512
+                            $controlResult.AddMessage($display)
+                            $usersList = $neverActiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName } | select-object -Unique -First 5;
+                            $controlResult.AdditionalInfoInCSV += "First 5 NeverActiveUsers: $($usersList -join ' ; ');";
+                        }
+
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No users in project admin roles found to be inactive for $($inactivityPeriodInDays) days.");
                         $controlResult.AdditionalInfoInCSV += 'NA' ;
                     }
+                    
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of groups in the project.")
