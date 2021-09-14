@@ -121,7 +121,7 @@ class CommonSVTControls: ADOSVTBase {
                 $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions } 
                 $groups =  $groups -join ' ; '
                 $controlResult.AdditionalInfo += "List of Build service groups  with excessive permission on 'All Branches' level:  $($groups); ";
-                $controlResult.AdditionalInfoInCSV+= "'All Branches' level: $($groups); "                        
+                $controlResult.AdditionalInfoInCSV+= "'All Branches' level excessive permissions: $($groups); "                        
             }
             else {
                 $controlResult.AddMessage("Build service groups do not have excessive permissions on 'All Branches' level of the repository.");
@@ -146,7 +146,7 @@ class CommonSVTControls: ADOSVTBase {
                     $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions } 
                     $groups =  $groups -join ' ; '
                     $controlResult.AdditionalInfo += "List of Build service groups  with excessive permission on $($_) branch:  $($groups); ";
-                    $controlResult.AdditionalInfoInCSV+= "$_ branch: $($groups); "                      
+                    $controlResult.AdditionalInfoInCSV+= "$_ branch excessive permissions: $($groups); "                      
                 }
                 else {
                     $controlResult.AddMessage("Build service groups  do not have excessive permissions on '$($_)' branch of the repository.");
@@ -158,7 +158,7 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.AdditionalInfoInCSV = 'NA'
             } 
 
-            $controlResult.AddMessage("Following permissions are considered 'excessive':`n$($this.excessivePermissionsForRepoBranch | FT | Out-String)");
+            $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n$($this.excessivePermissionsForRepoBranch | FT | Out-String)");
         
         }
         catch
@@ -1085,8 +1085,10 @@ class CommonSVTControls: ADOSVTBase {
                     $formattedBroaderGrpTable = ($formattedGroupsData | Out-String  -Width 512 )
                     $controlResult.AddMessage("`nList of 'Build Service' Accounts: $formattedBroaderGrpTable");
                     $controlResult.SetStateData("List of 'Build Service' Accounts: ", $formattedGroupsData)
-
+                    $additionalInfoInCSV = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions }
+                    $additionalInfoInCSV = $additionalInfoInCSV -join ' ; ' 
                     $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to repository: $($groupsWithExcessivePermissionsList.Count)";
+                    $controlResult.AdditionalInfoInCSV+= "'Repo' level excessive permissions: $($additionalInfoInCSV); "  
                 }
 
                 else {
