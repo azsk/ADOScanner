@@ -527,7 +527,12 @@
         "Collaborator",
         "Contributor"
       ]
-    }
+    },
+    "RestrictedRolesForBuildSvcAccountsInFeed" : [
+        "Administrator",
+        "Collaborator",
+        "Contributor"
+    ]
   },
   "SecureFile":{
     "RestrictedBroaderGroupsForSecureFile" : {
