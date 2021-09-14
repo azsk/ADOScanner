@@ -1075,7 +1075,7 @@ class CommonSVTControls: ADOSVTBase {
                     #TODO: Do we need to put state object?
                     $controlResult.AddMessage([VerificationResult]::Failed, "Count of restricted Build Service groups that have access to repository: $($groupsWithExcessivePermissionsList.count)");
                     $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
-                    $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
+                    $formattedBroaderGrpTable = ($formattedGroupsData | Out-String  -Width 512 )
                     $controlResult.AddMessage("`nList of 'Build Service' Accounts: $formattedBroaderGrpTable");
                     $controlResult.SetStateData("List of 'Build Service' Accounts: ", $formattedGroupsData)
 
