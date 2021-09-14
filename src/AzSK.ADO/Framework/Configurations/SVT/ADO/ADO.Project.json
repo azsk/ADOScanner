@@ -222,7 +222,8 @@
         "SDL",
         "DP",
         "Automated",
-        "Best Practice"
+        "Best Practice",
+        "MSW"
       ],
       "Enabled": false
     },
