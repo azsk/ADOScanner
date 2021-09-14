@@ -267,7 +267,7 @@ function Get-AzSKADOSecurityStatus
 
 		[switch]
 		[Parameter(HelpMessage="Allow long running scan.")]
-		[Alias("als, alrs")]
+		[Alias("als", "alrs")]
 		$AllowLongRunningScan,
 
 		[string]
