@@ -118,7 +118,10 @@ class CommonSVTControls: ADOSVTBase {
                 $formattedGroupsData = $excessivePermissionsListOnAllBranches | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
                 $formattedBuildServiceGrpTable = ($formattedGroupsData | Out-String -Width 512)
                 $controlResult.AddMessage("`nList of groups : `n$formattedBuildServiceGrpTable");
-                $controlResult.AdditionalInfo += "List of excessive permissions on 'All Branches' level:  $($formattedGroupsData).";                       
+                $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions } 
+                $groups =  $groups -join ' ; '
+                $controlResult.AdditionalInfo += "List of Build service groups  with excessive permission on 'All Branches' level:  $($groups); ";
+                $controlResult.AdditionalInfoInCSV+= "'All Branches' level: $($groups); "                        
             }
             else {
                 $controlResult.AddMessage("Build service groups do not have excessive permissions on 'All Branches' level of the repository.");
@@ -139,8 +142,11 @@ class CommonSVTControls: ADOSVTBase {
                     
                     $formattedGroupsData = $excessivePermissionsListOnBranch | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
                     $formattedBuildServiceGrpTable = ($formattedGroupsData | Out-String -Width 512)
-                    $controlResult.AddMessage("`nList of groups : `n$formattedBuildServiceGrpTable");
-                    $controlResult.AdditionalInfo += "List of Build service groups  with excessive permission on $($_) branch:  $($formattedGroupsData).";                          
+                    $controlResult.AddMessage("`nList of groups : `n$formattedBuildServiceGrpTable");                    
+                    $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions } 
+                    $groups =  $groups -join ' ; '
+                    $controlResult.AdditionalInfo += "List of Build service groups  with excessive permission on $($_) branch:  $($groups); ";
+                    $controlResult.AdditionalInfoInCSV+= "$_ branch: $($groups); "                      
                 }
                 else {
                     $controlResult.AddMessage("Build service groups  do not have excessive permissions on '$($_)' branch of the repository.");
@@ -149,6 +155,7 @@ class CommonSVTControls: ADOSVTBase {
             #only when all the branches are passing, this controls will be passed
             if($isControlPassing){
                 $controlResult.AddMessage([VerificationResult]::Passed, "Build service groups do not have excessive permissions on either 'all branch' level or individual branches in the repository");
+                $controlResult.AdditionalInfoInCSV = 'NA'
             } 
 
             $controlResult.AddMessage("Following permissions are considered 'excessive':`n$($this.excessivePermissionsForRepoBranch | FT | Out-String)");
