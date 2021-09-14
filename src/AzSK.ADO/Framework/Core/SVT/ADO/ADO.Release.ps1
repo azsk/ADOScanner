@@ -1843,12 +1843,24 @@ class Release: ADOSVTBase
 
                     if($releases.Count -gt 0 )
                     {
-                        $this.releaseActivityDetail.releaseCreationDate = [datetime]::Parse($this.ReleaseObj.createdOn);
+                        try {
+                            $this.releaseActivityDetail.releaseCreationDate = [datetime]::Parse($this.ReleaseObj.createdOn); 
+                        }
+                        catch {
+                            $this.releaseActivityDetail.releaseCreationDate = $this.ReleaseObj.createdOn;
+                        }
                         $recentReleases = @()
                         $releases | ForEach-Object {
-                            if([datetime]::Parse( $_.createdOn) -gt (Get-Date).AddDays(-$($this.ControlSettings.Release.ReleaseHistoryPeriodInDays)))
+                            $release =  $_;
+                            try {
+                                $createdOn = [datetime]::Parse( $release.createdOn)  
+                            }
+                            catch {
+                                $createdOn = $release.createdOn
+                            }
+                            if( $createdOn -gt (Get-Date).AddDays(-$($this.ControlSettings.Release.ReleaseHistoryPeriodInDays)))
                             {
-                                $recentReleases+=$_
+                                $recentReleases+=$release
                             }
                         }
 
@@ -1862,14 +1874,26 @@ class Release: ADOSVTBase
                             $this.releaseActivityDetail.isReleaseActive = $false;
                             $this.releaseActivityDetail.message = "No recent release history found in last $($this.ControlSettings.Release.ReleaseHistoryPeriodInDays) days";
                         }
-                        $latestReleaseTriggerDate = [datetime]::Parse($releases[0].createdOn);
-                        $this.releaseActivityDetail.latestReleaseTriggerDate = $latestReleaseTriggerDate;
+                        try {
+                            $latestReleaseTriggerDate = [datetime]::Parse($releases[0].createdOn);
+                            $this.releaseActivityDetail.latestReleaseTriggerDate = $latestReleaseTriggerDate;
+                        }
+                        catch {
+                            $latestReleaseTriggerDate = $releases[0].createdOn;
+                            $this.releaseActivityDetail.latestReleaseTriggerDate = $latestReleaseTriggerDate;
+                        }
+                        
                     }
                     else
                     {
                         # no release history ever.
                         $this.releaseActivityDetail.isReleaseActive = $false;
-                        $this.releaseActivityDetail.releaseCreationDate = [datetime]::Parse($this.ReleaseObj.createdOn);
+                        try {
+                            $this.releaseActivityDetail.releaseCreationDate = [datetime]::Parse($this.ReleaseObj.createdOn);  
+                        }
+                        catch {
+                            $this.releaseActivityDetail.releaseCreationDate = $this.ReleaseObj.createdOn;
+                        }
                         $this.releaseActivityDetail.message = "No release history found.";
                     }
 
