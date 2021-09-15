@@ -73,6 +73,12 @@ class InventoryHelper {
                     $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
                     if (([Helpers]::CheckMember($agentPoolsDefnsObj, "fps.dataProviders.data") ) -and (($agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider") -and $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues)) {
                         $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues;
+                        
+                        # We need to filter out legacy agent pools (Hosted, Hosted VS 2017 etc.) as they are not visible to user on the portal. As a result, they won't be able to remediate their respective controls
+                        $taskAgentQueues = $taskAgentQueues | where-object{$_.pool.isLegacy -eq $false};
+                        
+                        #Filtering out "Azure Pipelines" agent pool from scan as it is created by ADO by default and some of its settings are not editable (grant access to all pipelines, auto-provisioning etc.)
+                        $taskAgentQueues = $taskAgentQueues | where-object{$_.name -ne "Azure Pipelines"};
                         $projectData["AgentPools"] = ($taskAgentQueues | Measure-Object).Count
                     }
                 }
@@ -87,6 +93,42 @@ class InventoryHelper {
                     if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) {
                         $varGroups = $variableGroupObj
                         $projectData["VariableGroups"] = ($varGroups | Measure-Object).Count
+                    }
+                }
+            }
+            catch {}
+
+            # fetch the secure files count
+            try {
+                if ($projectData["SecureFiles"] -eq 0) {
+                    $secureFileDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/securefiles?api-version=6.1-preview.1") -f $($organizationName), $projectName;
+                    $secureFileObj = [WebRequestHelper]::InvokeGetWebRequest($secureFileDefnURL)
+                    if (([Helpers]::CheckMember($secureFileObj, "count") -and $secureFileObj[0].count -gt 0) -or (($secureFileObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($secureFileObj[0], "name"))) {
+                        $projectData["SecureFiles"] = ($secureFileObj | Measure-Object).Count
+                    }
+                }
+            }
+            catch {}
+
+            # fetch the feeds count
+            try {
+                if ($projectData["Feeds"] -eq 0) {
+                    $feedDefnURL = ("https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds?api-version=6.0-preview.1") -f $organizationName, $projectName
+                    $feedDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($feedDefnURL);
+                    if (([Helpers]::CheckMember($feedDefnsObj, "count") -and $feedDefnsObj[0].count -gt 0) -or (($feedDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($feedDefnsObj[0], "name"))) {
+                        $projectData["Feeds"] = ($feedDefnsObj | Measure-Object).Count
+                    }
+                }
+            }
+            catch {}
+
+            # fetch the environments count
+            try {
+                if ($projectData["Environments"] -eq 0) {
+                    $environmentDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1") -f $organizationName, $projectName;
+                    $environmentDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($environmentDefnURL);
+                    if (([Helpers]::CheckMember($environmentDefnsObj, "count") -and $environmentDefnsObj[0].count -gt 0) -or (($environmentDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($environmentDefnsObj[0], "name"))) {
+                        $projectData["Environments"] = ($environmentDefnsObj | Measure-Object).Count
                     }
                 }
             }

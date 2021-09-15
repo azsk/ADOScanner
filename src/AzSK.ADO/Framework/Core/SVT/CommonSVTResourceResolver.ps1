@@ -15,20 +15,25 @@ class CommonSVTResourceResolver {
     }
 
     [SVTResource[]] LoadResourcesForScan($projectName, $repoNames, $secureFileNames, $feedNames, $environmentNames, $ResourceTypeName, $MaxObjectsToScan, $isServiceIdBasedScan) {
-        #Get resources    
-        [SVTResource[]] $SVTResources = @();
-        if ($repoNames.Count -gt 0 -or ($ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::All, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan) ) {
+        #Get resources  
+
+        [System.Collections.Generic.List[SVTResource]] $SVTResources = @();
+        if ($repoNames.Count -gt 0 -or ($ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::All,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan) ) {
+
             #Write-Host "Getting repository configurations..." -ForegroundColor cyan
-            if ($ResourceTypeName -eq [ResourceTypeName]::Repository -and $repoNames.Count -eq 0) {
+            if ($ResourceTypeName -in([ResourceTypeName]::Repository, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and $repoNames.Count -eq 0) {
                 $repoNames += "*";
             }
             $repoObjList = @();
-            $repoObjList += $this.FetchRepositories($projectName, $repoNames);
+            #if rtn Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources and resource name not provided (neither * nor any name) no need to fetch this resource
+            if($repoNames.Count -ne 0){
+                $repoObjList += $this.FetchRepositories($projectName, $repoNames);
+            }            
             if ($repoObjList.count -gt 0 -and [Helpers]::CheckMember($repoObjList[0], "Id")) {
                 $maxObjScan = $MaxObjectsToScan
                 foreach ($repo in $repoObjList) {
                     $resourceId = "organization/{0}/project/{1}/repository/{2}" -f $this.organizationId, $this.projectId, $repo.id;
-                    $SVTResources += $this.AddSVTResource($repo.name, $projectName, "ADO.Repository", $resourceId, $repo, $repo.webUrl);
+                    $SVTResources.Add($this.AddSVTResource($repo.name, $projectName, "ADO.Repository", $resourceId, $repo, $repo.webUrl));
                     if (--$maxObjScan -eq 0) { break; }
                 }
 
@@ -37,19 +42,22 @@ class CommonSVTResourceResolver {
         }
         
         ##Get SecureFiles
-        if ($secureFileNames.Count -gt 0 -or ($ResourceTypeName -in ([ResourceTypeName]::SecureFile, [ResourceTypeName]::All, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan) ) {
-            if ($ResourceTypeName -eq [ResourceTypeName]::SecureFile -and $secureFileNames.Count -eq 0) {
+        if ($secureFileNames.Count -gt 0 -or ($ResourceTypeName -in ([ResourceTypeName]::SecureFile, [ResourceTypeName]::All,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan) ) {
+            if ($ResourceTypeName -in([ResourceTypeName]::SecureFile, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and $secureFileNames.Count -eq 0) {
                 $secureFileNames += "*"
-            }
+            }            
             # Here we are fetching all the secure files in the project.
             $secureFileObjList = @();
-            $secureFileObjList += $this.FetchSecureFiles($projectName, $secureFileNames);
+            #if rtn Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources and resource name not provided (neither * nor any name) no need to fetch this resource
+            if($secureFileNames.Count -ne 0){
+                $secureFileObjList += $this.FetchSecureFiles($projectName, $secureFileNames);
+            }            
             if ($secureFileObjList.count -gt 0 -and [Helpers]::CheckMember($secureFileObjList[0], "Id")) {
                 $maxObjScan = $MaxObjectsToScan
                 foreach ($securefile in $secureFileObjList) {
                     $resourceId = "organization/{0}/project/{1}/securefile/{2}" -f $this.organizationId, $this.projectId, $securefile.Id;
                     $secureFileLink = "https://dev.azure.com/{0}/{1}/_library?itemType=SecureFiles&view=SecureFileView&secureFileId={2}&path={3}" -f $this.organizationName, $projectName, $securefile.Id, $securefile.Name;
-                    $SVTResources += $this.AddSVTResource($securefile.Name, $projectName, "ADO.SecureFile", $resourceId, $securefile, $secureFileLink);
+                    $SVTResources.Add($this.AddSVTResource($securefile.Name, $projectName, "ADO.SecureFile", $resourceId, $securefile, $secureFileLink));
                     if (--$maxObjScan -eq 0) { break; }
                 }
 
@@ -58,20 +66,23 @@ class CommonSVTResourceResolver {
         }
 
         #Get feeds
-        if ($feedNames.Count -gt 0 -or ($ResourceTypeName -in ([ResourceTypeName]::Feed, [ResourceTypeName]::All, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan) ) {
+        if ($feedNames.Count -gt 0 -or ($ResourceTypeName -in ([ResourceTypeName]::Feed, [ResourceTypeName]::All,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan) ) {
             #Write-Host "Getting feed configurations..." -ForegroundColor cyan
-            if ($ResourceTypeName -eq [ResourceTypeName]::Feed -and $feedNames.Count -eq 0) {
+            if ($ResourceTypeName -in([ResourceTypeName]::Feed, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and $feedNames.Count -eq 0) {
                 $feedNames += "*"
             }
 
             $feedObjList = @();
-            $feedObjList += $this.FetchFeeds($projectName, $feedNames);
+            #if rtn Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources and resource name not provided (neither * nor any name) no need to fetch this resource
+            if($feedNames.Count -ne 0){
+                $feedObjList += $this.FetchFeeds($projectName, $feedNames);
+            }            
             if ($feedObjList.count -gt 0 -and [Helpers]::CheckMember($feedObjList[0], "Id")) {
                 $maxObjScan = $MaxObjectsToScan
                 foreach ($feed in $feedObjList) {
                     $resourceId = "organization/{0}/project/{1}/feed/{2}" -f $this.organizationId, $this.projectId, $feed.id;
                     $resourceLink = "https://dev.azure.com/{0}/{1}/_packaging?_a=feed&feed={2}" -f $this.organizationName, $projectName, $feed.name;
-                    $SVTResources += $this.AddSVTResource($feed.name, $projectName, "ADO.Feed", $resourceId, $feed, $resourceLink);
+                    $SVTResources.Add($this.AddSVTResource($feed.name, $projectName, "ADO.Feed", $resourceId, $feed, $resourceLink));
                     if (--$maxObjScan -eq 0) { break; }
                 }
 
@@ -80,20 +91,23 @@ class CommonSVTResourceResolver {
         }
 
         #Get $EnvironmentNames
-        if ($environmentNames.Count -gt 0 -or ($ResourceTypeName -in ([ResourceTypeName]::Environment, [ResourceTypeName]::All, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan)) {
+        if ($environmentNames.Count -gt 0 -or ($ResourceTypeName -in ([ResourceTypeName]::Environment, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan)) {
             #Write-Host "Getting feed configurations..." -ForegroundColor cyan
-            if ($ResourceTypeName -eq [ResourceTypeName]::Environment -and $environmentNames.Count -eq 0) {
+            if ($ResourceTypeName -in([ResourceTypeName]::Environment, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and $environmentNames.Count -eq 0) {
                 $environmentNames += "*"
             }
 
             $environmentObjList = @();
-            $environmentObjList += $this.FetchEnvironments($projectName, $environmentNames, $MaxObjectsToScan);
+            #if rtn Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources and resource name not provided (neither * nor any name) no need to fetch this resource
+            if($environmentNames.Count -ne 0){
+                $environmentObjList += $this.FetchEnvironments($projectName, $environmentNames, $MaxObjectsToScan);
+            }            
             if ($environmentObjList.count -gt 0 -and [Helpers]::CheckMember($environmentObjList[0], "Id")) {
                 $maxObjScan = $MaxObjectsToScan
                 foreach ($environment in $environmentObjList) {
                     $resourceId = "organization/{0}/project/{1}/environment/{2}" -f $this.organizationId, $this.projectId, $environment.id;
                     $resourceLink = "https://dev.azure.com/{0}/{1}/_environments/{2}?view=resources" -f $this.organizationName, $environment.project.id, $environment.id;
-                    $SVTResources += $this.AddSVTResource($environment.name, $projectName, "ADO.Environment", $resourceId, $environment, $resourceLink);
+                    $SVTResources.Add($this.AddSVTResource($environment.name, $projectName, "ADO.Environment", $resourceId, $environment, $resourceLink));
                     if (--$maxObjScan -eq 0) { break; }
                 }
 

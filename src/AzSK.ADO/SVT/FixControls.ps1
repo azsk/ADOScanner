@@ -69,7 +69,12 @@ function Set-AzSKADOSecurityStatus
         [switch]
         [Parameter()]
         [Alias("f")]
-        $Force
+        $Force,
+
+        [string]
+        [Parameter(Mandatory = $false)]
+        [Alias("exp")]
+        $ExcludePrincipalId
     )
     Begin
     {

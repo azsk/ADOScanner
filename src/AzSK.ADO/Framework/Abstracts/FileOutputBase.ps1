@@ -62,7 +62,7 @@ class FileOutputBase: ListenerBase
 
 			#if this is a batch scan, we have to add results to the batch scan folder
 			$batchScanSanitizedPath = $null
-			if($commandMetaData.PSObject.Properties.Name.Contains("BatchScan")){
+			if($this.invocationContext.BoundParameters["BatchScan"]){
 				$batchScanSanitizedPath = [Helpers]::SanitizeFolderName($commandMetadata.BatchScan)
 			}
 			
@@ -76,12 +76,33 @@ class FileOutputBase: ListenerBase
 				$outputPath = Join-Path $outputPath -ChildPath "Default" |Join-Path -ChildPath $runPath ;           
 			}
 			else {
-				if(![string]::IsNullOrEmpty($batchScansanitizedPath)) {
-					$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) | Join-Path -ChildPath "BatchScan" | Join-Path -ChildPath $batchScanSanitizedPath |Join-Path -ChildPath $runPath ;
-				}
-				else {
-					$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) |Join-Path -ChildPath $runPath ;
-				}
+				
+				
+					if ($this.invocationContext.BoundParameters["ServiceIds"]) {
+						$runPath += "_SVCIdBased";
+					}
+					if ($this.invocationContext.BoundParameters["UsePartialCommits"]) {
+						$runPath += "_UPC";
+					}
+					if ($this.invocationContext.BoundParameters["UseBaselineControls"]) {
+						$runPath += "_UBC";
+					}
+					if ($this.invocationContext.BoundParameters["ResourceTypeName"]) {
+						$runPath += "_" + $this.invocationContext.BoundParameters["ResourceTypeName"];
+					}
+					if ($this.invocationContext.BoundParameters["FilterTags"]) {
+						$runPath += "_FT_"+ $this.invocationContext.BoundParameters["FilterTags"];
+					}
+					#if ($this.invocationContext.BoundParameters["MaxObj"]) {
+					#	$runPath += "_" +"MO"+ $this.invocationContext.BoundParameters["MaxObj"];
+					#}FilterTags
+					if(![string]::IsNullOrEmpty($batchScansanitizedPath)) {
+						$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) | Join-Path -ChildPath "BatchScan" | Join-Path -ChildPath $batchScanSanitizedPath |Join-Path -ChildPath $runPath ;
+					}
+					else {
+						$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) |Join-Path -ChildPath $runPath ;
+					}
+				
 				            
 			}
 

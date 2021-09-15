@@ -30,7 +30,7 @@
       "Automated": "Yes",
       "MethodName": "CheckServiceConnectionAccess",
       "Rationale": "SPN-based logins do not have MFA protection. It is important to restrict the access granted to Azure service connections only to specific resource/resource group as needed. This can contain the extent of damage in case of compromise.",
-      "Recommendation": "Make sure you add SPN at the specific permission scope and role required for your scenario. For example, sometimes 'Contributor' access at 'Resource Group' scope might work. Exact permission will vary based on your use case. If you want to remove the SPN, run command Remove-AzRoleAssignment -ObjectId '{objectId}' -Scope '{scope}' -RoleDefinitionName '{role definition name}'. Run 'Get-Help Remove-AzRoleAssignment -full' for more help.",
+      "Recommendation": "1. Navigate to the service connections settings page for your project --> 2. Select your service connection from the list --> 3. Reduce the service connection scope to the appropriate resource group(s) and save. (If a service connection is scoped at Management group or subscription level and is not in use, then delete it using Remove-AzRoleAssignment or equivalent steps in the portal on the Azure side.)",
       "Tags": [
         "SDL",
         "Automated",
@@ -101,7 +101,7 @@
       "Automated": "Yes",
       "MethodName": "CheckGlobalGroupsAddedToServiceConnections",
       "Rationale": "Global groups are maintained at organization and project level and may contain users at a very broad scope (e.g., all users in the organization). Granting elevated permissions to these groups can risk exposure of service connections to unwarranted individuals.",
-      "Recommendation": "Refer detailed log files for the list of non compliant service connections. To remediate this follow steps given here: 1. Navigate to the project settings page 2. Select service connection under pipelines category  3. Select your service connection from the list 4. Select Roles from the menu 5. Check for a global security group - (a) global security group added as a User (b) global security group added as an Administrator 6. Remove all global security groups. 7. Save changes and refresh the page to confirm that your changes have been saved. Note: Global security groups are the groups maintained at organization and project level and may contain users at a very broad scope (e.g., all users in the organization). For more information, refer: https://docs.microsoft.com/en-us/azure/devops/pipelines/library/service-endpoints?view=azure-devops#secure-a-service-connection",
+      "Recommendation": "Refer detailed log files for the list of non compliant service connections. To remediate this follow steps given here: 1. Navigate to the project settings page --> 2. Select service connection under pipelines category -->  3. Select your service connection from the list --> 4. Select Roles from the menu --> 5. Check for a global security group - (a) global security group added as a User (b) global security group added as an Administrator --> 6. Remove all global security groups. --> 7. Save changes and refresh the page to confirm that your changes have been saved. Note: Global security groups are the groups maintained at organization and project level and may contain users at a very broad scope (e.g., all users in the organization). For more information, refer: https://docs.microsoft.com/en-us/azure/devops/pipelines/library/service-endpoints?view=azure-devops#secure-a-service-connection",
       "Tags": [
         "SDL",
         "TCP",
@@ -170,8 +170,8 @@
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckInactiveConnection",
-      "Rationale": "Each additional service connection being used by pipelines to access repositories increases the attack surface. To minimize this risk ensure that only active and legitimate service connections are present in the organization.",
-      "Recommendation": "To remove inactive service connection: 1.Navigate to the service connection settings using resource link -> 2. Select service connection -> 3. Click on the three dots (top right) -> 4. Click on Delete.",
+      "Rationale": "Each inactive service connection increases the window of attack for a malicious user who can use a service connection to access an underlying target resource such as repositories, storage account, azure subscriptions or a CI environment. To minimize this risk ensure that inactive service connections are proactively deleted.",
+      "Recommendation": "To remove inactive service connection: 1. Navigate to the service connection settings using resource link --> 2. Click on the three dots (top right) --> 3. Click on Delete.",
       "Tags": [
         "SDL",
         "Best Practice",
@@ -189,7 +189,7 @@
       "Automated": "Yes",
       "MethodName": "CheckCrossProjectSharing",
       "Rationale": "If a service connection is shared across multiple projects, then a user in another project can access data/components that they were otherwise not supposed to access. So, in keeping with principle of least privilege, it is best to limit access to the service connection to your (current) project.",
-      "Recommendation": "Steps to remediate: 1. Navigate to the service connection settings using resource link -> 2. Select service connection -> 3. Click Security -> 4. Under 'Project Permissions', remove projects that service connection no more requires access to.",
+      "Recommendation": "1. Navigate to the project settings --> 2. Go to service connections, select service connection -> 3. Click Security -> 4. Under 'Project Permissions', remove projects that service connection no more requires access to.",
       "Tags": [
         "SDL",
         "TCP",
@@ -217,7 +217,7 @@
     },
     {
       "ControlID": "ADO_ServiceConnection_AuthZ_Restrict_Broader_Group_Access",
-      "Description": "Broader groups (contributors, project valid users, etc.) should not have user/administrator privileges on service connection.",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not have excessive permissions on service connection.",
       "Id": "ServiceConnection240",
       "ControlSeverity": "High",
       "Automated": "Yes",

@@ -20,6 +20,7 @@ class Release: ADOSVTBase
     hidden [string] $BackupFolderPath = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState" | Join-Path -ChildPath "BackupControlState" )
     hidden [string] $BackupFilePath;
     hidden static [bool] $IsPathValidated = $false;
+    hidden static $TaskGroupSecurityNamespace = $null;
 
     Release([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -37,7 +38,6 @@ class Release: ADOSVTBase
             [Release]::IsOAuthScan = $true
         }
 
-        $TaskGroupSecurityNamespace = $null
         # Get release object
         $releaseId =  ($this.ResourceContext.ResourceId -split "release/")[-1]
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
@@ -51,11 +51,8 @@ class Release: ADOSVTBase
             $apiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($this.OrganizationContext.OrganizationName)
             $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
             [Release]::SecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ReleaseManagement") -and ($_.actions.name -contains "ViewReleaseDefinition")}).namespaceId
-            if ([Release]::IsOAuthScan -eq $true)
-            {
-                $TaskGroupSecurityNamespace = ($securityNamespacesObj | Where-Object { ($_.Name -eq "MetaTask")}).namespaceId
-            }
-
+            
+            [Release]::TaskGroupSecurityNamespace = ($securityNamespacesObj | Where-Object { ($_.Name -eq "MetaTask")}).namespaceId
             $securityNamespacesObj = $null;
         }
 
@@ -98,12 +95,12 @@ class Release: ADOSVTBase
             }
             if (-not [string]::IsNullOrEmpty([Release]::SecurityNamespaceId) -and ($null -eq [Release]::TaskGroupNamespacesObj) ) {
                 #Get acl for taskgroups. Its response contains descriptor of each ado group/user which have permission on the taskgroup
-                $apiUrl = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?includeExtendedInfo=True&recurse=True&api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$TaskGroupSecurityNamespace
+                $apiUrl = "https://dev.azure.com/{0}/_apis/accesscontrollists/{1}?includeExtendedInfo=True&recurse=True&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), [Release]::TaskGroupSecurityNamespace
                 [Release]::TaskGroupNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrl);
             }
             if (-not [string]::IsNullOrEmpty([Release]::SecurityNamespaceId) -and ($null -eq [Release]::TaskGroupNamespacePermissionObj) ) {
                 #Get permission and its bit for security namespaces
-                $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$TaskGroupSecurityNamespace
+                $apiUrlNamespace =  "https://dev.azure.com/{0}/_apis/securitynamespaces/{1}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName), [Release]::TaskGroupSecurityNamespace
                 [Release]::TaskGroupNamespacePermissionObj = [WebRequestHelper]::InvokeGetWebRequest($apiUrlNamespace);
             }
 
@@ -898,11 +895,16 @@ class Release: ADOSVTBase
                     $controlResult.AddMessage($display)
                     $controlResult.SetStateData("Pipeline contains artifacts from trusted sources: ", $stateData);
                }
+               $resource = $stateData | ForEach-Object { $_.ArtifactSourceAlias + ': ' + $_.ArtifactSourceType } 
+                $controlResult.AdditionalInfoInCSV = $resource -join ' ; '
+                $controlResult.AdditionalInfo = $resource -join ' ; '
                
                $sourceObj = $null;
                $nonAdoResource = $null;
            }
            else {
+
+            $controlResult.AdditionalInfoInCSV = "No source repository found."
             $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline does not contain any source repositories.");
            }
         }
@@ -1076,14 +1078,21 @@ class Release: ADOSVTBase
 
                     if(($editableTaskGroups | Measure-Object).Count -gt 0)
                     {
-                        $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", ($editableTaskGroups | Measure-Object).Count);
-                        $controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + ($editableTaskGroups | Measure-Object).Count;
+                        $editableTaskGroupsCount = ($editableTaskGroups | Measure-Object).Count;
+                        $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", $editableTaskGroupsCount);
+                        #$controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;
+                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object { $_.DisplayName }
+                        $addInfo = "NumTaskGroups: $editableTaskGroupsCount; List: $($formatedTaskGroups -join ';')"
+                        $controlResult.AdditionalInfo += $addInfo;
+                        $controlResult.AdditionalInfoInCSV = $addInfo;
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ", $editableTaskGroups);
                         $controlResult.SetStateData("List of task groups used in release definition that contributors can edit: ", $editableTaskGroups);
                     }
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in release definition.");
+                        $controlResult.AdditionalInfoInCSV = "NA"
+                        $controlResult.AdditionalInfo = "NA"
                     }
                 }
                 catch
@@ -1096,6 +1105,7 @@ class Release: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in release definition.");
+                $controlResult.AdditionalInfoInCSV += "NA";
             }
         }
         else
@@ -1117,7 +1127,7 @@ class Release: ADOSVTBase
             $taskGroups = $taskGroups | Sort-Object -Property taskId -Unique
 
             $editableTaskGroups = @();
-
+            $groupsWithExcessivePermissionsList = @();
             if(($taskGroups | Measure-Object).Count -gt 0)
             {
                 $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName)
@@ -1199,6 +1209,17 @@ class Release: ADOSVTBase
                                 if([Helpers]::CheckMember($editPerms,"effectivePermissionValue") -and (($editPerms.effectivePermissionValue -eq 1) -or ($editPerms.effectivePermissionValue -eq 3)))
                                 {
                                     $editableTaskGroups += New-Object -TypeName psobject -Property @{DisplayName = $_.name; PrincipalName=$obj.principalName}
+
+                                    $excessivePermissionsGroupObj = @{}
+                                    $excessivePermissionsGroupObj['TaskGroupId'] = $taskGrpId
+                                    $excessivePermissionsGroupObj['TaskGroupName'] = $_.Name
+                                    $excessivePermissionsGroupObj['Group'] = $obj.principalName
+                                    #$excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join ', ')
+                                    $excessivePermissionsGroupObj['ExcessivePermissions'] =  "Edit task group" #$($editableTaskGroups.displayName -join ', ')
+                                    $excessivePermissionsGroupObj['Descriptor'] = $obj.sid
+                                    $excessivePermissionsGroupObj['PermissionSetToken'] = $permissionSetToken
+                                    $excessivePermissionsGroupObj['PermissionSetId'] = [Release]::TaskGroupSecurityNamespace
+                                    $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
                                 }
                             }
                         }
@@ -1207,16 +1228,41 @@ class Release: ADOSVTBase
                     if($editableTaskGroupsCount -gt 0)
                     {
                         $controlResult.AddMessage("Count of task groups on which contributors have edit permissions in release definition: $editableTaskGroupsCount");
-                        $controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;
+                        #$controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;                                                
+                        $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName } 
+
+                        $addInfo = "NumTaskGroups: $(($taskGroups | Measure-Object).Count); NumTaskGroupWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
+                        $controlResult.AdditionalInfo += $addInfo;
+                        $controlResult.AdditionalInfoInCSV += $addInfo;
+                        
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ");
                         $display = $editableTaskGroups|FT  -AutoSize | Out-String -Width 512
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of task groups used in release definition that contributors can edit: ", $editableTaskGroups);
+                        if ($this.ControlFixBackupRequired) {
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                        }
                     }
                     else
                     {
-                        $controlResult.AdditionalInfo += "Contributors do not have edit permissions on any task groups used in release definition."
+                        $controlResult.AdditionalInfoInCSV += "NA"
+                        $controlResult.AdditionalInfo += "NA"
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in release definition.");
+                    }
+                    if(($taskGroups | Measure-Object).Count -ne $editableTaskGroups.Count)
+                    {
+                        if ($editableTaskGroups.Count -gt 0)
+                        {                            
+                            $nonEditableTaskGroups = $taskGroups | where-object {$editableTaskGroups.DisplayName -notcontains $_.name}
+                        }
+                        else
+                        {
+                            $nonEditableTaskGroups = $taskGroups
+                        }                        
+                        $groups = $nonEditableTaskGroups | ForEach-Object { $_.name } 
+                        $controlResult.AdditionalInfoInCSV += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
+                        $controlResult.AdditionalInfo += "NonEditableTaskGroupsList: $($groups -join '; '); "
                     }
                 }
                 catch
@@ -1228,11 +1274,87 @@ class Release: ADOSVTBase
             }
             else
             {
-                $controlResult.AdditionalInfo += "No task groups found in release definition.";
+                $controlResult.AdditionalInfoInCSV += "NA"
+                $controlResult.AdditionalInfo += "NA";
                 $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in release definition.");
             }
         }
         return $controlResult;
+    }
+
+    hidden [ControlResult] CheckTaskGroupEditPermissionAutomatedFix([ControlResult] $controlResult)
+    {
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        #$roleId = [int][BuildPermissions] $excessivePermission.Replace(" ","");
+                        #need to invoke a post request which does not accept all permissions added in the body at once
+                        #hence need to call invoke seperately for each permission
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
+                                'allow':0,
+                                'deny':2                             
+                            }]
+                        }" | ConvertFrom-Json
+                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $RawDataObjForControlFix[0].PermissionSetId
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Allow"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Deny"
+
+                }              
+                
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                   
+                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        #$roleId = [int][BuildPermissions] $excessivePermission.Replace(" ","");
+                        
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
+                                'allow':2,
+                                'deny':0                              
+                            }]
+                        }" | ConvertFrom-Json
+                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$RawDataObjForControlFix[0].PermissionSetId
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Allow"
+                }
+
+            }
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permissions for broader groups have been changed as below: ");
+            $formattedGroupsData = $RawDataObjForControlFix | Select @{l = 'TaskGroupName'; e = { $_.TaskGroupName }}, @{l = 'Group'; e = { $_.Group } }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions }}, @{l = 'OldPermission'; e = { $_.OldPermission }}, @{l = 'NewPermission'; e = { $_.NewPermission } }
+            $display = ($formattedGroupsData |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
 
     hidden [ControlResult] CheckVariableGroupEditPermission([ControlResult] $controlResult)
@@ -1264,35 +1386,43 @@ class Release: ADOSVTBase
         {
             try
             {
+                $failedCount = 0
+                $erroredCount = 0
                 foreach($vgId in $varGrpIds){
                     #Fetch the security role assignments for variable group
-                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
-                    $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                    if($responseObj.Count -gt 0)
-                    {                                       
-                        if([Release]::isInheritedPermissionCheckEnabled)
-                        {
-                            $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
-                        }
-                        else {
-                            $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access -eq "assigned")})                        
-                        }
-
-                        if($contributorsObj.Count -gt 0)
-                        {   
-                            foreach($obj in $contributorsObj){
-                                if($obj.role.name -ne 'Reader')
-                                {
-                                    #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
-                                    $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
-                                    $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
-                                    if ((-not ([Helpers]::CheckMember($varGrpObj[0],"count"))) -and ($varGrpObj.Count -gt 0) -and ([Helpers]::CheckMember($varGrpObj[0],"name"))) {
-                                    $editableVarGrps += $varGrpObj[0].name
-                                    break;
+                    try {
+                        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
+                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                        if($responseObj.Count -gt 0)
+                        {                                       
+                            if([Release]::isInheritedPermissionCheckEnabled)
+                            {
+                                $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
+                            }
+                            else {
+                                $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access -eq "assigned")})                        
+                            }
+    
+                            if($contributorsObj.Count -gt 0)
+                            {   
+                                foreach($obj in $contributorsObj){
+                                    if($obj.role.name -ne 'Reader')
+                                    {
+                                        #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
+                                        $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
+                                        $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
+                                        if ((-not ([Helpers]::CheckMember($varGrpObj[0],"count"))) -and ($varGrpObj.Count -gt 0) -and ([Helpers]::CheckMember($varGrpObj[0],"name"))) {
+                                        $editableVarGrps += $varGrpObj[0].name
+                                        $failedCount = $failedCount +1                                        
+                                        break;
+                                        }
                                     }
-                                }
-                            }                            
+                                }                            
+                            }
                         }
+                    }
+                    catch {
+                        $erroredCount = $erroredCount+1                        
                     }
                 }
 
@@ -1300,13 +1430,18 @@ class Release: ADOSVTBase
                 if($editableVarGrpsCount -gt 0)
                 {
                     $controlResult.AddMessage("`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount `n");
-                    $controlResult.AdditionalInfo += "`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount";
+                    $controlResult.AdditionalInfo += "`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount";                    
+                    $controlResult.AdditionalInfoInCSV = "NumVGs: $editableVarGrpsCount; List: $($editableVarGrps -join '; ')";
                     $controlResult.AddMessage([VerificationResult]::Failed,"Variable groups list: `n$($editableVarGrps | FT | Out-String)");
                     $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
+                }
+                elseif($erroredCount -gt 0){
+                    $controlResult.AddMessage([VerificationResult]::Error,"`nCould not fetch the RBAC details of variable groups used in the pipeline.");
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"`nContributors do not have edit permissions on variable groups used in release definition.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
             }
             catch
@@ -1319,6 +1454,7 @@ class Release: ADOSVTBase
         else
         {
             $controlResult.AddMessage([VerificationResult]::Passed,"`nNo variable groups found in release definition.");
+            $controlResult.AdditionalInfoInCSV += "NA"
         }
 
         return $controlResult
@@ -1389,9 +1525,10 @@ class Release: ADOSVTBase
                 $projectName = $this.ResourceContext.ResourceGroupName
                 $releaseId = $this.ReleaseObj.id
                 $permissionSetToken = "$($this.projectId)/$releaseId"
-                if ([Helpers]::CheckMember($this.ControlSettings.Release, "RestrictedBroaderGroupsForRelease") -and [Helpers]::CheckMember($this.ControlSettings.Release, "ExcessivePermissionsForBroadGroups")) {
+                if ([Helpers]::CheckMember($this.ControlSettings.Release, "RestrictedBroaderGroupsForRelease")) {
+                    $restrictedBroaderGroups = @{}
                     $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
-                    $excessivePermissions = $this.ControlSettings.Release.ExcessivePermissionsForBroadGroups
+                    $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
                     $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release?_a=releases&view=mine&definitionId=$releaseId"
 
                     $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $($this.projectId)
@@ -1422,7 +1559,7 @@ class Release: ADOSVTBase
                     if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
                     {
 
-                        $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $broaderGroups -contains $_.displayName })
+                        $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $restrictedBroaderGroups.keys -contains $_.displayName })
 
                         <#
                         #Check if inheritance is disabled on release pipeline, if disabled, inherited permissions should be considered irrespective of control settings
@@ -1442,6 +1579,7 @@ class Release: ADOSVTBase
                         if ($broaderGroupsList.Count -gt 0)
                         {
                             $groupsWithExcessivePermissionsList = @()
+                            $filteredBroaderGroupList = @()
                             foreach ($broderGroup in $broaderGroupsList) {
                                 $contributorInputbody = "{
                                     'contributionIds': [
@@ -1470,7 +1608,7 @@ class Release: ADOSVTBase
                                 #Web request to fetch RBAC permissions of Contributors group on release.
                                 $broaderGroupResponseObj = @([WebRequestHelper]::InvokePostWebRequest($apiURL, $contributorInputbody));
                                 $broaderGroupRBACObj = @($broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions)
-                                $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
+                                $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $restrictedBroaderGroups[$broderGroup.displayName] }
                                 $excessivePermissionsPerGroup = @()
                                 $excessivePermissionList | ForEach-Object {
                                     #effectivePermissionValue equals to 1 implies edit release pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
@@ -1488,14 +1626,24 @@ class Release: ADOSVTBase
                                     $excessivePermissionsGroupObj['PermissionSetToken'] = $permissionSetToken
                                     $excessivePermissionsGroupObj['PermissionSetId'] = [Release]::SecurityNamespaceId
                                     $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
+                                    $filteredBroaderGroupList += $broderGroup
                                 }
                             }
+
+                            if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $filteredBroaderGroupList.Count -gt 0)
+                            {
+                                $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($filteredBroaderGroupList, $false))
+                                $groupsWithExcessivePermissionsList = @($groupsWithExcessivePermissionsList | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Group})
+                            }
+
                             if ($groupsWithExcessivePermissionsList.count -gt 0) {
                                 $controlResult.AddMessage([VerificationResult]::Failed, "Broader groups have excessive permissions on the release pipeline.");
                                 $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group } }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
-                                $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
+                                $formattedBroaderGrpTable = ($formattedGroupsData | FT -AutoSize | Out-String -width 512)
                                 $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                                 $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
+                                $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions }
+                                $controlResult.AdditionalInfoInCSV = $groups -join ';'
                                 
                                 if ($this.ControlFixBackupRequired)
                                 {
@@ -1506,6 +1654,7 @@ class Release: ADOSVTBase
                             }
                             else {
                                 $controlResult.AddMessage([VerificationResult]::Passed, "Broader Groups do not have excessive permissions on the release pipeline.");
+                                $controlResult.AdditionalInfoInCSV += "NA"
                             }
                         }
                         else
@@ -1517,8 +1666,8 @@ class Release: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch RBAC details of the pipeline.");
                     }
-                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT | Out-String)");
-                    $controlResult.AddMessage("Following permissions are considered 'excessive':`n$($excessivePermissions | FT | Out-String)");
+                    $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+                    $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -width 512)");
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
@@ -1694,12 +1843,24 @@ class Release: ADOSVTBase
 
                     if($releases.Count -gt 0 )
                     {
-                        $this.releaseActivityDetail.releaseCreationDate = [datetime]::Parse($this.ReleaseObj.createdOn);
+                        try {
+                            $this.releaseActivityDetail.releaseCreationDate = [datetime]::Parse($this.ReleaseObj.createdOn); 
+                        }
+                        catch {
+                            $this.releaseActivityDetail.releaseCreationDate = $this.ReleaseObj.createdOn;
+                        }
                         $recentReleases = @()
                         $releases | ForEach-Object {
-                            if([datetime]::Parse( $_.createdOn) -gt (Get-Date).AddDays(-$($this.ControlSettings.Release.ReleaseHistoryPeriodInDays)))
+                            $release =  $_;
+                            try {
+                                $createdOn = [datetime]::Parse( $release.createdOn)  
+                            }
+                            catch {
+                                $createdOn = $release.createdOn
+                            }
+                            if( $createdOn -gt (Get-Date).AddDays(-$($this.ControlSettings.Release.ReleaseHistoryPeriodInDays)))
                             {
-                                $recentReleases+=$_
+                                $recentReleases+=$release
                             }
                         }
 
@@ -1713,14 +1874,26 @@ class Release: ADOSVTBase
                             $this.releaseActivityDetail.isReleaseActive = $false;
                             $this.releaseActivityDetail.message = "No recent release history found in last $($this.ControlSettings.Release.ReleaseHistoryPeriodInDays) days";
                         }
-                        $latestReleaseTriggerDate = [datetime]::Parse($releases[0].createdOn);
-                        $this.releaseActivityDetail.latestReleaseTriggerDate = $latestReleaseTriggerDate;
+                        try {
+                            $latestReleaseTriggerDate = [datetime]::Parse($releases[0].createdOn);
+                            $this.releaseActivityDetail.latestReleaseTriggerDate = $latestReleaseTriggerDate;
+                        }
+                        catch {
+                            $latestReleaseTriggerDate = $releases[0].createdOn;
+                            $this.releaseActivityDetail.latestReleaseTriggerDate = $latestReleaseTriggerDate;
+                        }
+                        
                     }
                     else
                     {
                         # no release history ever.
                         $this.releaseActivityDetail.isReleaseActive = $false;
-                        $this.releaseActivityDetail.releaseCreationDate = [datetime]::Parse($this.ReleaseObj.createdOn);
+                        try {
+                            $this.releaseActivityDetail.releaseCreationDate = [datetime]::Parse($this.ReleaseObj.createdOn);  
+                        }
+                        catch {
+                            $this.releaseActivityDetail.releaseCreationDate = $this.ReleaseObj.createdOn;
+                        }
                         $this.releaseActivityDetail.message = "No release history found.";
                     }
 

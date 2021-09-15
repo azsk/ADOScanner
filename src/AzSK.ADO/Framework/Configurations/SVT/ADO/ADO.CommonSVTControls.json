@@ -39,6 +39,24 @@
       "Enabled": true
     },
     {
+      "ControlID": "ADO_Repository_AuthZ_Dont_Grant_BuildSvc_Permission_On_Branch",
+      "Description": "Do not grant build service groups excessive permissions on repository branches.",
+      "Id": "Repository120",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckBuildServiceAccessOnBranch",
+      "Rationale": "If 'Project Collection Build Service' or 'Project Build Service' groups have excessive permissions on important branches of a repository, then a malicious user can access the repository and tamper its contents by bypassing any defined policies.",
+      "Recommendation": "1. Navigate to Project Settings. --> 2. Click on Repository under Repos. --> 3. Select your repository. --> 4. Click on 'Security'. --> 5. Click on 'All Branches' under 'Git refs permissions'. --> 6. Ensure 'Excessive' permissions of broader groups is not set to 'Allow'. Refer to detailed scan log (Repository.LOG) for broader groups and excessive permissions list. --> 5. Repeat this for any other groups for other individual branches that should not have excessive permissions.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "MSW"
+      ],
+      "Enabled": true
+    },
+    {
       "ControlID": "ADO_Feed_AuthZ_Restrict_Broader_Group_Access",
       "Description": "Do not allow a broad group of users to upload packages to feed.",
       "Id": "Feed100",
@@ -108,7 +126,8 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -149,7 +168,7 @@
     {
       "ControlID": "ADO_Repository_AuthZ_Disable_Inherited_Permissions",
       "Description": "Do not allow inherited permission on repository.",
-      "Id": "Repository120",
+      "Id": "Repository130",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckInheritedPermissionsOnRepository",
@@ -166,12 +185,12 @@
     {
       "ControlID": "ADO_Repository_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
       "Description": "Do not grant Build Service Account direct access to repositories.",
-      "Id": "Repository120",
+      "Id": "Repository140",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBuildSvcAcctAccessOnRepository",
-      "Rationale": "Build service account is default identity used as part every build in project. Providing direct access to this common service account will expose repository details to all build definitions in the project.",
-      "Recommendation": "1. Go to Project Settings --> 2. Repositories --> 3. Select your repository from the list --> 4. Select security --> 5. Remove 'Project Collection Build Service Accounts/[Project] Build Service Account' access from user permission.",
+      "Rationale": "Build service account is default identity used as part every build in project. Configuring these identities with excessive permissions will expose repository details to all build definitions in the project.",
+      "Recommendation": "1. Go to Project Settings --> 2. Repositories --> 3. Select your repository from the list --> 4. Select security --> 5.  4. Ensure 'Excessive' permissions of 'Project Collection Build Service(organization)/[Project] Build Service' groups is not set to 'Allow'. Refer to detailed scan log (Repository.LOG) for excessive permissions list.",
       "Tags": [
         "SDL",
         "TCP",

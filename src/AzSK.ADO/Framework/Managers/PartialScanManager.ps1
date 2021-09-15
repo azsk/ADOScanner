@@ -55,6 +55,7 @@ class PartialScanManager
 	static [void] ClearInstance()
     {
        [PartialScanManager]::Instance = $null
+	   [PartialScanManager]::IsCsvUpdatedAtCheckpoint = $false
     }
 	PartialScanManager([string] $OrganizationName)
 	{
@@ -339,10 +340,9 @@ class PartialScanManager
 	{
 		if(($resourceIds | Measure-Object).Count -gt 0)
 		{
-			$resourceIdMap = @();
+			[System.Collections.Generic.List[PartialScanResource]] $resourceIdMap = @();
 			$progressCount=1
-			$resourceIds | ForEach-Object {
-				
+			$resourceIds | ForEach-Object {			
 				$resourceValue = [PartialScanResource]@{
 					Id = $_.ResourceId;
 					State = [ScanState]::INIT;
@@ -350,13 +350,26 @@ class PartialScanManager
 					CreatedDate = [DateTime]::UtcNow;
 					ModifiedDate = [DateTime]::UtcNow;
 					Name=$_.ResourceName;
+					ProjectName = $_.ResourceGroupName
 					#ResourceDetails=$_.ResourceDetails
 					
 				}
-				#$resourceIdMap.Add($hashId,$resourceValue);
-				$resourceIdMap +=$resourceValue
+
+				#We dont need to store project name if -dnrr not given or the resource is not release/agentpool
+				if($PSCmdlet.MyInvocation.BoundParameters['DoNotRefetchResources']){ 
+					if($_.ResourceType -ne "ADO.Release" -and $_.ResourceType -ne "ADO.AgentPool"){
+						$resourceValue = $resourceValue | Select-Object -Property * -ExcludeProperty ProjectName						
+					}
+				}
+				else {
+					$resourceValue = $resourceValue | Select-Object -Property * -ExcludeProperty ProjectName
+				}
 				
-				Write-Progress -Activity "Tracking $($progressCount) of $($resourceIds.Length) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $resourceIds.Length * 100)
+				#$resourceIdMap.Add($hashId,$resourceValue);
+				$resourceIdMap.Add([PartialScanResource] $resourceValue)
+				if ($progressCount%100 -eq 0) {				
+					Write-Progress -Activity "Tracking $($progressCount) of $($resourceIds.Count) untracked resources " -Status "Progress: " -PercentComplete ($progressCount / $resourceIds.Count * 100)
+				}
 				$progressCount++;
 			}
 			Write-Progress -Activity "Tracked all resources" -Status "Ready" -Completed
@@ -561,26 +574,28 @@ class PartialScanManager
 
 	[PSObject] GetNonScannedResources()
 	{
-		$nonScannedResources = @();
+		#[System.Collections.Generic.List[PartialScanResource]] $nonScannedResources = @();
+		$nonScannedResources = @()
         $this.GetResourceScanTrackerObject();
 		if($this.IsListAvailableAndActive())
 		{
 			
 
 			$nonScannedResources +=[PartialScanResource[]] $this.ResourceScanTrackerObj.ResourceMapTable | Where-Object {$_.State -eq [ScanState]::INIT}
-			return $nonScannedResources;
+			return [PartialScanResource[]] $nonScannedResources;
 		}
 		return $null;
 	}
 
 	[PSObject] GetAllListedResources()
 	{
-		$nonScannedResources = @();
+		#[System.Collections.Generic.List[PartialScanResource]] $nonScannedResources = @();
+		$nonScannedResources = @()
 		$this.GetResourceScanTrackerObject();
 		if($this.IsListAvailableAndActive())
 		{
-			$nonScannedResources += $this.ResourceScanTrackerObj.ResourceMapTable
-			return $nonScannedResources;
+			$nonScannedResources +=[PartialScanResource[]]  $this.ResourceScanTrackerObj.ResourceMapTable
+			return [PartialScanResource[]] $nonScannedResources;
 		}
 		return $null;
 	}
@@ -750,8 +765,9 @@ class PartialScanManager
                         ControlSeverity = $item.ControlItem.ControlSeverity;
                         Description = $item.ControlItem.Description;
                         FeatureName = $item.FeatureName;
-						Recommendation = $item.ControlItem.Recommendation;	
-				        Rationale = $item.ControlItem.Rationale
+                        Recommendation = $item.ControlItem.Recommendation;	
+                        Rationale = $item.ControlItem.Rationale;
+                        AdditionalInfo = $_.AdditionalInfoInCSV
                     };
 					if($_.VerificationResult -ne [VerificationResult]::NotScanned)
 					{
@@ -893,11 +909,11 @@ class PartialScanManager
 			if (($results | measure-object).Count -gt 0) {
 				if ($results[0].FeatureName -eq "Project") {
 					$controlsDataObject = @($results  | Where-Object {$_.ControlItem.Tags -contains 'AutomatedFix' -and $_.ControlResults.VerificationResult -eq 'Failed' -and $null -ne $_.ControlResults.BackupControlState} `
-					| Select-Object @{Name="ProjectName"; Expression={$_.ResourceContext.ResourceName}}, @{Name="ResourceId"; Expression={$_.ResourceContext.ResourceId}}, @{Name="InternalId"; Expression={$_.ControlItem.id}}, @{Name="DataObject"; Expression={$_.ControlResults.BackupControlState}}); 
+					| Select-Object @{Name="ProjectName"; Expression={$_.ResourceContext.ResourceName}}, @{Name="ResourceName"; Expression={$_.ResourceContext.ResourceName}}, @{Name="ResourceId"; Expression={$_.ResourceContext.ResourceId}}, @{Name="InternalId"; Expression={$_.ControlItem.id}}, @{Name="DataObject"; Expression={$_.ControlResults.BackupControlState}}); 
 				}
 				else {
 					$controlsDataObject = @($results  | Where-Object {$_.ControlItem.Tags -contains 'AutomatedFix' -and $_.ControlResults.VerificationResult -eq 'Failed' -and $null -ne $_.ControlResults.BackupControlState} `
-					| Select-Object @{Name="ProjectName"; Expression={$_.ResourceContext.ResourceGroupName}}, @{Name="ResourceId"; Expression={$_.ResourceContext.ResourceId}}, @{Name="InternalId"; Expression={$_.ControlItem.id}}, @{Name="DataObject"; Expression={$_.ControlResults.BackupControlState}}); 
+					| Select-Object @{Name="ProjectName"; Expression={$_.ResourceContext.ResourceGroupName}}, @{Name="ResourceName"; Expression={$_.ResourceContext.ResourceName}}, @{Name="ResourceId"; Expression={$_.ResourceContext.ResourceId}}, @{Name="InternalId"; Expression={$_.ControlItem.id}}, @{Name="DataObject"; Expression={$_.ControlResults.BackupControlState}}); 
 				}
 			}
 			if($null -ne $controlsDataObject -and $controlsDataObject.Count -gt 0)
@@ -927,7 +943,7 @@ class PartialScanManager
 						}
 					}
 
-					$applicableControls += $controlsDataObject |  select-object -property Date,ResourceId,DataObject,ScannedBy
+					$applicableControls += $controlsDataObject |  select-object -property Date,ResourceId,ResourceName,DataObject,ScannedBy
 					$this.StateOfControlsToBeFixed += $applicableControls
 					[JsonHelper]::ConvertToJsonCustom($this.StateOfControlsToBeFixed) | Out-File (Join-Path $this.BackupControlStateFilePath $fileName) -Force
 				}

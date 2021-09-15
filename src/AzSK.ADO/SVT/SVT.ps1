@@ -229,7 +229,7 @@ function Get-AzSKADOSecurityStatus
 		[string]
 		[Parameter(HelpMessage="Project name to store attestation details for organization-specific controls.")]
 		[ValidateNotNullOrEmpty()]
-		[Alias("atp")]
+		[Alias("atp","HostProjectName")]
 		$AttestationHostProjectName,
 
 
@@ -267,7 +267,7 @@ function Get-AzSKADOSecurityStatus
 
 		[switch]
 		[Parameter(HelpMessage="Allow long running scan.")]
-		[Alias("als")]
+		[Alias("als", "alrs")]
 		$AllowLongRunningScan,
 
 		[string]
@@ -345,6 +345,12 @@ function Get-AzSKADOSecurityStatus
 		[Parameter()]
 		[Alias("bs")]
 		$BatchScan,
+
+		[switch]
+		[switch]
+		[Parameter()]
+		[Alias("bsmp")]
+		$BatchScanMultipleProjects,
 
 		[string]
 		[Parameter()]
@@ -465,6 +471,24 @@ function Get-AzSKADOSecurityStatus
 			else
 			{
 				[ContextHelper]::PromptForLogin =$false
+			}
+
+			if(![string]::IsNullOrEmpty($BuildsFolderPath))
+			{
+				if($ResourceTypeName -notin([ResourceTypeName]::Build_Release,[ResourceTypeName]::Build))
+				{
+					Write-Host "Parameter -ResourceTypeName(-rtn) should be Build/Build_Release when the parameter '-BuildsFolderPath' is used in the scan command." -ForegroundColor Red
+					return;
+				}
+			}
+
+			if(![string]::IsNullOrEmpty($ReleasesFolderPath))
+			{
+				if($ResourceTypeName -notin([ResourceTypeName]::Build_Release,[ResourceTypeName]::Release))
+				{
+					Write-Host "Parameter -ResourceTypeName(-rtn) should be Release/Build_Release when the parameter '-ReleasesFolderPath' is used in the scan command." -ForegroundColor Red
+					return;
+				}
 			}
 
 			$resolver = [SVTResourceResolver]::new($OrganizationName,$ProjectNames,$BuildNames,$ReleaseNames,$AgentPoolNames, $ServiceConnectionNames, $VariableGroupNames, $MaxObj, $ScanAllResources, $PATToken,$ResourceTypeName, $AllowLongRunningScan, $ServiceIds, $IncludeAdminControls, $SkipOrgUserControls, $RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames, $BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan, $IncrementalScan, $IncrementalDate);

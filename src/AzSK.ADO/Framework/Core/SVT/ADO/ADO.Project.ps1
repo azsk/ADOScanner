@@ -66,6 +66,7 @@ class Project: ADOSVTBase
         try
         {
             $controlResult.VerificationResult = [VerificationResult]::Failed
+            $controlResult.AdditionalInfoInCSV ="NA"
             if([Helpers]::CheckMember($this.ResourceContext.ResourceDetails,"visibility"))
             {
                 $visibility = $this.ResourceContext.ResourceDetails.visibility;
@@ -115,6 +116,7 @@ class Project: ADOSVTBase
     hidden [ControlResult] CheckSettableQueueTime([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
+        $controlResult.AdditionalInfoInCSV ="NA"
         if($this.PipelineSettingsObj)
         {
             if($this.PipelineSettingsObj.enforceSettableVar.enabled -eq $true )
@@ -138,6 +140,7 @@ class Project: ADOSVTBase
         {
             $orgLevelScope = $this.PipelineSettingsObj.enforceJobAuthScope.orgEnabled;
             $prjLevelScope = $this.PipelineSettingsObj.enforceJobAuthScope.enabled;
+            $controlResult.AdditionalInfoInCSV ="NA"
 
             if($prjLevelScope -eq $true )
             {
@@ -154,7 +157,7 @@ class Project: ADOSVTBase
             }
             else
             {
-                $controlResult.AddMessage("This setting is disabled (set to project collection) at organization level.");
+                $controlResult.AddMessage("This setting is disabled (set to project collection) at organization level.");                
             }
         }
         else
@@ -391,13 +394,15 @@ class Project: ADOSVTBase
                 # In case of graph access we will only evaluate the control on the basis of human accounts
                 if($humanAccounts.count -lt $this.ControlSettings.Project.MinPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of human administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                 
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of human administrators configured meet the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                  
                 }
                 if($TotalPAMembers -gt 0){
                     $controlResult.AddMessage("Current set of Project Administrators: ")
-                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;                
                 }
 
                 if ($humanAccounts.count -gt 0) {
@@ -418,23 +423,27 @@ class Project: ADOSVTBase
                 $this.PAMembers = @($this.PAMembers | Select-Object displayName,mailAddress)
                 if($TotalPAMembers -lt $this.ControlSettings.Project.MinPAMembersPermissible){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Number of administrators configured are less than the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                 
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
+                 
                 }
                 if($TotalPAMembers -gt 0){
                     $controlResult.AddMessage("Current set of Project Administrators: ")
                     $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;                 
                 }
             }
         }
         else
         {
             $controlResult.AddMessage([VerificationResult]::Failed,"No Project Administrators are configured in the project.");
+          
         }
-
+        $controlResult.AdditionalInfoInCSV += "NumPAs: $($TotalPAMembers); ";
+        $controlResult.AdditionalInfoInCSV += "MinPAReqd: $($this.ControlSettings.project.MinPAMembersPermissible);";
         return $controlResult
     }
 
@@ -474,18 +483,24 @@ class Project: ADOSVTBase
                 if($TotalPAMembers -gt 0){
                     $controlResult.AddMessage("Current set of Project Administrators: ")
                     $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AdditionalInfoInCSV += "TotalAdmin: $($TotalPAMembers); ";
                 }
 
                 if ($humanAccountsCount -gt 0) {
                     $controlResult.AddMessage("`nCount of Human Administrators: $($humanAccountsCount)")
                     $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
+                    $controlResult.AdditionalInfoInCSV += "HumanAdmin: $($humanAccountsCount); ";
+                    $humanIdentities = $humanAccounts | ForEach-Object { $_.displayName + ': ' + $_.mailAddress } | select-object -Unique -First 10;
+                    $controlResult.AdditionalInfoInCSV += "HumanAdminList: $($humanIdentities -join ' ; ');";
+
                 }
 
                 if ($svcAccountsCount -gt 0) {
                     $controlResult.AddMessage("`nCount of Service Accounts: $($svcAccountsCount)")
                     $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
+                    $controlResult.AdditionalInfoInCSV += "ServiceAccount: $($svcAccountsCount); ";
                 }
             }
             else
@@ -505,6 +520,9 @@ class Project: ADOSVTBase
                     $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
                     $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;
+                    $controlResult.AdditionalInfoInCSV += "TotalAdmin: $($TotalPAMembers); ";
+                    $identities = $this.PAMembers | ForEach-Object { $_.displayName + ': ' + $_.mailAddress } | select-object -Unique -First 10;
+                    $controlResult.AdditionalInfoInCSV += "AdminList: $($identities -join ' ; ');";
                 }
             }
         }
@@ -575,7 +593,8 @@ class Project: ADOSVTBase
                                         $useRegExEvaluation = $true
                                     }
                                 }
-
+                                
+                                $controlResult.AdditionalInfoInCSV += "NumAccounts: $($allAdminMembers.Count); "
                                 if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
                                 {
                                     if ([IdentityHelpers]::hasGraphAccess)
@@ -586,6 +605,7 @@ class Project: ADOSVTBase
 
                                         $nonSCCount = $nonSCMembers.Count
                                         $SCCount = $SCMembers.Count
+                                        $controlResult.AdditionalInfoInCSV += "NumNonALTAccounts: $($nonSCCount); "
                                         $totalAdminCount = $nonSCCount+$SCCount
                                         $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
                                         if ($nonSCCount -gt 0)
@@ -597,10 +617,13 @@ class Project: ADOSVTBase
                                             $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
                                             $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                             $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
+                                            $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress + ';' } | select-object -Unique -First 10
+                                            $controlResult.AdditionalInfoInCSV += "First 10 Non_Alt_Admins: " + $nonSCaccounts -join ' ; '
                                         }
                                         else
                                         {
                                             $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                            $controlResult.AdditionalInfoInCSV = 'NA' ;
                                         }
                                         if ($SCCount -gt 0)
                                         {
@@ -635,7 +658,8 @@ class Project: ADOSVTBase
 
                                             $totalAdminCount = $nonSCCount+$SCCount
                                             $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
-                                            
+                                            $controlResult.AdditionalInfoInCSV += "NonALTAccounts: $($nonSCCount); "
+
                                             if ($nonSCCount -gt 0)
                                             {
                                                 $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
@@ -645,10 +669,13 @@ class Project: ADOSVTBase
                                                 $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
                                                 $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                                 $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
+                                                $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress } | select-object -Unique -First 10
+                                                $controlResult.AdditionalInfoInCSV += "NonALTAccountsList: " + $nonSCaccounts -join ' ; '
                                             }
                                             else
                                             {
                                                 $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                                $controlResult.AdditionalInfoInCSV += 'NA' ;
                                             }
                                             if ($SCCount -gt 0)
                                             {
@@ -672,6 +699,7 @@ class Project: ADOSVTBase
                             else
                             { #count is 0 then there is no members added in the admin groups
                                 $controlResult.AddMessage([VerificationResult]::Passed, "Admin groups does not have any members.");
+                                $controlResult.AdditionalInfoInCSV += 'NA' ;
                             }
                         }
                         else
@@ -1768,7 +1796,7 @@ class Project: ADOSVTBase
                         }
                     }
                     $this.AllUsersInOrg = @($AllUsersAccounts)
-                }
+                } 
             }
         catch {
             throw
@@ -1815,6 +1843,8 @@ class Project: ADOSVTBase
                                                 Scope = $data[0];
                                                 Name = $_.user.displayName;
                                                 PrincipalName = $_.user.principalName;
+                                                ContainerDescriptor = $obj.containerDescriptor;
+                                                SubjectDescriptor = $_.user.descriptor; 
                                             }
                                         }
                                     }
@@ -1831,6 +1861,11 @@ class Project: ADOSVTBase
                     }
                     if($formattedData.Count -gt 0)
                     {
+                        if ($this.ControlFixBackupRequired)
+                        {
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $formattedData
+                        }
                         $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}
                         $groups = $formattedData | Group-Object "Principal Name"
                         $results = @()
@@ -1841,20 +1876,26 @@ class Project: ADOSVTBase
                                       $Scope = $grpObj.group."User or scope" | select -Unique
                                       [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; Scope = $Scope }
                                     }
-
+                    
                         $controlResult.AddMessage([VerificationResult]::Failed,"Count of guest users in admin roles: $($results.count) ");
                         $controlResult.AddMessage("`nGuest users list :")
                         $display = ($results | FT PrincipalName, DisplayName, Group  -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("Guest users list : ", $results);
+                        $controlResult.AdditionalInfoInCSV += "NumAdminGuests: $($results.count); ";
+                        $UserList = $results | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName } | select-object -Unique -First 10;
+                        $controlResult.AdditionalInfoInCSV += "First 10 Guest_Admins: $($UserList -join ' ; ');";
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No guest users have admin roles in the project.");
+                        $controlResult.AdditionalInfoInCSV += "NA";
+                       
                     }
 
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in organization.");
+                    $controlResult.AdditionalInfoInCSV += "NA";
                 }
                 $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");
             }
@@ -1871,6 +1912,60 @@ class Project: ADOSVTBase
         return $controlResult
     }
 
+    hidden [ControlResult] CheckGuestUsersAccessInAdminRolesAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = @(([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject)
+
+            if ($this.InvocationContext.BoundParameters["ExcludePrincipalId"])
+            {
+                $excludePrincipalId = $this.InvocationContext.BoundParameters["ExcludePrincipalId"]
+                $excludePrincipalId = $excludePrincipalId -Split ','
+                $RawDataObjForControlFix = @($RawDataObjForControlFix | where-object {$excludePrincipalId  -notcontains $_.PrincipalName })
+            }
+
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+
+            if ($RawDataObjForControlFix.Count -gt 0)
+            {
+                if (-not $this.UndoFix)
+                {
+                    foreach ($user in $RawDataObjForControlFix) 
+                    {
+                        $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.SubjectDescriptor , $user.ContainerDescriptor
+                        $webRequestResult = Invoke-WebRequest -Uri $uri -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                    }
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Admin permission for these users has been removed: ");
+                }
+                else
+                {
+                    foreach ($user in $RawDataObjForControlFix) 
+                    {
+                        $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.SubjectDescriptor , $user.ContainerDescriptor
+                        $webRequestResult = Invoke-RestMethod -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } #-Body $body				
+                    }
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Admin permission for these users has been restored: ");
+                }
+
+                $display = ($RawDataObjForControlFix |  FT PrincipalName,Name,Group -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
+
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Manual,  "No guest users found.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
     hidden [ControlResult] CheckInactiveUsersInAdminRoles([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -1882,6 +1977,7 @@ class Project: ADOSVTBase
                 $AdminGroupsToCheckForInactiveUser = @($this.ControlSettings.Project.AdminGroupsToCheckForInactiveUser)
 
                 $inactiveUsersWithAdminAccess = @()
+                $neverActiveUsersWithAdminAccess = @()
                 $inactivityPeriodInDays = 90
                 if([Helpers]::CheckMember($this.ControlSettings,"Project.AdminInactivityThresholdInDays"))
                 {
@@ -1909,17 +2005,21 @@ class Project: ADOSVTBase
                         $groupMembers = @();
 
                         if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($currentGroup.descriptor) -and [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor].count -gt 0) {
-                            $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                            $member = [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                            $member | Add-Member -NotePropertyName subjectDescriptor -NotePropertyValue $currentGroup.descriptor
+                            $groupMembers  += $member
                         }
                         else
                         {
                             [ControlHelper]::FindGroupMembers($currentGroup.descriptor, $this.OrganizationContext.OrganizationName,"")
-                            $groupMembers += [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                            $member =  [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
+                            $member | Add-Member -NotePropertyName subjectDescriptor -NotePropertyValue $currentGroup.descriptor
+                            $groupMembers  += $member
                         }
 
                         if($groupMembers.count -gt 0)
                         {
-                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor } )}
+                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor ; subjectdescriptor = $_.subjectDescriptor } )}
                         }
                     }
 
@@ -1934,8 +2034,10 @@ class Project: ADOSVTBase
                                                   $OrgGroup = ($grpobj.group.groupName  | select -Unique)-join ','
                                                   $DisplayName = $grpobj.group.name | select -Unique
                                                   $date = ""
+                                                  $createdDate = ""
                                                   $descriptor = $grpobj.group.descriptor | select -Unique
-                                                  [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date ; Descriptor = $descriptor}
+                                                  $subDescriptor = $grpobj.group.subjectdescriptor | select -Unique
+                                                  [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; LastAccessedDate = $date ; Descriptor = $descriptor; subjectdescriptor = $subDescriptor; DateCreated = $createdDate }
                                                 }
 
                         $inactiveUsersWithAdminAccess =@()
@@ -1967,11 +2069,17 @@ class Project: ADOSVTBase
                                                 if(($formatLastRunTimeSpan).Days -gt 10000)
                                                 {
                                                     $_.LastAccessedDate = "User was never active"
+                                                    $neverActiveUsersWithAdminAccess += $_
+
+                                                    if([Helpers]::CheckMember($members[0],"dateCreated"))
+                                                    {
+                                                        $_.DateCreated = [datetime]::Parse($members[0].dateCreated)
+                                                    }
                                                 }
                                                 else {
-                                                    $_.LastAccessedDate = $dateobj.ToString("d MMM yyyy")
+                                                    $_.LastAccessedDate = $dateobj #.ToString("d MMM yyyy"), date object is needed to sort users based on datetime.
+                                                    $inactiveUsersWithAdminAccess += $_
                                                 }
-                                                $inactiveUsersWithAdminAccess += $_
                                             }
                                         }
                                     }
@@ -1986,23 +2094,67 @@ class Project: ADOSVTBase
                     }
                     else {
                        $controlResult.AddMessage([VerificationResult]::Passed, "No user found with admin roles in the project.")
+                       $controlResult.AdditionalInfoInCSV += 'NA' ;
                     }
+
+                    $inactiveUsersCount = $inactiveUsersWithAdminAccess.count
+                    $neverActiveUsersCount = $neverActiveUsersWithAdminAccess.count
 
                     if($null -eq (Compare-Object -ReferenceObject $AdminUsersMasterList -DifferenceObject $AdminUsersFailureCases))
                     {
                         $controlResult.AddMessage([VerificationResult]::Error, "Unable to fetch details of inactive users in admin role. Please run the scan with admin priveleges.")
                     }
-                    elseif($inactiveUsersWithAdminAccess.count -gt 0)
+                    elseif(($inactiveUsersCount -gt 0) -or ($neverActiveUsersCount -gt 0))
                     {
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Count of inactive users in admin roles: $($inactiveUsersWithAdminAccess.count) ");
-                        $controlResult.AddMessage("`nInactive admin user details:")
-                        $display = ($inactiveUsersWithAdminAccess|FT PrincipalName,DisplayName,Group,LastAccessedDate  -AutoSize | Out-String -Width 512)
-                        $controlResult.AddMessage($display)
-                        $controlResult.SetStateData("List of inactive users: ", $inactiveUsersWithAdminAccess);
+                        $totalInactiveUsers = @()
+                        $totalInactiveUsers += @($inactiveUsersWithAdminAccess | Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate)
+                        $totalInactiveUsers += @($neverActiveUsersWithAdminAccess | Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate)
+                        $totalInactiveUsersCount = $totalInactiveUsers.Count
+
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Total number of inactive users present in the admin roles: $($totalInactiveUsersCount)");
+                        $controlResult.AdditionalInfo += "Total number of inactive users present in the admin toles: " + $totalInactiveUsersCount;
+                        $controlResult.SetStateData("Inactive users list: ", $totalInactiveUsers);
+                        $controlResult.AdditionalInfoInCSV += "NumInactiveUsers: $totalInactiveUsersCount ; ";
+
+                        if ($this.ControlFixBackupRequired)
+                        {
+                            $backupObj = @()
+                            $backupObj += $inactiveUsersWithAdminAccess
+                            $backupObj += $neverActiveUsersWithAdminAccess | Select-Object PrincipalName,DisplayName,Group, LastAccessedDate, Descriptor,SubjectDescriptor
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $backupObj | Select-Object -property PrincipalName,DisplayName,Group,Descriptor,SubjectDescriptor
+                        }
+
+                        if($inactiveUsersCount -gt 0)
+                        {
+                            $inactiveUsersWithAdminAccess = @($inactiveUsersWithAdminAccess | Select-Object  PrincipalName,DisplayName,Group,@{Name="InactiveFromDays"; Expression = {((Get-Date) -($_.LastAccessedDate)).Days}})
+                            $inactiveUsersWithAdminAccess = $inactiveUsersWithAdminAccess| Sort-Object InactiveFromDays -Descending 
+
+                            $controlResult.AddMessage("`nCount of users found inactive for $($inactivityPeriodInDays) days in admin roles: $($inactiveUsersCount) ");
+                            $controlResult.AddMessage("Inactive admin user details:")
+                            $display = $inactiveUsersWithAdminAccess|FT -AutoSize | Out-String -Width 512
+                            $controlResult.AddMessage($display)
+                            $usersList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.PrincipalName +': '+ $_.InactiveFromDays + ' days'} | select-object -Unique -First 5;
+                            $controlResult.AdditionalInfoInCSV += "First 5 InactiveUsers: $($usersList -join ' ; '); ";
+                        }
+
+                        if($neverActiveUsersCount -gt 0)
+                        {
+                            $neverActiveUsersWithAdminAccess = @($neverActiveUsersWithAdminAccess| Sort-Object DateCreated | Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate,@{Name="DateCreated";Expression = {([datetime] $_.DateCreated).ToString("d MMM yyyy")}})
+                            $controlResult.AddMessage("Count of users found never active in admin roles: $($neverActiveUsersCount) ");
+                            $controlResult.AddMessage("Never active admin user details:")
+                            $display = $neverActiveUsersWithAdminAccess|FT -AutoSize | Out-String -Width 512
+                            $controlResult.AddMessage($display)
+                            $usersList = $neverActiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName } | select-object -Unique -First 5;
+                            $controlResult.AdditionalInfoInCSV += "First 5 NeverActiveUsers: $($usersList -join ' ; ');";
+                        }
+
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No users in project admin roles found to be inactive for $($inactivityPeriodInDays) days.");
+                        $controlResult.AdditionalInfoInCSV += 'NA' ;
                     }
+                    
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of groups in the project.")
@@ -2021,6 +2173,70 @@ class Project: ADOSVTBase
         return $controlResult;
     }
 
+    hidden [ControlResult] CheckInactiveUsersInAdminRolesAutomatedFix([ControlResult] $controlResult)
+    {
+        $this.PublishCustomMessage("Note: Users which are part of admin groups via AAD group will not be fixed using this command.`n",[MessageType]::Warning);
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = @(([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject)
+
+            if ($this.InvocationContext.BoundParameters["ExcludePrincipalId"])
+            {
+                $excludePrincipalId = $this.InvocationContext.BoundParameters["ExcludePrincipalId"]
+                $excludePrincipalId = $excludePrincipalId -Split ','
+                $RawDataObjForControlFix = @($RawDataObjForControlFix | where-object {$excludePrincipalId  -notcontains $_.PrincipalName })
+            }
+
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+
+            if ($RawDataObjForControlFix.Count -gt 0)
+            {
+                if (-not $this.UndoFix)
+                {
+                    foreach ($user in $RawDataObjForControlFix) 
+                    {
+                        foreach($groupDescriptor in $user.subjectDescriptor)
+                        {
+                            $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor , $groupDescriptor
+                            $webRequestResult = Invoke-WebRequest -Uri $uri -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                        }
+                    }
+                    $controlResult.AddMessage([VerificationResult]::Fixed, "Admin permissions for these users has been removed: ");
+                }
+                else
+                {
+                    foreach ($user in $RawDataObjForControlFix) 
+                    {
+                        foreach($groupDescriptor in $user.subjectDescriptor)
+                        {
+                            
+                            $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor , $groupDescriptor
+                            $webRequestResult = Invoke-RestMethod -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
+                        }
+                    }
+                    $controlResult.AddMessage([VerificationResult]::Fixed,"Admin permissions for these users has been restored: ");
+                }
+
+                $display = ($RawDataObjForControlFix |  FT PrincipalName,Group,DisplayName -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
+                $controlResult.AddMessage("Note: Users which are part of admin groups via AAD group will need to be modified manually.");
+                #Note: api does not fail even if the user is getting flagged from a team foundation group, but the user does not get deleted from the group
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Manual,  "No guest users found.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+
+    }
+
     hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForBuild([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -2030,9 +2246,10 @@ class Project: ADOSVTBase
             $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
             $projectName = $this.ResourceContext.ResourceName;
             $permissionSetToken = $projectId
-            if ([Helpers]::CheckMember($this.ControlSettings.Build, "RestrictedBroaderGroupsForBuild") -and [Helpers]::CheckMember($this.ControlSettings.Build, "ExcessivePermissionsForBroadGroups")) {
+            if ([Helpers]::CheckMember($this.ControlSettings.Build, "RestrictedBroaderGroupsForBuild")) {
+                $restrictedBroaderGroups = @{}
                 $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
-                $excessivePermissions = $this.ControlSettings.Build.ExcessivePermissionsForBroadGroups
+                $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
                 $namespacesApiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($orgName)
                 $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
                 $buildSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "Build") -and ($_.actions.name -contains "ViewBuilds")}).namespaceId
@@ -2067,11 +2284,12 @@ class Project: ADOSVTBase
                 $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
                 if ([Helpers]::CheckMember($responseObj[0], "dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider', "identities"))) {
 
-                    $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $broaderGroups -contains $_.displayName })
+                    $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $restrictedBroaderGroups.keys -contains $_.displayName })
                     # $broaderGroupsList would be empty if none of its permissions are set i.e. all perms are 'Not Set'.
 
                     if ($broaderGroupsList.Count) {
                         $groupsWithExcessivePermissionsList = @()
+                        $filteredBroaderGroupList = @()
                         foreach ($broderGroup in $broaderGroupsList) {
                             $broaderGroupInputbody = "{
                                 'contributionIds': [
@@ -2100,7 +2318,7 @@ class Project: ADOSVTBase
                             #Web request to fetch RBAC permissions of broader groups on build.
                             $broaderGroupResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $broaderGroupInputbody);
                             $broaderGroupRBACObj = $broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
-                            $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
+                            $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $restrictedBroaderGroups[$broderGroup.principalName.split('\')[-1]] }
                             $excessiveEditPermissions = @()
                             $excessivePermissionList | ForEach-Object {
                                 #effectivePermissionValue equals to 1 implies edit build pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
@@ -2118,13 +2336,21 @@ class Project: ADOSVTBase
                                 $excessivePermissionsGroupObj['PermissionSetToken'] = $permissionSetToken
                                 $excessivePermissionsGroupObj['PermissionSetId'] = $buildSecurityNamespaceId
                                 $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
+                                $filteredBroaderGroupList += $broderGroup
                             }
                         }
+
+                        if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $filteredBroaderGroupList.Count -gt 0)
+                        {
+                            $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($filteredBroaderGroupList, $false))
+                            $groupsWithExcessivePermissionsList = @($groupsWithExcessivePermissionsList | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Group})
+                        }
+
                         if ($groupsWithExcessivePermissionsList.count -gt 0) {
                             #TODO: Do we need to put state object?
                             $controlResult.AddMessage([VerificationResult]::Failed, "Build pipelines are set to inherit excessive permissions for a broad group of users at project level.");
                             $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
-                            $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
+                            $formattedBroaderGrpTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                             $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                             $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
                             if ($this.ControlFixBackupRequired)
@@ -2133,6 +2359,8 @@ class Project: ADOSVTBase
                                     
                                     $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
                                 }
+                            $groups = $groupsWithExcessivePermissionsList | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions -join ',' } 
+                            $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                         }
                         else {
                             $controlResult.AddMessage([VerificationResult]::Passed, "Build pipelines are not allowed to inherit excessive permissions for a broad group of users at project level.");
@@ -2145,8 +2373,8 @@ class Project: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the build pipelines at a project level.");
                 }
-                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT | Out-String )`n");
-                $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT | Out-String  )`n");
+                $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -Width 512)");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
@@ -2248,9 +2476,10 @@ class Project: ADOSVTBase
             $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
             $projectName = $this.ResourceContext.ResourceName;
             $permissionSetToken = $projectId
-            if ([Helpers]::CheckMember($this.ControlSettings.Release, "RestrictedBroaderGroupsForRelease") -and [Helpers]::CheckMember($this.ControlSettings.Release, "ExcessivePermissionsForBroadGroups")) {
+            if ([Helpers]::CheckMember($this.ControlSettings.Release, "RestrictedBroaderGroupsForRelease")) {
+                $restrictedBroaderGroups = @{}
                 $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
-                $excessivePermissions = $this.ControlSettings.Release.ExcessivePermissionsForBroadGroups
+                $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
                 $namespacesApiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($orgName)
                 $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
                 $releaseSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ReleaseManagement") -and ($_.actions.name -contains "ViewReleaseDefinition")}).namespaceId
@@ -2286,11 +2515,12 @@ class Project: ADOSVTBase
                 $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
                 if ([Helpers]::CheckMember($responseObj[0], "dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider', "identities"))) {
 
-                    $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $broaderGroups -contains $_.displayName })
+                    $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $restrictedBroaderGroups.keys -contains $_.displayName })
                     # $broaderGroupsList would be empty if none of its permissions are set i.e. all perms are 'Not Set'.
 
                     if ($broaderGroupsList.Count) {
                         $groupsWithExcessivePermissionsList = @()
+                        $filteredBroaderGroupList = @()
                         foreach ($broderGroup in $broaderGroupsList) {
                             $broaderGroupInputbody = "{
                                 'contributionIds': [
@@ -2319,7 +2549,7 @@ class Project: ADOSVTBase
                             #Web request to fetch RBAC permissions of broader groups on release.
                             $broaderGroupResponseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $broaderGroupInputbody);
                             $broaderGroupRBACObj = $broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions
-                            $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $excessivePermissions }
+                            $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $restrictedBroaderGroups[$broderGroup.principalName.split('\')[-1]] }
                             $excessiveEditPermissions = @()
                             $excessivePermissionList | ForEach-Object {
                                 #effectivePermissionValue equals to 1 implies edit release pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
@@ -2333,16 +2563,37 @@ class Project: ADOSVTBase
                                 $excessivePermissionsGroupObj = @{}
                                 $excessivePermissionsGroupObj['Group'] = $broderGroup.principalName
                                 $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessiveEditPermissions.displayName -join ', ')
+                                $excessivePermissionsGroupObj['Descriptor'] = $broderGroup.sid
+                                $excessivePermissionsGroupObj['PermissionSetToken'] = $permissionSetToken
+                                $excessivePermissionsGroupObj['PermissionSetId'] = $releaseSecurityNamespaceId
                                 $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
+                                $filteredBroaderGroupList += $broderGroup
                             }
                         }
+
+                        if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $filteredBroaderGroupList.Count -gt 0)
+                        {
+                            $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($filteredBroaderGroupList, $false))
+                            $groupsWithExcessivePermissionsList = @($groupsWithExcessivePermissionsList | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Group})
+                        }
+
                         if ($groupsWithExcessivePermissionsList.count -gt 0) {
                             #TODO: Do we need to put state object?
                             $controlResult.AddMessage([VerificationResult]::Failed, "Release pipelines are set to inherit excessive permissions for a broad group of users at project level.");
                             $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
-                            $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
+                            $formattedBroaderGrpTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                             $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                             $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
+                            if ($this.ControlFixBackupRequired)
+                            {
+                                #Data object that will be required to fix the control
+                                
+                                $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                            }
+                            
+                            $groups = $groupsWithExcessivePermissionsList | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions -join ',' } 
+                            $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+
                         }
                         else {
                             $controlResult.AddMessage([VerificationResult]::Passed, "Broader Groups do not have excessive permissions on the release pipelines at a project level.");
@@ -2355,8 +2606,8 @@ class Project: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the pipelines at a project level.");
                 }
-                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($broaderGroups | FT | Out-String)`n");
-                $controlResult.AddMessage("`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT | Out-String)`n");
+                $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -Width 512)");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
@@ -2370,6 +2621,83 @@ class Project: ADOSVTBase
 
         return $controlResult;
     }
+    
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForReleaseAutomatedFix([ControlResult] $controlResult)
+    {
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    
+                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        $roleId = [int][ReleasePermissions] $excessivePermission.Replace(" ","");
+                        #need to invoke a post request which does not accept all permissions added in the body at once
+                        #hence need to call invoke seperately for each permission
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
+                                'allow':0,
+                                'deny':$($roleId)                              
+                            }]
+                        }" | ConvertFrom-Json
+                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$RawDataObjForControlFix[0].PermissionSetId
+                        
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Allow"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Deny"
+
+                }              
+                
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                   
+                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        $roleId = [int][ReleasePermissions] $excessivePermission.Replace(" ","");
+                        
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
+                                'allow':$($roleId),
+                                'deny':0                              
+                            }]
+                        }" | ConvertFrom-Json
+                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$RawDataObjForControlFix[0].PermissionSetId
+
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Allow"
+                }
+
+            }
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permissions for broader groups have been changed as below: ");
+            $formattedGroupsData = $RawDataObjForControlFix | Select @{l = 'Group'; e = { $_.Group } }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions }}, @{l = 'OldPermission'; e = { $_.OldPermission }}, @{l = 'NewPermission'; e = { $_.NewPermission } }
+            $display = ($formattedGroupsData |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }  
 
     hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForSvcConn ([ControlResult] $controlResult) {
         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -2379,19 +2707,26 @@ class Project: ADOSVTBase
             $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}" -f $($this.OrganizationContext.OrganizationName), $($projectId);
             $serviceEndPointIdentity = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
             $restrictedGroups = @();
+            $restrictedBroaderGroups = @{}
             if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.RestrictedBroaderGroupsForSvcConn") ) {
                 $restrictedBroaderGroupsForSvcConn = $this.ControlSettings.ServiceConnection.RestrictedBroaderGroupsForSvcConn;
-
+                $restrictedBroaderGroupsForSvcConn.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
                 if (($serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($serviceEndPointIdentity, "identity")) {
                     # match all the identities added on service connection with defined restricted list
                     $roleAssignments = @();
                     $roleAssignments +=   ($serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.Id}},@{Name="Role"; Expression = {$_.role.displayName}},@{Name="Access"; Expression = {$_.access}});
                     #Checking where broader groups have user/admin permission for service connection
                     if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.CheckForInheritedPermissions") -and $this.ControlSettings.ServiceConnection.CheckForInheritedPermissions) {
-                        $restrictedGroups += @($roleAssignments | Where-Object { $restrictedBroaderGroupsForSvcConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+                        $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1] -and ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
                     }
                     else {
-                        $restrictedGroups += @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and $restrictedBroaderGroupsForSvcConn -contains $_.Name.split('\')[-1] -and ($_.Role -eq "Administrator" -or $_.Role -eq "User") })
+                        $restrictedGroups = @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and $restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1] -and ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
+                    }
+
+                    if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $restrictedGroups.Count -gt 0)
+                    {
+                        $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($restrictedGroups, $true))
+                        $restrictedGroups = @($restrictedGroups | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
                     }
 
                     $restrictedGroupsCount = $restrictedGroups.Count
@@ -2402,14 +2737,16 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage("Count of broader groups: $($restrictedGroupsCount)`n")
                         $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
                         $formattedGroupsDataForAutoFix = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id } }, @{l = 'Role'; e = { $_.Role } }
-                        $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                        $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage("`nList of groups: ", $formattedGroupsTable)
                         $controlResult.SetStateData("List of groups: ", $formattedGroupsData)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to service connection at a project level:  $($restrictedGroupsCount)";
                         if ($this.ControlFixBackupRequired) {
                             #Data object that will be required to fix the control
                             $controlResult.BackupControlState = $formattedGroupsDataForAutoFix;
-                        }  
+                        }
+                        $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role } 
+                        $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection at a project level.");
@@ -2418,7 +2755,8 @@ class Project: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to service connection at a project level.");
                 }
-                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForSvcConn | FT | out-string )`n");
+                $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have excessive permissions: `n$($displayObj | FT | out-string -width 512)`n");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "List of broader groups for service connection is not defined in control settings for your organization.");
@@ -2490,24 +2828,31 @@ class Project: ADOSVTBase
         try {
             $controlResult.VerificationResult = [VerificationResult]::Failed
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool") -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedRolesForBroaderGroupsInAgentPool")) {
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool")) {
                 $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                 $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($projectId)";
                 $agentPoolPermObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
+                $restrictedBroaderGroups = @{}
                 $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool;
-                $restrictedRolesForBroaderGroupsInAgentPool = $this.ControlSettings.AgentPool.RestrictedRolesForBroaderGroupsInAgentPool;
+                $restrictedBroaderGroupsForAgentPool.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
 
                 if (($agentPoolPermObj.Count -gt 0) -and [Helpers]::CheckMember($agentPoolPermObj, "identity")) {
                     # match all the identities added on agentpool with defined restricted list
-                    $roleAssignments = @($agentPoolPermObj | Select-Object -Property @{Name="ProjectName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="DisplayName"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}},@{Name="RoleId"; Expression = {$_.identity.id}},@{Name="Access"; Expression = {$_.access}});
+                    $roleAssignments = @($agentPoolPermObj | Select-Object -Property @{Name="ProjectName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Role"; Expression = {$_.role.displayName}},@{Name="RoleId"; Expression = {$_.identity.id}},@{Name="Access"; Expression = {$_.access}});
                     # Checking whether the broader groups have User/Admin permissions
                     $restrictedGroups = @();
 
                     if ([Helpers]::CheckMember($this.ControlSettings, "Agentpool.CheckForInheritedPermissions") -and $this.ControlSettings.Agentpool.CheckForInheritedPermissions) {
-                        $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.DisplayName.split('\')[-1] -and ($restrictedRolesForBroaderGroupsInAgentPool -Contains $_.Role) })
+                        $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1] -and ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
                     }
                     else {
-                        $restrictedGroups = @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and $restrictedBroaderGroupsForAgentPool -contains $_.DisplayName.split('\')[-1] -and ($restrictedRolesForBroaderGroupsInAgentPool -Contains $_.Role) })                      
+                        $restrictedGroups = @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and $restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1] -and ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })                      
+                    }
+
+                    if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $restrictedGroups.Count -gt 0)
+                    {
+                        $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($restrictedGroups, $true))
+                        $restrictedGroups = @($restrictedGroups | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
                     }
 
                     $restrictedGroupsCount = $restrictedGroups.Count
@@ -2515,8 +2860,8 @@ class Project: ADOSVTBase
                     if ($restrictedGroupsCount -gt 0) {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Agent pools are set to inherit excessive permissions for a broad group of users at project level.");
                         $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups: $($restrictedGroupsCount)");
-                        $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.DisplayName} }, @{l = 'Role'; e = { $_.Role } }
-                        $formattedGroupsTable = ($formattedGroupsData | Out-String)
+                        $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
+                        $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage("`nList of groups: $formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool at a project level: $($restrictedGroupsCount)";
@@ -2525,6 +2870,8 @@ class Project: ADOSVTBase
                             #Data object that will be required to fix the control
                             $controlResult.BackupControlState = $restrictedGroups;
                         }
+                        $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.role } 
+                        $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                     }
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have user/administrator access to agent pool at a project level.");
@@ -2533,7 +2880,8 @@ class Project: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No groups have given access to agent pool at a project level.");
                 }
-                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have user/administrator privileges: `n$($restrictedBroaderGroupsForAgentPool | FT | out-string )`n");
+                $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' which should not excessive permissions: `n$($displayObj | FT -AutoSize| out-string -width 512)");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for agent pools is not defined in the control settings for your organization policy.");
@@ -2567,7 +2915,7 @@ class Project: ADOSVTBase
 "@;
                 }
                 $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
-                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
             }
             else {
                 foreach ($identity in $RawDataObjForControlFix) 
@@ -2580,7 +2928,7 @@ class Project: ADOSVTBase
 "@;
                 }
                 $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
-                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
             }
 
             $body += "]"
@@ -2607,9 +2955,10 @@ class Project: ADOSVTBase
             $controlResult.VerificationResult = [VerificationResult]::Failed
             $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedBroaderGroupsForVariableGroup") -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroup")) {
+            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedBroaderGroupsForVariableGroup") ) {
+                $restrictedBroaderGroups = @{}
                 $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup;
-                $restrictedRolesForBroaderGroupsInvarGrp = $this.ControlSettings.VariableGroup.RestrictedRolesForBroaderGroupsInVariableGroup;
+                $restrictedBroaderGroupsForVarGrp.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
 
                 #Fetch variable group RBAC
                 $roleAssignments = @();
@@ -2623,18 +2972,25 @@ class Project: ADOSVTBase
 
                 # Checking whether the broader groups have User/Admin permissions
                 if ([Helpers]::CheckMember($this.ControlSettings, "VariableGroup.CheckForInheritedPermissions") -and $this.ControlSettings.VariableGroup.CheckForInheritedPermissions) {
-                    $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                    $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1]) -and  ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
                 }
                 else {
-                    $restrictedGroups = @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and  ($restrictedBroaderGroupsForVarGrp -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInvarGrp -contains $_.Role) })
+                    $restrictedGroups = @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and  ($restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1]) -and  ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
                 }
+
+                if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $restrictedGroups.Count -gt 0)
+                {
+                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($restrictedGroups, $true))
+                    $restrictedGroups = @($restrictedGroups | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
+                }
+
                 $restrictedGroupsCount = $restrictedGroups.Count
 
                 # fail the control if restricted group found on variable group
                 if ($restrictedGroupsCount -gt 0) {
                     $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)");
                     $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
-                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
@@ -2643,11 +2999,14 @@ class Project: ADOSVTBase
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $restrictedGroups;
                     }
+                    $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role } 
+                    $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to variable group at a project level.");
                 }
-                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($restrictedBroaderGroupsForVarGrp | FT | out-string)");
+                $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' and should not have excessive permissions: `n$( $displayObj| FT | out-string -Width 512)");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
@@ -2717,9 +3076,10 @@ class Project: ADOSVTBase
             $controlResult.VerificationResult = [VerificationResult]::Failed
             $projectId = $this.ResourceContext.ResourceDetails.Id
 
-            if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedBroaderGroupsForSecureFile") -and [Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedRolesForBroaderGroupsInSecureFile")) {
+            if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedBroaderGroupsForSecureFile")) {
+                $restrictedBroaderGroups = @{}
                 $restrictedBroaderGroupsForSecureFile = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile;  
-                $restrictedRolesForBroaderGroupsInSecureFile = $this.ControlSettings.SecureFile.RestrictedRolesForBroaderGroupsInSecureFile;              
+                $restrictedBroaderGroupsForSecureFile.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
 
                 #Fetch Secure File RBAC
                 $roleAssignments = @();
@@ -2728,26 +3088,44 @@ class Project: ADOSVTBase
                 $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                 if($responseObj.Count -gt 0)
                 {
-                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}}, @{Name="RoleId"; Expression = {$_.Identity.id}}, @{Name= "Access"; Expression = {$_.accessDisplayName}}); #added role id and access for UndoFix backup
                 }
 
                 # Checking whether the broader groups have User/Admin permissions
-                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroupsForSecureFile -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInSecureFile -contains $_.Role) })
+                if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.CheckForInheritedPermissions") -and $this.ControlSettings.SecureFile.CheckForInheritedPermissions) {
+                    $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1]) -and  ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
+                }
+                else {
+                    $restrictedGroups = @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and  ($restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1]) -and  ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
+                }
+
+                if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $restrictedGroups.Count -gt 0)
+                {
+                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($restrictedGroups, $true))
+                    $restrictedGroups = @($restrictedGroups | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
+                }
+
                 $restrictedGroupsCount = $restrictedGroups.Count
 
                 # fail the control if restricted group found on secure file
                 if ($restrictedGroupsCount -gt 0) {
                     $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have administrator access to secure file at a project level: $($restrictedGroupsCount)");
                     $formattedGroupsData = $restrictedGroups | Select @{l = 'Group'; e = { $_.Name} }, @{l = 'Role'; e = { $_.Role } }
-                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to secure file at a project level: $($restrictedGroupsCount)";
+                    if ($this.ControlFixBackupRequired)
+                    {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $restrictedGroups;
+                    }
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator access to secure file at a project level.");
                 }
-                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($restrictedBroaderGroupsForSecureFile | FT | out-string)");
+                $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+                $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($displayObj | FT -AutoSize | out-string)");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for secure file is not defined in the control settings for your organization policy.");
@@ -2760,100 +3138,164 @@ class Project: ADOSVTBase
 
         return $controlResult;
     }
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForSecureFileAutomatedFix ([ControlResult] $controlResult) {
+
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $body = "["
+
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = "Reader"
+                    $userId = $identity.RoleId
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += "{`"userId`": `"$($userId)`",`"roleName`": `"$($roleId)`"}"
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = "$($identity.Role)"
+                    $userId = $identity.RoleId
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += "{`"userId`": `"$($userId)`",`"roleName`": `"$($roleId)`"}"
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+            }
+
+            $body += "]"
+            #Patch request
+            $url = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.library/roleassignments/resources/{1}%240?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method PUT -ContentType "application/json" -Headers $header -Body $body
+
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
+            $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
 
     hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForRepo ([ControlResult] $controlResult) {        
-        $accessList = @() 
         $controlResult.VerificationResult = [VerificationResult]::Failed       
         try{
 
-            if ([Helpers]::CheckMember($this.ControlSettings, "Repo.RestrictedBroaderGroupsForRepo") -and [Helpers]::CheckMember($this.ControlSettings, "Repo.RestrictedRolesForBroaderGroupsInRepo")) {
-                $restrictedBroaderGroupsForRepo = $this.ControlSettings.Repo.RestrictedBroaderGroupsForRepo;  
-                $restrictedRolesForBroaderGroupsInRepo = $this.ControlSettings.Repo.RestrictedRolesForBroaderGroupsInRepo;  
+            $restrictedBroaderGroups = @{}
+            $restrictedBroaderGroupsForRepo = $this.ControlSettings.Repo.RestrictedBroaderGroupsForRepo;
+            $restrictedBroaderGroupsForRepo.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }  
 
-                $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
-                $refererUrl = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=permissions";
-                $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
-                $inputbody.dataProviderContext.properties.sourcePage.url = $refererUrl
-                $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
-                $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.id)"
+            #permissionSetId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87' is the std. namespaceID. Refer: https://docs.microsoft.com/en-us/azure/devops/organizations/security/manage-tokens-namespaces?view=azure-devops#namespaces-and-their-ids
+            $permissionSetToken = $this.ResourceContext.ResourceDetails.id
+            $repoSecurityNamespaceId = '2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87'
 
-                # Get list of all users and groups granted permissions on all repositories
-                $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+            $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+            $refererUrl = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/repositories?_a=permissions";
+            $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+            $inputbody.dataProviderContext.properties.sourcePage.url = $refererUrl
+            $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
+            $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($permissionSetToken)"
 
-                # Iterate through each user/group to fetch detailed permissions list
-                if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+            # Checking if Inherited permissions are allowed or not.
+            $allowPermissionBits = @(1)
+            if ([Helpers]::CheckMember($this.ControlSettings, "Repo.CheckForInheritedPermissions") -and $this.ControlSettings.Repo.CheckForInheritedPermissions) {
+                #allow permission bit for inherited permission is '3'
+                $allowPermissionBits = @(1,3)
+            }
+
+            # Get list of all users and groups granted permissions on all repositories
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+
+            # Iterate through each user/group to fetch detailed permissions list
+            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+            {
+                $body = '{"contributionIds":["ms.vss-admin-web.security-view-permissions-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","accountName":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $body.dataProviderContext.properties.sourcePage.url = $refererUrl
+                $body.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
+                $body.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.id)"
+
+                $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $restrictedBroaderGroups.keys -contains $_.displayName })
+                if ($broaderGroupsList.Count -gt 0)
                 {
-                    $body = '{"contributionIds":["ms.vss-admin-web.security-view-permissions-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","accountName":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
-                    $body.dataProviderContext.properties.sourcePage.url = $refererUrl
-                    $body.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
-                    $body.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.id)"
-
-                    $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { $_.subjectKind -eq "group" } | ForEach-Object {
-                        $identity = $_
-                        $body.dataProviderContext.properties.accountName = $_.principalName
-                        $body.dataProviderContext.properties.subjectDescriptor = $_.descriptor
-
+                    $groupsWithExcessivePermissionsList = @()
+                    $filteredBroaderGroupList = @()
+                    foreach ($broderGroup in $broaderGroupsList)
+                    {
+                        $body.dataProviderContext.properties.accountName = $broderGroup.principalName
+                        $body.dataProviderContext.properties.subjectDescriptor = $broderGroup.descriptor
                         $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body);
-                        $configuredPermissions = $identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
-                        return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.subjectKind; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
-                    }
-
-                    $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { $_.subjectKind -eq "user" } | ForEach-Object {
-                        $identity = $_
-                        $body.dataProviderContext.properties.subjectDescriptor = $_.descriptor
-
-                        $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body);
-                        $configuredPermissions = $identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions | Where-Object {$_.permissionDisplayString -ne 'Not set'}
-                        return @{ IdentityName = $identity.DisplayName; IdentityType = $identity.subjectKind; Permissions = ($configuredPermissions | Select-Object @{Name="Name"; Expression = {$_.displayName}},@{Name="Permission"; Expression = {$_.permissionDisplayString}}) }
-                    }
-                }
-
-                # Checking if Inherited permissions are allowed or not.
-                $allowPermission = @("Allow")
-                if ([Helpers]::CheckMember($this.ControlSettings, "Repo.CheckForInheritedPermissions") -and $this.ControlSettings.Repo.CheckForInheritedPermissions) {
-                    #allow permission bit for inherited permission is '3'
-                    $allowPermission = @("Allow", "Allow (Inherited)")
-                }
-
-                # Checking whether the broader groups have User/Admin permissions
-                $restrictedBroaderGroups = $accessList| Where-Object { ($restrictedBroaderGroupsForRepo -contains $_.IdentityName)}
-                $restrictedGroups = @()
-                $foundRestrictedPermissions = $false
-                $restrictedBroaderGroups | Foreach-Object {
-                    $group = $_
-                    $group.Permissions | Foreach-Object {
-                        #Where-Object {$_.Name -in $restrictedRolesForBroaderGroupsInRepo -and $_.Permission -in $allowPermission}
-                        if ($_.Name -in $restrictedRolesForBroaderGroupsInRepo -and $_.Permission -in $allowPermission) {
-                            $foundRestrictedPermissions = $true
+                        $broaderGroupRBACObj = $identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions
+                        $excessivePermissionList = $broaderGroupRBACObj | Where-Object { $_.displayName -in $restrictedBroaderGroups[$broderGroup.principalName.split('\')[-1]] }
+                        $excessiveEditPermissions = @()
+                        $excessivePermissionList | ForEach-Object {
+                            #effectivePermissionValue equals to 1 implies repo perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
+                            if ([Helpers]::CheckMember($_, "effectivePermissionValue")) {
+                                if ($allowPermissionBits -contains $_.effectivePermissionValue) {
+                                    $excessiveEditPermissions += $_
+                                }
+                            }
+                        }
+                        if ($excessiveEditPermissions.Count -gt 0) {
+                            $excessivePermissionsGroupObj = @{}
+                            $excessivePermissionsGroupObj['Group'] = $broderGroup.principalName
+                            $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessiveEditPermissions.displayName -join ';')
+                            $excessivePermissionsGroupObj['Descriptor'] = $broderGroup.sid
+                            $excessivePermissionsGroupObj['PermissionSetToken'] = $permissionSetToken
+                            $excessivePermissionsGroupObj['PermissionSetId'] = $repoSecurityNamespaceId
+                            $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
+                            $filteredBroaderGroupList += $broderGroup
                         }
                     }
-                    if ($foundRestrictedPermissions) {
-                        $restrictedGroups += $group
+
+                    if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $filteredBroaderGroupList.Count -gt 0)
+                    {
+                        $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($filteredBroaderGroupList, $false))
+                        $groupsWithExcessivePermissionsList = @($groupsWithExcessivePermissionsList | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Group})
                     }
-                    $foundRestrictedPermissions = $false
-                }
 
-                if($restrictedGroups.Count -ne 0)
-                {
-                    $accessList = $restrictedGroups | Select-Object -Property @{Name="Name"; Expression = {$_.IdentityName}}, @{Name="Type"; Expression = {$_.IdentityType}}, @{Name="Permissions"; Expression = {$_.Permissions.Name}}
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Count of broader groups that have excessive permissions to repository at a project level: $($restrictedGroups.Count)");
-                    $controlResult.AddMessage("Validate that the following broader groups that have excessive permissions to repositories: `n", $($accessList | FT -AutoSize | Out-String -Width 512));
-                    $stateData = ($responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Select-Object -Property @{Name="Name"; Expression = {$_.displayName}},@{Name="Type"; Expression = {$_.subjectKind}},@{Name="Scope"; Expression = {$_.Scope}}) 
-                    $controlResult.SetStateData("List of broader groups having access to repositories: ", $stateData);
-                    $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions to repository at a project level: $($restrictedGroups.Count)";
-
+                    if ($groupsWithExcessivePermissionsList.count -gt 0) 
+                    {
+                        $accessList = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Count of broader groups that have excessive permissions to repository at a project level: $($groupsWithExcessivePermissionsList.Count)");
+                        $controlResult.AddMessage("Validate that the following broader groups that have excessive permissions to repositories: `n", $($accessList | FT -AutoSize | Out-String -Width 512));
+                        $controlResult.SetStateData("List of broader groups having access to repositories: ", $accessList);
+                        $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions to repository at a project level: $($groupsWithExcessivePermissionsList.Count)";
+                        if ($this.ControlFixBackupRequired)
+                        {
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                        }
+                        $groups = $groupsWithExcessivePermissionsList | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions -join ',' } 
+                        $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Repositories are not allowed to inherit excessive permissions for a broad group of users at project level.");
+                    }
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have excessive access to repository at a project level.");
                 }
-                $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' and should not have excessive privileges: `n$($restrictedBroaderGroupsForRepo | FT | out-string)");
-                $responseObj = $null;
             }
-            else 
+            else
             {
-                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for repository is not defined in the control settings for your organization policy.");
+                $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch repositories permission details at a project level.");
             }
+            $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+            $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -Width 512)");
+            $responseObj = $null;
+            
         }
         catch
         {
@@ -2861,6 +3303,87 @@ class Project: ADOSVTBase
             $controlResult.LogException($_)
         }
 
+        return $controlResult
+    }  
+    
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForRepoAutomatedFix([ControlResult] $controlResult)
+    {
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    
+                    $excessivePermissions = $identity.ExcessivePermissions -split ";"
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        if ($excessivePermission -eq 'Force push (rewrite history, delete branches and tags)') {
+                            $roleId = [int][RepoPermissions] 'Forcepush'
+                        }
+                        else {
+                            $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","");
+                        }
+                        #need to invoke a post request which does not accept all permissions added in the body at once
+                        #hence need to call invoke seperately for each permission
+                         $body = "{
+                            'token': 'repoV2/$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
+                                'allow':0,
+                                'deny':$($roleId)                              
+                            }]
+                        }" | ConvertFrom-Json
+                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$RawDataObjForControlFix[0].PermissionSetId
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Allow"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Deny"
+
+                }              
+                
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                   
+                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","");
+                        
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
+                                'allow':$($roleId),
+                                'deny':0                              
+                            }]
+                        }" | ConvertFrom-Json
+                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $RawDataObjForControlFix[0].PermissionSetId
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Allow"
+                }
+
+            }
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permissions for broader groups have been changed as below: ");
+            $formattedGroupsData = $RawDataObjForControlFix | Select @{l = 'Group'; e = { $_.Group } }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions }}, @{l = 'OldPermission'; e = { $_.OldPermission }}, @{l = 'NewPermission'; e = { $_.NewPermission } }
+            $display = ($formattedGroupsData |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
         return $controlResult
     }   
         
@@ -2870,9 +3393,10 @@ class Project: ADOSVTBase
             $controlResult.VerificationResult = [VerificationResult]::Failed
             $projectId = $this.ResourceContext.ResourceDetails.Id
 
-            if ([Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedBroaderGroupsForEnvironment") -and [Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedRolesForBroaderGroupsInEnv")) {
+            if ([Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedBroaderGroupsForEnvironment")) {
+                $restrictedBroaderGroups = @{}
                 $RestrictedBroaderGroupsForEnvironment = $this.ControlSettings.Environment.RestrictedBroaderGroupsForEnvironment;
-                $restrictedRolesForBroaderGroupsInEnv = $this.ControlSettings.Environment.RestrictedRolesForBroaderGroupsInEnv;
+                $restrictedBroaderGroupsForEnvironment.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
 
                 #Fetch environment RBAC
                 $roleAssignments = @();
@@ -2881,11 +3405,23 @@ class Project: ADOSVTBase
                 $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                 if($responseObj.Count -gt 0)
                 {
-                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}});
+                    $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}}, @{Name= "Access"; Expression = {$_.accessDisplayName}});
+                }
+            
+                # Checking whether the broader groups have User/Admin permissions
+                if ([Helpers]::CheckMember($this.ControlSettings, "Environment.CheckForInheritedPermissions") -and $this.ControlSettings.Environment.CheckForInheritedPermissions) {
+                    $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1]) -and  ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
+                }
+                else {
+                    $restrictedGroups = @($roleAssignments | Where-Object { $_.Access -eq "assigned" -and  ($restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1]) -and  ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
                 }
 
-                # Checking whether the broader groups have User/Admin permissions
-                $restrictedGroups = @($roleAssignments | Where-Object { ($RestrictedBroaderGroupsForEnvironment -contains $_.Name.split('\')[-1]) -and  ($restrictedRolesForBroaderGroupsInEnv -contains $_.Role) })
+                if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $restrictedGroups.Count -gt 0)
+                {
+                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($restrictedGroups, $true))
+                    $restrictedGroups = @($restrictedGroups | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
+                }
+
                 $restrictedGroupsCount = $restrictedGroups.Count
 
                 # fail the control if restricted group found on environment
@@ -2900,7 +3436,8 @@ class Project: ADOSVTBase
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have administrator/user access to environment at a project level.");
                 }
-                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have administrator privileges: `n$($RestrictedBroaderGroupsForEnvironment | FT | out-string)");
+                $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+                $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($displayObj | FT -AutoSize | out-string)");
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for environment is not defined in the control settings for your organization policy.");
@@ -2912,4 +3449,139 @@ class Project: ADOSVTBase
         }
         return $controlResult;
     } 
+
+    hidden [ControlResult] CheckBuildSvcAcctAccessOnRepository([ControlResult] $controlResult)
+	{
+        <#
+    {
+      "ControlID": "ADO_Repository_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
+      "Description": "Do not grant Build Service Accounts direct access to repositories at project level.",
+      "Id": "",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBuildSvcAcctAccessOnRepository",
+      "Rationale": "Build service account's are default identities used as part of every build in project. Configuring these identities with excessive permissions at a project level will make every repository inheriting those permissions exposed to all build definitions in the project.",
+      "Recommendation": "1. Go to Project Settings --> 2. Repositories -->  3. Select security --> 4. Ensure 'Excessive' permissions of 'Project Collection Build Service(organization)/[Project] Build Service' groups is not set to 'Allow'. Refer to detailed scan log (Project.LOG) for excessive permissions list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "MSW"
+      ],
+      "Enabled": true
+    }
+        #>
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $excessivePermissions = $this.ControlSettings.Repo.RestrictedRolesForBuildSvcAccountsInRepo
+            # Fetching repository RBAC using portal api's because no documented api present for this purpose.
+            $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+            $refererUrl = "https://dev.azure.com/{0}/{1}/_settings/repositories?repo={2}&_a=permissionsMid" -f $($this.OrganizationContext.OrganizationName), $($this.ResourceContext.ResourceGroupName), $($this.ResourceContext.ResourceDetails.id)
+            $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+            $inputbody.dataProviderContext.properties.sourcePage.url = $refererUrl
+            $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceGroupName;
+            $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.Project.id)/"
+
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+            $repositoryIdentities = @();
+
+            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+            {
+                $repositoryIdentities = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities)
+            }
+
+            if($repositoryIdentities.Count -gt 0)
+            {
+                # fetch the groups that have access to the repo at project level
+                $groupPermissionsBody = '{"contributionIds":["ms.vss-admin-web.security-view-permissions-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","permissionSetId":"2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","accountName":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $groupPermissionsBody.dataProviderContext.properties.sourcePage.url = $refererUrl
+                $groupPermissionsBody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceGroupName;
+                $groupPermissionsBody.dataProviderContext.properties.permissionSetToken = "repoV2/$($this.ResourceContext.ResourceDetails.Project.id)/"
+                $buildServieAccountOnRepo = @()
+                $groupsWithExcessivePermissionsList = @()
+                foreach ($identity in $repositoryIdentities)
+                {
+                    if ($identity.displayName -like '*Project Collection Build Service Accounts' -or $identity.displayName -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $identity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))") {
+                        $groupPermissionsBody.dataProviderContext.properties.subjectDescriptor = $identity.descriptor    
+                        $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $groupPermissionsBody);
+                        $buildServiceAccountRbacObj = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.subjectPermissions)
+                        $excessivePermissionList = $buildServiceAccountRbacObj | Where-Object { $_.displayName -in $excessivePermissions }
+                        $excessivePermissionsPerGroup = @()
+                        $excessivePermissionList | ForEach-Object {
+                            #effectivePermissionValue equals to 1 implies edit build pipeline perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
+                            if ([Helpers]::CheckMember($_, "effectivePermissionValue")) {
+                                if ($this.excessivePermissionBitsForRepo -contains $_.effectivePermissionValue) {
+                                    $excessivePermissionsPerGroup += $_
+                                }
+                            }
+                        }   
+                        if ($excessivePermissionsPerGroup.Count -gt 0) {
+                            $groupFoundWithExcessivePermissions = $true
+                            # For PCBSA, resolve the group and check if PBS, PCBS are part of it
+                            if ($identity.displayName -like '*Project Collection Build Service Accounts') {
+                                $groupFoundWithExcessivePermissions = $false
+                                $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($this.OrganizationContext.OrganizationName);                                
+                                $postbody=@'
+                                {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/_settings/groups?subjectDescriptor={1}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
+'@
+                                $postbody=$postbody.Replace("{0}",$identity.descriptor )
+                                $postbody=$postbody.Replace("{1}",$this.OrganizationContext.OrganizationName)
+                                $rmContext = [ContextHelper]::GetCurrentContext();
+                                $user = "";
+                                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))   
+                                try {
+                                    $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
+                                    if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
+                                    {
+                                        $buildServiceAccountIdentities = $response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
+                                        foreach ($eachIdentity in $buildServiceAccountIdentities) {
+                                          if ($eachIdentity.displayName -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $eachIdentity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))") {
+
+                                                $groupFoundWithExcessivePermissions = $true                                          
+                                            }                                        
+                                        }
+                                    } 
+                                }    
+                                catch {}                    
+                            }
+                            if ($groupFoundWithExcessivePermissions -eq $true) {
+                                $excessivePermissionsGroupObj = @{}
+                                $excessivePermissionsGroupObj['Group'] = $identity.displayName
+                                $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join ', ')
+                                $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
+                            }
+                        }                 
+                    }
+
+                }
+                if ($groupsWithExcessivePermissionsList.count -gt 0) {
+                    #TODO: Do we need to put state object?
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of restricted Build Service groups that have access to repository at project level: $($groupsWithExcessivePermissionsList.count)");
+                    $formattedGroupsData = $groupsWithExcessivePermissionsList | Select @{l = 'Group'; e = { $_.Group} }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions } }
+                    $formattedBroaderGrpTable = ($formattedGroupsData | Out-String)
+                    $controlResult.AddMessage("`nList of 'Build Service' Accounts: $formattedBroaderGrpTable");
+                    $controlResult.SetStateData("List of 'Build Service' Accounts: ", $formattedGroupsData)
+
+                    $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to repository at project level: $($groupsWithExcessivePermissionsList.Count)";
+                }
+
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the repository at project level.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
+                }
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch repository permission details at project level.");
+            }
+            $controlResult.AddMessage("`nNote:`nFollowing permissions are considered 'excessive':`n$($excessivePermissions | FT -AutoSize | Out-String -Width 512)");
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch repository permission details at project level.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult;
+    }
 }

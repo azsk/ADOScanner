@@ -11,6 +11,7 @@ class BatchScanResourceMap
     [string] $ReleaseNextContinuationToken
     [int] $ResourceCount
     [string] $SkipMarker
+    [string] $UpcError
     
        
 }
