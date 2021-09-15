@@ -168,7 +168,7 @@
     {
       "ControlID": "ADO_Repository_AuthZ_Disable_Inherited_Permissions",
       "Description": "Do not allow inherited permission on repository.",
-      "Id": "Repository120",
+      "Id": "Repository130",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckInheritedPermissionsOnRepository",
@@ -185,7 +185,7 @@
     {
       "ControlID": "ADO_Repository_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
       "Description": "Do not grant Build Service Account direct access to repositories.",
-      "Id": "Repository120",
+      "Id": "Repository140",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBuildSvcAcctAccessOnRepository",
