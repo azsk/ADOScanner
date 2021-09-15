@@ -1031,7 +1031,7 @@ class SVTResourceResolver: AzSKRoot {
                     }
 
                     #Fetch only those resources for which data obj backup is available in local 
-                    if([ControlHelper]::ControlFixBackup.Count -gt 0)
+                    if([ControlHelper]::ControlFixBackup.Count -gt 0 -and $PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOSecurityStatus")
                     {
                         $this.SVTResources = $this.SVTResources | Where-Object {[ControlHelper]::ControlFixBackup.ResourceId -contains $_.ResourceId}
                         if ($this.ResourceNames.count -gt 0) {
