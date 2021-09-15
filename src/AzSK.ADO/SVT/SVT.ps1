@@ -477,7 +477,7 @@ function Get-AzSKADOSecurityStatus
 			{
 				if($ResourceTypeName -notin([ResourceTypeName]::Build_Release,[ResourceTypeName]::Build))
 				{
-					Write-Host "Parameters '-BuildsFolderPath' and '-rtn'(values except 'All','Build') can not be used simultaneously in the scan command." -ForegroundColor Red
+					Write-Host "Parameter -ResourceTypeName(-rtn) should be Build/Build_Release when the parameter '-BuildsFolderPath' is used in the scan command." -ForegroundColor Red
 					return;
 				}
 			}
@@ -486,7 +486,7 @@ function Get-AzSKADOSecurityStatus
 			{
 				if($ResourceTypeName -notin([ResourceTypeName]::Build_Release,[ResourceTypeName]::Release))
 				{
-					Write-Host "Parameters '-ReleasesFolderPath' and '-rtn'(values except 'All','Release') can not be used simultaneously in the scan command." -ForegroundColor Red
+					Write-Host "Parameter -ResourceTypeName(-rtn) should be Release/Build_Release when the parameter '-ReleasesFolderPath' is used in the scan command." -ForegroundColor Red
 					return;
 				}
 			}
