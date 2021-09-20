@@ -342,6 +342,11 @@ function Get-AzSKADOSecurityStatus
 		$IncrementalScan,
 
 		[switch]
+        [Parameter(Mandatory = $false, HelpMessage="Scan only those resource objects modified after immediately previous scan.")]
+		[Alias("f")]
+		$Force,
+
+		[switch]
 		[Parameter()]
 		[Alias("bs")]
 		$BatchScan,

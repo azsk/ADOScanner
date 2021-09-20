@@ -1365,15 +1365,19 @@ class SVTResourceResolver: AzSKRoot {
             $incrementalScanHelperObjAudit = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectId,$projectName, $this.IncrementalDate);
             
             if($resourceType -eq "build"){
-                $buildIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForBuilds());
-                if($buildIdsFromAudit.Count -eq 0 -or $null -ne $buildIdsFromAudit[0]){
-                    $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedBuildsFromAudit($buildIdsFromAudit,$projectName))
+                if($incrementalScanHelperObjAudit.ShouldDiscardOldIncScan('Build') -eq $false){                
+                    $buildIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForBuilds());
+                    if($buildIdsFromAudit.Count -eq 0 -or $null -ne $buildIdsFromAudit[0]){
+                        $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedBuildsFromAudit($buildIdsFromAudit,$projectName))
+                    }
                 }
             }
             else {
-                $releaseIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForReleases());
-                if($releaseIdsFromAudit.Count -eq 0 -or $null -ne $releaseIdsFromAudit[0]){
-                    $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedReleasesFromAudit($releaseIdsFromAudit,$projectName))
+                if($incrementalScanHelperObjAudit.ShouldDiscardOldIncScan('Release') -eq $false){   
+                    $releaseIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForReleases());
+                    if($releaseIdsFromAudit.Count -eq 0 -or $null -ne $releaseIdsFromAudit[0]){
+                        $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedReleasesFromAudit($releaseIdsFromAudit,$projectName))
+                    }
                 }
             }
             
