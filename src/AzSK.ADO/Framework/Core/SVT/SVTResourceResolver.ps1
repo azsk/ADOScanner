@@ -1361,15 +1361,22 @@ class SVTResourceResolver: AzSKRoot {
         $breakLoop = $false 
         $resourcesFromAuditAdded = $false;
         $modifiedResources = @()
+        if (!$this.ControlSettings) {
+            $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+        }
         if($this.UseIncrementalScan -eq $true){
             $incrementalScanHelperObjAudit = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectId,$projectName, $this.IncrementalDate);
             
             if($resourceType -eq "build"){
+                #no need to fetch from audits is inc scan is old
                 if($incrementalScanHelperObjAudit.ShouldDiscardOldIncScan('Build') -eq $false){                
                     $buildIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForBuilds());
                     if($buildIdsFromAudit.Count -eq 0 -or $null -ne $buildIdsFromAudit[0]){
                         $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedBuildsFromAudit($buildIdsFromAudit,$projectName))
                     }
+                }
+                else{
+                    $this.PublishCustomMessage("Last full scan for incremental scan for builds was found to be older than $($this.ControlSettings.IncrementalScan.IncrementalScanValidForDays) days. Therefore, initiating complete scan for builds.")
                 }
             }
             else {
@@ -1378,6 +1385,9 @@ class SVTResourceResolver: AzSKRoot {
                     if($releaseIdsFromAudit.Count -eq 0 -or $null -ne $releaseIdsFromAudit[0]){
                         $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedReleasesFromAudit($releaseIdsFromAudit,$projectName))
                     }
+                }
+                else{
+                    $this.PublishCustomMessage("Last full scan for incremental scan for releases was found to be older than $($this.ControlSettings.IncrementalScan.IncrementalScanValidForDays) days. Therefore, initiating complete scan for releases.")
                 }
             }
             

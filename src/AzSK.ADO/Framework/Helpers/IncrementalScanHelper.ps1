@@ -35,6 +35,7 @@ class IncrementalScanHelper
         $this.MasterFilePath = (Join-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName) $this.projectName) $this.IncrementalScanTimestampFile)
         $this.UpdateTime = $updateTimestamp
         $this.Timestamp = $timestamp
+        $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
         if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("UsePartialCommits")){
             [PartialScanManager] $partialScanMngr = [PartialScanManager]::GetInstance();
             if(($partialScanMngr.IsPartialScanInProgress($this.OrganizationName, $false) -eq [ActiveStatus]::Yes)){
@@ -238,6 +239,7 @@ class IncrementalScanHelper
                     else {
                         $this.ResourceTimestamps | Add-Member -NotePropertyName BuildPreviousTime -NotePropertyValue $previousScanTime
                     }
+                    #if old scan, we trigger full scan, store full scan value, also reset upc scan time
                     if($this.ShouldDiscardOldScan){
                         $this.ResourceTimestamps.LastFullScanBuild = $this.Timestamp
                         $this.ResourceTimestamps.BuildPreviousTime = "0001-01-01T00:00:00.0000000";
@@ -354,8 +356,11 @@ class IncrementalScanHelper
     }
 
     [bool] IsIncScanOld($resourceType){
-        $this.GetThresholdTime($resourceType)        
-        if($this.LastFullScan.AddDays(7) -lt [DateTime]::UtcNow){
+        $this.GetThresholdTime($resourceType)
+        if($this.FirstScan){
+            return $false;
+        }        
+        if($this.LastFullScan.AddDays($this.ControlSettings.IncrementalScan.IncrementalScanValidForDays) -lt [DateTime]::UtcNow){
             return $true;
         }     
      
@@ -387,9 +392,8 @@ class IncrementalScanHelper
         if($this.isPartialScanActive -and $latestBuildScan -eq 0){
             return $buildDefnsObj
         }
-        
-        if($this.ShouldDiscardOldIncScan('Build') -and -not($this.isPartialScanActive)){
-            
+        #if scan is old and no upc file found, simply return all builds, update scan time for full scans and last scan
+        if($this.ShouldDiscardOldIncScan('Build') -and -not($this.isPartialScanActive)){            
             $this.UpdateTimeStamp("Build")
             return $buildDefnsObj
         }
