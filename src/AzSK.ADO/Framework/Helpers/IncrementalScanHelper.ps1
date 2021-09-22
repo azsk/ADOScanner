@@ -321,7 +321,6 @@ class IncrementalScanHelper
 				$this.ResourceTimestamps  = Get-ChildItem -Path $tempPath -Force | Get-Content | ConvertFrom-Json
                 $previousScanTime = $this.ResourceTimestamps.$resourceType;
                 if($resourceType -eq 'Build'){
-                    $this.ResourceTimestamps.LastFullScanBuild = $this.Timestamp
                     if('BuildPreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
                         $this.ResourceTimestamps.BuildPreviousTime = $previousScanTime;
                     }     
