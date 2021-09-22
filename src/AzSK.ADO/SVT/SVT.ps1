@@ -361,7 +361,14 @@ function Get-AzSKADOSecurityStatus
 		[Parameter(Mandatory = $false, HelpMessage="Date to use as threshold for incremental scanning.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("dt", "IncrementDate")]
-		$IncrementalDate
+		$IncrementalDate,
+
+		[switch]
+		[Parameter(Mandatory = $false, HelpMessage="Scan attested resources during incremental scan")]
+		[Alias("sars")]
+		$ScanAttestedResources
+
+
 
 	)
 	Begin

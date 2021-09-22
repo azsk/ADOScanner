@@ -5,6 +5,7 @@ class IncrementalScanHelper
     hidden [string] $OrganizationName = $null;
     hidden [string] $ProjectName = $null;
     hidden [string] $ProjectId = $null;
+    hidden $OrganizationContext = $null;
     [PSObject] $ControlSettings;
     hidden [string] $AzSKTempStatePath = (Join-Path $([Constants]::AzSKAppFolderPath) "IncrementalScan");
     hidden [string] $CAScanProgressSnapshotsContainerName = [Constants]::CAScanProgressSnapshotsContainerName;
@@ -40,9 +41,10 @@ class IncrementalScanHelper
             }
         }        
     }
-    IncrementalScanHelper([string] $organizationName, [string] $projectId,[string] $projectName, [datetime] $incrementalDate)
+    IncrementalScanHelper($organizationContext, [string] $projectId,[string] $projectName, [datetime] $incrementalDate)
     {
-        $this.OrganizationName = $organizationName
+        $this.OrganizationName = $organizationContext.OrganizationName
+        $this.OrganizationContext = $organizationContext
         $this.ProjectId = $projectId
         $this.IncrementalScanTimestampFile = $([Constants]::IncrementalScanTimeStampFile)
         $this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource()
@@ -311,9 +313,9 @@ class IncrementalScanHelper
         }
     }
     [System.Object[]] GetModifiedBuilds($buildDefnsObj)
-    {
+    {       
         # Function to filter builds that have been modified after threshold time
-        $latestBuildScan = $this.GetThresholdTime("Build")
+        $latestBuildScan = $this.GetThresholdTime("Build")        
         if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0)
         {
             $this.UpdateTimeStamp("Build")
@@ -416,6 +418,43 @@ class IncrementalScanHelper
         return $newReleaseDefns                
     }
 
+    #Get all resources attested after the latest scan
+    [System.Object[]] GetAttestationAfterInc($projectName, $resourceType){
+        $resourceIds = @();
+        #if parameter not specified, wont be fetching these resources
+        if(-not($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('ScanAttestedResources'))){
+            return $resourceIds
+        }
+        $latestResourceScan = $this.GetThresholdTime($resourceType)
+        if($this.ScanSource -ne 'CA'){
+            $latestResourceScan=$latestResourceScan.ToUniversalTime();
+        }
+        $latestResourceScan =Get-Date $latestResourceScan -Format s        
+        if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0){
+            return $resourceIds;   
+        }
+        [ControlStateExtension] $ControlStateExt = [ControlStateExtension]::new($this.OrganizationContext, $PSCmdlet.MyInvocation);
+        $output = $ControlStateExt.RescanComputeControlStateIndexer($projectName, 'ADO.'+$resourceType);
+        $output | ForEach-Object {
+			if($_.AttestedDate -gt $latestResourceScan){
+				try {
+                    if($resourceType -eq 'Build'){
+                        $resourceIds += ($_.ResourceId -split "build/")[1]
+                    }
+                    else{
+                        $resourceIds += ($_.ResourceId -split "release/")[1]
+                    }				
+					
+				}
+				catch {
+
+				}
+			}
+		}
+        return $resourceIds
+    }
+
+
     [System.Object[]] GetAuditTrailsForBuilds(){
         $latestBuildScan = $this.GetThresholdTime("Build")
         if($this.ScanSource -ne 'CA'){
@@ -489,10 +528,10 @@ class IncrementalScanHelper
 
             }
         }
-        $latestBuildScan = $this.GetThresholdTime("Build");              
+        $latestBuildScan = $this.GetThresholdTime("Build");             
         foreach ($buildDefn in $buildDefnObj)
         {
-            if ([datetime]($buildDefn.CreatedDate) -lt $latestBuildScan) 
+            if ([Helpers]::CheckMember($buildDefn,'CreatedDate') -and [datetime]($buildDefn.CreatedDate) -lt $latestBuildScan) 
             {
                 $newBuildDefns += @($buildDefn)    
             }
@@ -574,10 +613,10 @@ class IncrementalScanHelper
 
             }
         }   
-        $latestReleaseScan = $this.GetThresholdTime("Release");              
+        $latestReleaseScan = $this.GetThresholdTime("Release");          
         foreach ($releaseDefn in $releaseDefnObj)
         {
-            if ([datetime]($releaseDefn.modifiedOn) -lt $latestReleaseScan) 
+            if ([Helpers]::CheckMember($releaseDefn,'modifiedOn') -and [datetime]($releaseDefn.modifiedOn) -lt $latestReleaseScan) 
             {
                 $newReleaseDefns += @($releaseDefn)    
             }

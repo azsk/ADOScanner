@@ -1362,16 +1362,22 @@ class SVTResourceResolver: AzSKRoot {
         $resourcesFromAuditAdded = $false;
         $modifiedResources = @()
         if($this.UseIncrementalScan -eq $true){
-            $incrementalScanHelperObjAudit = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectId,$projectName, $this.IncrementalDate);
+            $incrementalScanHelperObjAudit = [IncrementalScanHelper]::new($this.OrganizationContext, $projectId,$projectName, $this.IncrementalDate);
             
             if($resourceType -eq "build"){
                 $buildIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForBuilds());
+                $buildIdsFromAttestation = @($incrementalScanHelperObjAudit.GetAttestationAfterInc($projectName,'Build'));
+                #perform union in case attested resources also appear in audit logs
+                $buildIdsFromAudit = @($buildIdsFromAudit + $buildIdsFromAttestation | select -uniq)
                 if($buildIdsFromAudit.Count -eq 0 -or $null -ne $buildIdsFromAudit[0]){
+                    #get only those builds that have been modified before latest scan, builds modified after will be captured later
                     $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedBuildsFromAudit($buildIdsFromAudit,$projectName))
                 }
             }
             else {
                 $releaseIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForReleases());
+                $releaseIdsFromAttestation = @($incrementalScanHelperObjAudit.GetAttestationAfterInc($projectName,'Release'));
+                $releaseIdsFromAudit = @($releaseIdsFromAudit + $releaseIdsFromAttestation | select -uniq)
                 if($releaseIdsFromAudit.Count -eq 0 -or $null -ne $releaseIdsFromAudit[0]){
                     $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedReleasesFromAudit($releaseIdsFromAudit,$projectName))
                 }
@@ -1644,6 +1650,29 @@ class SVTResourceResolver: AzSKRoot {
         $batchScanMngr.BatchScanTrackerObj = $batchStatus;
         $batchScanMngr.WriteToBatchTrackerFile();
         
+    }
+
+    [void] addResourceIdIncrementalScan($resourceDefnsObj, $projectName,$resourceType,$organizationId,$projectId){
+        if($resourceType -eq "build"){
+            $tempLink=($resourceDefnsObj[0].url -split('Definitions/'))[0].replace('_apis/build/', '_build?definitionId=');
+        }
+        else {
+            $tempLink = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId=" -f $this.OrganizationContext.OrganizationName, $projectName;
+                           
+        }
+        foreach ($resourceDef in $resourceDefnsObj) {
+            $link=$tempLink+$resourceDef.id
+            $resourceId = "organization/$organizationId/project/$projectId/$($resourceType)/$($resourceDef.id)";
+            if($resourceType -eq "build"){
+                $this.AddSVTResource($resourceDef.name, $resourceDef.project.name, "ADO.Build", $resourceId, $resourceDef, $link);
+
+            }
+            else {
+                $this.AddSVTResource($resourceDef.name, $projectName, "ADO.Release", $resourceId, $null, $link);
+
+            }                                
+            
+        }
     }
 
 
