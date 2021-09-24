@@ -61,6 +61,8 @@ class PartialScanManager
 	{
 		$this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
 		$this.OrgName = $OrganizationName;
+		#$this.IsRTFAlreadyAvailable = $false
+
 		if ([string]::isnullorwhitespace($this.ResourceScanTrackerFileName))
         {
            if([ConfigurationManager]::GetAzSKSettings().IsCentralScanModeOn)
@@ -448,6 +450,7 @@ class PartialScanManager
                         $uri = $env:partialScanURI
                         $JobId ="";
                         $JobId = $uri.Replace('?','/').Split('/')[$JobId.Length -2]
+						#$body = @{"id" = $Jobid; "__etag"=-1; "value"= $scanObject;} | ConvertTo-Json
 						if ($this.IsRTFAlreadyAvailable -eq $true){
 						    $body = @{"id" = $Jobid; "__etag"=-1; "value"= $scanObject;} | ConvertTo-Json
                         }
@@ -471,7 +474,9 @@ class PartialScanManager
 					}
 					catch
 					{
+                        $this.IsRTFAlreadyAvailable = $false;
 						write-host "Could not update resource tracker file."
+                        write-host $_
 					}		
 			    }
 			}
