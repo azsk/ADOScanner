@@ -712,6 +712,65 @@ class CommonSVTControls: ADOSVTBase {
        return $controlResult
     }
 
+    hidden [ControlResult] CheckPreDeploymentApprovalOnEnv([ControlResult] $controlResult){
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try{
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/configurations?resourceType=environment&resourceId={2}&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+            if([Helpers]::CheckMember($response, "count") -and $response.count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
+            }
+            else{
+                $approvals = @($response | Where-Object{$_.type.name -eq "Approval"})
+                if($approvals.Count -eq 0){
+                    $controlResult.AddMessage([VerificationResult]::Failed, "No approvals have been defined for the environment.");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Approvals have been enabled for the environment.");
+                }
+            }
+
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch approvals and checks on the environment.");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckPreDeploymentApproversOnEnv([ControlResult] $controlResult){
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try{
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'environment'}]"
+            $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body
+            if([Helpers]::CheckMember($response, "count") -and $response.count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
+            }
+            else{
+                $approvals = @($response.value | Where-Object{$_.type.name -eq "Approval"})
+                if($approvals.Count -eq 0){
+                    $controlResult.AddMessage([VerificationResult]::Failed, "No approvals have been defined for the environment.");
+                }
+                else{
+                  $approvers = $approvals.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                    $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                    $controlResult.AdditionalInfo += "List of approvers on environment  $($approvers).";
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Validate users/groups added as approver within the environment.");
+                }
+            }
+
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch approvals and checks on the environment.");
+        }
+        return $controlResult
+    }
+
     hidden [ControlResult] CheckBroaderGroupAccessOnEnvironment([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed

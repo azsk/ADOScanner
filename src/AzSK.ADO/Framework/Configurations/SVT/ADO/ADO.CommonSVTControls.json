@@ -166,6 +166,40 @@
       "Enabled": true
     },
     {
+      "ControlID": "ADO_Environment_AuthZ_Enable_PreDeployment_Approval",
+      "Description": "Environments for production deployments must have approvals enabled..",
+      "Id": "Environment120",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckPreDeploymentApprovalOnEnv",
+      "Rationale": "Approvals on an environment ensure that deployment from a YAML pipeline happens only after designated users have reviewed the changes being deployed. This provides an additional layer of defense against inadvertent (or possibly malicious) changes to your production environment.",
+      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Environments --> 4. Select your environment from the list --> 5. Click on the three dots in upper right corner --> 6. Select 'Approvals and Checks' --> 7. Add an approval check on environment --> 8. Add the appropriate users and groups in list of approvers.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Environment_AuthZ_Review_PreDeployment_Approvers",
+      "Description": "Environments for production deployments must have approvals enabled..",
+      "Id": "Environment130",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckPreDeploymentApproversOnEnv",
+      "Rationale": "Periodic review of approvers list for production deployments ensures that only appropriate people are members of such a critical role. As team composition/membership changes, this privilege may need to be revoked from members who are no more in the team.",
+      "Recommendation": "1. Refer detailed log file to review the list of approvers.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
       "ControlID": "ADO_Repository_AuthZ_Disable_Inherited_Permissions",
       "Description": "Do not allow inherited permission on repository.",
       "Id": "Repository130",
