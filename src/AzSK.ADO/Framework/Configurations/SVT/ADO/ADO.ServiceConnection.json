@@ -129,14 +129,14 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_ServiceConnection_AuthZ_Dont_Grant_All_Pipelines_Access",
+      "ControlID": "ADO_ServiceConnection_AuthZ_Dont_Grant_All_Yaml_Pipelines_Access",
       "Description": "Do not make service connection accessible to all pipelines.",
       "Id": "ServiceConnection190",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckServiceConnectionBuildAccess",
-      "Rationale": "To support security of the pipeline operations, connections must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
-      "Recommendation": "1. Navigate to the service connections settings page for your project --> 2. Select your service connection from the list --> 3. Click on three dots --> 4. Click Security --> 5. Under 'Pipeline Permissions', click 'Restrict Permission' to avoid granting access to all pipelines and add only those pipelines that need explicit access on service connection.",
+      "Rationale": "To support security of the pipeline operations, connections must not be granted access to all yaml pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources. Classic pipelines can still access the service connection depending on the permissions granted to pipeline user.",
+      "Recommendation": "1. Navigate to the service connections settings page for your project --> 2. Select your service connection from the list --> 3. Click on three dots --> 4. Click Security --> 5. Under 'Pipeline Permissions', click 'Restrict Permission' to avoid granting access to all yaml pipelines and add only those yaml pipelines that need explicit access on service connection. For classic pipelines, review user permissions on the service connection.",
       "Tags": [
         "SDL",
         "TCP",
@@ -206,7 +206,7 @@
       "Automated": "Yes",
       "MethodName": "CheckCrossPipelineSharing",
       "Rationale": "If a service connection is shared across multiple pipelines, then a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources. This is also in keeping with the principle of least privilege.",
-      "Recommendation": "To remediate this, navigate to the service connections settings page for your project -> select your service connection from the list -> click Security -> Under 'Pipeline Permissions', remove pipelines that service connection no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Recommendation": "To remediate this, navigate to the service connections settings page for your project -> select your service connection from the list -> click Security -> Under 'Pipeline Permissions', remove yaml pipelines that service connection no more requires access to or click 'Restrict Permission' to avoid granting access to all yaml pipelines. Classic pipelines can still access the resource depending on the permissions granted to pipeline user.",
       "Tags": [
         "SDL",
         "TCP",
