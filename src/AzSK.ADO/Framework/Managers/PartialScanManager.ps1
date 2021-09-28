@@ -552,6 +552,8 @@ class PartialScanManager
         }
         catch{
             $this.ResourceScanTrackerObj = $null
+            $this.ScanPendingForResources = $null
+			$this.IsRTFAlreadyAvailable = $false
             Write-Host "RTF not found"
         }
 	}
