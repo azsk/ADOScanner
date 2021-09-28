@@ -61,8 +61,6 @@ class PartialScanManager
 	{
 		$this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
 		$this.OrgName = $OrganizationName;
-		#$this.IsRTFAlreadyAvailable = $false
-
 		if ([string]::isnullorwhitespace($this.ResourceScanTrackerFileName))
         {
            if([ConfigurationManager]::GetAzSKSettings().IsCentralScanModeOn)
@@ -382,11 +380,22 @@ class PartialScanManager
 			}
 
 			if ($this.ScanPendingForResources -ne $null -and $this.ScanSource -eq "CICD"){
-                $this.ResourceScanTrackerObj = [PartialScanResourceMap]@{
-				    Id = $this.ScanPendingForResources.Id;
-				    CreatedDate = $this.ScanPendingForResources.CreatedDate;
-				    ResourceMapTable = $this.ScanPendingForResources.ResourceMapTable.value;
-			    }
+
+                if([Helpers]::CheckMember($this.ScanPendingForResources.ResourceMapTable,"value"))
+                {
+                    $this.ResourceScanTrackerObj = [PartialScanResourceMap]@{
+                        Id = $this.ScanPendingForResources.Id;
+                        CreatedDate = $this.ScanPendingForResources.CreatedDate;
+                        ResourceMapTable = $this.ScanPendingForResources.ResourceMapTable.value;
+                    }
+                }
+                else{
+                    $this.ResourceScanTrackerObj = [PartialScanResourceMap]@{
+                        Id = $this.ScanPendingForResources.Id;
+                        CreatedDate = $this.ScanPendingForResources.CreatedDate;
+                        ResourceMapTable = $this.ScanPendingForResources.ResourceMapTable;
+                    }
+                }
             }
             else{
                 $this.ResourceScanTrackerObj = $masterControlBlob;
@@ -450,7 +459,6 @@ class PartialScanManager
                         $uri = $env:partialScanURI
                         $JobId ="";
                         $JobId = $uri.Replace('?','/').Split('/')[$JobId.Length -2]
-						#$body = @{"id" = $Jobid; "__etag"=-1; "value"= $scanObject;} | ConvertTo-Json
 						if ($this.IsRTFAlreadyAvailable -eq $true){
 						    $body = @{"id" = $Jobid; "__etag"=-1; "value"= $scanObject;} | ConvertTo-Json
                         }
@@ -474,9 +482,7 @@ class PartialScanManager
 					}
 					catch
 					{
-                        $this.IsRTFAlreadyAvailable = $false;
 						write-host "Could not update resource tracker file."
-                        write-host $_
 					}		
 			    }
 			}
@@ -519,11 +525,21 @@ class PartialScanManager
 			{
 				if(![string]::isnullorwhitespace($this.ScanPendingForResources))
 				{
-					$this.ResourceScanTrackerObj = [PartialScanResourceMap]@{
-				        Id = $this.ScanPendingForResources.Id;
-				        CreatedDate = $this.ScanPendingForResources.CreatedDate;
-				        ResourceMapTable = $this.ScanPendingForResources.ResourceMapTable.value;
-			        }
+					if([Helpers]::CheckMember($this.ScanPendingForResources.ResourceMapTable,"value"))
+                    {
+                        $this.ResourceScanTrackerObj = [PartialScanResourceMap]@{
+                            Id = $this.ScanPendingForResources.Id;
+                            CreatedDate = $this.ScanPendingForResources.CreatedDate;
+                            ResourceMapTable = $this.ScanPendingForResources.ResourceMapTable.value;
+                        }
+                    }
+                    else{
+                        $this.ResourceScanTrackerObj = [PartialScanResourceMap]@{
+                            Id = $this.ScanPendingForResources.Id;
+                            CreatedDate = $this.ScanPendingForResources.CreatedDate;
+                            ResourceMapTable = $this.ScanPendingForResources.ResourceMapTable;
+                        }
+                    }
 				}
 			}
 			elseif ($this.ScanSource -eq "CA")
@@ -553,7 +569,6 @@ class PartialScanManager
         catch{
             $this.ResourceScanTrackerObj = $null
             $this.ScanPendingForResources = $null
-			$this.IsRTFAlreadyAvailable = $false
             Write-Host "RTF not found"
         }
 	}
