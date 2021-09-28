@@ -360,6 +360,7 @@ class Build: ADOSVTBase
                 $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $formattedDate;
                 $buildInactivePeriod = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
                 $controlResult.AddMessage("The build was inactive from last $($buildInactivePeriod) days.");
+                $controlResult.AddMessage("`nNote: Restored pipeline although retain run history but are considered as a new pipeline in ADO.");
             }
         }
         catch
