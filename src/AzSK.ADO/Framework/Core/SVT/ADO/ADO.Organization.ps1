@@ -613,7 +613,13 @@ class Organization: ADOSVTBase
             if($guestUsers.Count -gt 0)
             {
                 $guestList = @();
-                $guestList += $guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}},@{Name="AccessLevel"; Expression = {$_.accessLevel.licenseDisplayName}},@{Name="LastAccessedDate"; Expression = {$_.lastAccessedDate}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }}
+                if([ContextHelper]::PSVersion -gt 5) {
+                    $guestList += $guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}},@{Name="AccessLevel"; Expression = {$_.accessLevel.licenseDisplayName}},@{Name="LastAccessedDate"; Expression = {$_.lastAccessedDate}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -$_.lastAccessedDate).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -$_.lastAccessedDate).Days} }}
+                }
+                else {
+                    $guestList += $guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}},@{Name="AccessLevel"; Expression = {$_.accessLevel.licenseDisplayName}},@{Name="LastAccessedDate"; Expression = {$_.lastAccessedDate}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }}
+                }
+                
                 $stateData = @();
                 $stateData += $guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}}
                 # $guestListDetailed would be same if DetailedScan is not enabled.
@@ -736,9 +742,16 @@ class Organization: ADOSVTBase
                 $inactivityThresholdInDays = $this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays
                 $thresholdDate = (Get-Date).AddDays(-$($inactivityThresholdInDays))
                 $responseObj[0].items | ForEach-Object {
-                    if([datetime]::Parse($_.lastAccessedDate) -lt $thresholdDate)
+                    $item = $_
+                    if([ContextHelper]::PSVersion -gt 5) {
+                        $lastAccessedDate = $item.lastAccessedDate
+                    }
+                    else {
+                        $lastAccessedDate = [datetime]::Parse($_.lastAccessedDate)
+                    }
+                    if($lastAccessedDate -lt $thresholdDate)
                     {
-                        $inactiveUsers+= $_
+                        $inactiveUsers+= $item
                     }
                 }
                 if($inactiveUsers.Count -gt 0)
@@ -749,7 +762,13 @@ class Organization: ADOSVTBase
                         $controlResult.AddMessage("Displaying top $($topInactiveUsers) inactive users")
                     }
                     #inactive user with days from how many days user is inactive, if user account created and was never active, in this case lastaccessdate is default 01-01-0001
-                    $inactiveUsers = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="mailAddress"; Expression = {$_.User.mailAddress}},@{Name="dateCreated"; Expression = {$_.dateCreated}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
+                    if([ContextHelper]::PSVersion -gt 5) {
+                        $inactiveUsers = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="mailAddress"; Expression = {$_.User.mailAddress}},@{Name="dateCreated"; Expression = {$_.dateCreated}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -$_.lastAccessedDate).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -$_.lastAccessedDate).Days} }})
+                    }
+                    else {
+                        $inactiveUsers = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="mailAddress"; Expression = {$_.User.mailAddress}},@{Name="dateCreated"; Expression = {$_.dateCreated}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
+                    }
+                    
                     #set data for attestation
                     $inactiveUsersStateData = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.Name}},@{Name="mailAddress"; Expression = {$_.mailAddress}})
 
@@ -1634,9 +1653,16 @@ class Organization: ADOSVTBase
 
                 $thresholdDate = (Get-Date).AddDays(-$($GuestUserInactivePeriodInDays))
                 $users | ForEach-Object {
-                    if([datetime]::Parse($_.lastAccessedDate) -lt $thresholdDate)
+                    $user = $_
+                    if([ContextHelper]::PSVersion -gt 5) {
+                        $lastAccessedDate = $_.lastAccessedDate
+                    }
+                    else {
+                        $lastAccessedDate = [datetime]::Parse($_.lastAccessedDate)
+                    }
+                    if($lastAccessedDate -lt $thresholdDate)
                     {
-                        $inactiveGuestUsers+= $_
+                        $inactiveGuestUsers+= $user
                     }
                 }
 
@@ -1645,7 +1671,13 @@ class Organization: ADOSVTBase
                 if($inactiveGuestUsersCount -gt 0)
                 {
                     #If user account created and was never active, in this case lastaccessdate is default 01-01-0001
-                    $inactiveUsers = ($inactiveGuestUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="Email"; Expression = {$_.User.mailAddress}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
+                    if([ContextHelper]::PSVersion -gt 5) {
+                        $inactiveUsers = ($inactiveGuestUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="Email"; Expression = {$_.User.mailAddress}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -$_.lastAccessedDate).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -$_.lastAccessedDate).Days} }})
+                    }
+                    else {
+                        $inactiveUsers = ($inactiveGuestUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="Email"; Expression = {$_.User.mailAddress}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
+                    }
+                    
                     #set data for attestation
                     $inactiveUsersStateData = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.Name}},@{Name="Email"; Expression = {$_.Email}}) #Can Expect drift, are there any org level attestations?
 
@@ -2073,10 +2105,23 @@ class Organization: ADOSVTBase
                                             {
                                                 $members = $members | where-object {$_.user.descriptor -eq $currentObj.Descriptor }
                                             }
-                                            $dateobj = [datetime]::Parse($members[0].lastAccessedDate)
+
+                                            if([ContextHelper]::PSVersion -gt 5) {
+                                                $dateobj = $members[0].lastAccessedDate
+                                            }
+                                            else {
+                                                $dateobj = [datetime]::Parse($members[0].lastAccessedDate)
+                                            }
+                                            
                                             if($dateobj -lt $thresholdDate )
                                             {
-                                                $_.dateCreated = [datetime]::Parse($members[0].dateCreated)
+                                                if([ContextHelper]::PSVersion -gt 5) {
+                                                    $_.dateCreated = [datetime]::Parse($members[0].dateCreated.tostring("dd/MM/yyyy"))
+                                                }
+                                                else {
+                                                    $_.dateCreated = [datetime]::Parse($members[0].dateCreated)
+                                                }
+                                                
                                                 $formatLastRunTimeSpan = New-TimeSpan -Start $dateobj
                                                 if(($formatLastRunTimeSpan).Days -gt 10000)
                                                 {
