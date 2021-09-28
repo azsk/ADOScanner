@@ -167,7 +167,7 @@
     },
     {
       "ControlID": "ADO_Environment_AuthZ_Enable_PreDeployment_Approval",
-      "Description": "Environments for production deployments must have approvals enabled..",
+      "Description": "Environments for production deployments must have approvals enabled.",
       "Id": "Environment120",
       "ControlSeverity": "High",
       "Automated": "Yes",
@@ -184,7 +184,7 @@
     },
     {
       "ControlID": "ADO_Environment_AuthZ_Review_PreDeployment_Approvers",
-      "Description": "Environments for production deployments must have approvals enabled..",
+      "Description": "Approvers on environment must be periodically reviewed.",
       "Id": "Environment130",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
