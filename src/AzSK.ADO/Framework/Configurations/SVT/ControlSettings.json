@@ -56,7 +56,7 @@
         "ResourceType": "ServiceConnection",
         "ControlIds": [
           "ADO_ServiceConnection_AuthZ_Dont_Use_Classic_Connections",
-          "ADO_ServiceConnection_AuthZ_Dont_Grant_All_Yaml_Pipelines_Access",
+          "ADO_ServiceConnection_AuthZ_Dont_Grant_All_Pipelines_Access",
           "ADO_ServiceConnection_AuthZ_Dont_Allow_Global_Groups",
           "ADO_ServiceConnection_DP_Review_Inactive_Connection",
           "ADO_ServiceConnection_SI_Dont_Share_Across_Projects",
@@ -103,7 +103,7 @@
       {
         "ResourceType": "VariableGroup",
         "ControlIds": [
-          "ADO_VariableGroup_AuthZ_Dont_Grant_All_Yaml_Pipelines_Access_On_VG_With_Secrets",
+          "ADO_VariableGroup_AuthZ_Dont_Grant_All_Pipelines_Access_On_VG_With_Secrets",
           "ADO_VariableGroup_DP_No_PlainText_Secrets_In_Variables",
           "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access",
           "ADO_VariableGroup_AuthZ_Restrict_Broader_Group_Access_On_VG_With_Secrets"
@@ -119,7 +119,7 @@
       {
         "ResourceType": "SecureFile",
         "ControlIds": [
-          "ADO_SecureFile_AuthZ_Dont_Grant_All_Yaml_Pipelines_Access",
+          "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access",
           "ADO_SecureFile_AuthZ_Restrict_Broader_Group_Access"
         ]
       },
