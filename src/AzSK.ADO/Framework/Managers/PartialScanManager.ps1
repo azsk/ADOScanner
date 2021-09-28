@@ -509,6 +509,8 @@ class PartialScanManager
 	#Method to fetch ResourceTrackerFile as an object
 	hidden [void] GetResourceScanTrackerObject()
 	{
+        try
+        {
             if($null -eq $this.ScanPendingForResources)
 			{
 				return;
@@ -547,6 +549,11 @@ class PartialScanManager
 				}
 				$this.ResourceScanTrackerObj = Get-content $this.MasterFilePath | ConvertFrom-Json
             }
+        }
+        catch{
+            $this.ResourceScanTrackerObj = $null
+            Write-Host "RTF not found"
+        }
 	}
 
     #Sending $isControlFixCmd as true in case set-azskadosecuritystatus command is used in order to store RTF in separate folder, so that it does not interfere with GADS command
