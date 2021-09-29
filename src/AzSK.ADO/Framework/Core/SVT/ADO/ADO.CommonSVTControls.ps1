@@ -1135,6 +1135,9 @@ class CommonSVTControls: ADOSVTBase {
                         if ($excessivePermission.trim() -eq 'Force push (rewrite history, delete branches and tags)') {
                             $roleId = [int][RepoPermissions] 'Forcepush'
                         }
+                        elseif ($excessivePermission.trim() -eq "Remove others' locks") {
+                            $roleId = [int][RepoPermissions] 'Removeotherslocks'
+                        }
                         else {
                             $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","").trim();  
                         }
@@ -1168,6 +1171,9 @@ class CommonSVTControls: ADOSVTBase {
                     foreach ($excessivePermission in $excessivePermissions) {
                         if ($excessivePermission.trim() -eq 'Force push (rewrite history, delete branches and tags)') {
                             $roleId = [int][RepoPermissions] 'Forcepush'
+                        }
+                        elseif ($excessivePermission.trim() -eq "Remove others' locks") {
+                            $roleId = [int][RepoPermissions] 'Removeotherslocks'
                         }
                         else {
                             $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","").trim();  

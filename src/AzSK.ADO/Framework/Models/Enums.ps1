@@ -226,4 +226,6 @@ enum RepoPermissions {
 	Forcepush = 8
 	Renamerepository = 1024
 	Createbranch = 16
+	Removeotherslocks = 4096
+	Createtag = 32
 }
