@@ -217,6 +217,7 @@ enum BuildPermissions {
 
 enum RepoPermissions {
 	Contribute = 4
+	Contributetopullrequests = 16384
     Deleterepository = 512
     Managepermissions = 8192
 	Bypasspolicieswhencompletingpullrequests = 32768
@@ -224,4 +225,5 @@ enum RepoPermissions {
 	Editpolicies = 2048
 	Forcepush = 8
 	Renamerepository = 1024
+	Createbranch = 16
 }
