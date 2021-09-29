@@ -1072,7 +1072,7 @@ class CommonSVTControls: ADOSVTBase {
                                 $excessivePermissionsGroupObj = @{}
                                 $excessivePermissionsGroupObj['Group'] = $identity.displayName
                                 $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join '; ')
-                                $excessivePermissionsGroupObj['Descriptor'] = $identity.sid
+                                $excessivePermissionsGroupObj['Descriptor'] = $responseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.identityDescriptor
                                 $excessivePermissionsGroupObj['PermissionSetToken'] = $excessivePermissionsPerGroup[0].token
                                 $excessivePermissionsGroupObj['PermissionSetId'] = $excessivePermissionsPerGroup[0].namespaceId
                                 $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
@@ -1126,11 +1126,13 @@ class CommonSVTControls: ADOSVTBase {
 
             if (-not $this.UndoFix) {
                 foreach ($identity in $RawDataObjForControlFix) 
-                {
-                    
+                {   
+                    $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $RawDataObjForControlFix[0].PermissionSetId
+
                     $excessivePermissions = $identity.ExcessivePermissions -split ";"
+                    $descriptor = $identity.Descriptor
                     foreach ($excessivePermission in $excessivePermissions) {
-                        if ($excessivePermission -eq 'Force push (rewrite history, delete branches and tags)') {
+                        if ($excessivePermission.trim() -eq 'Force push (rewrite history, delete branches and tags)') {
                             $roleId = [int][RepoPermissions] 'Forcepush'
                         }
                         else {
@@ -1142,12 +1144,11 @@ class CommonSVTControls: ADOSVTBase {
                             'token': '$($identity.PermissionSetToken)',
                             'merge': true,
                             'accessControlEntries' : [{
-                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
+                                'descriptor' : '$descriptor',
                                 'allow':0,
                                 'deny':$($roleId)                              
                             }]
                         }" | ConvertFrom-Json
-                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $RawDataObjForControlFix[0].PermissionSetId
 
                         $result = [WebRequestHelper]:: InvokePostWebRequest($url,$body)
 
@@ -1160,9 +1161,12 @@ class CommonSVTControls: ADOSVTBase {
             else {
                 foreach ($identity in $RawDataObjForControlFix) 
                 {
+                    $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $RawDataObjForControlFix[0].PermissionSetId
+                    
+                    $descriptor = $identity.Descriptor
                     $excessivePermissions = $identity.ExcessivePermissions -split ";"
                     foreach ($excessivePermission in $excessivePermissions) {
-                        if ($excessivePermission -eq 'Force push (rewrite history, delete branches and tags)') {
+                        if ($excessivePermission.trim() -eq 'Force push (rewrite history, delete branches and tags)') {
                             $roleId = [int][RepoPermissions] 'Forcepush'
                         }
                         else {
@@ -1173,12 +1177,11 @@ class CommonSVTControls: ADOSVTBase {
                             'token': '$($identity.PermissionSetToken)',
                             'merge': true,
                             'accessControlEntries' : [{
-                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
+                                'descriptor' : '$descriptor',
                                 'allow':$($roleId),
                                 'deny':0                              
                             }]
                         }" | ConvertFrom-Json
-                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$RawDataObjForControlFix[0].PermissionSetId
 
                         [WebRequestHelper]:: InvokePostWebRequest($url,$body)
 
