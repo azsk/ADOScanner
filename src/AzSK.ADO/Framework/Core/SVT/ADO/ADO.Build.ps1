@@ -887,11 +887,14 @@ class Build: ADOSVTBase
     {
         $controlResult.VerificationResult = [VerificationResult]::Verify
         $sourceObj = $this.BuildObj[0].repository | Select-Object -Property @{Name="RepositoryName"; Expression = {$_.Name}},@{Name="RepositorySourceType"; Expression = {$_.type}}
-
+        $checkforPipelineRepo = $true
         #check if pipeline is yaml
         if([Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename")){
-            if([Helpers]::CheckMember($this.BuildObj[0].latestBuild, "id")){
+
+            #repos checked inside the yaml file are available only when build id is present, if it present we check for repos checked inside yaml
+            if([Helpers]::CheckMember($this.BuildObj[0],"latestBuild") -and [Helpers]::CheckMember($this.BuildObj[0].latestBuild, "id")){
                 $latestBuildId = $this.BuildObj[0].latestBuild.id
+                $checkforPipelineRepo = $false
                 $url = "https://dev.azure.com/{0}/{1}/_traceability/runview/changes?currentRunId={2}&__rt=fps&__ver=2" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $latestBuildId
                 
                 try{
@@ -919,32 +922,27 @@ class Build: ADOSVTBase
                         $display = ($display | FT -AutoSize | Out-String -Width 512) 
                         $controlResult.AddMessage($display)                                              
                         $controlResult.SetStateData("Pipeline code is built from external repository: ",$display)
+                        $controlResult.AdditionalInfo += $externalSourceObj
+                        $controlResult.AdditionalInfo += $sourceObj
+                        $controlResult.AdditionalInfoInCSV += $externalSourceObj
+                        $controlResult.AdditionalInfoInCSV += $sourceObj
                     }
                     #no other repos have been defined in yaml
                     else{
                         #check pipeline sources
-                        if(($repoSource -eq 'TfsGit') -or ($repoSource -eq 'TfsVersionControl')){
-                            $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository. ");
-                            $controlResult.SetStateData("Pipeline code is built from trusted repository: ",$sourceObj)
-                        }
-                        else{
-                            $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from untrusted repository: ");
-                            $display = $sourceObj          
-                            $display = ($display | FT -AutoSize | Out-String -Width 512)
-                            $controlResult.AddMessage($display)
-                            $controlResult.SetStateData("Pipeline code is built from external repository: ",$display)            
-                        }
+                        $checkforPipelineRepo = $true
                     }
                     
                     
                 }
                 catch{
-                    $controlResult.AddMessage([VerificationResult]::Error,"Could not pipeline details");
+                    $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch pipeline details");
                 }
-            } 
+            }
+                     
         }
-        #if pipeline is classic
-        else{
+        #if pipeline is classic or if build id not present (in yaml pipeline) we check for pipeline source repo type   
+        if($checkforPipelineRepo -eq $true){
             if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
             {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository: ");
