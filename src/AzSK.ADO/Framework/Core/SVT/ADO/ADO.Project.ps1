@@ -2062,7 +2062,12 @@ class Project: ADOSVTBase
                                             {
                                                 $members = $members | where-object {$_.user.descriptor -eq $currentObj.Descriptor }
                                             }
-                                            $dateobj = [datetime]::Parse($members[0].lastAccessedDate)
+                                            if([ContextHelper]::PSVersion -gt 5) {
+                                                $dateobj = $members[0].lastAccessedDate
+                                            }
+                                            else {
+                                                $dateobj = [datetime]::Parse($members[0].lastAccessedDate)
+                                            }
                                             if($dateobj -lt $thresholdDate )
                                             {
                                                 $formatLastRunTimeSpan = New-TimeSpan -Start $dateobj
@@ -2073,7 +2078,12 @@ class Project: ADOSVTBase
 
                                                     if([Helpers]::CheckMember($members[0],"dateCreated"))
                                                     {
-                                                        $_.DateCreated = [datetime]::Parse($members[0].dateCreated)
+                                                        if([ContextHelper]::PSVersion -gt 5) {
+                                                            $_.dateCreated = ([datetime] $members[0].dateCreated).ToString("d MMM yyyy")
+                                                        }
+                                                        else {
+                                                            $_.dateCreated = [datetime]::Parse($members[0].dateCreated)
+                                                        }
                                                     }
                                                 }
                                                 else {
