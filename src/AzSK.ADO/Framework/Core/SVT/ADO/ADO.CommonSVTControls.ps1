@@ -188,12 +188,11 @@ class CommonSVTControls: ADOSVTBase {
         try{
             $RawDataObjForControlFix = @();
             $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.repoPermissionSetId
 
             if (-not $this.UndoFix) {
                 foreach ($identity in $RawDataObjForControlFix) 
                 {   
-                    $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $RawDataObjForControlFix[0].PermissionSetId
-
                     $excessivePermissions = $identity.ExcessivePermissions -split ";"
                     $descriptor = $identity.Descriptor
                     foreach ($excessivePermission in $excessivePermissions) {
@@ -229,7 +228,6 @@ class CommonSVTControls: ADOSVTBase {
             else {
                 foreach ($identity in $RawDataObjForControlFix) 
                 {
-                    $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $RawDataObjForControlFix[0].PermissionSetId
                     
                     $descriptor = $identity.Descriptor
                     $excessivePermissions = $identity.ExcessivePermissions -split ";"
@@ -338,8 +336,7 @@ class CommonSVTControls: ADOSVTBase {
                             $excessivePermissionsGroupObj['Group'] = $broaderGroup.displayName
                             $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join '; ') 
                             $excessivePermissionsGroupObj['Descriptor'] = $broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.identityDescriptor
-                            $excessivePermissionsGroupObj['PermissionSetToken'] = $excessivePermissionsPerGroup[0].token
-                            $excessivePermissionsGroupObj['PermissionSetId'] = $excessivePermissionsPerGroup[0].namespaceId                           
+                            $excessivePermissionsGroupObj['PermissionSetToken'] = $excessivePermissionsPerGroup[0].token                           
                             $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
                         }
                     }
@@ -1183,7 +1180,6 @@ class CommonSVTControls: ADOSVTBase {
                                 $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join '; ')
                                 $excessivePermissionsGroupObj['Descriptor'] = $responseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.identityDescriptor
                                 $excessivePermissionsGroupObj['PermissionSetToken'] = $excessivePermissionsPerGroup[0].token
-                                $excessivePermissionsGroupObj['PermissionSetId'] = $excessivePermissionsPerGroup[0].namespaceId
                                 $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
                             }
                         }                 
@@ -1232,12 +1228,11 @@ class CommonSVTControls: ADOSVTBase {
         try{
             $RawDataObjForControlFix = @();
             $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.repoPermissionSetId
 
             if (-not $this.UndoFix) {
                 foreach ($identity in $RawDataObjForControlFix) 
                 {   
-                    $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $RawDataObjForControlFix[0].PermissionSetId
-
                     $excessivePermissions = $identity.ExcessivePermissions -split ";"
                     $descriptor = $identity.Descriptor
                     foreach ($excessivePermission in $excessivePermissions) {
@@ -1272,9 +1267,7 @@ class CommonSVTControls: ADOSVTBase {
             }
             else {
                 foreach ($identity in $RawDataObjForControlFix) 
-                {
-                    $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $RawDataObjForControlFix[0].PermissionSetId
-                    
+                {                    
                     $descriptor = $identity.Descriptor
                     $excessivePermissions = $identity.ExcessivePermissions -split ";"
                     foreach ($excessivePermission in $excessivePermissions) {
