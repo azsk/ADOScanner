@@ -953,5 +953,42 @@ class Helpers {
 
         return $obj
     }
+
+    static [System.Security.SecureString] GetVariableFromKVUrl($url){
+        $variable = $null;
+        $Context = @(Get-AzContext -ErrorAction SilentlyContinue )
+        if ($Context.count -eq 0)  {
+            Write-Host "No active Azure login session found.`r`nPlease login to Azure tenant hosting the key vault..." -ForegroundColor Yellow
+            Connect-AzAccount -ErrorAction Stop
+            $Context = @(Get-AzContext -ErrorAction SilentlyContinue)
+        }
+
+        if ($null -eq $Context)  {
+            Write-Host "Login failed. Azure login context is required to use a key vault-based PAT token.`r`nStopping scan command." -ForegroundColor Red            
+        }
+        #Parse the key-vault-URL to determine vaultname, secretname, version
+        if ($url -match "^https://(?<kv>[\w]+)(?:[\.\w+]*)/secrets/(?<sn>[\w]+)/?(?<sv>[\w]*)")
+        {
+            $kvName = $Matches["kv"]
+            $secretName = $Matches["sn"]
+            $secretVersion = $Matches["sv"]
+
+            if (-not [String]::IsNullOrEmpty($secretVersion))
+            {
+                $kvSecret = Get-AzKeyVaultSecret -VaultName $kvName -SecretName $secretName -Version $secretVersion
+            }
+            else
+            {
+                $kvSecret = Get-AzKeyVaultSecret -VaultName $kvName -SecretName $secretName
+            }
+
+            if ($null -ne $kvSecret)
+            {
+                $variable = $kvSecret.SecretValue;
+            }
+            
+        }
+        return $variable        
+    }
 }
 

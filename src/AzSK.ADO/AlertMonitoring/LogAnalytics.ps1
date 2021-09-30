@@ -60,7 +60,18 @@ function Set-AzSKADOMonitoringSettings
         [Parameter(Mandatory = $true, HelpMessage="Use -Disable option to clean the Log Analytics setting under the current instance.", ParameterSetName = "Disable")]
         [switch]
 		[Alias("dsbl")]
-        $Disable
+        $Disable,
+
+		[Parameter(Mandatory = $false, HelpMessage="Key vault URL of the shared key of your Log Analytics instance.", ParameterSetName = "Setup")]
+        [string]
+		[Alias("wkeyurl", "SharedKeyUrl")]
+        $LAWSSharedKeyUrl,
+
+		[Parameter(Mandatory = $false, HelpMessage="Key vault URL of the shared key of your Log Analytics instance.", ParameterSetName = "Setup")]
+        [string]
+		[Alias("awkeyurl", "AltSharedKeyUrl")]
+        $AltLAWSSharedKeyUrl
+
 
     )
 	Begin
@@ -80,6 +91,22 @@ function Set-AzSKADOMonitoringSettings
 					$appSettings.LAWSId = $LAWSId
 					$appSettings.LAWSSharedKey = $LAWSSharedKey
 				}
+				elseif(-not [string]::IsNullOrWhiteSpace($LAWSSharedKeyUrl) ){
+					if([string]::IsNullOrWhiteSpace($LAWSId)){
+						[EventBase]::PublishGenericCustomMessage("You need to send both the LAWSId and LAWSSharedKeyUrl", [MessageType]::Error);
+						return;
+					}					
+					$sharedKeySecret = [Helpers]::GetVariableFromKVUrl($LAWSSharedKeyUrl);
+					if([string]::IsNullOrEmpty($sharedKeySecret)){
+						[EventBase]::PublishGenericCustomMessage("Could not extract shared key from the url. Make sure the key vault url is correct.", [MessageType]::Error);
+						return;
+					}
+					$sharedKeyUnicode = [System.Runtime.InteropServices.Marshal]::SecureStringToCoTaskMemUnicode($sharedKeySecret)
+        			$sharedKey = [System.Runtime.InteropServices.Marshal]::PtrToStringUni($sharedKeyUnicode)
+        			[System.Runtime.InteropServices.Marshal]::ZeroFreeCoTaskMemUnicode($sharedKeyUnicode)
+					$appSettings.LAWSId = $LAWSId
+					$appSettings.LAWSSharedKey = $sharedKey
+				}
 				elseif(([string]::IsNullOrWhiteSpace($LAWSId) -and -not [string]::IsNullOrWhiteSpace($LAWSSharedKey)) `
 						-and (-not [string]::IsNullOrWhiteSpace($LAWSId) -and [string]::IsNullOrWhiteSpace($LAWSSharedKey)))
 				{					
@@ -90,6 +117,22 @@ function Set-AzSKADOMonitoringSettings
 				{
 					$appSettings.AltLAWSId = $AltLAWSId
 					$appSettings.AltLAWSSharedKey = $AltLAWSSharedKey
+				}
+				elseif(-not [string]::IsNullOrWhiteSpace($AltLAWSSharedKeyUrl) ){	
+					if([string]::IsNullOrWhiteSpace($AltLAWSId)){
+						[EventBase]::PublishGenericCustomMessage("You need to send both the AltLAWSId and AltLAWSSharedKeyUrl", [MessageType]::Error);
+						return;
+					}				
+					$sharedKeySecret = [Helpers]::GetVariableFromKVUrl($AltLAWSSharedKeyUrl);
+					if([string]::IsNullOrEmpty($sharedKeySecret)){
+						[EventBase]::PublishGenericCustomMessage("Could not extract shared key from the url. Make sure the key vault url is correct.", [MessageType]::Error);
+						return;
+					}
+					$sharedKeyUnicode = [System.Runtime.InteropServices.Marshal]::SecureStringToCoTaskMemUnicode($sharedKeySecret)
+        			$sharedKey = [System.Runtime.InteropServices.Marshal]::PtrToStringUni($sharedKeyUnicode)
+        			[System.Runtime.InteropServices.Marshal]::ZeroFreeCoTaskMemUnicode($sharedKeyUnicode)
+					$appSettings.AltLAWSId = $AltLAWSId
+					$appSettings.AltLAWSSharedKey = $sharedKey
 				}
 				elseif(([string]::IsNullOrWhiteSpace($AltLAWSId) -and -not [string]::IsNullOrWhiteSpace($AltLAWSSharedKey)) `
 						-and (-not [string]::IsNullOrWhiteSpace($AltLAWSId) -and [string]::IsNullOrWhiteSpace($AltLAWSSharedKey)))
