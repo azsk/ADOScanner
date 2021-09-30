@@ -160,7 +160,7 @@ class AdministratorHelper{
 
 
         if(($prcollobj | Measure-Object).Count -gt 0){
-            [AdministratorHelper]::FindPAMembers($prcollobj.descriptor,$OrgName,$projName)
+            [AdministratorHelper]::FindBAMembers($prcollobj.descriptor,$OrgName,$projName)
         }
     }
     catch {
@@ -276,7 +276,7 @@ class AdministratorHelper{
         [AdministratorHelper]::AllBAMembers = @();
         [AdministratorHelper]::GetBADescriptorAndMembers($OrgName,$projName)
 
-        [AdministratorHelper]::AllBAMembers = @([AdministratorHelper]::AllPAMembers | Sort-Object -Unique 'mailAddress')
+        [AdministratorHelper]::AllBAMembers = @([AdministratorHelper]::AllBAMembers | Sort-Object -Unique 'mailAddress')
         return [AdministratorHelper]::AllBAMembers
     }
     static [bool] GetIsCurrentUserPCA([string] $descriptor,[string] $OrgName){

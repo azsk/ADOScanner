@@ -546,11 +546,6 @@ class Project: ADOSVTBase
             $TotalBAMembers = $this.BAMembers.Count
             $controlResult.AddMessage("There are a total of $TotalBAMembers Build Administrators in your project.")
             $controlResult.SetStateData("Count of Build Administrators: ",$TotalBAMembers)
-        }
-
-
-        if ($TotalBAMembers -gt 0)
-        {
             if ([IdentityHelpers]::hasGraphAccess)
             {
                 $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($this.BAMembers, $this.OrganizationContext.OrganizationName)
@@ -567,11 +562,10 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of human build administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxBAMembersPermissible)");
                 }
 
-                if($TotalBAMembers -gt 0){
-                    $controlResult.AddMessage("Current set of Build Administrators: ")
-                    $controlResult.AdditionalInfo += "Count of Build Administrators: " + $TotalBAMembers;
-                    $controlResult.AdditionalInfoInCSV += "TotalAdmin: $($TotalBAMembers); ";
-                }
+                $controlResult.AddMessage("Current set of Build Administrators: ")
+                $controlResult.AdditionalInfo += "Count of Build Administrators: " + $TotalBAMembers;
+                $controlResult.AdditionalInfoInCSV += "TotalAdmin: $($TotalBAMembers); ";
+                
 
                 if ($humanAccountsCount -gt 0) {
                     $controlResult.AddMessage("`nCount of Human Build Administrators: $($humanAccountsCount)")
@@ -600,23 +594,21 @@ class Project: ADOSVTBase
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of build administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxBAMembersPermissible).");
                 }
-
-                if($TotalBAMembers -gt 0){
-                    $controlResult.AddMessage("Count of Build Administrators: $($TotalBAMembers)")
-                    $controlResult.AddMessage("Current set of Build Administrators: ")
-                    $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
-                    $controlResult.AddMessage($display)
-                    $controlResult.AdditionalInfo += "Count of Build Administrators: " + $TotalBAMembers;
-                    $controlResult.AdditionalInfoInCSV += "TotalBuildAdmin: $($TotalBAMembers); ";
-                    $identities = $this.PAMembers | ForEach-Object { $_.displayName + ': ' + $_.mailAddress } | select-object -Unique -First 10;
-                    $controlResult.AdditionalInfoInCSV += "BuildAdminList: $($identities -join ' ; ');";
-                }
+                $controlResult.AddMessage("Count of Build Administrators: $($TotalBAMembers)")
+                $controlResult.AddMessage("Current set of Build Administrators: ")
+                $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
+                $controlResult.AdditionalInfo += "Count of Build Administrators: " + $TotalBAMembers;
+                $controlResult.AdditionalInfoInCSV += "TotalBuildAdmin: $($TotalBAMembers); ";
+                $identities = $this.PAMembers | ForEach-Object { $_.displayName + ': ' + $_.mailAddress } | select-object -Unique -First 10;
+                $controlResult.AdditionalInfoInCSV += "BuildAdminList: $($identities -join ' ; ');";
+                
             }
         }
         else
         {
             $controlResult.AddMessage([VerificationResult]::Verify,"No Build Administrators are configured in the project.");
-        }
+        }       
 
         return $controlResult
     }
