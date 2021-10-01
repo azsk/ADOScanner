@@ -383,6 +383,7 @@ function Get-AzSKADOSecurityStatus
 			[AzSKSettings]::Instance = $null
 			[AzSKConfig]::Instance = $null
 			[ConfigurationHelper]::ServerConfigMetadata = $null
+			[ControlHelper]::IsGroupDetailsFetchedFromPolicy = $false
 			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
       
       [AutoBugLog]::AutoBugInstance = $null
