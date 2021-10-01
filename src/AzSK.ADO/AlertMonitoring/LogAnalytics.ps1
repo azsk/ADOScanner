@@ -67,7 +67,7 @@ function Set-AzSKADOMonitoringSettings
 		[Alias("wkeyurl", "SharedKeyUrl")]
         $LAWSSharedKeyUrl,
 
-		[Parameter(Mandatory = $false, HelpMessage="Key vault URL of the shared key of your Log Analytics instance.", ParameterSetName = "Setup")]
+		[Parameter(Mandatory = $false, HelpMessage="Key vault URL of the shared key of your alternate Log Analytics instance.", ParameterSetName = "Setup")]
         [string]
 		[Alias("awkeyurl", "AltSharedKeyUrl")]
         $AltLAWSSharedKeyUrl
