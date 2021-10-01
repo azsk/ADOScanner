@@ -251,7 +251,7 @@ class ContextHelper {
     }
 
     
-    static [string] GetGraphAccessToken($useAzContext)
+    static [string] GetGraphAccessToken($useAzContext,$datastudioAudience)
 	{
         $accessToken = ''
         try
@@ -298,8 +298,13 @@ class ContextHelper {
                 # generating graph access token using default VSTS client.
                 $clientId = [Constants]::DefaultClientId;          
                 $replyUri = [Constants]::DefaultReplyUri; 
-                $adoResourceId = "https://graph.microsoft.com/";
-
+                if($datastudioAudience)
+                {
+                    $adoResourceId = "https://help.kusto.windows.net/";
+                }
+                else {
+                    $adoResourceId = "https://graph.microsoft.com/";
+                }                            
                 if ([ContextHelper]::PSVersion -gt 5) {
                     $result = [ContextHelper]::GetGraphAccess()
                 }

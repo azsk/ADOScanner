@@ -131,7 +131,7 @@ class AzSKADOServiceMapping: CommandBase
             $counter = 0
             
             $Connections | ForEach-Object {
-                $counter++
+                $counter++            
                 Write-Progress -Activity 'Service connection mappings...' -CurrentOperation $_.Name -PercentComplete (($counter / $Connections.count) * 100)
 
                 $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
@@ -149,8 +149,9 @@ class AzSKADOServiceMapping: CommandBase
                         $svcConnJobs = $svcConnJobs | Sort-Object startTime -Descending
                         #Taking last 10 runs
                         $svcConnJobs = $svcConnJobs | Select-Object -First 10
-                        
-                        foreach ($job in $svcConnJobs){
+                                        
+                        foreach ($job in $svcConnJobs)
+                        {                         
                             if ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Build") {
                                 $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $job.definition.id) };
                                 if($buildSTData){
@@ -167,6 +168,28 @@ class AzSKADOServiceMapping: CommandBase
                                 }
                             }
                         }
+                    }
+                    if($serviceConnEndPointDetail -and [Helpers]::CheckMember($serviceConnEndPointDetail, "serviceEndpointExecutionHistory"))
+                    {
+                        if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
+                        {
+                              $subscriptionID = $serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId;
+                              Write-Progress -Activity 'Fetching Service Id from Azure Data explorer...' -CurrentOperation $serviceConnEndPointDetail.serviceEndpoint.name;
+                              $apiURL = "https://datastudiostreaming.kusto.windows.net/v2/rest/query"                                                                    
+                              $inputbody = '{"db": "Shared","csl": "DataStudio_ServiceTree_AzureSubscription_Snapshot | where SubscriptionId contains ''{0}''", "properties": {"Options": {"query_language": "csl","servertimeout": "00:04:00","queryconsistency": "strongconsistency","request_readonly": false,"request_readonly_hardline": false}}}'
+                              $inputbody = $inputbody.Replace("{0}", $subscriptionID)                         
+                              $accessToken =[ContextHelper]::GetGraphAccessToken($false,$true)
+                              $header = @{
+                                "Authorization" = "Bearer " + $accessToken
+                            }
+                              $responseObj = [WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Post,$apiURL,$header,$inputbody,"application/json; charset=UTF-8");                               
+                              if($responseObj)
+                              {
+                                    $serviceId = $responseObj[2].Rows[0][4];
+                                    $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $serviceId; projectName =  $_.serviceEndpointProjectReferences.projectReference.name; projectID = $_.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )                                    
+                              }
+
+                        }   
                     }
                 }
             }
