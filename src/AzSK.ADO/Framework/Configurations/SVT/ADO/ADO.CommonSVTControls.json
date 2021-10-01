@@ -200,6 +200,23 @@
       "Enabled": true
     },
     {
+      "ControlID": "ADO_Environment_SI_Use_Good_Branch_Hygiene",
+      "Description": "All deployments to production environments must be done from standard branches.",
+      "Id": "Environment140",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckBranchHygieneOnEnv",
+      "Rationale": "You should ensure that deployments to environments are always done from standard branches (like main, master and develop). These branches should have the tightest access controls and approval standards. Any changes in the source code should be tested first on a development branch before merging in the standard branches. The source code in these branches should correspond to production bits at all times. This helps in maintaining stable source code and helps prevent deployment of breaking changes (and potential security bugs) into the production environment.",
+      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Environments --> 4. Select your environment from the list --> 5. Click on the three dots in upper right corner --> 6. Select 'Branch Control' --> 7. Review all the branches that have been added in the list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
+    },
+    {
       "ControlID": "ADO_Repository_AuthZ_Disable_Inherited_Permissions",
       "Description": "Do not allow inherited permission on repository.",
       "Id": "Repository130",

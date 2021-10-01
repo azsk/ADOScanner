@@ -746,8 +746,8 @@ class CommonSVTControls: ADOSVTBase {
             $user = "";
             $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
             $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'environment'}]"
-            $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body
-            if([Helpers]::CheckMember($response, "count") -and $response.count -eq 0){
+            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
             }
             else{
@@ -824,6 +824,63 @@ class CommonSVTControls: ADOSVTBase {
         {
             $controlResult.AddMessage([VerificationResult]::Error,  "Could not fetch environment permissions.");
             $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckBranchHygieneOnEnv([ControlResult] $controlResult){
+        try{
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'environment'}]"
+            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
+            }
+            else{
+                $branchControl = @($response.value | Where-Object{$_.settings.displayName -eq "Branch Control"})
+                if($branchControl.Count -eq 0){
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Branch control has not been defined for the environment.");
+                }
+                else{
+                    #response is a string of branches seperaed via comma
+                    $branches = ($branchControl.settings.inputs.allowedBranches).Split(",");
+                    $nonPermissibleBranchesFound = $false
+                    foreach($branch in $branches){
+                        try{
+                            #allowed format is refs/heads/branch
+                            $branch = ($branch -split 'refs/heads/')[1]
+                        }
+                        catch{
+                            #to catch branch names like *, refs/tags etc.
+                            $nonPermissibleBranchesFound = $true;
+                            break;
+                        }                        
+                        if($branch -notin $this.ControlSettings.Build.BranchesToCheckForYAMLScript){
+                            $nonPermissibleBranchesFound = $true;
+                            break;
+                        }
+                    }
+                    if($nonPermissibleBranchesFound -eq $false){
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Deployments to the environment is allowed via standard branches only.");
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Verify, "Validate the branches approved for deployment to the environment.");
+                    }
+                    $branches = $branches | Select @{n='Branch name';e={$_}}
+                    $formattedBranchesTable = ($branches| FT -AutoSize | Out-String -width 512)
+                    $controlResult.AddMessage("`nList of branches : `n$formattedBranchesTable");
+                    $controlResult.AdditionalInfo += "List of branches approved on environment  $($branches).";
+                    
+                }
+            }
+
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch approvals and checks on the environment.");
         }
         return $controlResult
     }
