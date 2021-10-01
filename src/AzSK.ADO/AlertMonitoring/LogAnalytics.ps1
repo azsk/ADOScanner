@@ -108,7 +108,7 @@ function Set-AzSKADOMonitoringSettings
 					$appSettings.LAWSSharedKey = $sharedKey
 				}
 				elseif(([string]::IsNullOrWhiteSpace($LAWSId) -and -not [string]::IsNullOrWhiteSpace($LAWSSharedKey)) `
-						-and (-not [string]::IsNullOrWhiteSpace($LAWSId) -and [string]::IsNullOrWhiteSpace($LAWSSharedKey)))
+						-or (-not [string]::IsNullOrWhiteSpace($LAWSId) -and [string]::IsNullOrWhiteSpace($LAWSSharedKey)))
 				{					
 					[EventBase]::PublishGenericCustomMessage("You need to send both the LAWSId and LAWSSharedKey", [MessageType]::Error);
 					return;
@@ -135,7 +135,7 @@ function Set-AzSKADOMonitoringSettings
 					$appSettings.AltLAWSSharedKey = $sharedKey
 				}
 				elseif(([string]::IsNullOrWhiteSpace($AltLAWSId) -and -not [string]::IsNullOrWhiteSpace($AltLAWSSharedKey)) `
-						-and (-not [string]::IsNullOrWhiteSpace($AltLAWSId) -and [string]::IsNullOrWhiteSpace($AltLAWSSharedKey)))
+						-or (-not [string]::IsNullOrWhiteSpace($AltLAWSId) -and [string]::IsNullOrWhiteSpace($AltLAWSSharedKey)))
 				{					
 					[EventBase]::PublishGenericCustomMessage("You need to send both the AltLAWSId and AltLAWSSharedKey", [MessageType]::Error);
 					return;
