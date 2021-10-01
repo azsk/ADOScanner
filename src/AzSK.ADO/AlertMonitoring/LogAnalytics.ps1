@@ -62,12 +62,12 @@ function Set-AzSKADOMonitoringSettings
 		[Alias("dsbl")]
         $Disable,
 
-		[Parameter(Mandatory = $false, HelpMessage="Key vault URL of the shared key of your Log Analytics instance.", ParameterSetName = "Setup")]
+		[Parameter(Mandatory = $false, HelpMessage="Key vault URL that stores the shared key of your Log Analytics instance.", ParameterSetName = "Setup")]
         [string]
 		[Alias("wkeyurl", "SharedKeyUrl")]
         $LAWSSharedKeyUrl,
 
-		[Parameter(Mandatory = $false, HelpMessage="Key vault URL of the shared key of your alternate Log Analytics instance.", ParameterSetName = "Setup")]
+		[Parameter(Mandatory = $false, HelpMessage="Key vault URL that stores the shared key of your alternate Log Analytics instance.", ParameterSetName = "Setup")]
         [string]
 		[Alias("awkeyurl", "AltSharedKeyUrl")]
         $AltLAWSSharedKeyUrl
@@ -93,7 +93,7 @@ function Set-AzSKADOMonitoringSettings
 				}
 				elseif(-not [string]::IsNullOrWhiteSpace($LAWSSharedKeyUrl) ){
 					if([string]::IsNullOrWhiteSpace($LAWSId)){
-						[EventBase]::PublishGenericCustomMessage("You need to send both the LAWSId and LAWSSharedKeyUrl", [MessageType]::Error);
+						[EventBase]::PublishGenericCustomMessage("Both the parameters LAWSId and LAWSSharedKeyUrl are required", [MessageType]::Error);
 						return;
 					}					
 					$sharedKeySecret = [Helpers]::GetVariableFromKVUrl($LAWSSharedKeyUrl);
@@ -120,7 +120,7 @@ function Set-AzSKADOMonitoringSettings
 				}
 				elseif(-not [string]::IsNullOrWhiteSpace($AltLAWSSharedKeyUrl) ){	
 					if([string]::IsNullOrWhiteSpace($AltLAWSId)){
-						[EventBase]::PublishGenericCustomMessage("You need to send both the AltLAWSId and AltLAWSSharedKeyUrl", [MessageType]::Error);
+						[EventBase]::PublishGenericCustomMessage("Both the parameters LAWSId and AltLAWSSharedKeyUrl are required", [MessageType]::Error);
 						return;
 					}				
 					$sharedKeySecret = [Helpers]::GetVariableFromKVUrl($AltLAWSSharedKeyUrl);
