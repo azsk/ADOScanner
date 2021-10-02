@@ -18,6 +18,8 @@ class IncrementalScanHelper
     hidden [PSObject] $ResourceTimestamps = $null;
     hidden [bool] $FirstScan = $false;
     hidden [datetime] $IncrementalDate = 0;
+    hidden [datetime] $LastFullScan = 0;
+    hidden [bool] $ShouldDiscardOldScan = $false;
     [bool] $UpdateTime = $true;
     hidden [datetime] $Timestamp = 0; 
     [bool] $isPartialScanActive = $false;
@@ -33,6 +35,7 @@ class IncrementalScanHelper
         $this.MasterFilePath = (Join-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName) $this.projectName) $this.IncrementalScanTimestampFile)
         $this.UpdateTime = $updateTimestamp
         $this.Timestamp = $timestamp
+        $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
         if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("UsePartialCommits")){
             [PartialScanManager] $partialScanMngr = [PartialScanManager]::GetInstance();
             if(($partialScanMngr.IsPartialScanInProgress($this.OrganizationName, $false) -eq [ActiveStatus]::Yes)){
@@ -51,6 +54,12 @@ class IncrementalScanHelper
         $this.ProjectName = $projectName 
         $this.MasterFilePath = (Join-Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName) $this.projectName) $this.IncrementalScanTimestampFile)
         $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+        if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey("UsePartialCommits")){
+            [PartialScanManager] $partialScanMngr = [PartialScanManager]::GetInstance();
+            if(($partialScanMngr.IsPartialScanInProgress($this.OrganizationName, $false) -eq [ActiveStatus]::Yes)){
+                $this.isPartialScanActive = $true
+            }
+        } 
                
     }
     hidden [datetime] GetThresholdTime([string] $resourceType)
@@ -136,7 +145,14 @@ class IncrementalScanHelper
                 }
             }
             else {
-                $latestScan = [datetime]$this.ResourceTimestamps.$resourceType
+                $latestScan = [datetime]$this.ResourceTimestamps.$resourceType               
+                
+            }
+            if($resourceType -eq 'Build'){
+                $this.LastFullScan = [datetime]$this.ResourceTimestamps.LastFullScanBuild
+            }
+            else {
+                $this.LastFullScan = [datetime]$this.ResourceTimestamps.LastFullScanRelease
             }
             
         }
@@ -175,6 +191,13 @@ class IncrementalScanHelper
                     New-Item -Type Directory -Path (Join-Path (Join-Path $this.AzSKTempStatePath $this.OrganizationName) $this.ProjectName) -ErrorAction Stop | Out-Null
                     $this.ResourceTimestamps = [IncrementalScanTimestamps]::new()
                     $this.ResourceTimestamps.$resourceType = $this.Timestamp
+                    if($resourceType -eq 'Build'){
+                        $this.ResourceTimestamps.LastFullScanBuild = $this.Timestamp
+                    }
+                    else{
+                        $this.ResourceTimestamps.LastFullScanRelease = $this.Timestamp
+                    }
+                    
                     [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force
                 }
                 else 
@@ -183,6 +206,7 @@ class IncrementalScanHelper
                     $this.ResourceTimestamps = Get-ChildItem -Path $this.MasterFilePath -Force | Get-Content | ConvertFrom-Json
                     $this.ResourceTimestamps.$resourceType = $this.Timestamp
                     if($resourceType -eq 'Build'){
+                        $this.ResourceTimestamps.LastFullScanBuild = $this.Timestamp
                         if('BuildPreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
                             $this.ResourceTimestamps.BuildPreviousTime = "0001-01-01T00:00:00.0000000";
                         }     
@@ -192,6 +216,7 @@ class IncrementalScanHelper
                         
                     }
                     else{
+                        $this.ResourceTimestamps.LastFullScanRelease = $this.Timestamp
                         if('ReleasePreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
                             $this.ResourceTimestamps.ReleasePreviousTime = "0001-01-01T00:00:00.0000000";
                         }     
@@ -213,6 +238,11 @@ class IncrementalScanHelper
                     }     
                     else {
                         $this.ResourceTimestamps | Add-Member -NotePropertyName BuildPreviousTime -NotePropertyValue $previousScanTime
+                    }
+                    #if old scan, we trigger full scan, store full scan value, also reset upc scan time
+                    if($this.ShouldDiscardOldScan){
+                        $this.ResourceTimestamps.LastFullScanBuild = $this.Timestamp
+                        $this.ResourceTimestamps.BuildPreviousTime = "0001-01-01T00:00:00.0000000";
                     }             
                     
                 }
@@ -222,7 +252,11 @@ class IncrementalScanHelper
                     }     
                     else {
                         $this.ResourceTimestamps | Add-Member -NotePropertyName ReleasePreviousTime -NotePropertyValue $previousScanTime
-                    } 
+                    }
+                    if($this.ShouldDiscardOldScan){
+                        $this.ResourceTimestamps.LastFullScanRelease = $this.Timestamp
+                        $this.ResourceTimestamps.ReleasePreviousTime = "0001-01-01T00:00:00.0000000";
+                    }    
                 }
                 $this.ResourceTimestamps.$resourceType = $this.Timestamp
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force
@@ -259,6 +293,7 @@ class IncrementalScanHelper
                 }
                 $this.ResourceTimestamps.$resourceType = $this.Timestamp
                 if($resourceType -eq 'Build'){
+                    $this.ResourceTimestamps.LastFullScanBuild = $this.Timestamp
                     if('BuildPreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
                         $this.ResourceTimestamps.BuildPreviousTime = "0001-01-01T00:00:00.0000000";
                     }     
@@ -268,6 +303,7 @@ class IncrementalScanHelper
                     
                 }
                 else{
+                    $this.ResourceTimestamps.LastFullScanRelease = $this.Timestamp
                     if('ReleasePreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
                         $this.ResourceTimestamps.ReleasePreviousTime = "0001-01-01T00:00:00.0000000";
                     }     
@@ -291,7 +327,10 @@ class IncrementalScanHelper
                     else {
                         $this.ResourceTimestamps | Add-Member -NotePropertyName BuildPreviousTime -NotePropertyValue $previousScanTime
                     }             
-                    
+                    if($this.ShouldDiscardOldScan){
+                        $this.ResourceTimestamps.LastFullScanBuild = $this.Timestamp
+                        $this.ResourceTimestamps.BuildPreviousTime = "0001-01-01T00:00:00.0000000";
+                    }
                 }
                 else{
                     if('ReleasePreviousTime' -in $this.ResourceTimestamps.PSobject.Properties.Name){
@@ -299,6 +338,10 @@ class IncrementalScanHelper
                     }     
                     else {
                         $this.ResourceTimestamps | Add-Member -NotePropertyName ReleasePreviousTime -NotePropertyValue $previousScanTime
+                    }
+                    if($this.ShouldDiscardOldScan){
+                        $this.ResourceTimestamps.LastFullScanRelease = $this.Timestamp
+                        $this.ResourceTimestamps.ReleasePreviousTime = "0001-01-01T00:00:00.0000000";
                     } 
                 }
 				# Delete the local file
@@ -309,6 +352,32 @@ class IncrementalScanHelper
                 Remove-Item -Path $tempPath
             }
         }
+    }
+
+    [bool] IsIncScanOld($resourceType){
+        $this.GetThresholdTime($resourceType)
+        if($this.FirstScan){
+            return $false;
+        }        
+        if($this.LastFullScan.AddDays($this.ControlSettings.IncrementalScan.IncrementalScanValidForDays) -lt [DateTime]::UtcNow){
+            return $true;
+        }     
+     
+        return $false;
+    }
+
+    [bool] ShouldDiscardOldIncScan($resourceType){
+        $this.ShouldDiscardOldScan = $false
+        if($this.IsIncScanOld($resourceType)){
+            if($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('Force')){
+                $this.ShouldDiscardOldScan = $false
+            }
+            else{
+                $this.ShouldDiscardOldScan = $true
+            }
+            
+        }
+        return $this.ShouldDiscardOldScan;
     }
     [System.Object[]] GetModifiedBuilds($buildDefnsObj)
     {
@@ -322,6 +391,12 @@ class IncrementalScanHelper
         if($this.isPartialScanActive -and $latestBuildScan -eq 0){
             return $buildDefnsObj
         }
+        #if scan is old and no upc file found, simply return all builds, update scan time for full scans and last scan
+        if($this.ShouldDiscardOldIncScan('Build') -and -not($this.isPartialScanActive)){            
+            $this.UpdateTimeStamp("Build")
+            return $buildDefnsObj
+        }
+
         $newBuildDefns = @()
         if ([datetime] $buildDefnsObj[0].createdDate -lt $latestBuildScan) 
         {
@@ -401,6 +476,11 @@ class IncrementalScanHelper
             return $releaseDefnsObj
         }
         if($this.isPartialScanActive -and $latestReleaseScan -eq 0){
+            return $releaseDefnsObj
+        }
+        
+        if($this.ShouldDiscardOldIncScan('Release')){
+            $this.UpdateTimeStamp("Release")
             return $releaseDefnsObj
         }
         $newReleaseDefns = @()
