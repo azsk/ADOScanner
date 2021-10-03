@@ -1325,6 +1325,89 @@ class Build: ADOSVTBase
         return $controlResult
     }
 
+    hidden [ControlResult] CheckVariableGroupEditPermissionAutomatedFix([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+
+        if([Helpers]::CheckMember($this.BuildObj[0],"variableGroups"))
+        {
+            $varGrps = $this.BuildObj[0].variableGroups
+            $projectId = $this.BuildObj.project.id
+            $editableVarGrps = @();
+            try
+            {
+                $failedCount = 0
+                $erroredCount = 0
+                foreach($currentVarGrp in $varGrps)
+                {
+                    if([Helpers]::CheckMember($currentVarGrp,"name"))  ## Deleted VGs do not contain "name" property thats why ignoring them
+                    {
+                        try {
+                            $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($projectId), $($currentVarGrp.Id);
+                            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                            if($responseObj.Count -gt 0)
+                            {                        
+                                if([Build]::isInheritedPermissionCheckEnabled)
+                                {
+                                    $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
+                                }
+                                else {
+                                    $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access -eq "assigned")})                        
+                                }
+    
+                                if($contributorsObj.Count -gt 0)
+                                {   
+                                    foreach($obj in $contributorsObj){
+                                        if($obj.role.name -ne 'Reader')
+                                        {
+                                            $failedCount = $failedCount +1
+                                            $editableVarGrps += $currentVarGrp.name
+                                            break;
+                                        }
+                                    }                            
+                                }
+                            }
+                        }
+                        catch {
+                            $erroredCount = $erroredCount+1
+                        }
+                    }
+                    
+                }
+                $editableVarGrpsCount = $editableVarGrps.Count
+                if($editableVarGrpsCount -gt 0)
+                {
+                    $controlResult.AddMessage("Count of variable groups on which contributors have edit permissions: $($editableVarGrpsCount)");
+                    $controlResult.AdditionalInfo += "Count of variable groups on which contributors have edit permissions: " + $editableVarGrpsCount;
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nVariable groups list: `n$($editableVarGrps | FT | Out-String)");
+                    $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
+                    $controlResult.AdditionalInfoInCSV = "NumVGs: $editableVarGrpsCount; List: $($editableVarGrps -join '; ')";
+                }
+                elseif($erroredCount -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the RBAC details of variable groups used in the pipeline.");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any variable groups used in build definition.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
+                }
+            }
+            catch
+            {
+                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the RBAC details of variable groups used in the pipeline.");
+                $controlResult.LogException($_)
+            }
+
+        }
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Passed,"No variable groups found in build definition.");
+            $controlResult.AdditionalInfoInCSV += "NA"
+        }
+
+        return $controlResult
+    }
+
     hidden [ControlResult] CheckBuildAuthZScope([ControlResult] $controlResult)
     {   
         $controlResult.VerificationResult = [VerificationResult]::Failed

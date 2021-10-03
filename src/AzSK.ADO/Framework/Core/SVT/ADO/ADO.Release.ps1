@@ -1459,6 +1459,110 @@ class Release: ADOSVTBase
 
         return $controlResult
     }
+
+    hidden [ControlResult] CheckVariableGroupEditPermissionAutomatedFix([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $varGrpIds = @();
+        $editableVarGrps = @();
+
+        #add var groups scoped at release scope.
+        $releaseVarGrps = @($this.ReleaseObj[0].variableGroups)
+        if($releaseVarGrps.Count -gt 0)
+        {
+            $varGrpIds += $releaseVarGrps
+        }
+
+        # Each release pipeline has atleast 1 env.
+        $envCount = ($this.ReleaseObj[0].environments).Count
+
+        for($i=0; $i -lt $envCount; $i++)
+        {
+            $environmentVarGrps = @($this.ReleaseObj[0].environments[$i].variableGroups);
+            if($environmentVarGrps.Count -gt 0)
+            {
+                $varGrpIds += $environmentVarGrps
+            }
+        }
+
+        if($varGrpIds.Count -gt 0)
+        {
+            try
+            {
+                $failedCount = 0
+                $erroredCount = 0
+                foreach($vgId in $varGrpIds){
+                    #Fetch the security role assignments for variable group
+                    try {
+                        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
+                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                        if($responseObj.Count -gt 0)
+                        {                                       
+                            if([Release]::isInheritedPermissionCheckEnabled)
+                            {
+                                $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
+                            }
+                            else {
+                                $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access -eq "assigned")})                        
+                            }
+    
+                            if($contributorsObj.Count -gt 0)
+                            {   
+                                foreach($obj in $contributorsObj){
+                                    if($obj.role.name -ne 'Reader')
+                                    {
+                                        #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
+                                        $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
+                                        $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
+                                        if ((-not ([Helpers]::CheckMember($varGrpObj[0],"count"))) -and ($varGrpObj.Count -gt 0) -and ([Helpers]::CheckMember($varGrpObj[0],"name"))) {
+                                        $editableVarGrps += $varGrpObj[0].name
+                                        $failedCount = $failedCount +1                                        
+                                        break;
+                                        }
+                                    }
+                                }                            
+                            }
+                        }
+                    }
+                    catch {
+                        $erroredCount = $erroredCount+1                        
+                    }
+                }
+
+                $editableVarGrpsCount = $editableVarGrps.Count
+                if($editableVarGrpsCount -gt 0)
+                {
+                    $controlResult.AddMessage("`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount `n");
+                    $controlResult.AdditionalInfo += "`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount";                    
+                    $controlResult.AdditionalInfoInCSV = "NumVGs: $editableVarGrpsCount; List: $($editableVarGrps -join '; ')";
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Variable groups list: `n$($editableVarGrps | FT | Out-String)");
+                    $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
+                }
+                elseif($erroredCount -gt 0){
+                    $controlResult.AddMessage([VerificationResult]::Error,"`nCould not fetch the RBAC details of variable groups used in the pipeline.");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"`nContributors do not have edit permissions on variable groups used in release definition.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
+                }
+            }
+            catch
+            {
+                $controlResult.AddMessage([VerificationResult]::Error,"`nCould not fetch the RBAC details of variable groups used in the pipeline.");
+                $controlResult.LogException($_)
+            }
+
+        }
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Passed,"`nNo variable groups found in release definition.");
+            $controlResult.AdditionalInfoInCSV += "NA"
+        }
+
+        return $controlResult
+    }
+
     hidden [ControlResult] CheckBroaderGroupAccess([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
