@@ -349,9 +349,22 @@ class AzSKADOServiceMapping: CommandBase
                         if(($varGrps | Measure-Object).Count -gt 0)
                         {
                         $varGrps | ForEach-Object{
-                            $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;
-                            $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
-
+                            $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;                            
+                            $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);  
+                            $varGrpURLInd = 'https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2' -f $($this.OrgName),$($projectName) ,$($varGrpObj.id);                                                                                      
+                            #$varGrpURLInd = 'https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=variablegroup&id={2}&api-version=6.0-preview.1' -f $($this.OrgName),$($this.projectId) ,$($varGrpObj.id);                            
+                            $varGrpObjInd = ([WebRequestHelper]::InvokeGetWebRequest($varGrpURLInd));
+                                if ($varGrpObjInd.Type -eq 'AzureKeyVault')
+                                {   
+                                    # get associated service connection id of variable group                 
+                                    $servConnID =  $varGrpObjInd[0].providerData.serviceEndpointId;  
+                                     
+                                    # get azure subscription id from service connection   
+                                    $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
+                                    $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
+                                    $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($servConnID)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                                    $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
+                                }
                             $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $releaseObj[0].id) };
                             if($releaseSTData){
                                 $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
@@ -443,6 +456,18 @@ class AzSKADOServiceMapping: CommandBase
                         {
                             $varGrps = @($buildObj[0].variableGroups)
                             $varGrps | ForEach-Object{
+
+                                if ($this.varGrps.Type -eq 'AzureKeyVault')
+                                {   
+                                    # get associated service connection id of variable group                 
+                                    $servConnID =  $this.varGrpObj[0].providerData.serviceEndpointId;  
+                                     
+                                    # get azure subscription id from service connection   
+                                    $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
+                                    $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
+                                    $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($servConnID)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                                    $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
+                                }
 
                                 $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $buildObj[0].id) -and ($_.projectName -eq $this.ProjectName) };
                                 if($buildSTData){
