@@ -125,7 +125,10 @@
       },
       {
         "ResourceType": "Environment",
-        "ControlIds": []
+        "ControlIds": [
+          "ADO_Environment_AuthZ_Dont_Grant_All_Pipelines_Access",
+          "ADO_Environment_AuthZ_Restrict_Broader_Group_Access"
+        ]
       },
       {
         "ResourceType": "Repository",
@@ -739,6 +742,10 @@
         "(?# To match regular URL.)(www.|http:|https:)+[^\\s]+[\\w]",
         "(?# To match ftp URL.)(ftp:)+[^\\s]+[\\w]"
       ]
+    },
+    {
+      "RegexCode": "Email",
+      "RegexList": "[a-z0-9!#\\$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#\\$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
     }
   ],
   "BugLogging": {
@@ -762,7 +769,7 @@
     "LogBugsForInactiveResources": true,
     "CustomControlList": [],
     "LogBugsForUnmappedResource": true,
-    "Description":"Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a> </br></br> <b> Resource Owner: </b> {10} </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>",
+    "Description":"Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a> </br></br> <b> Resource Owner/Last modified by: </b> {10} {11} </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>",
     "UpdateBug": []
   },
   "GenerateSecurityEvaluationJsonFile" : false,
