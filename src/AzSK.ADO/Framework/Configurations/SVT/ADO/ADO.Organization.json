@@ -145,7 +145,7 @@
       "Id": "Organization190",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
-      "MethodName": "CheckDisconnectedIdentities",
+      "MethodName": "CheckDisconnectedIdentities",  
       "Rationale": "Cleaning up/removing RBAC entries for users who have left the organization is a good security hygiene practice.",
       "Recommendation": "1. Go to Organization Settings --> 2. Azure Active Directory --> 3. If you are an org admin, you will see a notification for disconnected users on AD --> 4. Click on 'Resolve'",
       "Tags": [
@@ -153,7 +153,8 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },

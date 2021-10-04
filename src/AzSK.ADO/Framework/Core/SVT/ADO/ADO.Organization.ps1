@@ -855,6 +855,11 @@ class Organization: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of disconnected users: " + $disconnectedUsersCount ;
                     $controlResult.AdditionalInfo += "List of disconnected users: " + $disconnectedUsersList;
                     $controlResult.AdditionalInfoInCSV = "TotalDisconnectedUsers: " + $disconnectedUsersCount;
+                    if ($this.ControlFixBackupRequired)
+                    {
+                        #Data object that will be required to fixs the control
+                        $controlResult.BackupControlState = @($responseObj[0].users | Select-Object -Property @{Name = "Descriptor"; Expression = { $_.descriptor } },@{Name = "Name"; Expression = { $_.displayName } }, @{Name = "MailAddress"; Expression = { $_.preferredEmailAddress } })
+                    }
                 }
                 else
                 {
@@ -872,6 +877,50 @@ class Organization: ADOSVTBase
         }
 
         return $controlResult;
+    }
+
+    hidden [ControlResult] CheckDisconnectedIdentitiesAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = @(([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject)
+
+            if ($this.InvocationContext.BoundParameters["ExcludePrincipalId"])
+            {
+                $excludePrincipalId = $this.InvocationContext.BoundParameters["ExcludePrincipalId"]
+                $excludePrincipalId = $excludePrincipalId -Split ','
+                $RawDataObjForControlFix = @($RawDataObjForControlFix | where-object {$excludePrincipalId  -notcontains $_.MailAddress })
+            }
+
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+
+            if ($RawDataObjForControlFix.Count -gt 0)
+            {
+                if (-not $this.UndoFix)
+                {
+                    foreach ($user in $RawDataObjForControlFix) 
+                    {
+                        $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/users/{1}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor
+                        $webRequestResult = Invoke-WebRequest -Uri $uri -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                    }
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following disconnected users are removed from the Org: ");
+                }
+
+                $display = ($RawDataObjForControlFix |  FT Name,MailAddress -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Manual,  "No guest users found.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
 
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)

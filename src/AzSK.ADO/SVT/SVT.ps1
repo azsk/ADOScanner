@@ -391,8 +391,8 @@ function Get-AzSKADOSecurityStatus
 			[ControlHelper]::IsGroupDetailsFetchedFromPolicy = $false
 			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
       
-      [AutoBugLog]::AutoBugInstance = $null
-      #Clear the cache of nested groups if the org name is not matching from previous scan in same session
+      		[AutoBugLog]::AutoBugInstance = $null
+      		#Clear the cache of nested groups if the org name is not matching from previous scan in same session
 			if ([ControlHelper]::GroupMembersResolutionObj.ContainsKey("OrgName") -and [ControlHelper]::GroupMembersResolutionObj["OrgName"] -ne $OrganizationName) {
 				[ControlHelper]::GroupMembersResolutionObj = @{}
 				[AdministratorHelper]::isCurrentUserPCA = $false
@@ -401,16 +401,16 @@ function Get-AzSKADOSecurityStatus
 				[AdministratorHelper]::AllPAMembers = @()
 			}
       
-      if ($PrepareForControlFix -eq $true)  {
-          if ($UsePartialCommits -ne $true)  {
-              Write-Host "PrepareForControlFix switch requires -UsePartialCommits switch." -ForegroundColor Red
-              return;
-          }
-          elseif ([String]::IsNullOrEmpty($ControlIds) -or $ControlIds -match ','){
-              Write-Host "PrepareForControlFix switch requires one controlid. Use -ControlIds parameter to provide it." -ForegroundColor Red
-              return;
-          }
-      }
+			if ($PrepareForControlFix -eq $true)  {
+				if ($UsePartialCommits -ne $true)  {
+					Write-Host "PrepareForControlFix switch requires -UsePartialCommits switch." -ForegroundColor Red
+					return;
+				}
+				elseif ([String]::IsNullOrEmpty($ControlIds) -or $ControlIds -match ','){
+					Write-Host "PrepareForControlFix switch requires one controlid. Use -ControlIds parameter to provide it." -ForegroundColor Red
+					return;
+				}
+			}
 
 			if($PromptForPAT -eq $true)
 			{
