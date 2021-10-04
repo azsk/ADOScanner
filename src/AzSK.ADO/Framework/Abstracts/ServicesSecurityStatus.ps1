@@ -222,11 +222,11 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			$resourceTypesForCommonSVT = $ControlSettings.ResourceTypesForCommonSVT
 		}
 
-        if($this.invocationContext.MyCommand.Name -eq "Set-AzSKADOSecurityStatus")
-        {
-            #Send resource count to usage telemetry in case of bulk remediation
-            $this.PublishAzSKRootEvent([SVTEvent]::ResourceCount,$totalResources);
-        }
+		if($this.invocationContext.MyCommand.Name -eq "Set-AzSKADOSecurityStatus")
+		{
+			#Send resource count to usage telemetry in case of bulk remediation
+			$this.PublishAzSKRootEvent([SVTEvent]::ResourceCount,$totalResources);
+		}
 		
 		$automatedResources | ForEach-Object {
 			$exceptionMessage = "Exception for resource: [ResourceType: $($_.ResourceTypeMapping.ResourceTypeName)] [ResourceGroupName: $($_.ResourceGroupName)] [ResourceName: $($_.ResourceName)]"
