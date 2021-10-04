@@ -55,7 +55,34 @@ class UsageTelemetry: ListenerBase {
 			}
         });
 
-		$this.RegisterEvent([SVTEvent]::CommandStarted, {
+		$this.RegisterEvent([SVTEvent]::ResourceCount, {
+			if(-not [UsageTelemetry]::IsAnonymousTelemetryActive()) { return; }
+            $currentInstance = [UsageTelemetry]::GetInstance();
+			try
+			{
+                $message = $Event.SourceArgs.Messages | Select-Object -First 1
+				if($message -and $message.DataObject)
+				{
+                    $Properties = @{ "Command" = $currentInstance.invocationContext.MyCommand.Name }
+                    [UsageTelemetry]::SetCommandInvocationProperties($currentInstance,$Properties);
+                    $resourceCountEvents = [System.Collections.ArrayList]::new()
+                    $telemetryEvent = "" | Select-Object Name, Properties, Metrics
+                    $telemetryEvent.Name = "Resource Count"
+                    $telemetryEvent.Properties = $Properties
+                    $telemetryEvent.Metrics = @{"Count" = $message.DataObject}
+                    $telemetryEvent = [UsageTelemetry]::SetCommonProperties($telemetryEvent,$currentInstance);
+                    $resourceCountEvents.Add($telemetryEvent) 
+                    [AIOrgTelemetryHelper]::PublishEvent($resourceCountEvents,"Usage")
+                }
+			}
+			catch{
+				#No need to break execution, If any occurs while sending anonymous telemetry
+			}
+        });
+
+
+
+        $this.RegisterEvent([SVTEvent]::CommandStarted, {
 			if(-not [UsageTelemetry]::IsAnonymousTelemetryActive()) { return; }
             $currentInstance = [UsageTelemetry]::GetInstance();
 			try

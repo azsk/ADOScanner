@@ -23,6 +23,7 @@ class SVTEvent
 	#Resource and Control Level event
 	static [string] $WriteInventory = "AzSK.SVT.WriteInventory"; #Custom event to write resource inventory
 	static [string] $PostCredHygiene = "AzSK.SVT.Control.PostCredHygiene";
+    static [string] $ResourceCount = "AzSK.SVT.Resource.Count";
 }
 
 #Class for resource details 

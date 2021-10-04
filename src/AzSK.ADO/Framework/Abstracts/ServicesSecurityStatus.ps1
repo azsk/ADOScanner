@@ -221,6 +221,12 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		if ([Helpers]::CheckMember($ControlSettings, "ResourceTypesForCommonSVT")) {
 			$resourceTypesForCommonSVT = $ControlSettings.ResourceTypesForCommonSVT
 		}
+
+        if($this.invocationContext.MyCommand.Name -eq "Set-AzSKADOSecurityStatus")
+        {
+            #Send resource count to usage telemetry in case of bulk remediation
+            $this.PublishAzSKRootEvent([SVTEvent]::ResourceCount,$totalResources);
+        }
 		
 		$automatedResources | ForEach-Object {
 			$exceptionMessage = "Exception for resource: [ResourceType: $($_.ResourceTypeMapping.ResourceTypeName)] [ResourceGroupName: $($_.ResourceGroupName)] [ResourceName: $($_.ResourceName)]"
@@ -463,6 +469,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 
 			$this.PublishAzSKRootEvent([AzSKRootEvent]::UnsupportedResources, $nonAutomatedResources);
 		}
+
 	}
     #Rescan controls post attestation
 	hidden [SVTEventContext[]] ScanAttestedControls()
