@@ -538,196 +538,172 @@ class Project: ADOSVTBase
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try
-        {
-            if(($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "Project.GroupsToCheckForSCAltMembers"))
+        {            
+            $adminGroupNames = @($this.ControlSettings.Project.GroupsToCheckForSCAltMembers);
+            if ($adminGroupNames.Count -gt 0)
             {
-
-                $adminGroupNames = @($this.ControlSettings.Project.GroupsToCheckForSCAltMembers);
-                if ($adminGroupNames.Count -gt 0)
+                #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
+                $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+                $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
+                $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
+                $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+                if ($response -and [Helpers]::CheckMember($response[0], "dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider")
                 {
-                    #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
-                    $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
-                    $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
-                    $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
-                    $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
-
-                    $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
-
-                    if ($response -and [Helpers]::CheckMember($response[0], "dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider")
+                    $adminGroups = @();
+                    $adminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $adminGroupNames }
+                    if($adminGroups.Count -gt 0)
                     {
-                        $adminGroups = @();
-                        $adminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $adminGroupNames }
-
-                        if($adminGroups.Count -gt 0)
+                        #global variable to track admin members across all admin groups
+                        $allAdminMembers = @();
+                        for ($i = 0; $i -lt $adminGroups.Count; $i++)
                         {
-                            #global variable to track admin members across all admin groups
-                            $allAdminMembers = @();
-
-                            for ($i = 0; $i -lt $adminGroups.Count; $i++)
-                            {
-                                $groupMembers = @();
-                                if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($adminGroups[$i].descriptor) -and [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor].count -gt 0) {
-                                    $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
-                                }
-                                else
-                                {
-                                    [ControlHelper]::FindGroupMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
-                                    $groupMembers += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
-                                }
-                                # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
-                                $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )}
-                            }
-
-                            # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
-                            $allAdminMembers = @($allAdminMembers| Sort-Object -Property mailAddress -Unique)
-
-                            if($allAdminMembers.Count -gt 0)
-                            {
-                                $useGraphEvaluation = $false
-                                $useRegExEvaluation = $false
-                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
-                                    if ([IdentityHelpers]::hasGraphAccess){
-                                        $useGraphEvaluation = $true
-                                    }
-                                    else {
-                                        $useRegExEvaluation = $true
-                                    }
-                                }
-                                
-                                $controlResult.AdditionalInfoInCSV += "NumAccounts: $($allAdminMembers.Count); "
-                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
-                                {
-                                    if ([IdentityHelpers]::hasGraphAccess)
-                                    {
-                                        $allAdmins = [IdentityHelpers]::DistinguishAltAndNonAltAccount($allAdminMembers)
-                                        $SCMembers = $allAdmins.altAccount
-                                        $nonSCMembers = $allAdmins.nonAltAccount
-
-                                        $nonSCCount = $nonSCMembers.Count
-                                        $SCCount = $SCMembers.Count
-                                        $controlResult.AdditionalInfoInCSV += "NumNonALTAccounts: $($nonSCCount); "
-                                        $totalAdminCount = $nonSCCount+$SCCount
-                                        $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
-                                        if ($nonSCCount -gt 0)
-                                        {
-                                            $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
-                                            $stateData = @();
-                                            $stateData += $nonSCMembers
-                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount");
-                                            $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
-                                            $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
-                                            $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
-                                            $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress + ';' } | select-object -Unique -First 10
-                                            $controlResult.AdditionalInfoInCSV += "First 10 Non_Alt_Admins: " + $nonSCaccounts -join ' ; '
-                                        }
-                                        else
-                                        {
-                                            $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
-                                            $controlResult.AdditionalInfoInCSV = 'NA' ;
-                                        }
-                                        if ($SCCount -gt 0)
-                                        {
-                                            $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
-                                            $SCData = @();
-                                            $SCData += $SCMembers
-                                            $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
-                                            $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
-                                            $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
-                                        }
-                                    }
-                                    else {
-                                        $controlResult.AddMessage([VerificationResult]::Error, "The signed-in user identity does not have graph permission.");
-                                    }
-                                }
-
-                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
-                                {
-                                    $controlResult.AddMessage([Constants]::graphWarningMessage);
-                                    if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg")){
-                                        $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
-                                        #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
-                                        if (-not [string]::IsNullOrEmpty($matchToSCAlt))
-                                        {
-                                            $nonSCMembers = @();
-                                            $nonSCMembers += $allAdminMembers | Where-Object { $_.mailAddress -notmatch $matchToSCAlt }
-                                            $nonSCCount = $nonSCMembers.Count
-
-                                            $SCMembers = @();
-                                            $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }
-                                            $SCCount = $SCMembers.Count
-
-                                            $totalAdminCount = $nonSCCount+$SCCount
-                                            $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
-                                            $controlResult.AdditionalInfoInCSV += "NonALTAccounts: $($nonSCCount); "
-
-                                            if ($nonSCCount -gt 0)
-                                            {
-                                                $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
-                                                $stateData = @();
-                                                $stateData += $nonSCMembers
-                                                $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges: $nonSCCount");
-                                                $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
-                                                $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
-                                                $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
-                                                $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress } | select-object -Unique -First 10
-                                                $controlResult.AdditionalInfoInCSV += "NonALTAccountsList: " + $nonSCaccounts -join ' ; '
-                                            }
-                                            else
-                                            {
-                                                $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
-                                                $controlResult.AdditionalInfoInCSV += 'NA' ;
-                                            }
-                                            if ($SCCount -gt 0)
-                                            {
-                                                $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
-                                                $SCData = @();
-                                                $SCData += $SCMembers
-                                                $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
-                                                $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
-                                                $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
-                                            }
-                                        }
-                                        else {
-                                            $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting SC-ALT account is not defined in the organization.");
-                                        }
-                                    }
-                                    else{
-                                        $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting SC-ALT account is not defined in the organization. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
-                                    }
-                                }
+                            $groupMembers = @();
+                            if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($adminGroups[$i].descriptor) -and [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor].count -gt 0) {
+                                $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
                             }
                             else
-                            { #count is 0 then there is no members added in the admin groups
-                                $controlResult.AddMessage([VerificationResult]::Passed, "Admin groups does not have any members.");
-                                $controlResult.AdditionalInfoInCSV += 'NA' ;
+                            {
+                                [ControlHelper]::FindGroupMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
+                                $groupMembers += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
+                            }
+                            # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
+                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )}
+                        }
+                        # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
+                        $allAdminMembers = @($allAdminMembers| Sort-Object -Property mailAddress -Unique)
+                        if($allAdminMembers.Count -gt 0)
+                        {
+                            $useGraphEvaluation = $false
+                            $useRegExEvaluation = $false
+                            if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
+                                if ([IdentityHelpers]::hasGraphAccess){
+                                    $useGraphEvaluation = $true
+                                }
+                                else {
+                                    $useRegExEvaluation = $true
+                                }
+                            }
+                            
+                            $controlResult.AdditionalInfoInCSV += "NumAccounts: $($allAdminMembers.Count); "
+                            if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
+                            {
+                                if ([IdentityHelpers]::hasGraphAccess)
+                                {
+                                    $allAdmins = [IdentityHelpers]::DistinguishAltAndNonAltAccount($allAdminMembers)
+                                    $SCMembers = $allAdmins.altAccount
+                                    $nonSCMembers = $allAdmins.nonAltAccount
+                                    $nonSCCount = $nonSCMembers.Count
+                                    $SCCount = $SCMembers.Count
+                                    $controlResult.AdditionalInfoInCSV += "NumNonALTAccounts: $($nonSCCount); "
+                                    $totalAdminCount = $nonSCCount+$SCCount
+                                    $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
+                                    if ($nonSCCount -gt 0)
+                                    {
+                                        $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
+                                        $stateData = @();
+                                        $stateData += $nonSCMembers
+                                        $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount");
+                                        $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
+                                        $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
+                                        $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
+                                        $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress + ';' } | select-object -Unique -First 10
+                                        $controlResult.AdditionalInfoInCSV += "First 10 Non_Alt_Admins: " + $nonSCaccounts -join ' ; '
+                                    }
+                                    else
+                                    {
+                                        $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                        $controlResult.AdditionalInfoInCSV = 'NA' ;
+                                    }
+                                    if ($SCCount -gt 0)
+                                    {
+                                        $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
+                                        $SCData = @();
+                                        $SCData += $SCMembers
+                                        $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
+                                        $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
+                                        $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
+                                    }
+                                }
+                                else {
+                                    $controlResult.AddMessage([VerificationResult]::Error, "The signed-in user identity does not have graph permission.");
+                                }
+                            }
+                            if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
+                            {
+                                $controlResult.AddMessage([Constants]::graphWarningMessage);                            
+                                $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
+                                #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
+                                if (-not [string]::IsNullOrEmpty($matchToSCAlt))
+                                {
+                                    $nonSCMembers = @();
+                                    $nonSCMembers += $allAdminMembers | Where-Object { $_.mailAddress -notmatch $matchToSCAlt }
+                                    $nonSCCount = $nonSCMembers.Count
+                                    $SCMembers = @();
+                                    $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }
+                                    $SCCount = $SCMembers.Count
+                                    $totalAdminCount = $nonSCCount+$SCCount
+                                    $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
+                                    $controlResult.AdditionalInfoInCSV += "NonALTAccounts: $($nonSCCount); "
+                                    if ($nonSCCount -gt 0)
+                                    {
+                                        $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
+                                        $stateData = @();
+                                        $stateData += $nonSCMembers
+                                        $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges: $nonSCCount");
+                                        $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
+                                        $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
+                                        $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
+                                        $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress } | select-object -Unique -First 10
+                                        $controlResult.AdditionalInfoInCSV += "NonALTAccountsList: " + $nonSCaccounts -join ' ; '
+                                    }
+                                    else
+                                    {
+                                        $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                        $controlResult.AdditionalInfoInCSV += 'NA' ;
+                                    }
+                                    if ($SCCount -gt 0)
+                                    {
+                                        $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
+                                        $SCData = @();
+                                        $SCData += $SCMembers
+                                        $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
+                                        $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
+                                        $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
+                                    }
+                                }
+                                else {
+                                    $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting SC-ALT account is not defined in the organization.");
+                                }
+                        
                             }
                         }
                         else
-                        {
-                            $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of administrator groups in the project.");
+                        { #count is 0 then there is no members added in the admin groups
+                            $controlResult.AddMessage([VerificationResult]::Passed, "Admin groups does not have any members.");
+                            $controlResult.AdditionalInfoInCSV += 'NA' ;
                         }
                     }
                     else
                     {
-                        $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of groups in the project.");
+                        $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of administrator groups in the project.");
                     }
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Manual, "List of administrator groups for detecting non SC-ALT accounts is not defined in your project.");
+                    $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of groups in the project.");
                 }
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Error, "List of administrator groups for detecting non SC-ALT accounts is not defined in your project. Please update your ControlSettings.json as per the latest AzSK.ADO PowerShell module.");
-            }
+                $controlResult.AddMessage([VerificationResult]::Manual, "List of administrator groups for detecting non SC-ALT accounts is not defined in your project.");
+            }    
         }
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of groups in the project.");
             $controlResult.LogException($_)
         }
-
         return $controlResult
     }
 
@@ -1805,110 +1781,103 @@ class Project: ADOSVTBase
     }
 
     hidden [ControlResult] CheckGuestUsersAccessInAdminRoles([ControlResult] $controlResult)
-    {
-        if($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings,"Project.AdminGroupsToCheckForGuestUser"))
+    {        
+        try 
         {
-            try {
-                $controlResult.VerificationResult = [VerificationResult]::Failed
-                $AdminGroupsToCheckForGuestUser = @($this.ControlSettings.Project.AdminGroupsToCheckForGuestUser)
-                if($this.GuestMembers.Count -eq 0)
-                {
-                    $this.FetchGuestMembersInOrg()
-                }
-
-                $guestAccounts = @($this.GuestMembers)
-                if($guestAccounts.Count -gt 0)
-                {
-                    $formattedData = @()
-                    $guestAccounts | ForEach-Object {
-                        if([Helpers]::CheckMember($_,"user.descriptor"))
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            $AdminGroupsToCheckForGuestUser = @($this.ControlSettings.Project.AdminGroupsToCheckForGuestUser)
+            if($this.GuestMembers.Count -eq 0)
+            {
+                $this.FetchGuestMembersInOrg()
+            }
+            $guestAccounts = @($this.GuestMembers)
+            if($guestAccounts.Count -gt 0)
+            {
+                $formattedData = @()
+                $guestAccounts | ForEach-Object {
+                    if([Helpers]::CheckMember($_,"user.descriptor"))
+                    {
+                       try
                         {
-                           try
+                            $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Graph/Memberships/$($_.user.descriptor)?api-version=6.0-preview.1"
+                            $response = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                            if([Helpers]::CheckMember($response[0],"containerDescriptor"))
                             {
-                                $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Graph/Memberships/$($_.user.descriptor)?api-version=6.0-preview.1"
-                                $response = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                                if([Helpers]::CheckMember($response[0],"containerDescriptor"))
+                                foreach ($obj in $response)
                                 {
-                                    foreach ($obj in $response)
+                                    $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/graph/groups/$($obj.containerDescriptor)?api-version=6.0-preview.1";
+                                    $res = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                                    $data = $res.principalName.Split("\");
+                                    $scope =  $data[0] -replace '[\[\]]'
+                                    $group = $data[1]
+                                    if($scope -eq $this.ResourceContext.ResourceName -and ($group -in $AdminGroupsToCheckForGuestUser) )
                                     {
-                                        $url = "https://vssps.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/graph/groups/$($obj.containerDescriptor)?api-version=6.0-preview.1";
-                                        $res = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                                        $data = $res.principalName.Split("\");
-                                        $scope =  $data[0] -replace '[\[\]]'
-                                        $group = $data[1]
-                                        if($scope -eq $this.ResourceContext.ResourceName -and ($group -in $AdminGroupsToCheckForGuestUser) )
-                                        {
-                                            $formattedData += @{
-                                                Group = $data[1];
-                                                Scope = $data[0];
-                                                Name = $_.user.displayName;
-                                                PrincipalName = $_.user.principalName;
-                                                ContainerDescriptor = $obj.containerDescriptor;
-                                                SubjectDescriptor = $_.user.descriptor; 
-                                            }
+                                        $formattedData += @{
+                                            Group = $data[1];
+                                            Scope = $data[0];
+                                            Name = $_.user.displayName;
+                                            PrincipalName = $_.user.principalName;
+                                            ContainerDescriptor = $obj.containerDescriptor;
+                                            SubjectDescriptor = $_.user.descriptor; 
                                         }
                                     }
                                 }
                             }
-                            catch
-                            {
-                                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the membership details for the user")
-                            }
                         }
-                        else {
-                            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch descriptor for guest user");
-                        }
-                    }
-                    if($formattedData.Count -gt 0)
-                    {
-                        if ($this.ControlFixBackupRequired)
+                        catch
                         {
-                            #Data object that will be required to fix the control
-                            $controlResult.BackupControlState = $formattedData
+                            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the membership details for the user")
                         }
-                        $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}
-                        $groups = $formattedData | Group-Object "Principal Name"
-                        $results = @()
-                        $results += foreach( $grpObj in $groups ){
-                                      $PrincipalName = $grpObj.name
-                                      $OrgGroup = $grpObj.group.group -join ','
-                                      $DisplayName = $grpObj.group."Display Name" | select -Unique
-                                      $Scope = $grpObj.group."User or scope" | select -Unique
-                                      [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; Scope = $Scope }
-                                    }
-                    
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Count of guest users in admin roles: $($results.count) ");
-                        $controlResult.AddMessage("`nGuest users list :")
-                        $display = ($results | FT PrincipalName, DisplayName, Group  -AutoSize | Out-String -Width 512)
-                        $controlResult.AddMessage($display)
-                        $controlResult.SetStateData("Guest users list : ", $results);
-                        $controlResult.AdditionalInfoInCSV += "NumAdminGuests: $($results.count); ";
-                        $UserList = $results | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName } | select-object -Unique -First 10;
-                        $controlResult.AdditionalInfoInCSV += "First 10 Guest_Admins: $($UserList -join ' ; ');";
                     }
                     else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No guest users have admin roles in the project.");
-                        $controlResult.AdditionalInfoInCSV += "NA";
-                       
+                        $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch descriptor for guest user");
                     }
-
+                }
+                if($formattedData.Count -gt 0)
+                {
+                    if ($this.ControlFixBackupRequired)
+                    {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $formattedData
+                    }
+                    $formattedData = $formattedData | select-object @{Name="Display Name"; Expression={$_.Name}}, @{Name="User or scope"; Expression={$_.Scope}} , @{Name="Group"; Expression={$_.Group}}, @{Name="Principal Name"; Expression={$_.PrincipalName}}
+                    $groups = $formattedData | Group-Object "Principal Name"
+                    $results = @()
+                    $results += foreach( $grpObj in $groups ){
+                                  $PrincipalName = $grpObj.name
+                                  $OrgGroup = $grpObj.group.group -join ','
+                                  $DisplayName = $grpObj.group."Display Name" | select -Unique
+                                  $Scope = $grpObj.group."User or scope" | select -Unique
+                                  [PSCustomObject]@{ PrincipalName = $PrincipalName ; DisplayName = $DisplayName ; Group = $OrgGroup ; Scope = $Scope }
+                                }
+                
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Count of guest users in admin roles: $($results.count) ");
+                    $controlResult.AddMessage("`nGuest users list :")
+                    $display = ($results | FT PrincipalName, DisplayName, Group  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                    $controlResult.SetStateData("Guest users list : ", $results);
+                    $controlResult.AdditionalInfoInCSV += "NumAdminGuests: $($results.count); ";
+                    $UserList = $results | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName } | select-object -Unique -First 10;
+                    $controlResult.AdditionalInfoInCSV += "First 10 Guest_Admins: $($UserList -join ' ; ');";
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in organization.");
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No guest users have admin roles in the project.");
                     $controlResult.AdditionalInfoInCSV += "NA";
+                   
                 }
-                $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");
             }
-            catch
-            {
-                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch user entitlements.");
-                $controlResult.LogException($_)
+            else {
+                $controlResult.AddMessage([VerificationResult]::Passed, "No guest users found in organization.");
+                $controlResult.AdditionalInfoInCSV += "NA";
             }
+            $controlResult.AddMessage("`nNote:`nThe following groups are considered for administrator privileges: `n$($AdminGroupsToCheckForGuestUser | FT | out-string)`n");
         }
-        else{
-            $controlResult.AddMessage([VerificationResult]::Error, "List of admin groups for detecting guest accounts is not defined in control setting of your organization.");
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch user entitlements.");
+            $controlResult.LogException($_)
         }
-
+        
         return $controlResult
     }
 
@@ -2255,44 +2224,43 @@ class Project: ADOSVTBase
             $orgName = $($this.OrganizationContext.OrganizationName)
             $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
             $projectName = $this.ResourceContext.ResourceName;
-            $permissionSetToken = $projectId
-            if ([Helpers]::CheckMember($this.ControlSettings.Build, "RestrictedBroaderGroupsForBuild")) {
-                $restrictedBroaderGroups = @{}
-                $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
-                $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
-                $namespacesApiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($orgName)
-                $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
-                $buildSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "Build") -and ($_.actions.name -contains "ViewBuilds")}).namespaceId
-                $buildURL = "https://dev.azure.com/$orgName/$projectName/_build"
-                $allowPermissionBits = @(1)
-                if ([Helpers]::CheckMember($this.ControlSettings, "Build.CheckForInheritedPermissions") -and $this.ControlSettings.Build.CheckForInheritedPermissions) {
+            $permissionSetToken = $projectId            
+            $restrictedBroaderGroups = @{}
+            $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
+            $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
+            $namespacesApiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($orgName)
+            $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
+            $buildSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "Build") -and ($_.actions.name -contains "ViewBuilds")}).namespaceId
+            $buildURL = "https://dev.azure.com/$orgName/$projectName/_build"
+            $allowPermissionBits = @(1)
+            if ($this.ControlSettings.Build.CheckForInheritedPermissions) {
                     #allow permission bit for inherited permission is '3'
                     $allowPermissionBits = @(1,3)
-                }
-                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
-                $inputbody = "{
-                'contributionIds': [
-                    'ms.vss-admin-web.security-view-members-data-provider'
-                ],
-                'dataProviderContext': {
-                    'properties': {
-                        'permissionSetId': '$buildSecurityNamespaceId',
-                        'permissionSetToken': '$permissionSetToken',
-                        'sourcePage': {
-                            'url': '$buildURL',
-                            'routeId': 'ms.vss-build-web.pipeline-details-route',
-                            'routeValues': {
-                                'project': '$projectName',
-                                'viewname': 'details',
-                                'controller': 'ContributedPage',
-                                'action': 'Execute'
-                            }
+            }
+            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
+            $inputbody = "{
+            'contributionIds': [
+                'ms.vss-admin-web.security-view-members-data-provider'
+            ],
+            'dataProviderContext': {
+                'properties': {
+                    'permissionSetId': '$buildSecurityNamespaceId',
+                    'permissionSetToken': '$permissionSetToken',
+                    'sourcePage': {
+                        'url': '$buildURL',
+                        'routeId': 'ms.vss-build-web.pipeline-details-route',
+                        'routeValues': {
+                            'project': '$projectName',
+                            'viewname': 'details',
+                            'controller': 'ContributedPage',
+                            'action': 'Execute'
                         }
                     }
                 }
-                }" | ConvertFrom-Json
-                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
-                if ([Helpers]::CheckMember($responseObj[0], "dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider', "identities"))) {
+            }
+            }" | ConvertFrom-Json
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
+            if ([Helpers]::CheckMember($responseObj[0], "dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider', "identities"))) {
 
                     $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $restrictedBroaderGroups.keys -contains $_.displayName })
                     # $broaderGroupsList would be empty if none of its permissions are set i.e. all perms are 'Not Set'.
@@ -2379,16 +2347,13 @@ class Project: ADOSVTBase
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Broader groups do not have access to the build pipelines at a project level.");
                     }
-                }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the build pipelines at a project level.");
-                }
-                $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
-                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -Width 512)");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the build pipelines at a project level.");
             }
+            $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+            $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -Width 512)");
+        
         }
         catch
         {
@@ -2477,7 +2442,7 @@ class Project: ADOSVTBase
     }  
 
 
-  hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForRelease([ControlResult] $controlResult)
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForRelease([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try
@@ -2485,45 +2450,44 @@ class Project: ADOSVTBase
             $orgName = $($this.OrganizationContext.OrganizationName)
             $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
             $projectName = $this.ResourceContext.ResourceName;
-            $permissionSetToken = $projectId
-            if ([Helpers]::CheckMember($this.ControlSettings.Release, "RestrictedBroaderGroupsForRelease")) {
-                $restrictedBroaderGroups = @{}
-                $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
-                $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
-                $namespacesApiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($orgName)
-                $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
-                $releaseSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ReleaseManagement") -and ($_.actions.name -contains "ViewReleaseDefinition")}).namespaceId
-                $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release"
-                $allowPermissionBits = @(1)
-                if ([Helpers]::CheckMember($this.ControlSettings.Release, "CheckForInheritedPermissions") -and $this.ControlSettings.Release.CheckForInheritedPermissions) {
-                    #allow permission bit for inherited permission is '3'
-                    $allowPermissionBits = @(1,3)
-                }
-                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
-                $inputbody = "{
-                'contributionIds': [
-                    'ms.vss-admin-web.security-view-members-data-provider'
-                ],
-                'dataProviderContext': {
-                    'properties': {
-                        'permissionSetId': '$releaseSecurityNamespaceId',
-                        'permissionSetToken': '$permissionSetToken',
-                        'sourcePage': {
-                            'url': '$releaseURL',
-                            'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
-                            'routeValues': {
-                                'project': '$projectName',
-                                'viewname': 'details',
-                                'controller': 'ContributedPage',
-                                'action': 'Execute'
-                            }
+            $permissionSetToken = $projectId            
+            $restrictedBroaderGroups = @{}
+            $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
+            $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
+            $namespacesApiURL = "https://dev.azure.com/{0}/_apis/securitynamespaces?api-version=6.0" -f $($orgName)
+            $securityNamespacesObj = [WebRequestHelper]::InvokeGetWebRequest($namespacesApiURL);
+            $releaseSecurityNamespaceId = ($securityNamespacesObj | Where-Object { ($_.Name -eq "ReleaseManagement") -and ($_.actions.name -contains "ViewReleaseDefinition")}).namespaceId
+            $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release"
+            $allowPermissionBits = @(1)
+            if ($this.ControlSettings.Release.CheckForInheritedPermissions) {
+                #allow permission bit for inherited permission is '3'
+                $allowPermissionBits = @(1,3)
+            }
+            $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $orgName, $projectId
+            $inputbody = "{
+            'contributionIds': [
+                'ms.vss-admin-web.security-view-members-data-provider'
+            ],
+            'dataProviderContext': {
+                'properties': {
+                    'permissionSetId': '$releaseSecurityNamespaceId',
+                    'permissionSetToken': '$permissionSetToken',
+                    'sourcePage': {
+                        'url': '$releaseURL',
+                        'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
+                        'routeValues': {
+                            'project': '$projectName',
+                            'viewname': 'details',
+                            'controller': 'ContributedPage',
+                            'action': 'Execute'
                         }
                     }
                 }
-                }" | ConvertFrom-Json
-                # Todo - Add comments (Also for build, release controls)
-                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
-                if ([Helpers]::CheckMember($responseObj[0], "dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider', "identities"))) {
+            }
+            }" | ConvertFrom-Json
+            # Todo - Add comments (Also for build, release controls)
+            $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
+            if ([Helpers]::CheckMember($responseObj[0], "dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider', "identities"))) {
 
                     $broaderGroupsList = @($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider'.identities | Where-Object { $_.subjectKind -eq 'group' -and $restrictedBroaderGroups.keys -contains $_.displayName })
                     # $broaderGroupsList would be empty if none of its permissions are set i.e. all perms are 'Not Set'.
@@ -2612,16 +2576,13 @@ class Project: ADOSVTBase
                     else {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Broader groups do not have access to the release pipelines at a project level.");
                     }
-                }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the pipelines at a project level.");
-                }
-                $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
-                $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -Width 512)");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch RBAC details of the pipelines at a project level.");
             }
+            $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+            $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -Width 512)");
+        
         }
         catch
         {
