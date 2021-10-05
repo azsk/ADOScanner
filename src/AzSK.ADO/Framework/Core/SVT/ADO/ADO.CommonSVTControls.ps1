@@ -83,11 +83,11 @@ class CommonSVTControls: ADOSVTBase {
 
             if (([Helpers]::CheckMember($repoPipelinePermissionObj[0], "allPipelines")) -and ($repoPipelinePermissionObj[0].allPipelines.authorized -eq $true))
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Repository is accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Repository is accessible to all yaml pipelines.");
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Repository is not accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Repository is not accessible to all yaml pipelines.");
             }
         }
         catch
@@ -110,7 +110,8 @@ class CommonSVTControls: ADOSVTBase {
             $inputbody.dataProviderContext.properties.permissionSetId = $this.repoPermissionSetId
             #first check permissions for all branches
             $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads/" 
-            #calling the common method to get permissions object on this level           
+            #calling the common method to get permissions object on this level    
+            $autoFixStateData = @();       
             $excessivePermissionsListOnAllBranches = $this.CheckPermsOnBranch($url,$inputBody,$projectId,$null)
             if ($null -ne $excessivePermissionsListOnAllBranches -and $excessivePermissionsListOnAllBranches.count -gt 0) {
                 $isControlPassing = $false        
@@ -122,6 +123,12 @@ class CommonSVTControls: ADOSVTBase {
                 $groups =  $groups -join ' ; '
                 $controlResult.AdditionalInfo += "List of Build service groups  with excessive permission on 'All Branches' level:  $($groups); ";
                 $controlResult.AdditionalInfoInCSV+= "'All Branches' level excessive permissions: $($groups); "                        
+                if ($this.ControlFixBackupRequired)
+                {
+                    $autoFixStateData +=$excessivePermissionsListOnAllBranches;
+                    #Data object that will be required to fix the control
+                    $controlResult.BackupControlState = $autoFixStateData;
+                }
             }
             else {
                 $controlResult.AddMessage("Build service groups do not have excessive permissions on 'All Branches' level of the repository.");
@@ -131,7 +138,8 @@ class CommonSVTControls: ADOSVTBase {
             $individualBranches | foreach {
                 $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads^$($_)/"
                 $excessivePermissionsListOnBranch = $this.CheckPermsOnBranch($url,$inputBody,$projectId,$_)
-                if ($null -ne $excessivePermissionsListOnBranch -and $excessivePermissionsListOnBranch.count -gt 0) {
+                if ($null -ne $excessivePermissionsListOnBranch -and $excessivePermissionsListOnBranch.count -gt 0) 
+                {
                     if($isControlPassing){
                         $isControlPassing = $false
                         $controlResult.AddMessage([VerificationResult]::Failed, "Build service groups  have excessive permissions on '$($_)' branch of the repository.");
@@ -145,8 +153,14 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AddMessage("`nList of groups : `n$formattedBuildServiceGrpTable");                    
                     $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions } 
                     $groups =  $groups -join ' ; '
-                    $controlResult.AdditionalInfo += "List of Build service groups  with excessive permission on $($_) branch:  $($groups); ";
-                    $controlResult.AdditionalInfoInCSV+= "$_ branch excessive permissions: $($groups); "                      
+                    $controlResult.AdditionalInfo += "List of Build service groups with excessive permission on $($_) branch:  $($groups); ";
+                    $controlResult.AdditionalInfoInCSV+= "$_ branch excessive permissions: $($groups); " 
+                    if ($this.ControlFixBackupRequired)
+                    {
+                        $autoFixStateData +=$excessivePermissionsListOnBranch;
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $autoFixStateData;
+                    }                     
                 }
                 else {
                     $controlResult.AddMessage("Build service groups  do not have excessive permissions on '$($_)' branch of the repository.");
@@ -167,6 +181,96 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.LogException($_)
         }
        return $controlResult
+    }
+
+    hidden [ControlResult] CheckBuildServiceAccessOnBranchAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.repoPermissionSetId
+
+            if (-not $this.UndoFix) {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {   
+                    $excessivePermissions = $identity.ExcessivePermissions -split ";"
+                    $descriptor = $identity.Descriptor
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        if ($excessivePermission.trim() -eq 'Force push (rewrite history, delete branches and tags)') {
+                            $roleId = [int][RepoPermissions] 'Forcepush'
+                        }
+                        elseif ($excessivePermission.trim() -eq "Remove others' locks") {
+                            $roleId = [int][RepoPermissions] 'Removeotherslocks'
+                        }
+                        else {
+                            $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","").trim();  
+                        }
+                        #need to invoke a post request which does not accept all permissions added in the body at once
+                        #hence need to call invoke seperately for each permission
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : '$descriptor',
+                                'allow':0,
+                                'deny':$($roleId)                              
+                            }]
+                        }" | ConvertFrom-Json
+
+                        $result = [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Allow"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Deny"
+
+                }
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    
+                    $descriptor = $identity.Descriptor
+                    $excessivePermissions = $identity.ExcessivePermissions -split ";"
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        if ($excessivePermission.trim() -eq 'Force push (rewrite history, delete branches and tags)') {
+                            $roleId = [int][RepoPermissions] 'Forcepush'
+                        }
+                        elseif ($excessivePermission.trim() -eq "Remove others' locks") {
+                            $roleId = [int][RepoPermissions] 'Removeotherslocks'
+                        }
+                        else {
+                            $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","").trim();  
+                        }
+                        
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : '$descriptor',
+                                'allow':$($roleId),
+                                'deny':0                              
+                            }]
+                        }" | ConvertFrom-Json
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Allow"
+                }
+            }
+            
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permissions for build service accounts on branches have been changed as below: ");
+            $formattedGroupsData = $RawDataObjForControlFix | Select @{l = 'Group'; e = { $_.Group } }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions }}, @{l = 'OldPermission'; e = { $_.OldPermission }}, @{l = 'NewPermission'; e = { $_.NewPermission } }
+            $display = ($formattedGroupsData |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
 
     #common method to get excessive permisions for every group for a branch
@@ -230,7 +334,9 @@ class CommonSVTControls: ADOSVTBase {
                         if ($groupFoundWithExcessivePermissions -eq $true) {
                             $excessivePermissionsGroupObj = @{}
                             $excessivePermissionsGroupObj['Group'] = $broaderGroup.displayName
-                            $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join ', ')                            
+                            $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join '; ') 
+                            $excessivePermissionsGroupObj['Descriptor'] = $broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.identityDescriptor
+                            $excessivePermissionsGroupObj['PermissionSetToken'] = $excessivePermissionsPerGroup[0].token                           
                             $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
                         }
                     }
@@ -552,10 +658,10 @@ class CommonSVTControls: ADOSVTBase {
             $secureFileObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
 
             if(($secureFileObj.Count -gt 0) -and [Helpers]::CheckMember($secureFileObj[0], "authorized") -and  $secureFileObj[0].authorized -eq $true) {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is accesible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is accesible to all yaml pipelines.");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all yaml pipelines.");
             }
         }
         catch {
@@ -697,11 +803,11 @@ class CommonSVTControls: ADOSVTBase {
 
             if (($envPipelinePermissionObj.Count -gt 0) -and ([Helpers]::CheckMember($envPipelinePermissionObj[0],"allPipelines")) -and ($envPipelinePermissionObj[0].allPipelines.authorized -eq $true))
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Environment is accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Environment is accessible to all yaml pipelines.");
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Environment is not accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Environment is not accessible to all yaml pipelines.");
             }
         }
         catch
@@ -1071,7 +1177,9 @@ class CommonSVTControls: ADOSVTBase {
                             if ($groupFoundWithExcessivePermissions -eq $true) {
                                 $excessivePermissionsGroupObj = @{}
                                 $excessivePermissionsGroupObj['Group'] = $identity.displayName
-                                $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join ', ')
+                                $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join '; ')
+                                $excessivePermissionsGroupObj['Descriptor'] = $responseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.identityDescriptor
+                                $excessivePermissionsGroupObj['PermissionSetToken'] = $excessivePermissionsPerGroup[0].token
                                 $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
                             }
                         }                 
@@ -1089,6 +1197,12 @@ class CommonSVTControls: ADOSVTBase {
                     $additionalInfoInCSV = $additionalInfoInCSV -join ' ; ' 
                     $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to repository: $($groupsWithExcessivePermissionsList.Count)";
                     $controlResult.AdditionalInfoInCSV+= "'Repo' level excessive permissions: $($additionalInfoInCSV); "  
+
+                    if ($this.ControlFixBackupRequired)
+                    {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                    }
                 }
 
                 else {
@@ -1107,5 +1221,94 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.LogException($_)
         }
         return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBuildSvcAcctAccessOnRepositoryAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.repoPermissionSetId
+
+            if (-not $this.UndoFix) {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {   
+                    $excessivePermissions = $identity.ExcessivePermissions -split ";"
+                    $descriptor = $identity.Descriptor
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        if ($excessivePermission.trim() -eq 'Force push (rewrite history, delete branches and tags)') {
+                            $roleId = [int][RepoPermissions] 'Forcepush'
+                        }
+                        elseif ($excessivePermission.trim() -eq "Remove others' locks") {
+                            $roleId = [int][RepoPermissions] 'Removeotherslocks'
+                        }
+                        else {
+                            $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","").trim();  
+                        }
+                        #need to invoke a post request which does not accept all permissions added in the body at once
+                        #hence need to call invoke seperately for each permission
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : '$descriptor',
+                                'allow':0,
+                                'deny':$($roleId)                              
+                            }]
+                        }" | ConvertFrom-Json
+
+                        $result = [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Allow"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Deny"
+
+                }
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {                    
+                    $descriptor = $identity.Descriptor
+                    $excessivePermissions = $identity.ExcessivePermissions -split ";"
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        if ($excessivePermission.trim() -eq 'Force push (rewrite history, delete branches and tags)') {
+                            $roleId = [int][RepoPermissions] 'Forcepush'
+                        }
+                        elseif ($excessivePermission.trim() -eq "Remove others' locks") {
+                            $roleId = [int][RepoPermissions] 'Removeotherslocks'
+                        }
+                        else {
+                            $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","").trim();  
+                        }
+                        
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : '$descriptor',
+                                'allow':$($roleId),
+                                'deny':0                              
+                            }]
+                        }" | ConvertFrom-Json
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Allow"
+                }
+            }
+            
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permissions for build service accounts have been changed as below: ");
+            $formattedGroupsData = $RawDataObjForControlFix | Select @{l = 'Group'; e = { $_.Group } }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions }}, @{l = 'OldPermission'; e = { $_.OldPermission }}, @{l = 'NewPermission'; e = { $_.NewPermission } }
+            $display = ($formattedGroupsData |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
 }

@@ -5,13 +5,13 @@
     "Controls": [
           {
             "ControlID": "ADO_VariableGroup_AuthZ_Dont_Grant_All_Pipelines_Access_On_VG_With_Secrets",
-            "Description": "Do not make variable groups with secret variables accessible to all pipelines.",
+            "Description": "Do not make variable groups with secret variables accessible to all (YAML) pipelines.",
             "Id": "VariableGroup120",
             "ControlSeverity": "High",
             "Automated": "Yes",
             "MethodName": "CheckPipelineAccess",
-            "Rationale": "If a variable group containing secrets is marked as accessible to all pipelines then an attacker can extract or compromise the assets involving the secret variables by creating a new pipeline.",
-            "Recommendation": "1.Navigate to the variable group --> 2. Click on 'Pipeline permissions' --> 3. Click on 'Restrict permission' --> 4. Add pipeline which needs permission on the variable group",
+            "Rationale": "If a variable group containing secrets is marked as accessible to all YAML pipelines then an attacker can extract or compromise the assets involving the secret variables by creating a new pipeline. Note that this does not prevent classic pipelines from accessing the variable group as it depends on the permissions granted to pipeline user.",
+            "Recommendation": "1.Navigate to the variable group --> 2. Click on 'Pipeline permissions' --> 3. Click on 'Restrict permission' --> 4. Add the YAML pipeline which needs permission on the variable group. For classic pipeline review user permissions carefully.",
             "Tags": [
               "SDL",
               "TCP",

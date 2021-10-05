@@ -360,6 +360,7 @@ class Build: ADOSVTBase
                 $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $formattedDate;
                 $buildInactivePeriod = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
                 $controlResult.AddMessage("The build was inactive from last $($buildInactivePeriod) days.");
+                $controlResult.AddMessage("`nNote: Restored pipeline although retain run history but are considered as a new pipeline in ADO.");
             }
         }
         catch
@@ -1823,16 +1824,13 @@ class Build: ADOSVTBase
                 if($this.BuildObj)
                 {
                     $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
-                    try {
-                        $this.buildActivityDetail.buildCreationDate = [datetime]::Parse($this.BuildObj.createdDate);
-                    }
-                    catch {
-                        $this.buildActivityDetail.buildCreationDate = $this.BuildObj.createdDate;
-                    }
+
+                    $this.buildActivityDetail.buildCreationDate = ([datetime] $this.BuildObj.createdDate).ToString("d MMM yyyy")
 
                     if([Helpers]::CheckMember($this.BuildObj[0],"latestBuild") -and $null -ne $this.BuildObj[0].latestBuild)
                     {
-                        if ([datetime]::Parse( $this.BuildObj[0].latestBuild.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays)))
+                        [datetime] $queueTime = ([datetime] $this.BuildObj[0].latestBuild.queueTime).ToString("d MMM yyyy")
+                        if ($queueTime -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays)))
                         {
                             $this.buildActivityDetail.isBuildActive = $true;
                             $this.buildActivityDetail.message = "Found recent builds triggered within $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days";
@@ -1845,7 +1843,7 @@ class Build: ADOSVTBase
 
                         if([Helpers]::CheckMember($this.BuildObj[0].latestBuild,"finishTime"))
                         {
-                            $this.buildActivityDetail.buildLastRunDate = [datetime]::Parse($this.BuildObj[0].latestBuild.finishTime);
+                            $this.buildActivityDetail.buildLastRunDate = ([datetime] $this.BuildObj[0].latestBuild.finishTime).ToString("d MMM yyyy")
                         }
                     }
                     else
@@ -1892,19 +1890,19 @@ class Build: ADOSVTBase
                         if($builds.Count -gt 0 )
                         {
                             $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
-                            try {
-                                $this.buildActivityDetail.buildCreationDate = [datetime]::Parse($this.BuildObj.createdDate);  
-                            }
-                            catch {
+                            if([ContextHelper]::PSVersion -gt 5) {
                                 $this.buildActivityDetail.buildCreationDate = $this.BuildObj.createdDate;
+                            }
+                            else {
+                                $this.buildActivityDetail.buildCreationDate = [datetime]::Parse($this.BuildObj.createdDate);
                             }
                             if([Helpers]::CheckMember($builds[0],"latestRun") -and $null -ne $builds[0].latestRun)
                             {
-                                try {
-                                    $latestRunQueueTime = [datetime]::Parse( $builds[0].latestRun.queueTime)
+                                if([ContextHelper]::PSVersion -gt 5) {
+                                    $latestRunQueueTime = $builds[0].latestRun.queueTime;
                                 }
-                                catch {
-                                    $latestRunQueueTime = $builds[0].latestRun.queueTime  
+                                else {
+                                    $latestRunQueueTime = [datetime]::Parse($builds[0].latestRun.queueTime);
                                 }
                                 if ( $latestRunQueueTime -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays)))
                                 {
@@ -1919,13 +1917,11 @@ class Build: ADOSVTBase
 
                                 if([Helpers]::CheckMember($builds[0].latestRun,"finishTime"))
                                 {
-                                    try {
-                                    $this.buildActivityDetail.buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
-                                        
+                                    if([ContextHelper]::PSVersion -gt 5) {
+                                        $this.buildActivityDetail.buildLastRunDate = $builds[0].latestRun.finishTime;
                                     }
-                                    catch {
-                                    $this.buildActivityDetail.buildLastRunDate = $builds[0].latestRun.finishTime;
-                                        
+                                    else {
+                                        $this.buildActivityDetail.buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
                                     }
                                 }
                             }

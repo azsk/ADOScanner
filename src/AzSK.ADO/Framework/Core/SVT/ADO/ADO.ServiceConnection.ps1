@@ -450,14 +450,14 @@ class ServiceConnection: ADOSVTBase
             }
             if([Helpers]::CheckMember($this.pipelinePermission,"allPipelines")) {
                 if($this.pipelinePermission.allPipelines.authorized){
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Service connection is accessible to all pipelines.");
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Service connection is accessible to all yaml pipelines.");
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Service connection is not accessible to all pipelines.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Service connection is not accessible to all yaml pipelines.");
                 }
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not accessible to all yaml pipelines.");
             }
             $controlResult.AdditionalInfoInCSV = "NA";
         }
@@ -807,7 +807,12 @@ class ServiceConnection: ADOSVTBase
                             $this.SvcConnActivityDetail.isSvcConnActive = $false;
                             $this.SvcConnActivityDetail.message = "Could not fetch the inactive days limit for service connection.";
                         }
-                        $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
+                        if([ContextHelper]::PSVersion -gt 5) {
+                            $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate.tostring("MM/dd/yyyy"));
+                        }
+                        else {
+                            $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
+                        }
                     }
                     else
                     {
@@ -852,7 +857,12 @@ class ServiceConnection: ADOSVTBase
                             $this.SvcConnActivityDetail.isSvcConnActive = $false;
                             $this.SvcConnActivityDetail.message = "Could not fetch the inactive days limit for service connection.";
                         }
-                        $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
+                        if([ContextHelper]::PSVersion -gt 5) {
+                            $this.SvcConnActivityDetail.svcConnLastRunDate = $svcLastRunDate;
+                        }
+                        else {
+                            $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
+                        }
                     }
                     else
                     {

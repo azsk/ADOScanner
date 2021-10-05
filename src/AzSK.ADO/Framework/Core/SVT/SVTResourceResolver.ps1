@@ -1361,27 +1361,42 @@ class SVTResourceResolver: AzSKRoot {
         $breakLoop = $false 
         $resourcesFromAuditAdded = $false;
         $modifiedResources = @()
+        if (!$this.ControlSettings) {
+            $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+        }
         if($this.UseIncrementalScan -eq $true){
             $incrementalScanHelperObjAudit = [IncrementalScanHelper]::new($this.OrganizationContext, $projectId,$projectName, $this.IncrementalDate);
             
             if($resourceType -eq "build"){
-                $buildIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForBuilds());
-                $buildIdsFromAttestation = @($incrementalScanHelperObjAudit.GetAttestationAfterInc($projectName,'Build'));
-                #perform union in case attested resources also appear in audit logs
-                $buildIdsFromAudit = @($buildIdsFromAudit + $buildIdsFromAttestation | select -uniq)
-                if($buildIdsFromAudit.Count -eq 0 -or $null -ne $buildIdsFromAudit[0]){
-                    #get only those builds that have been modified before latest scan, builds modified after will be captured later
-                    $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedBuildsFromAudit($buildIdsFromAudit,$projectName))
+
+                if($incrementalScanHelperObjAudit.ShouldDiscardOldIncScan('Build') -eq $false){ 
+                  $buildIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForBuilds());
+                  $buildIdsFromAttestation = @($incrementalScanHelperObjAudit.GetAttestationAfterInc($projectName,'Build'));
+                  #perform union in case attested resources also appear in audit logs
+                  $buildIdsFromAudit = @($buildIdsFromAudit + $buildIdsFromAttestation | select -uniq)
+                  if($buildIdsFromAudit.Count -eq 0 -or $null -ne $buildIdsFromAudit[0]){
+                      #get only those builds that have been modified before latest scan, builds modified after will be captured later
+                      $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedBuildsFromAudit($buildIdsFromAudit,$projectName))
+                  }
+                }
+                else{
+                    $this.PublishCustomMessage("Last full scan for incremental scan for builds was found to be older than $($this.ControlSettings.IncrementalScan.IncrementalScanValidForDays) days. Therefore, initiating complete scan for builds.")
                 }
             }
             else {
-                $releaseIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForReleases());
-                $releaseIdsFromAttestation = @($incrementalScanHelperObjAudit.GetAttestationAfterInc($projectName,'Release'));
-                $releaseIdsFromAudit = @($releaseIdsFromAudit + $releaseIdsFromAttestation | select -uniq)
-                if($releaseIdsFromAudit.Count -eq 0 -or $null -ne $releaseIdsFromAudit[0]){
-                    $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedReleasesFromAudit($releaseIdsFromAudit,$projectName))
-                }
-            }
+              if($incrementalScanHelperObjAudit.ShouldDiscardOldIncScan('Release') -eq $false){  
+                  $releaseIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForReleases());
+                  $releaseIdsFromAttestation = @($incrementalScanHelperObjAudit.GetAttestationAfterInc($projectName,'Release'));
+                  $releaseIdsFromAudit = @($releaseIdsFromAudit + $releaseIdsFromAttestation | select -uniq)
+                  if($releaseIdsFromAudit.Count -eq 0 -or $null -ne $releaseIdsFromAudit[0]){
+                      $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedReleasesFromAudit($releaseIdsFromAudit,$projectName))
+                  }
+              }
+              else{
+                      $this.PublishCustomMessage("Last full scan for incremental scan for releases was found to be older than $($this.ControlSettings.IncrementalScan.IncrementalScanValidForDays) days. Therefore, initiating complete scan for releases.")
+                  }          
+                
+            }         
             
 
         }

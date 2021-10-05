@@ -100,7 +100,14 @@ class FileOutputBase: ListenerBase
 						$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) | Join-Path -ChildPath "BatchScan" | Join-Path -ChildPath $batchScanSanitizedPath |Join-Path -ChildPath $runPath ;
 					}
 					else {
-						$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) |Join-Path -ChildPath $runPath ;
+						if($this.invocationContext.BoundParameters["UsePartialCommits"] -and $this.invocationContext.BoundParameters["FolderName"]){
+							$upcFolderName = [Helpers]::SanitizeFolderName($this.invocationContext.BoundParameters["FolderName"])
+							$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) | Join-Path -ChildPath $upcFolderName | Join-Path -ChildPath $runPath ;
+						}
+						else{
+							$outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) |Join-Path -ChildPath $runPath ;
+						}
+						
 					}
 				
 				            

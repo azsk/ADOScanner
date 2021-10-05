@@ -23,13 +23,13 @@
     },
     {
       "ControlID": "ADO_Repository_AuthZ_Dont_Grant_All_Pipelines_Access",
-      "Description": "Do not make repository accessible to all pipelines.",
+      "Description": "Do not make repository accessible to all (YAML) pipelines.",
       "Id": "Repository110",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckRepositoryPipelinePermission",
-      "Rationale": "If a repository is granted access to all pipelines, an unauthorized user can steal information from the repository by building a pipeline and accessing the repository.",
-      "Recommendation": "1. Go to Project --> 2. Repositories --> 3. Select the repository --> 4. Security --> 5. Under 'Pipeline Permissions', remove pipelines that repository no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Rationale": "If a repository is granted access to all YAML pipelines, an unauthorized user can steal information from the repository by building a pipeline and accessing the repository. Note that this does not prevent classic pipelines from accessing the repository as it depends on the permissions granted to pipeline user.",
+      "Recommendation": "1. Go to Project --> 2. Repositories --> 3. Select the repository --> 4. Security --> 5. Under 'Pipeline Permissions', remove YAML pipelines that repository no more requires access to or click 'Restrict Permission' to avoid granting access to all YAML pipelines. ",
       "Tags": [
         "SDL",
         "TCP",
@@ -52,7 +52,8 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -96,13 +97,13 @@
     },
     {
       "ControlID": "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access",
-      "Description": "Do not make secure files accessible to all pipelines.",
+      "Description": "Do not make secure files accessible to all (YAML) pipelines.",
       "Id": "SecureFile100",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckSecureFilesPermission",
-      "Rationale": "If a secure file is granted access to all pipelines, an unauthorized user can steal information from the secure files by building a pipeline and accessing the secure file.",
-      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. Select your secure file from the list --> 6. Click 'Pipeline Permissions', remove pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Rationale": "If a secure file is granted access to all YAML pipelines, an unauthorized user can steal information from the secure files by building a YAML pipeline and accessing the secure file. Note that this does not prevent classic pipelines from accessing the secure file as it depends on the permissions granted to pipeline user.",
+      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. Select your secure file from the list --> 6. Click 'Pipeline Permissions', remove YAML pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all YAML pipelines. For classic pipeline review user permissions carefully.",
       "Tags": [
         "SDL",
         "AuthZ",
@@ -133,13 +134,13 @@
     },
     {
       "ControlID": "ADO_Environment_AuthZ_Dont_Grant_All_Pipelines_Access",
-      "Description": "Do not make environment accessible to all pipelines.",
+      "Description": "Do not make environment accessible to all (YAML) pipelines.",
       "Id": "Environment100",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckEnviornmentAccess",
-      "Rationale": "To support security of the pipeline operations, environments must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
-      "Recommendation": "1. Go to Pipelines --> 2. Environments --> 3. Select your environment from the list --> 4. Click Security --> 5. Under 'Pipeline Permissions', remove pipelines that environment no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Rationale": "To support security of the pipeline operations, environments must not be granted access to all YAML pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources. Note that this does not prevent classic pipelines from accessing the environment as it depends on the permissions granted to pipeline user.",
+      "Recommendation": "1. Go to Pipelines --> 2. Environments --> 3. Select your environment from the list --> 4. Click Security --> 5. Under 'Pipeline Permissions', remove YAML pipelines that environment no more requires access to or click 'Restrict Permission' to avoid granting access to all YAML pipelines. For classic pipeline review user permissions carefully.",
       "Tags": [
         "SDL",
         "TCP",
@@ -196,7 +197,8 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     }
