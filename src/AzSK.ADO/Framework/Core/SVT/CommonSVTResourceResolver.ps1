@@ -26,7 +26,7 @@ class CommonSVTResourceResolver {
             }
             $repoObjList = @();
             #if rtn Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources and resource name not provided (neither * nor any name) no need to fetch this resource
-            if($repoNames.Count -ne 0){
+            if($repoNames.Count -ne 0 -and ($ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::All,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan)){
                 $repoObjList += $this.FetchRepositories($projectName, $repoNames);
             }            
             if ($repoObjList.count -gt 0 -and [Helpers]::CheckMember($repoObjList[0], "Id")) {
@@ -49,7 +49,7 @@ class CommonSVTResourceResolver {
             # Here we are fetching all the secure files in the project.
             $secureFileObjList = @();
             #if rtn Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources and resource name not provided (neither * nor any name) no need to fetch this resource
-            if($secureFileNames.Count -ne 0){
+            if($secureFileNames.Count -ne 0 -and ($ResourceTypeName -in ([ResourceTypeName]::SecureFile, [ResourceTypeName]::All,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan)){
                 $secureFileObjList += $this.FetchSecureFiles($projectName, $secureFileNames);
             }            
             if ($secureFileObjList.count -gt 0 -and [Helpers]::CheckMember($secureFileObjList[0], "Id")) {
@@ -74,7 +74,7 @@ class CommonSVTResourceResolver {
 
             $feedObjList = @();
             #if rtn Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources and resource name not provided (neither * nor any name) no need to fetch this resource
-            if($feedNames.Count -ne 0){
+            if($feedNames.Count -ne 0 -and ($ResourceTypeName -in ([ResourceTypeName]::Feed, [ResourceTypeName]::All,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan)){
                 $feedObjList += $this.FetchFeeds($projectName, $feedNames);
             }            
             if ($feedObjList.count -gt 0 -and [Helpers]::CheckMember($feedObjList[0], "Id")) {
@@ -99,7 +99,7 @@ class CommonSVTResourceResolver {
 
             $environmentObjList = @();
             #if rtn Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources and resource name not provided (neither * nor any name) no need to fetch this resource
-            if($environmentNames.Count -ne 0){
+            if($environmentNames.Count -ne 0 -and ($ResourceTypeName -in ([ResourceTypeName]::Environment, [ResourceTypeName]::All,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) -and !$isServiceIdBasedScan)){
                 $environmentObjList += $this.FetchEnvironments($projectName, $environmentNames, $MaxObjectsToScan);
             }            
             if ($environmentObjList.count -gt 0 -and [Helpers]::CheckMember($environmentObjList[0], "Id")) {
