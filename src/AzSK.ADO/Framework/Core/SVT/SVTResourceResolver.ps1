@@ -1667,28 +1667,4 @@ class SVTResourceResolver: AzSKRoot {
         
     }
 
-    [void] addResourceIdIncrementalScan($resourceDefnsObj, $projectName,$resourceType,$organizationId,$projectId){
-        if($resourceType -eq "build"){
-            $tempLink=($resourceDefnsObj[0].url -split('Definitions/'))[0].replace('_apis/build/', '_build?definitionId=');
-        }
-        else {
-            $tempLink = "https://dev.azure.com/{0}/{1}/_release?_a=releases&view=mine&definitionId=" -f $this.OrganizationContext.OrganizationName, $projectName;
-                           
-        }
-        foreach ($resourceDef in $resourceDefnsObj) {
-            $link=$tempLink+$resourceDef.id
-            $resourceId = "organization/$organizationId/project/$projectId/$($resourceType)/$($resourceDef.id)";
-            if($resourceType -eq "build"){
-                $this.AddSVTResource($resourceDef.name, $resourceDef.project.name, "ADO.Build", $resourceId, $resourceDef, $link);
-
-            }
-            else {
-                $this.AddSVTResource($resourceDef.name, $projectName, "ADO.Release", $resourceId, $null, $link);
-
-            }                                
-            
-        }
-    }
-
-
 }

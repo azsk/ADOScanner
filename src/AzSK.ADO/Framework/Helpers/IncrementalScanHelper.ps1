@@ -557,7 +557,7 @@ class IncrementalScanHelper
                 $group = ($_.data.SubjectDisplayName -split("\\"))[1]
                 if($group -in $restrictedBroaderGroups.keys ){
                     if($_.data.ChangedPermission -in $restrictedBroaderGroups[$group]){
-                        $buildIds += (($_.data.Token -split("/"))[1])
+                        $buildIds += (($_.data.Token -split("/"))[-1])
                     }
                 }
             }
@@ -642,7 +642,7 @@ class IncrementalScanHelper
                 $group = ($_.data.SubjectDisplayName -split("\\"))[1]
                 if($group -in $restrictedBroaderGroups.keys ){
                     if($_.data.ChangedPermission -in $restrictedBroaderGroups[$group]){
-                        $releaseIds += (($_.data.Token -split("/"))[1])
+                        $releaseIds += (($_.data.Token -split("/"))[-1])
                     }
                 }
             }
