@@ -3,6 +3,7 @@ class AdministratorHelper{
     static [bool] $isCurrentUserPA=$false;
     static $AllPCAMembers = @()
     static $AllPAMembers = @()
+    static $AllBAMembers = @()
 
 
     #Check whether uesr is PCA and subgroups member
@@ -139,6 +140,34 @@ class AdministratorHelper{
     }
     }
 
+    static [void] GetBADescriptorAndMembers([string] $OrgName,[string] $projName){
+
+        $url= "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview.1" -f $($OrgName);
+        $body=@'
+        {"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"https://dev.azure.com/{0}/{1}/_settings/permissions","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"{1}","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}
+'@
+        $body=$body.Replace("{0}",$OrgName)
+        $body=$body.Replace("{1}",$projName)
+        $rmContext = [ContextHelper]::GetCurrentContext();
+		$user = "";
+        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+        try{
+        $responseObj = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body
+
+        $accname = "Build Administrators";
+        $prcollobj = $responseObj.dataProviders.'ms.vss-admin-web.org-admin-groups-data-provider'.identities | where {$_.displayName -eq $accname}
+
+
+
+        if(($prcollobj | Measure-Object).Count -gt 0){
+            [AdministratorHelper]::FindBAMembers($prcollobj.descriptor,$OrgName,$projName)
+        }
+    }
+    catch {
+        Write-Host $_
+    }
+    }
+
 
     static [void] FindPCAMembers([string]$descriptor,[string] $OrgName){
         try {
@@ -169,6 +198,19 @@ class AdministratorHelper{
 
             if((-not [string]::IsNullOrEmpty([AdministratorHelper]::AllPAMembers)) -and [AdministratorHelper]::isCurrentUserPA -eq $false -and $currentUser -in [AdministratorHelper]::AllPAMembers.mailAddress){
                 [AdministratorHelper]::isCurrentUserPA=$true;
+            }
+        }
+        catch {
+            Write-Host $_
+        }
+    }
+
+    static [void] FindBAMembers([string]$descriptor,[string] $OrgName,[string] $projName){
+        try {
+            if ($null -eq [AdministratorHelper]::AllBAMembers -or [AdministratorHelper]::AllBAMembers.Count -eq 0)
+            {
+                [ControlHelper]::FindGroupMembers($descriptor,$orgName,$projName)
+                [AdministratorHelper]::AllBAMembers = [ControlHelper]::groupMembersResolutionObj[$descriptor]
             }
         }
         catch {
@@ -227,6 +269,15 @@ class AdministratorHelper{
 
         [AdministratorHelper]::AllPAMembers = @([AdministratorHelper]::AllPAMembers | Sort-Object -Unique 'mailAddress')
         return [AdministratorHelper]::AllPAMembers
+    }
+    static [object] GetTotalBAMembers([string] $OrgName,[string] $projName){
+        #Always reinitialize PA member list. Needed when trying to scan multiple projects
+
+        [AdministratorHelper]::AllBAMembers = @();
+        [AdministratorHelper]::GetBADescriptorAndMembers($OrgName,$projName)
+
+        [AdministratorHelper]::AllBAMembers = @([AdministratorHelper]::AllBAMembers | Sort-Object -Unique 'mailAddress')
+        return [AdministratorHelper]::AllBAMembers
     }
     static [bool] GetIsCurrentUserPCA([string] $descriptor,[string] $OrgName){
         #TODO: Need to reinitialize as PS ISE caches this list. It will be inappropriate if you switch org names from one scan to another in the same session.

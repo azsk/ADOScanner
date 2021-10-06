@@ -430,6 +430,23 @@
         "AutomatedFix"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_AuthZ_Limit_Build_Admin_Count",
+      "Description": "Ensure that there are at most $($this.ControlSettings.Project.MaxBAMembersPermissible) build administrators in your project.",
+      "Id": "Project420",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckMaxBACount",
+      "Rationale": "Each additional person in the build administrator role increases the attack surface for the entire project (if an admin's credentials are compromised via a phishing attack). A compromised account of this group can create and tamper all builds as well as task groups. The number of members in these roles should be kept as low as possible.",
+      "Recommendation": "1. Project settings --> 2. General --> 3. Permissions --> 4. Groups --> 5. Select the group : Build Administrators --> 6. Remove the redundant members of this group",
+      "Tags": [
+        "SDL",
+        "AuthZ",
+        "Automated",
+        "Best Practice"
+      ],
+      "Enabled": true
     }
   ]
 }

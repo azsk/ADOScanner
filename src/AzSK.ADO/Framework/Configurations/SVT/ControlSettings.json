@@ -287,7 +287,8 @@
         "Administer build permissions",
         "Delete build pipeline",
         "Delete builds ",
-        "Destroy builds"
+        "Destroy builds",
+        "Edit build pipeline"
       ],
       "Readers":[
         "Administer build permissions",
@@ -496,6 +497,13 @@
   "Project": {
     "MaxPAMembersPermissible": 6,
     "MinPAMembersPermissible": 2,
+    "MaxBAMembersPermissible":100,
+    "CheckExtendedGroupsForSCALTMembers":false,
+    "ExtendedGroupsToCheckForSCALTMembers":[
+      "Endpoint Administrators",
+      "Build Administrators",
+      "Release Administrators"
+    ],
     "GroupsToCheckForSCAltMembers": [
       "Project Administrators"
     ],
