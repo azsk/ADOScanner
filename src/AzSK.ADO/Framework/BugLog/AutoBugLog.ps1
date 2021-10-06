@@ -621,7 +621,7 @@ class AutoBugLog {
         $emailRegEx = $this.ControlSettings.Patterns | Where-Object {$_.RegexCode -eq "Email"} | Select-Object -Property RegexList;
         $bugNote = ""
         if ($emailRegEx -inotmatch $resourceOwner) {
-            $bugNote = "</br></br><b>Note: </b> This resource is last modified by an service account that's why resource owner is a service account.</br>"
+            $bugNote = "</br></br><b>Note: </b> This resource is last modified by an service account that's why resource owner email belongs to a service account.</br>"
         }
 
         $scanCommand = $this.GetControlReproStep($control);
