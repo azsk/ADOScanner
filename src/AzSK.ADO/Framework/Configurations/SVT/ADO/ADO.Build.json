@@ -230,7 +230,8 @@
         "TCP",
         "Automated",
         "DP",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },

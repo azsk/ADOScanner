@@ -1758,6 +1758,11 @@ class Build: ADOSVTBase
                     if(($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true))
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed,"Pipeline secrets are marked as available to pull request validations of public repo forks.");
+                        if ($this.ControlFixBackupRequired)
+                        {
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $pullRequestTrigger.forks.allowSecrets;
+                        }
                     }
                     else
                     {
@@ -1780,6 +1785,34 @@ class Build: ADOSVTBase
         }
 
         return  $controlResult
+    }
+
+    hidden [ControlResult] CheckForkedBuildTriggerAutomatedFix([ControlResult] $controlResult)
+    {   
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            
+            $uri = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=5.0-preview.6" -f ($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $($this.BuildObj.id) 
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+            if (-not $this.UndoFix) {
+                $this.BuildObj[0].triggers.Forks.allowSecrets = $false;
+                $body = $this.BuildObj[0] | ConvertTo-Json -Depth 10
+                $buildDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
+                $controlResult.AddMessage([VerificationResult]::Fixed,"Pipeline secrets are marked as unavailable to pull request validations of public repo forks.");
+            }
+            else {
+                $this.BuildObj[0].triggers.Forks.allowSecrets = $true;
+                $body = $this.BuildObj[0] | ConvertTo-Json -Depth 10
+                $buildDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
+                $controlResult.AddMessage([VerificationResult]::Fixed,"Pipeline secrets are marked as available to pull request validations of public repo forks.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
 
     hidden [ControlResult] CheckForkedRepoOnSHAgent([ControlResult] $controlResult)
