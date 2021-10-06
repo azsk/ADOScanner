@@ -2059,7 +2059,10 @@ class Project: ADOSVTBase
             try
             {
                 $AdminGroupsToCheckForInactiveUser = @($this.ControlSettings.Project.AdminGroupsToCheckForInactiveUser)
-
+                if($this.ControlSettings.Project.CheckExtendedGroupsForInactiveUser){
+                    $AdminGroupsToCheckForInactiveUser+= @($this.ControlSettings.Project.ExtendedGroupsToCheckForInactiveUser)
+                    $this.PublishCustomMessage("You have requested to scan for extended groups as well. This may take some time.`n",[MessageType]::Warning)
+                }
                 $inactiveUsersWithAdminAccess = @()
                 $neverActiveUsersWithAdminAccess = @()
                 $inactivityPeriodInDays = 90
