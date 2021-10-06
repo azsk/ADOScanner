@@ -296,55 +296,60 @@ class VariableGroup: ADOSVTBase
             $controlResult.VerificationResult = [VerificationResult]::Failed
             $restrictedBroaderGroups = @{}
             $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup;
-            $restrictedBroaderGroupsForVarGrp.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
+            if(@($restrictedBroaderGroupsForVarGrp.psobject.Properties).Count -gt 0){
+                $restrictedBroaderGroupsForVarGrp.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
 
-            #Fetch variable group RBAC
-            $roleAssignments = @();
-            if ($null -eq $this.variableGroupIdentities) 
-            {
-                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId);
-                $this.variableGroupIdentities = @([WebRequestHelper]::InvokeGetWebRequest($url));
-            }
-            if($this.variableGroupIdentities.Count -gt 0)
-            {
-                if ($this.checkInheritedPermissionsPerVarGrp -eq $false) {
-                    $roleAssignments = @($this.variableGroupIdentities  | where-object { $_.access -ne "inherited" })
+                #Fetch variable group RBAC
+                $roleAssignments = @();
+                if ($null -eq $this.variableGroupIdentities) 
+                {
+                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId);
+                    $this.variableGroupIdentities = @([WebRequestHelper]::InvokeGetWebRequest($url));
                 }
-                $roleAssignments = @($roleAssignments  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.id}}, @{Name="Role"; Expression = {$_.role.displayName}});
-            }
-
-            # Checking whether the broader groups have User/Admin permissions
-            $backupDataObject = @($roleAssignments | Where-Object { ($restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1]) -and  ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]])})
-            $restrictedGroups = @($backupDataObject | Select-Object Name,role)
-            
-            if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $restrictedGroups.Count -gt 0)
-            {
-                $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($restrictedGroups, $true))
-                $restrictedGroups = @($restrictedGroups | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
-            }
-
-            $restrictedGroupsCount = $restrictedGroups.Count
-
-            # fail the control if restricted group found on variable group
-            if ($restrictedGroupsCount -gt 0) {
-                $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have excessive permissions on variable group: $($restrictedGroupsCount)");
-                $controlResult.AddMessage("`nList of groups: ")
-                $controlResult.AddMessage(($restrictedGroups | FT Name,Role -AutoSize | Out-String -Width 512));
-                $controlResult.SetStateData("List of groups: ", $restrictedGroups)
-                $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions on variable group: $($restrictedGroupsCount)";
-                if ($this.ControlFixBackupRequired) {
-                    #Data object that will be required to fix the control
-                    $controlResult.BackupControlState = $backupDataObject;
+                if($this.variableGroupIdentities.Count -gt 0)
+                {
+                    if ($this.checkInheritedPermissionsPerVarGrp -eq $false) {
+                        $roleAssignments = @($this.variableGroupIdentities  | where-object { $_.access -ne "inherited" })
+                    }
+                    $roleAssignments = @($roleAssignments  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.id}}, @{Name="Role"; Expression = {$_.role.displayName}});
                 }
-                $formatedRestrictedGroups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role }
-                $controlResult.AdditionalInfoInCSV = ($formatedRestrictedGroups -join '; ' )
+
+                # Checking whether the broader groups have User/Admin permissions
+                $backupDataObject = @($roleAssignments | Where-Object { ($restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1]) -and  ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]])})
+                $restrictedGroups = @($backupDataObject | Select-Object Name,role)
+                
+                if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $restrictedGroups.Count -gt 0)
+                {
+                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($restrictedGroups, $true))
+                    $restrictedGroups = @($restrictedGroups | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
+                }
+
+                $restrictedGroupsCount = $restrictedGroups.Count
+
+                # fail the control if restricted group found on variable group
+                if ($restrictedGroupsCount -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have excessive permissions on variable group: $($restrictedGroupsCount)");
+                    $controlResult.AddMessage("`nList of groups: ")
+                    $controlResult.AddMessage(($restrictedGroups | FT Name,Role -AutoSize | Out-String -Width 512));
+                    $controlResult.SetStateData("List of groups: ", $restrictedGroups)
+                    $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions on variable group: $($restrictedGroupsCount)";
+                    if ($this.ControlFixBackupRequired) {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $backupDataObject;
+                    }
+                    $formatedRestrictedGroups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role }
+                    $controlResult.AdditionalInfoInCSV = ($formatedRestrictedGroups -join '; ' )
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have excessive permissions on variable group.");
+                    $controlResult.AdditionalInfoInCSV += "NA"
+                }
+                $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
+                $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have excessive permissions: `n$( $displayObj| FT | out-string)");
             }
-            else {
-                $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have excessive permissions on variable group.");
-                $controlResult.AdditionalInfoInCSV += "NA"
+            else{
+                $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for variable group is not defined in the control settings for your organization policy.");
             }
-            $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
-            $controlResult.AddMessage("Note:`nThe following groups are considered 'broad' and should not have excessive permissions: `n$( $displayObj| FT | out-string)");
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the variable group permissions.");
