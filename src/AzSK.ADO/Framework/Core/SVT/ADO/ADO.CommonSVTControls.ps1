@@ -661,7 +661,7 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is accesible to all yaml pipelines.");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all yaml pipelines.");
                 try {
                     $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/securefile/{2}" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
                     $secureFilePipelinePermObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
