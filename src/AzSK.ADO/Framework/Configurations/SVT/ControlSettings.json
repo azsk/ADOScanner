@@ -544,7 +544,8 @@
         "Administrator",
         "Collaborator",
         "Contributor"
-    ]
+    ],
+    "CheckForInheritedPermissions": false
   },
   "SecureFile":{
     "RestrictedBroaderGroupsForSecureFile" : {

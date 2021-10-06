@@ -6,6 +6,7 @@ class CommonSVTControls: ADOSVTBase {
     hidden [string] $checkInheritedPermissionsSecureFile = $false
     hidden [string] $checkInheritedPermissionsEnvironment = $false
     hidden [string] $checkInheritedPermissionsRepo = $false
+    hidden [string] $checkInheritedPermissionsFeed = $false
     hidden [object] $repoInheritePermissions = @{};
     hidden [PSObject] $excessivePermissionBitsForRepo = @(1)
     hidden [PSObject] $excessivePermissionsForRepoBranch = $null;
@@ -25,6 +26,10 @@ class CommonSVTControls: ADOSVTBase {
             #allow permission bit for inherited permission is '3'
             $this.checkInheritedPermissionsRepo = $true
             $this.excessivePermissionBitsForRepo = @(1,3)
+        }
+
+        if ([Helpers]::CheckMember($this.ControlSettings, "Feed.CheckForInheritedPermissions") -and $this.ControlSettings.Feed.CheckForInheritedPermissions) {
+            $this.checkInheritedPermissionsFeed = $true
         }
 
         $this.excessivePermissionsForRepoBranch = $this.ControlSettings.Repo.ExcessivePermissionsForBranch        
@@ -528,6 +533,10 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AddMessage("`n***Project scoped feed***")
                 }
                 $feedPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                if ($this.checkInheritedPermissionsFeed -eq $false) {
+                    $feedPermissionList = $feedPermissionList | where-object { $_.isInheritedRole -eq $false }
+                }
+                
                 $excesiveFeedsPermissions = @($feedPermissionList | Where-Object { $restrictedBroaderGroups.keys -contains $_.displayName.split('\')[-1] -and ($_.role -in $restrictedBroaderGroups[$_.displayName.split('\')[-1]])})
                 $feedWithBroaderGroup = @($excesiveFeedsPermissions | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="Name"; Expression = {$_.displayName}}) ;
 
