@@ -285,7 +285,10 @@ class ControlHelper: EventBase{
                 }
                 [ControlHelper]::parentGroup = $groupObj.principalName
                 #Checking if group is prenet in the dictionary, if not then expand it, else fetch from dictionary
-                if (-not [ControlHelper]::ResolvedBroaderGroups.ContainsKey($groupObj.principalName)) {
+                if ([ControlHelper]::GroupMembersResolutionObj.ContainsKey($groupObj.descriptor)) {
+                    $groupMembers = @([ControlHelper]::GroupMembersResolutionObj[$groupObj.descriptor])
+                }
+                elseif (-not [ControlHelper]::ResolvedBroaderGroups.ContainsKey($groupObj.principalName)) {
                     $groupMembers = @([ControlHelper]::ResolveNestedBroaderGroupMembers($groupObj, $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName))
                 }
                 else {

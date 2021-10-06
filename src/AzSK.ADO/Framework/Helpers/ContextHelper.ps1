@@ -95,7 +95,12 @@ class ContextHelper {
                             }
                         }
                         else {
-                            $AquireTokenParameters = $app.AcquireTokenSilent($Scopes, [ContextHelper]::Account)
+                            if ([ContextHelper]::appObj) {
+                                $AquireTokenParameters = [ContextHelper]::appObj.AcquireTokenSilent($Scopes, [ContextHelper]::Account)
+                            }
+                            else {
+                                $AquireTokenParameters = $app.AcquireTokenSilent($Scopes, [ContextHelper]::Account) 
+                            }
                             $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
                             if ($taskAuthenticationResult.exception.message -like "*errors occurred*") {
                                 $AquireTokenParameters = $app.AcquireTokenInteractive($Scopes)

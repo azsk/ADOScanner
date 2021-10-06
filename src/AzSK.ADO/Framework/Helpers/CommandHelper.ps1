@@ -71,8 +71,8 @@ class CommandHelper
         },
 		[CommandDetails]@{
             Verb = "Get";
-            Noun = "AzSKADOSecurityStatusBatchModeResults";
-            ShortName = "gadsbmr";
+            Noun = "AzSKADOSecurityStatusCombinedResults";
+            ShortName = "gadscr";
 			IsLatestRequired = $false;
         }
     );

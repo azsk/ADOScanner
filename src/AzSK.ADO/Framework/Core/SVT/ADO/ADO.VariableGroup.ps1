@@ -51,7 +51,7 @@ class VariableGroup: ADOSVTBase
 
                 if ($isSecretFound -eq $true)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Variable group contains secrets accessible to all pipelines.");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Variable group contains secrets accessible to all yaml pipelines.");
                     $controlResult.AdditionalInfoInCSV = "SecretVarsList: $($secretVarList -join '; ')";
                 }
                 else
@@ -62,7 +62,7 @@ class VariableGroup: ADOSVTBase
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Variable group is not accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Variable group is not accessible to all yaml pipelines.");
                 $controlResult.AdditionalInfoInCSV += "NA"
             }
 

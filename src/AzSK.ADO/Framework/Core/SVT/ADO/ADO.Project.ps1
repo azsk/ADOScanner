@@ -3,6 +3,7 @@ class Project: ADOSVTBase
 {
     [PSObject] $PipelineSettingsObj = $null
     hidden $PAMembers = @()
+    hidden $BAMembers = @()
     hidden $Repos = $null
     hidden $GuestMembers = @()
     hidden $AllUsersInOrg = @()
@@ -534,6 +535,85 @@ class Project: ADOSVTBase
         return $controlResult
     }
 
+    hidden [ControlResult] CheckMaxBACount([ControlResult] $controlResult){
+        $controlResult.VerificationResult = [verificationResult]::Failed;
+        $TotalBAMembers = 0;
+        if ($this.BAMembers.Count -eq 0) {
+            $this.BAMembers += @([AdministratorHelper]::GetTotalBAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName))
+        }
+        if($this.BAMembers.Count -gt 0)
+        {
+            $TotalBAMembers = $this.BAMembers.Count
+            $controlResult.AddMessage("There are a total of $TotalBAMembers Build Administrators in your project.")
+            $controlResult.SetStateData("Count of Build Administrators: ",$TotalBAMembers)
+            if ([IdentityHelpers]::hasGraphAccess)
+            {
+                $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($this.BAMembers, $this.OrganizationContext.OrganizationName)
+                $humanAccounts = @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress)
+                $svcAccounts = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress)
+
+                $humanAccountsCount = $humanAccounts.Count
+                $svcAccountsCount = $svcAccounts.Count
+                #In case of graph access we will only evaluate the control on the basis of human accounts
+                if($humanAccountsCount -gt $this.ControlSettings.Project.MaxBAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of human build administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxBAMembersPermissible)");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of human build administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxBAMembersPermissible)");
+                }
+
+                $controlResult.AddMessage("Current set of Build Administrators: ")
+                $controlResult.AdditionalInfo += "Count of Build Administrators: " + $TotalBAMembers;
+                $controlResult.AdditionalInfoInCSV += "TotalAdmin: $($TotalBAMembers); ";
+                
+
+                if ($humanAccountsCount -gt 0) {
+                    $controlResult.AddMessage("`nCount of Human Build Administrators: $($humanAccountsCount)")
+                    $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                    $controlResult.AdditionalInfoInCSV += "HumanBuildAdmin: $($humanAccountsCount); ";
+                    $humanIdentities = $humanAccounts | ForEach-Object { $_.displayName + ': ' + $_.mailAddress } | select-object -Unique -First 10;
+                    $controlResult.AdditionalInfoInCSV += "HumanBuildAdminList: $($humanIdentities -join ' ; ');";
+
+                }
+
+                if ($svcAccountsCount -gt 0) {
+                    $controlResult.AddMessage("`nCount of Service Accounts: $($svcAccountsCount)")
+                    $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                    $controlResult.AdditionalInfoInCSV += "ServiceAccount: $($svcAccountsCount); ";
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([Constants]::graphWarningMessage+"`n");
+                $this.BAMembers = @($this.BAMembers | Select-Object displayName,mailAddress)
+                if($TotalBAMembers -gt $this.ControlSettings.Project.MaxBAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of build administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxBAMembersPermissible).");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of build administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxBAMembersPermissible).");
+                }
+                $controlResult.AddMessage("Count of Build Administrators: $($TotalBAMembers)")
+                $controlResult.AddMessage("Current set of Build Administrators: ")
+                $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
+                $controlResult.AdditionalInfo += "Count of Build Administrators: " + $TotalBAMembers;
+                $controlResult.AdditionalInfoInCSV += "TotalBuildAdmin: $($TotalBAMembers); ";
+                $identities = $this.PAMembers | ForEach-Object { $_.displayName + ': ' + $_.mailAddress } | select-object -Unique -First 10;
+                $controlResult.AdditionalInfoInCSV += "BuildAdminList: $($identities -join ' ; ');";
+                
+            }
+        }
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Verify,"No Build Administrators are configured in the project.");
+        }       
+
+        return $controlResult
+    }
+
+
     hidden [ControlResult] CheckSCALTForAdminMembers([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -543,6 +623,9 @@ class Project: ADOSVTBase
             {
 
                 $adminGroupNames = @($this.ControlSettings.Project.GroupsToCheckForSCAltMembers);
+                if($this.ControlSettings.Project.CheckExtendedGroupsForSCALTMembers){
+                    $adminGroupNames+= @($this.ControlSettings.Project.ExtendedGroupsToCheckForSCAltMembers)
+                }
                 if ($adminGroupNames.Count -gt 0)
                 {
                     #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
@@ -711,6 +794,8 @@ class Project: ADOSVTBase
                     {
                         $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of groups in the project.");
                     }
+
+                    $controlResult.AddMessage("`nNote:`nThe following groups are considered administrator groups: `n$($adminGroupNames | FT | out-string)`n");
                 }
                 else
                 {
@@ -726,8 +811,7 @@ class Project: ADOSVTBase
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of groups in the project.");
             $controlResult.LogException($_)
-        }
-
+        }        
         return $controlResult
     }
 
@@ -2062,7 +2146,12 @@ class Project: ADOSVTBase
                                             {
                                                 $members = $members | where-object {$_.user.descriptor -eq $currentObj.Descriptor }
                                             }
-                                            $dateobj = [datetime]::Parse($members[0].lastAccessedDate)
+                                            if([ContextHelper]::PSVersion -gt 5) {
+                                                $dateobj = $members[0].lastAccessedDate
+                                            }
+                                            else {
+                                                $dateobj = [datetime]::Parse($members[0].lastAccessedDate)
+                                            }
                                             if($dateobj -lt $thresholdDate )
                                             {
                                                 $formatLastRunTimeSpan = New-TimeSpan -Start $dateobj
@@ -2073,7 +2162,12 @@ class Project: ADOSVTBase
 
                                                     if([Helpers]::CheckMember($members[0],"dateCreated"))
                                                     {
-                                                        $_.DateCreated = [datetime]::Parse($members[0].dateCreated)
+                                                        if([ContextHelper]::PSVersion -gt 5) {
+                                                            $_.dateCreated = ([datetime] $members[0].dateCreated).ToString("d MMM yyyy")
+                                                        }
+                                                        else {
+                                                            $_.dateCreated = [datetime]::Parse($members[0].dateCreated)
+                                                        }
                                                     }
                                                 }
                                                 else {

@@ -360,6 +360,7 @@ class Build: ADOSVTBase
                 $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $formattedDate;
                 $buildInactivePeriod = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
                 $controlResult.AddMessage("The build was inactive from last $($buildInactivePeriod) days.");
+                $controlResult.AddMessage("`nNote: Restored pipeline although retain run history but are considered as a new pipeline in ADO.");
             }
         }
         catch
@@ -887,22 +888,79 @@ class Build: ADOSVTBase
     {
         $controlResult.VerificationResult = [VerificationResult]::Verify
         $sourceObj = $this.BuildObj[0].repository | Select-Object -Property @{Name="RepositoryName"; Expression = {$_.Name}},@{Name="RepositorySourceType"; Expression = {$_.type}}
-        if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
-           {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository: ");
-                $display = ($sourceObj|FT  -AutoSize | Out-String -Width 512)
-                $controlResult.AddMessage($display)
-                $controlResult.SetStateData("Pipeline code is built from trusted repository: ",$sourceObj)                
-           }
-        else
-           {
-                $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from external repository: ");
-                $display = ($sourceObj|FT  -AutoSize | Out-String -Width 512)
-                $controlResult.AddMessage($display)
-                $controlResult.SetStateData("Pipeline code is built from external repository: ",$sourceObj)
-           }
-        $controlResult.AdditionalInfo = "$($sourceObj.repositoryName) : $($this.BuildObj[0].repository.type)";
-        $controlResult.AdditionalInfoInCSV = "$($sourceObj.repositoryName) : $($this.BuildObj[0].repository.type)"
+        $checkforPipelineRepo = $true
+        #check if pipeline is yaml
+        if([Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename")){
+
+            #repos checked inside the yaml file are available only when build id is present, if it present we check for repos checked inside yaml
+            if([Helpers]::CheckMember($this.BuildObj[0],"latestBuild") -and [Helpers]::CheckMember($this.BuildObj[0].latestBuild, "id")){
+                $latestBuildId = $this.BuildObj[0].latestBuild.id
+                $checkforPipelineRepo = $false
+                $url = "https://dev.azure.com/{0}/{1}/_traceability/runview/changes?currentRunId={2}&__rt=fps&__ver=2" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $latestBuildId
+                
+                try{
+                    $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+                    $externalSourceObj = @()
+                    $repoSource = $this.BuildObj[0].repository.type
+                    #check if multiple repos are defined, it will also contain pipeline source repo
+                    if([Helpers]::CheckMember($response,"fps.dataProviders.data") -and $response.fps.dataProviders.data.'ms.vss-traceability-web.traceability-run-changes-data-provider' -and [Helpers]::CheckMember($response.fps.dataProviders.data.'ms.vss-traceability-web.traceability-run-changes-data-provider','artifactsData')){                        
+                        $externalSourceObj  =  @($response.fps.dataProviders.data.'ms.vss-traceability-web.traceability-run-changes-data-provider'.artifactsData.repository | Where-Object {$_. type -ne 'TfsGit' -and $_. type -ne 'TfsVersionControl' -and $_.id -ne $this.BuildObj[0].repository.id  })
+                    }
+                    if($externalSourceObj.count -gt 0){
+                        $externalSourceObj = $externalSourceObj | Select-Object -Property @{Name="RepositoryName"; Expression = {$_.Name}},@{Name="RepositorySourceType"; Expression = {$_.type}}
+                        $display = @()
+                        $display+=$externalSourceObj
+                        #if pipeline source is trusted but yaml contains repos from untrusted sources
+                        if(($repoSource -eq 'TfsGit') -or ($repoSource -eq 'TfsVersionControl')){
+                            $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from trusted repository but contains untrusted sources as well: ");
+                        }
+                        #pipeline source is untrusted and yaml checks out other untrusted sources as well
+                        else{
+                            $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from untrusted repository as well as contains untrusted sources: ");
+                            $display += $sourceObj
+                            
+                        }
+                        $display = ($display | FT -AutoSize | Out-String -Width 512) 
+                        $controlResult.AddMessage($display)                                              
+                        $controlResult.SetStateData("Pipeline code is built from external repository: ",$display)
+                        $controlResult.AdditionalInfo += $externalSourceObj
+                        $controlResult.AdditionalInfo += $sourceObj
+                        $controlResult.AdditionalInfoInCSV += $externalSourceObj
+                        $controlResult.AdditionalInfoInCSV += $sourceObj
+                    }
+                    #no other repos have been defined in yaml
+                    else{
+                        #check pipeline sources
+                        $checkforPipelineRepo = $true
+                    }
+                    
+                    
+                }
+                catch{
+                    $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch pipeline details");
+                }
+            }
+                     
+        }
+        #if pipeline is classic or if build id not present (in yaml pipeline) we check for pipeline source repo type   
+        if($checkforPipelineRepo -eq $true){
+            if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
+            {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository: ");
+                    $display = ($sourceObj|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                    $controlResult.SetStateData("Pipeline code is built from trusted repository: ",$sourceObj)                
+            }
+            else
+            {
+                    $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from external repository: ");
+                    $display = ($sourceObj|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                    $controlResult.SetStateData("Pipeline code is built from external repository: ",$sourceObj)
+            }
+            $controlResult.AdditionalInfo = "$($sourceObj.repositoryName) : $($this.BuildObj[0].repository.type)";
+            $controlResult.AdditionalInfoInCSV = "$($sourceObj.repositoryName) : $($this.BuildObj[0].repository.type)"
+        }
 
         $sourceObj = $null;
         
@@ -1823,16 +1881,13 @@ class Build: ADOSVTBase
                 if($this.BuildObj)
                 {
                     $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
-                    try {
-                        $this.buildActivityDetail.buildCreationDate = [datetime]::Parse($this.BuildObj.createdDate);
-                    }
-                    catch {
-                        $this.buildActivityDetail.buildCreationDate = $this.BuildObj.createdDate;
-                    }
+
+                    $this.buildActivityDetail.buildCreationDate = ([datetime] $this.BuildObj.createdDate).ToString("d MMM yyyy")
 
                     if([Helpers]::CheckMember($this.BuildObj[0],"latestBuild") -and $null -ne $this.BuildObj[0].latestBuild)
                     {
-                        if ([datetime]::Parse( $this.BuildObj[0].latestBuild.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays)))
+                        [datetime] $queueTime = ([datetime] $this.BuildObj[0].latestBuild.queueTime).ToString("d MMM yyyy")
+                        if ($queueTime -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays)))
                         {
                             $this.buildActivityDetail.isBuildActive = $true;
                             $this.buildActivityDetail.message = "Found recent builds triggered within $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days";
@@ -1845,7 +1900,7 @@ class Build: ADOSVTBase
 
                         if([Helpers]::CheckMember($this.BuildObj[0].latestBuild,"finishTime"))
                         {
-                            $this.buildActivityDetail.buildLastRunDate = [datetime]::Parse($this.BuildObj[0].latestBuild.finishTime);
+                            $this.buildActivityDetail.buildLastRunDate = ([datetime] $this.BuildObj[0].latestBuild.finishTime).ToString("d MMM yyyy")
                         }
                     }
                     else
@@ -1892,19 +1947,19 @@ class Build: ADOSVTBase
                         if($builds.Count -gt 0 )
                         {
                             $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
-                            try {
-                                $this.buildActivityDetail.buildCreationDate = [datetime]::Parse($this.BuildObj.createdDate);  
-                            }
-                            catch {
+                            if([ContextHelper]::PSVersion -gt 5) {
                                 $this.buildActivityDetail.buildCreationDate = $this.BuildObj.createdDate;
+                            }
+                            else {
+                                $this.buildActivityDetail.buildCreationDate = [datetime]::Parse($this.BuildObj.createdDate);
                             }
                             if([Helpers]::CheckMember($builds[0],"latestRun") -and $null -ne $builds[0].latestRun)
                             {
-                                try {
-                                    $latestRunQueueTime = [datetime]::Parse( $builds[0].latestRun.queueTime)
+                                if([ContextHelper]::PSVersion -gt 5) {
+                                    $latestRunQueueTime = $builds[0].latestRun.queueTime;
                                 }
-                                catch {
-                                    $latestRunQueueTime = $builds[0].latestRun.queueTime  
+                                else {
+                                    $latestRunQueueTime = [datetime]::Parse($builds[0].latestRun.queueTime);
                                 }
                                 if ( $latestRunQueueTime -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays)))
                                 {
@@ -1919,13 +1974,11 @@ class Build: ADOSVTBase
 
                                 if([Helpers]::CheckMember($builds[0].latestRun,"finishTime"))
                                 {
-                                    try {
-                                    $this.buildActivityDetail.buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
-                                        
+                                    if([ContextHelper]::PSVersion -gt 5) {
+                                        $this.buildActivityDetail.buildLastRunDate = $builds[0].latestRun.finishTime;
                                     }
-                                    catch {
-                                    $this.buildActivityDetail.buildLastRunDate = $builds[0].latestRun.finishTime;
-                                        
+                                    else {
+                                        $this.buildActivityDetail.buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
                                     }
                                 }
                             }

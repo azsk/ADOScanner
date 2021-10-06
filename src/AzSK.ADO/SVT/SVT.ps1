@@ -342,6 +342,11 @@ function Get-AzSKADOSecurityStatus
 		$IncrementalScan,
 
 		[switch]
+        [Parameter(Mandatory = $false, HelpMessage="Scan only those resource objects modified after immediately previous scan.")]
+		[Alias("f")]
+		$Force,
+
+		[switch]
 		[Parameter()]
 		[Alias("bs")]
 		$BatchScan,
@@ -383,6 +388,7 @@ function Get-AzSKADOSecurityStatus
 			[AzSKSettings]::Instance = $null
 			[AzSKConfig]::Instance = $null
 			[ConfigurationHelper]::ServerConfigMetadata = $null
+			[ControlHelper]::IsGroupDetailsFetchedFromPolicy = $false
 			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
       
       [AutoBugLog]::AutoBugInstance = $null
