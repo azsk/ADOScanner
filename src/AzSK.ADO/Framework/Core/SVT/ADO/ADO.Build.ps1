@@ -1504,9 +1504,9 @@ class Build: ADOSVTBase
                 $projectName = $this.BuildObj.project.name
                 $buildId = $this.BuildObj.id
                 $permissionSetToken = "$projectId/$buildId"
-                if ([Helpers]::CheckMember($this.ControlSettings.Build, "RestrictedBroaderGroupsForBuild")) {
-                    $restrictedBroaderGroups = @{}
-                    $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
+                $restrictedBroaderGroups = @{}
+                $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
+                if(@($broaderGroups.psobject.Properties).Count -gt 0) {
                     $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
                     $buildURL = "https://dev.azure.com/$orgName/$projectName/_build?definitionId=$buildId"
 
@@ -1647,7 +1647,7 @@ class Build: ADOSVTBase
                     $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -Width 512)");
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
+                    $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for build is not defined in the control settings for your organization policy.");
                 }
             }
             catch
