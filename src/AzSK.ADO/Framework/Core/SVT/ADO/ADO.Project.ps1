@@ -538,174 +538,188 @@ class Project: ADOSVTBase
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try
-        {            
+        {
             $adminGroupNames = @($this.ControlSettings.Project.GroupsToCheckForSCAltMembers);
+            if($this.ControlSettings.Project.CheckExtendedGroupsForSCALTMembers){
+                $adminGroupNames+= @($this.ControlSettings.Project.ExtendedGroupsToCheckForSCAltMembers)
+            }
             if ($adminGroupNames.Count -gt 0)
             {
-                #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
-                $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
-                $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
-                $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
-                $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
-                $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
-                if ($response -and [Helpers]::CheckMember($response[0], "dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider")
-                {
-                    $adminGroups = @();
-                    $adminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $adminGroupNames }
-                    if($adminGroups.Count -gt 0)
+                    #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
+                    $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+                    $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                    $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
+                    $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
+
+                    $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+
+                    if ($response -and [Helpers]::CheckMember($response[0], "dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider")
                     {
-                        #global variable to track admin members across all admin groups
-                        $allAdminMembers = @();
-                        for ($i = 0; $i -lt $adminGroups.Count; $i++)
+                        $adminGroups = @();
+                        $adminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $adminGroupNames }
+
+                        if($adminGroups.Count -gt 0)
                         {
-                            $groupMembers = @();
-                            if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($adminGroups[$i].descriptor) -and [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor].count -gt 0) {
-                                $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
+                            #global variable to track admin members across all admin groups
+                            $allAdminMembers = @();
+
+                            for ($i = 0; $i -lt $adminGroups.Count; $i++)
+                            {
+                                $groupMembers = @();
+                                if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($adminGroups[$i].descriptor) -and [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor].count -gt 0) {
+                                    $groupMembers  += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
+                                }
+                                else
+                                {
+                                    [ControlHelper]::FindGroupMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
+                                    $groupMembers += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
+                                }
+                                # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
+                                $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )}
+                            }
+
+                            # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
+                            $allAdminMembers = @($allAdminMembers| Sort-Object -Property mailAddress -Unique)
+
+                            if($allAdminMembers.Count -gt 0)
+                            {
+                                $useGraphEvaluation = $false
+                                $useRegExEvaluation = $false
+                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
+                                    if ([IdentityHelpers]::hasGraphAccess){
+                                        $useGraphEvaluation = $true
+                                    }
+                                    else {
+                                        $useRegExEvaluation = $true
+                                    }
+                                }
+                                
+                                $controlResult.AdditionalInfoInCSV += "NumAccounts: $($allAdminMembers.Count); "
+                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
+                                {
+                                    if ([IdentityHelpers]::hasGraphAccess)
+                                    {
+                                        $allAdmins = [IdentityHelpers]::DistinguishAltAndNonAltAccount($allAdminMembers)
+                                        $SCMembers = $allAdmins.altAccount
+                                        $nonSCMembers = $allAdmins.nonAltAccount
+
+                                        $nonSCCount = $nonSCMembers.Count
+                                        $SCCount = $SCMembers.Count
+                                        $controlResult.AdditionalInfoInCSV += "NumNonALTAccounts: $($nonSCCount); "
+                                        $totalAdminCount = $nonSCCount+$SCCount
+                                        $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
+                                        if ($nonSCCount -gt 0)
+                                        {
+                                            $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
+                                            $stateData = @();
+                                            $stateData += $nonSCMembers
+                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount");
+                                            $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
+                                            $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
+                                            $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
+                                            $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress + ';' } | select-object -Unique -First 10
+                                            $controlResult.AdditionalInfoInCSV += "First 10 Non_Alt_Admins: " + $nonSCaccounts -join ' ; '
+                                        }
+                                        else
+                                        {
+                                            $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                            $controlResult.AdditionalInfoInCSV = 'NA' ;
+                                        }
+                                        if ($SCCount -gt 0)
+                                        {
+                                            $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
+                                            $SCData = @();
+                                            $SCData += $SCMembers
+                                            $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
+                                            $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
+                                            $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
+                                        }
+                                    }
+                                    else {
+                                        $controlResult.AddMessage([VerificationResult]::Error, "The signed-in user identity does not have graph permission.");
+                                    }
+                                }
+
+                                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
+                                {
+                                    $controlResult.AddMessage([Constants]::graphWarningMessage);
+                                    $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
+                                    #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
+                                    if (-not [string]::IsNullOrEmpty($matchToSCAlt))
+                                    {
+                                        $nonSCMembers = @();
+                                        $nonSCMembers += $allAdminMembers | Where-Object { $_.mailAddress -notmatch $matchToSCAlt }
+                                        $nonSCCount = $nonSCMembers.Count
+                                        $SCMembers = @();
+                                        $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }
+                                        $SCCount = $SCMembers.Count
+                                        $totalAdminCount = $nonSCCount+$SCCount
+                                        $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
+                                        $controlResult.AdditionalInfoInCSV += "NonALTAccounts: $($nonSCCount); "
+                                        if ($nonSCCount -gt 0)
+                                        {
+                                            $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
+                                            $stateData = @();
+                                            $stateData += $nonSCMembers
+                                            $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges: $nonSCCount");
+                                            $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
+                                            $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
+                                            $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
+                                            $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress } | select-object -Unique -First 10
+                                            $controlResult.AdditionalInfoInCSV += "NonALTAccountsList: " + $nonSCaccounts -join ' ; '
+                                        }
+                                        else
+                                        {
+                                            $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                            $controlResult.AdditionalInfoInCSV += 'NA' ;
+                                        }
+                                        if ($SCCount -gt 0)
+                                        {
+                                            $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
+                                            $SCData = @();
+                                            $SCData += $SCMembers
+                                            $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
+                                            $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
+                                            $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
+                                        }
+                                    }
+                                    else {
+                                        $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting SC-ALT account is not defined in the organization.");
+                                    }
+                                
+                                }
                             }
                             else
-                            {
-                                [ControlHelper]::FindGroupMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
-                                $groupMembers += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
-                            }
-                            # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
-                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )}
-                        }
-                        # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
-                        $allAdminMembers = @($allAdminMembers| Sort-Object -Property mailAddress -Unique)
-                        if($allAdminMembers.Count -gt 0)
-                        {
-                            $useGraphEvaluation = $false
-                            $useRegExEvaluation = $false
-                            if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
-                                if ([IdentityHelpers]::hasGraphAccess){
-                                    $useGraphEvaluation = $true
-                                }
-                                else {
-                                    $useRegExEvaluation = $true
-                                }
-                            }
-                            
-                            $controlResult.AdditionalInfoInCSV += "NumAccounts: $($allAdminMembers.Count); "
-                            if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation)
-                            {
-                                if ([IdentityHelpers]::hasGraphAccess)
-                                {
-                                    $allAdmins = [IdentityHelpers]::DistinguishAltAndNonAltAccount($allAdminMembers)
-                                    $SCMembers = $allAdmins.altAccount
-                                    $nonSCMembers = $allAdmins.nonAltAccount
-                                    $nonSCCount = $nonSCMembers.Count
-                                    $SCCount = $SCMembers.Count
-                                    $controlResult.AdditionalInfoInCSV += "NumNonALTAccounts: $($nonSCCount); "
-                                    $totalAdminCount = $nonSCCount+$SCCount
-                                    $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
-                                    if ($nonSCCount -gt 0)
-                                    {
-                                        $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
-                                        $stateData = @();
-                                        $stateData += $nonSCMembers
-                                        $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount");
-                                        $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
-                                        $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
-                                        $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
-                                        $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress + ';' } | select-object -Unique -First 10
-                                        $controlResult.AdditionalInfoInCSV += "First 10 Non_Alt_Admins: " + $nonSCaccounts -join ' ; '
-                                    }
-                                    else
-                                    {
-                                        $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
-                                        $controlResult.AdditionalInfoInCSV = 'NA' ;
-                                    }
-                                    if ($SCCount -gt 0)
-                                    {
-                                        $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
-                                        $SCData = @();
-                                        $SCData += $SCMembers
-                                        $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
-                                        $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
-                                        $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
-                                    }
-                                }
-                                else {
-                                    $controlResult.AddMessage([VerificationResult]::Error, "The signed-in user identity does not have graph permission.");
-                                }
-                            }
-                            if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
-                            {
-                                $controlResult.AddMessage([Constants]::graphWarningMessage);                            
-                                $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
-                                #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
-                                if (-not [string]::IsNullOrEmpty($matchToSCAlt))
-                                {
-                                    $nonSCMembers = @();
-                                    $nonSCMembers += $allAdminMembers | Where-Object { $_.mailAddress -notmatch $matchToSCAlt }
-                                    $nonSCCount = $nonSCMembers.Count
-                                    $SCMembers = @();
-                                    $SCMembers += $allAdminMembers | Where-Object { $_.mailAddress -match $matchToSCAlt }
-                                    $SCCount = $SCMembers.Count
-                                    $totalAdminCount = $nonSCCount+$SCCount
-                                    $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
-                                    $controlResult.AdditionalInfoInCSV += "NonALTAccounts: $($nonSCCount); "
-                                    if ($nonSCCount -gt 0)
-                                    {
-                                        $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
-                                        $stateData = @();
-                                        $stateData += $nonSCMembers
-                                        $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges: $nonSCCount");
-                                        $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
-                                        $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
-                                        $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
-                                        $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress } | select-object -Unique -First 10
-                                        $controlResult.AdditionalInfoInCSV += "NonALTAccountsList: " + $nonSCaccounts -join ' ; '
-                                    }
-                                    else
-                                    {
-                                        $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
-                                        $controlResult.AdditionalInfoInCSV += 'NA' ;
-                                    }
-                                    if ($SCCount -gt 0)
-                                    {
-                                        $SCMembers = $SCMembers | Select-Object name,mailAddress,groupName
-                                        $SCData = @();
-                                        $SCData += $SCMembers
-                                        $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
-                                        $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
-                                        $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
-                                    }
-                                }
-                                else {
-                                    $controlResult.AddMessage([VerificationResult]::Manual, "Regular expressions for detecting SC-ALT account is not defined in the organization.");
-                                }
-                        
+                            { #count is 0 then there is no members added in the admin groups
+                                $controlResult.AddMessage([VerificationResult]::Passed, "Admin groups does not have any members.");
+                                $controlResult.AdditionalInfoInCSV += 'NA' ;
                             }
                         }
                         else
-                        { #count is 0 then there is no members added in the admin groups
-                            $controlResult.AddMessage([VerificationResult]::Passed, "Admin groups does not have any members.");
-                            $controlResult.AdditionalInfoInCSV += 'NA' ;
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of administrator groups in the project.");
                         }
                     }
                     else
                     {
-                        $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of administrator groups in the project.");
+                        $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of groups in the project.");
                     }
-                }
-                else
-                {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Could not find the list of groups in the project.");
-                }
+
+                    $controlResult.AddMessage("`nNote:`nThe following groups are considered administrator groups: `n$($adminGroupNames | FT | out-string)`n");
             }
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Manual, "List of administrator groups for detecting non SC-ALT accounts is not defined in your project.");
-            }    
+            }            
         }
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of groups in the project.");
             $controlResult.LogException($_)
-        }
+        }        
         return $controlResult
     }
+
 
     hidden [ControlResult] CheckAllPipelinesAccessOnFeeds([ControlResult] $controlResult)
     {
