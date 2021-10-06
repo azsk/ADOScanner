@@ -1269,25 +1269,6 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckRequestAccessPolicy([ControlResult] $controlResult)
     {
-        <# This control has been currently removed from control JSON file.
-        {
-            "ControlID": "ADO_Organization_AuthZ_Disable_Request_Access",
-            "Description": "Stop your users from requesting access to your organization or project within your organization, by disabling the request access policy.",
-            "Id": "Organization339",
-            "ControlSeverity": "Medium",
-            "Automated": "Yes",
-            "MethodName": "CheckRequestAccessPolicy",
-            "Rationale": "When request access policy is enabled, users can request access to a resource. Disabling this policy will prevent users from requesting access to organization or project within the organization.",
-            "Recommendation": "Go to Organization Settings --> Policy --> User Policy --> Disable 'Request Access'.",
-            "Tags": [
-                "SDL",
-                "TCP",
-                "Automated",
-                "AuthZ"
-            ],
-            "Enabled": true
-        },
-        #>
         if([Helpers]::CheckMember($this.OrgPolicyObj,"user"))
         {
             $userPolicyObj = $this.OrgPolicyObj.user

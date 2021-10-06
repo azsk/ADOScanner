@@ -3,6 +3,7 @@ class Project: ADOSVTBase
 {
     [PSObject] $PipelineSettingsObj = $null
     hidden $PAMembers = @()
+    hidden $BAMembers = @()
     hidden $Repos = $null
     hidden $GuestMembers = @()
     hidden $AllUsersInOrg = @()
@@ -534,6 +535,85 @@ class Project: ADOSVTBase
         return $controlResult
     }
 
+    hidden [ControlResult] CheckMaxBACount([ControlResult] $controlResult){
+        $controlResult.VerificationResult = [verificationResult]::Failed;
+        $TotalBAMembers = 0;
+        if ($this.BAMembers.Count -eq 0) {
+            $this.BAMembers += @([AdministratorHelper]::GetTotalBAMembers($this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName))
+        }
+        if($this.BAMembers.Count -gt 0)
+        {
+            $TotalBAMembers = $this.BAMembers.Count
+            $controlResult.AddMessage("There are a total of $TotalBAMembers Build Administrators in your project.")
+            $controlResult.SetStateData("Count of Build Administrators: ",$TotalBAMembers)
+            if ([IdentityHelpers]::hasGraphAccess)
+            {
+                $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($this.BAMembers, $this.OrganizationContext.OrganizationName)
+                $humanAccounts = @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress)
+                $svcAccounts = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress)
+
+                $humanAccountsCount = $humanAccounts.Count
+                $svcAccountsCount = $svcAccounts.Count
+                #In case of graph access we will only evaluate the control on the basis of human accounts
+                if($humanAccountsCount -gt $this.ControlSettings.Project.MaxBAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of human build administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxBAMembersPermissible)");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of human build administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxBAMembersPermissible)");
+                }
+
+                $controlResult.AddMessage("Current set of Build Administrators: ")
+                $controlResult.AdditionalInfo += "Count of Build Administrators: " + $TotalBAMembers;
+                $controlResult.AdditionalInfoInCSV += "TotalAdmin: $($TotalBAMembers); ";
+                
+
+                if ($humanAccountsCount -gt 0) {
+                    $controlResult.AddMessage("`nCount of Human Build Administrators: $($humanAccountsCount)")
+                    $display = ($humanAccounts|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                    $controlResult.AdditionalInfoInCSV += "HumanBuildAdmin: $($humanAccountsCount); ";
+                    $humanIdentities = $humanAccounts | ForEach-Object { $_.displayName + ': ' + $_.mailAddress } | select-object -Unique -First 10;
+                    $controlResult.AdditionalInfoInCSV += "HumanBuildAdminList: $($humanIdentities -join ' ; ');";
+
+                }
+
+                if ($svcAccountsCount -gt 0) {
+                    $controlResult.AddMessage("`nCount of Service Accounts: $($svcAccountsCount)")
+                    $display = ($svcAccounts|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                    $controlResult.AdditionalInfoInCSV += "ServiceAccount: $($svcAccountsCount); ";
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([Constants]::graphWarningMessage+"`n");
+                $this.BAMembers = @($this.BAMembers | Select-Object displayName,mailAddress)
+                if($TotalBAMembers -gt $this.ControlSettings.Project.MaxBAMembersPermissible){
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Number of build administrators configured are more than the approved limit: $($this.ControlSettings.Project.MaxBAMembersPermissible).");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Number of build administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxBAMembersPermissible).");
+                }
+                $controlResult.AddMessage("Count of Build Administrators: $($TotalBAMembers)")
+                $controlResult.AddMessage("Current set of Build Administrators: ")
+                $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage($display)
+                $controlResult.AdditionalInfo += "Count of Build Administrators: " + $TotalBAMembers;
+                $controlResult.AdditionalInfoInCSV += "TotalBuildAdmin: $($TotalBAMembers); ";
+                $identities = $this.PAMembers | ForEach-Object { $_.displayName + ': ' + $_.mailAddress } | select-object -Unique -First 10;
+                $controlResult.AdditionalInfoInCSV += "BuildAdminList: $($identities -join ' ; ');";
+                
+            }
+        }
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Verify,"No Build Administrators are configured in the project.");
+        }       
+
+        return $controlResult
+    }
+
+
     hidden [ControlResult] CheckSCALTForAdminMembers([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -545,18 +625,18 @@ class Project: ADOSVTBase
             }
             if ($adminGroupNames.Count -gt 0)
             {
-                    #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
-                    $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
-                    $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
-                    $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
-                    $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
+                #api call to get descriptor for organization groups. This will be used to fetch membership of individual groups later.
+                $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+                $inputbody = '{"contributionIds":["ms.vss-admin-web.org-admin-groups-data-provider"],"dataProviderContext":{"properties":{"sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions";
+                $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $this.ResourceContext.ResourceName;
 
-                    $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+                $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
 
-                    if ($response -and [Helpers]::CheckMember($response[0], "dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider")
-                    {
-                        $adminGroups = @();
-                        $adminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $adminGroupNames }
+                if ($response -and [Helpers]::CheckMember($response[0], "dataProviders") -and $response[0].dataProviders."ms.vss-admin-web.org-admin-groups-data-provider")
+                {
+                  $adminGroups = @();
+                  $adminGroups += $response.dataProviders."ms.vss-admin-web.org-admin-groups-data-provider".identities | where { $_.displayName -in $adminGroupNames }
 
                         if($adminGroups.Count -gt 0)
                         {

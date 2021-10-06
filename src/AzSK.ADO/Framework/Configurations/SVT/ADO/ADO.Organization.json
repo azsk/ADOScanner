@@ -588,6 +588,23 @@
           "AutomatedFix"
         ],
         "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Disable_Request_Access",
+      "Description": "Disable request access policy in your organization.",
+      "Id": "Organization460",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckRequestAccessPolicy",
+      "Rationale": "Access to the ADO instance should be allowed by only joining standard groups set up the respective teams while onboarding. If the setting is on, an admin may hurriedly grant access to a potentially a malicious user who can use this to access the instance and laterally move around groups, bypassing the designed security model.",
+      "Recommendation": "1. Go to Organization Settings --> 2. Security --> 3. Policies --> 4. Under 'User Policies' disable 'Request Access'",
+      "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ"
+        ],
+        "Enabled": true
     }
   ]
 }
