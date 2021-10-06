@@ -662,6 +662,22 @@ class CommonSVTControls: ADOSVTBase {
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all yaml pipelines.");
+                try {
+                    $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/securefile/{2}" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+                    $secureFilePipelinePermObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                    $buildPipelineIds = @();
+                    if ($secureFilePipelinePermObj.Count -gt 0 -and $secureFilePipelinePermObj.pipelines.Count -gt 0) {
+                        $buildPipelineIds = $secureFilePipelinePermObj.pipelines.id
+                        $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.ResourceGroupName, ($buildPipelineIds -join ",");
+                        $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL);
+                        if (([Helpers]::CheckMember($buildDefnsObj,"name"))) {
+                            $controlResult.AdditionalInfoInCSV = "NumYAMLPipelineWithAccess: $($buildDefnsObj.Count)"
+                            $controlResult.AdditionalInfoInCSV = "List: " + ($buildDefnsObj.Name -join ",")
+                        }
+                    }
+                }
+                catch {
+                }
             }
         }
         catch {
