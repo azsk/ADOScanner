@@ -488,6 +488,32 @@ class Organization: ADOSVTBase
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Public projects are allowed in the organization.");
+                        try {
+                            $publicprojects = @();
+                            $url="https://dev.azure.com/{0}/_apis/projects?api-version=6.0" -f $($this.OrganizationContext.OrganizationName);
+                            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                            if([Helpers]::CheckMember($responseObj[0],"visibility"))
+                            {
+                                $publicprojects = $responseObj | Where-Object { $_.visibility -eq "public"};
+                            }
+
+                            if($publicprojects.count -gt 0)
+                            {   
+                                $controlResult.AdditionalInfoInCSV +="First 10 public projects`n"
+                                $publicprojects = $publicprojects.name
+                                if($publicprojects.count -gt 10)
+                                {
+                                    $controlResult.AdditionalInfoInCSV += "$($($publicprojects | Select -First 10) -join '; ' )"
+                                }
+                                else
+                                {
+                                    $controlResult.AdditionalInfoInCSV += "$($publicprojects -join '; ')"
+                                }                         
+                            }
+                        }
+                        catch {
+                            $controlResult.AddMessage("Could not fetch projects in the organization.");
+                        }
                     }
             }
             else
