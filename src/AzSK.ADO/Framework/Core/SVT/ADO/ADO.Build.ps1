@@ -1023,7 +1023,7 @@ class Build: ADOSVTBase
                                 }
                                 catch {
                                 }
-                                $editableTaskGroups += New-Object -TypeName psobject -Property @{TGId = $taskGrpId; DisplayName = $_.displayName; TGActualName = $TGActualName;}
+                                $editableTaskGroups += New-Object -TypeName psobject -Property @{DisplayName = $_.displayName; TGActualName = $TGActualName;}
                             }
                         }
                         if(($editableTaskGroups | Measure-Object).Count -gt 0)
@@ -1033,8 +1033,8 @@ class Build: ADOSVTBase
                             $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in build definition: ", $editableTaskGroups);
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
 
-                            $groups = $editableTaskGroups | ForEach-Object {$_.DisplayName, $_.TGActualName } 
-                            $addInfo = "NumTaskGroups: $($taskGroups.Count); List: $($groups -join '; ')"
+                            $groups = $editableTaskGroups | ForEach-Object {"TGName:"+ $_.DisplayName + ",TGActualName:" +$_.TGActualName } 
+                            $addInfo = "NumTG: $($taskGroups.Count); List: $($groups -join '; ')"
                             $controlResult.AdditionalInfo += $addInfo;
                             $controlResult.AdditionalInfoInCSV += $addInfo;
                         }
@@ -1170,7 +1170,7 @@ class Build: ADOSVTBase
                                         }
                                         catch {
                                         }
-                                        $editableTaskGroups += New-Object -TypeName psobject -Property @{TGId = $taskGrpId; DisplayName = $_.displayName; TGActualName = $TGActualName; GroupName = $broadGroupObj.principalName}
+                                        $editableTaskGroups += New-Object -TypeName psobject -Property @{DisplayName = $_.displayName; TGActualName = $TGActualName; GroupName = $broadGroupObj.principalName}
                                         
                                         $excessivePermissionsGroupObj = @{}
                                         $excessivePermissionsGroupObj['TaskGroupId'] = $taskGrpId
@@ -1196,8 +1196,8 @@ class Build: ADOSVTBase
                             $controlResult.AddMessage($display)
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
                             
-                            $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName; $_.TGActualName } 
-                            $addInfo = "NumTaskGroups: $($taskGroups.Count); NumTaskGroupsWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
+                            $groups = $editableTaskGroups | ForEach-Object {"TGName:"+ $_.DisplayName + ",TGActualName:" +$_.TGActualName }  
+                            $addInfo = "NumTG: $($taskGroups.Count); NumTGWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
                             $controlResult.AdditionalInfo += $addInfo;
                             $controlResult.AdditionalInfoInCSV += $addInfo;
 
@@ -1209,7 +1209,7 @@ class Build: ADOSVTBase
                         }
                         else
                         {
-                            $controlResult.AdditionalInfoInCSV += "NA"
+                            $controlResult.AdditionalInfoInCSV = "NA"
                             $controlResult.AdditionalInfo += "NA"
                             $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in build definition.");
                         }
@@ -1224,8 +1224,13 @@ class Build: ADOSVTBase
                                 $nonEditableTaskGroups = $taskGroups
                             }
                             $groups = $nonEditableTaskGroups | ForEach-Object { $_.DisplayName } 
-                            $controlResult.AdditionalInfoInCSV += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
-                            $controlResult.AdditionalInfo += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
+                            if ($controlResult.AdditionalInfoInCSV -eq "NA") {
+                                $controlResult.AdditionalInfoInCSV = "NonEditableTGList: $($groups -join '; ');"
+                            }
+                            else {
+                                $controlResult.AdditionalInfoInCSV += "NonEditableTGList: $($groups -join '; ');"
+                            }
+                            $controlResult.AdditionalInfo += "NonEditableTGList: $($groups -join '; ');"
                         }
                     }
                     catch

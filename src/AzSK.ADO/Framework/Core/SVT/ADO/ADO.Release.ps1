@@ -1231,7 +1231,7 @@ class Release: ADOSVTBase
                                     }
                                     catch {
                                     }
-                                    $editableTaskGroups += New-Object -TypeName psobject -Property @{TGId = $taskGrpId; DisplayName = $_.name; TGActualName = $TGActualName; GroupName=$obj.principalName}
+                                    $editableTaskGroups += New-Object -TypeName psobject -Property @{DisplayName = $_.name; TGActualName = $TGActualName; GroupName=$obj.principalName}
 
                                     $excessivePermissionsGroupObj = @{}
                                     $excessivePermissionsGroupObj['TaskGroupId'] = $taskGrpId
@@ -1252,9 +1252,9 @@ class Release: ADOSVTBase
                     {
                         $controlResult.AddMessage("Count of task groups on which contributors have edit permissions in release definition: $editableTaskGroupsCount");
                         #$controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;                                                
-                        $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName, $_.TGActualName } 
+                        $groups = $editableTaskGroups | ForEach-Object {"TGName:"+ $_.DisplayName + ",TGActualName:" +$_.TGActualName } 
 
-                        $addInfo = "NumTaskGroups: $(($taskGroups | Measure-Object).Count); NumTaskGroupWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
+                        $addInfo = "NumTG: $(($taskGroups | Measure-Object).Count); NumTGWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
                         $controlResult.AdditionalInfo += $addInfo;
                         $controlResult.AdditionalInfoInCSV += $addInfo;
                         
@@ -1269,7 +1269,7 @@ class Release: ADOSVTBase
                     }
                     else
                     {
-                        $controlResult.AdditionalInfoInCSV += "NA"
+                        $controlResult.AdditionalInfoInCSV = "NA"
                         $controlResult.AdditionalInfo += "NA"
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in release definition.");
                     }
@@ -1284,8 +1284,13 @@ class Release: ADOSVTBase
                             $nonEditableTaskGroups = $taskGroups
                         }                        
                         $groups = $nonEditableTaskGroups | ForEach-Object { $_.name } 
-                        $controlResult.AdditionalInfoInCSV += "NonEditableTaskGroupsList: $($groups -join '; ') ; "
-                        $controlResult.AdditionalInfo += "NonEditableTaskGroupsList: $($groups -join '; '); "
+                        if ($controlResult.AdditionalInfoInCSV -eq "NA") {
+                            $controlResult.AdditionalInfoInCSV = "NonEditableTGList: $($groups -join '; ');"
+                        }
+                        else {
+                            $controlResult.AdditionalInfoInCSV += "NonEditableTGList: $($groups -join '; ');"
+                        }
+                        $controlResult.AdditionalInfo += "NonEditableTGList: $($groups -join '; '); "
                     }
                 }
                 catch
@@ -1297,7 +1302,7 @@ class Release: ADOSVTBase
             }
             else
             {
-                $controlResult.AdditionalInfoInCSV += "NA"
+                $controlResult.AdditionalInfoInCSV = "NA"
                 $controlResult.AdditionalInfo += "NA";
                 $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in release definition.");
             }
