@@ -810,8 +810,8 @@ class Organization: ADOSVTBase
                         $controlResult.AdditionalInfoInCSV += "First 5 InactiveUsers: $($UserList -join ' ; '); ";
                     }
                     if ($neverActiveUsersCount -gt 0) {
-                        $UserList = $neverActiveUsers | ForEach-Object { $_.Name +': '+ $_.mailAddress } | select-object -Unique -First 5;
-                        $controlResult.AdditionalInfoInCSV += "First 5 NeverActiveUsers: $($UserList -join ' ; '); ";
+                        $UserList = $neverActiveUsers | ForEach-Object { $_.Name +': '+ $_.mailAddress + ': ' + $_.DateCreated } | select-object -Unique -First 10;
+                        $controlResult.AdditionalInfoInCSV += "First 10 NeverActiveUsers: $($UserList -join ' ; '); ";
                     }
                 }
                 else {
@@ -2178,8 +2178,8 @@ class Organization: ADOSVTBase
                             $controlResult.AddMessage("Never active admin user details:")
                             $display = $neverActiveUsersWithAdminAccess|FT -AutoSize | Out-String -Width 512
                             $controlResult.AddMessage($display)
-                            $usersList = $neverActiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName } | select-object -Unique -First 5;
-                            $controlResult.AdditionalInfoInCSV += "First 5 NeverActiveUsers: $($usersList -join ' ; ');";
+                            $usersList = $neverActiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName + ': ' + $_.DateCreated} | select-object -Unique -First 10;
+                            $controlResult.AdditionalInfoInCSV += "First 10 NeverActiveUsers: $($usersList -join ' ; ');";
                         }
 
                     }

@@ -2239,8 +2239,8 @@ class Project: ADOSVTBase
                             $controlResult.AddMessage("Never active admin user details:")
                             $display = $neverActiveUsersWithAdminAccess|FT -AutoSize | Out-String -Width 512
                             $controlResult.AddMessage($display)
-                            $usersList = $neverActiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName } | select-object -Unique -First 5;
-                            $controlResult.AdditionalInfoInCSV += "First 5 NeverActiveUsers: $($usersList -join ' ; ');";
+                            $usersList = $neverActiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName +': '+ $_.DateCreated } | select-object -Unique -First 10;
+                            $controlResult.AdditionalInfoInCSV += "First 10 NeverActiveUsers: $($usersList -join ' ; ');";
                         }
 
                     }
