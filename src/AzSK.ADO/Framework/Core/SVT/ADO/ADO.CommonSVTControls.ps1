@@ -717,7 +717,7 @@ class CommonSVTControls: ADOSVTBase {
         try{
             $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/configurations?resourceType=environment&resourceId={2}&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
             $response = [WebRequestHelper]::InvokeGetWebRequest($url);
-            if([Helpers]::CheckMember($response, "count") -and $response.count -eq 0){
+            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
             }
             else{
@@ -841,13 +841,19 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
             }
             else{
-                $branchControl = @($response.value | Where-Object{$_.settings.displayName -eq "Branch Control"})
+                $branchControl = @()
+                try{
+                    $branchControl = @($response.value.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
+                }
+                catch{
+                    $branchControl = @()
+                }
                 if($branchControl.Count -eq 0){
                     $controlResult.AddMessage([VerificationResult]::Failed, "Branch control has not been defined for the environment.");
                 }
                 else{
                     #response is a string of branches seperaed via comma
-                    $branches = ($branchControl.settings.inputs.allowedBranches).Split(",");
+                    $branches = ($branchControl.inputs.allowedBranches).Split(",");
                     $nonPermissibleBranchesFound = $false
                     foreach($branch in $branches){
                         try{
