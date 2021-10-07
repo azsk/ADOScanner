@@ -139,55 +139,69 @@ class AzSKADOServiceMapping: CommandBase
                 $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($_.id)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
                 $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
                 
-                if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") {
+                try {
+                    if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") {
                     
-                    $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
-                    if ($serviceConnEndPointDetail -and [Helpers]::CheckMember($serviceConnEndPointDetail, "serviceEndpointExecutionHistory") ) {
-                        $svcConnJobs = $serviceConnEndPointDetail.serviceEndpointExecutionHistory.data
-
-                        #Arranging in descending order of run time.
-                        $svcConnJobs = $svcConnJobs | Sort-Object startTime -Descending
-                        #Taking last 10 runs
-                        $svcConnJobs = $svcConnJobs | Select-Object -First 10
-                                        
-                        foreach ($job in $svcConnJobs)
-                        {                         
-                            if ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Build") {
-                                $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $job.definition.id) };
-                                if($buildSTData){
-                                    $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
-                                    break;
+                        #set true when STMapping not found in build & release STData files and need to recheck for azurerm type 
+                        $unmappedSerConn = false;                   
+    
+                        $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
+                        if ($serviceConnEndPointDetail -and [Helpers]::CheckMember($serviceConnEndPointDetail, "serviceEndpointExecutionHistory") ) {
+                            $svcConnJobs = $serviceConnEndPointDetail.serviceEndpointExecutionHistory.data
+    
+                            #Arranging in descending order of run time.
+                            $svcConnJobs = $svcConnJobs | Sort-Object startTime -Descending
+                            #Taking last 10 runs
+                            $svcConnJobs = $svcConnJobs | Select-Object -First 10
+                                            
+                            foreach ($job in $svcConnJobs)
+                            {                         
+                                if ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Build") {
+                                    $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $job.definition.id) };
+                                    if($buildSTData){
+                                        $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
+                                        break;
+                                    }
+                                    else {                                
+                                        $unmappedSerConn = true;
+                                    }
+                                    
                                 }
-                                
-                            }
-                            elseif ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Release") {
-                                $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $job.definition.id)};
-                                if($releaseSTData){
-                                    $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
-                                    break;
+                                elseif ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Release") {
+                                    $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $job.definition.id)};
+                                    if($releaseSTData){
+                                        $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
+                                        break;
+                                    }
+                                    else {
+                                        $unmappedSerConn = true;
+                                    }
                                 }
                             }
                         }
-                    }
-                    if($serviceConnEndPointDetail -and ![Helpers]::CheckMember($serviceConnEndPointDetail, "serviceEndpointExecutionHistory"))
-                    {
-                        if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
+                        if($serviceConnEndPointDetail -and ![Helpers]::CheckMember($serviceConnEndPointDetail, "serviceEndpointExecutionHistory") -or $unmappedSerConn)
                         {
-                            try {                                
-                                $responseObj = [WebRequestHelper]::GetServiceIdWithSubscrId($serviceConnEndPointDetail)                       
-                                if($responseObj)
-                                {
-                                      $serviceId = $responseObj[2].Rows[0][4];
-                                      $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $serviceId; projectName =  $_.serviceEndpointProjectReferences.projectReference.name; projectID = $_.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )                                    
+                            if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
+                            {
+                                try {                                
+                                    $responseObj = [WebRequestHelper]::GetServiceIdWithSubscrId($serviceConnEndPointDetail)                       
+                                    if($responseObj)
+                                    {
+                                          $serviceId = $responseObj[2].Rows[0][4];
+                                          $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $serviceId; projectName =  $_.serviceEndpointProjectReferences.projectReference.name; projectID = $_.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )                                    
+                                    }
                                 }
-                            }
-                            catch {
-                                
-                            }                             
-
-                        }   
+                                catch {
+                                    
+                                }                             
+    
+                            }   
+                        }
                     }
                 }
+                catch {
+                     #eat exception
+                }               
             }
         }
         catch
@@ -344,15 +358,15 @@ class AzSKADOServiceMapping: CommandBase
                     if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
                         if(($varGrps | Measure-Object).Count -gt 0)
                         {
-                            $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
+                            $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName;
                             $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
 
-                            $varGrps | ForEach-Object
-                            {
-                                $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;                            
-                                $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);                              
-                                    if ($varGrpObj.Type -eq 'AzureKeyVault')
-                                    {   
+                            $varGrps | ForEach-Object {
+
+                                try {
+                                    $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;                            
+                                    $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);                              
+                                    if ($varGrpObj.Type -eq 'AzureKeyVault') {   
                                         $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $releaseObj[0].id) };
                                         if($releaseSTData)
                                         {
@@ -387,7 +401,11 @@ class AzSKADOServiceMapping: CommandBase
     
                                             }  
                                         }
-                                    }                                                
+                                    } 
+                                }
+                                catch {
+                                    
+                                }                                                                               
                             }
                         }
                     }
@@ -396,7 +414,7 @@ class AzSKADOServiceMapping: CommandBase
                         try {
                             if(($secureFiles | Measure-Object).Count -gt 0)
                             {
-                                $secureFiles | ForEach-Object{
+                                $secureFiles | ForEach-Object {
                                 if (($secureFileDetails | Measure-Object).count -eq 0) {
                                     $secureFilesURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/securefiles?api-version=6.1-preview.1" -f $this.OrgName, $this.projectId;
                                     $secureFileDetails = [WebRequestHelper]::InvokeGetWebRequest($secureFilesURL);
@@ -477,46 +495,52 @@ class AzSKADOServiceMapping: CommandBase
 
                             $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
                             $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
-                            
-                            $varGrps | ForEach-Object{
 
-                                if ($varGrps.Type -eq 'AzureKeyVault')
-                                {   
-                                    $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $buildObj[0].id) -and ($_.projectName -eq $this.ProjectName) };
-                                    if($buildSTData)
-                                    {
-                                        $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.name; variableGroupID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
-                                    }
-                                }
-                                else 
-                                {
-                                    # get associated service connection id for variable group                 
-                                    $servConnID =  $varGrps[0].providerData.serviceEndpointId;  
-                                     
-                                    # get azure subscription id from service connection                                      
-                                    $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($servConnID)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-                                    $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
+                            $varGrps | ForEach-Object {
 
-                                    if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") 
-                                    {
-                                        $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
-                                        if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
+                                try {
+                                    if ($varGrps.Type -eq 'AzureKeyVault')
+                                    {   
+                                        $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $buildObj[0].id) -and ($_.projectName -eq $this.ProjectName) };
+                                        if($buildSTData)
                                         {
-                                            try {
-                                                $responseObj = [WebRequestHelper]::GetServiceIdWithSubscrId($serviceConnEndPointDetail)                                
-                                                if($responseObj)
-                                                {
-                                                        $serviceId = $responseObj[2].Rows[0][4];                                                    
-                                                        $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.name; variableGroupID = $_.id; serviceID = $serviceId; projectName = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.name; projectID = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )
-                                                }
-                                            }
-                                            catch {
-                                                
-                                            }                                           
-                                        }  
+                                            $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.name; variableGroupID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
+                                        }
                                     }
+                                    else 
+                                    {
+                                        # get associated service connection id for variable group                 
+                                        $servConnID =  $varGrps[0].providerData.serviceEndpointId;  
+                                         
+                                        # get azure subscription id from service connection                                      
+                                        $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($servConnID)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                                        $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
+    
+                                        if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") 
+                                        {
+                                            $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
+                                            if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
+                                            {
+                                                try {
+                                                    $responseObj = [WebRequestHelper]::GetServiceIdWithSubscrId($serviceConnEndPointDetail)                                
+                                                    if($responseObj)
+                                                    {
+                                                            $serviceId = $responseObj[2].Rows[0][4];                                                    
+                                                            $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.name; variableGroupID = $_.id; serviceID = $serviceId; projectName = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.name; projectID = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )
+                                                    }
+                                                }
+                                                catch {
+                                                    
+                                                }                                           
+                                            }  
+                                        }
+                                        
+                                    } 
+                                }
+                                catch {
                                     
-                                }                               
+                                }
+                                                             
                             }
                         }
                     }
@@ -590,7 +614,7 @@ class AzSKADOServiceMapping: CommandBase
                 $this.PublishCustomMessage("Total environments to be mapped:  $($environmentsObjList.count)")
                 $counter = 0
                 
-                $environmentsObjList | ForEach-Object {
+                $environmentsObjList | ForEach-Object{
                     $counter++
                     Write-Progress -Activity 'Environments mappings...' -CurrentOperation $_.Name -PercentComplete (($counter / $environmentsObjList.count) * 100)
 
