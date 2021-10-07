@@ -1087,6 +1087,12 @@ class Release: ADOSVTBase
                         $controlResult.AdditionalInfoInCSV = $addInfo;
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ", $editableTaskGroups);
                         $controlResult.SetStateData("List of task groups used in release definition that contributors can edit: ", $editableTaskGroups);
+
+                        if ($this.ControlFixBackupRequired)
+                        {
+                            #Data object that will be required to fix the control
+                            #$controlResult.BackupControlState = $obj
+                        }
                     }
                     else
                     {
@@ -1462,7 +1468,10 @@ class Release: ADOSVTBase
 
     hidden [ControlResult] CheckVariableGroupEditPermissionAutomatedFix([ControlResult] $controlResult)
     {
-        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try 
+        {
+        $RawDataObjForControlFix = @();
+        $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
         $varGrpIds = @();
         $editableVarGrps = @();
 
@@ -1488,9 +1497,7 @@ class Release: ADOSVTBase
         if($varGrpIds.Count -gt 0)
         {
             try
-            {
-                $failedCount = 0
-                $erroredCount = 0
+            {                                
                 foreach($vgId in $varGrpIds){
                     #Fetch the security role assignments for variable group
                     try {
@@ -1508,15 +1515,48 @@ class Release: ADOSVTBase
     
                             if($contributorsObj.Count -gt 0)
                             {   
-                                foreach($obj in $contributorsObj){
+                                foreach($obj in $contributorsObj)
+                                {
+                                    $body = "["
+
+                                    if (-not $this.UndoFix)
+                                    {
+                                        foreach ($identity in $RawDataObjForControlFix) 
+                                        {                    
+                                            if ($body.length -gt 1) {$body += ","}
+                                            $body += @"
+                                                {
+                                                    "vargroupid": "$($vgId)",
+                                                    "roleName": "Reader"
+                                                }
+"@;
+                                        }
+                                        $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                                        $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.group}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+                                    }
+                                    else {
+                                        foreach ($identity in $RawDataObjForControlFix) 
+                                        {                    
+                                            if ($body.length -gt 1) {$body += ","}
+                                            $body += @"
+                                                {
+                                                    "userId": "$($identity.id)",
+                                                    "roleName": "$($identity.role)"                          
+                                                }
+"@;
+                                        }
+                                        $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                                        $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.group}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+                                    }
+                                    $body += "]"
+                                 
                                     if($obj.role.name -ne 'Reader')
                                     {
                                         #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
                                         $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
                                         $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
                                         if ((-not ([Helpers]::CheckMember($varGrpObj[0],"count"))) -and ($varGrpObj.Count -gt 0) -and ([Helpers]::CheckMember($varGrpObj[0],"name"))) {
-                                        $editableVarGrps += $varGrpObj[0].name
-                                        $failedCount = $failedCount +1                                        
+                                        $editableVarGrps += $varGrpObj[0].name                                                                            
                                         break;
                                         }
                                     }
@@ -1524,28 +1564,10 @@ class Release: ADOSVTBase
                             }
                         }
                     }
-                    catch {
-                        $erroredCount = $erroredCount+1                        
+                    catch {                                  
                     }
                 }
-
-                $editableVarGrpsCount = $editableVarGrps.Count
-                if($editableVarGrpsCount -gt 0)
-                {
-                    $controlResult.AddMessage("`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount `n");
-                    $controlResult.AdditionalInfo += "`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount";                    
-                    $controlResult.AdditionalInfoInCSV = "NumVGs: $editableVarGrpsCount; List: $($editableVarGrps -join '; ')";
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Variable groups list: `n$($editableVarGrps | FT | Out-String)");
-                    $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
-                }
-                elseif($erroredCount -gt 0){
-                    $controlResult.AddMessage([VerificationResult]::Error,"`nCould not fetch the RBAC details of variable groups used in the pipeline.");
-                }
-                else
-                {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"`nContributors do not have edit permissions on variable groups used in release definition.");
-                    $controlResult.AdditionalInfoInCSV += "NA"
-                }
+               
             }
             catch
             {
@@ -1559,8 +1581,12 @@ class Release: ADOSVTBase
             $controlResult.AddMessage([VerificationResult]::Passed,"`nNo variable groups found in release definition.");
             $controlResult.AdditionalInfoInCSV += "NA"
         }
-
-        return $controlResult
+    }
+    catch {
+        $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+        $controlResult.LogException($_)
+    }
+    return $controlResult
     }
 
     hidden [ControlResult] CheckBroaderGroupAccess([ControlResult] $controlResult)
