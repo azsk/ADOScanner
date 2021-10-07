@@ -1072,7 +1072,19 @@ class Release: ADOSVTBase
                         # ResolvePermissions method returns object if 'Edit task group' is allowed
                         $obj = [Helpers]::ResolvePermissions($permissionsInBit, [Release]::TaskGroupNamespacePermissionObj.actions, 'Edit task group')
                         if (($obj | Measure-Object).Count -gt 0){
-                            $editableTaskGroups += $_.name
+                            $TGActualName ="";
+                            try {
+                                $tgURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/taskgroups/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $this.projectid, $taskGrpId ;
+                                $tgDetails = [WebRequestHelper]::InvokeGetWebRequest($tgURL);
+                                
+                                if([Helpers]::CheckMember($tgDetails,"name")) {
+                                    $TGActualName= $tgDetails.name;
+                                }
+                            }
+                            catch {
+                            }
+
+                            $editableTaskGroups += New-Object -TypeName psobject -Property @{TGId = $taskGrpId; DisplayName = $_.name; TGActualName = $TGActualName; }
                         }
                     }
 
@@ -1081,7 +1093,7 @@ class Release: ADOSVTBase
                         $editableTaskGroupsCount = ($editableTaskGroups | Measure-Object).Count;
                         $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", $editableTaskGroupsCount);
                         #$controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;
-                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object { $_.DisplayName }
+                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object {$_.TGActualName } 
                         $addInfo = "NumTaskGroups: $editableTaskGroupsCount; List: $($formatedTaskGroups -join ';')"
                         $controlResult.AdditionalInfo += $addInfo;
                         $controlResult.AdditionalInfoInCSV = $addInfo;
@@ -1240,7 +1252,7 @@ class Release: ADOSVTBase
                     {
                         $controlResult.AddMessage("Count of task groups on which contributors have edit permissions in release definition: $editableTaskGroupsCount");
                         #$controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;                                                
-                        $groups = $editableTaskGroups | ForEach-Object {$_.TGId; $_.DisplayName, $_.TGActualName } 
+                        $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName, $_.TGActualName } 
 
                         $addInfo = "NumTaskGroups: $(($taskGroups | Measure-Object).Count); NumTaskGroupWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
                         $controlResult.AdditionalInfo += $addInfo;

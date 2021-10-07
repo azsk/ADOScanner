@@ -1012,7 +1012,18 @@ class Build: ADOSVTBase
                             # ResolvePermissions method returns object if 'Edit task group' is allowed
                             $obj = [Helpers]::ResolvePermissions($permissionsInBit, [Build]::TaskGroupNamespacePermissionObj.actions, 'Edit task group')
                             if (($obj | Measure-Object).Count -gt 0){
-                                $editableTaskGroups += $_.DisplayName
+                                $TGActualName ="";
+                                try {
+                                    $tgURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/taskgroups/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $projectName, $taskGrpId ;
+                                    $tgDetails = [WebRequestHelper]::InvokeGetWebRequest($tgURL);
+
+                                    if([Helpers]::CheckMember($tgDetails,"name")) {
+                                        $TGActualName= $tgDetails.name;
+                                    }
+                                }
+                                catch {
+                                }
+                                $editableTaskGroups += New-Object -TypeName psobject -Property @{TGId = $taskGrpId; DisplayName = $_.displayName; TGActualName = $TGActualName;}
                             }
                         }
                         if(($editableTaskGroups | Measure-Object).Count -gt 0)
@@ -1022,7 +1033,7 @@ class Build: ADOSVTBase
                             $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in build definition: ", $editableTaskGroups);
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
 
-                            $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName } 
+                            $groups = $editableTaskGroups | ForEach-Object { $_.TGActualName } 
                             $addInfo = "NumTaskGroups: $($taskGroups.Count); List: $($groups -join '; ')"
                             $controlResult.AdditionalInfo += $addInfo;
                             $controlResult.AdditionalInfoInCSV += $addInfo;
@@ -1185,7 +1196,7 @@ class Build: ADOSVTBase
                             $controlResult.AddMessage($display)
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
                             
-                            $groups = $editableTaskGroups | ForEach-Object {$_.TGId; $_.DisplayName; $_.TGActualName } 
+                            $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName; $_.TGActualName } 
                             $addInfo = "NumTaskGroups: $($taskGroups.Count); NumTaskGroupsWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
                             $controlResult.AdditionalInfo += $addInfo;
                             $controlResult.AdditionalInfoInCSV += $addInfo;
