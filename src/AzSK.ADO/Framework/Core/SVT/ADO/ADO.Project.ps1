@@ -2201,8 +2201,8 @@ class Project: ADOSVTBase
                     elseif(($inactiveUsersCount -gt 0) -or ($neverActiveUsersCount -gt 0))
                     {
                         $totalInactiveUsers = @()
-                        $totalInactiveUsers += @($inactiveUsersWithAdminAccess | Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate)
-                        $totalInactiveUsers += @($neverActiveUsersWithAdminAccess | Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate)
+                        $totalInactiveUsers += @($inactiveUsersWithAdminAccess | Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate,DateCreated)
+                        $totalInactiveUsers += @($neverActiveUsersWithAdminAccess | Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate,DateCreated)
                         $totalInactiveUsersCount = $totalInactiveUsers.Count
 
                         $controlResult.AddMessage([VerificationResult]::Failed,"Total number of inactive users present in the admin roles: $($totalInactiveUsersCount)");
@@ -2228,8 +2228,6 @@ class Project: ADOSVTBase
                             $controlResult.AddMessage("Inactive admin user details:")
                             $display = $inactiveUsersWithAdminAccess|FT -AutoSize | Out-String -Width 512
                             $controlResult.AddMessage($display)
-                            $usersList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.PrincipalName +': '+ $_.InactiveFromDays + ' days'} | select-object -Unique -First 5;
-                            $controlResult.AdditionalInfoInCSV += "First 5 InactiveUsers: $($usersList -join ' ; '); ";
                         }
 
                         if($neverActiveUsersCount -gt 0)
@@ -2239,8 +2237,12 @@ class Project: ADOSVTBase
                             $controlResult.AddMessage("Never active admin user details:")
                             $display = $neverActiveUsersWithAdminAccess|FT -AutoSize | Out-String -Width 512
                             $controlResult.AddMessage($display)
-                            $usersList = $neverActiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName +': '+ $_.DateCreated } | select-object -Unique -First 10;
-                            $controlResult.AdditionalInfoInCSV += "First 10 NeverActiveUsers: $($usersList -join ' ; ');";
+                        }
+
+                        if($totalInactiveUsersCount -gt 0) {
+                            $inactiveUsersList = $totalInactiveUsers | Select-Object DisplayName, PrincipalName, @{Name="InactiveFromDays"; Expression = { if ($_.LastAccessedDate -eq "User was never active"){return (((Get-Date) - $_.dateCreated)).Days} else {return (((Get-Date) - $_.LastAccessedDate).Days)} }} | Sort-Object InactiveFromDays -Desc
+                            $UserList = $inactiveUsersList | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName +': '+ $_.InactiveFromDays +" days"} | select-object -Unique -First 10;
+                            $controlResult.AdditionalInfoInCSV += "First 10 InactiveUsers: $($UserList -join ' ; '); ";
                         }
 
                     }
