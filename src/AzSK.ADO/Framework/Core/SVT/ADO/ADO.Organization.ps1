@@ -905,14 +905,17 @@ class Organization: ADOSVTBase
                         $webRequestResult = Invoke-WebRequest -Uri $uri -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
                     }
                     $controlResult.AddMessage([VerificationResult]::Fixed,  "Following disconnected users are removed from the Org: ");
+                    $display = ($RawDataObjForControlFix |  FT Name,MailAddress -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Manual,  "Automated fix is not supported for this control. ");
                 }
 
-                $display = ($RawDataObjForControlFix |  FT Name,MailAddress -AutoSize | Out-String -Width 512)
-                $controlResult.AddMessage($display)
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Manual,  "No guest users found.");
+                $controlResult.AddMessage([VerificationResult]::Manual,  "No disconnected users found.");
             }
         }
         catch
