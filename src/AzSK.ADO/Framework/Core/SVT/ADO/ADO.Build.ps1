@@ -1279,7 +1279,13 @@ class Build: ADOSVTBase
                                         {
                                             $failedCount = $failedCount +1
                                             $editableVarGrps += $currentVarGrp.name
-                                            break;
+					                        
+                                            $formattedVarGroupsData = $obj | Select @{l = 'displayName'; e = { $_.identity.displayName } }, @{l = 'userid'; e = { $_.identity.id } }, @{l = 'role'; e = { $_.role.name } }, @{l = 'vargrpid'; e = { $currentVarGrp.id } } , @{l = 'vargrpname'; e = { $currentVarGrp.name } }                                     
+                                        
+	                                        if ($this.ControlFixBackupRequired) {
+	                                            #Data object that will be required to fix the control                                            
+	                                            $controlResult.BackupControlState += $formattedVarGroupsData;
+	                                        }                                             
                                         }
                                     }                            
                                 }
@@ -1291,7 +1297,13 @@ class Build: ADOSVTBase
                     }
                     
                 }
-                $editableVarGrpsCount = $editableVarGrps.Count
+                 if($editableVarGrps.Count -gt 0){
+                    $editableVarGrpsCount = ($editableVarGrps | Get-Unique).count
+                }
+                else{
+                    $editableVarGrpsCount = 0;
+                }
+		
                 if($editableVarGrpsCount -gt 0)
                 {
                     $controlResult.AddMessage("Count of variable groups on which contributors have edit permissions: $($editableVarGrpsCount)");
@@ -1327,85 +1339,68 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckVariableGroupEditPermissionAutomatedFix([ControlResult] $controlResult)
     {
-        $controlResult.VerificationResult = [VerificationResult]::Failed
-
-        if([Helpers]::CheckMember($this.BuildObj[0],"variableGroups"))
-        {
-            $varGrps = $this.BuildObj[0].variableGroups
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFixTemp = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject 
+            $RawDataObjForControlFixTemp = $RawDataObjForControlFix
             $projectId = $this.BuildObj.project.id
-            $editableVarGrps = @();
-            try
-            {
-                $failedCount = 0
-                $erroredCount = 0
-                foreach($currentVarGrp in $varGrps)
+            $varGrpIds = $RawDataObjForControlFix | Select-Object vargrpid -Unique
+            foreach ($vgId in $varGrpIds) {
+                $body = "["
+
+                if (-not $this.UndoFix)
                 {
-                    if([Helpers]::CheckMember($currentVarGrp,"name"))  ## Deleted VGs do not contain "name" property thats why ignoring them
-                    {
-                        try {
-                            $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($projectId), $($currentVarGrp.Id);
-                            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                            if($responseObj.Count -gt 0)
-                            {                        
-                                if([Build]::isInheritedPermissionCheckEnabled)
-                                {
-                                    $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
-                                }
-                                else {
-                                    $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access -eq "assigned")})                        
-                                }
-    
-                                if($contributorsObj.Count -gt 0)
-                                {   
-                                    foreach($obj in $contributorsObj){
-                                        if($obj.role.name -ne 'Reader')
-                                        {
-                                            $failedCount = $failedCount +1
-                                            $editableVarGrps += $currentVarGrp.name
-                                            break;
-                                        }
-                                    }                            
-                                }
+                    foreach ($identity in $RawDataObjForControlFix) 
+                    {                    
+                        if ($body.length -gt 1) {$body += ","}
+                        if ($identity.vargrpid -eq $vgId.vargrpid){
+                        $body += @"
+                            {
+                                "userid":"$($identity.userid)",
+                                "roleName": "Reader"
                             }
-                        }
-                        catch {
-                            $erroredCount = $erroredCount+1
+                            
+"@;
                         }
                     }
-                    
+                    $RawDataObjForControlFixTemp | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                    $RawDataObjForControlFixTemp = @($RawDataObjForControlFix  | Select-Object @{Name="UserName"; Expression={$_.displayName}},@{Name="VarGrpName"; Expression={$_.vargrpname}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
                 }
-                $editableVarGrpsCount = $editableVarGrps.Count
-                if($editableVarGrpsCount -gt 0)
-                {
-                    $controlResult.AddMessage("Count of variable groups on which contributors have edit permissions: $($editableVarGrpsCount)");
-                    $controlResult.AdditionalInfo += "Count of variable groups on which contributors have edit permissions: " + $editableVarGrpsCount;
-                    $controlResult.AddMessage([VerificationResult]::Failed, "`nVariable groups list: `n$($editableVarGrps | FT | Out-String)");
-                    $controlResult.SetStateData("Variable groups list: ", $editableVarGrps);
-                    $controlResult.AdditionalInfoInCSV = "NumVGs: $editableVarGrpsCount; List: $($editableVarGrps -join '; ')";
+                else {
+                    foreach ($identity in $RawDataObjForControlFix) 
+                    {                    
+                        if ($body.length -gt 1) {$body += ","}
+                        if ($identity.vargrpid -eq $vgId.vargrpid){
+                        $body += @"
+                            {
+                                "userid": "$($identity.userid)",
+                                "roleName": "$($identity.role)"                          
+                            }
+"@;
+                        }
+                    }
+                    $RawDataObjForControlFixTemp | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                    $RawDataObjForControlFixTemp = @($RawDataObjForControlFix  | Select-Object @{Name="UserName"; Expression={$_.displayName}},@{Name="VarGrpName"; Expression={$_.vargrpname}}, @{Name="OldRole"; Expression={$_.OldRole}}, @{Name="NewRole"; Expression={$_.Role}})
                 }
-                elseif($erroredCount -gt 0) {
-                    $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the RBAC details of variable groups used in the pipeline.");
-                }
-                else
-                {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any variable groups used in build definition.");
-                    $controlResult.AdditionalInfoInCSV += "NA"
-                }
-            }
-            catch
-            {
-                $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch the RBAC details of variable groups used in the pipeline.");
-                $controlResult.LogException($_)
-            }
+                $body += "]"  
 
-        }
-        else
-        {
-            $controlResult.AddMessage([VerificationResult]::Passed,"No variable groups found in build definition.");
-            $controlResult.AdditionalInfoInCSV += "NA"
-        }
-
-        return $controlResult
+                #Put request                
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName),$($projectId) ,$($vgId.vargrpid);
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+                $webRequestResult = Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -Body $body	
+            }						    
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Contributors edit permissions for variable groups have been changed as below: ");
+                $display = ($RawDataObjForControlFixTemp |  FT -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("`n$display");                                     
+    }
+    catch {
+        $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+        $controlResult.LogException($_)
+    }
+    return $controlResult
     }
 
     hidden [ControlResult] CheckBuildAuthZScope([ControlResult] $controlResult)
