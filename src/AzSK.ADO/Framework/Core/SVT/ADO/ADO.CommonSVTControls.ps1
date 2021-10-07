@@ -742,7 +742,7 @@ class CommonSVTControls: ADOSVTBase {
         {
             $RawDataObjForControlFix = @();
             $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-
+            $vargrouid =   $RawDataObjForControlFix | Select-Object  $_.vargrpid -Unique    
             $body = "["
 
             if (-not $this.UndoFix)

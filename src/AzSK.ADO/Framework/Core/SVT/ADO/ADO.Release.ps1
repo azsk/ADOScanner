@@ -1419,10 +1419,19 @@ class Release: ADOSVTBase
                                         $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
                                         if ((-not ([Helpers]::CheckMember($varGrpObj[0],"count"))) -and ($varGrpObj.Count -gt 0) -and ([Helpers]::CheckMember($varGrpObj[0],"name"))) {
                                         $editableVarGrps += $varGrpObj[0].name
-                                        $failedCount = $failedCount +1                                        
-                                        break;
-                                        }
+                                        $failedCount = $failedCount +1 
+                                                                                
+                                        $formattedVarGroupsData = $obj | Select @{l = 'displayName'; e = { $_.identity.displayName } }, @{l = 'groupid'; e = { $_.identity.id } }, @{l = 'role'; e = { $_.role.name } }, @{l = 'vargrpid'; e = { $varGrpObj.id } }                                       
+                                        
+                                        if ($this.ControlFixBackupRequired)
+                                        {
+                                            #Data object that will be required to fix the control                                            
+                                            $controlResult.BackupControlState += $formattedVarGroupsData;
+                                        }                                                                                
+                                        
                                     }
+                                    
+                                }
                                 }                            
                             }
                         }
@@ -1470,117 +1479,42 @@ class Release: ADOSVTBase
     {
         try 
         {
-        $RawDataObjForControlFix = @();
-        $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-        $varGrpIds = @();
-        $editableVarGrps = @();
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject               
+            
+            $body = "["
 
-        #add var groups scoped at release scope.
-        $releaseVarGrps = @($this.ReleaseObj[0].variableGroups)
-        if($releaseVarGrps.Count -gt 0)
-        {
-            $varGrpIds += $releaseVarGrps
-        }
-
-        # Each release pipeline has atleast 1 env.
-        $envCount = ($this.ReleaseObj[0].environments).Count
-
-        for($i=0; $i -lt $envCount; $i++)
-        {
-            $environmentVarGrps = @($this.ReleaseObj[0].environments[$i].variableGroups);
-            if($environmentVarGrps.Count -gt 0)
-            {
-                $varGrpIds += $environmentVarGrps
-            }
-        }
-
-        if($varGrpIds.Count -gt 0)
-        {
-            try
-            {                                
-                foreach($vgId in $varGrpIds){
-                    #Fetch the security role assignments for variable group
-                    try {
-                        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
-                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                        if($responseObj.Count -gt 0)
-                        {                                       
-                            if([Release]::isInheritedPermissionCheckEnabled)
+                if (-not $this.UndoFix)
+                {
+                    foreach ($identity in $RawDataObjForControlFix) 
+                    {                    
+                        if ($body.length -gt 1) {$body += ","}
+                        $body += @"
                             {
-                                $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
+                                "vargroupid": "$($identity.vargrpid)",
+                                "roleName": "Reader"
                             }
-                            else {
-                                $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access -eq "assigned")})                        
-                            }
-    
-                            if($contributorsObj.Count -gt 0)
-                            {   
-                                foreach($obj in $contributorsObj)
-                                {
-                                    $body = "["
-
-                                    if (-not $this.UndoFix)
-                                    {
-                                        foreach ($identity in $RawDataObjForControlFix) 
-                                        {                    
-                                            if ($body.length -gt 1) {$body += ","}
-                                            $body += @"
-                                                {
-                                                    "vargroupid": "$($vgId)",
-                                                    "roleName": "Reader"
-                                                }
 "@;
-                                        }
-                                        $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
-                                        $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.group}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
-                                    }
-                                    else {
-                                        foreach ($identity in $RawDataObjForControlFix) 
-                                        {                    
-                                            if ($body.length -gt 1) {$body += ","}
-                                            $body += @"
-                                                {
-                                                    "userId": "$($identity.id)",
-                                                    "roleName": "$($identity.role)"                          
-                                                }
-"@;
-                                        }
-                                        $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
-                                        $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.group}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
-                                    }
-                                    $body += "]"
-                                 
-                                    if($obj.role.name -ne 'Reader')
-                                    {
-                                        #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
-                                        $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
-                                        $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
-                                        if ((-not ([Helpers]::CheckMember($varGrpObj[0],"count"))) -and ($varGrpObj.Count -gt 0) -and ([Helpers]::CheckMember($varGrpObj[0],"name"))) {
-                                        $editableVarGrps += $varGrpObj[0].name                                                                            
-                                        break;
-                                        }
-                                    }
-                                }                            
-                            }
-                        }
                     }
-                    catch {                                  
-                    }
+                    $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                    $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.displayName}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
                 }
-               
-            }
-            catch
-            {
-                $controlResult.AddMessage([VerificationResult]::Error,"`nCould not fetch the RBAC details of variable groups used in the pipeline.");
-                $controlResult.LogException($_)
-            }
-
-        }
-        else
-        {
-            $controlResult.AddMessage([VerificationResult]::Passed,"`nNo variable groups found in release definition.");
-            $controlResult.AdditionalInfoInCSV += "NA"
-        }
+                else {
+                    foreach ($identity in $RawDataObjForControlFix) 
+                    {                    
+                        if ($body.length -gt 1) {$body += ","}
+                        $body += @"
+                            {
+                                "vargroupid": "$($identity.vargrpid)",
+                                "roleName": "$($identity.role)"                          
+                            }
+"@;
+                    }
+                    $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                    $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.displayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+                }
+        $body += "]"  
+          
     }
     catch {
         $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
