@@ -130,11 +130,12 @@ class AzSKADOServiceMapping: CommandBase
             $this.PublishCustomMessage("Total service connections to be mapped:  $(($Connections | Measure-Object).Count)")
             $counter = 0
             
+            $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
+            $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
+
             $Connections | ForEach-Object {
                 $counter++            
-                Write-Progress -Activity 'Service connection mappings...' -CurrentOperation $_.Name -PercentComplete (($counter / $Connections.count) * 100)            
-                $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
-                $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
+                Write-Progress -Activity 'Service connection mappings...' -CurrentOperation $_.Name -PercentComplete (($counter / $Connections.count) * 100)                            
                 $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($_.id)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
                 $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
                 
@@ -343,6 +344,9 @@ class AzSKADOServiceMapping: CommandBase
                     if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
                         if(($varGrps | Measure-Object).Count -gt 0)
                         {
+                            $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
+                            $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
+
                             $varGrps | ForEach-Object
                             {
                                 $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;                            
@@ -359,10 +363,8 @@ class AzSKADOServiceMapping: CommandBase
                                     {                                                                       
                                         # get associated service connection id for variable group                 
                                         $servConnID =  $varGrpObj[0].providerData.serviceEndpointId;  
-                                        
-                                        # get azure subscription id from service connection   
-                                        $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
-                                        $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
+
+                                        # get azure subscription id from service connection                                          
                                         $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($servConnID)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
                                         $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
     
@@ -472,6 +474,10 @@ class AzSKADOServiceMapping: CommandBase
                         if([Helpers]::CheckMember($buildObj[0],"variableGroups"))
                         {
                             $varGrps = @($buildObj[0].variableGroups)
+
+                            $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
+                            $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
+                            
                             $varGrps | ForEach-Object{
 
                                 if ($varGrps.Type -eq 'AzureKeyVault')
@@ -487,9 +493,7 @@ class AzSKADOServiceMapping: CommandBase
                                     # get associated service connection id for variable group                 
                                     $servConnID =  $varGrps[0].providerData.serviceEndpointId;  
                                      
-                                    # get azure subscription id from service connection  
-                                    $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
-                                    $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
+                                    # get azure subscription id from service connection                                      
                                     $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($servConnID)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
                                     $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
 
