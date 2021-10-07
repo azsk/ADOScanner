@@ -1374,7 +1374,7 @@ class SVTResourceResolver: AzSKRoot {
                   $buildIdsFromAttestation = @($incrementalScanHelperObjAudit.GetAttestationAfterInc($projectName,'Build'));
                   #perform union in case attested resources also appear in audit logs
                   $buildIdsFromAudit = @($buildIdsFromAudit + $buildIdsFromAttestation | select -uniq)
-                  if($buildIdsFromAudit.Count -eq 0 -or $null -ne $buildIdsFromAudit[0]){
+                  if($buildIdsFromAudit.Count -gt 0 -and $null -ne $buildIdsFromAudit[0]){
                       #get only those builds that have been modified before latest scan, builds modified after will be captured later
                       $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedBuildsFromAudit($buildIdsFromAudit,$projectName))
                   }
@@ -1388,7 +1388,7 @@ class SVTResourceResolver: AzSKRoot {
                   $releaseIdsFromAudit = @($incrementalScanHelperObjAudit.GetAuditTrailsForReleases());
                   $releaseIdsFromAttestation = @($incrementalScanHelperObjAudit.GetAttestationAfterInc($projectName,'Release'));
                   $releaseIdsFromAudit = @($releaseIdsFromAudit + $releaseIdsFromAttestation | select -uniq)
-                  if($releaseIdsFromAudit.Count -eq 0 -or $null -ne $releaseIdsFromAudit[0]){
+                  if($releaseIdsFromAudit.Count -gt 0 -and $null -ne $releaseIdsFromAudit[0]){
                       $modifiedResources=@($incrementalScanHelperObjAudit.GetModifiedReleasesFromAudit($releaseIdsFromAudit,$projectName))
                   }
               }
