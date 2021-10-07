@@ -884,7 +884,7 @@ class Organization: ADOSVTBase
         try{
             $RawDataObjForControlFix = @();
             $RawDataObjForControlFix = @(([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject)
-
+            # If emails are mentioned in exluded principals, filter them out
             if ($this.InvocationContext.BoundParameters["ExcludePrincipalId"])
             {
                 $excludePrincipalId = $this.InvocationContext.BoundParameters["ExcludePrincipalId"]

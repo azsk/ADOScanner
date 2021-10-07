@@ -147,7 +147,7 @@
       "Automated": "Yes",
       "MethodName": "CheckDisconnectedIdentities",  
       "Rationale": "Cleaning up/removing RBAC entries for users who have left the organization is a good security hygiene practice.",
-      "Recommendation": "1. Go to Organization Settings --> 2. Azure Active Directory --> 3. If you are an org admin, you will see a notification for disconnected users on AD --> 4. Click on 'Resolve'",
+      "Recommendation": "1. Go to Organization Settings --> 2. Azure Active Directory --> 3. If you are an org admin, you will see a notification for disconnected users on AD --> 4. If the disconnected users are no longer needed, delete them. Otherwise click on 'Resolve' and follow the instructions to map the disconnected users to existing identities.",
       "Tags": [
         "SDL",
         "TCP",
