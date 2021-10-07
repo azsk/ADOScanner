@@ -766,7 +766,7 @@ class CommonSVTControls: ADOSVTBase {
 
         }
         catch{
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch approvals and checks on the environment.");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch list of approvers on the environment.");
         }
         return $controlResult
     }
@@ -843,7 +843,8 @@ class CommonSVTControls: ADOSVTBase {
             else{
                 $branchControl = @()
                 try{
-                    $branchControl = @($response.value.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
+                    $branchControl = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $branchControl = @($branchControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                 }
                 catch{
                     $branchControl = @()
@@ -886,7 +887,7 @@ class CommonSVTControls: ADOSVTBase {
 
         }
         catch{
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch approvals and checks on the environment.");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch branch control checks on the environment.");
         }
         return $controlResult
     }
