@@ -172,25 +172,17 @@ class AzSKADOServiceMapping: CommandBase
                     {
                         if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                         {
-                              $subscriptionID = $serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId;
-                              Write-Progress -Activity 'Fetching Service Id from Azure Data explorer...' -CurrentOperation $serviceConnEndPointDetail.serviceEndpoint.name;
-                              
-                              # call data studio to fetch azure subscription id and servce id mapping
-                              $apiURL = "https://datastudiostreaming.kusto.windows.net/v2/rest/query"                                                                    
-                              $inputbody = '{"db": "Shared","csl": "DataStudio_ServiceTree_AzureSubscription_Snapshot | where SubscriptionId contains ''{0}''", "properties": {"Options": {"query_language": "csl","servertimeout": "00:04:00","queryconsistency": "strongconsistency","request_readonly": false,"request_readonly_hardline": false}}}'
-                              $inputbody = $inputbody.Replace("{0}", $subscriptionID)   
-                              
-                              # generate access token with datastudio api audience
-                              $accessToken =[ContextHelper]::GetGraphAccessToken($false,$true)
-                              $header = @{
-                                "Authorization" = "Bearer " + $accessToken
+                            try {                                
+                                $responseObj = [WebRequestHelper]::GetServiceIdWithSubscrId($serviceConnEndPointDetail)                       
+                                if($responseObj)
+                                {
+                                      $serviceId = $responseObj[2].Rows[0][4];
+                                      $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $serviceId; projectName =  $_.serviceEndpointProjectReferences.projectReference.name; projectID = $_.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )                                    
+                                }
                             }
-                              $responseObj = [WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Post,$apiURL,$header,$inputbody,"application/json; charset=UTF-8");                               
-                              if($responseObj)
-                              {
-                                    $serviceId = $responseObj[2].Rows[0][4];
-                                    $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $serviceId; projectName =  $_.serviceEndpointProjectReferences.projectReference.name; projectID = $_.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )                                    
-                              }
+                            catch {
+                                
+                            }                             
 
                         }   
                     }
@@ -351,58 +343,50 @@ class AzSKADOServiceMapping: CommandBase
                     if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
                         if(($varGrps | Measure-Object).Count -gt 0)
                         {
-                        $varGrps | ForEach-Object{
-                            $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;                            
-                            $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);                              
-                                if ($varGrpObj.Type -eq 'AzureKeyVault')
-                                {   
-                                    # get associated service connection id for variable group                 
-                                    $servConnID =  $varGrpObj[0].providerData.serviceEndpointId;  
-                                    
-                                    # get azure subscription id from service connection   
-                                    $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
-                                    $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
-                                    $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($servConnID)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-                                    $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
-
-                                    if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") 
-                                    {
-                                        $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
-                                        if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
+                            $varGrps | ForEach-Object
+                            {
+                                $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;                            
+                                $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);                              
+                                    if ($varGrpObj.Type -eq 'AzureKeyVault')
+                                    {   
+                                        $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $releaseObj[0].id) };
+                                        if($releaseSTData)
                                         {
-                                            $subscriptionID = $serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId;
-                                            Write-Progress -Activity 'Fetching Service Id from Azure Data explorer...' -CurrentOperation $serviceConnEndPointDetail.serviceEndpoint.name;
-
-                                            # call data studio to fetch azure subscription id and servce id mapping
-                                            $apiURL = "https://datastudiostreaming.kusto.windows.net/v2/rest/query"                                                                    
-                                            $inputbody = '{"db": "Shared","csl": "DataStudio_ServiceTree_AzureSubscription_Snapshot | where SubscriptionId contains ''{0}''", "properties": {"Options": {"query_language": "csl","servertimeout": "00:04:00","queryconsistency": "strongconsistency","request_readonly": false,"request_readonly_hardline": false}}}'                                            
-                                            $inputbody = $inputbody.Replace("{0}", $subscriptionID)    
-                                            
-                                            #generate access token with datastudio api audience
-                                            $accessToken =[ContextHelper]::GetGraphAccessToken($false,$true)
-                                            $header = @{
-                                                "Authorization" = "Bearer " + $accessToken
-                                            }
-                                            $responseObj = [WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Post,$apiURL,$header,$inputbody,"application/json; charset=UTF-8");                               
-                                            if($responseObj)
-                                            {
-                                                    $serviceId = $responseObj[2].Rows[0][4];
-                                                    $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $serviceId; projectName = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.name; projectID = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )
-                                            }
-
-                                        }  
+                                            $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
+                                        }
                                     }
-                                }
-                                else 
-                                {
-                                    $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $releaseObj[0].id) };
-                                    if($releaseSTData)
-                                    {
-                                        $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
-                                    }                                    
-                                }
-                        
-                        }
+                                    else 
+                                    {                                                                       
+                                        # get associated service connection id for variable group                 
+                                        $servConnID =  $varGrpObj[0].providerData.serviceEndpointId;  
+                                        
+                                        # get azure subscription id from service connection   
+                                        $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
+                                        $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
+                                        $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($servConnID)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                                        $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
+    
+                                        if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") 
+                                        {
+                                            $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
+                                            if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
+                                            {
+                                                try {
+                                                    $responseObj = [WebRequestHelper]::GetServiceIdWithSubscrId($serviceConnEndPointDetail)                               
+                                                    if($responseObj)
+                                                    {
+                                                            $serviceId = $responseObj[2].Rows[0][4];
+                                                            $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $serviceId; projectName = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.name; projectID = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )
+                                                    } 
+                                                }
+                                                catch {
+                                                    
+                                                }                                          
+    
+                                            }  
+                                        }
+                                    }                                                
+                            }
                         }
                     }
 
@@ -492,6 +476,14 @@ class AzSKADOServiceMapping: CommandBase
 
                                 if ($varGrps.Type -eq 'AzureKeyVault')
                                 {   
+                                    $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $buildObj[0].id) -and ($_.projectName -eq $this.ProjectName) };
+                                    if($buildSTData)
+                                    {
+                                        $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.name; variableGroupID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
+                                    }
+                                }
+                                else 
+                                {
                                     # get associated service connection id for variable group                 
                                     $servConnID =  $varGrps[0].providerData.serviceEndpointId;  
                                      
@@ -506,35 +498,18 @@ class AzSKADOServiceMapping: CommandBase
                                         $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
                                         if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                                         {
-                                            $subscriptionID = $serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId;
-                                            Write-Progress -Activity 'Fetching Service Id from Azure Data explorer...' -CurrentOperation $serviceConnEndPointDetail.serviceEndpoint.name;
-
-                                            # call data studio to fetch azure subscription id and servce id mapping
-                                            $apiURL = "https://datastudiostreaming.kusto.windows.net/v2/rest/query"                                                                                                                
-                                            $inputbody = '{"db": "Shared","csl": "DataStudio_ServiceTree_AzureSubscription_Snapshot | where SubscriptionId contains ''{0}''", "properties": {"Options": {"query_language": "csl","servertimeout": "00:04:00","queryconsistency": "strongconsistency","request_readonly": false,"request_readonly_hardline": false}}}'
-                                            $inputbody = $inputbody.Replace("{0}", $subscriptionID)  
-
-                                            # generate access token with datastudio api audience                      
-                                            $accessToken =[ContextHelper]::GetGraphAccessToken($false,$true)
-                                            $header = @{
-                                                "Authorization" = "Bearer " + $accessToken
+                                            try {
+                                                $responseObj = [WebRequestHelper]::GetServiceIdWithSubscrId($serviceConnEndPointDetail)                                
+                                                if($responseObj)
+                                                {
+                                                        $serviceId = $responseObj[2].Rows[0][4];                                                    
+                                                        $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.name; variableGroupID = $_.id; serviceID = $serviceId; projectName = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.name; projectID = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )
+                                                }
                                             }
-                                            $responseObj = [WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Post,$apiURL,$header,$inputbody,"application/json; charset=UTF-8");                               
-                                            if($responseObj)
-                                            {
-                                                    $serviceId = $responseObj[2].Rows[0][4];                                                    
-                                                    $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.name; variableGroupID = $_.id; serviceID = $serviceId; projectName = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.name; projectID = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )
-                                            }
-
+                                            catch {
+                                                
+                                            }                                           
                                         }  
-                                    }
-                                }
-                                else 
-                                {
-                                    $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $buildObj[0].id) -and ($_.projectName -eq $this.ProjectName) };
-                                    if($buildSTData)
-                                    {
-                                        $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.name; variableGroupID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
                                     }
                                     
                                 }                               

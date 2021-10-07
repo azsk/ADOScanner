@@ -329,6 +329,78 @@ class ContextHelper {
 		return $accessToken;
 	}
 
+    static [string] GetDataExplorerAccessToken($useAzContext)
+	{
+        $accessToken = ''
+        try
+        {   
+            Write-Host "Graph access is required to evaluate some controls. Attempting to acquire graph token." -ForegroundColor Cyan
+            # In CA mode, we use azure context to fetch the graph access token.
+            if ($useAzContext)
+            {
+                #getting azure context because graph access token requires azure environment details.
+                $Context = @(Get-AzContext -ErrorAction SilentlyContinue )
+                if ($Context.count -eq 0)  
+                {
+                    
+                    Connect-AzAccount -ErrorAction Stop
+                    $Context = @(Get-AzContext -ErrorAction SilentlyContinue)
+                }
+
+                if ($null -eq $Context)  
+                {
+                    throw "Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate."
+                }
+                else
+                {
+                    $graphUri = "https://graph.microsoft.com"
+                    $authResult = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate(
+                    $Context.Account,
+                    $Context.Environment,
+                    $Context.Tenant.Id,
+                    [System.Security.SecureString] $null,
+                    "Never",
+                    $null,
+                    $graphUri);
+
+                    if (-not ($authResult -and (-not [string]::IsNullOrWhiteSpace($authResult.AccessToken))))
+                    {
+                        throw ([SuppressedException]::new(("Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate."), [SuppressedExceptionType]::Generic))
+                    }
+
+                    $accessToken = $authResult.AccessToken;
+                }
+            }
+            else 
+            {
+                # generating graph access token using default VSTS client.
+                $clientId = [Constants]::DefaultClientId;          
+                $replyUri = [Constants]::DefaultReplyUri; 
+                $adoResourceId = "https://help.kusto.windows.net/";                                         
+                if ([ContextHelper]::PSVersion -gt 5) {
+                    $result = [ContextHelper]::GetGraphAccess()
+                }
+                else {
+                    [AuthenticationContext] $ctx = [AuthenticationContext]::new("https://login.windows.net/common");
+                    [AuthenticationResult] $result = $null;
+                    $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
+                    $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
+                    $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+                }
+                $accessToken = $result.AccessToken
+            }
+            Write-Host "Successfully acquired graph access token." -ForegroundColor Cyan
+        }
+        catch
+        {
+            Write-Host "Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate." -ForegroundColor Red
+            Write-Host "Continuing without graph access." -ForegroundColor Yellow
+            return $null
+        }
+
+		return $accessToken;
+	}
+
     hidden static [PSobject] GetGraphAccess()
     {
         $rootConfigPath = [Constants]::AzSKAppFolderPath;
@@ -525,6 +597,24 @@ class ContextHelper {
         else {
             return "NO_ACTIVE_SESSION"
         }
+    }
+
+    static [object] GetServiceIdWithSubscrId($serviceConnEndPointDetail)
+    {
+        $subscriptionID = $serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId;
+        Write-Progress -Activity 'Fetching Service Id from Azure Data explorer...' -CurrentOperation $serviceConnEndPointDetail.serviceEndpoint.name;
+
+        # call data studio to fetch azure subscription id and servce id mapping
+        $apiURL = "https://datastudiostreaming.kusto.windows.net/v2/rest/query"                                                                    
+        $inputbody = '{"db": "Shared","csl": "DataStudio_ServiceTree_AzureSubscription_Snapshot | where SubscriptionId contains ''{0}''", "properties": {"Options": {"query_language": "csl","servertimeout": "00:04:00","queryconsistency": "strongconsistency","request_readonly": false,"request_readonly_hardline": false}}}'                                            
+        $inputbody = $inputbody.Replace("{0}", $subscriptionID)    
+                                            
+        #generate access token with datastudio api audience
+        $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false,$true)
+        $header = @{
+                        "Authorization" = "Bearer " + $accessToken
+                    }
+        return $[WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Post,$apiURL,$header,$inputbody,"application/json; charset=UTF-8");     
     }
 
 }
