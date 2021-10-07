@@ -190,7 +190,7 @@
       "Automated": "Yes",
       "MethodName": "CheckPreDeploymentApproversOnEnv",
       "Rationale": "Periodic review of approvers list for production deployments ensures that only appropriate people are members of such a critical role. As team composition/membership changes, this privilege may need to be revoked from members who are no more in the team.",
-      "Recommendation": "To remove any user/group from the approvers list: 1. Go to Project --> 2. Pipelines --> 3. Environments --> 4. Select your environment from the list --> 5. Click on the three dots in upper right corner --> 6. Select 'Approvals and Checks' --> 7. Select 'Approvals' --> 8. Remove users/groups as needed from approvers list. Refer detailed log file to review the list of approvers. ",
+      "Recommendation": "To remove any user/group from the approvers list: 1. Go to Project --> 2. Pipelines --> 3. Environments --> 4. Select your environment from the list --> 5. Click on the three dots in upper right corner --> 6. Select 'Approvals and Checks' --> 7. Select 'Approvals' --> 8. Review users/groups as needed from approvers list. Refer detailed log file to review the list of approvers. ",
       "Tags": [
         "SDL",
         "TCP",
