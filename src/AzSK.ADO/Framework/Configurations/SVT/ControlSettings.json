@@ -515,6 +515,11 @@
       "Endpoint Administrators",
       "Project Administrators"
     ],
+    "CheckExtendedGroupsForInactiveUser":false,
+    "ExtendedGroupsToCheckForInactiveUser":[
+      "Build Administrators",
+      "Release Administrators"
+    ],
     "AdminInactivityThresholdInDays": 90
   },
   "Feed":{
