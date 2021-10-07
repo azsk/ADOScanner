@@ -1093,7 +1093,7 @@ class Release: ADOSVTBase
                         $editableTaskGroupsCount = ($editableTaskGroups | Measure-Object).Count;
                         $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", $editableTaskGroupsCount);
                         #$controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;
-                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object {$_.TGActualName } 
+                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object {$_.DisplayName, $_.TGActualName } 
                         $addInfo = "NumTaskGroups: $editableTaskGroupsCount; List: $($formatedTaskGroups -join ';')"
                         $controlResult.AdditionalInfo += $addInfo;
                         $controlResult.AdditionalInfoInCSV = $addInfo;

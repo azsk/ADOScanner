@@ -1033,7 +1033,7 @@ class Build: ADOSVTBase
                             $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in build definition: ", $editableTaskGroups);
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
 
-                            $groups = $editableTaskGroups | ForEach-Object { $_.TGActualName } 
+                            $groups = $editableTaskGroups | ForEach-Object {$_.DisplayName, $_.TGActualName } 
                             $addInfo = "NumTaskGroups: $($taskGroups.Count); List: $($groups -join '; ')"
                             $controlResult.AdditionalInfo += $addInfo;
                             $controlResult.AdditionalInfoInCSV += $addInfo;
