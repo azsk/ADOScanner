@@ -1548,9 +1548,10 @@ class Release: ADOSVTBase
                 $projectName = $this.ResourceContext.ResourceGroupName
                 $releaseId = $this.ReleaseObj.id
                 $permissionSetToken = "$($this.projectId)/$releaseId"
-                if ([Helpers]::CheckMember($this.ControlSettings.Release, "RestrictedBroaderGroupsForRelease")) {
-                    $restrictedBroaderGroups = @{}
-                    $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
+                
+                $restrictedBroaderGroups = @{}
+                $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
+                if(@($broaderGroups.psobject.Properties).Count -gt 0){
                     $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
                     $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release?_a=releases&view=mine&definitionId=$releaseId"
 
@@ -1692,8 +1693,8 @@ class Release: ADOSVTBase
                     $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
                     $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -width 512)");
                 }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for release is not defined in the control settings for your organization policy.");
                 }
             }
             catch
