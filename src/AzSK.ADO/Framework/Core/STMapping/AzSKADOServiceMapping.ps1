@@ -143,7 +143,7 @@ class AzSKADOServiceMapping: CommandBase
                     if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") {
                     
                         #set true when STMapping not found in build & release STData files and need to recheck for azurerm type 
-                        $unmappedSerConn = false;                   
+                        $unmappedSerConn = $false;                   
     
                         $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
                         if ($serviceConnEndPointDetail -and [Helpers]::CheckMember($serviceConnEndPointDetail, "serviceEndpointExecutionHistory") ) {
@@ -160,10 +160,11 @@ class AzSKADOServiceMapping: CommandBase
                                     $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $job.definition.id) };
                                     if($buildSTData){
                                         $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
+                                        $unmappedSerConn = $false; 
                                         break;
                                     }
                                     else {                                
-                                        $unmappedSerConn = true;
+                                        $unmappedSerConn = $true;
                                     }
                                     
                                 }
@@ -171,10 +172,11 @@ class AzSKADOServiceMapping: CommandBase
                                     $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $job.definition.id)};
                                     if($releaseSTData){
                                         $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
+                                        $unmappedSerConn = $false; 
                                         break;
                                     }
                                     else {
-                                        $unmappedSerConn = true;
+                                        $unmappedSerConn = $true;
                                     }
                                 }
                             }
@@ -184,7 +186,7 @@ class AzSKADOServiceMapping: CommandBase
                             if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                             {
                                 try {                                
-                                    $responseObj = [WebRequestHelper]::GetServiceIdWithSubscrId($serviceConnEndPointDetail)                       
+                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail)                       
                                     if($responseObj)
                                     {
                                           $serviceId = $responseObj[2].Rows[0][4];
@@ -388,7 +390,7 @@ class AzSKADOServiceMapping: CommandBase
                                             if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                                             {
                                                 try {
-                                                    $responseObj = [WebRequestHelper]::GetServiceIdWithSubscrId($serviceConnEndPointDetail)                               
+                                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail)                               
                                                     if($responseObj)
                                                     {
                                                             $serviceId = $responseObj[2].Rows[0][4];
@@ -522,7 +524,7 @@ class AzSKADOServiceMapping: CommandBase
                                             if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                                             {
                                                 try {
-                                                    $responseObj = [WebRequestHelper]::GetServiceIdWithSubscrId($serviceConnEndPointDetail)                                
+                                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail)                                
                                                     if($responseObj)
                                                     {
                                                             $serviceId = $responseObj[2].Rows[0][4];                                                    
@@ -711,7 +713,7 @@ class AzSKADOServiceMapping: CommandBase
                                     $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { $_.releaseDefinitionID -eq $definitionId };
                                     if($buildSTData){
                                         $feedSTMapping.data += @([PSCustomObject] @{ feedName = $feed.Name; feedID = $feed.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
-                                        break;
+                                        break;                                        
                                     }
                                 }  
                             }
@@ -729,6 +731,32 @@ class AzSKADOServiceMapping: CommandBase
 
         $this.ExportObjToJsonFile($feedSTMapping, 'FeedSTData.json');
         return $true;
+    }
+
+    hidden [object] GetServiceIdWithSubscrId($serviceConnEndPointDetail)
+    {
+        $response = $null
+        try {
+            $subscriptionID = $serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId;
+            Write-Progress -Activity 'Fetching Service Id from Azure Data explorer...' -CurrentOperation $serviceConnEndPointDetail.serviceEndpoint.name;
+    
+            # call data studio to fetch azure subscription id and servce id mapping
+            $apiURL = "https://datastudiostreaming.kusto.windows.net/v2/rest/query"                                                                    
+            $inputbody = '{"db": "Shared","csl": "DataStudio_ServiceTree_AzureSubscription_Snapshot | where SubscriptionId contains ''{0}''", "properties": {"Options": {"query_language": "csl","servertimeout": "00:04:00","queryconsistency": "strongconsistency","request_readonly": false,"request_readonly_hardline": false}}}'                                            
+            $inputbody = $inputbody.Replace("{0}", $subscriptionID)    
+                                                
+            #generate access token with datastudio api audience
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $header = @{
+                            "Authorization" = "Bearer " + $accessToken
+                        }
+            $response = [WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Post,$apiURL,$header,$inputbody,"application/json; charset=UTF-8");     
+                        
+        }
+        catch {
+            
+        }  
+        return $response     
     }
 
 }

@@ -251,7 +251,7 @@ class ContextHelper {
     }
 
     
-    static [string] GetGraphAccessToken($useAzContext,$datastudioAudience)
+    static [string] GetGraphAccessToken($useAzContext)
 	{
         $accessToken = ''
         try
@@ -298,13 +298,8 @@ class ContextHelper {
                 # generating graph access token using default VSTS client.
                 $clientId = [Constants]::DefaultClientId;          
                 $replyUri = [Constants]::DefaultReplyUri; 
-                if($datastudioAudience)
-                {
-                    $adoResourceId = "https://help.kusto.windows.net/";
-                }
-                else {
-                    $adoResourceId = "https://graph.microsoft.com/";
-                }                            
+                $adoResourceId = "https://graph.microsoft.com/";
+                                         
                 if ([ContextHelper]::PSVersion -gt 5) {
                     $result = [ContextHelper]::GetGraphAccess()
                 }
@@ -597,24 +592,6 @@ class ContextHelper {
         else {
             return "NO_ACTIVE_SESSION"
         }
-    }
-
-    static [object] GetServiceIdWithSubscrId($serviceConnEndPointDetail)
-    {
-        $subscriptionID = $serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId;
-        Write-Progress -Activity 'Fetching Service Id from Azure Data explorer...' -CurrentOperation $serviceConnEndPointDetail.serviceEndpoint.name;
-
-        # call data studio to fetch azure subscription id and servce id mapping
-        $apiURL = "https://datastudiostreaming.kusto.windows.net/v2/rest/query"                                                                    
-        $inputbody = '{"db": "Shared","csl": "DataStudio_ServiceTree_AzureSubscription_Snapshot | where SubscriptionId contains ''{0}''", "properties": {"Options": {"query_language": "csl","servertimeout": "00:04:00","queryconsistency": "strongconsistency","request_readonly": false,"request_readonly_hardline": false}}}'                                            
-        $inputbody = $inputbody.Replace("{0}", $subscriptionID)    
-                                            
-        #generate access token with datastudio api audience
-        $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false,$true)
-        $header = @{
-                        "Authorization" = "Bearer " + $accessToken
-                    }
-        return $[WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Post,$apiURL,$header,$inputbody,"application/json; charset=UTF-8");     
-    }
+    }    
 
 }
