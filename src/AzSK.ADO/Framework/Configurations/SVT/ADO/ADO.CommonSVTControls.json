@@ -261,13 +261,12 @@
       "Automated": "Yes",
       "MethodName": "CheckCredentialsAndSecretsPolicyOnRepository",
       "Rationale": "Exposed credentials in engineering systems continue to provide easily exploitable opportunities for attackers. To defend against this threat, Microsoft security experts developed the CredScan tool to automatically find exposed secrets. CredScan indexes and scans for credentials & other sensitive content in source code, as well as other data sources.",
-      "Recommendation": "Go to Project Settings --> Repositories --> Select a repository --> Policies --> Enable 'Check for credentials and other secrets'.",
+      "Recommendation": "1. Go to Project Settings --> 2. Repositories --> 3. Select a repository --> 4. Policies --> 5. Enable 'Check for credentials and other secrets'.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "Best Practice",
-        "MSW"
+        "Best Practice"
       ],
       "Enabled": true
     }

@@ -131,8 +131,7 @@
         "ResourceType": "Repository",
         "ControlIds": [
           "ADO_Repository_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
-          "ADO_Repository_AuthZ_Dont_Grant_BuildSvc_Permission_On_Branch",
-          "ADO_Repository_DP_Enable_Credentials_And_Secrets_Policy"
+          "ADO_Repository_AuthZ_Dont_Grant_BuildSvc_Permission_On_Branch"
         ]
       }
     ]
