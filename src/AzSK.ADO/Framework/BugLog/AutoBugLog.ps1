@@ -617,9 +617,16 @@ class AutoBugLog {
             $bugDescription = $this.ControlSettings.BugLogging.Description;
         }
 
+        #checking if resource owner is a valid user or not
+        $emailRegEx = $this.ControlSettings.Patterns | Where-Object {$_.RegexCode -eq "Email"} | Select-Object -Property RegexList;
+        $bugNote = ""
+        if ($emailRegEx -inotmatch $resourceOwner) {
+            $bugNote = "</br></br><b>Note: </b> The resource owner or last modified identity is a service account.</br>"
+        }
+
         $scanCommand = $this.GetControlReproStep($control);
-        $Description = $bugDescription -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlItem.Description, $control.ControlResults[0].VerificationResult, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ResourceContext.ResourceDetails.ResourceLink, $control.ResourceContext.ResourceName, $scanCommand, $resourceOwner
-        
+        $Description = $bugDescription -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName, $control.ControlItem.Description, $control.ControlResults[0].VerificationResult, $control.ControlItem.Rationale, $control.ControlItem.Recommendation, $control.ResourceContext.ResourceDetails.ResourceLink, $control.ResourceContext.ResourceName, $scanCommand, $resourceOwner, $bugNote
+
         #check and append any detailed log and state data for the control failure
         $log = $this.GetDetailedLogForControl($control);
         if ($log) {
