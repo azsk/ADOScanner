@@ -658,8 +658,24 @@ class Project: ADOSVTBase
                                 $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )}
                             }
 
+                            if($this.ControlSettings.Project.CheckExtendedGroupsForSCALTMembers){
+                                $groups = $allAdminMembers | Group-Object "mailAddress"
+                                $groupedAdminMembers = @()
+                                $groupedAdminMembers +=foreach ($grpobj in $groups){    
+                                    $grp = ($grpobj.Group.groupName  | select -Unique)-join ','
+                                    $name = $grpobj.Group.name | select -Unique
+                                    $mailAddress = $grpobj.Group.mailAddress | select -Unique
+                                    $id = $grpobj.Group.id | select -Unique
+                                    [PSCustomObject]@{name = $name;mailAddress = $mailAddress; id = $id;groupName = $grp}
+                                } 
+                                $allAdminMembers = $groupedAdminMembers 
+                            }
+                            else{
+                                $allAdminMembers = @($allAdminMembers| Sort-Object -Property mailAddress -Unique)
+                            }
+
                             # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
-                            $allAdminMembers = @($allAdminMembers| Sort-Object -Property mailAddress -Unique)
+                            
 
                             if($allAdminMembers.Count -gt 0)
                             {
@@ -694,7 +710,7 @@ class Project: ADOSVTBase
                                             $stateData = @();
                                             $stateData += $nonSCMembers
                                             $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges:  $nonSCCount");
-                                            $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
+                                            $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String -Width 512));
                                             $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                             $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
                                             $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress + ';' } | select-object -Unique -First 10
@@ -712,7 +728,7 @@ class Project: ADOSVTBase
                                             $SCData += $SCMembers
                                             $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
                                             $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
-                                            $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
+                                            $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String -Width 512));
                                         }
                                     }
                                     else {
@@ -742,7 +758,7 @@ class Project: ADOSVTBase
                                             $stateData = @();
                                             $stateData += $nonSCMembers
                                             $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of non-ALT accounts with admin privileges: $nonSCCount");
-                                            $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
+                                            $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String -Width 512));
                                             $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                             $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
                                             $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress } | select-object -Unique -First 10
@@ -760,7 +776,7 @@ class Project: ADOSVTBase
                                             $SCData += $SCMembers
                                             $controlResult.AddMessage("`nCount of ALT accounts with admin privileges: $SCCount");
                                             $controlResult.AdditionalInfo += "Count of ALT accounts with admin privileges: " + $SCCount;
-                                            $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String));
+                                            $controlResult.AddMessage("List of ALT accounts: ", $($SCData | Format-Table -AutoSize | Out-String -Width 512));
                                         }
                                     }
                                     else {
