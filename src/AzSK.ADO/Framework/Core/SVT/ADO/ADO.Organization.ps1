@@ -835,8 +835,8 @@ class Organization: ADOSVTBase
 
                     $controlResult.AdditionalInfoInCSV += "NumInactiveUsers: $($inactiveUsersCount) ; ";
                     if($inactiveUsersCount -gt 0) {
-                        $inactiveUsersList = $inactiveUsers | Select-Object mailAddress, Name, @{Name="InactiveFromDays"; Expression = { if ($_.InactiveFromDays -eq "User was never active."){return (((Get-Date) - [datetime]::Parse($_.dateCreated)).Days)} else {return $_.InactiveFromDays} }} | Sort-Object InactiveFromDays -Desc
-                        $UserList = $inactiveUsersList | ForEach-Object { $_.Name +': '+ $_.mailAddress +': '+ $_.InactiveFromDays +" days"} | select-object -Unique -First 10;
+                        $inactiveUsersList = $inactiveUsers | Select-Object mailAddress, Name, @{Name="InactiveFromDays"; Expression = { if ($_.InactiveFromDays -eq "User was never active."){return (((Get-Date) - [datetime]::Parse($_.dateCreated)).Days)} else {return $_.InactiveFromDays} }}, @{Name="NACTag"; Expression = { if ($_.InactiveFromDays -eq "User was never active."){return " (NAC)"} }} | Sort-Object InactiveFromDays -Desc
+                        $UserList = $inactiveUsersList | ForEach-Object { $_.Name +': '+ $_.mailAddress +': '+ $_.InactiveFromDays +" days" + $_.NACTag} | select-object -Unique -First 10;
                         $controlResult.AdditionalInfoInCSV += "First 10 InactiveUsers: $($UserList -join ' ; '); ";
                     }
                 }
@@ -2136,7 +2136,7 @@ class Organization: ADOSVTBase
                         $AdminUsersMasterList += foreach( $grpobj in $groups ){
                                                   $PrincipalName = $grpobj.name
                                                   $OrgGroup = ($grpobj.group.groupName  | select -Unique)-join ','
-                                                  $DisplayName = $grpobj.group.name | select -Unique
+                                                  $DisplayName = $grpobj.group.name | select -Unique -First 1
                                                   $date = ""
                                                   $createdDate = ""
                                                   $descriptor = $grpobj.group.descriptor | select -Unique
@@ -2257,8 +2257,8 @@ class Organization: ADOSVTBase
                         }
                         
                         if($totalInactiveUsersCount -gt 0) {
-                            $inactiveUsersList = $totalInactiveUsers | Select-Object DisplayName, PrincipalName, @{Name="InactiveFromDays"; Expression = { if ($_.LastAccessedDate -eq "User was never active"){return (((Get-Date) - $_.dateCreated)).Days} else {return (((Get-Date) - $_.LastAccessedDate).Days)} }} | Sort-Object InactiveFromDays -Desc
-                            $UserList = $inactiveUsersList | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName +': '+ $_.InactiveFromDays +" days"} | select-object -Unique -First 10;
+                            $inactiveUsersList = $totalInactiveUsers | Select-Object DisplayName, PrincipalName, @{Name="InactiveFromDays"; Expression = { if ($_.LastAccessedDate -eq "User was never active"){return (((Get-Date) - $_.dateCreated)).Days} else {return (((Get-Date) - $_.LastAccessedDate).Days)} }}, @{Name="NACTag"; Expression = { if ($_.LastAccessedDate -eq "User was never active"){return " (NAC)"} }} | Sort-Object InactiveFromDays -Desc
+                            $UserList = $inactiveUsersList | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName +': '+ $_.InactiveFromDays +" days" + $_.NACTag} | select-object -Unique -First 10;
                             $controlResult.AdditionalInfoInCSV += "First 10 InactiveUsers: $($UserList -join ' ; '); ";
                         }
 
