@@ -511,10 +511,10 @@ class CommonSVTControls: ADOSVTBase {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            if ([Helpers]::CheckMember($this.ControlSettings, "Feed.RestrictedBroaderGroupsForFeeds"))
-            {
-                $restrictedBroaderGroups = @{}
-                $restrictedBroaderGroupsForFeeds = $this.ControlSettings.Feed.RestrictedBroaderGroupsForFeeds
+            $restrictedBroaderGroups = @{}
+            $restrictedBroaderGroupsForFeeds = $this.ControlSettings.Feed.RestrictedBroaderGroupsForFeeds
+
+            if(@($restrictedBroaderGroupsForFeeds.psobject.properties).Count -gt 0){
                 $restrictedBroaderGroupsForFeeds.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
 
                 #GET https://feeds.dev.azure.com/{organization}/{project}/_apis/packaging/Feeds/{feedId}/permissions?api-version=6.0-preview.1
@@ -576,9 +576,8 @@ class CommonSVTControls: ADOSVTBase {
                 $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
                 $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($displayObj | FT -AutoSize | out-string)");
             }
-            else
-            {
-                $controlResult.AddMessage([VerificationResult]::Error,  "List of broader groups for feeds is not defined in control settings for your organization.");
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of broader groups for feeds is not defined in control settings for your organization.");
             }
         }
         catch
@@ -702,9 +701,10 @@ class CommonSVTControls: ADOSVTBase {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedBroaderGroupsForSecureFile")) {
-                $restrictedBroaderGroups = @{}
-                $restrictedBroaderGroupsForSecureFile = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile
+            $restrictedBroaderGroups = @{}
+            $restrictedBroaderGroupsForSecureFile = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile
+
+            if(@($restrictedBroaderGroupsForSecureFile.psobject.properties).Count -gt 0){
                 $restrictedBroaderGroupsForSecureFile.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
 
                 $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
@@ -749,9 +749,8 @@ class CommonSVTControls: ADOSVTBase {
                 $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
                 $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($displayObj | FT -AutoSize | out-string)");
             }
-            else
-            {
-                $controlResult.AddMessage([VerificationResult]::Error,  "List of broader groups for secure file is not defined in control settings for your organization.");
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of broader groups for secure file is not defined in control settings for your organization.");
             }
         }
         catch
