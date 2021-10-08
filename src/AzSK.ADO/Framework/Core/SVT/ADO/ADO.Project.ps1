@@ -2240,8 +2240,8 @@ class Project: ADOSVTBase
                         }
 
                         if($totalInactiveUsersCount -gt 0) {
-                            $inactiveUsersList = $totalInactiveUsers | Select-Object DisplayName, PrincipalName, @{Name="InactiveFromDays"; Expression = { if ($_.LastAccessedDate -eq "User was never active"){return (((Get-Date) - $_.dateCreated)).Days} else {return (((Get-Date) - $_.LastAccessedDate).Days)} }} | Sort-Object InactiveFromDays -Desc
-                            $UserList = $inactiveUsersList | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName +': '+ $_.InactiveFromDays +" days"} | select-object -Unique -First 10;
+                            $inactiveUsersList = $totalInactiveUsers | Select-Object DisplayName, PrincipalName, @{Name="InactiveFromDays"; Expression = { if ($_.LastAccessedDate -eq "User was never active"){return (((Get-Date) - $_.dateCreated)).Days} else {return (((Get-Date) - $_.LastAccessedDate).Days)} }}, @{Name="NACTag"; Expression = { if ($_.LastAccessedDate -eq "User was never active"){return " (NAC)"} }} | Sort-Object InactiveFromDays -Desc
+                            $UserList = $inactiveUsersList | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName +': '+ $_.InactiveFromDays +" days" + $_.NACTag} | select-object -Unique -First 10;
                             $controlResult.AdditionalInfoInCSV += "First 10 InactiveUsers: $($UserList -join ' ; '); ";
                         }
 
