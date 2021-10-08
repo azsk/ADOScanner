@@ -1450,4 +1450,45 @@ class CommonSVTControls: ADOSVTBase {
         }
         return $controlResult
     }
+    hidden [ControlResult] CheckCredentialsAndSecretsPolicyOnRepository([ControlResult] $controlResult) {
+        # body for post request
+        
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+        $inputbody = '{"contributionIds": ["ms.vss-code-web.repository-policies-data-provider"],"dataProviderContext": {"properties": {"projectId": "","repositoryId": "","sourcePage": {"url": "","routeId": "ms.vss-admin-web.project-admin-hub-route","routeValues": {"project": "","adminPivot": "repositories","controller": "ContributedPage","action": "Execute"}}}}}' | ConvertFrom-Json
+        $inputbody.dataProviderContext.properties.projectId = "$($this.ResourceContext.ResourceDetails.project.id)"
+        $inputbody.dataProviderContext.properties.repositoryId = "$($this.ResourceContext.ResourceDetails.id)"
+        $inputbody.dataProviderContext.properties.sourcePage.routeValues.project = "$($this.ResourceContext.ResourceDetails.project.Name)"
+        $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/{0}/{1}/_settings/repositories?repo={2}&_a=policiesMid" -f $($this.OrganizationContext.OrganizationName),$($this.ResourceContext.ResourceGroupName),$($this.ResourceContext.ResourceDetails.id)
+                                                                    
+        try {
+            $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+            if ([Helpers]::CheckMember($response, "dataProviders") -and $response.dataProviders.'ms.vss-code-web.repository-policies-data-provider' -and [Helpers]::CheckMember($response.dataProviders.'ms.vss-code-web.repository-policies-data-provider', "policyGroups")) {
+                # fetching policy groups
+                $policyGroups = $response.dataProviders."ms.vss-code-web.repository-policies-data-provider".policyGroups
+                # fetching "Secrets scanning restriction"
+                $credScanId = $this.ControlSettings.Repo.CredScanPolicyID
+                if ([Helpers]::CheckMember($policyGroups, $credScanId)) {
+                    $currentScopePoliciesSecrets = $policyGroups."$($credScanId)".currentScopePolicies
+                    if ($currentScopePoliciesSecrets.isEnabled) {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Check for credentials and other secrets is enabled.");
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Check for credentials and other secrets is disabled.");
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Check for credentials and other secrets is disabled.");
+                }
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies $($_).");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
 }

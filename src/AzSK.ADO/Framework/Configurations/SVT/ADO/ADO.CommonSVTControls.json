@@ -252,6 +252,24 @@
         "AutomatedFix"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Repository_DP_Enable_Credentials_And_Secrets_Policy",
+      "Description": "Enable credential scanner to block pushes that contain credentials and other secrets.",
+      "Id": "Repository150",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckCredentialsAndSecretsPolicyOnRepository",
+      "Rationale": "Exposed credentials in engineering systems continue to provide easily exploitable opportunities for attackers. To defend against this threat, Microsoft security experts developed the CredScan tool to automatically find exposed secrets. CredScan indexes and scans for credentials & other sensitive content in source code, as well as other data sources.",
+      "Recommendation": "Go to Project Settings --> Repositories --> Select a repository --> Policies --> Enable 'Check for credentials and other secrets'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "Best Practice",
+        "MSW"
+      ],
+      "Enabled": true
     }
   ]
 }
