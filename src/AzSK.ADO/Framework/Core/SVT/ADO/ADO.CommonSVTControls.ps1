@@ -6,6 +6,7 @@ class CommonSVTControls: ADOSVTBase {
     hidden [string] $checkInheritedPermissionsSecureFile = $false
     hidden [string] $checkInheritedPermissionsEnvironment = $false
     hidden [string] $checkInheritedPermissionsRepo = $false
+    hidden [string] $checkInheritedPermissionsFeed = $false
     hidden [object] $repoInheritePermissions = @{};
     hidden [PSObject] $excessivePermissionBitsForRepo = @(1)
     hidden [PSObject] $excessivePermissionsForRepoBranch = $null;
@@ -25,6 +26,10 @@ class CommonSVTControls: ADOSVTBase {
             #allow permission bit for inherited permission is '3'
             $this.checkInheritedPermissionsRepo = $true
             $this.excessivePermissionBitsForRepo = @(1,3)
+        }
+
+        if ([Helpers]::CheckMember($this.ControlSettings.Feed, "CheckForInheritedPermissions") -and $this.ControlSettings.Feed.CheckForInheritedPermissions) {
+            $this.checkInheritedPermissionsFeed = $true
         }
 
         $this.excessivePermissionsForRepoBranch = $this.ControlSettings.Repo.ExcessivePermissionsForBranch        
@@ -516,9 +521,10 @@ class CommonSVTControls: ADOSVTBase {
                 #Using visualstudio api because new api (dev.azure.com) is giving null in the displayName property.
 
                 #orgFeedURL will be used to identify if feed is org scoped or project scoped
-                $orgFeedURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds*'  -f $this.OrganizationContext.OrganizationName
                 $scope = "Project"
-                if ($this.ResourceContext.ResourceDetails.url -match $orgFeedURL){
+                
+                #Project property does not exist of org scoped feeds
+                if ("Project" -notin $this.ResourceContext.ResourceDetails.PSobject.Properties.name){
                     $url = 'https://{0}.feeds.visualstudio.com/_apis/Packaging/Feeds/{1}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
                     $controlResult.AddMessage("`n***Organization scoped feed***")
                     $scope = "Organization"
@@ -528,6 +534,10 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AddMessage("`n***Project scoped feed***")
                 }
                 $feedPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                if ($this.checkInheritedPermissionsFeed -eq $false) {
+                    $feedPermissionList = $feedPermissionList | where-object { $_.isInheritedRole -eq $false }
+                }
+                
                 $excesiveFeedsPermissions = @($feedPermissionList | Where-Object { $restrictedBroaderGroups.keys -contains $_.displayName.split('\')[-1] -and ($_.role -in $restrictedBroaderGroups[$_.displayName.split('\')[-1]])})
                 $feedWithBroaderGroup = @($excesiveFeedsPermissions | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="Name"; Expression = {$_.displayName}}) ;
 
@@ -1020,9 +1030,9 @@ class CommonSVTControls: ADOSVTBase {
         try
         {
             #orgFeedURL will be used to identify if feed is org scoped or project scoped
-            $orgFeedURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds*'  -f $this.OrganizationContext.OrganizationName
             $scope = "Project"
-            if ($this.ResourceContext.ResourceDetails.url -match $orgFeedURL){
+            #Project property does not exist of org scoped feeds
+            if ("Project" -notin $this.ResourceContext.ResourceDetails.PSobject.Properties.name){
                 $url = 'https://{0}.feeds.visualstudio.com/_apis/Packaging/Feeds/{1}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
                 $controlResult.AddMessage("`n***Organization scoped feed***")
                 $scope = "Organization"

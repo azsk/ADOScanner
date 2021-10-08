@@ -2816,4 +2816,72 @@ class Organization: ADOSVTBase
         }
     }
 
+
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForFeed ([ControlResult] $controlResult) {
+
+        try {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            #$projectId = $this.ResourceContext.ResourceDetails.Id
+
+            $restrictedBroaderGroups = @{}
+            $RestrictedBroaderGroupsForFeeds = $this.ControlSettings.Feed.RestrictedBroaderGroupsForFeeds;
+            $RestrictedBroaderGroupsForFeeds.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
+
+            #Fetch feeds RBAC
+            $roleAssignments = @();
+
+            $url = "https://feeds.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Packaging/GlobalPermissions?includeIds=true&api-version=5.1-preview.1"
+            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+            if($responseObj.Count -gt 0)
+            {
+                #get identity details for groups fetched from above api
+                $responseObj = $responseObj | where-object {$_.role -eq 'administrator'}
+                $ids = $responseObj.identityId -join ';'
+                $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/IdentityPicker/Identities?api-version=5.0-preview.1" #-f $($OrgName), $($groupObj.entityId)
+                $body = '{"query":"'+ $ids +'","identityTypes":["group"],"operationScopes":["ims"],"queryTypeHint":"uid","properties":["DisplayName","ScopeName"]}'
+                $response = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/json" -Body $body -UseBasicParsing
+            
+                $groups = $response.Content | Convertfrom-json
+                $roleAssignments = $groups.results.identities.displayname
+
+                # Checking whether the broader groups have permissions
+                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroups.keys -contains $_.split('\')[-1]) -and ("Project Collection Administrators" -notcontains $_.split('\')[-1]) })
+
+                if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $restrictedGroups.Count -gt 0)
+                {
+                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($restrictedGroups, $true))
+                    $restrictedGroups = @($restrictedGroups | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
+                }
+                $restrictedGroupsCount = $restrictedGroups.Count
+
+                # fail the control if restricted group found on feed
+                if ($restrictedGroupsCount -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have access to administer feeds at a organization level: $($restrictedGroupsCount)");
+                    $formattedGroupsData = $restrictedGroups
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                    $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
+                    $controlResult.SetStateData("List of groups: ", $restrictedGroups)
+                    $controlResult.AdditionalInfo += "Count of broader groups that have access to administer feeds at a organization level: $($restrictedGroupsCount)";
+                    $controlResult.AdditionalInfoInCSV = $restrictedGroups -join ' ; '
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have access to administer feeds at a organization level.");
+                }
+                $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}
+                $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($displayObj | FT -AutoSize | out-string)");
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have access to administer feeds at a organization level.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the feeds permissions at a organization level.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult;
+    } 
+
+
 }

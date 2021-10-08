@@ -605,6 +605,24 @@
           "AuthZ"
         ],
         "Enabled": true
-    }
+    },
+    {
+        "ControlID": "ADO_Organization_AuthZ_Restrict_Broader_Group_Access_on_Feed",
+        "Description": "Do not allow feeds to inherit excessive permissions for a broad group of users at organization level.",
+        "Id": "Organization470",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckBroaderGroupInheritanceSettingsForFeed",
+        "Rationale": "If a broad group (e.g., Contributors) is configured with excessive permissions at a organization level, they are inherited by individual feeds and can not be removed at individual feed level regardless of role. The integrity of feeds can be compromised by a malicious user from such groups.",
+        "Recommendation": "1. Go to Artifacts --> 2. Azure artifacts settings -->  3. Ensure broader groups do not have access to administer feeds. Refer to detailed scan log (Organization.LOG) for broader group list.",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ",
+          "MSW"
+        ],
+        "Enabled": true
+      }
   ]
 }
