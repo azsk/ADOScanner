@@ -1779,7 +1779,7 @@ class Build: ADOSVTBase
 
             if($pullRequestTrigger)
             {
-                if([Helpers]::CheckMember($pullRequestTrigger,"forks") -and ($isRepoPrivate -eq $false))
+                if(($isRepoPrivate -eq $false) -and [Helpers]::CheckMember($pullRequestTrigger,"forks"))
                 {
 
                     if(($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true))

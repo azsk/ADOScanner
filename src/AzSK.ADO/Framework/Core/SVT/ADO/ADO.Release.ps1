@@ -1436,13 +1436,17 @@ class Release: ADOSVTBase
                                 foreach($obj in $contributorsObj){
                                     if($obj.role.name -ne 'Reader')
                                     {
-                                        #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
-                                        $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
-                                        $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
-                                        if ((-not ([Helpers]::CheckMember($varGrpObj[0],"count"))) -and ($varGrpObj.Count -gt 0) -and ([Helpers]::CheckMember($varGrpObj[0],"name"))) {
-                                        $editableVarGrps += $varGrpObj[0].name
-                                        $failedCount = $failedCount +1                                        
-                                        break;
+                                        try {
+                                            #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
+                                            $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
+                                            $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
+                                            if ([Helpers]::CheckMember($varGrpObj,"name")) {
+                                                $editableVarGrps += $varGrpObj[0].name
+                                                $failedCount = $failedCount +1                                        
+                                                break;
+                                            }   
+                                        }
+                                        catch { 
                                         }
                                     }
                                 }                            
