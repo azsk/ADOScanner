@@ -479,27 +479,30 @@ class Organization: ADOSVTBase
         if([Helpers]::CheckMember($this.OrgPolicyObj,"security"))
         {
             $publicProjectAccessObj = $this.OrgPolicyObj.security | Where-Object {$_.Policy.Name -eq "Policy.AllowAnonymousAccess"}
-            if($publicProjectAccessObj -ne $null)
+            if($null -ne $publicProjectAccessObj)
             {
                     if($publicProjectAccessObj.policy.effectiveValue -eq $false )
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Public projects are not allowed in the organization.");
+                        $controlResult.AdditionalInfoInCSV = "NA"
                     }
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Public projects are allowed in the organization.");
                         try {
                             $publicprojects = @();
+                            $totalProjects = @();
                             $url="https://dev.azure.com/{0}/_apis/projects?api-version=6.0" -f $($this.OrganizationContext.OrganizationName);
                             $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                             if([Helpers]::CheckMember($responseObj[0],"visibility"))
                             {
+                                $totalProjects = $responseObj.Count
                                 $publicprojects = $responseObj | Where-Object { $_.visibility -eq "public"};
                             }
 
                             if($publicprojects.count -gt 0)
                             {   
-                                $controlResult.AdditionalInfoInCSV +="First 10 public projects`n"
+                                $controlResult.AdditionalInfoInCSV +="NumTotalProjects: $totalProjects; NumPublicProjects: $($publicprojects.count); First 10 public projects: "
                                 $publicprojects = $publicprojects.name
                                 if($publicprojects.count -gt 10)
                                 {
