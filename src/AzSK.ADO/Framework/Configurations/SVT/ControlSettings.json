@@ -813,5 +813,5 @@
     ],
   "BackupLimitInDays" : 7
   },
-  "CleanProcessedResources" : true
+  "CleanProcessedResources" : false
 }
