@@ -1901,13 +1901,13 @@ class Build: ADOSVTBase
             $uri = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=5.0-preview.6" -f ($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $($this.BuildObj.id) 
             $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
             if (-not $this.UndoFix) {
-                $this.BuildObj[0].triggers.Forks.allowSecrets = $false;
+                $this.BuildObj[0].triggers | foreach {if($_.triggerType -eq "pullRequest" -and [Helpers]::CheckMember($_,"forks") -and  $_.forks.allowSecrets -eq $true){$_.forks.allowSecrets = $false;}}
                 $body = $this.BuildObj[0] | ConvertTo-Json -Depth 10
                 $buildDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
                 $controlResult.AddMessage([VerificationResult]::Fixed,"Pipeline secrets are marked as unavailable to pull request validations of public repo forks.");
             }
             else {
-                $this.BuildObj[0].triggers.Forks.allowSecrets = $true;
+                $this.BuildObj[0].triggers | foreach {if($_.triggerType -eq "pullRequest" -and [Helpers]::CheckMember($_,"forks") -and $_.forks.allowSecrets -eq $false){$_.forks.allowSecrets = $true;}}
                 $body = $this.BuildObj[0] | ConvertTo-Json -Depth 10
                 $buildDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
                 $controlResult.AddMessage([VerificationResult]::Fixed,"Pipeline secrets are marked as available to pull request validations of public repo forks.");
