@@ -288,7 +288,7 @@ class AzSKADOServiceMapping: CommandBase
 
         try {                    
             $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrgName), $this.ProjectName;
-            $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);                
+            $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);              
            
             if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
                 
@@ -359,55 +359,59 @@ class AzSKADOServiceMapping: CommandBase
                                 $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
 
                                 $varGrps | ForEach-Object {
-                                    try {
-                                        $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;                            
-                                        $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);   
-                                        
-                                        $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $releaseObj[0].id) };
-                                        if($releaseSTData)
+                                    try {                                                                            
+                                        $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;                                                                     
+                                        $header = [WebRequestHelper]::GetAuthHeaderFromUri($varGrpURL)                                                                     
+                                        $varGrpObj  = Invoke-WebRequest -Uri $varGrpURL -Headers $header
+                                        if($varGrpObj.Content -ne 'null')
                                         {
-                                            $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
-                                        }
-                                        else {
-                                            if ($varGrpObj.Type -eq 'AzureKeyVault') { 
-                                                try {
-                                                    # get associated service connection id for variable group                 
-                                                    $servConnID =  $varGrpObj[0].providerData.serviceEndpointId;  
+                                            $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $releaseObj[0].id) };
+                                            if($releaseSTData)
+                                            {
+                                                $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
+                                            }
+                                            else {
+                                                if ($varGrpObj.Type -eq 'AzureKeyVault') { 
+                                                    try {
+                                                        # get associated service connection id for variable group                 
+                                                        $servConnID =  $varGrpObj[0].providerData.serviceEndpointId;  
 
-                                                    # get azure subscription id from service connection                                          
-                                                    $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($servConnID)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-                                                    $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
-                
-                                                    if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") 
-                                                    {
-                                                        $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
-                                                        if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
+                                                        # get azure subscription id from service connection                                          
+                                                        $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($servConnID)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                                                        $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
+                    
+                                                        if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") 
                                                         {
-                                                            try {
-                                                                $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail)                               
-                                                                if($responseObj)
-                                                                {
-                                                                        $serviceId = $responseObj[2].Rows[0][4];
-                                                                        $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $serviceId; projectName = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.name; projectID = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )
-                                                                } 
-                                                            }
-                                                            catch {
-                                                                
-                                                            }                                          
-                
-                                                        }  
+                                                            $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
+                                                            if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
+                                                            {
+                                                                try {
+                                                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail)                               
+                                                                    if($responseObj)
+                                                                    {
+                                                                            $serviceId = $responseObj[2].Rows[0][4];
+                                                                            $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $serviceId; projectName = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.name; projectID = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )
+                                                                    } 
+                                                                }
+                                                                catch {
+                                                                    
+                                                                }                                          
+                    
+                                                            }  
+                                                        }
+                                                        
                                                     }
-                                                    
-                                                }
-                                                catch {
-                                                    
+                                                    catch {
+                                                        
+                                                    }                                         
                                                 }                                         
-                                            }                                         
-                                        }                                    
+                                            } 
+                                       }
+                                                                       
                                     }
                                     catch {
                                         
-                                    }                                                                               
+                                    }                                                                                                          
                                 }
                             }
                         }
