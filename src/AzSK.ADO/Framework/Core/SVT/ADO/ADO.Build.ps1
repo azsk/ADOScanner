@@ -1298,7 +1298,7 @@ class Build: ADOSVTBase
                     
                 }
                  if($editableVarGrps.Count -gt 0){
-                    $editableVarGrpsCount = ($editableVarGrps | Get-Unique).count
+                    $editableVarGrpsCount = (($editableVarGrps | Get-Unique) | Measure-Object).Count
                 }
                 else{
                     $editableVarGrpsCount = 0;
