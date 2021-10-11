@@ -1072,7 +1072,19 @@ class Release: ADOSVTBase
                         # ResolvePermissions method returns object if 'Edit task group' is allowed
                         $obj = [Helpers]::ResolvePermissions($permissionsInBit, [Release]::TaskGroupNamespacePermissionObj.actions, 'Edit task group')
                         if (($obj | Measure-Object).Count -gt 0){
-                            $editableTaskGroups += $_.name
+                            $TGActualName ="";
+                            try {
+                                $tgURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/taskgroups/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $this.projectid, $taskGrpId ;
+                                $tgDetails = [WebRequestHelper]::InvokeGetWebRequest($tgURL);
+                                
+                                if([Helpers]::CheckMember($tgDetails,"name")) {
+                                    $TGActualName= $tgDetails.name;
+                                }
+                            }
+                            catch {
+                            }
+
+                            $editableTaskGroups += New-Object -TypeName psobject -Property @{TGId = $taskGrpId; DisplayName = $_.name; TGActualName = $TGActualName; }
                         }
                     }
 
@@ -1081,7 +1093,7 @@ class Release: ADOSVTBase
                         $editableTaskGroupsCount = ($editableTaskGroups | Measure-Object).Count;
                         $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", $editableTaskGroupsCount);
                         #$controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;
-                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object { $_.DisplayName }
+                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object {$_.DisplayName, $_.TGActualName } 
                         $addInfo = "NumTaskGroups: $editableTaskGroupsCount; List: $($formatedTaskGroups -join ';')"
                         $controlResult.AdditionalInfo += $addInfo;
                         $controlResult.AdditionalInfoInCSV = $addInfo;
@@ -1209,7 +1221,18 @@ class Release: ADOSVTBase
                                 #effectivePermissionValue equals to 1 implies edit task group perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
                                 if([Helpers]::CheckMember($editPerms,"effectivePermissionValue") -and (($editPerms.effectivePermissionValue -eq 1) -or ($editPerms.effectivePermissionValue -eq 3)))
                                 {
-                                    $editableTaskGroups += New-Object -TypeName psobject -Property @{DisplayName = $_.name; PrincipalName=$obj.principalName}
+                                    $TGActualName ="";
+                                    try {
+                                        $tgURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/taskgroups/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $projectName, $taskGrpId ;
+                                        $tgDetails = [WebRequestHelper]::InvokeGetWebRequest($tgURL);
+                                        
+                                        if([Helpers]::CheckMember($tgDetails,"name")) {
+                                            $TGActualName= $tgDetails.name;
+                                        }
+                                    }
+                                    catch {
+                                    }
+                                    $editableTaskGroups += New-Object -TypeName psobject -Property @{DisplayName = $_.name; TGActualName = $TGActualName; GroupName=$obj.principalName}
 
                                     $excessivePermissionsGroupObj = @{}
                                     $excessivePermissionsGroupObj['TaskGroupId'] = $taskGrpId
@@ -1230,9 +1253,9 @@ class Release: ADOSVTBase
                     {
                         $controlResult.AddMessage("Count of task groups on which contributors have edit permissions in release definition: $editableTaskGroupsCount");
                         #$controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;                                                
-                        $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName } 
+                        $groups = $editableTaskGroups | ForEach-Object {"TGName:"+ $_.DisplayName + ",TGActualName:" +$_.TGActualName } 
 
-                        $addInfo = "NumTaskGroups: $(($taskGroups | Measure-Object).Count); NumTaskGroupWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
+                        $addInfo = "NumTG: $(($taskGroups | Measure-Object).Count); NumTGWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
                         $controlResult.AdditionalInfo += $addInfo;
                         $controlResult.AdditionalInfoInCSV += $addInfo;
                         
@@ -1247,7 +1270,7 @@ class Release: ADOSVTBase
                     }
                     else
                     {
-                        $controlResult.AdditionalInfoInCSV += "NA"
+                        $controlResult.AdditionalInfoInCSV = "NA"
                         $controlResult.AdditionalInfo += "NA"
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in release definition.");
                     }
@@ -1262,8 +1285,13 @@ class Release: ADOSVTBase
                             $nonEditableTaskGroups = $taskGroups
                         }                        
                         $groups = $nonEditableTaskGroups | ForEach-Object { $_.name } 
-                        $controlResult.AdditionalInfoInCSV += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
-                        $controlResult.AdditionalInfo += "NonEditableTaskGroupsList: $($groups -join '; '); "
+                        if ($controlResult.AdditionalInfoInCSV -eq "NA") {
+                            $controlResult.AdditionalInfoInCSV = "NonEditableTGList: $($groups -join '; ');"
+                        }
+                        else {
+                            $controlResult.AdditionalInfoInCSV += "NonEditableTGList: $($groups -join '; ');"
+                        }
+                        $controlResult.AdditionalInfo += "NonEditableTGList: $($groups -join '; '); "
                     }
                 }
                 catch
@@ -1275,7 +1303,7 @@ class Release: ADOSVTBase
             }
             else
             {
-                $controlResult.AdditionalInfoInCSV += "NA"
+                $controlResult.AdditionalInfoInCSV = "NA"
                 $controlResult.AdditionalInfo += "NA";
                 $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in release definition.");
             }
@@ -1605,9 +1633,10 @@ class Release: ADOSVTBase
                 $projectName = $this.ResourceContext.ResourceGroupName
                 $releaseId = $this.ReleaseObj.id
                 $permissionSetToken = "$($this.projectId)/$releaseId"
-                if ([Helpers]::CheckMember($this.ControlSettings.Release, "RestrictedBroaderGroupsForRelease")) {
-                    $restrictedBroaderGroups = @{}
-                    $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
+                
+                $restrictedBroaderGroups = @{}
+                $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
+                if(@($broaderGroups.psobject.Properties).Count -gt 0){
                     $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
                     $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release?_a=releases&view=mine&definitionId=$releaseId"
 
@@ -1749,8 +1778,8 @@ class Release: ADOSVTBase
                     $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
                     $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -width 512)");
                 }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for release is not defined in the control settings for your organization policy.");
                 }
             }
             catch

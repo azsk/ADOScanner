@@ -73,13 +73,13 @@
     },
     {
       "ControlID": "ADO_AgentPool_AuthZ_Dont_Grant_All_Pipelines_Access",
-      "Description": "Do not make agent pool accessible to all pipelines in the project.",
+      "Description": "Do not make agent pool accessible to all (YAML) pipelines in the project.",
       "Id": "AgentPool160",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckPrjAllPipelineAccess",
-      "Rationale": "To support security of the pipeline operations, agent pools must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
-      "Recommendation": "1. Go to 'Project settings' --> 2. 'Agent pools' --> 3. Select the agent pool --> 4. Security --> 5. Disable 'Grant access permission to all pipeline'.",
+      "Rationale": "To support security of the pipeline operations, agent pools must not be granted access to all YAML pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources. Note that this does not prevent classic pipelines from accessing the agent pool as it depends on the permissions granted to pipeline user.",
+      "Recommendation": "1. Go to 'Project settings' --> 2. 'Agent pools' --> 3. Select the agent pool --> 4. Security --> 5. Disable 'Grant access permission to all pipeline'. For classic pipelines, review the user permissions carefully.",
       "Tags": [
         "SDL",
         "TCP",

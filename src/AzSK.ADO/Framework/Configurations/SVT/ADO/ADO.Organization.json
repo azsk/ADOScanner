@@ -145,15 +145,16 @@
       "Id": "Organization190",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
-      "MethodName": "CheckDisconnectedIdentities",
+      "MethodName": "CheckDisconnectedIdentities",  
       "Rationale": "Cleaning up/removing RBAC entries for users who have left the organization is a good security hygiene practice.",
-      "Recommendation": "1. Go to Organization Settings --> 2. Azure Active Directory --> 3. If you are an org admin, you will see a notification for disconnected users on AD --> 4. Click on 'Resolve'",
+      "Recommendation": "1. Go to Organization Settings --> 2. Azure Active Directory --> 3. If you are an org admin, you will see a notification for disconnected users on AD --> 4. If the disconnected users are no longer needed, delete them. Otherwise click on 'Resolve' and follow the instructions to map the disconnected users to existing identities.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
         "AuthZ",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -588,6 +589,41 @@
           "AutomatedFix"
         ],
         "Enabled": true
-    }
+    },
+    {
+      "ControlID": "ADO_Organization_AuthZ_Disable_Request_Access",
+      "Description": "Disable request access policy in your organization.",
+      "Id": "Organization460",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckRequestAccessPolicy",
+      "Rationale": "Access to the ADO instance should be allowed by only joining standard groups set up the respective teams while onboarding. If the setting is on, an admin may hurriedly grant access to a potentially a malicious user who can use this to access the instance and laterally move around groups, bypassing the designed security model.",
+      "Recommendation": "1. Go to Organization Settings --> 2. Security --> 3. Policies --> 4. Under 'User Policies' disable 'Request Access'",
+      "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ"
+        ],
+        "Enabled": true
+    },
+    {
+        "ControlID": "ADO_Organization_AuthZ_Restrict_Broader_Group_Access_on_Feed",
+        "Description": "Do not allow feeds to inherit excessive permissions for a broad group of users at organization level.",
+        "Id": "Organization470",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckBroaderGroupInheritanceSettingsForFeed",
+        "Rationale": "If a broad group (e.g., Contributors) is configured with excessive permissions at a organization level, they are inherited by individual feeds and can not be removed at individual feed level regardless of role. The integrity of feeds can be compromised by a malicious user from such groups.",
+        "Recommendation": "1. Go to Artifacts --> 2. Azure artifacts settings -->  3. Ensure broader groups do not have access to administer feeds. Refer to detailed scan log (Organization.LOG) for broader group list.",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ",
+          "MSW"
+        ],
+        "Enabled": true
+      }
   ]
 }
