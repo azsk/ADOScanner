@@ -1486,7 +1486,7 @@ class CommonSVTControls: ADOSVTBase {
             }
         }
         catch {
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies $($_).");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies.");
             $controlResult.LogException($_)
         }
         return $controlResult
