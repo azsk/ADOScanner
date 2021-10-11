@@ -7,6 +7,7 @@ class CommonSVTResourceResolver {
     [string] $organizationName
     [string] $organizationId
     [string] $projectId
+    [psobject] $feedDefnsObj = $null
 
     CommonSVTResourceResolver($organizationName, $organizationId, $projectId) {
         $this.organizationName = $organizationName;
@@ -137,14 +138,24 @@ class CommonSVTResourceResolver {
 
     hidden [PSObject] FetchFeeds($projectName, $feedNames) {
         try {
-            # Here we are fetching all the feeds in the project.
-            $feedDefnURL = 'https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds?api-version=6.0-preview.1' -f $this.organizationName, $projectName
-            $feedDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($feedDefnURL);
-            if ($feedNames -ne "*") {
-                $feedDefnsObj = $feedDefnsObj | Where-Object { $feedNames -contains $_.name }
+            #Fetching project and org scoped feeds
+            if($null -eq $this.feedDefnsObj)
+            {
+                $feedDefnURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds?api-version=6.0-preview.1&includeUrls=false' -f $this.organizationName
+                $this.feedDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($feedDefnURL);
             }
+            $feedsList = @()
+            #current project scoped feeds
+            $projectScopedFeeds = $this.feedDefnsObj | where-object {"Project" -in $_.PSobject.Properties.name}
+            $feedsList += $projectScopedFeeds | where-object {$_.Project.id -eq $this.projectId}
 
-            return $feedDefnsObj;
+            #org scoped feeds - Project property does not exist of org scoped feeds
+            $feedsList +=  $this.feedDefnsObj | where-object {"Project" -notin $_.PSobject.Properties.name}
+
+            if ($feedNames -ne "*") {
+                $feedsList = $feedsList | Where-Object { $feedNames -contains $_.name }
+            }
+            return $feedsList
         }
         catch {
             return $null;

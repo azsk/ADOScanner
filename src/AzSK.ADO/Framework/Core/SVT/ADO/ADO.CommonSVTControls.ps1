@@ -6,6 +6,7 @@ class CommonSVTControls: ADOSVTBase {
     hidden [string] $checkInheritedPermissionsSecureFile = $false
     hidden [string] $checkInheritedPermissionsEnvironment = $false
     hidden [string] $checkInheritedPermissionsRepo = $false
+    hidden [string] $checkInheritedPermissionsFeed = $false
     hidden [object] $repoInheritePermissions = @{};
     hidden [PSObject] $excessivePermissionBitsForRepo = @(1)
     hidden [PSObject] $excessivePermissionsForRepoBranch = $null;
@@ -25,6 +26,10 @@ class CommonSVTControls: ADOSVTBase {
             #allow permission bit for inherited permission is '3'
             $this.checkInheritedPermissionsRepo = $true
             $this.excessivePermissionBitsForRepo = @(1,3)
+        }
+
+        if ([Helpers]::CheckMember($this.ControlSettings.Feed, "CheckForInheritedPermissions") -and $this.ControlSettings.Feed.CheckForInheritedPermissions) {
+            $this.checkInheritedPermissionsFeed = $true
         }
 
         $this.excessivePermissionsForRepoBranch = $this.ControlSettings.Repo.ExcessivePermissionsForBranch        
@@ -83,11 +88,11 @@ class CommonSVTControls: ADOSVTBase {
 
             if (([Helpers]::CheckMember($repoPipelinePermissionObj[0], "allPipelines")) -and ($repoPipelinePermissionObj[0].allPipelines.authorized -eq $true))
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Repository is accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Repository is accessible to all yaml pipelines.");
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Repository is not accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Repository is not accessible to all yaml pipelines.");
             }
         }
         catch
@@ -506,19 +511,20 @@ class CommonSVTControls: ADOSVTBase {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            if ([Helpers]::CheckMember($this.ControlSettings, "Feed.RestrictedBroaderGroupsForFeeds"))
-            {
-                $restrictedBroaderGroups = @{}
-                $restrictedBroaderGroupsForFeeds = $this.ControlSettings.Feed.RestrictedBroaderGroupsForFeeds
+            $restrictedBroaderGroups = @{}
+            $restrictedBroaderGroupsForFeeds = $this.ControlSettings.Feed.RestrictedBroaderGroupsForFeeds
+
+            if(@($restrictedBroaderGroupsForFeeds.psobject.properties).Count -gt 0){
                 $restrictedBroaderGroupsForFeeds.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
 
                 #GET https://feeds.dev.azure.com/{organization}/{project}/_apis/packaging/Feeds/{feedId}/permissions?api-version=6.0-preview.1
                 #Using visualstudio api because new api (dev.azure.com) is giving null in the displayName property.
 
                 #orgFeedURL will be used to identify if feed is org scoped or project scoped
-                $orgFeedURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds*'  -f $this.OrganizationContext.OrganizationName
                 $scope = "Project"
-                if ($this.ResourceContext.ResourceDetails.url -match $orgFeedURL){
+                
+                #Project property does not exist of org scoped feeds
+                if ("Project" -notin $this.ResourceContext.ResourceDetails.PSobject.Properties.name){
                     $url = 'https://{0}.feeds.visualstudio.com/_apis/Packaging/Feeds/{1}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
                     $controlResult.AddMessage("`n***Organization scoped feed***")
                     $scope = "Organization"
@@ -528,6 +534,10 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AddMessage("`n***Project scoped feed***")
                 }
                 $feedPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                if ($this.checkInheritedPermissionsFeed -eq $false) {
+                    $feedPermissionList = $feedPermissionList | where-object { $_.isInheritedRole -eq $false }
+                }
+                
                 $excesiveFeedsPermissions = @($feedPermissionList | Where-Object { $restrictedBroaderGroups.keys -contains $_.displayName.split('\')[-1] -and ($_.role -in $restrictedBroaderGroups[$_.displayName.split('\')[-1]])})
                 $feedWithBroaderGroup = @($excesiveFeedsPermissions | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="Name"; Expression = {$_.displayName}}) ;
 
@@ -566,9 +576,8 @@ class CommonSVTControls: ADOSVTBase {
                 $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
                 $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($displayObj | FT -AutoSize | out-string)");
             }
-            else
-            {
-                $controlResult.AddMessage([VerificationResult]::Error,  "List of broader groups for feeds is not defined in control settings for your organization.");
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of broader groups for feeds is not defined in control settings for your organization.");
             }
         }
         catch
@@ -658,10 +667,26 @@ class CommonSVTControls: ADOSVTBase {
             $secureFileObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
 
             if(($secureFileObj.Count -gt 0) -and [Helpers]::CheckMember($secureFileObj[0], "authorized") -and  $secureFileObj[0].authorized -eq $true) {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is accesible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is accesible to all yaml pipelines.");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all yaml pipelines.");
+                try {
+                    $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/securefile/{2}" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+                    $secureFilePipelinePermObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                    $buildPipelineIds = @();
+                    if ($secureFilePipelinePermObj.Count -gt 0 -and $secureFilePipelinePermObj.pipelines.Count -gt 0) {
+                        $buildPipelineIds = $secureFilePipelinePermObj.pipelines.id
+                        $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.ResourceGroupName, ($buildPipelineIds -join ",");
+                        $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL);
+                        if (([Helpers]::CheckMember($buildDefnsObj,"name"))) {
+                            $controlResult.AdditionalInfoInCSV = "NumYAMLPipelineWithAccess: $($buildDefnsObj.Count)"
+                            $controlResult.AdditionalInfoInCSV = "List: " + ($buildDefnsObj.Name -join ",")
+                        }
+                    }
+                }
+                catch {
+                }
             }
         }
         catch {
@@ -676,9 +701,10 @@ class CommonSVTControls: ADOSVTBase {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedBroaderGroupsForSecureFile")) {
-                $restrictedBroaderGroups = @{}
-                $restrictedBroaderGroupsForSecureFile = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile
+            $restrictedBroaderGroups = @{}
+            $restrictedBroaderGroupsForSecureFile = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile
+
+            if(@($restrictedBroaderGroupsForSecureFile.psobject.properties).Count -gt 0){
                 $restrictedBroaderGroupsForSecureFile.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
 
                 $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
@@ -723,9 +749,8 @@ class CommonSVTControls: ADOSVTBase {
                 $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
                 $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($displayObj | FT -AutoSize | out-string)");
             }
-            else
-            {
-                $controlResult.AddMessage([VerificationResult]::Error,  "List of broader groups for secure file is not defined in control settings for your organization.");
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of broader groups for secure file is not defined in control settings for your organization.");
             }
         }
         catch
@@ -803,11 +828,11 @@ class CommonSVTControls: ADOSVTBase {
 
             if (($envPipelinePermissionObj.Count -gt 0) -and ([Helpers]::CheckMember($envPipelinePermissionObj[0],"allPipelines")) -and ($envPipelinePermissionObj[0].allPipelines.authorized -eq $true))
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Environment is accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Environment is accessible to all yaml pipelines.");
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Environment is not accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Environment is not accessible to all yaml pipelines.");
             }
         }
         catch
@@ -816,6 +841,65 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.LogException($_)
         }
        return $controlResult
+    }
+
+    hidden [ControlResult] CheckPreDeploymentApprovalOnEnv([ControlResult] $controlResult){
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try{
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/configurations?resourceType=environment&resourceId={2}&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
+            }
+            else{
+                $approvals = @($response | Where-Object{$_.type.name -eq "Approval"})
+                if($approvals.Count -eq 0){
+                    $controlResult.AddMessage([VerificationResult]::Failed, "No approvals have been defined for the environment.");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Approvals have been enabled for the environment.");
+                }
+            }
+
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch approvals and checks on the environment.");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckPreDeploymentApproversOnEnv([ControlResult] $controlResult){
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try{
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'environment'}]"
+            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
+            }
+            else{
+                $approvals = @($response.value | Where-Object{$_.type.name -eq "Approval"})
+                if($approvals.Count -eq 0){
+                    $controlResult.AddMessage([VerificationResult]::Failed, "No approvals have been defined for the environment.");
+                }
+                else{
+                  $approvers = $approvals.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                    $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                    $controlResult.AdditionalInfo += "List of approvers on environment  $($approvers).";
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Validate users/groups added as approver within the environment.");
+                }
+            }
+
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch list of approvers on the environment.");
+        }
+        return $controlResult
     }
 
     hidden [ControlResult] CheckBroaderGroupAccessOnEnvironment([ControlResult] $controlResult)
@@ -874,6 +958,70 @@ class CommonSVTControls: ADOSVTBase {
         }
         return $controlResult
     }
+
+    hidden [ControlResult] CheckBranchHygieneOnEnv([ControlResult] $controlResult){
+        try{
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'environment'}]"
+            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
+            }
+            else{
+                $branchControl = @()
+                try{
+                    $branchControl = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $branchControl = @($branchControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
+                }
+                catch{
+                    $branchControl = @()
+                }
+                if($branchControl.Count -eq 0){
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Branch control has not been defined for the environment.");
+                }
+                else{
+                    #response is a string of branches seperaed via comma
+                    $branches = ($branchControl.inputs.allowedBranches).Split(",");
+                    $nonPermissibleBranchesFound = $false
+                    foreach($branch in $branches){
+                        try{
+                            #allowed format is refs/heads/branch
+                            $branch = ($branch -split 'refs/heads/')[1]
+                        }
+                        catch{
+                            #to catch branch names like *, refs/tags etc.
+                            $nonPermissibleBranchesFound = $true;
+                            break;
+                        }                        
+                        if($branch -notin $this.ControlSettings.Build.BranchesToCheckForYAMLScript){
+                            $nonPermissibleBranchesFound = $true;
+                            break;
+                        }
+                    }
+                    if($nonPermissibleBranchesFound -eq $false){
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Deployments to the environment is allowed via standard branches only.");
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Verify, "Validate the branches approved for deployment to the environment.");
+                    }
+                    $branches = $branches | Select @{n='Branch name';e={$_}}
+                    $formattedBranchesTable = ($branches| FT -AutoSize | Out-String -width 512)
+                    $controlResult.AddMessage("`nList of branches : `n$formattedBranchesTable");
+                    $controlResult.AdditionalInfo += "List of branches approved on environment  $($branches).";
+                    
+                }
+            }
+
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch branch control checks on the environment.");
+        }
+        return $controlResult
+    }
     
     hidden [ControlResult] CheckBuildSvcAccAccessOnFeeds([ControlResult] $controlResult)
     {
@@ -881,9 +1029,9 @@ class CommonSVTControls: ADOSVTBase {
         try
         {
             #orgFeedURL will be used to identify if feed is org scoped or project scoped
-            $orgFeedURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds*'  -f $this.OrganizationContext.OrganizationName
             $scope = "Project"
-            if ($this.ResourceContext.ResourceDetails.url -match $orgFeedURL){
+            #Project property does not exist of org scoped feeds
+            if ("Project" -notin $this.ResourceContext.ResourceDetails.PSobject.Properties.name){
                 $url = 'https://{0}.feeds.visualstudio.com/_apis/Packaging/Feeds/{1}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
                 $controlResult.AddMessage("`n***Organization scoped feed***")
                 $scope = "Organization"

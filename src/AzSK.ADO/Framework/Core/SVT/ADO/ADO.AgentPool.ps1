@@ -189,7 +189,7 @@ class AgentPool: ADOSVTBase
             $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=queue&id={2}&api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$this.ProjectId ,$this.AgentPoolId;
             $agentPoolsObj = @([WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL));
 
-            if([Helpers]::CheckMember($agentPoolsObj[0],"authorized") -and $agentPoolsObj[0].authorized)
+            if([Helpers]::CheckMember($agentPoolsObj[0],"authorized"))
             {
                 $controlResult.AddMessage([VerificationResult]::Failed,"Agent pool is marked as accessible to all pipelines.");
             }
