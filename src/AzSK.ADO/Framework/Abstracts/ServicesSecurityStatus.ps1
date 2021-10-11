@@ -114,12 +114,17 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	{
 		$ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
 		$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
-
+		$cleanProcessedResources = $false
 		if ($Env:AzSKADOUPCSimulate -eq $true)
 		{
 			$ControlSettings.PartialScan.LocalScanUpdateFrequency = $Env:AzSKADOLocalScanUpdateFrequency
 			$ControlSettings.PartialScan.DurableScanUpdateFrequency = $Env:AzSKADODurableScanUpdateFrequency
 		}
+`		
+		if([Helpers]::CheckMember($ControlSettings, "CleanProcessedResources") -and $ControlSettings.CleanProcessedResources){
+			$cleanProcessedResources = $true
+		}
+		
 
 		if ([string]::IsNullOrWhiteSpace($methodNameToCall))
 		{
@@ -418,6 +423,9 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					[AIOrgTelemetryHelper]::PublishEvent( "Resource Scan Completed",$properties, @{})
 				}
 
+				if ($cleanProcessedResources) {
+					$resourcesList.remove($_);
+				}
 			}
             catch
             {

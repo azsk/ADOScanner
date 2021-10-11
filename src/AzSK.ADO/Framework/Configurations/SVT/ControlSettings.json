@@ -812,5 +812,6 @@
         "ADO_Release_DP_Review_Inactive_Release"
     ],
   "BackupLimitInDays" : 7
-  }
+  },
+  "CleanProcessedResources" : false
 }
