@@ -1363,7 +1363,13 @@ class Build: ADOSVTBase
                                         {
                                             $failedCount = $failedCount +1
                                             $editableVarGrps += $currentVarGrp.name
-                                            break;
+					                        
+                                            $formattedVarGroupsData = $obj | Select @{l = 'displayName'; e = { $_.identity.displayName } }, @{l = 'userid'; e = { $_.identity.id } }, @{l = 'role'; e = { $_.role.name } }, @{l = 'vargrpid'; e = { $currentVarGrp.id } } , @{l = 'vargrpname'; e = { $currentVarGrp.name } }                                     
+                                        
+	                                        if ($this.ControlFixBackupRequired) {
+	                                            #Data object that will be required to fix the control                                            
+	                                            $controlResult.BackupControlState += $formattedVarGroupsData;
+	                                        }                                             
                                         }
                                     }                            
                                 }
@@ -1375,7 +1381,13 @@ class Build: ADOSVTBase
                     }
                     
                 }
-                $editableVarGrpsCount = $editableVarGrps.Count
+                 if($editableVarGrps.Count -gt 0){
+                    $editableVarGrpsCount = (($editableVarGrps | Get-Unique) | Measure-Object).Count
+                }
+                else{
+                    $editableVarGrpsCount = 0;
+                }
+		
                 if($editableVarGrpsCount -gt 0)
                 {
                     $controlResult.AddMessage("Count of variable groups on which contributors have edit permissions: $($editableVarGrpsCount)");
@@ -1407,6 +1419,72 @@ class Build: ADOSVTBase
         }
 
         return $controlResult
+    }
+
+    hidden [ControlResult] CheckVariableGroupEditPermissionAutomatedFix([ControlResult] $controlResult)
+    {
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFixTemp = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject 
+            $RawDataObjForControlFixTemp = $RawDataObjForControlFix
+            $projectId = $this.BuildObj.project.id
+            $varGrpIds = $RawDataObjForControlFix | Select-Object vargrpid -Unique
+            foreach ($vgId in $varGrpIds) {
+                $body = "["
+
+                if (-not $this.UndoFix)
+                {
+                    foreach ($identity in $RawDataObjForControlFix) 
+                    {                    
+                        if ($body.length -gt 1) {$body += ","}
+                        if ($identity.vargrpid -eq $vgId.vargrpid){
+                        $body += @"
+                            {
+                                "userid":"$($identity.userid)",
+                                "roleName": "Reader"
+                            }
+                            
+"@;
+                        }
+                    }
+                    $RawDataObjForControlFixTemp | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                    $RawDataObjForControlFixTemp = @($RawDataObjForControlFix  | Select-Object @{Name="UserName"; Expression={$_.displayName}},@{Name="VarGrpName"; Expression={$_.vargrpname}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+                }
+                else {
+                    foreach ($identity in $RawDataObjForControlFix) 
+                    {                    
+                        if ($body.length -gt 1) {$body += ","}
+                        if ($identity.vargrpid -eq $vgId.vargrpid){
+                        $body += @"
+                            {
+                                "userid": "$($identity.userid)",
+                                "roleName": "$($identity.role)"                          
+                            }
+"@;
+                        }
+                    }
+                    $RawDataObjForControlFixTemp | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                    $RawDataObjForControlFixTemp = @($RawDataObjForControlFix  | Select-Object @{Name="UserName"; Expression={$_.displayName}},@{Name="VarGrpName"; Expression={$_.vargrpname}}, @{Name="OldRole"; Expression={$_.OldRole}}, @{Name="NewRole"; Expression={$_.Role}})
+                }
+                $body += "]"  
+
+                #Put request                
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName),$($projectId) ,$($vgId.vargrpid);
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+                $webRequestResult = Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -Body $body	
+            }						    
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Contributors edit permissions for variable groups have been changed as below: ");
+                $display = ($RawDataObjForControlFixTemp |  FT -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("`n$display");                                     
+    }
+    catch {
+        $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+        $controlResult.LogException($_)
+    }
+    return $controlResult
     }
 
     hidden [ControlResult] CheckBuildAuthZScope([ControlResult] $controlResult)

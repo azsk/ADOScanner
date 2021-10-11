@@ -174,7 +174,8 @@
         "TCP",
         "Automated",
         "SI",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },

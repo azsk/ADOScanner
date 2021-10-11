@@ -1099,6 +1099,7 @@ class Release: ADOSVTBase
                         $controlResult.AdditionalInfoInCSV = $addInfo;
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ", $editableTaskGroups);
                         $controlResult.SetStateData("List of task groups used in release definition that contributors can edit: ", $editableTaskGroups);
+                    
                     }
                     else
                     {
@@ -1431,24 +1432,27 @@ class Release: ADOSVTBase
                                 $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access -eq "assigned")})                        
                             }
     
-                            if($contributorsObj.Count -gt 0)
-                            {   
+                            if($contributorsObj.Count -gt 0){   
                                 foreach($obj in $contributorsObj){
-                                    if($obj.role.name -ne 'Reader')
-                                    {
-                                        try {
-                                            #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
-                                            $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
-                                            $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
-                                            if ([Helpers]::CheckMember($varGrpObj,"name")) {
-                                                $editableVarGrps += $varGrpObj[0].name
-                                                $failedCount = $failedCount +1                                        
-                                                break;
-                                            }   
-                                        }
-                                        catch { 
-                                        }
+                                    if($obj.role.name -ne 'Reader'){
+                                        #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
+                                        $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
+                                        $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
+                                        if ((-not ([Helpers]::CheckMember($varGrpObj[0],"count"))) -and ($varGrpObj.Count -gt 0) -and ([Helpers]::CheckMember($varGrpObj[0],"name"))) {
+                                        $editableVarGrps += $varGrpObj[0].name
+                                        $failedCount = $failedCount +1 
+                                                                                
+                                        $formattedVarGroupsData = $obj | Select @{l = 'displayName'; e = { $_.identity.displayName } }, @{l = 'userid'; e = { $_.identity.id } }, @{l = 'role'; e = { $_.role.name } }, @{l = 'vargrpid'; e = { $varGrpObj.id } } , @{l = 'vargrpname'; e = { $varGrpObj.name } }                                     
+                                        
+                                        if ($this.ControlFixBackupRequired)
+                                        {
+                                            #Data object that will be required to fix the control                                            
+                                            $controlResult.BackupControlState += $formattedVarGroupsData;
+                                        }                                                                                
+                                        
                                     }
+                                    
+                                }
                                 }                            
                             }
                         }
@@ -1458,7 +1462,13 @@ class Release: ADOSVTBase
                     }
                 }
 
-                $editableVarGrpsCount = $editableVarGrps.Count
+                if($editableVarGrps.Count -gt 0){
+                    $editableVarGrpsCount = (($editableVarGrps | Get-Unique) | Measure-Object).Count
+                }
+                else{
+                    $editableVarGrpsCount = 0;
+                }
+                
                 if($editableVarGrpsCount -gt 0)
                 {
                     $controlResult.AddMessage("`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount `n");
@@ -1491,6 +1501,72 @@ class Release: ADOSVTBase
 
         return $controlResult
     }
+
+    hidden [ControlResult] CheckVariableGroupEditPermissionAutomatedFix([ControlResult] $controlResult)
+    {
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFixTemp = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject 
+            $RawDataObjForControlFixTemp = $RawDataObjForControlFix
+            $varGrpIds = $RawDataObjForControlFix | Select-Object vargrpid -Unique
+            foreach ($vgId in $varGrpIds) {
+                $body = "["
+
+                if (-not $this.UndoFix)
+                {
+                    foreach ($identity in $RawDataObjForControlFix) 
+                    {                    
+                        if ($body.length -gt 1) {$body += ","}
+                        if ($identity.vargrpid -eq $vgId.vargrpid){
+                        $body += @"
+                            {
+                                "userid":"$($identity.userid)",
+                                "roleName": "Reader"
+                            }
+                            
+"@;
+                        }
+                    }
+                    $RawDataObjForControlFixTemp | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                    $RawDataObjForControlFixTemp = @($RawDataObjForControlFix  | Select-Object @{Name="UserName"; Expression={$_.displayName}},@{Name="VarGrpName"; Expression={$_.vargrpname}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+                }
+                else {
+                    foreach ($identity in $RawDataObjForControlFix) 
+                    {                    
+                        if ($body.length -gt 1) {$body += ","}
+                        if ($identity.vargrpid -eq $vgId.vargrpid){
+                        $body += @"
+                            {
+                                "userid": "$($identity.userid)",
+                                "roleName": "$($identity.role)"                          
+                            }
+"@;
+                        }
+                    }
+                    $RawDataObjForControlFixTemp | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                    $RawDataObjForControlFixTemp = @($RawDataObjForControlFix  | Select-Object @{Name="UserName"; Expression={$_.displayName}},@{Name="VarGrpName"; Expression={$_.vargrpname}}, @{Name="OldRole"; Expression={$_.OldRole}}, @{Name="NewRole"; Expression={$_.Role}})
+                }
+                $body += "]"  
+
+                #Put request                
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId) ,$($vgId.vargrpid);
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+                $webRequestResult = Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -Body $body	
+            }						    
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Contributors edit permissions for variable groups have been changed as below: ");
+                $display = ($RawDataObjForControlFixTemp |  FT -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("`n$display");                                     
+    }
+    catch {
+        $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+        $controlResult.LogException($_)
+    }
+    return $controlResult
+    }
+
     hidden [ControlResult] CheckBroaderGroupAccess([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
