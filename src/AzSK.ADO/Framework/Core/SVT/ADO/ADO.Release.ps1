@@ -1632,7 +1632,13 @@ class Release: ADOSVTBase
                 $orgName = $($this.OrganizationContext.OrganizationName)
                 $projectName = $this.ResourceContext.ResourceGroupName
                 $releaseId = $this.ReleaseObj.id
-                $permissionSetToken = "$($this.projectId)/$releaseId"
+                if ([Helpers]::CheckMember($this.ReleaseObj, "path") -and ($this.ReleaseObj.path -ne "\")) {
+                    $path = $this.ReleaseObj.path.Replace('\','/')
+                    $permissionSetToken = "$($this.projectId)" + "$path/$releaseId"
+                }
+                else {
+                    $permissionSetToken = "$($this.projectId)/$releaseId"
+                }
                 
                 $restrictedBroaderGroups = @{}
                 $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
