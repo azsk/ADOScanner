@@ -133,6 +133,9 @@ class AzSKADOServiceMapping: CommandBase
             $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
             $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
 
+            #generate access token with datastudio api audience
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+
             $Connections | ForEach-Object {
                 $counter++            
                 Write-Progress -Activity 'Service connection mappings...' -CurrentOperation $_.Name -PercentComplete (($counter / $Connections.count) * 100)                            
@@ -180,7 +183,7 @@ class AzSKADOServiceMapping: CommandBase
                             if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                             {
                                 try {                                
-                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail)                       
+                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail,$accessToken)                       
                                     if($responseObj)
                                     {
                                           $serviceId = $responseObj[2].Rows[0][4];
@@ -296,7 +299,10 @@ class AzSKADOServiceMapping: CommandBase
                 $this.PublishCustomMessage("Generating service mappings of variable group/secure file using release for project [$($this.ProjectName)]...")
                 $this.PublishCustomMessage("Total mappings to be evaluated:  $(($releaseDefnsObj | Measure-Object).Count)")
                 $counter = 0
-
+                
+                #generate access token with datastudio api audience
+                $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+                
                 #This variable is used to store details returned from secure file api(fetching all the secure file details in one call)
                 $secureFileDetails = @();
                 foreach ($relDef in $releaseDefnsObj) {
@@ -362,9 +368,11 @@ class AzSKADOServiceMapping: CommandBase
                                     try {                                                                            
                                         $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;                                                                     
                                         $header = [WebRequestHelper]::GetAuthHeaderFromUri($varGrpURL)                                                                     
-                                        $varGrpObj  = Invoke-WebRequest -Uri $varGrpURL -Headers $header
+                                        $varGrpObj  = Invoke-WebRequest -Uri $varGrpURL -Headers $header                                        
+
                                         if($varGrpObj.Content -ne 'null')
                                         {
+                                            $varGrpObj = $varGrpObj.Content | ConvertFrom-Json
                                             $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $releaseObj[0].id) };
                                             if($releaseSTData)
                                             {
@@ -386,7 +394,7 @@ class AzSKADOServiceMapping: CommandBase
                                                             if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                                                             {
                                                                 try {
-                                                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail)                               
+                                                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail,$accessToken)                               
                                                                     if($responseObj)
                                                                     {
                                                                             $serviceId = $responseObj[2].Rows[0][4];
@@ -530,7 +538,7 @@ class AzSKADOServiceMapping: CommandBase
                                                     if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                                                     {
                                                         try {
-                                                            $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail)                                
+                                                            $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail,$accessToken)                                
                                                             if($responseObj)
                                                             {
                                                                     $serviceId = $responseObj[2].Rows[0][4];                                                    
@@ -744,7 +752,7 @@ class AzSKADOServiceMapping: CommandBase
         return $true;
     }
 
-    hidden [object] GetServiceIdWithSubscrId($serviceConnEndPointDetail)
+    hidden [object] GetServiceIdWithSubscrId($serviceConnEndPointDetail,$accessToken)
     {
         $response = $null
         try {
@@ -754,10 +762,7 @@ class AzSKADOServiceMapping: CommandBase
             # call data studio to fetch azure subscription id and servce id mapping
             $apiURL = "https://datastudiostreaming.kusto.windows.net/v2/rest/query"                                                                    
             $inputbody = '{"db": "Shared","csl": "DataStudio_ServiceTree_AzureSubscription_Snapshot | where SubscriptionId contains ''{0}''", "properties": {"Options": {"query_language": "csl","servertimeout": "00:04:00","queryconsistency": "strongconsistency","request_readonly": false,"request_readonly_hardline": false}}}'                                            
-            $inputbody = $inputbody.Replace("{0}", $subscriptionID)    
-                                                
-            #generate access token with datastudio api audience
-            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $inputbody = $inputbody.Replace("{0}", $subscriptionID)                                                                                        
             $header = @{
                             "Authorization" = "Bearer " + $accessToken
                         }
