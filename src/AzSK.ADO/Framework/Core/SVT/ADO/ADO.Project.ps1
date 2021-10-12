@@ -3405,8 +3405,11 @@ class Project: ADOSVTBase
                     
                     $excessivePermissions = $identity.ExcessivePermissions -split ";"
                     foreach ($excessivePermission in $excessivePermissions) {
-                        if ($excessivePermission -eq 'Force push (rewrite history, delete branches and tags)') {
+                        if ($excessivePermission.trim() -eq 'Force push (rewrite history, delete branches and tags)') {
                             $roleId = [int][RepoPermissions] 'Forcepush'
+                        }
+                        elseif ($excessivePermission.trim() -eq "Remove others' locks") {
+                            $roleId = [int][RepoPermissions] 'Removeotherslocks'
                         }
                         else {
                             $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","");
@@ -3437,12 +3440,20 @@ class Project: ADOSVTBase
                 foreach ($identity in $RawDataObjForControlFix) 
                 {
                    
-                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    $excessivePermissions = $identity.ExcessivePermissions -split ";"
                     foreach ($excessivePermission in $excessivePermissions) {
-                        $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","");
-                        
+                        if ($excessivePermission.trim() -eq 'Force push (rewrite history, delete branches and tags)') {
+                            $roleId = [int][RepoPermissions] 'Forcepush'
+                        }
+                        elseif ($excessivePermission.trim() -eq "Remove others' locks") {
+                            $roleId = [int][RepoPermissions] 'Removeotherslocks'
+                        }
+                        else {
+                            $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","");
+                        }
+
                          $body = "{
-                            'token': '$($identity.PermissionSetToken)',
+                            'token': 'repoV2/$($identity.PermissionSetToken)',
                             'merge': true,
                             'accessControlEntries' : [{
                                 'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
