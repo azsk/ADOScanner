@@ -718,7 +718,7 @@ class Project: ADOSVTBase
                                         }
                                         else
                                         {
-                                            $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                            $controlResult.AddMessage([VerificationResult]::Passed, "All admin accounts are SC-ALT accounts.");
                                             $controlResult.AdditionalInfoInCSV = 'NA' ;
                                         }
                                         if ($SCCount -gt 0)
@@ -766,7 +766,7 @@ class Project: ADOSVTBase
                                         }
                                         else
                                         {
-                                            $controlResult.AddMessage([VerificationResult]::Passed, "No users have admin privileges with non SC-ALT accounts.");
+                                            $controlResult.AddMessage([VerificationResult]::Passed, "All admin accounts are SC-ALT accounts.");
                                             $controlResult.AdditionalInfoInCSV += 'NA' ;
                                         }
                                         if ($SCCount -gt 0)
