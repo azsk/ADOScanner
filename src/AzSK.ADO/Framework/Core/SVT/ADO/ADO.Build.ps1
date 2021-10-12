@@ -1608,7 +1608,13 @@ class Build: ADOSVTBase
                 $projectId = $this.BuildObj.project.id
                 $projectName = $this.BuildObj.project.name
                 $buildId = $this.BuildObj.id
-                $permissionSetToken = "$projectId/$buildId"
+                if ([Helpers]::CheckMember($this.BuildObj, "path") -and ($this.BuildObj.path -ne "\")) {
+                    $path = $this.BuildObj.path.Replace('\','/')
+                    $permissionSetToken = "$projectId" + "$path/$buildId"
+                }
+                else {
+                    $permissionSetToken = "$projectId/$buildId"
+                }
                 $restrictedBroaderGroups = @{}
                 $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
                 if(@($broaderGroups.psobject.Properties).Count -gt 0) {
