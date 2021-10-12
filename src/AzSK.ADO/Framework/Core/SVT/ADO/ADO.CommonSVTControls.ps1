@@ -1486,7 +1486,7 @@ class CommonSVTControls: ADOSVTBase {
                     }
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Cred Scan is not integrated for ADO repositories in the organization.");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Policy to check for credentials and other secrets on the repository not found.");
                 }
             }
             else {
