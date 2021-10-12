@@ -1487,7 +1487,7 @@ class CommonSVTControls: ADOSVTBase {
                     }
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Check for credentials and other secrets on the repository not found.");
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Policy to check for credentials and other secrets on the repository not found.");
                 }
             }
             else {
