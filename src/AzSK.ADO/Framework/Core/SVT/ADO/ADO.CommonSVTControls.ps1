@@ -88,11 +88,11 @@ class CommonSVTControls: ADOSVTBase {
 
             if (([Helpers]::CheckMember($repoPipelinePermissionObj[0], "allPipelines")) -and ($repoPipelinePermissionObj[0].allPipelines.authorized -eq $true))
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Repository is accessible to all yaml pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Repository is accessible to all YAML pipelines.");
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Repository is not accessible to all yaml pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Repository is not accessible to all YAML pipelines.");
             }
         }
         catch
@@ -667,10 +667,10 @@ class CommonSVTControls: ADOSVTBase {
             $secureFileObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
 
             if(($secureFileObj.Count -gt 0) -and [Helpers]::CheckMember($secureFileObj[0], "authorized") -and  $secureFileObj[0].authorized -eq $true) {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is accesible to all yaml pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is accesible to all YAML pipelines.");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all yaml pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all YAML pipelines.");
                 try {
                     $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/securefile/{2}" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
                     $secureFilePipelinePermObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
@@ -827,11 +827,11 @@ class CommonSVTControls: ADOSVTBase {
 
             if (($envPipelinePermissionObj.Count -gt 0) -and ([Helpers]::CheckMember($envPipelinePermissionObj[0],"allPipelines")) -and ($envPipelinePermissionObj[0].allPipelines.authorized -eq $true))
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Environment is accessible to all yaml pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Environment is accessible to all YAML pipelines.");
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Environment is not accessible to all yaml pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Environment is not accessible to all YAML pipelines.");
             }
         }
         catch
