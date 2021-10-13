@@ -272,7 +272,7 @@ function Get-AzSKADOSecurityStatusBatchMode
                 $projects = $batchScanMngr.GetProjectsForCurrentScan();
                 if([string]::IsNullOrEmpty($projects)){
                     $batchScanMngr.RemoveBatchScanData();
-                    Write-Host 'No unscanned resources found. All projects have been fully scanned. You can use GADSBMR command to combine CSVs from all batch results.'; Read-Host
+                    Write-Host 'No unscanned resources found. All projects have been fully scanned. You can use GADSCR command to combine CSVs from all batch results.'; Read-Host
                     return;
                 }
                 $parametersForGads.Remove("ProjectNames") | Out-Null;
@@ -282,7 +282,7 @@ function Get-AzSKADOSecurityStatusBatchMode
             GADS @parametersForGads
             if($batchScanMngr.IsScanComplete()){
                 $batchScanMngr.RemoveBatchScanData();
-                start-process powershell.exe -argument "Write-Host 'No unscanned resources found. Scan is fully complete. You can use GADSBMR command to combine CSVs from all batch results.'; Read-Host" 
+                start-process powershell.exe -argument "Write-Host 'No unscanned resources found. Scan is fully complete. You can use GADSCR command to combine CSVs from all batch results.'; Read-Host" 
 
             }
             else {               

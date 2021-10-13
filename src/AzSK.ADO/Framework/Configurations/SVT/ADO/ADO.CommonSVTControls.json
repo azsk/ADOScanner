@@ -23,13 +23,13 @@
     },
     {
       "ControlID": "ADO_Repository_AuthZ_Dont_Grant_All_Pipelines_Access",
-      "Description": "Do not make repository accessible to all pipelines.",
+      "Description": "Do not make repository accessible to all (YAML) pipelines.",
       "Id": "Repository110",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckRepositoryPipelinePermission",
-      "Rationale": "If a repository is granted access to all pipelines, an unauthorized user can steal information from the repository by building a pipeline and accessing the repository.",
-      "Recommendation": "1. Go to Project --> 2. Repositories --> 3. Select the repository --> 4. Security --> 5. Under 'Pipeline Permissions', remove pipelines that repository no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Rationale": "If a repository is granted access to all YAML pipelines, an unauthorized user can steal information from the repository by building a pipeline and accessing the repository. Note that this does not prevent classic pipelines from accessing the repository as it depends on the permissions granted to pipeline user.",
+      "Recommendation": "1. Go to Project --> 2. Repositories --> 3. Select the repository --> 4. Security --> 5. Under 'Pipeline Permissions', remove YAML pipelines that repository no more requires access to or click 'Restrict Permission' to avoid granting access to all YAML pipelines. ",
       "Tags": [
         "SDL",
         "TCP",
@@ -52,7 +52,8 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -96,13 +97,13 @@
     },
     {
       "ControlID": "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access",
-      "Description": "Do not make secure files accessible to all pipelines.",
+      "Description": "Do not make secure files accessible to all (YAML) pipelines.",
       "Id": "SecureFile100",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckSecureFilesPermission",
-      "Rationale": "If a secure file is granted access to all pipelines, an unauthorized user can steal information from the secure files by building a pipeline and accessing the secure file.",
-      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. Select your secure file from the list --> 6. Click 'Pipeline Permissions', remove pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Rationale": "If a secure file is granted access to all YAML pipelines, an unauthorized user can steal information from the secure files by building a YAML pipeline and accessing the secure file. Note that this does not prevent classic pipelines from accessing the secure file as it depends on the permissions granted to pipeline user.",
+      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. Select your secure file from the list --> 6. Click 'Pipeline Permissions', remove YAML pipelines that secure file no more requires access to or click 'Restrict Permission' to avoid granting access to all YAML pipelines. For classic pipeline review user permissions carefully.",
       "Tags": [
         "SDL",
         "AuthZ",
@@ -133,13 +134,13 @@
     },
     {
       "ControlID": "ADO_Environment_AuthZ_Dont_Grant_All_Pipelines_Access",
-      "Description": "Do not make environment accessible to all pipelines.",
+      "Description": "Do not make environment accessible to all (YAML) pipelines.",
       "Id": "Environment100",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckEnviornmentAccess",
-      "Rationale": "To support security of the pipeline operations, environments must not be granted access to all pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources.",
-      "Recommendation": "1. Go to Pipelines --> 2. Environments --> 3. Select your environment from the list --> 4. Click Security --> 5. Under 'Pipeline Permissions', remove pipelines that environment no more requires access to or click 'Restrict Permission' to avoid granting access to all pipelines.",
+      "Rationale": "To support security of the pipeline operations, environments must not be granted access to all YAML pipelines. This is in keeping with the principle of least privilege because a vulnerability in components used by one pipeline can be leveraged by an attacker to attack other pipelines having access to critical resources. Note that this does not prevent classic pipelines from accessing the environment as it depends on the permissions granted to pipeline user.",
+      "Recommendation": "1. Go to Pipelines --> 2. Environments --> 3. Select your environment from the list --> 4. Click Security --> 5. Under 'Pipeline Permissions', remove YAML pipelines that environment no more requires access to or click 'Restrict Permission' to avoid granting access to all YAML pipelines. For classic pipeline review user permissions carefully.",
       "Tags": [
         "SDL",
         "TCP",
@@ -162,6 +163,57 @@
         "TCP",
         "Automated",
         "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Environment_AuthZ_Enable_PreDeployment_Approval",
+      "Description": "Environments for production deployments must have approvals enabled.",
+      "Id": "Environment120",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckPreDeploymentApprovalOnEnv",
+      "Rationale": "Approvals on an environment ensure that deployment from a YAML pipeline happens only after designated users have reviewed the changes being deployed. This provides an additional layer of defense against inadvertent (or possibly malicious) changes to your production environment.",
+      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Environments --> 4. Select your environment from the list --> 5. Click on the three dots in upper right corner --> 6. Select 'Approvals and Checks' --> 7. Add an approval check on environment --> 8. Add the appropriate users and groups in list of approvers.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Environment_AuthZ_Review_PreDeployment_Approvers",
+      "Description": "Approvers on environment must be periodically reviewed.",
+      "Id": "Environment130",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckPreDeploymentApproversOnEnv",
+      "Rationale": "Periodic review of approvers list for production deployments ensures that only appropriate people are members of such a critical role. As team composition/membership changes, this privilege may need to be revoked from members who are no more in the team.",
+      "Recommendation": "To remove any user/group from the approvers list: 1. Go to Project --> 2. Pipelines --> 3. Environments --> 4. Select your environment from the list --> 5. Click on the three dots in upper right corner --> 6. Select 'Approvals and Checks' --> 7. Select 'Approvals' --> 8. Review users/groups as needed from approvers list. Refer detailed log file to review the list of approvers. ",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Environment_SI_Use_Good_Branch_Hygiene",
+      "Description": "All deployments to production environments must be done from standard branches.",
+      "Id": "Environment140",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckBranchHygieneOnEnv",
+      "Rationale": "You should ensure that deployments to environments are always done from standard branches (like main, master and develop). These branches should have the tightest access controls and approval standards. Any changes in the source code should be tested first on a development branch before merging in the standard branches. The source code in these branches should correspond to production bits at all times. This helps in maintaining stable source code and helps prevent deployment of breaking changes (and potential security bugs) into the production environment.",
+      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Environments --> 4. Select your environment from the list --> 5. Click on the three dots in upper right corner --> 6. Select 'Branch Control' --> 7. Review all the branches that have been added in the list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI"
       ],
       "Enabled": true
     },
@@ -196,7 +248,25 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Repository_DP_Enable_Credentials_And_Secrets_Policy",
+      "Description": "Enable policy to block pushes that contain credentials and other secrets.",
+      "Id": "Repository150",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckCredentialsAndSecretsPolicyOnRepository",
+      "Rationale": "Exposed credentials in engineering systems continue to provide easily exploitable opportunities for attackers. To defend against this threat, Microsoft security experts developed the CredScan tool to automatically find exposed secrets. CredScan indexes and scans for credentials & other sensitive content in source code, as well as other data sources. CredScan indexes and scans for credentials & other sensitive content in source code, as well as other data sources. CredScan should be enabled at each repo level to avoid commiting credentials or secrets.",
+      "Recommendation": "1. Go to Project Settings --> 2. Repositories --> 3. Select a repository --> 4. Policies --> 5. Enable 'Check for credentials and other secrets' --> 6. Incase you are not able to locate this check, it means that CredScan has not been integrated for the ADO repositories. Make sure it has been integrated in your organization. ",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "Best Practice"
       ],
       "Enabled": true
     }

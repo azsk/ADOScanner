@@ -95,7 +95,12 @@ class ContextHelper {
                             }
                         }
                         else {
-                            $AquireTokenParameters = $app.AcquireTokenSilent($Scopes, [ContextHelper]::Account)
+                            if ([ContextHelper]::appObj) {
+                                $AquireTokenParameters = [ContextHelper]::appObj.AcquireTokenSilent($Scopes, [ContextHelper]::Account)
+                            }
+                            else {
+                                $AquireTokenParameters = $app.AcquireTokenSilent($Scopes, [ContextHelper]::Account) 
+                            }
                             $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
                             if ($taskAuthenticationResult.exception.message -like "*errors occurred*") {
                                 $AquireTokenParameters = $app.AcquireTokenInteractive($Scopes)
@@ -294,7 +299,7 @@ class ContextHelper {
                 $clientId = [Constants]::DefaultClientId;          
                 $replyUri = [Constants]::DefaultReplyUri; 
                 $adoResourceId = "https://graph.microsoft.com/";
-
+                                         
                 if ([ContextHelper]::PSVersion -gt 5) {
                     $result = [ContextHelper]::GetGraphAccess()
                 }
@@ -307,6 +312,39 @@ class ContextHelper {
                 }
                 $accessToken = $result.AccessToken
             }
+            Write-Host "Successfully acquired graph access token." -ForegroundColor Cyan
+        }
+        catch
+        {
+            Write-Host "Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate." -ForegroundColor Red
+            Write-Host "Continuing without graph access." -ForegroundColor Yellow
+            return $null
+        }
+
+		return $accessToken;
+	}
+
+    static [string] GetDataExplorerAccessToken($useAzContext)
+	{
+        $accessToken = ''
+        try
+        {   
+            Write-Host "Graph access is required to evaluate some controls. Attempting to acquire graph token." -ForegroundColor Cyan
+            # generating graph access token using default VSTS client.
+            $clientId = [Constants]::DefaultClientId;          
+            $replyUri = [Constants]::DefaultReplyUri; 
+            $adoResourceId = "https://help.kusto.windows.net/";                                         
+            if ([ContextHelper]::PSVersion -gt 5) {
+                $result = [ContextHelper]::GetGraphAccess()
+            }
+            else {
+                [AuthenticationContext] $ctx = [AuthenticationContext]::new("https://login.windows.net/common");
+                [AuthenticationResult] $result = $null;
+                $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
+                $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
+                $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+            }
+            $accessToken = $result.AccessToken            
             Write-Host "Successfully acquired graph access token." -ForegroundColor Cyan
         }
         catch
@@ -515,6 +553,6 @@ class ContextHelper {
         else {
             return "NO_ACTIVE_SESSION"
         }
-    }
+    }    
 
 }

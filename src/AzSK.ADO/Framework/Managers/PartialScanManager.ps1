@@ -380,11 +380,22 @@ class PartialScanManager
 			}
 
 			if ($this.ScanPendingForResources -ne $null -and $this.ScanSource -eq "CICD"){
-                $this.ResourceScanTrackerObj = [PartialScanResourceMap]@{
-				    Id = $this.ScanPendingForResources.Id;
-				    CreatedDate = $this.ScanPendingForResources.CreatedDate;
-				    ResourceMapTable = $this.ScanPendingForResources.ResourceMapTable.value;
-			    }
+
+                if([Helpers]::CheckMember($this.ScanPendingForResources.ResourceMapTable,"value"))
+                {
+                    $this.ResourceScanTrackerObj = [PartialScanResourceMap]@{
+                        Id = $this.ScanPendingForResources.Id;
+                        CreatedDate = $this.ScanPendingForResources.CreatedDate;
+                        ResourceMapTable = $this.ScanPendingForResources.ResourceMapTable.value;
+                    }
+                }
+                else{
+                    $this.ResourceScanTrackerObj = [PartialScanResourceMap]@{
+                        Id = $this.ScanPendingForResources.Id;
+                        CreatedDate = $this.ScanPendingForResources.CreatedDate;
+                        ResourceMapTable = $this.ScanPendingForResources.ResourceMapTable;
+                    }
+                }
             }
             else{
                 $this.ResourceScanTrackerObj = $masterControlBlob;
@@ -504,6 +515,8 @@ class PartialScanManager
 	#Method to fetch ResourceTrackerFile as an object
 	hidden [void] GetResourceScanTrackerObject()
 	{
+        try
+        {
             if($null -eq $this.ScanPendingForResources)
 			{
 				return;
@@ -512,11 +525,21 @@ class PartialScanManager
 			{
 				if(![string]::isnullorwhitespace($this.ScanPendingForResources))
 				{
-					$this.ResourceScanTrackerObj = [PartialScanResourceMap]@{
-				        Id = $this.ScanPendingForResources.Id;
-				        CreatedDate = $this.ScanPendingForResources.CreatedDate;
-				        ResourceMapTable = $this.ScanPendingForResources.ResourceMapTable.value;
-			        }
+					if([Helpers]::CheckMember($this.ScanPendingForResources.ResourceMapTable,"value"))
+                    {
+                        $this.ResourceScanTrackerObj = [PartialScanResourceMap]@{
+                            Id = $this.ScanPendingForResources.Id;
+                            CreatedDate = $this.ScanPendingForResources.CreatedDate;
+                            ResourceMapTable = $this.ScanPendingForResources.ResourceMapTable.value;
+                        }
+                    }
+                    else{
+                        $this.ResourceScanTrackerObj = [PartialScanResourceMap]@{
+                            Id = $this.ScanPendingForResources.Id;
+                            CreatedDate = $this.ScanPendingForResources.CreatedDate;
+                            ResourceMapTable = $this.ScanPendingForResources.ResourceMapTable;
+                        }
+                    }
 				}
 			}
 			elseif ($this.ScanSource -eq "CA")
@@ -542,6 +565,12 @@ class PartialScanManager
 				}
 				$this.ResourceScanTrackerObj = Get-content $this.MasterFilePath | ConvertFrom-Json
             }
+        }
+        catch{
+            $this.ResourceScanTrackerObj = $null
+            $this.ScanPendingForResources = $null
+            Write-Host "RTF not found"
+        }
 	}
 
     #Sending $isControlFixCmd as true in case set-azskadosecuritystatus command is used in order to store RTF in separate folder, so that it does not interfere with GADS command

@@ -1072,7 +1072,19 @@ class Release: ADOSVTBase
                         # ResolvePermissions method returns object if 'Edit task group' is allowed
                         $obj = [Helpers]::ResolvePermissions($permissionsInBit, [Release]::TaskGroupNamespacePermissionObj.actions, 'Edit task group')
                         if (($obj | Measure-Object).Count -gt 0){
-                            $editableTaskGroups += $_.name
+                            $TGActualName ="";
+                            try {
+                                $tgURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/taskgroups/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $this.projectid, $taskGrpId ;
+                                $tgDetails = [WebRequestHelper]::InvokeGetWebRequest($tgURL);
+                                
+                                if([Helpers]::CheckMember($tgDetails,"name")) {
+                                    $TGActualName= $tgDetails.name;
+                                }
+                            }
+                            catch {
+                            }
+
+                            $editableTaskGroups += New-Object -TypeName psobject -Property @{TGId = $taskGrpId; DisplayName = $_.name; TGActualName = $TGActualName; }
                         }
                     }
 
@@ -1081,12 +1093,13 @@ class Release: ADOSVTBase
                         $editableTaskGroupsCount = ($editableTaskGroups | Measure-Object).Count;
                         $controlResult.AddMessage("Total number of task groups on which contributors have edit permissions in release definition: ", $editableTaskGroupsCount);
                         #$controlResult.AdditionalInfo += "Total number of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;
-                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object { $_.DisplayName }
+                        $formatedTaskGroups = $editableTaskGroups | ForEach-Object {$_.DisplayName, $_.TGActualName } 
                         $addInfo = "NumTaskGroups: $editableTaskGroupsCount; List: $($formatedTaskGroups -join ';')"
                         $controlResult.AdditionalInfo += $addInfo;
                         $controlResult.AdditionalInfoInCSV = $addInfo;
                         $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in release definition: ", $editableTaskGroups);
                         $controlResult.SetStateData("List of task groups used in release definition that contributors can edit: ", $editableTaskGroups);
+                    
                     }
                     else
                     {
@@ -1208,7 +1221,18 @@ class Release: ADOSVTBase
                                 #effectivePermissionValue equals to 1 implies edit task group perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
                                 if([Helpers]::CheckMember($editPerms,"effectivePermissionValue") -and (($editPerms.effectivePermissionValue -eq 1) -or ($editPerms.effectivePermissionValue -eq 3)))
                                 {
-                                    $editableTaskGroups += New-Object -TypeName psobject -Property @{DisplayName = $_.name; PrincipalName=$obj.principalName}
+                                    $TGActualName ="";
+                                    try {
+                                        $tgURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/taskgroups/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $projectName, $taskGrpId ;
+                                        $tgDetails = [WebRequestHelper]::InvokeGetWebRequest($tgURL);
+                                        
+                                        if([Helpers]::CheckMember($tgDetails,"name")) {
+                                            $TGActualName= $tgDetails.name;
+                                        }
+                                    }
+                                    catch {
+                                    }
+                                    $editableTaskGroups += New-Object -TypeName psobject -Property @{DisplayName = $_.name; TGActualName = $TGActualName; GroupName=$obj.principalName}
 
                                     $excessivePermissionsGroupObj = @{}
                                     $excessivePermissionsGroupObj['TaskGroupId'] = $taskGrpId
@@ -1229,9 +1253,9 @@ class Release: ADOSVTBase
                     {
                         $controlResult.AddMessage("Count of task groups on which contributors have edit permissions in release definition: $editableTaskGroupsCount");
                         #$controlResult.AdditionalInfo += "Count of task groups on which contributors have edit permissions in release definition: " + $editableTaskGroupsCount;                                                
-                        $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName } 
+                        $groups = $editableTaskGroups | ForEach-Object {"TGName:"+ $_.DisplayName + ",TGActualName:" +$_.TGActualName } 
 
-                        $addInfo = "NumTaskGroups: $(($taskGroups | Measure-Object).Count); NumTaskGroupWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
+                        $addInfo = "NumTG: $(($taskGroups | Measure-Object).Count); NumTGWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
                         $controlResult.AdditionalInfo += $addInfo;
                         $controlResult.AdditionalInfoInCSV += $addInfo;
                         
@@ -1246,7 +1270,7 @@ class Release: ADOSVTBase
                     }
                     else
                     {
-                        $controlResult.AdditionalInfoInCSV += "NA"
+                        $controlResult.AdditionalInfoInCSV = "NA"
                         $controlResult.AdditionalInfo += "NA"
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in release definition.");
                     }
@@ -1261,8 +1285,13 @@ class Release: ADOSVTBase
                             $nonEditableTaskGroups = $taskGroups
                         }                        
                         $groups = $nonEditableTaskGroups | ForEach-Object { $_.name } 
-                        $controlResult.AdditionalInfoInCSV += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
-                        $controlResult.AdditionalInfo += "NonEditableTaskGroupsList: $($groups -join '; '); "
+                        if ($controlResult.AdditionalInfoInCSV -eq "NA") {
+                            $controlResult.AdditionalInfoInCSV = "NonEditableTGList: $($groups -join '; ');"
+                        }
+                        else {
+                            $controlResult.AdditionalInfoInCSV += "NonEditableTGList: $($groups -join '; ');"
+                        }
+                        $controlResult.AdditionalInfo += "NonEditableTGList: $($groups -join '; '); "
                     }
                 }
                 catch
@@ -1274,7 +1303,7 @@ class Release: ADOSVTBase
             }
             else
             {
-                $controlResult.AdditionalInfoInCSV += "NA"
+                $controlResult.AdditionalInfoInCSV = "NA"
                 $controlResult.AdditionalInfo += "NA";
                 $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in release definition.");
             }
@@ -1403,20 +1432,27 @@ class Release: ADOSVTBase
                                 $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access -eq "assigned")})                        
                             }
     
-                            if($contributorsObj.Count -gt 0)
-                            {   
+                            if($contributorsObj.Count -gt 0){   
                                 foreach($obj in $contributorsObj){
-                                    if($obj.role.name -ne 'Reader')
-                                    {
+                                    if($obj.role.name -ne 'Reader'){
                                         #Release object doesn't capture variable group name. We need to explicitly look up for its name via a separate web request.
                                         $varGrpURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?groupIds={2}&api-version=6.1-preview.2") -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($vgId);
                                         $varGrpObj = [WebRequestHelper]::InvokeGetWebRequest($varGrpURL);
                                         if ((-not ([Helpers]::CheckMember($varGrpObj[0],"count"))) -and ($varGrpObj.Count -gt 0) -and ([Helpers]::CheckMember($varGrpObj[0],"name"))) {
                                         $editableVarGrps += $varGrpObj[0].name
-                                        $failedCount = $failedCount +1                                        
-                                        break;
-                                        }
+                                        $failedCount = $failedCount +1 
+                                                                                
+                                        $formattedVarGroupsData = $obj | Select @{l = 'displayName'; e = { $_.identity.displayName } }, @{l = 'userid'; e = { $_.identity.id } }, @{l = 'role'; e = { $_.role.name } }, @{l = 'vargrpid'; e = { $varGrpObj.id } } , @{l = 'vargrpname'; e = { $varGrpObj.name } }                                     
+                                        
+                                        if ($this.ControlFixBackupRequired)
+                                        {
+                                            #Data object that will be required to fix the control                                            
+                                            $controlResult.BackupControlState += $formattedVarGroupsData;
+                                        }                                                                                
+                                        
                                     }
+                                    
+                                }
                                 }                            
                             }
                         }
@@ -1426,7 +1462,13 @@ class Release: ADOSVTBase
                     }
                 }
 
-                $editableVarGrpsCount = $editableVarGrps.Count
+                if($editableVarGrps.Count -gt 0){
+                    $editableVarGrpsCount = (($editableVarGrps | Get-Unique) | Measure-Object).Count
+                }
+                else{
+                    $editableVarGrpsCount = 0;
+                }
+                
                 if($editableVarGrpsCount -gt 0)
                 {
                     $controlResult.AddMessage("`nCount of variable groups on which contributors have edit permissions: $editableVarGrpsCount `n");
@@ -1459,6 +1501,72 @@ class Release: ADOSVTBase
 
         return $controlResult
     }
+
+    hidden [ControlResult] CheckVariableGroupEditPermissionAutomatedFix([ControlResult] $controlResult)
+    {
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFixTemp = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject 
+            $RawDataObjForControlFixTemp = $RawDataObjForControlFix
+            $varGrpIds = $RawDataObjForControlFix | Select-Object vargrpid -Unique
+            foreach ($vgId in $varGrpIds) {
+                $body = "["
+
+                if (-not $this.UndoFix)
+                {
+                    foreach ($identity in $RawDataObjForControlFix) 
+                    {                    
+                        if ($body.length -gt 1) {$body += ","}
+                        if ($identity.vargrpid -eq $vgId.vargrpid){
+                        $body += @"
+                            {
+                                "userid":"$($identity.userid)",
+                                "roleName": "Reader"
+                            }
+                            
+"@;
+                        }
+                    }
+                    $RawDataObjForControlFixTemp | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                    $RawDataObjForControlFixTemp = @($RawDataObjForControlFix  | Select-Object @{Name="UserName"; Expression={$_.displayName}},@{Name="VarGrpName"; Expression={$_.vargrpname}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+                }
+                else {
+                    foreach ($identity in $RawDataObjForControlFix) 
+                    {                    
+                        if ($body.length -gt 1) {$body += ","}
+                        if ($identity.vargrpid -eq $vgId.vargrpid){
+                        $body += @"
+                            {
+                                "userid": "$($identity.userid)",
+                                "roleName": "$($identity.role)"                          
+                            }
+"@;
+                        }
+                    }
+                    $RawDataObjForControlFixTemp | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                    $RawDataObjForControlFixTemp = @($RawDataObjForControlFix  | Select-Object @{Name="UserName"; Expression={$_.displayName}},@{Name="VarGrpName"; Expression={$_.vargrpname}}, @{Name="OldRole"; Expression={$_.OldRole}}, @{Name="NewRole"; Expression={$_.Role}})
+                }
+                $body += "]"  
+
+                #Put request                
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId) ,$($vgId.vargrpid);
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+                $webRequestResult = Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -Body $body	
+            }						    
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Contributors edit permissions for variable groups have been changed as below: ");
+                $display = ($RawDataObjForControlFixTemp |  FT -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("`n$display");                                     
+    }
+    catch {
+        $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+        $controlResult.LogException($_)
+    }
+    return $controlResult
+    }
+
     hidden [ControlResult] CheckBroaderGroupAccess([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -1524,10 +1632,17 @@ class Release: ADOSVTBase
                 $orgName = $($this.OrganizationContext.OrganizationName)
                 $projectName = $this.ResourceContext.ResourceGroupName
                 $releaseId = $this.ReleaseObj.id
-                $permissionSetToken = "$($this.projectId)/$releaseId"
-                if ([Helpers]::CheckMember($this.ControlSettings.Release, "RestrictedBroaderGroupsForRelease")) {
-                    $restrictedBroaderGroups = @{}
-                    $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
+                if ([Helpers]::CheckMember($this.ReleaseObj, "path") -and ($this.ReleaseObj.path -ne "\")) {
+                    $path = $this.ReleaseObj.path.Replace('\','/')
+                    $permissionSetToken = "$($this.projectId)" + "$path/$releaseId"
+                }
+                else {
+                    $permissionSetToken = "$($this.projectId)/$releaseId"
+                }
+                
+                $restrictedBroaderGroups = @{}
+                $broaderGroups = $this.ControlSettings.Release.RestrictedBroaderGroupsForRelease
+                if(@($broaderGroups.psobject.Properties).Count -gt 0){
                     $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
                     $releaseURL = "https://dev.azure.com/$orgName/$projectName/_release?_a=releases&view=mine&definitionId=$releaseId"
 
@@ -1669,8 +1784,8 @@ class Release: ADOSVTBase
                     $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
                     $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -width 512)");
                 }
-                else {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for release is not defined in the control settings for your organization policy.");
                 }
             }
             catch

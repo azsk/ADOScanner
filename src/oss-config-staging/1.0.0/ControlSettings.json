@@ -26,7 +26,8 @@
           "ADO_Organization_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
           "ADO_Organization_AuthZ_Revoke_Admin_Access_for_Guest_Users",
           "ADO_Organization_AuthZ_Remove_Inactive_Guest_Users",
-          "ADO_Organization_AuthZ_Remove_Disconnected_Accounts"
+          "ADO_Organization_AuthZ_Remove_Disconnected_Accounts",
+          "ADO_Organization_AuthZ_Restrict_Broader_Group_Access_on_Feed"
         ]
       },
       {
@@ -48,8 +49,7 @@
           "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Agentpool",
           "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_VarGrp",
           "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Repo",
-          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SecureFile",
-          "ADO_Project_DP_Enable_Credentials_And_Secrets_Policy"
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SecureFile"
         ]
       },
       {
@@ -72,7 +72,7 @@
           "ADO_Build_SI_Review_URL_Variables_Settable_At_Queue_Time",
           "ADO_Build_SI_Dont_Use_Broadly_Editable_Task_Group",
           "ADO_Build_SI_Dont_Use_Broadly_Editable_Variable_Group",
-          "ADO_Build_AuthZ_Limit_Pipeline_Scope",
+          "ADO_Build_AuthZ_Limit_Pipeline_Access",
           "ADO_Build_AuthZ_Restrict_Broader_Group_Access",
           "ADO_Build_DP_Dont_Make_Secrets_Available_To_Forked_Builds",
           "ADO_Build_DP_Review_Inactive_Build"
@@ -125,7 +125,10 @@
       },
       {
         "ResourceType": "Environment",
-        "ControlIds": []
+        "ControlIds": [
+          "ADO_Environment_AuthZ_Dont_Grant_All_Pipelines_Access",
+          "ADO_Environment_AuthZ_Restrict_Broader_Group_Access"
+        ]
       },
       {
         "ResourceType": "Repository",
@@ -148,6 +151,9 @@
   "BatchScan":{
     "BatchTrackerValidForDays":10,
     "BatchTrackerUpdateFrequency":5000
+  },
+  "IncrementalScan":{
+    "IncrementalScanValidForDays":7
   },
   "DockerImage":{
     "ImageName" : "azskado/adosecurityscan"
@@ -284,7 +290,8 @@
         "Administer build permissions",
         "Delete build pipeline",
         "Delete builds ",
-        "Destroy builds"
+        "Destroy builds",
+        "Edit build pipeline"
       ],
       "Readers":[
         "Administer build permissions",
@@ -493,6 +500,13 @@
   "Project": {
     "MaxPAMembersPermissible": 6,
     "MinPAMembersPermissible": 2,
+    "MaxBAMembersPermissible":100,
+    "CheckExtendedGroupsForSCALTMembers":false,
+    "ExtendedGroupsToCheckForSCALTMembers":[
+      "Endpoint Administrators",
+      "Build Administrators",
+      "Release Administrators"
+    ],
     "GroupsToCheckForSCAltMembers": [
       "Project Administrators"
     ],
@@ -503,6 +517,11 @@
     "AdminGroupsToCheckForInactiveUser":[
       "Endpoint Administrators",
       "Project Administrators"
+    ],
+    "CheckExtendedGroupsForInactiveUser":false,
+    "ExtendedGroupsToCheckForInactiveUser":[
+      "Build Administrators",
+      "Release Administrators"
     ],
     "AdminInactivityThresholdInDays": 90
   },
@@ -533,7 +552,8 @@
         "Administrator",
         "Collaborator",
         "Contributor"
-    ]
+    ],
+    "CheckForInheritedPermissions": false
   },
   "SecureFile":{
     "RestrictedBroaderGroupsForSecureFile" : {
@@ -736,6 +756,10 @@
         "(?# To match regular URL.)(www.|http:|https:)+[^\\s]+[\\w]",
         "(?# To match ftp URL.)(ftp:)+[^\\s]+[\\w]"
       ]
+    },
+    {
+      "RegexCode": "Email",
+      "RegexList": ["[a-z0-9!#\\$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#\\$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"]
     }
   ],
   "BugLogging": {
@@ -759,7 +783,7 @@
     "LogBugsForInactiveResources": true,
     "CustomControlList": [],
     "LogBugsForUnmappedResource": true,
-    "Description":"Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a> </br></br> <b> Resource Owner: </b> {10} </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>",
+    "Description":"Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a> </br></br> <b> Resource Owner/Last Modified By: </b> {10} {11} </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>",
     "UpdateBug": []
   },
   "GenerateSecurityEvaluationJsonFile" : false,
@@ -788,5 +812,6 @@
         "ADO_Release_DP_Review_Inactive_Release"
     ],
   "BackupLimitInDays" : 7
-  }
+  },
+  "CleanProcessedResources" : false
 }

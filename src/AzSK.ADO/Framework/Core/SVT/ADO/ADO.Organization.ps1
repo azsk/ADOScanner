@@ -479,15 +479,44 @@ class Organization: ADOSVTBase
         if([Helpers]::CheckMember($this.OrgPolicyObj,"security"))
         {
             $publicProjectAccessObj = $this.OrgPolicyObj.security | Where-Object {$_.Policy.Name -eq "Policy.AllowAnonymousAccess"}
-            if($publicProjectAccessObj -ne $null)
+            if($null -ne $publicProjectAccessObj)
             {
                     if($publicProjectAccessObj.policy.effectiveValue -eq $false )
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Public projects are not allowed in the organization.");
+                        $controlResult.AdditionalInfoInCSV = "NA"
                     }
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Public projects are allowed in the organization.");
+                        try {
+                            $publicprojects = @();
+                            $totalProjects = @();
+                            $url="https://dev.azure.com/{0}/_apis/projects?api-version=6.0" -f $($this.OrganizationContext.OrganizationName);
+                            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                            if([Helpers]::CheckMember($responseObj[0],"visibility"))
+                            {
+                                $totalProjects = $responseObj.Count
+                                $publicprojects = $responseObj | Where-Object { $_.visibility -eq "public"};
+                            }
+
+                            if($publicprojects.count -gt 0)
+                            {   
+                                $controlResult.AdditionalInfoInCSV +="NumTotalProjects: $totalProjects; NumPublicProjects: $($publicprojects.count); First 10 public projects: "
+                                $publicprojects = $publicprojects.name
+                                if($publicprojects.count -gt 10)
+                                {
+                                    $controlResult.AdditionalInfoInCSV += "$($($publicprojects | Select -First 10) -join '; ' )"
+                                }
+                                else
+                                {
+                                    $controlResult.AdditionalInfoInCSV += "$($publicprojects -join '; ')"
+                                }                         
+                            }
+                        }
+                        catch {
+                            $controlResult.AddMessage("Could not fetch projects in the organization.");
+                        }
                     }
             }
             else
@@ -613,7 +642,13 @@ class Organization: ADOSVTBase
             if($guestUsers.Count -gt 0)
             {
                 $guestList = @();
-                $guestList += $guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}},@{Name="AccessLevel"; Expression = {$_.accessLevel.licenseDisplayName}},@{Name="LastAccessedDate"; Expression = {$_.lastAccessedDate}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }}
+                if([ContextHelper]::PSVersion -gt 5) {
+                    $guestList += $guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}},@{Name="AccessLevel"; Expression = {$_.accessLevel.licenseDisplayName}},@{Name="LastAccessedDate"; Expression = {$_.lastAccessedDate}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -$_.lastAccessedDate).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -$_.lastAccessedDate).Days} }}
+                }
+                else {
+                    $guestList += $guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}},@{Name="AccessLevel"; Expression = {$_.accessLevel.licenseDisplayName}},@{Name="LastAccessedDate"; Expression = {$_.lastAccessedDate}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }}
+                }
+                
                 $stateData = @();
                 $stateData += $guestUsers | Select-Object @{Name="Id"; Expression = {$_.id}},@{Name="IdentityType"; Expression = {$_.user.subjectKind}},@{Name="DisplayName"; Expression = {$_.user.displayName}}, @{Name="MailAddress"; Expression = {$_.user.mailAddress}}
                 # $guestListDetailed would be same if DetailedScan is not enabled.
@@ -736,9 +771,16 @@ class Organization: ADOSVTBase
                 $inactivityThresholdInDays = $this.ControlSettings.Organization.InActiveUserActivityLogsPeriodInDays
                 $thresholdDate = (Get-Date).AddDays(-$($inactivityThresholdInDays))
                 $responseObj[0].items | ForEach-Object {
-                    if([datetime]::Parse($_.lastAccessedDate) -lt $thresholdDate)
+                    $item = $_
+                    if([ContextHelper]::PSVersion -gt 5) {
+                        $lastAccessedDate = $item.lastAccessedDate
+                    }
+                    else {
+                        $lastAccessedDate = [datetime]::Parse($_.lastAccessedDate)
+                    }
+                    if($lastAccessedDate -lt $thresholdDate)
                     {
-                        $inactiveUsers+= $_
+                        $inactiveUsers+= $item
                     }
                 }
                 if($inactiveUsers.Count -gt 0)
@@ -749,7 +791,13 @@ class Organization: ADOSVTBase
                         $controlResult.AddMessage("Displaying top $($topInactiveUsers) inactive users")
                     }
                     #inactive user with days from how many days user is inactive, if user account created and was never active, in this case lastaccessdate is default 01-01-0001
-                    $inactiveUsers = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="mailAddress"; Expression = {$_.User.mailAddress}},@{Name="dateCreated"; Expression = {$_.dateCreated}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
+                    if([ContextHelper]::PSVersion -gt 5) {
+                        $inactiveUsers = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="mailAddress"; Expression = {$_.User.mailAddress}},@{Name="dateCreated"; Expression = {$_.dateCreated}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -$_.lastAccessedDate).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -$_.lastAccessedDate).Days} }})
+                    }
+                    else {
+                        $inactiveUsers = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="mailAddress"; Expression = {$_.User.mailAddress}},@{Name="dateCreated"; Expression = {$_.dateCreated}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
+                    }
+                    
                     #set data for attestation
                     $inactiveUsersStateData = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.Name}},@{Name="mailAddress"; Expression = {$_.mailAddress}})
 
@@ -786,13 +834,10 @@ class Organization: ADOSVTBase
                     }
 
                     $controlResult.AdditionalInfoInCSV += "NumInactiveUsers: $($inactiveUsersCount) ; ";
-                    if($inactiveUsersWithDaysCount -gt 0) {
-                        $UserList = $inactiveUsersWithDays | ForEach-Object { $_.Name +': '+ $_.mailAddress +': '+ $_.InactiveFromDays +" days"} | select-object -Unique -First 5;
-                        $controlResult.AdditionalInfoInCSV += "First 5 InactiveUsers: $($UserList -join ' ; '); ";
-                    }
-                    if ($neverActiveUsersCount -gt 0) {
-                        $UserList = $neverActiveUsers | ForEach-Object { $_.Name +': '+ $_.mailAddress } | select-object -Unique -First 5;
-                        $controlResult.AdditionalInfoInCSV += "First 5 NeverActiveUsers: $($UserList -join ' ; '); ";
+                    if($inactiveUsersCount -gt 0) {
+                        $inactiveUsersList = $inactiveUsers | Select-Object mailAddress, Name, @{Name="InactiveFromDays"; Expression = { if ($_.InactiveFromDays -eq "User was never active."){return (((Get-Date) - [datetime]::Parse($_.dateCreated)).Days)} else {return $_.InactiveFromDays} }}, @{Name="NACTag"; Expression = { if ($_.InactiveFromDays -eq "User was never active."){return " (NAC)"} }} | Sort-Object InactiveFromDays -Desc
+                        $UserList = $inactiveUsersList | ForEach-Object { $_.Name +': '+ $_.mailAddress +': '+ $_.InactiveFromDays +" days" + $_.NACTag} | select-object -Unique -First 10;
+                        $controlResult.AdditionalInfoInCSV += "First 10 InactiveUsers: $($UserList -join ' ; '); ";
                     }
                 }
                 else {
@@ -836,6 +881,11 @@ class Organization: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of disconnected users: " + $disconnectedUsersCount ;
                     $controlResult.AdditionalInfo += "List of disconnected users: " + $disconnectedUsersList;
                     $controlResult.AdditionalInfoInCSV = "TotalDisconnectedUsers: " + $disconnectedUsersCount;
+                    if ($this.ControlFixBackupRequired)
+                    {
+                        #Data object that will be required to fixs the control
+                        $controlResult.BackupControlState = @($responseObj[0].users | Select-Object -Property @{Name = "Descriptor"; Expression = { $_.descriptor } },@{Name = "Name"; Expression = { $_.displayName } }, @{Name = "MailAddress"; Expression = { $_.preferredEmailAddress } })
+                    }
                 }
                 else
                 {
@@ -853,6 +903,53 @@ class Organization: ADOSVTBase
         }
 
         return $controlResult;
+    }
+
+    hidden [ControlResult] CheckDisconnectedIdentitiesAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = @(([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject)
+            # If emails are mentioned in exluded principals, filter them out
+            if ($this.InvocationContext.BoundParameters["ExcludePrincipalId"])
+            {
+                $excludePrincipalId = $this.InvocationContext.BoundParameters["ExcludePrincipalId"]
+                $excludePrincipalId = $excludePrincipalId -Split ','
+                $RawDataObjForControlFix = @($RawDataObjForControlFix | where-object {$excludePrincipalId  -notcontains $_.MailAddress })
+            }
+
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+
+            if ($RawDataObjForControlFix.Count -gt 0)
+            {
+                if (-not $this.UndoFix)
+                {
+                    foreach ($user in $RawDataObjForControlFix) 
+                    {
+                        $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/users/{1}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor
+                        $webRequestResult = Invoke-WebRequest -Uri $uri -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                    }
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following disconnected users are removed from the Org: ");
+                    $display = ($RawDataObjForControlFix |  FT Name,MailAddress -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Manual,  "Automated fix is not supported for this control. ");
+                }
+
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Manual,  "No disconnected users found.");
+            }
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
 
     hidden [ControlResult] CheckRBACAccess([ControlResult] $controlResult)
@@ -1250,25 +1347,6 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckRequestAccessPolicy([ControlResult] $controlResult)
     {
-        <# This control has been currently removed from control JSON file.
-        {
-            "ControlID": "ADO_Organization_AuthZ_Disable_Request_Access",
-            "Description": "Stop your users from requesting access to your organization or project within your organization, by disabling the request access policy.",
-            "Id": "Organization339",
-            "ControlSeverity": "Medium",
-            "Automated": "Yes",
-            "MethodName": "CheckRequestAccessPolicy",
-            "Rationale": "When request access policy is enabled, users can request access to a resource. Disabling this policy will prevent users from requesting access to organization or project within the organization.",
-            "Recommendation": "Go to Organization Settings --> Policy --> User Policy --> Disable 'Request Access'.",
-            "Tags": [
-                "SDL",
-                "TCP",
-                "Automated",
-                "AuthZ"
-            ],
-            "Enabled": true
-        },
-        #>
         if([Helpers]::CheckMember($this.OrgPolicyObj,"user"))
         {
             $userPolicyObj = $this.OrgPolicyObj.user
@@ -1634,9 +1712,16 @@ class Organization: ADOSVTBase
 
                 $thresholdDate = (Get-Date).AddDays(-$($GuestUserInactivePeriodInDays))
                 $users | ForEach-Object {
-                    if([datetime]::Parse($_.lastAccessedDate) -lt $thresholdDate)
+                    $user = $_
+                    if([ContextHelper]::PSVersion -gt 5) {
+                        $lastAccessedDate = $_.lastAccessedDate
+                    }
+                    else {
+                        $lastAccessedDate = [datetime]::Parse($_.lastAccessedDate)
+                    }
+                    if($lastAccessedDate -lt $thresholdDate)
                     {
-                        $inactiveGuestUsers+= $_
+                        $inactiveGuestUsers+= $user
                     }
                 }
 
@@ -1645,7 +1730,13 @@ class Organization: ADOSVTBase
                 if($inactiveGuestUsersCount -gt 0)
                 {
                     #If user account created and was never active, in this case lastaccessdate is default 01-01-0001
-                    $inactiveUsers = ($inactiveGuestUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="Email"; Expression = {$_.User.mailAddress}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
+                    if([ContextHelper]::PSVersion -gt 5) {
+                        $inactiveUsers = ($inactiveGuestUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="Email"; Expression = {$_.User.mailAddress}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -$_.lastAccessedDate).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -$_.lastAccessedDate).Days} }})
+                    }
+                    else {
+                        $inactiveUsers = ($inactiveGuestUsers | Select-Object -Property @{Name="Name"; Expression = {$_.User.displayName}},@{Name="Email"; Expression = {$_.User.mailAddress}},@{Name="InactiveFromDays"; Expression = { if (((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days -gt 10000){return "User was never active."} else {return ((Get-Date) -[datetime]::Parse($_.lastAccessedDate)).Days} }})
+                    }
+                    
                     #set data for attestation
                     $inactiveUsersStateData = ($inactiveUsers | Select-Object -Property @{Name="Name"; Expression = {$_.Name}},@{Name="Email"; Expression = {$_.Email}}) #Can Expect drift, are there any org level attestations?
 
@@ -2045,7 +2136,7 @@ class Organization: ADOSVTBase
                         $AdminUsersMasterList += foreach( $grpobj in $groups ){
                                                   $PrincipalName = $grpobj.name
                                                   $OrgGroup = ($grpobj.group.groupName  | select -Unique)-join ','
-                                                  $DisplayName = $grpobj.group.name | select -Unique
+                                                  $DisplayName = $grpobj.group.name | select -Unique -First 1
                                                   $date = ""
                                                   $createdDate = ""
                                                   $descriptor = $grpobj.group.descriptor | select -Unique
@@ -2073,10 +2164,23 @@ class Organization: ADOSVTBase
                                             {
                                                 $members = $members | where-object {$_.user.descriptor -eq $currentObj.Descriptor }
                                             }
-                                            $dateobj = [datetime]::Parse($members[0].lastAccessedDate)
+
+                                            if([ContextHelper]::PSVersion -gt 5) {
+                                                $dateobj = $members[0].lastAccessedDate
+                                            }
+                                            else {
+                                                $dateobj = [datetime]::Parse($members[0].lastAccessedDate)
+                                            }
+                                            
                                             if($dateobj -lt $thresholdDate )
                                             {
-                                                $_.dateCreated = [datetime]::Parse($members[0].dateCreated)
+                                                if([ContextHelper]::PSVersion -gt 5) {
+                                                    $_.dateCreated = [datetime]::Parse($members[0].dateCreated.tostring("dd/MM/yyyy"))
+                                                }
+                                                else {
+                                                    $_.dateCreated = [datetime]::Parse($members[0].dateCreated)
+                                                }
+                                                
                                                 $formatLastRunTimeSpan = New-TimeSpan -Start $dateobj
                                                 if(($formatLastRunTimeSpan).Days -gt 10000)
                                                 {
@@ -2114,8 +2218,8 @@ class Organization: ADOSVTBase
                     elseif(($inactiveUsersCount -gt 0) -or ($neverActiveUsersCount -gt 0))
                     {
                         $totalInactiveUsers = @()
-                        $totalInactiveUsers += @($inactiveUsersWithAdminAccess | Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate)
-                        $totalInactiveUsers += @($neverActiveUsersWithAdminAccess | Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate)
+                        $totalInactiveUsers += @($inactiveUsersWithAdminAccess | Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate,DateCreated)
+                        $totalInactiveUsers += @($neverActiveUsersWithAdminAccess | Select-Object  PrincipalName,DisplayName,Group,LastAccessedDate,DateCreated)
                         $totalInactiveUsersCount = $totalInactiveUsers.Count
 
                         $controlResult.AddMessage([VerificationResult]::Failed,"Total number of inactive users present in the admin roles: $($totalInactiveUsersCount)");
@@ -2141,8 +2245,6 @@ class Organization: ADOSVTBase
                             $controlResult.AddMessage("Inactive admin user details:")
                             $display = $inactiveUsersWithAdminAccess|FT -AutoSize | Out-String -Width 512
                             $controlResult.AddMessage($display)
-                            $usersList = $inactiveUsersWithAdminAccess | ForEach-Object { $_.PrincipalName +': '+ $_.InactiveFromDays + ' days'} | select-object -Unique -First 5;
-                            $controlResult.AdditionalInfoInCSV += "First 5 InactiveUsers: $($usersList -join ' ; '); ";
                         }
 
                         if($neverActiveUsersCount -gt 0)
@@ -2152,8 +2254,12 @@ class Organization: ADOSVTBase
                             $controlResult.AddMessage("Never active admin user details:")
                             $display = $neverActiveUsersWithAdminAccess|FT -AutoSize | Out-String -Width 512
                             $controlResult.AddMessage($display)
-                            $usersList = $neverActiveUsersWithAdminAccess | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName } | select-object -Unique -First 5;
-                            $controlResult.AdditionalInfoInCSV += "First 5 NeverActiveUsers: $($usersList -join ' ; ');";
+                        }
+                        
+                        if($totalInactiveUsersCount -gt 0) {
+                            $inactiveUsersList = $totalInactiveUsers | Select-Object DisplayName, PrincipalName, @{Name="InactiveFromDays"; Expression = { if ($_.LastAccessedDate -eq "User was never active"){return (((Get-Date) - $_.dateCreated)).Days} else {return (((Get-Date) - $_.LastAccessedDate).Days)} }}, @{Name="NACTag"; Expression = { if ($_.LastAccessedDate -eq "User was never active"){return " (NAC)"} }} | Sort-Object InactiveFromDays -Desc
+                            $UserList = $inactiveUsersList | ForEach-Object { $_.DisplayName +': '+ $_.PrincipalName +': '+ $_.InactiveFromDays +" days" + $_.NACTag} | select-object -Unique -First 10;
+                            $controlResult.AdditionalInfoInCSV += "First 10 InactiveUsers: $($UserList -join ' ; '); ";
                         }
 
                     }
@@ -2761,5 +2867,73 @@ class Organization: ADOSVTBase
             throw
         }
     }
+
+
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForFeed ([ControlResult] $controlResult) {
+
+        try {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            #$projectId = $this.ResourceContext.ResourceDetails.Id
+
+            $restrictedBroaderGroups = @{}
+            $RestrictedBroaderGroupsForFeeds = $this.ControlSettings.Feed.RestrictedBroaderGroupsForFeeds;
+            $RestrictedBroaderGroupsForFeeds.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
+
+            #Fetch feeds RBAC
+            $roleAssignments = @();
+
+            $url = "https://feeds.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Packaging/GlobalPermissions?includeIds=true&api-version=5.1-preview.1"
+            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+            if($responseObj.Count -gt 0)
+            {
+                #get identity details for groups fetched from above api
+                $responseObj = $responseObj | where-object {$_.role -eq 'administrator'}
+                $ids = $responseObj.identityId -join ';'
+                $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/IdentityPicker/Identities?api-version=5.0-preview.1" #-f $($OrgName), $($groupObj.entityId)
+                $body = '{"query":"'+ $ids +'","identityTypes":["group"],"operationScopes":["ims"],"queryTypeHint":"uid","properties":["DisplayName","ScopeName"]}'
+                $response = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/json" -Body $body -UseBasicParsing
+            
+                $groups = $response.Content | Convertfrom-json
+                $roleAssignments = $groups.results.identities.displayname
+
+                # Checking whether the broader groups have permissions
+                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroups.keys -contains $_.split('\')[-1]) -and ("Project Collection Administrators" -notcontains $_.split('\')[-1]) })
+
+                if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $restrictedGroups.Count -gt 0)
+                {
+                    $broaderGroupsWithExcessiveMembers = @([ControlHelper]::FilterBroadGroupMembers($restrictedGroups, $true))
+                    $restrictedGroups = @($restrictedGroups | Where-Object {$broaderGroupsWithExcessiveMembers -contains $_.Name})
+                }
+                $restrictedGroupsCount = $restrictedGroups.Count
+
+                # fail the control if restricted group found on feed
+                if ($restrictedGroupsCount -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have access to administer feeds at a organization level: $($restrictedGroupsCount)");
+                    $formattedGroupsData = $restrictedGroups
+                    $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
+                    $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
+                    $controlResult.SetStateData("List of groups: ", $restrictedGroups)
+                    $controlResult.AdditionalInfo += "Count of broader groups that have access to administer feeds at a organization level: $($restrictedGroupsCount)";
+                    $controlResult.AdditionalInfoInCSV = $restrictedGroups -join ' ; '
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have access to administer feeds at a organization level.");
+                }
+                $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}
+                $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($displayObj | FT -AutoSize | out-string)");
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have access to administer feeds at a organization level.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the feeds permissions at a organization level.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult;
+    } 
+
 
 }

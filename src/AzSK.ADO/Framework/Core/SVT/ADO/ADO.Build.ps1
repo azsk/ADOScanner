@@ -360,6 +360,7 @@ class Build: ADOSVTBase
                 $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $formattedDate;
                 $buildInactivePeriod = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
                 $controlResult.AddMessage("The build was inactive from last $($buildInactivePeriod) days.");
+                $controlResult.AddMessage("`nNote: Restored pipeline although retain run history but are considered as a new pipeline in ADO.");
             }
         }
         catch
@@ -887,22 +888,79 @@ class Build: ADOSVTBase
     {
         $controlResult.VerificationResult = [VerificationResult]::Verify
         $sourceObj = $this.BuildObj[0].repository | Select-Object -Property @{Name="RepositoryName"; Expression = {$_.Name}},@{Name="RepositorySourceType"; Expression = {$_.type}}
-        if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
-           {
-                $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository: ");
-                $display = ($sourceObj|FT  -AutoSize | Out-String -Width 512)
-                $controlResult.AddMessage($display)
-                $controlResult.SetStateData("Pipeline code is built from trusted repository: ",$sourceObj)                
-           }
-        else
-           {
-                $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from external repository: ");
-                $display = ($sourceObj|FT  -AutoSize | Out-String -Width 512)
-                $controlResult.AddMessage($display)
-                $controlResult.SetStateData("Pipeline code is built from external repository: ",$sourceObj)
-           }
-        $controlResult.AdditionalInfo = "$($sourceObj.repositoryName) : $($this.BuildObj[0].repository.type)";
-        $controlResult.AdditionalInfoInCSV = "$($sourceObj.repositoryName) : $($this.BuildObj[0].repository.type)"
+        $checkforPipelineRepo = $true
+        #check if pipeline is yaml
+        if([Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename")){
+
+            #repos checked inside the yaml file are available only when build id is present, if it present we check for repos checked inside yaml
+            if([Helpers]::CheckMember($this.BuildObj[0],"latestBuild") -and [Helpers]::CheckMember($this.BuildObj[0].latestBuild, "id")){
+                $latestBuildId = $this.BuildObj[0].latestBuild.id
+                $checkforPipelineRepo = $false
+                $url = "https://dev.azure.com/{0}/{1}/_traceability/runview/changes?currentRunId={2}&__rt=fps&__ver=2" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $latestBuildId
+                
+                try{
+                    $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+                    $externalSourceObj = @()
+                    $repoSource = $this.BuildObj[0].repository.type
+                    #check if multiple repos are defined, it will also contain pipeline source repo
+                    if([Helpers]::CheckMember($response,"fps.dataProviders.data") -and $response.fps.dataProviders.data.'ms.vss-traceability-web.traceability-run-changes-data-provider' -and [Helpers]::CheckMember($response.fps.dataProviders.data.'ms.vss-traceability-web.traceability-run-changes-data-provider','artifactsData')){                        
+                        $externalSourceObj  =  @($response.fps.dataProviders.data.'ms.vss-traceability-web.traceability-run-changes-data-provider'.artifactsData.repository | Where-Object {$_. type -ne 'TfsGit' -and $_. type -ne 'TfsVersionControl' -and $_.id -ne $this.BuildObj[0].repository.id  })
+                    }
+                    if($externalSourceObj.count -gt 0){
+                        $externalSourceObj = $externalSourceObj | Select-Object -Property @{Name="RepositoryName"; Expression = {$_.Name}},@{Name="RepositorySourceType"; Expression = {$_.type}}
+                        $display = @()
+                        $display+=$externalSourceObj
+                        #if pipeline source is trusted but yaml contains repos from untrusted sources
+                        if(($repoSource -eq 'TfsGit') -or ($repoSource -eq 'TfsVersionControl')){
+                            $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from trusted repository but contains untrusted sources as well: ");
+                        }
+                        #pipeline source is untrusted and yaml checks out other untrusted sources as well
+                        else{
+                            $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from untrusted repository as well as contains untrusted sources: ");
+                            $display += $sourceObj
+                            
+                        }
+                        $display = ($display | FT -AutoSize | Out-String -Width 512) 
+                        $controlResult.AddMessage($display)                                              
+                        $controlResult.SetStateData("Pipeline code is built from external repository: ",$display)
+                        $controlResult.AdditionalInfo += $externalSourceObj
+                        $controlResult.AdditionalInfo += $sourceObj
+                        $controlResult.AdditionalInfoInCSV += $externalSourceObj
+                        $controlResult.AdditionalInfoInCSV += $sourceObj
+                    }
+                    #no other repos have been defined in yaml
+                    else{
+                        #check pipeline sources
+                        $checkforPipelineRepo = $true
+                    }
+                    
+                    
+                }
+                catch{
+                    $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch pipeline details");
+                }
+            }
+                     
+        }
+        #if pipeline is classic or if build id not present (in yaml pipeline) we check for pipeline source repo type   
+        if($checkforPipelineRepo -eq $true){
+            if( ($this.BuildObj[0].repository.type -eq 'TfsGit') -or ($this.BuildObj[0].repository.type -eq 'TfsVersionControl'))
+            {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Pipeline code is built from trusted repository: ");
+                    $display = ($sourceObj|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                    $controlResult.SetStateData("Pipeline code is built from trusted repository: ",$sourceObj)                
+            }
+            else
+            {
+                    $controlResult.AddMessage([VerificationResult]::Verify,"Pipeline code is built from external repository: ");
+                    $display = ($sourceObj|FT  -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                    $controlResult.SetStateData("Pipeline code is built from external repository: ",$sourceObj)
+            }
+            $controlResult.AdditionalInfo = "$($sourceObj.repositoryName) : $($this.BuildObj[0].repository.type)";
+            $controlResult.AdditionalInfoInCSV = "$($sourceObj.repositoryName) : $($this.BuildObj[0].repository.type)"
+        }
 
         $sourceObj = $null;
         
@@ -954,7 +1012,18 @@ class Build: ADOSVTBase
                             # ResolvePermissions method returns object if 'Edit task group' is allowed
                             $obj = [Helpers]::ResolvePermissions($permissionsInBit, [Build]::TaskGroupNamespacePermissionObj.actions, 'Edit task group')
                             if (($obj | Measure-Object).Count -gt 0){
-                                $editableTaskGroups += $_.DisplayName
+                                $TGActualName ="";
+                                try {
+                                    $tgURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/taskgroups/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $projectName, $taskGrpId ;
+                                    $tgDetails = [WebRequestHelper]::InvokeGetWebRequest($tgURL);
+
+                                    if([Helpers]::CheckMember($tgDetails,"name")) {
+                                        $TGActualName= $tgDetails.name;
+                                    }
+                                }
+                                catch {
+                                }
+                                $editableTaskGroups += New-Object -TypeName psobject -Property @{DisplayName = $_.displayName; TGActualName = $TGActualName;}
                             }
                         }
                         if(($editableTaskGroups | Measure-Object).Count -gt 0)
@@ -964,8 +1033,8 @@ class Build: ADOSVTBase
                             $controlResult.AddMessage([VerificationResult]::Failed,"Contributors have edit permissions on the below task groups used in build definition: ", $editableTaskGroups);
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
 
-                            $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName } 
-                            $addInfo = "NumTaskGroups: $($taskGroups.Count); List: $($groups -join '; ')"
+                            $groups = $editableTaskGroups | ForEach-Object {"TGName:"+ $_.DisplayName + ",TGActualName:" +$_.TGActualName } 
+                            $addInfo = "NumTG: $($taskGroups.Count); List: $($groups -join '; ')"
                             $controlResult.AdditionalInfo += $addInfo;
                             $controlResult.AdditionalInfoInCSV += $addInfo;
                         }
@@ -1090,7 +1159,18 @@ class Build: ADOSVTBase
                                     #effectivePermissionValue equals to 1 implies edit task group perms is set to 'Allow'. Its value is 3 if it is set to Allow (inherited). This param is not available if it is 'Not Set'.
                                     if([Helpers]::CheckMember($editPerms,"effectivePermissionValue") -and (($editPerms.effectivePermissionValue -eq 1) -or ($editPerms.effectivePermissionValue -eq 3)))
                                     {
-                                        $editableTaskGroups += New-Object -TypeName psobject -Property @{DisplayName = $_.displayName; PrincipalName = $broadGroupObj.principalName}
+                                        $TGActualName ="";
+                                        try {
+                                            $tgURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/taskgroups/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $projectName, $taskGrpId ;
+                                            $tgDetails = [WebRequestHelper]::InvokeGetWebRequest($tgURL);
+
+                                            if([Helpers]::CheckMember($tgDetails,"name")) {
+                                                $TGActualName= $tgDetails.name;
+                                            }
+                                        }
+                                        catch {
+                                        }
+                                        $editableTaskGroups += New-Object -TypeName psobject -Property @{DisplayName = $_.displayName; TGActualName = $TGActualName; GroupName = $broadGroupObj.principalName}
                                         
                                         $excessivePermissionsGroupObj = @{}
                                         $excessivePermissionsGroupObj['TaskGroupId'] = $taskGrpId
@@ -1116,8 +1196,8 @@ class Build: ADOSVTBase
                             $controlResult.AddMessage($display)
                             $controlResult.SetStateData("List of task groups used in build definition that contributors can edit: ", $editableTaskGroups);
                             
-                            $groups = $editableTaskGroups | ForEach-Object { $_.DisplayName } 
-                            $addInfo = "NumTaskGroups: $($taskGroups.Count); NumTaskGroupsWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
+                            $groups = $editableTaskGroups | ForEach-Object {"TGName:"+ $_.DisplayName + ",TGActualName:" +$_.TGActualName }  
+                            $addInfo = "NumTG: $($taskGroups.Count); NumTGWithEditPerm: $($editableTaskGroupsCount); List: $($groups -join '; ')"
                             $controlResult.AdditionalInfo += $addInfo;
                             $controlResult.AdditionalInfoInCSV += $addInfo;
 
@@ -1129,7 +1209,7 @@ class Build: ADOSVTBase
                         }
                         else
                         {
-                            $controlResult.AdditionalInfoInCSV += "NA"
+                            $controlResult.AdditionalInfoInCSV = "NA"
                             $controlResult.AdditionalInfo += "NA"
                             $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in build definition.");
                         }
@@ -1144,8 +1224,13 @@ class Build: ADOSVTBase
                                 $nonEditableTaskGroups = $taskGroups
                             }
                             $groups = $nonEditableTaskGroups | ForEach-Object { $_.DisplayName } 
-                            $controlResult.AdditionalInfoInCSV += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
-                            $controlResult.AdditionalInfo += "NonEditableTaskGroupsList: $($groups -join ' ; ') ; "
+                            if ($controlResult.AdditionalInfoInCSV -eq "NA") {
+                                $controlResult.AdditionalInfoInCSV = "NonEditableTGList: $($groups -join '; ');"
+                            }
+                            else {
+                                $controlResult.AdditionalInfoInCSV += "NonEditableTGList: $($groups -join '; ');"
+                            }
+                            $controlResult.AdditionalInfo += "NonEditableTGList: $($groups -join '; ');"
                         }
                     }
                     catch
@@ -1278,7 +1363,13 @@ class Build: ADOSVTBase
                                         {
                                             $failedCount = $failedCount +1
                                             $editableVarGrps += $currentVarGrp.name
-                                            break;
+					                        
+                                            $formattedVarGroupsData = $obj | Select @{l = 'displayName'; e = { $_.identity.displayName } }, @{l = 'userid'; e = { $_.identity.id } }, @{l = 'role'; e = { $_.role.name } }, @{l = 'vargrpid'; e = { $currentVarGrp.id } } , @{l = 'vargrpname'; e = { $currentVarGrp.name } }                                     
+                                        
+	                                        if ($this.ControlFixBackupRequired) {
+	                                            #Data object that will be required to fix the control                                            
+	                                            $controlResult.BackupControlState += $formattedVarGroupsData;
+	                                        }                                             
                                         }
                                     }                            
                                 }
@@ -1290,7 +1381,13 @@ class Build: ADOSVTBase
                     }
                     
                 }
-                $editableVarGrpsCount = $editableVarGrps.Count
+                 if($editableVarGrps.Count -gt 0){
+                    $editableVarGrpsCount = (($editableVarGrps | Get-Unique) | Measure-Object).Count
+                }
+                else{
+                    $editableVarGrpsCount = 0;
+                }
+		
                 if($editableVarGrpsCount -gt 0)
                 {
                     $controlResult.AddMessage("Count of variable groups on which contributors have edit permissions: $($editableVarGrpsCount)");
@@ -1322,6 +1419,72 @@ class Build: ADOSVTBase
         }
 
         return $controlResult
+    }
+
+    hidden [ControlResult] CheckVariableGroupEditPermissionAutomatedFix([ControlResult] $controlResult)
+    {
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFixTemp = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject 
+            $RawDataObjForControlFixTemp = $RawDataObjForControlFix
+            $projectId = $this.BuildObj.project.id
+            $varGrpIds = $RawDataObjForControlFix | Select-Object vargrpid -Unique
+            foreach ($vgId in $varGrpIds) {
+                $body = "["
+
+                if (-not $this.UndoFix)
+                {
+                    foreach ($identity in $RawDataObjForControlFix) 
+                    {                    
+                        if ($body.length -gt 1) {$body += ","}
+                        if ($identity.vargrpid -eq $vgId.vargrpid){
+                        $body += @"
+                            {
+                                "userid":"$($identity.userid)",
+                                "roleName": "Reader"
+                            }
+                            
+"@;
+                        }
+                    }
+                    $RawDataObjForControlFixTemp | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                    $RawDataObjForControlFixTemp = @($RawDataObjForControlFix  | Select-Object @{Name="UserName"; Expression={$_.displayName}},@{Name="VarGrpName"; Expression={$_.vargrpname}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+                }
+                else {
+                    foreach ($identity in $RawDataObjForControlFix) 
+                    {                    
+                        if ($body.length -gt 1) {$body += ","}
+                        if ($identity.vargrpid -eq $vgId.vargrpid){
+                        $body += @"
+                            {
+                                "userid": "$($identity.userid)",
+                                "roleName": "$($identity.role)"                          
+                            }
+"@;
+                        }
+                    }
+                    $RawDataObjForControlFixTemp | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                    $RawDataObjForControlFixTemp = @($RawDataObjForControlFix  | Select-Object @{Name="UserName"; Expression={$_.displayName}},@{Name="VarGrpName"; Expression={$_.vargrpname}}, @{Name="OldRole"; Expression={$_.OldRole}}, @{Name="NewRole"; Expression={$_.Role}})
+                }
+                $body += "]"  
+
+                #Put request                
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName),$($projectId) ,$($vgId.vargrpid);
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+                $webRequestResult = Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -Body $body	
+            }						    
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Contributors edit permissions for variable groups have been changed as below: ");
+                $display = ($RawDataObjForControlFixTemp |  FT -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("`n$display");                                     
+    }
+    catch {
+        $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+        $controlResult.LogException($_)
+    }
+    return $controlResult
     }
 
     hidden [ControlResult] CheckBuildAuthZScope([ControlResult] $controlResult)
@@ -1445,10 +1608,16 @@ class Build: ADOSVTBase
                 $projectId = $this.BuildObj.project.id
                 $projectName = $this.BuildObj.project.name
                 $buildId = $this.BuildObj.id
-                $permissionSetToken = "$projectId/$buildId"
-                if ([Helpers]::CheckMember($this.ControlSettings.Build, "RestrictedBroaderGroupsForBuild")) {
-                    $restrictedBroaderGroups = @{}
-                    $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
+                if ([Helpers]::CheckMember($this.BuildObj, "path") -and ($this.BuildObj.path -ne "\")) {
+                    $path = $this.BuildObj.path.Replace('\','/')
+                    $permissionSetToken = "$projectId" + "$path/$buildId"
+                }
+                else {
+                    $permissionSetToken = "$projectId/$buildId"
+                }
+                $restrictedBroaderGroups = @{}
+                $broaderGroups = $this.ControlSettings.Build.RestrictedBroaderGroupsForBuild
+                if(@($broaderGroups.psobject.Properties).Count -gt 0) {
                     $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
                     $buildURL = "https://dev.azure.com/$orgName/$projectName/_build?definitionId=$buildId"
 
@@ -1589,7 +1758,7 @@ class Build: ADOSVTBase
                     $controlResult.AddMessage("`nNote:`nFollowing groups are considered 'broad groups':`n$($displayObj | FT -AutoSize | Out-String -Width 512)");
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Broader groups or excessive permissions are not defined in control settings for your organization.");
+                    $controlResult.AddMessage([VerificationResult]::Error, "List of restricted broader groups and restricted roles for build is not defined in the control settings for your organization policy.");
                 }
             }
             catch
@@ -1694,12 +1863,17 @@ class Build: ADOSVTBase
 
             if($pullRequestTrigger)
             {
-                if([Helpers]::CheckMember($pullRequestTrigger,"forks") -and ($isRepoPrivate -eq $false))
+                if(($isRepoPrivate -eq $false) -and [Helpers]::CheckMember($pullRequestTrigger,"forks"))
                 {
 
                     if(($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true))
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed,"Pipeline secrets are marked as available to pull request validations of public repo forks.");
+                        if ($this.ControlFixBackupRequired)
+                        {
+                            #Data object that will be required to fix the control
+                            $controlResult.BackupControlState = $pullRequestTrigger.forks.allowSecrets;
+                        }
                     }
                     else
                     {
@@ -1722,6 +1896,34 @@ class Build: ADOSVTBase
         }
 
         return  $controlResult
+    }
+
+    hidden [ControlResult] CheckForkedBuildTriggerAutomatedFix([ControlResult] $controlResult)
+    {   
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            
+            $uri = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=5.0-preview.6" -f ($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $($this.BuildObj.id) 
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+            if (-not $this.UndoFix) {
+                $this.BuildObj[0].triggers | foreach {if($_.triggerType -eq "pullRequest" -and [Helpers]::CheckMember($_,"forks") -and  $_.forks.allowSecrets -eq $true){$_.forks.allowSecrets = $false;}}
+                $body = $this.BuildObj[0] | ConvertTo-Json -Depth 10
+                $buildDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
+                $controlResult.AddMessage([VerificationResult]::Fixed,"Pipeline secrets are marked as unavailable to pull request validations of public repo forks.");
+            }
+            else {
+                $this.BuildObj[0].triggers | foreach {if($_.triggerType -eq "pullRequest" -and [Helpers]::CheckMember($_,"forks") -and $_.forks.allowSecrets -eq $false){$_.forks.allowSecrets = $true;}}
+                $body = $this.BuildObj[0] | ConvertTo-Json -Depth 10
+                $buildDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
+                $controlResult.AddMessage([VerificationResult]::Fixed,"Pipeline secrets are marked as available to pull request validations of public repo forks.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
 
     hidden [ControlResult] CheckForkedRepoOnSHAgent([ControlResult] $controlResult)
@@ -1823,16 +2025,13 @@ class Build: ADOSVTBase
                 if($this.BuildObj)
                 {
                     $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
-                    try {
-                        $this.buildActivityDetail.buildCreationDate = [datetime]::Parse($this.BuildObj.createdDate);
-                    }
-                    catch {
-                        $this.buildActivityDetail.buildCreationDate = $this.BuildObj.createdDate;
-                    }
+
+                    $this.buildActivityDetail.buildCreationDate = ([datetime] $this.BuildObj.createdDate).ToString("d MMM yyyy")
 
                     if([Helpers]::CheckMember($this.BuildObj[0],"latestBuild") -and $null -ne $this.BuildObj[0].latestBuild)
                     {
-                        if ([datetime]::Parse( $this.BuildObj[0].latestBuild.queueTime) -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays)))
+                        [datetime] $queueTime = ([datetime] $this.BuildObj[0].latestBuild.queueTime).ToString("d MMM yyyy")
+                        if ($queueTime -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays)))
                         {
                             $this.buildActivityDetail.isBuildActive = $true;
                             $this.buildActivityDetail.message = "Found recent builds triggered within $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days";
@@ -1845,7 +2044,7 @@ class Build: ADOSVTBase
 
                         if([Helpers]::CheckMember($this.BuildObj[0].latestBuild,"finishTime"))
                         {
-                            $this.buildActivityDetail.buildLastRunDate = [datetime]::Parse($this.BuildObj[0].latestBuild.finishTime);
+                            $this.buildActivityDetail.buildLastRunDate = ([datetime] $this.BuildObj[0].latestBuild.finishTime).ToString("d MMM yyyy")
                         }
                     }
                     else
@@ -1892,19 +2091,19 @@ class Build: ADOSVTBase
                         if($builds.Count -gt 0 )
                         {
                             $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
-                            try {
-                                $this.buildActivityDetail.buildCreationDate = [datetime]::Parse($this.BuildObj.createdDate);  
-                            }
-                            catch {
+                            if([ContextHelper]::PSVersion -gt 5) {
                                 $this.buildActivityDetail.buildCreationDate = $this.BuildObj.createdDate;
+                            }
+                            else {
+                                $this.buildActivityDetail.buildCreationDate = [datetime]::Parse($this.BuildObj.createdDate);
                             }
                             if([Helpers]::CheckMember($builds[0],"latestRun") -and $null -ne $builds[0].latestRun)
                             {
-                                try {
-                                    $latestRunQueueTime = [datetime]::Parse( $builds[0].latestRun.queueTime)
+                                if([ContextHelper]::PSVersion -gt 5) {
+                                    $latestRunQueueTime = $builds[0].latestRun.queueTime;
                                 }
-                                catch {
-                                    $latestRunQueueTime = $builds[0].latestRun.queueTime  
+                                else {
+                                    $latestRunQueueTime = [datetime]::Parse($builds[0].latestRun.queueTime);
                                 }
                                 if ( $latestRunQueueTime -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays)))
                                 {
@@ -1919,13 +2118,11 @@ class Build: ADOSVTBase
 
                                 if([Helpers]::CheckMember($builds[0].latestRun,"finishTime"))
                                 {
-                                    try {
-                                    $this.buildActivityDetail.buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
-                                        
+                                    if([ContextHelper]::PSVersion -gt 5) {
+                                        $this.buildActivityDetail.buildLastRunDate = $builds[0].latestRun.finishTime;
                                     }
-                                    catch {
-                                    $this.buildActivityDetail.buildLastRunDate = $builds[0].latestRun.finishTime;
-                                        
+                                    else {
+                                        $this.buildActivityDetail.buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
                                     }
                                 }
                             }

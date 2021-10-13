@@ -114,12 +114,17 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	{
 		$ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
 		$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
-
+		$cleanProcessedResources = $false
 		if ($Env:AzSKADOUPCSimulate -eq $true)
 		{
 			$ControlSettings.PartialScan.LocalScanUpdateFrequency = $Env:AzSKADOLocalScanUpdateFrequency
 			$ControlSettings.PartialScan.DurableScanUpdateFrequency = $Env:AzSKADODurableScanUpdateFrequency
 		}
+`		
+		if([Helpers]::CheckMember($ControlSettings, "CleanProcessedResources") -and $ControlSettings.CleanProcessedResources){
+			$cleanProcessedResources = $true
+		}
+		
 
 		if ([string]::IsNullOrWhiteSpace($methodNameToCall))
 		{
@@ -220,6 +225,12 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		$resourceTypesForCommonSVT = "";
 		if ([Helpers]::CheckMember($ControlSettings, "ResourceTypesForCommonSVT")) {
 			$resourceTypesForCommonSVT = $ControlSettings.ResourceTypesForCommonSVT
+		}
+
+		if($this.invocationContext.MyCommand.Name -eq "Set-AzSKADOSecurityStatus")
+		{
+			#Send resource count to usage telemetry in case of bulk remediation
+			$this.PublishAzSKRootEvent([SVTEvent]::ResourceCount,$totalResources);
 		}
 		
 		$automatedResources | ForEach-Object {
@@ -412,6 +423,9 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 					[AIOrgTelemetryHelper]::PublishEvent( "Resource Scan Completed",$properties, @{})
 				}
 
+				if ($cleanProcessedResources) {
+					$resourcesList.remove($_);
+				}
 			}
             catch
             {
@@ -463,6 +477,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 
 			$this.PublishAzSKRootEvent([AzSKRootEvent]::UnsupportedResources, $nonAutomatedResources);
 		}
+
 	}
     #Rescan controls post attestation
 	hidden [SVTEventContext[]] ScanAttestedControls()

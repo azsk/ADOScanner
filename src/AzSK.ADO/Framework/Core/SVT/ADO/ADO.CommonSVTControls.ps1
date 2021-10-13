@@ -6,6 +6,7 @@ class CommonSVTControls: ADOSVTBase {
     hidden [string] $checkInheritedPermissionsSecureFile = $false
     hidden [string] $checkInheritedPermissionsEnvironment = $false
     hidden [string] $checkInheritedPermissionsRepo = $false
+    hidden [string] $checkInheritedPermissionsFeed = $false
     hidden [object] $repoInheritePermissions = @{};
     hidden [PSObject] $excessivePermissionBitsForRepo = @(1)
     hidden [PSObject] $excessivePermissionsForRepoBranch = $null;
@@ -25,6 +26,10 @@ class CommonSVTControls: ADOSVTBase {
             #allow permission bit for inherited permission is '3'
             $this.checkInheritedPermissionsRepo = $true
             $this.excessivePermissionBitsForRepo = @(1,3)
+        }
+
+        if ([Helpers]::CheckMember($this.ControlSettings.Feed, "CheckForInheritedPermissions") -and $this.ControlSettings.Feed.CheckForInheritedPermissions) {
+            $this.checkInheritedPermissionsFeed = $true
         }
 
         $this.excessivePermissionsForRepoBranch = $this.ControlSettings.Repo.ExcessivePermissionsForBranch        
@@ -83,11 +88,11 @@ class CommonSVTControls: ADOSVTBase {
 
             if (([Helpers]::CheckMember($repoPipelinePermissionObj[0], "allPipelines")) -and ($repoPipelinePermissionObj[0].allPipelines.authorized -eq $true))
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Repository is accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Repository is accessible to all YAML pipelines.");
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Repository is not accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Repository is not accessible to all YAML pipelines.");
             }
         }
         catch
@@ -110,7 +115,8 @@ class CommonSVTControls: ADOSVTBase {
             $inputbody.dataProviderContext.properties.permissionSetId = $this.repoPermissionSetId
             #first check permissions for all branches
             $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads/" 
-            #calling the common method to get permissions object on this level           
+            #calling the common method to get permissions object on this level    
+            $autoFixStateData = @();       
             $excessivePermissionsListOnAllBranches = $this.CheckPermsOnBranch($url,$inputBody,$projectId,$null)
             if ($null -ne $excessivePermissionsListOnAllBranches -and $excessivePermissionsListOnAllBranches.count -gt 0) {
                 $isControlPassing = $false        
@@ -122,6 +128,12 @@ class CommonSVTControls: ADOSVTBase {
                 $groups =  $groups -join ' ; '
                 $controlResult.AdditionalInfo += "List of Build service groups  with excessive permission on 'All Branches' level:  $($groups); ";
                 $controlResult.AdditionalInfoInCSV+= "'All Branches' level excessive permissions: $($groups); "                        
+                if ($this.ControlFixBackupRequired)
+                {
+                    $autoFixStateData +=$excessivePermissionsListOnAllBranches;
+                    #Data object that will be required to fix the control
+                    $controlResult.BackupControlState = $autoFixStateData;
+                }
             }
             else {
                 $controlResult.AddMessage("Build service groups do not have excessive permissions on 'All Branches' level of the repository.");
@@ -131,7 +143,8 @@ class CommonSVTControls: ADOSVTBase {
             $individualBranches | foreach {
                 $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($projectId)/$($this.ResourceContext.ResourceDetails.id)/refs^heads^$($_)/"
                 $excessivePermissionsListOnBranch = $this.CheckPermsOnBranch($url,$inputBody,$projectId,$_)
-                if ($null -ne $excessivePermissionsListOnBranch -and $excessivePermissionsListOnBranch.count -gt 0) {
+                if ($null -ne $excessivePermissionsListOnBranch -and $excessivePermissionsListOnBranch.count -gt 0) 
+                {
                     if($isControlPassing){
                         $isControlPassing = $false
                         $controlResult.AddMessage([VerificationResult]::Failed, "Build service groups  have excessive permissions on '$($_)' branch of the repository.");
@@ -145,8 +158,14 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AddMessage("`nList of groups : `n$formattedBuildServiceGrpTable");                    
                     $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions } 
                     $groups =  $groups -join ' ; '
-                    $controlResult.AdditionalInfo += "List of Build service groups  with excessive permission on $($_) branch:  $($groups); ";
-                    $controlResult.AdditionalInfoInCSV+= "$_ branch excessive permissions: $($groups); "                      
+                    $controlResult.AdditionalInfo += "List of Build service groups with excessive permission on $($_) branch:  $($groups); ";
+                    $controlResult.AdditionalInfoInCSV+= "$_ branch excessive permissions: $($groups); " 
+                    if ($this.ControlFixBackupRequired)
+                    {
+                        $autoFixStateData +=$excessivePermissionsListOnBranch;
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $autoFixStateData;
+                    }                     
                 }
                 else {
                     $controlResult.AddMessage("Build service groups  do not have excessive permissions on '$($_)' branch of the repository.");
@@ -167,6 +186,96 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.LogException($_)
         }
        return $controlResult
+    }
+
+    hidden [ControlResult] CheckBuildServiceAccessOnBranchAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.repoPermissionSetId
+
+            if (-not $this.UndoFix) {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {   
+                    $excessivePermissions = $identity.ExcessivePermissions -split ";"
+                    $descriptor = $identity.Descriptor
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        if ($excessivePermission.trim() -eq 'Force push (rewrite history, delete branches and tags)') {
+                            $roleId = [int][RepoPermissions] 'Forcepush'
+                        }
+                        elseif ($excessivePermission.trim() -eq "Remove others' locks") {
+                            $roleId = [int][RepoPermissions] 'Removeotherslocks'
+                        }
+                        else {
+                            $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","").trim();  
+                        }
+                        #need to invoke a post request which does not accept all permissions added in the body at once
+                        #hence need to call invoke seperately for each permission
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : '$descriptor',
+                                'allow':0,
+                                'deny':$($roleId)                              
+                            }]
+                        }" | ConvertFrom-Json
+
+                        $result = [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Allow"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Deny"
+
+                }
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    
+                    $descriptor = $identity.Descriptor
+                    $excessivePermissions = $identity.ExcessivePermissions -split ";"
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        if ($excessivePermission.trim() -eq 'Force push (rewrite history, delete branches and tags)') {
+                            $roleId = [int][RepoPermissions] 'Forcepush'
+                        }
+                        elseif ($excessivePermission.trim() -eq "Remove others' locks") {
+                            $roleId = [int][RepoPermissions] 'Removeotherslocks'
+                        }
+                        else {
+                            $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","").trim();  
+                        }
+                        
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : '$descriptor',
+                                'allow':$($roleId),
+                                'deny':0                              
+                            }]
+                        }" | ConvertFrom-Json
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Allow"
+                }
+            }
+            
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permissions for build service accounts on branches have been changed as below: ");
+            $formattedGroupsData = $RawDataObjForControlFix | Select @{l = 'Group'; e = { $_.Group } }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions }}, @{l = 'OldPermission'; e = { $_.OldPermission }}, @{l = 'NewPermission'; e = { $_.NewPermission } }
+            $display = ($formattedGroupsData |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
 
     #common method to get excessive permisions for every group for a branch
@@ -230,7 +339,9 @@ class CommonSVTControls: ADOSVTBase {
                         if ($groupFoundWithExcessivePermissions -eq $true) {
                             $excessivePermissionsGroupObj = @{}
                             $excessivePermissionsGroupObj['Group'] = $broaderGroup.displayName
-                            $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join ', ')                            
+                            $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join '; ') 
+                            $excessivePermissionsGroupObj['Descriptor'] = $broaderGroupResponseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.identityDescriptor
+                            $excessivePermissionsGroupObj['PermissionSetToken'] = $excessivePermissionsPerGroup[0].token                           
                             $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
                         }
                     }
@@ -400,19 +511,20 @@ class CommonSVTControls: ADOSVTBase {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            if ([Helpers]::CheckMember($this.ControlSettings, "Feed.RestrictedBroaderGroupsForFeeds"))
-            {
-                $restrictedBroaderGroups = @{}
-                $restrictedBroaderGroupsForFeeds = $this.ControlSettings.Feed.RestrictedBroaderGroupsForFeeds
+            $restrictedBroaderGroups = @{}
+            $restrictedBroaderGroupsForFeeds = $this.ControlSettings.Feed.RestrictedBroaderGroupsForFeeds
+
+            if(@($restrictedBroaderGroupsForFeeds.psobject.properties).Count -gt 0){
                 $restrictedBroaderGroupsForFeeds.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
 
                 #GET https://feeds.dev.azure.com/{organization}/{project}/_apis/packaging/Feeds/{feedId}/permissions?api-version=6.0-preview.1
                 #Using visualstudio api because new api (dev.azure.com) is giving null in the displayName property.
 
                 #orgFeedURL will be used to identify if feed is org scoped or project scoped
-                $orgFeedURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds*'  -f $this.OrganizationContext.OrganizationName
                 $scope = "Project"
-                if ($this.ResourceContext.ResourceDetails.url -match $orgFeedURL){
+                
+                #Project property does not exist of org scoped feeds
+                if ("Project" -notin $this.ResourceContext.ResourceDetails.PSobject.Properties.name){
                     $url = 'https://{0}.feeds.visualstudio.com/_apis/Packaging/Feeds/{1}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
                     $controlResult.AddMessage("`n***Organization scoped feed***")
                     $scope = "Organization"
@@ -422,6 +534,10 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AddMessage("`n***Project scoped feed***")
                 }
                 $feedPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                if ($this.checkInheritedPermissionsFeed -eq $false) {
+                    $feedPermissionList = $feedPermissionList | where-object { $_.isInheritedRole -eq $false }
+                }
+                
                 $excesiveFeedsPermissions = @($feedPermissionList | Where-Object { $restrictedBroaderGroups.keys -contains $_.displayName.split('\')[-1] -and ($_.role -in $restrictedBroaderGroups[$_.displayName.split('\')[-1]])})
                 $feedWithBroaderGroup = @($excesiveFeedsPermissions | Select-Object -Property @{Name="FeedName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role}},@{Name="Name"; Expression = {$_.displayName}}) ;
 
@@ -460,9 +576,8 @@ class CommonSVTControls: ADOSVTBase {
                 $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
                 $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($displayObj | FT -AutoSize | out-string)");
             }
-            else
-            {
-                $controlResult.AddMessage([VerificationResult]::Error,  "List of broader groups for feeds is not defined in control settings for your organization.");
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of broader groups for feeds is not defined in control settings for your organization.");
             }
         }
         catch
@@ -552,10 +667,26 @@ class CommonSVTControls: ADOSVTBase {
             $secureFileObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
 
             if(($secureFileObj.Count -gt 0) -and [Helpers]::CheckMember($secureFileObj[0], "authorized") -and  $secureFileObj[0].authorized -eq $true) {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is accesible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is accesible to all YAML pipelines.");
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all YAML pipelines.");
+                try {
+                    $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/securefile/{2}" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+                    $secureFilePipelinePermObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                    $buildPipelineIds = @();
+                    if ($secureFilePipelinePermObj.Count -gt 0 -and $secureFilePipelinePermObj.pipelines.Count -gt 0) {
+                        $buildPipelineIds = $secureFilePipelinePermObj.pipelines.id
+                        $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.ResourceGroupName, ($buildPipelineIds -join ",");
+                        $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL);
+                        if (([Helpers]::CheckMember($buildDefnsObj,"name"))) {
+                            $controlResult.AdditionalInfoInCSV = "NumYAMLPipelineWithAccess: $($buildDefnsObj.Count)"
+                            $controlResult.AdditionalInfoInCSV = "List: " + ($buildDefnsObj.Name -join ",")
+                        }
+                    }
+                }
+                catch {
+                }
             }
         }
         catch {
@@ -570,9 +701,10 @@ class CommonSVTControls: ADOSVTBase {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedBroaderGroupsForSecureFile")) {
-                $restrictedBroaderGroups = @{}
-                $restrictedBroaderGroupsForSecureFile = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile
+            $restrictedBroaderGroups = @{}
+            $restrictedBroaderGroupsForSecureFile = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile
+
+            if(@($restrictedBroaderGroupsForSecureFile.psobject.properties).Count -gt 0){
                 $restrictedBroaderGroupsForSecureFile.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
 
                 $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
@@ -617,9 +749,8 @@ class CommonSVTControls: ADOSVTBase {
                 $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
                 $controlResult.AddMessage("`nNote: `nThe following groups are considered 'broader groups': `n$($displayObj | FT -AutoSize | out-string)");
             }
-            else
-            {
-                $controlResult.AddMessage([VerificationResult]::Error,  "List of broader groups for secure file is not defined in control settings for your organization.");
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "List of broader groups for secure file is not defined in control settings for your organization.");
             }
         }
         catch
@@ -635,8 +766,7 @@ class CommonSVTControls: ADOSVTBase {
         try 
         {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject   
             $body = "["
 
             if (-not $this.UndoFix)
@@ -697,11 +827,11 @@ class CommonSVTControls: ADOSVTBase {
 
             if (($envPipelinePermissionObj.Count -gt 0) -and ([Helpers]::CheckMember($envPipelinePermissionObj[0],"allPipelines")) -and ($envPipelinePermissionObj[0].allPipelines.authorized -eq $true))
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Environment is accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Failed, "Environment is accessible to all YAML pipelines.");
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Environment is not accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Environment is not accessible to all YAML pipelines.");
             }
         }
         catch
@@ -710,6 +840,65 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.LogException($_)
         }
        return $controlResult
+    }
+
+    hidden [ControlResult] CheckPreDeploymentApprovalOnEnv([ControlResult] $controlResult){
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try{
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/configurations?resourceType=environment&resourceId={2}&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
+            }
+            else{
+                $approvals = @($response | Where-Object{$_.type.name -eq "Approval"})
+                if($approvals.Count -eq 0){
+                    $controlResult.AddMessage([VerificationResult]::Failed, "No approvals have been defined for the environment.");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Approvals have been enabled for the environment.");
+                }
+            }
+
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch approvals and checks on the environment.");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckPreDeploymentApproversOnEnv([ControlResult] $controlResult){
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try{
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'environment'}]"
+            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
+            }
+            else{
+                $approvals = @($response.value | Where-Object{$_.type.name -eq "Approval"})
+                if($approvals.Count -eq 0){
+                    $controlResult.AddMessage([VerificationResult]::Failed, "No approvals have been defined for the environment.");
+                }
+                else{
+                  $approvers = $approvals.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                    $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                    $controlResult.AdditionalInfo += "List of approvers on environment  $($approvers).";
+                    $controlResult.AddMessage([VerificationResult]::Verify, "Validate users/groups added as approver within the environment.");
+                }
+            }
+
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch list of approvers on the environment.");
+        }
+        return $controlResult
     }
 
     hidden [ControlResult] CheckBroaderGroupAccessOnEnvironment([ControlResult] $controlResult)
@@ -768,6 +957,70 @@ class CommonSVTControls: ADOSVTBase {
         }
         return $controlResult
     }
+
+    hidden [ControlResult] CheckBranchHygieneOnEnv([ControlResult] $controlResult){
+        try{
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'environment'}]"
+            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
+            }
+            else{
+                $branchControl = @()
+                try{
+                    $branchControl = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $branchControl = @($branchControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
+                }
+                catch{
+                    $branchControl = @()
+                }
+                if($branchControl.Count -eq 0){
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Branch control has not been defined for the environment.");
+                }
+                else{
+                    #response is a string of branches seperaed via comma
+                    $branches = ($branchControl.inputs.allowedBranches).Split(",");
+                    $nonPermissibleBranchesFound = $false
+                    foreach($branch in $branches){
+                        try{
+                            #allowed format is refs/heads/branch
+                            $branch = ($branch -split 'refs/heads/')[1]
+                        }
+                        catch{
+                            #to catch branch names like *, refs/tags etc.
+                            $nonPermissibleBranchesFound = $true;
+                            break;
+                        }                        
+                        if($branch -notin $this.ControlSettings.Build.BranchesToCheckForYAMLScript){
+                            $nonPermissibleBranchesFound = $true;
+                            break;
+                        }
+                    }
+                    if($nonPermissibleBranchesFound -eq $false){
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Deployments to the environment is allowed via standard branches only.");
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Verify, "Validate the branches approved for deployment to the environment.");
+                    }
+                    $branches = $branches | Select @{n='Branch name';e={$_}}
+                    $formattedBranchesTable = ($branches| FT -AutoSize | Out-String -width 512)
+                    $controlResult.AddMessage("`nList of branches : `n$formattedBranchesTable");
+                    $controlResult.AdditionalInfo += "List of branches approved on environment  $($branches).";
+                    
+                }
+            }
+
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch branch control checks on the environment.");
+        }
+        return $controlResult
+    }
     
     hidden [ControlResult] CheckBuildSvcAccAccessOnFeeds([ControlResult] $controlResult)
     {
@@ -775,9 +1028,9 @@ class CommonSVTControls: ADOSVTBase {
         try
         {
             #orgFeedURL will be used to identify if feed is org scoped or project scoped
-            $orgFeedURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds*'  -f $this.OrganizationContext.OrganizationName
             $scope = "Project"
-            if ($this.ResourceContext.ResourceDetails.url -match $orgFeedURL){
+            #Project property does not exist of org scoped feeds
+            if ("Project" -notin $this.ResourceContext.ResourceDetails.PSobject.Properties.name){
                 $url = 'https://{0}.feeds.visualstudio.com/_apis/Packaging/Feeds/{1}/Permissions?includeIds=true&excludeInheritedPermissions=false&includeDeletedFeeds=false' -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
                 $controlResult.AddMessage("`n***Organization scoped feed***")
                 $scope = "Organization"
@@ -1071,7 +1324,9 @@ class CommonSVTControls: ADOSVTBase {
                             if ($groupFoundWithExcessivePermissions -eq $true) {
                                 $excessivePermissionsGroupObj = @{}
                                 $excessivePermissionsGroupObj['Group'] = $identity.displayName
-                                $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join ', ')
+                                $excessivePermissionsGroupObj['ExcessivePermissions'] = $($excessivePermissionsPerGroup.displayName -join '; ')
+                                $excessivePermissionsGroupObj['Descriptor'] = $responseObj[0].dataProviders.'ms.vss-admin-web.security-view-permissions-data-provider'.identityDescriptor
+                                $excessivePermissionsGroupObj['PermissionSetToken'] = $excessivePermissionsPerGroup[0].token
                                 $groupsWithExcessivePermissionsList += $excessivePermissionsGroupObj
                             }
                         }                 
@@ -1089,6 +1344,12 @@ class CommonSVTControls: ADOSVTBase {
                     $additionalInfoInCSV = $additionalInfoInCSV -join ' ; ' 
                     $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to repository: $($groupsWithExcessivePermissionsList.Count)";
                     $controlResult.AdditionalInfoInCSV+= "'Repo' level excessive permissions: $($additionalInfoInCSV); "  
+
+                    if ($this.ControlFixBackupRequired)
+                    {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                    }
                 }
 
                 else {
@@ -1107,5 +1368,135 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.LogException($_)
         }
         return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBuildSvcAcctAccessOnRepositoryAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.repoPermissionSetId
+
+            if (-not $this.UndoFix) {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {   
+                    $excessivePermissions = $identity.ExcessivePermissions -split ";"
+                    $descriptor = $identity.Descriptor
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        if ($excessivePermission.trim() -eq 'Force push (rewrite history, delete branches and tags)') {
+                            $roleId = [int][RepoPermissions] 'Forcepush'
+                        }
+                        elseif ($excessivePermission.trim() -eq "Remove others' locks") {
+                            $roleId = [int][RepoPermissions] 'Removeotherslocks'
+                        }
+                        else {
+                            $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","").trim();  
+                        }
+                        #need to invoke a post request which does not accept all permissions added in the body at once
+                        #hence need to call invoke seperately for each permission
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : '$descriptor',
+                                'allow':0,
+                                'deny':$($roleId)                              
+                            }]
+                        }" | ConvertFrom-Json
+
+                        $result = [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Allow"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Deny"
+
+                }
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {                    
+                    $descriptor = $identity.Descriptor
+                    $excessivePermissions = $identity.ExcessivePermissions -split ";"
+                    foreach ($excessivePermission in $excessivePermissions) {
+                        if ($excessivePermission.trim() -eq 'Force push (rewrite history, delete branches and tags)') {
+                            $roleId = [int][RepoPermissions] 'Forcepush'
+                        }
+                        elseif ($excessivePermission.trim() -eq "Remove others' locks") {
+                            $roleId = [int][RepoPermissions] 'Removeotherslocks'
+                        }
+                        else {
+                            $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","").trim();  
+                        }
+                        
+                         $body = "{
+                            'token': '$($identity.PermissionSetToken)',
+                            'merge': true,
+                            'accessControlEntries' : [{
+                                'descriptor' : '$descriptor',
+                                'allow':$($roleId),
+                                'deny':0                              
+                            }]
+                        }" | ConvertFrom-Json
+
+                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
+
+                    }
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Allow"
+                }
+            }
+            
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permissions for build service accounts have been changed as below: ");
+            $formattedGroupsData = $RawDataObjForControlFix | Select @{l = 'Group'; e = { $_.Group } }, @{l = 'ExcessivePermissions'; e = { $_.ExcessivePermissions }}, @{l = 'OldPermission'; e = { $_.OldPermission }}, @{l = 'NewPermission'; e = { $_.NewPermission } }
+            $display = ($formattedGroupsData |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+    hidden [ControlResult] CheckCredentialsAndSecretsPolicyOnRepository([ControlResult] $controlResult) {
+        # body for post request
+        
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $($this.OrganizationContext.OrganizationName);
+        $inputbody = '{"contributionIds": ["ms.vss-code-web.repository-policies-data-provider"],"dataProviderContext": {"properties": {"projectId": "","repositoryId": "","sourcePage": {"url": "","routeId": "ms.vss-admin-web.project-admin-hub-route","routeValues": {"project": "","adminPivot": "repositories","controller": "ContributedPage","action": "Execute"}}}}}' | ConvertFrom-Json
+        $inputbody.dataProviderContext.properties.projectId = "$($this.ResourceContext.ResourceDetails.project.id)"
+        $inputbody.dataProviderContext.properties.repositoryId = "$($this.ResourceContext.ResourceDetails.id)"
+        $inputbody.dataProviderContext.properties.sourcePage.routeValues.project = "$($this.ResourceContext.ResourceDetails.project.Name)"
+        $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/{0}/{1}/_settings/repositories?repo={2}&_a=policiesMid" -f $($this.OrganizationContext.OrganizationName),$($this.ResourceContext.ResourceGroupName),$($this.ResourceContext.ResourceDetails.id)
+                                                                    
+        try {
+            $response = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+            if ([Helpers]::CheckMember($response, "dataProviders") -and $response.dataProviders.'ms.vss-code-web.repository-policies-data-provider' -and [Helpers]::CheckMember($response.dataProviders.'ms.vss-code-web.repository-policies-data-provider', "policyGroups")) {
+                # fetching policy groups
+                $policyGroups = $response.dataProviders."ms.vss-code-web.repository-policies-data-provider".policyGroups
+                # fetching "Secrets scanning restriction"
+                $credScanId = $this.ControlSettings.Repo.CredScanPolicyID
+                if ([Helpers]::CheckMember($policyGroups, $credScanId)) {
+                    $currentScopePoliciesSecrets = $policyGroups."$($credScanId)".currentScopePolicies
+                    if ($currentScopePoliciesSecrets.isEnabled) {
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Check for credentials and other secrets is enabled.");
+                    }
+                    else {
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Check for credentials and other secrets is disabled.");
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Policy to check for credentials and other secrets on the repository not found.");
+                }
+            }
+            else {
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
 }

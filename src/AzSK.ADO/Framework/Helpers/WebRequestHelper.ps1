@@ -319,7 +319,7 @@ class WebRequestHelper {
                             $success = $true
                             $uri = [string]::Empty
 						}
-						elseif($uri.Contains("mspim"))
+						elseif($uri.Contains("mspim") -or $uri.Contains("datastudiostreaming"))
 						{
 							$requestResult = Invoke-WebRequest -Method $method -Uri $validatedUri -Headers $headers -Body $body -ContentType $contentType -UseBasicParsing
                         }

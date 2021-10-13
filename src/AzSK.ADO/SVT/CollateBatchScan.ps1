@@ -1,9 +1,9 @@
 Set-StrictMode -Version Latest
 
-function Get-AzSKADOSecurityStatusBatchModeResults
+function Get-AzSKADOSecurityStatusCombinedResults
 {
     [OutputType([String])]
-    [Alias("Get-AzSKAzureDevOpsSecurityStatusBatchModeResults")]
+    [Alias("Get-AzSKAzureDevOpsSecurityStatusCombinedResults")]
     Param
     (
         [string]
@@ -15,7 +15,13 @@ function Get-AzSKADOSecurityStatusBatchModeResults
         [string]
         [Parameter(Mandatory = $true)]
         [Alias("fn")]
-        $FolderName
+        $FolderName,
+
+        [string]
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("UPC","GADSBM")]
+        [Alias("md")]
+        $Mode
         )
     Begin
     {
@@ -35,13 +41,22 @@ function Get-AzSKADOSecurityStatusBatchModeResults
 			if ([string]::IsNullOrEmpty($sanitizedPath)) {
 				$sanitizedPath = $context.OrganizationName;
 			}
-            $batchScanSanitizedPath = [Helpers]::SanitizeFolderName($FolderName)
-            if(![string]::IsNullOrEmpty($batchScansanitizedPath)) {
-                $outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) | Join-Path -ChildPath "BatchScan" | Join-Path -ChildPath $batchScanSanitizedPath ;
+            $folderSanitizedPath = [Helpers]::SanitizeFolderName($FolderName)
+            $fileName=""
+            if(![string]::IsNullOrEmpty($foldersanitizedPath)) {
+                if($Mode -eq 'UPC'){
+                    $outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) | Join-Path -ChildPath $folderSanitizedPath ;
+                    $fileName = "SecurityReport_CollatedUPC.csv"
+                }
+                else{
+                    $outputPath = Join-Path $outputPath -ChildPath ([Constants]::ParentFolder + $sanitizedPath) | Join-Path -ChildPath "BatchScan" | Join-Path -ChildPath $folderSanitizedPath ;
+                    $fileName = "SecurityReport_CollatedBatchScan.csv"
+                }
+                
             }
 
             if(-not (Test-Path $outputPath)) {
-                Write-Host "Path is incorrect" -ForegroundColor Red
+                Write-Host "Could not find path $($outputPath). Make sure the folder exists in the correct path." -ForegroundColor Red
                 return;
             }
            
@@ -63,7 +78,7 @@ function Get-AzSKADOSecurityStatusBatchModeResults
                    
                 }
 
-                $temp | Export-Csv (Join-Path $outputPath "SecurityReport_CollatedBatchScan.csv") -append -NoTypeInformation 
+                $temp | Export-Csv (Join-Path $outputPath $fileName) -append -NoTypeInformation 
                 Write-Progress -Activity "Combined results from $($progress) folders out of $($folderCount) folders " -PercentComplete ($progress / $folderCount  * 100)
                 $progress+=1
                 
@@ -72,7 +87,7 @@ function Get-AzSKADOSecurityStatusBatchModeResults
 
 
             Write-Progress -Activity "All results collated" -Status "Ready" -Completed
-            Write-Host "Results from batch mode have been combined and exported to $(Join-Path $outputPath "SecurityReport_CollatedBatchScan.csv") "  -ForegroundColor Green
+            Write-Host "Results from $($Mode) mode have been combined and exported to $(Join-Path $outputPath $fileName) "  -ForegroundColor Green
             
            
             

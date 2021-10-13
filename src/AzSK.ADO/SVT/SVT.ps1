@@ -342,6 +342,11 @@ function Get-AzSKADOSecurityStatus
 		$IncrementalScan,
 
 		[switch]
+        [Parameter(Mandatory = $false, HelpMessage="Scan only those resource objects modified after immediately previous scan.")]
+		[Alias("f")]
+		$Force,
+
+		[switch]
 		[Parameter()]
 		[Alias("bs")]
 		$BatchScan,
@@ -361,7 +366,14 @@ function Get-AzSKADOSecurityStatus
 		[Parameter(Mandatory = $false, HelpMessage="Date to use as threshold for incremental scanning.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("dt", "IncrementDate")]
-		$IncrementalDate
+		$IncrementalDate,
+
+		[switch]
+		[Parameter(Mandatory = $false, HelpMessage="Scan attested resources during incremental scan")]
+		[Alias("sars")]
+		$ScanAttestedResources
+
+
 
 	)
 	Begin
@@ -383,10 +395,11 @@ function Get-AzSKADOSecurityStatus
 			[AzSKSettings]::Instance = $null
 			[AzSKConfig]::Instance = $null
 			[ConfigurationHelper]::ServerConfigMetadata = $null
+			[ControlHelper]::IsGroupDetailsFetchedFromPolicy = $false
 			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
       
-      [AutoBugLog]::AutoBugInstance = $null
-      #Clear the cache of nested groups if the org name is not matching from previous scan in same session
+      		[AutoBugLog]::AutoBugInstance = $null
+      		#Clear the cache of nested groups if the org name is not matching from previous scan in same session
 			if ([ControlHelper]::GroupMembersResolutionObj.ContainsKey("OrgName") -and [ControlHelper]::GroupMembersResolutionObj["OrgName"] -ne $OrganizationName) {
 				[ControlHelper]::GroupMembersResolutionObj = @{}
 				[AdministratorHelper]::isCurrentUserPCA = $false
@@ -395,16 +408,16 @@ function Get-AzSKADOSecurityStatus
 				[AdministratorHelper]::AllPAMembers = @()
 			}
       
-      if ($PrepareForControlFix -eq $true)  {
-          if ($UsePartialCommits -ne $true)  {
-              Write-Host "PrepareForControlFix switch requires -UsePartialCommits switch." -ForegroundColor Red
-              return;
-          }
-          elseif ([String]::IsNullOrEmpty($ControlIds) -or $ControlIds -match ','){
-              Write-Host "PrepareForControlFix switch requires one controlid. Use -ControlIds parameter to provide it." -ForegroundColor Red
-              return;
-          }
-      }
+			if ($PrepareForControlFix -eq $true)  {
+				if ($UsePartialCommits -ne $true)  {
+					Write-Host "PrepareForControlFix switch requires -UsePartialCommits switch." -ForegroundColor Red
+					return;
+				}
+				elseif ([String]::IsNullOrEmpty($ControlIds) -or $ControlIds -match ','){
+					Write-Host "PrepareForControlFix switch requires one controlid. Use -ControlIds parameter to provide it." -ForegroundColor Red
+					return;
+				}
+			}
 
 			if($PromptForPAT -eq $true)
 			{

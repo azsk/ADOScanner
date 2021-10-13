@@ -415,6 +415,10 @@ class ServiceConnection: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)";
                     $formatedMembers = $buildServieAccountOnSvc | ForEach-Object { $_.identity.displayName + ': ' + $_.role.displayName }
                     $controlResult.AdditionalInfoInCSV = $(($formatedMembers) -join '; ')
+                    if ($this.ControlFixBackupRequired){
+                        $buildServiceAccountId = @($buildServieAccountOnSvc | Select-Object -property @{name= "Id";expression = {$_.identity.id}}, @{name = "Group"; expression = {$_.identity.displayName}}, @{name = "Role"; expression ={$_.role.name}})
+                        $controlResult.BackupControlState = $buildServiceAccountId
+                    }
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"Build Service accounts are not granted access to the service connection.");
@@ -439,6 +443,53 @@ class ServiceConnection: ADOSVTBase
         return $controlResult;
     }
 
+    hidden [ControlResult] CheckBuildServiceAccountAccessAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            $body = "["
+            #method name will be different in undofix
+            $MethodName = "Patch"
+            if (-not $this.UndoFix){
+                Foreach($_ in $RawDataObjForControlFix){
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += '"'+$($_.Id)+'"'
+                }
+            }
+            else{
+                Foreach($_ in $RawDataObjForControlFix){
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                    {
+                        "roleName": "$($_.Role)",
+                        "userId": "$($_.Id)"
+                    }
+"@
+                }
+                $MethodName = "Put"
+            }
+            $body+="]"
+            $url = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId),$($this.ServiceEndpointsObj.id);
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method $MethodName -ContentType "application/json" -Headers $header -Body $body
+            if (-not $this.UndoFix){
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Following Build Service accounts have been removed from user permissions: ");
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Following Build Service accounts have been added in user permissions: ");
+            }
+            
+            $display = ($RawDataObjForControlFix | Select-Object -property @{name="Group"; expression ={$_.Group}}, @{name = 'Role'; expression = {$_.Role}} |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    } 
+
     hidden [ControlResult] CheckServiceConnectionBuildAccess([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -450,14 +501,14 @@ class ServiceConnection: ADOSVTBase
             }
             if([Helpers]::CheckMember($this.pipelinePermission,"allPipelines")) {
                 if($this.pipelinePermission.allPipelines.authorized){
-                    $controlResult.AddMessage([VerificationResult]::Failed,"Service connection is accessible to all pipelines.");
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Service connection is accessible to all YAML pipelines.");
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Service connection is not accessible to all pipelines.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Service connection is not accessible to all YAML pipelines.");
                 }
             }
             else {
-                $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not accessible to all pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not accessible to all YAML pipelines.");
             }
             $controlResult.AdditionalInfoInCSV = "NA";
         }
@@ -807,7 +858,12 @@ class ServiceConnection: ADOSVTBase
                             $this.SvcConnActivityDetail.isSvcConnActive = $false;
                             $this.SvcConnActivityDetail.message = "Could not fetch the inactive days limit for service connection.";
                         }
-                        $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
+                        if([ContextHelper]::PSVersion -gt 5) {
+                            $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate.tostring("MM/dd/yyyy"));
+                        }
+                        else {
+                            $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
+                        }
                     }
                     else
                     {
@@ -852,7 +908,12 @@ class ServiceConnection: ADOSVTBase
                             $this.SvcConnActivityDetail.isSvcConnActive = $false;
                             $this.SvcConnActivityDetail.message = "Could not fetch the inactive days limit for service connection.";
                         }
-                        $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
+                        if([ContextHelper]::PSVersion -gt 5) {
+                            $this.SvcConnActivityDetail.svcConnLastRunDate = $svcLastRunDate;
+                        }
+                        else {
+                            $this.SvcConnActivityDetail.svcConnLastRunDate = [datetime]::Parse($svcLastRunDate);
+                        }
                     }
                     else
                     {

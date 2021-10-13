@@ -43,7 +43,7 @@ class AADGroupsInfo: CommandBase
 			$AADgroupsCSV.FileName = 'AAD_Groups_'+ $timestamp
 			$AADgroupsCSV.FileExtension = 'csv'
 			$AADgroupsCSV.FolderPath = ''
-			$AADgroupsCSV.MessageData = $this.aadGroupsList| Select-Object -Property IdentityId, PrincipalName, SubjectKind, IsAADgroup, Domain, DisplayName, OriginId
+			$AADgroupsCSV.MessageData = $this.aadGroupsList | select-object -Property isCrossProject,domain,principalName,mailAddress,origin,originId,displayName,descriptor,IdentityId,DomainId
 			#$AADgroupsCSV.MessageData = $this.aadGroupsList| Select-Object -Property IdentityId
 
             #publish to primary workspace
@@ -81,6 +81,8 @@ class AADGroupsInfo: CommandBase
         
         $allADOGroups = $response.dataProviders.'ms.vss-admin-web.org-admin-groups-data-provider'.identities
         $counter = 0
+
+        #Loop to identify and fetch only AAD groups 
         foreach ($grp in $allADOGroups)
         {
             $counter++
@@ -104,7 +106,22 @@ class AADGroupsInfo: CommandBase
                     $data | ForEach-Object{
                         if($_.subjectKind -eq "group"){
                             if([Helpers]::CheckMember($_,"isAadGroup") -and $_.isAadGroup -eq $true){
-                                $this.aadGroupsList += $_
+                                #Get email id and origin id of the group which will then be used to create mapping with SIP database
+                                try {
+                                    $url=" https://vssps.dev.azure.com/{0}/_apis/Graph/SubjectQuery?api-version=5.2-preview.1" -f $($this.OrganizationName);
+                                    $postbody='{"query":"' + $($_.displayName) + '","subjectKind":["Group"]}'
+                                    $res = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
+                                    
+                                    if ([Helpers]::CheckMember($res,"value") -and $data.descriptor -eq $res.value[0].descriptor)
+                                    {
+                                        $groupDetails = $res.value[0]
+                                        $groupDetails | Add-Member -NotePropertyName IdentityId -NotePropertyValue $_.IdentityId
+                                        $groupDetails | Add-Member -NotePropertyName DomainId -NotePropertyValue $_.Domain 
+
+                                        $this.aadGroupsList += $groupDetails
+                                    }
+                                }
+                                catch{}
                             }
                         }
                     }
@@ -161,7 +178,22 @@ class AADGroupsInfo: CommandBase
                     $data | ForEach-Object{
                         if($_.subjectKind -eq "group"){
                             if([Helpers]::CheckMember($_,"isAadGroup") -and $_.isAadGroup -eq $true){
-                                $this.aadGroupsList += $_
+                                #Get email id and origin id of the group which will then be used to create mapping with SIP database
+                                try{
+                                    $url=" https://vssps.dev.azure.com/{0}/_apis/Graph/SubjectQuery?api-version=5.2-preview.1" -f $($this.OrganizationName);
+                                    $postbody='{"query":"' + $($_.displayName) + '","subjectKind":["Group"]}'
+                                    $res = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
+                                
+                                    if ([Helpers]::CheckMember($res,"value") -and $data.descriptor -eq $res.value[0].descriptor)
+                                    {
+                                        $groupDetails = $res.value[0]
+                                        $groupDetails | Add-Member -NotePropertyName IdentityId -NotePropertyValue $_.IdentityId
+                                        $groupDetails | Add-Member -NotePropertyName DomainId -NotePropertyValue $_.Domain 
+
+                                        $this.aadGroupsList += $groupDetails
+                                    }
+                                }
+                                catch{}
                             }
                         }
                     }
