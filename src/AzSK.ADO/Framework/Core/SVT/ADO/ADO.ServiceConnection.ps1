@@ -260,23 +260,16 @@ class ServiceConnection: ADOSVTBase
     hidden [ControlResult] CheckClassicConnection([ControlResult] $controlResult)
 	{
         $controlResult.VerificationResult = [VerificationResult]::Failed
-
-        if([Helpers]::CheckMember($this.ServiceEndpointsObj,"type"))
+       
+        if($this.ServiceEndpointsObj.type -eq "azure")
         {
-            if($this.ServiceEndpointsObj.type -eq "azure")
-            {
-                    $controlResult.AddMessage([VerificationResult]::Failed,
-                                                "Classic service connection detected.");
-            }
-            else {
-                $controlResult.AddMessage([VerificationResult]::Passed,
-                                                "Classic service connection not detected.");
-            }
+                $controlResult.AddMessage([VerificationResult]::Failed,
+                                            "Classic service connection detected.");
         }
-        else{
-            $controlResult.AddMessage([VerificationResult]::Error,
-                                                "Service connection type could not be detected.");
-        }
+        else {
+            $controlResult.AddMessage([VerificationResult]::Passed,
+                                            "Classic service connection not detected.");
+        }      
         return $controlResult;
     }
 
