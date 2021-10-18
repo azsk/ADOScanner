@@ -979,7 +979,11 @@ class SVTResourceResolver: AzSKRoot {
                             if ($this.VariableGroups -eq "*") {
                                 $variableGroupURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/variablegroups?api-version=6.1-preview.2" +$topNQueryString) -f $($this.organizationName), $projectId;
                                 $variableGroupObj = [WebRequestHelper]::InvokeGetWebRequest($variableGroupURL)
-
+                                if($this.UseIncrementalScan){                                    
+                                    $timestamp = (Get-Date)
+                                    $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName, $this.IncrementalDate, $true, $timestamp)
+                                    $variableGroupObj = $incrementalScanHelperObj.GetModifiedCommonSvtFromAudit("VariableGroup",$variableGroupObj)
+                                }
                                 if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) 
                                 {
                                     foreach ($group in $variableGroupObj) {

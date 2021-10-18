@@ -8,11 +8,25 @@ class CommonSVTResourceResolver {
     [string] $organizationId
     [string] $projectId
     [psobject] $feedDefnsObj = $null
+    [bool] $UseIncrementalScan = $false
+    [DateTime] $IncrementalDate = 0
 
     CommonSVTResourceResolver($organizationName, $organizationId, $projectId) {
         $this.organizationName = $organizationName;
         $this.organizationId = $organizationId;
         $this.projectId = $projectId;
+        if($PSCmdlet.MyInvocation.BoundParameters["IncrementalScan"]){
+            $this.UseIncrementalScan = $true
+            if (-not [string]::IsNullOrWhiteSpace($PSCmdlet.MyInvocation.BoundParameters["IncrementalDate"])) 
+                {
+                    $this.IncrementalDate = $PSCmdlet.MyInvocation.BoundParameters["IncrementalDate"]  
+                }
+                else 
+                {
+                    $this.IncrementalDate = [datetime] 0    
+                }
+            
+        }
     }
 
     [SVTResource[]] LoadResourcesForScan($projectName, $repoNames, $secureFileNames, $feedNames, $environmentNames, $ResourceTypeName, $MaxObjectsToScan, $isServiceIdBasedScan) {
@@ -128,6 +142,13 @@ class CommonSVTResourceResolver {
             if ($repoNames -ne "*") {
                 $repoDefnsObj = $repoDefnsObj | Where-Object { $repoNames -contains $_.name }
             }
+            else{
+                if($this.UseIncrementalScan){                                    
+                    $timestamp = (Get-Date)
+                    $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.organizationName, $projectName, $this.IncrementalDate, $true, $timestamp)
+                    $repoDefnsObj = $incrementalScanHelperObj.GetModifiedCommonSvtFromAudit("Git Repositories   ",$repoDefnsObj)
+                }
+            }
 
             return $repoDefnsObj;
         }
@@ -155,6 +176,13 @@ class CommonSVTResourceResolver {
             if ($feedNames -ne "*") {
                 $feedsList = $feedsList | Where-Object { $feedNames -contains $_.name }
             }
+            else{
+                if($this.UseIncrementalScan){                                    
+                    $timestamp = (Get-Date)
+                    $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.organizationName, $projectName, $this.IncrementalDate, $true, $timestamp)
+                    $feedsList = $incrementalScanHelperObj.GetModifiedCommonSvtFromAudit("Feed",$feedsList)
+                }
+            }
             return $feedsList
         }
         catch {
@@ -169,6 +197,13 @@ class CommonSVTResourceResolver {
             $secureFileDefnObj = [WebRequestHelper]::InvokeGetWebRequest($secureFileDefnURL);
             if ($secureFileNames -ne "*") {
                 $secureFileDefnObj = $secureFileDefnObj | Where-Object { $secureFileNames -contains $_.name }
+            }
+            else{
+                if($this.UseIncrementalScan){                                    
+                    $timestamp = (Get-Date)
+                    $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.organizationName, $projectName, $this.IncrementalDate, $true, $timestamp)
+                    $secureFileDefnObj = $incrementalScanHelperObj.GetModifiedCommonSvtFromAudit("SecureFile",$secureFileDefnObj)
+                }
             }
             return $secureFileDefnObj;
         }
@@ -192,6 +227,13 @@ class CommonSVTResourceResolver {
 
             if ($environmentNames -ne "*") {
                 $environmentDefnsObj = $environmentDefnsObj | Where-Object { $environmentNames -contains $_.name }
+            }
+            else{
+                if($this.UseIncrementalScan){                                    
+                    $timestamp = (Get-Date)
+                    $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.organizationName, $projectName, $this.IncrementalDate, $true, $timestamp)
+                    $environmentDefnsObj = $incrementalScanHelperObj.GetModifiedCommonSvtFromAudit("Environment",$environmentDefnsObj)
+                }
             }
 
             return $environmentDefnsObj;

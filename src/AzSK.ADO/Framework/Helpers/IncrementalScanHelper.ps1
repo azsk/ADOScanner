@@ -78,7 +78,7 @@ class IncrementalScanHelper
                     # File exists. Retrieve last timestamp.
                     $this.ResourceTimestamps = Get-Content $this.MasterFilePath | ConvertFrom-Json
 
-                    if($null -eq $this.ResourceTimestamps.$resourceType -or [datetime]$this.ResourceTimestamps.$resourceType.LastScanTime -eq 0)
+                    if(-not ([Helpers]::CheckMember($this.ResourceTimestamps, $resourceType)) -or $null -eq $this.ResourceTimestamps.$resourceType -or [datetime]$this.ResourceTimestamps.$resourceType.LastScanTime -eq 0)
                     {
                         # Previous timestamp does not exist for this resource in the existing file.
                         $this.FirstScan = $true
@@ -114,7 +114,7 @@ class IncrementalScanHelper
 						$this.ResourceTimestamps  = Get-ChildItem -Path $tempPath -Force | Get-Content | ConvertFrom-Json
 						#Delete the local file
 						Remove-Item -Path $tempPath
-                        if($null -eq $this.ResourceTimestamps.$resourceType -or [datetime]$this.ResourceTimestamps.$resourceType.LastScanTime -eq 0)
+                        if(-not ([Helpers]::CheckMember($this.ResourceTimestamps, $resourceType)) -or $null -eq $this.ResourceTimestamps.$resourceType -or [datetime]$this.ResourceTimestamps.$resourceType.LastScanTime -eq 0)
                         {
                             # Previous timestamp does not exist for current resource in existing file.
                             $this.FirstScan = $true
@@ -211,7 +211,12 @@ class IncrementalScanHelper
                         IsFullScanInProgress = $false
                     }
                     
-                    $this.ResourceTimestamps.$resourceType = $resourceScanTimes
+                    if([Helpers]::CheckMember($this.ResourceTimestamps,$resourceType)){
+                        $this.ResourceTimestamps.$resourceType = $resourceScanTimes
+                    }
+                    else{
+                        $this.ResourceTimestamps | Add-Member -NotePropertyName $resourceType -NotePropertyValue $resourceScanTimes
+                    }                    
                     [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force    
                 }
             }
@@ -269,7 +274,12 @@ class IncrementalScanHelper
                     LastPartialTime = "0001-01-01T00:00:00.0000000";
                     IsFullScanInProgress = $false
                 }
-                $this.ResourceTimestamps.$resourceType = $resourceScanTimes
+                if([Helpers]::CheckMember($this.ResourceTimestamps,$resourceType)){
+                    $this.ResourceTimestamps.$resourceType = $resourceScanTimes
+                }
+                else{
+                    $this.ResourceTimestamps | Add-Member -NotePropertyName $resourceType -NotePropertyValue $resourceScanTimes
+                }                
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $tempPath -Force
                 Set-AzStorageBlobContent -File $tempPath -Container $this.ContainerObject.Name -Blob $blobPath -Context $this.StorageContext -Force
                 Remove-Item -Path $tempPath
@@ -647,6 +657,98 @@ class IncrementalScanHelper
         }       
       
         return $newReleaseDefns;
+    }
+
+    
+    #common function to get modified resource ids from audits for common svts and variable group
+    [System.Object[]] GetModifiedCommonSvtAuditTrails($resourceType){
+        $resourceIds = @()
+        #get last scan of the resources
+        $latestScan = $this.GetThresholdTime($resourceType)
+        if($this.ScanSource -ne 'CA'){
+            $latestScan=$latestScan.ToUniversalTime();
+        }        
+        $latestScan = Get-Date $latestScan -Format s
+        
+        $auditUrl = "https://auditservice.dev.azure.com/{0}/_apis/audit/auditlog?startTime={1}&api-version=6.0-preview.1" -f $this.OrganizationName, $latestScan
+        try {
+            $response = [WebRequestHelper]::InvokeGetWebRequest($auditUrl);
+            $auditTrails = $response.decoratedAuditLogEntries;
+            $auditSchema = [ConfigurationManager]::LoadServerConfigFile("IncrementalScanAudits.json")
+            #get modified resources from filter
+            $modifiedResources = $this.GetModifiedResourcesFilter($resourceType,$auditTrails)                        
+            $modifiedResources | foreach {
+                #extract resource ids from modified resources
+                $resourceIds+=($_.data.($auditSchema.$resourceType.AuditEvents.($_.actionId)[1]) -split("/"))[-1]
+            }
+            $resourceIds = $resourceIds | Select -Unique
+        }
+        catch {
+
+        }
+        return $resourceIds
+    }
+
+    #function to filter audits according to resource type
+    [System.Object[]] GetModifiedResourcesFilter($resourceType,$auditTrails){
+        $auditSchema = [ConfigurationManager]::LoadServerConfigFile("IncrementalScanAudits.json")
+        $resourceTypeInFilter = $resourceType
+        #in case of secure file and variable group the resource type in audits is library, for other resources the name is same
+        if($resourceType -eq "SecureFile" -or $resourceType -eq "VariableGroup"){
+            $resourceTypeInFilter = "Library"
+        }
+        #repos and secure files also reference the project they belong to in audits, other resources have global entries in audits, adding an additional filter for projects for repo and secure fle
+        if([Helpers]::CheckMember($auditSchema.$resourceType, "ProjectFilterAvailable")){
+            $modifiedResources = $auditTrails | Where-Object {$_.actionId  -in $auditSchema.$resourceType.AuditEvents.PSObject.Properties.Name -and ($_.Data.($auditSchema.$resourceType.AuditEvents.($_.actionId)[0]) -eq $resourceTypeInFilter -or $_.Data.($auditSchema.$resourceType.AuditEvents.($_.actionId)[0]) -eq $resourceType) -and ([Helpers]::CheckMember($_.data, "Token") -and $_.data.Token -match $auditSchema.$resourceType.ProjectFilterAvailable+$this.ProjectId+"/" )}
+        }
+        else{
+            $modifiedResources = $auditTrails | Where-Object {$_.actionId  -in $auditSchema.$resourceType.AuditEvents.PSObject.Properties.Name -and  ($auditSchema.$resourceType.AuditEvents.($_.actionId)[0] -eq $true -or( $_.Data.($auditSchema.$resourceType.AuditEvents.($_.actionId)[0]) -eq $resourceTypeInFilter -or $_.Data.($auditSchema.$resourceType.AuditEvents.($_.actionId)[0]) -eq $resourceType))}
+        }
+        return $modifiedResources
+
+    }
+
+    #function to get modified resources 
+    [System.Object[]] GetModifiedCommonSvtFromAudit($resourceType,$response){
+        $latestScan = $this.GetThresholdTime($resourceType)      
+        $latestScan =Get-Date $latestScan -Format s
+        #$response = [WebRequestHelper]::InvokeGetWebRequest($url);
+        #if this a first scan return all resources
+        if($this.FirstScan -eq $true -and $this.IncrementalDate -eq 0){    
+            $this.UpdateTimeStamp($resourceType)        
+            return $response   
+        }
+        #if partial scan is active and last scan is 0 or this is a full scan in progress return all resources
+        if($this.isPartialScanActive -and ($latestScan -eq 0 -or $this.IsFullScanInProgress)){
+            return $response
+        }
+        #if this is a old scan return all resources
+        if($this.ShouldDiscardOldIncScan($resourceType)){
+            $this.UpdateTimeStamp($resourceType)
+            return $response
+        }
+        #get ids from above functions
+        $modifiedResourceIds = @($this.GetModifiedCommonSvtAuditTrails($resourceType));        
+        $auditSchema = [ConfigurationManager]::LoadServerConfigFile("IncrementalScanAudits.json")
+        $modifiedResources = @()
+        #if we get some ids from audit trails add them to modified resource obj
+        if($modifiedResourceIds.Count -gt 0 -and $null -ne $modifiedResourceIds[0]){
+            #filter all ids from audit trails in the api response
+            $modifiedResources = @($response | Where-Object{$modifiedResourceIds -contains $_.id})
+            #to capture events that dont come in audits but is reflected in api responses such as new resource created, properties of resources edited etc.
+            if([Helpers]::CheckMember($auditSchema.$resourceType, "ApiResponseFilter")){
+                $modifiedResources +=$response | Where-Object{$modifiedResourceIds -notcontains $_.id -and [datetime]($_.($auditSchema.$resourceType.ApiResponseFilter)) -gt $latestScan}
+                
+            }
+        }
+        #in case no ids were obtained from audits check from response for corresponding api response filtee if present
+        else{
+            if([Helpers]::CheckMember($auditSchema.$resourceType, "ApiResponseFilter")){
+                $modifiedResources += $response | Where-Object{[datetime]($_.($auditSchema.$resourceType.ApiResponseFilter)) -gt $latestScan}
+            }
+        }
+        $this.UpdateTimeStamp($resourceType)
+        return $modifiedResources
     }
 
 }
