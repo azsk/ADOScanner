@@ -115,7 +115,7 @@
             ]
         }
     },
-    "Git Repositories":{
+    "GitRepositories":{
         "AuditEvents":{
             "Pipelines.ResourceAuthorizedForProject":[
                 "ResourceType",
@@ -142,7 +142,7 @@
                 "RepoId"
             ]
         },
-        "ProjectFilterAvailable":"repov2/"
+        "ProjectFilterAvailable":"repov2"
     }
     
 }

@@ -982,6 +982,7 @@ class SVTResourceResolver: AzSKRoot {
                                 if($this.UseIncrementalScan){                                    
                                     $timestamp = (Get-Date)
                                     $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.OrganizationContext.OrganizationName, $projectName, $this.IncrementalDate, $true, $timestamp)
+                                    $incrementalScanHelperObj.SetContext($projectId, $this.OrganizationContext)
                                     $variableGroupObj = $incrementalScanHelperObj.GetModifiedCommonSvtFromAudit("VariableGroup",$variableGroupObj)
                                 }
                                 if (([Helpers]::CheckMember($variableGroupObj, "count") -and $variableGroupObj[0].count -gt 0) -or (($variableGroupObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($variableGroupObj[0], "name"))) 
@@ -1027,7 +1028,7 @@ class SVTResourceResolver: AzSKRoot {
 
                     #Creating resource in common resource resolver
                     if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -gt 0 -or $this.FeedNames.count -gt 0 -or $this.EnvironmentNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed, [ResourceTypeName]::Environment,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))) {
-                        $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName, $organizationId, $projectId);
+                        $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName, $organizationId, $projectId,$this.OrganizationContext);
                         $commonSVTResourceList =  $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.EnvironmentNames, $this.ResourceTypeName, $this.MaxObjectsToScan, $this.isServiceIdBasedScan);
                         foreach ($commonSVTRsrc in $commonSVTResourceList) {
                             $this.SVTResources.add($commonSVTRsrc)
