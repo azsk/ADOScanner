@@ -11,7 +11,7 @@ class ControlHelper: EventBase{
     static $GroupsToExpand = @() # Groups for which meber counts need to check (fetched from controlsettings)
     static $GroupsWithDescriptor = @{} # All broder groups with descriptors
     static [string] $parentGroup = $null #used to store current broader group
-      
+       
     #Checks if the severities passed by user are valid and filter out invalid ones
    hidden static [string []] CheckValidSeverities([string []] $ParamSeverities)
    {
@@ -111,6 +111,8 @@ class ControlHelper: EventBase{
                             $identities = @([ControlHelper]::GetIdentitiesFromAADGroup($orgName, $_.entityId, $_.displayName))
                             if ($identities.Count -gt 0)
                             {
+                                #add the descriptor of group to denote the user is a direct member of this group and is not a part of the group due to nesting, to be used in auto fix
+                                $identities | Add-Member -NotePropertyName "DirectMemberOfGroup" -NotePropertyValue $descriptor
                                 [ControlHelper]::groupMembersResolutionObj[$descriptor] += $identities
 
                             }
@@ -118,11 +120,14 @@ class ControlHelper: EventBase{
                         else
                         {
                            [ControlHelper]::ResolveNestedGroupMembers($_.descriptor,$orgName,$projName)
-                           [ControlHelper]::groupMembersResolutionObj[$descriptor] += [ControlHelper]::groupMembersResolutionObj[$_.descriptor]
+                           [ControlHelper]::groupMembersResolutionObj[$descriptor] += [ControlHelper]::groupMembersResolutionObj[$_.descriptor]                          
+                                                     
                         }
                     }
                     else
                     {
+                        #add the descriptor of group to denote the user is a direct member of this group and is not a part of the group due to nesting, to be used in auto fix
+                        $_ | Add-Member -NotePropertyName "DirectMemberOfGroup" -NotePropertyValue $descriptor
                         [ControlHelper]::groupMembersResolutionObj[$descriptor] += $_
                     }
                 }
