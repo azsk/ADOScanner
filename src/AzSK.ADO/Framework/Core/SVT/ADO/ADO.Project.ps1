@@ -857,7 +857,7 @@ class Project: ADOSVTBase
             {
                 $excludePrincipalId = $this.InvocationContext.BoundParameters["ExcludePrincipalId"]
                 $excludePrincipalId = $excludePrincipalId -Split ','
-                $RawDataObjForControlFix = @($RawDataObjForControlFix | where-object {$excludePrincipalId  -notcontains $_.mailAddress })
+                $nonSCAccounts = @($nonSCAccounts | where-object {$excludePrincipalId  -notcontains $_.mailAddress })
             }
             $nonSCAccountsCount = $nonSCAccounts.Count
             #in case all admins are non sc-alt (after removing current user and exclude principal ids) do not perform the fix
@@ -868,8 +868,12 @@ class Project: ADOSVTBase
             $rmContext = [ContextHelper]::GetCurrentContext();
             $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
             if ($nonSCAccounts.Count -gt 0){
+                #to store users part of AAD groups
                 $AADGroupAccounts=@()
+                #to store users successfully deleted/added back
                 $processedAccounts=@()
+                #to store users that could not be deleted/added back due to any error (e.g. the groups have been deleted and we have stale backup, permission issues etc.)
+                $unProcessedAccounts=@()
                 if (-not $this.UndoFix){
                     foreach ($user in $nonSCAccounts){
                         foreach ($grp in $user.directMemberOfGroups){
@@ -885,17 +889,23 @@ class Project: ADOSVTBase
                             }
                             else{
                                 $url = "https://vssps.dev.azure.com/{0}/_apis/Graph/Memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.descriptor, $grp
-                                $webRequestResult = Invoke-WebRequest -Uri $url -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
-                                $processedAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.name}}, @{N = "MailAddress"; E= {$_.mailAddress}}, @{N = "GroupName"; E= {$_.groupName}}, @{N = "DirectMemberOfNonAADGroup"; E= {[Project]::groupMappingsWithDescriptors[$grp]}})
+                                try{
+                                    $webRequestResult = Invoke-WebRequest -Uri $url -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                                    $processedAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.name}}, @{N = "MailAddress"; E= {$_.mailAddress}}, @{N = "GroupName"; E= {$_.groupName}}, @{N = "DirectMemberOfNonAADGroup"; E= {[Project]::groupMappingsWithDescriptors[$grp]}})   
+                                }
+                                catch{
+                                    $unProcessedAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.name}}, @{N = "MailAddress"; E= {$_.mailAddress}}, @{N = "GroupName"; E= {$_.groupName}}, @{N = "DirectMemberOfNonAADGroup"; E= {[Project]::groupMappingsWithDescriptors[$grp]}})
+                                }
                             }
                         }                        
                     }   
                     if($processedAccounts.Count -gt 0){
                         $controlResult.AddMessage([VerificationResult]::Fixed,  "Following non SC-ALT accounts have been removed from admin groups: ");
                     }
+                    #if all users were part of AAD groups, we have not removed any user
                     elseif($processedAccounts.Count -eq 0 -and $AADGroupAccounts.Count -gt 0){
                         $controlResult.AddMessage([VerificationResult]::Manual,  "All admin accounts are a part of AAD group. Could not apply fix.");
-                    }                 
+                    }                                     
                 }
                 else{
                     foreach ($user in $nonSCAccounts){
@@ -910,8 +920,13 @@ class Project: ADOSVTBase
                             }
                             else{
                                 $url = "https://vssps.dev.azure.com/{0}/_apis/Graph/Memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.descriptor, $grp
-                                $webRequestResult = Invoke-WebRequest -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
-                                $processedAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.name}}, @{N = "MailAddress"; E= {$_.mailAddress}}, @{N = "GroupName"; E= {$_.groupName}}, @{N = "DirectMemberOfNonAADGroup"; E= {[Project]::groupMappingsWithDescriptors[$grp]}})
+                                try{
+                                    $webRequestResult = Invoke-WebRequest -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                                    $processedAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.name}}, @{N = "MailAddress"; E= {$_.mailAddress}}, @{N = "GroupName"; E= {$_.groupName}}, @{N = "DirectMemberOfNonAADGroup"; E= {[Project]::groupMappingsWithDescriptors[$grp]}})   
+                                }
+                                catch{
+                                    $unProcessedAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.name}}, @{N = "MailAddress"; E= {$_.mailAddress}}, @{N = "GroupName"; E= {$_.groupName}}, @{N = "DirectMemberOfNonAADGroup"; E= {[Project]::groupMappingsWithDescriptors[$grp]}})
+                                }
                             }                       
                          }
                         
@@ -933,7 +948,23 @@ class Project: ADOSVTBase
                     } 
                     $display = ($groupedAdminMembers |  FT -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
-                }                
+                }
+                #in case we have any accounts that errored out, override the result as error and give a list of accounts that could not be removed/added back
+                if($unProcessedAccounts.Count -gt 0){
+                    $controlResult.AddMessage([VerificationResult]::Error,  "Following non SC-ALT accounts could not be fixed: ");
+                    $groups = $unProcessedAccounts | Group-Object "mailAddress"
+                    $groupedAdminMembers = @()
+                    $groupedAdminMembers +=foreach ($grpobj in $groups){
+                        $grp = ($grpobj.Group.GroupName  | select -Unique)-join ','
+                        $name = $grpobj.Group.Name | select -Unique
+                        $mailAddress = $grpobj.Group.MailAddress | select -Unique  
+                        $directMemberOfNonAADGroup=($grpobj.Group.DirectMemberOfNonAADGroup  | select -Unique)-join ','              
+                        [PSCustomObject]@{Name = $name;MailAddress = $mailAddress; GroupName = $grp; DirectMemberOfNonAADGroup = $directMemberOfNonAADGroup}
+                    } 
+                    $display = ($groupedAdminMembers |  FT -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                }
+
                 if($AADGroupAccounts.Count -gt 0){
                     $groups = $AADGroupAccounts | Group-Object "mailAddress"
                     $groupedAdminMembers = @()
