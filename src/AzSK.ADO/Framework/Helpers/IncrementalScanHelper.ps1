@@ -214,13 +214,8 @@ class IncrementalScanHelper
                         LastPartialTime = "0001-01-01T00:00:00.0000000";
                         IsFullScanInProgress = $false
                     }
-                    
-                    if([Helpers]::CheckMember($this.ResourceTimestamps,$resourceType)){
                         $this.ResourceTimestamps.$resourceType = $resourceScanTimes
-                    }
-                    else{
-                        $this.ResourceTimestamps | Add-Member -NotePropertyName $resourceType -NotePropertyValue $resourceScanTimes
-                    }                    
+                                       
                     [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force    
                 }
             }
@@ -678,6 +673,9 @@ class IncrementalScanHelper
             $modifiedResources | foreach {
                 #extract resource ids from modified resources
                 $resourceIds+=($_.data.([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[1]) -split("/"))[-1]
+                if($resourceType -eq "GitRepositories"){
+                    $resourceIds+=($_.data.([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[1]) -split("\."))[-1]
+                }
             }
             $resourceIds = $resourceIds | Select -Unique
         }
@@ -695,15 +693,10 @@ class IncrementalScanHelper
             $resourceTypeInFilter = "Library"
         }
         if($resourceType -eq "GitRepositories"){
-            $resourceTypeInFilter = "Git Repositories"
+                $resourceTypeInFilter = "Git Repositories"
         }
-        #repos and secure files also reference the project they belong to in audits, other resources have global entries in audits, adding an additional filter for projects for repo and secure fle
-        if([Helpers]::CheckMember([IncrementalScanHelper]::auditSchema.$resourceType, "ProjectFilterAvailable")){
-            $modifiedResources = $auditTrails | Where-Object {$_.actionId  -in [IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.PSObject.Properties.Name -and ([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[0] -eq $true -or ($_.Data.([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[0]) -eq $resourceTypeInFilter -or $_.Data.([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[0]) -eq $resourceType) -and ([Helpers]::CheckMember($_.data, "Token") -and $_.data.Token -match [IncrementalScanHelper]::auditSchema.$resourceType.ProjectFilterAvailable+"/"+$this.ProjectId+"/" ))}
-        }
-        else{
-            $modifiedResources = $auditTrails | Where-Object {$_.actionId  -in [IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.PSObject.Properties.Name -and  ([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[0] -eq $true -or( $_.Data.([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[0]) -eq $resourceTypeInFilter -or $_.Data.([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[0]) -eq $resourceType))}
-        }
+        $modifiedResources = $auditTrails | Where-Object {$_.actionId  -in [IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.PSObject.Properties.Name -and  ([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[0] -eq $true -or( $_.Data.([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[0]) -eq $resourceTypeInFilter -or $_.Data.([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[0]) -eq "repository" -or $_.Data.([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[0]) -eq $resourceType))}
+        
         return $modifiedResources
 
     }

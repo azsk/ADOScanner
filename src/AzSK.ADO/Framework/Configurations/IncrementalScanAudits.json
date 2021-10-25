@@ -5,9 +5,13 @@
                 "ResourceType",
                 "ResourceId"
             ],
+            "Pipelines.ResourceAuthorizedForPipeline":[
+                "ResourceType",
+                "ResourceId"
+            ],
             "Pipelines.ResourceUnauthorizedForPipeline":[
-                "NamespaceName",
-                "Token"
+                "ResourceType",
+                "ResourceId"
             ],
             "Security.RemoveAccessControlLists":[
                 "NamespaceName",
@@ -42,9 +46,13 @@
                 "ResourceType",
                 "ResourceId"
             ],
+            "Pipelines.ResourceAuthorizedForPipeline":[
+                "ResourceType",
+                "ResourceId"
+            ],
             "Pipelines.ResourceUnauthorizedForPipeline":[
-                "NamespaceName",
-                "Token"
+                "ResourceType",
+                "ResourceId"
             ],
             "Security.RemoveAccessControlLists":[
                 "NamespaceName",
@@ -67,9 +75,13 @@
                 "ResourceType",
                 "ResourceId"
             ],
+            "Pipelines.ResourceAuthorizedForPipeline":[
+                "ResourceType",
+                "ResourceId"
+            ],
             "Pipelines.ResourceUnauthorizedForPipeline":[
-                "NamespaceName",
-                "Token"
+                "ResourceType",
+                "ResourceId"
             ],
             "Security.RemoveAccessControlLists":[
                 "NamespaceName",
@@ -84,8 +96,7 @@
                 "Token"
             ]
         },
-        "ApiResponseFilter":"modifiedOn",
-        "ProjectFilterAvailable":"library"
+        "ApiResponseFilter":"modifiedOn"
     },
     "Feed":{
         "AuditEvents":{
@@ -105,7 +116,7 @@
                 true,
                 "FeedId"
             ],
-            "Artifacts.Feed.Org.Modify.Permissions.Deletions":[
+            "Artifacts.Feed.Org.Modify.Permissions.Deletion":[
                 true,
                 "FeedId"
             ],
@@ -121,9 +132,13 @@
                 "ResourceType",
                 "ResourceId"
             ],
+            "Pipelines.ResourceAuthorizedForPipeline":[
+                "ResourceType",
+                "ResourceId"
+            ],
             "Pipelines.ResourceUnauthorizedForPipeline":[
-                "NamespaceName",
-                "Token"
+                "ResourceType",
+                "ResourceId"
             ],
             "Security.RemoveAccessControlLists":[
                 "NamespaceName",
@@ -141,8 +156,7 @@
                 true,
                 "RepoId"
             ]
-        },
-        "ProjectFilterAvailable":"repov2"
+        }
     }
     
 }
