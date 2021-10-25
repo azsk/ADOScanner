@@ -853,7 +853,29 @@ class Project: ADOSVTBase
             }
             else{
                 #in case the user is non sc-alt terminate the process here
-                if(-not [IdentityHelpers]::IsAltAccount($user, [IdentityHelpers]::graphAccessToken)){
+                $useGraphEvaluation = $false
+                $useRegExEvaluation = $false
+                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
+                    if ([IdentityHelpers]::hasGraphAccess){
+                        $useGraphEvaluation = $true
+                    }
+                    else {
+                        $useRegExEvaluation = $true
+                    }
+                }
+                $isCurrentUserSCAlt=$false
+                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation){
+                    $isCurrentUserSCAlt = [IdentityHelpers]::IsAltAccount($user, [IdentityHelpers]::graphAccessToken)
+                }
+                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation){
+                    $controlResult.AddMessage([Constants]::graphWarningMessage);
+                    $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
+                    if (-not [string]::IsNullOrEmpty($matchToSCAlt)){
+                        $isCurrentUserSCAlt= $user -match $matchToSCAlt
+                    }
+                }
+                                
+                if($isCurrentUserSCAlt -eq $false){
                     $this.PublishCustomMessage("The current user is a non SC-ALT account and hence is not allowed to perform the fix. Use -ResetCredentials and login as an SC-ALT acoount.`n",[MessageType]::Warning);
                     $controlResult.AddMessage([VerificationResult]::Manual,  "The current user is a non SC-ALT account and hence is not allowed to perform the fix. Use -ResetCredentials and login as an SC-ALT acoount.");
                     return $controlResult
@@ -866,6 +888,12 @@ class Project: ADOSVTBase
                 $excludePrincipalId = $excludePrincipalId -Split ','
                 $nonSCAccounts = @($nonSCAccounts | where-object {$excludePrincipalId  -notcontains $_.mailAddress })
             }
+            #add only specific users back into admin groups, applicable only in undofix
+            if ($this.InvocationContext.BoundParameters["AddUsers"] -and $this.UndoFix){
+                $addUsers = $this.InvocationContext.BoundParameters["AddUsers"]
+                $addUsers = $addUsers -Split ','
+                $nonSCAccounts = @($nonSCAccounts | where-object {$addUsers  -contains $_.mailAddress })
+            }            
             $nonSCAccountsCount = $nonSCAccounts.Count
             #in case all admins are non sc-alt (after removing current user and exclude principal ids) do not perform the fix
             if($nonSCAccountsCount -eq $totalAdminCount){
