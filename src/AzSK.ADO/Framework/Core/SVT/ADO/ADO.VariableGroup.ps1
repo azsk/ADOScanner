@@ -89,6 +89,7 @@ class VariableGroup: ADOSVTBase
             #$RawDataObjForControlFix = @();
             #$RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
 
+            $this.PublishCustomMessage("Note: After changing the pipeline permission, YAML pipelines will not be added using this command. You may need to manually add those YAML pipelines that need explicit access on variable group.`n",[MessageType]::Warning);
             $body = ""
 
             if (-not $this.UndoFix)
@@ -131,7 +132,7 @@ class VariableGroup: ADOSVTBase
             $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/variablegroup/{2}?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.projectId),$($this.VarGrpId);          
 			$header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
             $webRequestResult = Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body							    
-            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for varriable group have been changed.");
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Pipeline permissions for varriable group have been changed.");
         }
         catch{
             $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
