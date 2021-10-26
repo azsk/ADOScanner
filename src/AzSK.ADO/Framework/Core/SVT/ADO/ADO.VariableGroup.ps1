@@ -54,6 +54,11 @@ class VariableGroup: ADOSVTBase
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Variable group contains secrets accessible to all YAML pipelines.");
                     $controlResult.AdditionalInfoInCSV = "SecretVarsList: $($secretVarList -join '; ')";
+
+                    if ($this.ControlFixBackupRequired) {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $isSecretFound;
+                    }
                 }
                 else
                 {
@@ -74,6 +79,65 @@ class VariableGroup: ADOSVTBase
             $controlResult.LogException($_)
         }
         return $controlResult
+    }
+
+    hidden [ControlResult] CheckPipelineAccessAutomatedFix ([ControlResult] $controlResult) 
+    {
+        try 
+        {
+            # Backup data object is not required in this scenario.
+            #$RawDataObjForControlFix = @();
+            #$RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $body = ""
+
+            if (-not $this.UndoFix)
+            {                 
+                if ($body.length -gt 1) {$body += ","}
+                $body += @"
+                    {
+                        "resource": {
+                            "type": "variablegroup",
+                            "id": "$($this.VarGrpId)"
+                        },
+                        "allPipelines": {
+                            "authorized": false,
+                            "authorizedBy":null,
+                            "authorizedOn":null
+                        },
+                        "pipelines":[]                                                  
+                    }
+"@;
+            }
+            else 
+            {
+                if ($body.length -gt 1) {$body += ","}
+                $body += @"
+                    {
+                        "resource": {
+                            "type": "variablegroup",
+                            "id": "$($this.VarGrpId)"
+                        },
+                        "allPipelines": {
+                            "authorized": true,
+                            "authorizedBy":null,
+                            "authorizedOn":null
+                        },
+                        "pipelines":[]
+                    }
+"@;
+
+            }            
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/variablegroup/{2}?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.projectId),$($this.VarGrpId);          
+			$header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            $webRequestResult = Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body							    
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for varriable group have been changed.");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }        
+        return $controlResult;
     }
 
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult)
