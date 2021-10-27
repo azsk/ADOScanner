@@ -331,7 +331,7 @@ class Build: ADOSVTBase
                 $controlResult.AddMessage([VerificationResult]::Passed, $this.buildActivityDetail.message);
                 $controlResult.RepoName = $this.BuildObj.repository.name
                 $controlResult.RepoURL = $this.BuildObj.repository.url
-                $controlResult.PathURL = $this.BuildObj.repository.path
+                $controlResult.PathURL = $this.BuildObj.path
             }
             else
             {
@@ -351,14 +351,14 @@ class Build: ADOSVTBase
                     $controlResult.AdditionalInfo += "The build pipeline was created on: " + $formattedDate;
                     $controlResult.RepoName = $this.BuildObj.repository.name
                     $controlResult.RepoURL = $this.BuildObj.repository.url
-                    $controlResult.PathURL = $this.BuildObj.repository.path
+                    $controlResult.PathURL = $this.BuildObj.path
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, $this.buildActivityDetail.message);
                     $controlResult.RepoName = $this.BuildObj.repository.name
                     $controlResult.RepoURL = $this.BuildObj.repository.url
-                    $controlResult.PathURL = $this.BuildObj.repository.path
+                    $controlResult.PathURL = $this.BuildObj.path
                 }
             }
 
@@ -372,7 +372,7 @@ class Build: ADOSVTBase
                 $controlResult.AddMessage("`nNote: Restored pipeline although retain run history but are considered as a new pipeline in ADO.");
                 $controlResult.RepoName = $this.BuildObj.repository.name
                 $controlResult.RepoURL = $this.BuildObj.repository.url
-                $controlResult.PathURL = $this.BuildObj.repository.path
+                $controlResult.PathURL = $this.BuildObj.path
             }
         }
         catch
