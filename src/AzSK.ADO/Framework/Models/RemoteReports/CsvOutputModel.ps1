@@ -28,4 +28,7 @@ class CsvOutputItem
     [string] $ResourceLink = ""
     [string] $Rationale = ""
     [string] $AdditionalInfo = ""
+    [string] $RepoName =""
+    [string] $RepoURL = ""
+    [string] $PathURL = ""
 }

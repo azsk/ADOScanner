@@ -37,6 +37,10 @@ class AzSKADOServiceMapping: CommandBase
             if((Test-Path $this.BuildMappingsFilePath) -and (Test-Path $this.ReleaseMappingsFilePath))
             {
                 $this.GetBuildReleaseMapping();
+                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "Build")
+                {
+                    $this.FetchPipelineConnMapping();
+                }
                 if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "ServiceConnection")
                 {
                     $this.FetchSvcConnMapping();
@@ -111,6 +115,108 @@ class AzSKADOServiceMapping: CommandBase
         $serviceMapping | ConvertTo-Json -Depth 10 | Out-File (Join-Path $this.OutputFolderPath $fileName) -Encoding ASCII 
     }
 
+
+    hidden [bool] FetchPipelineConnMapping()
+    {
+        $svcConnSTMapping = @{
+            data = @();
+        };
+        try{
+            $serviceEndpointURL = ("https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/endpoints?api-version=6.0-preview.4") -f $this.OrgName, $this.ProjectName;
+            $serviceEndpointObj = [WebRequestHelper]::InvokeGetWebRequest($serviceEndpointURL)
+
+            $Connections = $null
+            if (([Helpers]::CheckMember($serviceEndpointObj, "count") -and $serviceEndpointObj[0].count -gt 0) -or (($serviceEndpointObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($serviceEndpointObj[0], "name"))) {
+                $Connections = $serviceEndpointObj
+            }
+
+            $this.PublishCustomMessage(([Constants]::DoubleDashLine))
+            $this.PublishCustomMessage("Generating service mappings of service connections for project [$($this.ProjectName)]...")
+            $this.PublishCustomMessage("Total service connections to be mapped:  $(($Connections | Measure-Object).Count)")
+            $counter = 0
+            
+            $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
+            $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
+
+            #generate access token with datastudio api audience
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+
+            $Connections | ForEach-Object {
+                $counter++            
+                Write-Progress -Activity 'Service connection mappings...' -CurrentOperation $_.Name -PercentComplete (($counter / $Connections.count) * 100)                            
+                $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($_.id)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
+                
+                try {
+                    if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") {
+                    
+                        #set true when STMapping not found in build & release STData files and need to recheck for azurerm type 
+                        $unmappedSerConn = $true;                   
+    
+                        $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
+                        if ($serviceConnEndPointDetail -and [Helpers]::CheckMember($serviceConnEndPointDetail, "serviceEndpointExecutionHistory") ) {
+                            $svcConnJobs = $serviceConnEndPointDetail.serviceEndpointExecutionHistory.data
+    
+                            #Arranging in descending order of run time.
+                            $svcConnJobs = $svcConnJobs | Sort-Object startTime -Descending
+                            #Taking last 10 runs
+                            $svcConnJobs = $svcConnJobs | Select-Object -First 10
+                                            
+                            foreach ($job in $svcConnJobs)
+                            {                         
+                                if ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Build") {
+                                    $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $job.definition.id) };
+                                    if($buildSTData){
+                                        $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
+                                        $unmappedSerConn = $false; 
+                                        break;
+                                    }                                   
+                                    
+                                }
+                                elseif ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Release") {
+                                    $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $job.definition.id)};
+                                    if($releaseSTData){
+                                        $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
+                                        $unmappedSerConn = $false; 
+                                        break;
+                                    }                                  
+                                }
+                            }
+                        }
+                        if($serviceConnEndPointDetail -and $unmappedSerConn) 
+                        {
+                            if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
+                            {
+                                try {                                
+                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail,$accessToken)                       
+                                    if($responseObj)
+                                    {
+                                          $serviceId = $responseObj[2].Rows[0][4];
+                                          $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $serviceId; projectName =  $_.serviceEndpointProjectReferences.projectReference.name; projectID = $_.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )                                    
+                                    }
+                                }
+                                catch {
+                                    
+                                }                             
+    
+                            }   
+                        }
+                    }
+                }
+                catch {
+                     #eat exception
+                }               
+            }
+        }
+        catch
+        {
+            #eat exception
+        }
+        $this.PublishCustomMessage("Service mapping found:  $(($svcConnSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
+
+        $this.ExportObjToJsonFile($svcConnSTMapping, 'ServiceConnectionSTData.json');
+        return $true;
+    }
 
     hidden [bool] FetchSvcConnMapping() {  
         $svcConnSTMapping = @{

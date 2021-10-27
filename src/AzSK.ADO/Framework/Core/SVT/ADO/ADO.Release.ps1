@@ -354,6 +354,8 @@ class Release: ADOSVTBase
             elseif ($this.releaseActivityDetail.isReleaseActive)
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, $this.releaseActivityDetail.message);
+                $controlResult.RepoName = $this.ReleaseObj.repository.name
+                $controlResult.RepoURL = $this.ReleaseObj.repository.url
             }
             else
             {
@@ -371,10 +373,14 @@ class Release: ADOSVTBase
                     $formattedDate = $this.releaseActivityDetail.releaseCreationDate.ToString("d MMM yyyy")
                     $controlResult.AddMessage("The release pipeline was created on: $($formattedDate)");
                     $controlResult.AdditionalInfo += "The release pipeline was created on: " + $formattedDate;
+                    $controlResult.RepoName = $this.ReleaseObj.repository.name
+                    $controlResult.RepoURL = $this.ReleaseObj.repository.url
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, $this.releaseActivityDetail.message);
+                    $controlResult.RepoName = $this.ReleaseObj.repository.name
+                    $controlResult.RepoURL = $this.ReleaseObj.repository.url
                 }
             }
 
@@ -385,6 +391,8 @@ class Release: ADOSVTBase
                 $controlResult.AdditionalInfo += "Last release date of pipeline: " + $formattedDate;
                 $releaseInactivePeriod = ((Get-Date) - $this.releaseActivityDetail.latestReleaseTriggerDate).Days
                 $controlResult.AddMessage("The release was inactive from last $($releaseInactivePeriod) days.");
+                $controlResult.RepoName = $this.ReleaseObj.repository.name
+                $controlResult.RepoURL = $this.ReleaseObj.repository.url
             }
         }
         catch

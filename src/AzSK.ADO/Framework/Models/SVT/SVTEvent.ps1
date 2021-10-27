@@ -68,6 +68,9 @@ class ControlResult
 	[int] $InactiveFromDays = -1;
 	[String[]] $Exception = ""
 	[string] $AdditionalInfoInCSV
+	[string] $RepoName =""
+    [string] $RepoURL = ""
+	[string] $PathURL = ""
 
 	[void] LogException([System.Management.Automation.ErrorRecord] $exception)
 	{

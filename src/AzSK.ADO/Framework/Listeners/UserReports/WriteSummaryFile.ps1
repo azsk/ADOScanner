@@ -218,6 +218,9 @@ class WriteSummaryFile: FileOutputBase
                         Recommendation = $item.ControlItem.Recommendation;	
                         Rationale = $item.ControlItem.Rationale;
                         AdditionalInfo = $_.AdditionalInfoInCSV;
+						RepoName  = $_.RepoName;
+						RepoURL   = $_.RepoURL;
+						PathURL   = $_.PathURL;
                     };
 					if($_.VerificationResult -ne [VerificationResult]::NotScanned)
 					{
