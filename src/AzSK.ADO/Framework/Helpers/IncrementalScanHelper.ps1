@@ -214,7 +214,7 @@ class IncrementalScanHelper
                         LastPartialTime = "0001-01-01T00:00:00.0000000";
                         IsFullScanInProgress = $false
                     }
-                        $this.ResourceTimestamps.$resourceType = $resourceScanTimes
+                    $this.ResourceTimestamps.$resourceType = $resourceScanTimes
                                        
                     [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $this.MasterFilePath -Force    
                 }
@@ -273,12 +273,8 @@ class IncrementalScanHelper
                     LastPartialTime = "0001-01-01T00:00:00.0000000";
                     IsFullScanInProgress = $false
                 }
-                if([Helpers]::CheckMember($this.ResourceTimestamps,$resourceType)){
-                    $this.ResourceTimestamps.$resourceType = $resourceScanTimes
-                }
-                else{
-                    $this.ResourceTimestamps | Add-Member -NotePropertyName $resourceType -NotePropertyValue $resourceScanTimes
-                }                
+                $this.ResourceTimestamps.$resourceType = $resourceScanTimes             
+                                 
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $tempPath -Force
                 Set-AzStorageBlobContent -File $tempPath -Container $this.ContainerObject.Name -Blob $blobPath -Context $this.StorageContext -Force
                 Remove-Item -Path $tempPath
