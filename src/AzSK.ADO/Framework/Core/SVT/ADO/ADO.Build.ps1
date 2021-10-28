@@ -150,9 +150,9 @@ class Build: ADOSVTBase
         if([Build]::SecretsScanToolEnabled -eq $true)
         {
             $ToolFolderPath =  [ConfigurationManager]::GetAzSKSettings().SecretsScanToolFolder
-        $SecretsScanToolName = [ConfigurationManager]::GetAzSKSettings().SecretsScanToolName
-        if((-not [string]::IsNullOrEmpty($ToolFolderPath)) -and (Test-Path $ToolFolderPath) -and (-not [string]::IsNullOrEmpty($SecretsScanToolName)))
-        {
+            $SecretsScanToolName = [ConfigurationManager]::GetAzSKSettings().SecretsScanToolName
+            if((-not [string]::IsNullOrEmpty($ToolFolderPath)) -and (Test-Path $ToolFolderPath) -and (-not [string]::IsNullOrEmpty($SecretsScanToolName)))
+            {
             $ToolPath = Get-ChildItem -Path $ToolFolderPath -File -Filter $SecretsScanToolName -Recurse
             if($ToolPath)
             {
@@ -199,7 +199,7 @@ class Build: ADOSVTBase
                     }
                 }
             }
-         }
+             }
         }
         else {
           try {
@@ -831,45 +831,38 @@ class Build: ADOSVTBase
         {
             if ([Helpers]::CheckMember($this.BuildObj[0], "variables"))
             {
-                if ([Helpers]::CheckMember($this.ControlSettings, "Patterns"))
+                $settableURLVars = @();
+                if($null -eq [Build]::RegexForURL)
                 {
-                    $settableURLVars = @();
-                    if($null -eq [Build]::RegexForURL)
+                    $this.FetchRegexForURL()
+                }
+                $regexForURLs = [Build]::RegexForURL;
+                $allVars = Get-Member -InputObject $this.BuildObj[0].variables -MemberType Properties
+
+                $allVars | ForEach-Object {
+                    if ([Helpers]::CheckMember($this.BuildObj[0].variables.$($_.Name), "allowOverride") )
                     {
-                        $this.FetchRegexForURL()
-                    }
-                    $regexForURLs = [Build]::RegexForURL;
-                    $allVars = Get-Member -InputObject $this.BuildObj[0].variables -MemberType Properties
-                     
-                    $allVars | ForEach-Object {
-                        if ([Helpers]::CheckMember($this.BuildObj[0].variables.$($_.Name), "allowOverride") )
-                        {
-                            $varName = $_.Name;
-                            $varValue = $this.BuildObj[0].variables.$($varName).value;
-                            for ($i = 0; $i -lt $regexForURLs.RegexList.Count; $i++) {
-                                if ($varValue -match $regexForURLs.RegexList[$i]) {
-                                    $settableURLVars += @( [PSCustomObject] @{ Name = $varName; Value = $varValue } )
-                                    break
-                                }
+                        $varName = $_.Name;
+                        $varValue = $this.BuildObj[0].variables.$($varName).value;
+                        for ($i = 0; $i -lt $regexForURLs.RegexList.Count; $i++) {
+                            if ($varValue -match $regexForURLs.RegexList[$i]) {
+                                $settableURLVars += @( [PSCustomObject] @{ Name = $varName; Value = $varValue } )
+                                break
                             }
                         }
                     }
-                    $varCount = $settableURLVars.Count
-                    if ($varCount -gt 0)
-                    {
-                        $controlResult.AddMessage("Count of variables that are settable at queue time and contain URL value: $($varCount)");
-                        $controlResult.AddMessage([VerificationResult]::Verify, "List of variables settable at queue time and containing URL value: `n", $($settableURLVars | FT | Out-String));
-                        $controlResult.AdditionalInfo += "Count of variables that are settable at queue time and contain URL value: " + $varCount;
-                        $controlResult.SetStateData("List of variables settable at queue time and containing URL value: ", $settableURLVars);
-                    }
-                    else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No variables were found in the build pipeline that are settable at queue time and contain URL value.");
-                    }
                 }
-                else
+                $varCount = $settableURLVars.Count
+                if ($varCount -gt 0)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting URLs in pipeline variables are not defined in control settings for your organization.");
+                    $controlResult.AddMessage("Count of variables that are settable at queue time and contain URL value: $($varCount)");
+                    $controlResult.AddMessage([VerificationResult]::Verify, "List of variables settable at queue time and containing URL value: `n", $($settableURLVars | FT | Out-String));
+                    $controlResult.AdditionalInfo += "Count of variables that are settable at queue time and contain URL value: " + $varCount;
+                    $controlResult.SetStateData("List of variables settable at queue time and containing URL value: ", $settableURLVars);
                 }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No variables were found in the build pipeline that are settable at queue time and contain URL value.");
+                }        
             }
             else
             {
