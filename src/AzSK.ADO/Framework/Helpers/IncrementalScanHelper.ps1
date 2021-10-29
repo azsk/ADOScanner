@@ -26,6 +26,7 @@ class IncrementalScanHelper
     [bool] $isPartialScanActive = $false;
     [bool] $IsFullScanInProgress = $false;
     static [PSObject] $auditSchema = $null
+    [bool] $isIncFileAlreadyAvailable = $false;
     
     IncrementalScanHelper([string] $organizationName, [string] $projectName, [datetime] $incrementalDate, [bool] $updateTimestamp, [datetime] $timestamp)
     {
@@ -139,6 +140,38 @@ class IncrementalScanHelper
             catch
             {
                 write-host "Exception when trying to find/create incremental scan container: $_."
+            }
+        }
+        elseif($this.ScanSource -eq 'CICD'){
+            if (Test-Path env:incrementalScanURI)
+            {
+                #Uri is created in cicd task based on jobid
+                $uri = $env:incrementalScanURI
+            }
+            else {
+                $uri = [Constants]::StorageUri -f $this.OrgName, $this.OrgName, "IncrementalScanFile"
+            }
+            try {
+                #check if file already in extension sotrage
+                $webRequestResult = [WebRequestHelper]::InvokeGetWebRequest($uri)
+                if($null -ne $webRequestResult){
+                    $this.ResourceTimestamps = $webRequestResult | ConvertFrom-Json
+                    if(-not ([Helpers]::CheckMember($this.ResourceTimestamps, $resourceType)) -or $null -eq $this.ResourceTimestamps.$resourceType -or [datetime]$this.ResourceTimestamps.$resourceType.LastScanTime -eq 0)
+                    {
+                        # Previous timestamp does not exist for this resource in the existing file.
+                        $this.FirstScan = $true
+                        $this.isIncFileAlreadyAvailable = $true;
+                    }
+                }
+                else{
+                    $this.FirstScan = $true
+                    $this.isIncFileAlreadyAvailable = $false;
+                }                
+            }
+            catch
+            {
+                $this.FirstScan = $true
+                $this.isIncFileAlreadyAvailable = $false;
             }
         }
         if(-not $this.FirstScan)
@@ -300,6 +333,74 @@ class IncrementalScanHelper
                 [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps) | Out-File $tempPath -Force
                 Set-AzStorageBlobContent -File $tempPath -Container $this.ContainerObject.Name -Blob $blobPath -Context $this.StorageContext -Force
                 Remove-Item -Path $tempPath
+            }
+        }
+        elseif($this.ScanSource -eq 'CICD'){
+            $incrementalScanPayload = $null
+            if($this.FirstScan -eq $true){
+                #first scan for the pipeline for all resources
+                if($this.isIncFileAlreadyAvailable -eq $false){
+                    $this.ResourceTimestamps = [IncrementalScanTimestamps]::new()                  
+                }           
+                #will be called for both scenarios: first scan for the resource as well as for the entire pipeline
+                $resourceScanTimes = [IncrementalTimeStampsResources]@{
+                        LastScanTime = $this.Timestamp;
+                        LastFullScanTime = $this.Timestamp;
+                        LastPartialTime = "0001-01-01T00:00:00.0000000";
+                        IsFullScanInProgress = $false
+                    }
+                $this.ResourceTimestamps.$resourceType = $resourceScanTimes                 
+                $incrementalScanPayload = [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps)
+            }
+            #not a first scan
+            else{
+                $previousScanTime = $this.ResourceTimestamps.$resourceType.LastScanTime;
+                $this.ResourceTimestamps.$resourceType.LastPartialTime= $previousScanTime
+                if($this.IsFullScanInProgress -eq $false){
+                    $this.ResourceTimestamps.$resourceType.IsFullScanInProgress = $false
+                }
+                #if old scan, we trigger full scan, store full scan value, also reset upc scan time
+                if($this.ShouldDiscardOldScan){
+                    $this.ResourceTimestamps.$resourceType.LastFullScanTime = $this.Timestamp
+                    $this.ResourceTimestamps.$resourceType.LastPartialTime = "0001-01-01T00:00:00.0000000";
+                    $this.ResourceTimestamps.$resourceType.IsFullScanInProgress = $true
+                }   
+                $this.ResourceTimestamps.$resourceType.LastScanTime = $this.Timestamp
+                $incrementalScanPayload = [JsonHelper]::ConvertToJsonCustom($this.ResourceTimestamps)
+            }
+            try{
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $uri = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))               
+                $body = "";
+                if (Test-Path env:incrementalScanURI)
+                {
+                    $uri = $env:incrementalScanURI
+                    $JobId ="";
+                    $JobId = $uri.Replace('?','/').Split('/')[$JobId.Length -2]
+                    #if the incremental scan is already present need to update the existing file
+                    if ($this.FirstScan -eq $false -or $this.isIncFileAlreadyAvailable -eq $true){
+                        $body = @{"id" = $Jobid; "__etag"=-1; "value"= $incrementalScanPayload;} | ConvertTo-Json
+                    }
+                    else{
+                        $body = @{"id" = $Jobid; "value"= $incrementalScanPayload;} | ConvertTo-Json
+                    }
+                }
+                else {
+                    $uri = [Constants]::StorageUri -f $this.OrgName, $this.OrgName, "IncrementalScanFile"
+                    if ($this.FirstScan -eq $false -or $this.isIncFileAlreadyAvailable -eq $true){
+                        $body = @{"id" = "IncrementalScanFile";"__etag"=-1; "value"= $incrementalScanPayload;} | ConvertTo-Json
+                    }
+                    else{
+                        $body = @{"id" = "IncrementalScanFile"; "value"= $incrementalScanPayload;} | ConvertTo-Json
+                    }
+                }
+                $webRequestResult = Invoke-WebRequest -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -Body $body 
+                        
+            }
+            catch{  
+                Write-Host "Error updating Incremental Scan file: $($_)"
             }
         }
     }
