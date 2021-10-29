@@ -1476,9 +1476,12 @@ class CommonSVTControls: ADOSVTBase {
                 $policyGroups = $response.dataProviders."ms.vss-code-web.repository-policies-data-provider".policyGroups
                 # fetching "Secrets scanning restriction"
                 $credScanId = $this.ControlSettings.Repo.CredScanPolicyID
-                if ([Helpers]::CheckMember($policyGroups, $credScanId)) {
-                    $currentScopePoliciesSecrets = $policyGroups."$($credScanId)".currentScopePolicies
-                    if ($currentScopePoliciesSecrets.isEnabled) {
+                if ([Helpers]::CheckMember($policyGroups, $credScanId )) {
+                     $currentScopePoliciesSecrets = $policyGroups."$($credScanId)".currentScopePolicies
+                    if($null -eq $currentScopePoliciesSecrets){
+                        $currentScopePoliciesSecrets = $policyGroups."$($credScanId)".inheritedPolicies
+                    }
+                    if ([Helpers]::CheckMember($currentScopePoliciesSecrets, "isEnabled") -and $currentScopePoliciesSecrets.isEnabled) {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Check for credentials and other secrets is enabled.");
                     }
                     else {
