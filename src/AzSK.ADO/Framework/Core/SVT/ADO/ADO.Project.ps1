@@ -430,12 +430,12 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
                  
                 }
-                if($TotalPAMembers -gt 0){
+                #if($TotalPAMembers -gt 0){
                     $controlResult.AddMessage("Current set of Project Administrators: ")
                     $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
                     $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;                 
-                }
+                #}
             }
         }
         else
@@ -515,8 +515,8 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
                 }
 
-                if($TotalPAMembers -gt 0){
-                    $controlResult.AddMessage("Count of Project Administrators: $($TotalPAMembers)")
+                #if($TotalPAMembers -gt 0){
+                    #$controlResult.AddMessage("Count of Project Administrators: $($TotalPAMembers)")
                     $controlResult.AddMessage("Current set of Project Administrators: ")
                     $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
@@ -524,7 +524,7 @@ class Project: ADOSVTBase
                     $controlResult.AdditionalInfoInCSV += "TotalAdmin: $($TotalPAMembers); ";
                     $identities = $this.PAMembers | ForEach-Object { $_.displayName + ': ' + $_.mailAddress } | select-object -Unique -First 10;
                     $controlResult.AdditionalInfoInCSV += "AdminList: $($identities -join ' ; ');";
-                }
+                #}
             }
         }
         else
@@ -2049,7 +2049,7 @@ class Project: ADOSVTBase
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
 
-        if($this.ControlSettings -and  [Helpers]::CheckMember($this.ControlSettings,"Project.AdminGroupsToCheckForInactiveUser"))
+        if($this.ControlSettings.Project.AdminGroupsToCheckForInactiveUser)
         {
             try
             {
@@ -2061,7 +2061,7 @@ class Project: ADOSVTBase
                 $inactiveUsersWithAdminAccess = @()
                 $neverActiveUsersWithAdminAccess = @()
                 $inactivityPeriodInDays = 90
-                if([Helpers]::CheckMember($this.ControlSettings,"Project.AdminInactivityThresholdInDays"))
+                if($this.ControlSettings.Project.AdminInactivityThresholdInDays)
                 {
                     $inactivityPeriodInDays = $this.ControlSettings.Organization.AdminInactivityThresholdInDays
                 }
@@ -2337,7 +2337,7 @@ class Project: ADOSVTBase
         try
         {
             $orgName = $($this.OrganizationContext.OrganizationName)
-            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $projectId = $this.ResourceContext.ResourceDetails.Id #($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
             $projectName = $this.ResourceContext.ResourceName;
             $permissionSetToken = $projectId            
             $restrictedBroaderGroups = @{}
@@ -2563,7 +2563,7 @@ class Project: ADOSVTBase
         try
         {
             $orgName = $($this.OrganizationContext.OrganizationName)
-            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $projectId = $this.ResourceContext.ResourceDetails.Id 
             $projectName = $this.ResourceContext.ResourceName;
             $permissionSetToken = $projectId            
             $restrictedBroaderGroups = @{}
@@ -2789,12 +2789,12 @@ class Project: ADOSVTBase
         $controlResult.VerificationResult = [VerificationResult]::Failed
 
         try {
-            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $projectId = $this.ResourceContext.ResourceDetails.Id 
             $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}" -f $($this.OrganizationContext.OrganizationName), $($projectId);
             $serviceEndPointIdentity = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
             $restrictedGroups = @();
             $restrictedBroaderGroups = @{}
-            if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.RestrictedBroaderGroupsForSvcConn") ) {
+            if ($this.ControlSettings.ServiceConnection.RestrictedBroaderGroupsForSvcConn ) {
                 $restrictedBroaderGroupsForSvcConn = $this.ControlSettings.ServiceConnection.RestrictedBroaderGroupsForSvcConn;
                 $restrictedBroaderGroupsForSvcConn.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
                 if (($serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($serviceEndPointIdentity, "identity")) {
@@ -2802,7 +2802,7 @@ class Project: ADOSVTBase
                     $roleAssignments = @();
                     $roleAssignments +=   ($serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.Id}},@{Name="Role"; Expression = {$_.role.displayName}},@{Name="Access"; Expression = {$_.access}});
                     #Checking where broader groups have user/admin permission for service connection
-                    if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.CheckForInheritedPermissions") -and $this.ControlSettings.ServiceConnection.CheckForInheritedPermissions) {
+                    if ($this.ControlSettings.ServiceConnection.CheckForInheritedPermissions) {
                         $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1] -and ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
                     }
                     else {
@@ -2914,8 +2914,8 @@ class Project: ADOSVTBase
         try {
             $controlResult.VerificationResult = [VerificationResult]::Failed
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool")) {
-                $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            if ($this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool) {
+                $projectId = $this.ResourceContext.ResourceDetails.Id 
                 $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($projectId)";
                 $agentPoolPermObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
                 $restrictedBroaderGroups = @{}
@@ -2928,7 +2928,7 @@ class Project: ADOSVTBase
                     # Checking whether the broader groups have User/Admin permissions
                     $restrictedGroups = @();
 
-                    if ([Helpers]::CheckMember($this.ControlSettings, "Agentpool.CheckForInheritedPermissions") -and $this.ControlSettings.Agentpool.CheckForInheritedPermissions) {
+                    if ($this.ControlSettings.Agentpool.CheckForInheritedPermissions) {
                         $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1] -and ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
                     }
                     else {
@@ -3039,9 +3039,9 @@ class Project: ADOSVTBase
 
         try {
             $controlResult.VerificationResult = [VerificationResult]::Failed
-            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $projectId = $this.ResourceContext.ResourceDetails.Id 
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedBroaderGroupsForVariableGroup") ) {
+            if ($this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup) {
                 $restrictedBroaderGroups = @{}
                 $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup;
                 $restrictedBroaderGroupsForVarGrp.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
@@ -3057,7 +3057,7 @@ class Project: ADOSVTBase
                 }
 
                 # Checking whether the broader groups have User/Admin permissions
-                if ([Helpers]::CheckMember($this.ControlSettings, "VariableGroup.CheckForInheritedPermissions") -and $this.ControlSettings.VariableGroup.CheckForInheritedPermissions) {
+                if ($this.ControlSettings.VariableGroup.CheckForInheritedPermissions) {
                     $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1]) -and  ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
                 }
                 else {
@@ -3162,7 +3162,7 @@ class Project: ADOSVTBase
             $controlResult.VerificationResult = [VerificationResult]::Failed
             $projectId = $this.ResourceContext.ResourceDetails.Id
 
-            if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedBroaderGroupsForSecureFile")) {
+            if ($this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile) {
                 $restrictedBroaderGroups = @{}
                 $restrictedBroaderGroupsForSecureFile = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile;  
                 $restrictedBroaderGroupsForSecureFile.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
@@ -3178,7 +3178,7 @@ class Project: ADOSVTBase
                 }
 
                 # Checking whether the broader groups have User/Admin permissions
-                if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.CheckForInheritedPermissions") -and $this.ControlSettings.SecureFile.CheckForInheritedPermissions) {
+                if ($this.ControlSettings.SecureFile.CheckForInheritedPermissions) {
                     $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1]) -and  ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
                 }
                 else {
@@ -3295,7 +3295,7 @@ class Project: ADOSVTBase
 
             # Checking if Inherited permissions are allowed or not.
             $allowPermissionBits = @(1)
-            if ([Helpers]::CheckMember($this.ControlSettings, "Repo.CheckForInheritedPermissions") -and $this.ControlSettings.Repo.CheckForInheritedPermissions) {
+            if ($this.ControlSettings.Repo.CheckForInheritedPermissions) {
                 #allow permission bit for inherited permission is '3'
                 $allowPermissionBits = @(1,3)
             }
