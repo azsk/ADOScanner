@@ -2895,10 +2895,10 @@ class Organization: ADOSVTBase
                 $response = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/json" -Body $body -UseBasicParsing
             
                 $groups = $response.Content | Convertfrom-json
-                $roleAssignments = $groups.results.identities.displayname
+                $roleAssignments = $groups.results.identities 
 
                 # Checking whether the broader groups have permissions
-                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroups.keys -contains $_.split('\')[-1]) -and ("Project Collection Administrators" -notcontains $_.split('\')[-1]) })
+                $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroups.keys -contains $_.displayname.split('\')[-1]) -and ("Project Collection Administrators" -notcontains $_.displayname.split('\')[-1]) })
 
                 if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $restrictedGroups.Count -gt 0)
                 {
@@ -2910,12 +2910,26 @@ class Organization: ADOSVTBase
                 # fail the control if restricted group found on feed
                 if ($restrictedGroupsCount -gt 0) {
                     $controlResult.AddMessage([VerificationResult]::Failed, "`nCount of broader groups that have access to administer feeds at a organization level: $($restrictedGroupsCount)");
-                    $formattedGroupsData = $restrictedGroups
+                    $formattedGroupsData = $restrictedGroups | Select-Object -Property displayName
                     $formattedGroupsTable = ($formattedGroupsData | FT -AutoSize | Out-String)
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have access to administer feeds at a organization level: $($restrictedGroupsCount)";
                     $controlResult.AdditionalInfoInCSV = $restrictedGroups -join ' ; '
+                
+                    if ($this.ControlFixBackupRequired)
+                    {   
+                        $excesiveFeedsPermissions =@()
+                        $responseObj | ForEach-Object {
+                            $id =$_.identityId
+                            $excesiveFeedsPermissions += @{"Role"= $_.role;"Descriptor"= $_.identityDescriptor;"Id"=$_.identityId;"DisplayName"=($restrictedGroups | Where-Object {$_.originId -eq  $id}| Select-Object  displayName)}
+                            
+                        }
+
+                        $controlResult.BackupControlState = $excesiveFeedsPermissions | where-object {$_.Id -in $restrictedGroups.originId}
+
+                    }
+                
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have access to administer feeds at a organization level.");
@@ -2935,5 +2949,65 @@ class Organization: ADOSVTBase
         return $controlResult;
     } 
 
+    hidden [ControlResult] CheckBroaderGroupInheritanceSettingsForFeedAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            #$scope = $RawDataObjForControlFix[0].Scope
+
+            $body = "["
+
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    #$roleId = [int][FeedPermissions] "Reader"
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                        {
+                            "identityId": "$($identity.id)",
+                            "role": 1,
+                            "identityDescriptor": "$($($identity.Descriptor).Replace('\','\\'))"
+                        }
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName.displayName}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {
+                    $roleId = [int][FeedPermissions] "$($identity.role)"
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                        {
+                            "identityId": "$($identity.id)",
+                            "role": 3,
+                            "identityDescriptor": "$($($identity.Descriptor).Replace('\','\\'))"
+                        }
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName.displayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+            }
+
+            #Patch request
+            $body += "]"
+            $url = "https://feeds.dev.azure.com/{0}/_apis/Packaging/GlobalPermissions?api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body
+
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
+            $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
 
 }
