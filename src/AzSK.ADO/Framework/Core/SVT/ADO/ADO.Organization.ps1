@@ -219,7 +219,7 @@ class Organization: ADOSVTBase
 
                             # Preparing the list of members of PCSA which needs to be subtracted from $allAdminMembers
                             #USE IDENTITY ID
-                            $groupMembers | ForEach-Object {$allPCSAMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = "Project Collection Administrators" } )}
+                            $groupMembers | ForEach-Object {$allPCSAMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = "Project Collection Administrators"; descriptor=$_.descriptor; directMemberOfGroup = $_.DirectMemberOfGroup; subjectKind = $_.subjectKind } )}
 
                         }
 
@@ -227,7 +227,19 @@ class Organization: ADOSVTBase
                         #TODO: HAVE ANOTHER CONTROL TO CHECK FOR PCA because some service accounts might be added directly as PCA and as well as part of PCSA. This new control will serve as a hygiene control. : fixed in 2111, check if user is directly a part of PCSA
                         if($allPCSAMembers.Count -gt 0)
                         {
-                            $allAdminMembers = $allAdminMembers | ? {$_.directMemberOfGroup -ne $PCSAGroup.descriptor}
+                            #filter out all service accounts only
+                            if ([IdentityHelpers]::hasGraphAccess){
+                                $allPCSASvcAcc = @($allPCSAMembers |  ? {[IdentityHelpers]::isServiceAccount($_.mailAddress,$_.subjectKind,[IdentityHelpers]::graphAccessToken)})
+                                #remove all service accounts directly a part of PCSA from admin members
+                                if($allPCSASvcAcc.Count -gt 0){
+                                    $allAdminMembers = $allAdminMembers | ? {$_.id -notin $allPCSASvcAcc.id -or $_.directMemberOfGroup -notin $allPCSASvcAcc.directMemberOfGroup}
+                                } 
+                            }
+                            else{
+                                $controlResult.AddMessage([Constants]::graphWarningMessage+"`n"); 
+                                $allAdminMembers = $allAdminMembers | ? {$_.directMemberOfGroup -notin $allPCSAMembers.directMemberOfGroup}
+                            }                            
+                                                       
                         }
 
                         # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
