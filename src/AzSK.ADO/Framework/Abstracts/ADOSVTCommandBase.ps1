@@ -68,13 +68,6 @@ class ADOSVTCommandBase: SVTCommandBase {
 
                 #Export backup for user to confirm
                 $this.PublishCustomMessage( "`nPlease review the control fix data in below file:`n$($folderpath)", [MessageType]::Warning);
-                if (!$this.invocationContext.BoundParameters["UndoFix"] -and $this.controlInternalId -eq "ServiceConnection190")
-                {
-                    $this.PublishCustomMessage( "`nAfter applying this fix, any YAML pipelines using these service connection will lose access. You will have to explicitly add them.", [MessageType]::Warning);
-                }
-                elseif (!$this.invocationContext.BoundParameters["UndoFix"] -and $this.controlInternalId -eq "SecureFile100") {
-                    $this.PublishCustomMessage( "`nAfter applying this fix, any YAML pipelines using these secure file will lose access. You will have to explicitly add them.", [MessageType]::Warning);
-                }
                 $input = ""
                 while ($input -ne "y" -and $input -ne "n") {
                     if (-not [string]::IsNullOrEmpty($input)) {

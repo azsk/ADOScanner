@@ -520,6 +520,7 @@ class ServiceConnection: ADOSVTBase
     hidden [ControlResult] CheckServiceConnectionBuildAccessAutomatedFix([ControlResult] $controlResult)
     {
         try{
+            $this.PublishCustomMessage( "`nAfter applying this fix, any YAML pipelines using this service connection will lose access. You will have to explicitly add them.", [MessageType]::Warning);
             $RawDataObjForControlFix = @();
             $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
 

@@ -700,6 +700,7 @@ class CommonSVTControls: ADOSVTBase {
     hidden [ControlResult] CheckSecureFilesPermissionAutomatedFix([ControlResult] $controlResult)
     {
         try{
+            $this.PublishCustomMessage( "`nAfter applying this fix, any YAML pipelines using this secure file will lose access. You will have to explicitly add them.", [MessageType]::Warning);
             $RawDataObjForControlFix = @();
             $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
 
