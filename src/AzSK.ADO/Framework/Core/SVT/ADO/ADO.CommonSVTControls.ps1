@@ -663,17 +663,18 @@ class CommonSVTControls: ADOSVTBase {
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try {
-            $url = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=securefile&id={2}&api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id
-            $secureFileObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/securefile/{2}" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            $secureFilePipelinePermObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+            if($secureFilePipelinePermObj.Count -gt 0 -and [Helpers]::CheckMember($secureFilePipelinePermObj,"allPipelines") -and $secureFilePipelinePermObj.allPipelines.authorized -eq $true) {
 
-            if(($secureFileObj.Count -gt 0) -and [Helpers]::CheckMember($secureFileObj[0], "authorized") -and  $secureFileObj[0].authorized -eq $true) {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is accesible to all YAML pipelines.");
+                if ($this.ControlFixBackupRequired){
+                    $controlResult.BackupControlState = $secureFilePipelinePermObj;
+                }
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all YAML pipelines.");
                 try {
-                    $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/securefile/{2}" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
-                    $secureFilePipelinePermObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                     $buildPipelineIds = @();
                     if ($secureFilePipelinePermObj.Count -gt 0 -and $secureFilePipelinePermObj.pipelines.Count -gt 0) {
                         $buildPipelineIds = $secureFilePipelinePermObj.pipelines.id
@@ -693,6 +694,42 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch authorization details of secure file.");
             $controlResult.LogException($_)
         }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckSecureFilesPermissionAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            if (-not $this.UndoFix)
+            {
+                $RawDataObjForControlFix.allPipelines.authorized = $false;
+                $RawDataObjForControlFix.allPipelines.authorizedBy = $null;
+                $RawDataObjForControlFix.allPipelines.authorizedOn = $null;
+                $body = $RawDataObjForControlFix | ConvertTo-Json -Depth 10;
+                $uri = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/securefile/{2}?api-version=5.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                $Result = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
+            
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Secure file is not accessible to all YAML pipelines.");
+            }
+            else {
+                $body = $RawDataObjForControlFix | ConvertTo-Json -Depth 10;
+                $uri = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/securefile/{2}?api-version=5.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                $Result = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
+            
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Secure file is accessible to all YAML pipelines.");
+            }
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        
         return $controlResult
     }
 

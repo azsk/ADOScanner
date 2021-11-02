@@ -109,7 +109,8 @@
         "AuthZ",
         "Automated",
         "Best Practice",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
