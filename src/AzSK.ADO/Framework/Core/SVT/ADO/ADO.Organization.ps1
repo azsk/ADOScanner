@@ -229,7 +229,7 @@ class Organization: ADOSVTBase
                         {
                             #filter out all service accounts only
                             if ([IdentityHelpers]::hasGraphAccess){
-                                $allPCSASvcAcc = @($allPCSAMembers |  ? {[IdentityHelpers]::isServiceAccount($_.mailAddress,$_.subjectKind,[IdentityHelpers]::graphAccessToken)})
+                                $allPCSASvcAcc = @(([IdentityHelpers]::DistinguishHumanAndServiceAccount($allPCSAMembers, $this.OrganizationContext.OrganizationName)).serviceAccount)
                                 #remove all service accounts directly a part of PCSA from admin members
                                 if($allPCSASvcAcc.Count -gt 0){
                                     $allAdminMembers = $allAdminMembers | ? {$_.id -notin $allPCSASvcAcc.id -or $_.directMemberOfGroup -notin $allPCSASvcAcc.directMemberOfGroup}
