@@ -906,7 +906,8 @@ class CommonSVTControls: ADOSVTBase {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            if ([Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedBroaderGroupsForEnvironment")) {
+            $broaderGroups = $this.ControlSettings.Environment.RestrictedBroaderGroupsForEnvironment
+            if(@($broaderGroups.psobject.Properties).Count -gt 0) {
                 $restrictedBroaderGroups = @{}
                 $restrictedBroaderGroupsForEnvironment = $this.ControlSettings.Environment.RestrictedBroaderGroupsForEnvironment
                 $restrictedBroaderGroupsForEnvironment.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
