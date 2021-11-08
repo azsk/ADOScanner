@@ -327,8 +327,10 @@ class AzSKADOServiceMapping: CommandBase
         try{
             $agentPoolsDefnURL = ("https://{0}.visualstudio.com/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $this.OrgName, $this.ProjectName;
             $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
-            
-            $taskAgentQueues = $null;
+            #generate access token with datastudio api audience
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $taskAgentQueues = $null;           
+
             if (([Helpers]::CheckMember($agentPoolsDefnsObj, "fps.dataProviders.data") ) -and (($agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider") -and $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues)) {
                 $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | where-object{$_.pool.isLegacy -eq $false}; 
             }
@@ -341,11 +343,12 @@ class AzSKADOServiceMapping: CommandBase
             $taskAgentQueues | ForEach-Object {
                 $counter++
                 Write-Progress -Activity 'Agent pool mappings...' -CurrentOperation $_.Name -PercentComplete (($counter / $taskAgentQueues.count) * 100)
-
+                $unmappedAgentPool = $true;
                 $agtPoolId = $_.id
-                $agentPoolsURL = "https://{0}.visualstudio.com/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $this.orgName, $this.ProjectId, $agtPoolId
+                $agtPoolName = $_.name
+                $agentPoolsURL = "https://{0}.visualstudio.com/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $this.orgName, $this.ProjectName, $agtPoolId
                 $agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-                
+
                 if (([Helpers]::CheckMember($agentPool[0], "fps.dataProviders.data") ) -and ($agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider")) {
                     $agentPoolJobs = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs | Where-Object { $_.scopeId -eq $this.ProjectId };
 
@@ -360,6 +363,7 @@ class AzSKADOServiceMapping: CommandBase
                             $buildSTData = $this.BuildSTDetails.data | Where-Object { ($_.buildDefinitionID -eq $job.definition.id)};
                             if($buildSTData){
                                 $agentPoolSTMapping.data += @([PSCustomObject] @{ agentPoolName = $_.Name; agentPoolID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
+                                $unmappedAgentPool = $false;
                                 break;
                             }
                         }
@@ -367,9 +371,36 @@ class AzSKADOServiceMapping: CommandBase
                             $releaseSTData = $this.ReleaseSTDetails.data | Where-Object { ($_.releaseDefinitionID -eq $job.definition.id)};
                             if($releaseSTData){
                                 $agentPoolSTMapping.data += @([PSCustomObject] @{ agentPoolName = $_.Name; agentPoolID = $_.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
+                                $unmappedAgentPool = $false;
                                 break;
                             }
                         }
+                    }
+                }
+                if($unmappedAgentPool)
+                {
+                    $agentList = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider".agents;
+                    $agentList | ForEach-Object {                                                
+                        $agtName = $_.Name 
+                        $responseObj = $this.GetAgentSubscrId($agtName)
+                        if($responseObj)
+                        {
+                           $logsRows = $responseObj.tables[0].rows;
+                           if($logsRows.count -gt 0)
+                           {
+                               $agetnSubscriptionID = $logsRows[0][18];
+                               try {
+                                        $response = $this.GetServiceIdWithSubscrId($agetnSubscriptionID,$accessToken)                               
+                                        if($response)
+                                        {
+                                                $serviceId = $response[2].Rows[0][4];
+                                                $agentPoolSTMapping.data += @([PSCustomObject] @{ agentPoolName = $agtPoolName; agentPoolID = $agtPoolId; serviceID = $serviceId; projectName = $this.projectName; projectID = $this.projectId; orgName = $organizationName } );                                                
+                                        } 
+                                    }
+                              catch {
+                                }                                
+                           }
+                        }                                                
                     }
                 }
             }
@@ -858,19 +889,17 @@ class AzSKADOServiceMapping: CommandBase
         return $true;
     }
 
-    hidden [object] GetServiceIdWithSubscrId($serviceConnEndPointDetail,$accessToken)
+    hidden [object] GetServiceIdWithSubscrId($subscriptionId,$accessToken)
     {
         $response = $null
         try {
-            $subscriptionID = $serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId;
-            Write-Progress -Activity 'Fetching Service Id from Azure Data explorer...' -CurrentOperation $serviceConnEndPointDetail.serviceEndpoint.name;
-
+            $subscriptionID = $subscriptionId;#$serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId;          
             # call data studio to fetch azure subscription id and servce id mapping
             $apiURL = "https://datastudiostreaming.kusto.windows.net/v2/rest/query"                                                                    
             $inputbody = '{"db": "Shared","csl": "DataStudio_ServiceTree_AzureSubscription_Snapshot | where SubscriptionId contains ''{0}''", "properties": {"Options": {"query_language": "csl","servertimeout": "00:04:00","queryconsistency": "strongconsistency","request_readonly": false,"request_readonly_hardline": false}}}'                                            
             $inputbody = $inputbody.Replace("{0}", $subscriptionID)                                                                                        
             $header = @{
-                            "Authorization" = "Bearer " + $accessToken
+                            "Authorization" = "Bearer " + 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6Imwzc1EtNTBjQ0g0eEJWWkxIVEd3blNSNzY4MCIsImtpZCI6Imwzc1EtNTBjQ0g0eEJWWkxIVEd3blNSNzY4MCJ9.eyJhdWQiOiJodHRwczovL2hlbHAua3VzdG8ud2luZG93cy5uZXQiLCJpc3MiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC83MmY5ODhiZi04NmYxLTQxYWYtOTFhYi0yZDdjZDAxMWRiNDcvIiwiaWF0IjoxNjM2Mzc4MjU5LCJuYmYiOjE2MzYzNzgyNTksImV4cCI6MTYzNjM4MzU5NiwiYWNyIjoiMSIsImFpbyI6IkFWUUFxLzhUQUFBQUdyUUhIVjRwdE0yV004aEFOaWNqUWtYcHhLVTcyeTQzci9QdnFKVTdBQmFlS1NBczBZOXJ4WlFnQ0ZmZTlDRTZFTmxuWUExMHZBUXRMTmhmWVVuWHlmRG9YQXdSWmplRW9FZU9KT1F2bXFzPSIsImFtciI6WyJyc2EiLCJtZmEiXSwiYXBwaWQiOiJmOTgxOGU1Mi01MGJkLTQ2M2UtODkzMi1hMTY1MGJkM2ZhZDIiLCJhcHBpZGFjciI6IjAiLCJkZXZpY2VpZCI6Ijk4YTBkMmExLWQ4YmUtNDZmZi1iZTRkLWNlNzYxMDMwYmMxYyIsImZhbWlseV9uYW1lIjoiU2luZ2giLCJnaXZlbl9uYW1lIjoiQW5hbmQiLCJpcGFkZHIiOiIxMjIuMTc1Ljc3LjIxNCIsIm5hbWUiOiJBbmFuZCBTaW5naCIsIm9pZCI6IjNhMjQ4YmIwLTgxY2YtNDQ3NS05YzQ0LWIxNTU2ZTQyYzBkZSIsIm9ucHJlbV9zaWQiOiJTLTEtNS0yMS0yMTQ2NzczMDg1LTkwMzM2MzI4NS03MTkzNDQ3MDctMjQzMTU1OSIsInB1aWQiOiIxMDAzMjAwMDJEOTgyRURCIiwicmgiOiIwLkFSb0F2NGo1Y3ZHR3IwR1JxeTE4MEJIYlIxS09nZm05VUQ1R2lUS2haUXZULXRJYUFEYy4iLCJzY3AiOiJ1c2VyX2ltcGVyc29uYXRpb24iLCJzdWIiOiJIS2E2ckpFbjRPdGc0R3YxRE9OLUdJWFQzUkt4TWtRWXZaNmtTMjNvalM0IiwidGlkIjoiNzJmOTg4YmYtODZmMS00MWFmLTkxYWItMmQ3Y2QwMTFkYjQ3IiwidW5pcXVlX25hbWUiOiJhbmFzaW5naEBtaWNyb3NvZnQuY29tIiwidXBuIjoiYW5hc2luZ2hAbWljcm9zb2Z0LmNvbSIsInV0aSI6IjFxS1lBYW5SVVU2X3ZVNmZNNnpKQUEiLCJ2ZXIiOiIxLjAifQ.SKTmPGoKXvH1-ZrBLyXutu4CU6OO2rv5R_fDcoleTXzzLn4gsxe8uJHinpiLFVwkQGHwd_vy_iXlP9pTmVhl2A4rxhn0rvXfwsTVQx2kSiKBhKS6XYcIhXfTnwwVoDd-mU-S5_8BEf3ywEv7edKaoPiVNoyIrIjuYziypIHs8tLePFHqpfSQ1Tub0IGu3l75-n8-XNuTE29D6UjxAeTxZ4pou7msp5llCoQMjMrVdqA9yGznkvXqTZfFZA1o3P2E93R24GdSrm92K7_Wmv4aMIoYs62BuOtBUtoI-M7HpM-aFUdWUMj1vY6INm7rfH7QzMfTaY6rjqWHzTrfZn-KpA'#$accessToken
                         }
             $response = [WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Post,$apiURL,$header,$inputbody,"application/json; charset=UTF-8");     
                         
@@ -881,4 +910,26 @@ class AzSKADOServiceMapping: CommandBase
         return $response     
     }
 
+    hidden [object] GetAgentSubscrId($agentName)
+    {
+        $response = $null
+        try {            
+            Write-Progress -Activity 'Fetching Agent subscription Id from Azure LAWS...' -CurrentOperation $agentName;            
+             #generate access token with datastudio api audience
+             $accessToken = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6Imwzc1EtNTBjQ0g0eEJWWkxIVEd3blNSNzY4MCIsImtpZCI6Imwzc1EtNTBjQ0g0eEJWWkxIVEd3blNSNzY4MCJ9.eyJhdWQiOiJjYTdmM2YwYi03ZDkxLTQ4MmMtOGUwOS1jNWQ4NDBkMGVhYzUiLCJpc3MiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC83MmY5ODhiZi04NmYxLTQxYWYtOTFhYi0yZDdjZDAxMWRiNDcvIiwiaWF0IjoxNjM2MzgwODg4LCJuYmYiOjE2MzYzODA4ODgsImV4cCI6MTYzNjM4NDc4NiwiX2NsYWltX25hbWVzIjp7Imdyb3VwcyI6InNyYzEifSwiX2NsYWltX3NvdXJjZXMiOnsic3JjMSI6eyJlbmRwb2ludCI6Imh0dHBzOi8vZ3JhcGgud2luZG93cy5uZXQvNzJmOTg4YmYtODZmMS00MWFmLTkxYWItMmQ3Y2QwMTFkYjQ3L3VzZXJzLzNhMjQ4YmIwLTgxY2YtNDQ3NS05YzQ0LWIxNTU2ZTQyYzBkZS9nZXRNZW1iZXJPYmplY3RzIn19LCJhY3IiOiIxIiwiYWlvIjoiQVZRQXEvOFRBQUFBNEowSENHM2FHbG9PZGljYWZ3WTRYcDZNRFRqN09CMUk0Znp0TDlaNnJLUzVQSlcybFF3YWtFZTJMeVBqbG9wMEl4WWlHMmhzR21abEtqN0ZBVWY3NDNMUXMvZEVmbkJPdHkvbWxDcW9kUGs9IiwiYW1yIjpbInJzYSIsIm1mYSJdLCJhcHBpZCI6IjZlMDBiMzFmLTA2ZDQtNGM5My04YjE0LWUwOGI1NjhiNGEwNCIsImFwcGlkYWNyIjoiMiIsImRldmljZWlkIjoiOThhMGQyYTEtZDhiZS00NmZmLWJlNGQtY2U3NjEwMzBiYzFjIiwiZmFtaWx5X25hbWUiOiJTaW5naCIsImdpdmVuX25hbWUiOiJBbmFuZCIsImlwYWRkciI6IjEyMi4xNzUuNzcuMjE0IiwibmFtZSI6IkFuYW5kIFNpbmdoIiwib2lkIjoiM2EyNDhiYjAtODFjZi00NDc1LTljNDQtYjE1NTZlNDJjMGRlIiwib25wcmVtX3NpZCI6IlMtMS01LTIxLTIxNDY3NzMwODUtOTAzMzYzMjg1LTcxOTM0NDcwNy0yNDMxNTU5IiwicHVpZCI6IjEwMDMyMDAwMkQ5ODJFREIiLCJyaCI6IjAuQVJvQXY0ajVjdkdHcjBHUnF5MTgwQkhiUngtekFHN1VCcE5NaXhUZ2kxYUxTZ1FhQURjLiIsInNjcCI6InVzZXJfaW1wZXJzb25hdGlvbiIsInN1YiI6Im9RaWhWalk1cnpKQkFxNFZOY1ozRjJlWmNrT1hnbVJtUlFwWGRZVWFrclUiLCJ0aWQiOiI3MmY5ODhiZi04NmYxLTQxYWYtOTFhYi0yZDdjZDAxMWRiNDciLCJ1bmlxdWVfbmFtZSI6ImFuYXNpbmdoQG1pY3Jvc29mdC5jb20iLCJ1cG4iOiJhbmFzaW5naEBtaWNyb3NvZnQuY29tIiwidXRpIjoiUWt5SHhGYlZMMEtIVHlKQTJhSFFBQSIsInZlciI6IjEuMCIsIndpZHMiOlsiYjc5ZmJmNGQtM2VmOS00Njg5LTgxNDMtNzZiMTk0ZTg1NTA5Il19.ilMEEUI7_ciKq6PEyTLPgZDvwVwBmRV98sPsd19u5GqJNxmdk31O_QgEe9FyuayMSgpZdmDAdFpsevmqdCaUyedT0fTfLLaimPUL1q7pq8Mt8efEGYsmGdGka6ZEEDcEXhItDpK4yjcNPKkBXuXynoIgpVqzpNM1kRxQXU8R58Y4Fd27W_jy-3dRCdTS5YivRqdE92zCQepMEwQ78OG6ray6X03KSdmLLVjdwx31o2s8J8HFQB5A08UyZjqYjMvCv4epmLyl34BwoNIkI2PGErdaIr4_G1AkuiovTsGEMvujc_q-InIQ3U0Pt2eKH-piNazb41jp_pbceU5xoOmr3Q'#[ContextHelper]::GetLAWSAccessToken($false)
+             #$accessToken = [ContextHelper]::GetLAWSAccessToken($false)
+            # call data studio to fetch azure subscription id and servce id mapping
+            $apiURL = "https://api.loganalytics.io/v1/workspaces/b32a5e40-0360-40db-a9d4-ec1083b90f0a/query?timespan=P7D"                                                                    
+            $inputbody = '{"query":"AzSK_ResourceInvInfo_CL| where Name_s =~ ''{0}''| where ResourceType == ''Microsoft.Compute/virtualMachines''","options":{"truncationMaxSize":67108864},"maxRows":30001,"workspaceFilters":{"regions":[]}}'                                       
+            $inputbody = $inputbody.Replace("{0}", $agentName)
+            $header = @{
+                "Authorization" = "Bearer " + $accessToken
+            }                             
+            $response = [WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Post,$apiURL,$header,$inputbody,"application/json; charset=UTF-8");                           
+        }
+        catch {
+            
+        }  
+        return $response     
+    }
 }

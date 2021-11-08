@@ -357,6 +357,39 @@ class ContextHelper {
 		return $accessToken;
 	}
 
+    static [string] GetLAWSAccessToken($useAzContext)
+	{
+        $accessToken = ''
+        try
+        {   
+            Write-Host "Graph access is required to evaluate some controls. Attempting to acquire graph token." -ForegroundColor Cyan
+            # generating graph access token using default VSTS client.
+            $clientId = "6e00b31f-06d4-4c93-8b14-e08b568b4a04";          
+            $replyUri = [Constants]::DefaultReplyUri; 
+            $adoResourceId = "ca7f3f0b-7d91-482c-8e09-c5d840d0eac5";                                         
+            if ([ContextHelper]::PSVersion -gt 5) {
+                $result = [ContextHelper]::GetGraphAccess()
+            }
+            else {
+                [AuthenticationContext] $ctx = [AuthenticationContext]::new("https://login.windows.net/common");
+                [AuthenticationResult] $result = $null;
+                $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
+                $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
+                $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+            }
+            $accessToken = $result.AccessToken            
+            Write-Host "Successfully acquired graph access token." -ForegroundColor Cyan
+        }
+        catch
+        {
+            Write-Host "Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate." -ForegroundColor Red
+            Write-Host "Continuing without graph access." -ForegroundColor Yellow
+            return $null
+        }
+
+		return $accessToken;
+	}
+
     hidden static [PSobject] GetGraphAccess()
     {
         $rootConfigPath = [Constants]::AzSKAppFolderPath;
