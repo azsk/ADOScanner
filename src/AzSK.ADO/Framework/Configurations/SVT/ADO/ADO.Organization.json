@@ -624,6 +624,23 @@
           "MSW"
         ],
         "Enabled": true
+    },
+    {
+        "ControlID": "ADO_Organization_AuthZ_Dont_Grant_Feed_Create_Permissions_To_Everyone",
+        "Description": "Do not allow everyone in the organization to create feeds.",
+        "Id": "Organization480",
+        "ControlSeverity": "High",
+        "Automated": "Yes",
+        "MethodName": "CheckCreatePermissionsForFeed",
+        "Rationale": "If everyone in the organization is granted permission to create feeds, the integrity of feeds can be compromised by a malicious user granted access to the organization.",
+        "Recommendation": "1. Go to Artifacts --> 2. Azure artifacts settings -->  3. Ensure 'Who can create feeds' is not set to 'Everyone in this organization can create feeds'.",
+        "Tags": [
+          "SDL",
+          "TCP",
+          "Automated",
+          "AuthZ"
+        ],
+        "Enabled": true
       }
   ]
 }

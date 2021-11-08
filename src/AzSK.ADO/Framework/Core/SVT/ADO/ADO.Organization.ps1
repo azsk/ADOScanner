@@ -17,7 +17,7 @@ class Organization: ADOSVTBase
     hidden [PSObject] $extensionDetailsFromOrgPolicy = @{knownExtPublishers = @(); extensionsLastUpdatedInYears = 2; ExemptedExtensionNames = @(); nonProductionExtensionIndicators = @(); extensionCriticalScopes = @(); isKnownPublishersPropertyPresent=$false; islastUpdatedPropertyPresent=$false; isCriticalScopesPropertyPresent=$false; isNonProdIndicatorsPropertyPresent=$false; isComputed=$false}; 
     hidden [PSObject] $ComputedExtensionDetails = @{}; 
     hidden $ADOGrpDescriptor = @() #cache groups descriptor
-
+    hidden $FeedGlobalPermissions = @()
 
     #TODO: testing below line
     hidden [string] $SecurityNamespaceId;
@@ -2881,14 +2881,15 @@ class Organization: ADOSVTBase
 
             #Fetch feeds RBAC
             $roleAssignments = @();
-
-            $url = "https://feeds.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Packaging/GlobalPermissions?includeIds=true&api-version=5.1-preview.1"
-            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-
-            if($responseObj.Count -gt 0)
+            if ($this.FeedGlobalPermissions.Count -eq 0) {
+                $url = "https://feeds.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Packaging/GlobalPermissions?includeIds=true&api-version=5.1-preview.1"
+                $this.FeedGlobalPermissions = @([WebRequestHelper]::InvokeGetWebRequest($url));
+            }
+            
+            if($this.FeedGlobalPermissions.Count -gt 0)
             {
                 #get identity details for groups fetched from above api
-                $responseObj = $responseObj | where-object {$_.role -eq 'administrator'}
+                $responseObj = $this.FeedGlobalPermissions | where-object {$_.role -eq 'administrator'}
                 $ids = $responseObj.identityId -join ';'
                 $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/IdentityPicker/Identities?api-version=5.0-preview.1" #-f $($OrgName), $($groupObj.entityId)
                 $body = '{"query":"'+ $ids +'","identityTypes":["group"],"operationScopes":["ims"],"queryTypeHint":"uid","properties":["DisplayName","ScopeName"]}'
@@ -2935,5 +2936,51 @@ class Organization: ADOSVTBase
         return $controlResult;
     } 
 
+    hidden [ControlResult] CheckCreatePermissionsForFeed ([ControlResult] $controlResult) {
 
+        try {
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            $roleAssignments = @();
+
+            #Fetch feeds RBAC
+            if ($this.FeedGlobalPermissions.Count -eq 0) {
+                $url = "https://feeds.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Packaging/GlobalPermissions?includeIds=true&api-version=5.1-preview.1"
+                $this.FeedGlobalPermissions = @([WebRequestHelper]::InvokeGetWebRequest($url));
+            }
+
+            #get identity details for groups fetched from above api
+            $responseObj = @($this.FeedGlobalPermissions | where-object {$_.role -eq 'feedCreator'})
+            if ($responseObj.Count -gt 0)
+            {
+                $ids = $responseObj.identityId -join ';'
+                $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/IdentityPicker/Identities?api-version=5.0-preview.1" #-f $($OrgName), $($groupObj.entityId)
+                $body = '{"query":"'+ $ids +'","identityTypes":["group"],"operationScopes":["ims"],"queryTypeHint":"uid","properties":["DisplayName","ScopeName"]}'
+                $response = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/json" -Body $body -UseBasicParsing
+            
+                $groups = $response.Content | Convertfrom-json
+                $roleAssignments = $groups.results.identities.displayname
+
+                # Checking if everyone in the organization has create permission on feed
+                $restrictedGroups = @($roleAssignments | Where-Object {"Project Collection Valid Users" -contains $_.split('\')[-1] })
+                $restrictedGroupsCount = $restrictedGroups.Count
+
+                # fail the control if everyone in the organization has create permission on feed
+                if ($restrictedGroupsCount -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Feeds create permission has been granted to everyone in the organization.");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Feeds create permission has not been granted to everyone in the organization.");
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "Feeds create permission has not been granted to everyone in the organization.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the feeds permissions at a organization level.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult;
+    } 
 }
