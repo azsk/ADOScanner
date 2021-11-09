@@ -27,5 +27,5 @@ class CsvOutputItem
 	[string] $UserComments = ""
     [string] $ResourceLink = ""
     [string] $Rationale = ""
-    [string] $AdditionalInfo = ""   
+    [string] $AdditionalInfo = ""
 }
