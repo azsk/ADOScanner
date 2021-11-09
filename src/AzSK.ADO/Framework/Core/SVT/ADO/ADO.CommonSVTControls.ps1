@@ -1502,4 +1502,85 @@ class CommonSVTControls: ADOSVTBase {
         }
         return $controlResult
     }
+
+    hidden [ControlResult] CheckForInactiveFeeds([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            #orgFeedURL will be used to identify if feed is org scoped or project scoped
+            $scope = "Project"
+            #Project property does not exist of org scoped feeds
+            if ("Project" -notin $this.ResourceContext.ResourceDetails.PSobject.Properties.name){
+                $scope = "Organization"
+            }
+
+            if ($scope -eq "Organization")
+            {
+                $url = "https://{0}.feeds.visualstudio.com/_apis/Packaging/Feeds/{1}/Packages?includeDescription=true&includeDeleted=false" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+            }
+            else
+            {
+                $url = "https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Packages?includeDescription=true&includeDeleted=false" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.project.id, $this.ResourceContext.ResourceDetails.Id;
+            }
+
+            $pakagesList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+            $inactiveLimit = $this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity;
+
+            if ($pakagesList.Count -gt 1)
+            {
+                $pakagesList = $pakagesList |Sort-Object -Property @{Expression={$_.versions[0].publishDate}} -Descending
+                $latestPackage = $pakagesList[0] | select-object name, @{l="publishedDate"; e = {([datetime] $_.versions[0].publishDate).ToString("d MMM yyyy")}}, @{l="version";e={$_.versions.version}}, protocolType
+                $lastPublishDate = $latestPackage.publishedDate
+                if ((((Get-Date) - [datetime]::Parse($lastPublishDate)).Days) -gt $inactiveLimit)
+                {
+                    if ($scope -eq "Organization")
+                    {
+                        $packageUrl = "https://{0}.feeds.visualstudio.com/_apis/Packaging/Feeds/{1}/PackageMetricsBatch?api-version=5.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+                    }
+                    else
+                    {
+                        $packageUrl = "https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/PackageMetricsBatch?api-version=5.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.project.id, $this.ResourceContext.ResourceDetails.Id;
+                    }
+
+                    $body = "{'packageIds':['$($pakagesList.id -join "','")']}"
+                    $rmContext = [ContextHelper]::GetCurrentContext();
+                    $user = "";
+                    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+                    $response = @(Invoke-RestMethod -Uri $packageUrl -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+                    $lastDownloadedPackage = $response.value | sort-object lastDownloaded -descending | Select-Object -first 1
+                    $lastDownloadedPackage = $lastDownloadedPackage | select-object @{l="Name";e={$pakagesList | Where-Object {$_.id -eq $lastDownloadedPackage.packageId}| Select-Object name}}, downloadCount, @{l="lastDownloaded"; e={([datetime] $_.lastDownloaded).ToString("d MMM yyyy")}}
+                    $lastDownloadedDate = $lastDownloadedPackage.lastDownloaded
+
+                    if ((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days) -gt $inactiveLimit)
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed,  "Feed was inactive from last $((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days)) days.");
+                    }
+                    else
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed,  "Feed package was last downloaded on $(([datetime] $lastDownloadedDate).ToString("d MMM yyyy")).");
+                    }
+                    $lastDownloadedPackage = ($lastDownloadedPackage | FT -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage("`nLatest downloaded package in the feed: ", $lastDownloadedPackage);
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,  "Feed package was last published on $(([datetime] $lastPublishDate).ToString("d MMM yyyy")).");
+                }
+                $latestPackage = ($latestPackage | FT -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("`nLatest published package in the feed: ", $latestPackage);
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed,  "Feed does not contain any packages.");
+            }         
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not fetch feed activity details.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
 }
