@@ -495,6 +495,10 @@ class ServiceConnection: ADOSVTBase
             if([Helpers]::CheckMember($this.pipelinePermission,"allPipelines")) {
                 if($this.pipelinePermission.allPipelines.authorized){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Service connection is accessible to all YAML pipelines.");
+
+                    if ($this.ControlFixBackupRequired){
+                        $controlResult.BackupControlState = $this.pipelinePermission;
+                    }
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Service connection is not accessible to all YAML pipelines.");
@@ -511,6 +515,43 @@ class ServiceConnection: ADOSVTBase
         }
 
         return $controlResult;
+    }
+
+    hidden [ControlResult] CheckServiceConnectionBuildAccessAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $this.PublishCustomMessage( "`nAfter applying this fix, any YAML pipelines using this service connection will lose access. You will have to explicitly add them.", [MessageType]::Warning);
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            if (-not $this.UndoFix)
+            {
+                $RawDataObjForControlFix.allPipelines.authorized = $false;
+                $RawDataObjForControlFix.allPipelines.authorizedBy = $null;
+                $RawDataObjForControlFix.allPipelines.authorizedOn = $null;
+                $body = $RawDataObjForControlFix | ConvertTo-Json -Depth 10;
+                $uri = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=5.1-preview.1" -f ($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.ServiceEndpointsObj.id);
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                $Result = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
+            
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Service connection is not accessible to all YAML pipelines.");
+            }
+            else {
+                $body = $RawDataObjForControlFix | ConvertTo-Json -Depth 10;
+                $uri = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=5.1-preview.1" -f ($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.ServiceEndpointsObj.id);
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                $Result = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
+            
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Service connection is accessible to all YAML pipelines.");
+            }
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        
+        return $controlResult
     }
 
     hidden [ControlResult] CheckSecureAuthN([ControlResult] $controlResult)
