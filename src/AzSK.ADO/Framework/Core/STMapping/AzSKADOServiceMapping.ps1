@@ -81,6 +81,26 @@ class AzSKADOServiceMapping: CommandBase
         }
         $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
 
+        # Get Build-Repo mappings
+        try {            
+            $buildObjectListURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +'&$top=10000') -f $($this.orgName), $this.projectName;       
+            $buildObjectList = $this.GetBuildReleaseObjects($buildObjectListURL,'Build');
+            foreach ($build in $buildObjectList) {  
+                try {                                   
+                $buildDefnObj = [WebRequestHelper]::InvokeGetWebRequest($build.url);
+                $repositoryName = $buildDefnObj.repository.name;
+                $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};
+                $this.Release = Get-content $this.ReleaseMappingsFilePath | ConvertFrom-Json
+                }
+                catch{
+
+                }                
+            }        
+        }
+        catch {
+           
+        }	
+
         $this.ReleaseSTDetails = Get-content $this.ReleaseMappingsFilePath | ConvertFrom-Json
         if ([Helpers]::CheckMember($this.ReleaseSTDetails, "data") -and ($this.ReleaseSTDetails.data | Measure-Object).Count -gt 0)
         {
@@ -91,6 +111,26 @@ class AzSKADOServiceMapping: CommandBase
             }
         }
         $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
+
+        # Get Release-Repo mappings
+        try {            
+            $ReleaseObjectListURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +'&$top=10000') -f $($this.orgName), $this.projectName;       
+            $ReleaseObjectList = $this.GetBuildReleaseObjects($ReleaseObjectListURL,'Build');
+            foreach ($Release in $ReleaseObjectList) {  
+                try {                                   
+                $releaseDefnObj = [WebRequestHelper]::InvokeGetWebRequest($Release.url);
+                $repositoryName = $releaseDefnObj.repository.name;
+                $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};
+                $this.ReleaseSTDetails = Get-content $this.ReleaseMappingsFilePath | ConvertFrom-Json
+                }
+                catch{
+
+                }                
+            }                                
+        }
+        catch {
+           
+        }
 
     }
 
@@ -932,4 +972,36 @@ class AzSKADOServiceMapping: CommandBase
         }  
         return $response     
     }
+
+    hidden [object] GetBuildReleaseObjects($resourceUrl,$resourceType)
+    {        
+        $skipCount = 0
+        $batchCount = 1; 
+        $applicableDefnsObj=@();     
+        while (($resourceUrl)) 
+        {              
+            $skipCount = 10000;
+            $responseAndUpdatedUri = [WebRequestHelper]::InvokeWebRequestForResourcesInBatch($resourceUrl, $resourceUrl, $skipCount,$resourceType);
+            #API response with resources
+            $resourceDefnsObj = @($responseAndUpdatedUri[0]);           
+            #updated URI: null when there is no continuation token
+            $resourceDfnUrl = $responseAndUpdatedUri[1];
+           
+            $applicableDefnsObj+=$resourceDefnsObj;
+            
+            if ( (($applicableDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($applicableDefnsObj[0], "name")) -or ([Helpers]::CheckMember($applicableDefnsObj, "count") -and $applicableDefnsObj[0].count -gt 0)) 
+            {
+                $batchCount = $batchCount + 1;
+                $resourceUrl =$resourceDfnUrl;                                                                      
+            }
+            else {
+                break;
+            }           
+        }
+        Write-Progress -Activity "All $($resourceType)s fetched" -Status "Ready" -Completed
+        $resourceDefnsObj = $null;        
+        Remove-Variable resourceDefnsObj;        
+        return $applicableDefnsObj;
+    }
+    
 }
