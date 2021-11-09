@@ -333,7 +333,7 @@ class ContextHelper {
             # generating graph access token using default VSTS client.
             $clientId = [Constants]::DefaultClientId;          
             $replyUri = [Constants]::DefaultReplyUri; 
-            $adoResourceId = "https://help.kusto.windows.net/";                                         
+            $adoResourceId = "https://help.kusto.windows.net";                                         
             if ([ContextHelper]::PSVersion -gt 5) {
                 $result = [ContextHelper]::GetGraphAccess()
             }
