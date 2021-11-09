@@ -353,7 +353,7 @@ class Release: ADOSVTBase
             }
             elseif ($this.releaseActivityDetail.isReleaseActive)
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, $this.releaseActivityDetail.message);               
+                $controlResult.AddMessage([VerificationResult]::Passed, $this.releaseActivityDetail.message);
             }
             else
             {
@@ -370,11 +370,11 @@ class Release: ADOSVTBase
                     }
                     $formattedDate = $this.releaseActivityDetail.releaseCreationDate.ToString("d MMM yyyy")
                     $controlResult.AddMessage("The release pipeline was created on: $($formattedDate)");
-                    $controlResult.AdditionalInfo += "The release pipeline was created on: " + $formattedDate;                   
+                    $controlResult.AdditionalInfo += "The release pipeline was created on: " + $formattedDate;
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed, $this.releaseActivityDetail.message);                   
+                    $controlResult.AddMessage([VerificationResult]::Failed, $this.releaseActivityDetail.message);
                 }
             }
 
@@ -384,7 +384,7 @@ class Release: ADOSVTBase
                 $controlResult.AddMessage("Last release date of pipeline: $($formattedDate)");
                 $controlResult.AdditionalInfo += "Last release date of pipeline: " + $formattedDate;
                 $releaseInactivePeriod = ((Get-Date) - $this.releaseActivityDetail.latestReleaseTriggerDate).Days
-                $controlResult.AddMessage("The release was inactive from last $($releaseInactivePeriod) days.");               
+                $controlResult.AddMessage("The release was inactive from last $($releaseInactivePeriod) days.");
             }
         }
         catch

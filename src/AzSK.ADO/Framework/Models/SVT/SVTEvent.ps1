@@ -67,10 +67,7 @@ class ControlResult
 	# If there is no usage history for resource or if it is Org/Project/User control then default value is set to -1.
 	[int] $InactiveFromDays = -1;
 	[String[]] $Exception = ""
-	[string] $AdditionalInfoInCSV
-	[string] $RepoName =""
-    [string] $RepoURL = ""
-	[string] $PathURL = ""
+	[string] $AdditionalInfoInCSV	
 
 	[void] LogException([System.Management.Automation.ErrorRecord] $exception)
 	{
