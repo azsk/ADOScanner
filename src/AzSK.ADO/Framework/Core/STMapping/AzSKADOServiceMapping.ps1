@@ -78,8 +78,7 @@ class AzSKADOServiceMapping: CommandBase
             {
                 $this.ProjectId = $this.BuildSTDetails.data[0].projectId
             }
-        }
-        $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
+        }       
 
         # Get Build-Repo mappings
         try {            
@@ -104,7 +103,8 @@ class AzSKADOServiceMapping: CommandBase
             }        
         }
         catch {           
-        } 
+        }
+        $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
 
         $this.ReleaseSTDetails = Get-content $this.ReleaseMappingsFilePath | ConvertFrom-Json
         if ([Helpers]::CheckMember($this.ReleaseSTDetails, "data") -and ($this.ReleaseSTDetails.data | Measure-Object).Count -gt 0)
@@ -114,8 +114,7 @@ class AzSKADOServiceMapping: CommandBase
             {
                 $this.ProjectId = $this.ReleaseSTDetails.data[0].projectId
             }
-        }
-        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
+        }       
 
         # Get Release-Repo mappings
         try {                         
@@ -158,6 +157,7 @@ class AzSKADOServiceMapping: CommandBase
            
         }
 
+        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
     }
 
     hidden GetRepositoryMapping() {  
@@ -446,22 +446,22 @@ class AzSKADOServiceMapping: CommandBase
                 if($unmappedAgentPool)
                 {
                     $agentList = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider".agents;
-                    $agentList | ForEach-Object {                                                
+                    $exit = $false
+                    $agentList | Where-Object {$exit -eq $false} | ForEach-Object {                                                
                         $agtName = $_.Name 
                         $responseObj = $this.GetAgentSubscrId($agtName)
                         if($responseObj)
                         {
                            $logsRows = $responseObj.tables[0].rows;
-                           if($logsRows.count -gt 0)
-                           {
+                           if($logsRows.count -gt 0){
                                $agetnSubscriptionID = $logsRows[0][18];
                                try {
                                         $response = $this.GetServiceIdWithSubscrId($agetnSubscriptionID,$accessToken)                               
-                                        if($response)
-                                        {
+                                        if($response){
                                                 $serviceId = $response[2].Rows[0][4];
-                                                $agentPoolSTMapping.data += @([PSCustomObject] @{ agentPoolName = $agtPoolName; agentPoolID = $agtPoolId; serviceID = $serviceId; projectName = $this.projectName; projectID = $this.projectId; orgName = $organizationName } );                                                
-                                        } 
+                                                $agentPoolSTMapping.data += @([PSCustomObject] @{ agentPoolName = $agtPoolName; agentPoolID = $agtPoolId; serviceID = $serviceId; projectName = $this.projectName; projectID = $this.projectId; orgName = $organizationName } );
+                                                $exit = $true
+                                            } 
                                     }
                               catch {
                                 }                                
@@ -494,8 +494,8 @@ class AzSKADOServiceMapping: CommandBase
 
         try {                    
             $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrgName), $this.ProjectName;
-            $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);              
-           
+            $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);                      
+        
             if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
                 
                 $this.PublishCustomMessage(([Constants]::DoubleDashLine))
@@ -981,7 +981,7 @@ class AzSKADOServiceMapping: CommandBase
         try {            
             Write-Progress -Activity 'Fetching Agent subscription Id from Azure LAWS...' -CurrentOperation $agentName;            
              #generate access token with datastudio api audience             
-            $accessToken = [ContextHelper]::GetLAWSAccessToken($false)
+            $accessToken = [ContextHelper]::GetLAWSAccessToken()
             # call data studio to fetch azure subscription id and servce id mapping
             $apiURL = "https://api.loganalytics.io/v1/workspaces/b32a5e40-0360-40db-a9d4-ec1083b90f0a/query?timespan=P7D"                                                                    
             $inputbody = '{"query":"AzSK_ResourceInvInfo_CL| where Name_s =~ ''{0}''| where ResourceType == ''Microsoft.Compute/virtualMachines''","options":{"truncationMaxSize":67108864},"maxRows":30001,"workspaceFilters":{"regions":[]}}'                                       
