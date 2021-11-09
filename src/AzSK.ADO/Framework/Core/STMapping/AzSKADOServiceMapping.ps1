@@ -254,7 +254,7 @@ class AzSKADOServiceMapping: CommandBase
                             if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                             {
                                 try {                                
-                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail,$accessToken)                       
+                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId,$accessToken)                       
                                     if($responseObj)
                                     {
                                           $serviceId = $responseObj[2].Rows[0][4];
@@ -355,7 +355,7 @@ class AzSKADOServiceMapping: CommandBase
                             if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                             {
                                 try {                                
-                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail,$accessToken)                       
+                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId,$accessToken)                       
                                     if($responseObj)
                                     {
                                           $serviceId = $responseObj[2].Rows[0][4];
@@ -597,7 +597,7 @@ class AzSKADOServiceMapping: CommandBase
                                                             if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                                                             {
                                                                 try {
-                                                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail,$accessToken)                               
+                                                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId,$accessToken)                               
                                                                     if($responseObj)
                                                                     {
                                                                             $serviceId = $responseObj[2].Rows[0][4];
@@ -741,7 +741,7 @@ class AzSKADOServiceMapping: CommandBase
                                                     if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                                                     {
                                                         try {
-                                                            $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail,$accessToken)                                
+                                                            $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId,$accessToken)                                
                                                             if($responseObj)
                                                             {
                                                                     $serviceId = $responseObj[2].Rows[0][4];                                                    
@@ -955,11 +955,10 @@ class AzSKADOServiceMapping: CommandBase
         return $true;
     }
 
-    hidden [object] GetServiceIdWithSubscrId($subscriptionId,$accessToken)
+    hidden [object] GetServiceIdWithSubscrId($subscriptionID,$accessToken)
     {
         $response = $null
-        try {
-            $subscriptionID = $subscriptionId;#$serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId;          
+        try {                     
             # call data studio to fetch azure subscription id and servce id mapping
             $apiURL = "https://datastudiostreaming.kusto.windows.net/v2/rest/query"                                                                    
             $inputbody = '{"db": "Shared","csl": "DataStudio_ServiceTree_AzureSubscription_Snapshot | where SubscriptionId contains ''{0}''", "properties": {"Options": {"query_language": "csl","servertimeout": "00:04:00","queryconsistency": "strongconsistency","request_readonly": false,"request_readonly_hardline": false}}}'                                            

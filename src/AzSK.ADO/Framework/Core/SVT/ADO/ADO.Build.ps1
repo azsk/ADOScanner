@@ -328,10 +328,7 @@ class Build: ADOSVTBase
             }
             elseif($this.buildActivityDetail.isBuildActive)
             {
-                $controlResult.AddMessage([VerificationResult]::Passed, $this.buildActivityDetail.message);
-                $controlResult.RepoName = $this.BuildObj.repository.name
-                $controlResult.RepoURL = $this.BuildObj.repository.url
-                $controlResult.PathURL = $this.BuildObj.path
+                $controlResult.AddMessage([VerificationResult]::Passed, $this.buildActivityDetail.message);                
             }
             else
             {
@@ -348,17 +345,11 @@ class Build: ADOSVTBase
                     }
                     $formattedDate = $this.buildActivityDetail.buildCreationDate.ToString("d MMM yyyy")
                     $controlResult.AddMessage("The build pipeline was created on: $($formattedDate)");
-                    $controlResult.AdditionalInfo += "The build pipeline was created on: " + $formattedDate;
-                    $controlResult.RepoName = $this.BuildObj.repository.name
-                    $controlResult.RepoURL = $this.BuildObj.repository.url
-                    $controlResult.PathURL = $this.BuildObj.path
+                    $controlResult.AdditionalInfo += "The build pipeline was created on: " + $formattedDate;                    
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed, $this.buildActivityDetail.message);
-                    $controlResult.RepoName = $this.BuildObj.repository.name
-                    $controlResult.RepoURL = $this.BuildObj.repository.url
-                    $controlResult.PathURL = $this.BuildObj.path
+                    $controlResult.AddMessage([VerificationResult]::Failed, $this.buildActivityDetail.message);                   
                 }
             }
 
@@ -369,10 +360,7 @@ class Build: ADOSVTBase
                 $controlResult.AdditionalInfo += "Last run date of build pipeline: " + $formattedDate;
                 $buildInactivePeriod = ((Get-Date) - $this.buildActivityDetail.buildLastRunDate).Days
                 $controlResult.AddMessage("The build was inactive from last $($buildInactivePeriod) days.");
-                $controlResult.AddMessage("`nNote: Restored pipeline although retain run history but are considered as a new pipeline in ADO.");
-                $controlResult.RepoName = $this.BuildObj.repository.name
-                $controlResult.RepoURL = $this.BuildObj.repository.url
-                $controlResult.PathURL = $this.BuildObj.path
+                $controlResult.AddMessage("`nNote: Restored pipeline although retain run history but are considered as a new pipeline in ADO.");              
             }
         }
         catch
