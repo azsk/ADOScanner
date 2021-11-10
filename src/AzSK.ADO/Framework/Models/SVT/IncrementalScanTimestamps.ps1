@@ -3,6 +3,11 @@ class IncrementalScanTimestamps
 {
 	[PSObject] $Build
     [PSObject] $Release
+    [PSObject] $SecureFile
+    [PSObject] $Environment
+    [PSObject] $VariableGroup
+    [PSObject] $Feed
+    [PSObject] $GitRepositories
 }
 
 class IncrementalTimeStampsResources
