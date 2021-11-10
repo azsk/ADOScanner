@@ -235,11 +235,6 @@ class SVTResourceResolver: AzSKRoot {
             #>
 
         }
-        if($this.UseIncrementalScan -eq $true)
-        {
-            $this.PublishCustomMessage("Incremental Scan is currently supported only for Builds and Releases. `n ", [MessageType]::Warning);        
-            
-        }
     }
 
 
