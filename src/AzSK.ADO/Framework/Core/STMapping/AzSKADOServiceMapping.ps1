@@ -84,21 +84,18 @@ class AzSKADOServiceMapping: CommandBase
         try {            
             $buildObjectListURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +'&$top=10000') -f $($this.orgName), $this.projectName;       
             $buildObjectList = $this.GetBuildReleaseObjects($buildObjectListURL,'Build');
+            $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}
             $counter =0
             foreach ($build in $buildObjectList) {               
                 try {                
                     $counter++
-                    Write-Progress -Activity 'Build mappings...' -CurrentOperation $build.name -PercentComplete (($counter / $buildObjectList.count) * 100)
-                    $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $build.id) };
-                    if(!($buildSTData))
-                    {
-                        $buildDefnObj = [WebRequestHelper]::InvokeGetWebRequest($build.url);
-                        $repositoryName = $buildDefnObj.repository.name;
-                        $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};
-                        if($repoSTData){
-                            $this.BuildSTDetails.data+=@([PSCustomObject] @{ buildDefinitionName = $build.name; buildDefinitionID = $build.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )                            
-                        }                        
-                    }
+                    Write-Progress -Activity 'Build mappings...' -CurrentOperation $build.name -PercentComplete (($counter / $buildObjectList.count) * 100)                                   
+                    $buildDefnObj = [WebRequestHelper]::InvokeGetWebRequest($build.url);
+                    $repositoryName = $buildDefnObj.repository.name;
+                    $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};
+                    if($repoSTData){
+                        $this.BuildSTDetails.data+=@([PSCustomObject] @{ buildDefinitionName = $build.name; buildDefinitionID = $build.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )                            
+                    }                                            
                 }
                 catch{
 
@@ -123,36 +120,33 @@ class AzSKADOServiceMapping: CommandBase
         try {                         
             $releaseObjectListURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.orgName), $this.projectName;    
             $releaseObjectList = $this.GetBuildReleaseObjects($ReleaseObjectListURL,'Release');
+            $releaseObjectList = $releaseObjectList | Where-Object {$_.id -notin $this.ReleaseSTDetails.data.releaseDefinitionID}
             $counter =0
             foreach ($release in $releaseObjectList) {  
                 try { 
                     $counter++
-                    Write-Progress -Activity 'Release mappings...' -CurrentOperation $release.name -PercentComplete (($counter / $releaseObjectList.count) * 100)   
-                    $releaseSTData = $this.ReleaseSTDetails.data | where-object {$_.releaseDefinitionID -eq $release.id};
-                    if(!($releaseSTData))
-                    {                               
-                        $releaseDefnObj = [WebRequestHelper]::InvokeGetWebRequest($release.url);                      
-                            if($releaseDefnObj[0].artifacts)
-                            {
-                                    $type = $releaseDefnObj[0].artifacts.type;
-                                    switch ($type)
-                                     {
-                                        {($_ -eq "GitHubRelease") -or ($_ -eq "Git")}{
-                                            $repositoryName =$releaseDefnObj[0].artifacts.definitionReference.definition.name; 
-                                            $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};
-                                            if($repoSTData){
-                                                $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $release.name; releaseDefinitionID = $release.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )                            
-                                            } 
-                                        }
-                                        Build {  
-                                            $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $releaseDefnObj[0].artifacts.definitionReference.definition.id) -and ($_.projectID -eq $releaseDefnObj[0].artifacts.definitionReference.project.id)};
-                                            If($buildSTData){
-                                                $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $release.name; releaseDefinitionID = $release.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )                            
-                                            }                                            
-                                        }                                                                                                                                                                                           
+                    Write-Progress -Activity 'Release mappings...' -CurrentOperation $release.name -PercentComplete (($counter / $releaseObjectList.count) * 100)                                                     
+                    $releaseDefnObj = [WebRequestHelper]::InvokeGetWebRequest($release.url);                      
+                        if($releaseDefnObj[0].artifacts)
+                        {
+                                $type = $releaseDefnObj[0].artifacts.type;
+                                switch ($type)
+                                    {
+                                    {($_ -eq "GitHubRelease") -or ($_ -eq "Git")}{
+                                        $repositoryName =$releaseDefnObj[0].artifacts.definitionReference.definition.name; 
+                                        $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};
+                                        if($repoSTData){
+                                            $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $release.name; releaseDefinitionID = $release.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )                            
+                                        } 
                                     }
-                            }                        
-                   }
+                                    Build {  
+                                        $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $releaseDefnObj[0].artifacts.definitionReference.definition.id) -and ($_.projectID -eq $releaseDefnObj[0].artifacts.definitionReference.project.id)};
+                                        If($buildSTData){
+                                            $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $release.name; releaseDefinitionID = $release.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )                            
+                                        }                                            
+                                    }                                                                                                                                                                                           
+                                }
+                        }                                           
                 }
                 catch{
 
@@ -910,7 +904,7 @@ class AzSKADOServiceMapping: CommandBase
                         $packagesURL = $feed._links.packages.href;
                         $feedPackages = @([WebRequestHelper]::InvokeGetWebRequest($packagesURL)); 
 
-                        if ($feedPackages.count -gt 0 -and [Helpers]::CheckMember($feedPackages[0],"name")) {
+                        if ($feedPackages.count -gt 0) {
 
                             $feedPackages = $feedPackages | Select-Object -First 10;
                             foreach ($package in $feedPackages){
