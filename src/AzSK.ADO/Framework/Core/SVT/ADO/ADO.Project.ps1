@@ -7,6 +7,7 @@ class Project: ADOSVTBase
     hidden $Repos = $null
     hidden $GuestMembers = @()
     hidden $AllUsersInOrg = @()
+    static $groupMappingsWithDescriptors = @{} #cache group names mapped with descriptor, to be used in auto fix
 
     Project([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -430,12 +431,12 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured meet the minimum required administrators count: $($this.ControlSettings.Project.MinPAMembersPermissible)");
                  
                 }
-                if($TotalPAMembers -gt 0){
+                #if($TotalPAMembers -gt 0){
                     $controlResult.AddMessage("Current set of Project Administrators: ")
                     $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
                     $controlResult.AdditionalInfo += "Count of Project Administrators: " + $TotalPAMembers;                 
-                }
+                #}
             }
         }
         else
@@ -515,8 +516,8 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Passed,"Number of administrators configured are within than the approved limit: $($this.ControlSettings.Project.MaxPAMembersPermissible).");
                 }
 
-                if($TotalPAMembers -gt 0){
-                    $controlResult.AddMessage("Count of Project Administrators: $($TotalPAMembers)")
+                #if($TotalPAMembers -gt 0){
+                    #$controlResult.AddMessage("Count of Project Administrators: $($TotalPAMembers)")
                     $controlResult.AddMessage("Current set of Project Administrators: ")
                     $display = ($this.PAMembers|FT  -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage($display)
@@ -524,7 +525,7 @@ class Project: ADOSVTBase
                     $controlResult.AdditionalInfoInCSV += "TotalAdmin: $($TotalPAMembers); ";
                     $identities = $this.PAMembers | ForEach-Object { $_.displayName + ': ' + $_.mailAddress } | select-object -Unique -First 10;
                     $controlResult.AdditionalInfoInCSV += "AdminList: $($identities -join ' ; ');";
-                }
+                #}
             }
         }
         else
@@ -654,29 +655,23 @@ class Project: ADOSVTBase
                                     [ControlHelper]::FindGroupMembers($adminGroups[$i].descriptor, $this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceName)
                                     $groupMembers += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
                                 }
-                                # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
-                                $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName } )}
+                                # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection. Newly added in 2111 descriptor of user and direct memebership of groups for auto fix
+                                $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName; descriptor=$_.descriptor; DirectMemberOfGroup = $_.DirectMemberOfGroup } )}
                             }
 
-                            if($this.ControlSettings.Project.CheckExtendedGroupsForSCALTMembers){
-                                $groups = $allAdminMembers | Group-Object "mailAddress"
-                                $groupedAdminMembers = @()
-                                $groupedAdminMembers +=foreach ($grpobj in $groups){    
-                                    $grp = ($grpobj.Group.groupName  | select -Unique)-join ','
-                                    $name = $grpobj.Group.name | select -Unique
-                                    $mailAddress = $grpobj.Group.mailAddress | select -Unique
-                                    $id = $grpobj.Group.id | select -Unique
-                                    [PSCustomObject]@{name = $name;mailAddress = $mailAddress; id = $id;groupName = $grp}
-                                } 
-                                $allAdminMembers = $groupedAdminMembers 
-                            }
-                            else{
-                                $allAdminMembers = @($allAdminMembers| Sort-Object -Property mailAddress -Unique)
-                            }
-
-                            # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
-                            
-
+                           # Filtering out distinct entries. A user might be added directly to the admin group or might be a member of a child group of the admin group.
+                            $groups = $allAdminMembers | Group-Object "mailAddress"
+                            $groupedAdminMembers = @()
+                            $groupedAdminMembers +=foreach ($grpobj in $groups){    
+                                $directMemberOfGroups= $grpobj.Group.DirectMemberOfGroup  | select -Unique
+                                $grp = ($grpobj.Group.groupName  | select -Unique)-join ','
+                                $name = $grpobj.Group.name | select -Unique
+                                $mailAddress = $grpobj.Group.mailAddress | select -Unique
+                                $id = $grpobj.Group.id | select -Unique
+                                $descriptor = $grpobj.Group.descriptor | select -Unique
+                                [PSCustomObject]@{name = $name;mailAddress = $mailAddress; id = $id;groupName = $grp; descriptor = $descriptor; directMemberOfGroups = $directMemberOfGroups}
+                            } 
+                            $allAdminMembers = $groupedAdminMembers 
                             if($allAdminMembers.Count -gt 0)
                             {
                                 $useGraphEvaluation = $false
@@ -706,6 +701,16 @@ class Project: ADOSVTBase
                                         $controlResult.AddMessage("`nCount of accounts with admin privileges:  $totalAdminCount");
                                         if ($nonSCCount -gt 0)
                                         {
+                                            if($this.ControlFixBackupRequired){
+                                                $backupSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName, directMemberOfGroups, descriptor
+                                                #need to store total admin count along with users
+                                                $adminCount = [PSCustomObject]@{
+                                                    TotalAdminCount = $totalAdminCount
+                                                }
+                                                $controlResult.BackupControlState += $adminCount
+                                                $controlResult.BackupControlState += $backupSCMembers                                               
+                                                
+                                            }
                                             $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
                                             $stateData = @();
                                             $stateData += $nonSCMembers
@@ -754,6 +759,16 @@ class Project: ADOSVTBase
                                         $controlResult.AdditionalInfoInCSV += "NonALTAccounts: $($nonSCCount); "
                                         if ($nonSCCount -gt 0)
                                         {
+                                            if($this.ControlFixBackupRequired){
+                                                $backupSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName, directMemberOfGroups, descriptor
+                                                #need to store total admin count along with users
+                                                $adminCount = [PSCustomObject]@{
+                                                    TotalAdminCount = $totalAdminCount
+                                                }
+                                                $controlResult.BackupControlState += $adminCount
+                                                $controlResult.BackupControlState += $backupSCMembers                                               
+                                                
+                                            }
                                             $nonSCMembers = $nonSCMembers | Select-Object name,mailAddress,groupName
                                             $stateData = @();
                                             $stateData += $nonSCMembers
@@ -816,6 +831,201 @@ class Project: ADOSVTBase
         return $controlResult
     }
 
+    hidden [ControlResult] CheckSCALTForAdminMembersAutomatedFix([ControlResult] $controlResult){
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = @(([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject)
+            $this.PublishCustomMessage("Note: Users which are part of admin groups via AAD groups will not be fixed using this command. In case the user is part of multiple AAD and non-AAD groups, they will be removed only from non-AAD groups.`n",[MessageType]::Warning);
+            #first element of backup object contains total admin count
+            $totalAdminCount = $RawDataObjForControlFix[0].TotalAdminCount
+            #in case of only 1 PCA no need to remove the account
+            if($totalAdminCount -eq 1){
+                $controlResult.AddMessage([VerificationResult]::Manual,  "Only one admin has been found. To preserve accessibility to the project, automated fix will not be performed. Ensure there are atleast two Project Administrators.");
+                return $controlResult
+            }
+            #rest of elements contain the non sc-alt users
+            $nonSCAccounts  = @($RawDataObjForControlFix[1..($RawDataObjForControlFix.Count-1)])
+            $user = [ContextHelper]::GetCurrentSessionUser();
+            #env variable for testing with non sc-alt account
+            if($env:DontCheckALT){
+                $nonSCAccounts = @($nonSCAccounts | where-object {[Helpers]::CheckMember($_, "mailAddress") -and $user -notcontains $_.mailAddress})
+                $this.PublishCustomMessage("Note: The current user identity will not be removed from admin groups even if they are non SC-ALT.`n",[MessageType]::Warning);    
+            }
+            else{
+                #in case the user is non sc-alt terminate the process here
+                $useGraphEvaluation = $false
+                $useRegExEvaluation = $false
+                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "GraphThenRegEx") {
+                    if ([IdentityHelpers]::hasGraphAccess){
+                        $useGraphEvaluation = $true
+                    }
+                    else {
+                        $useRegExEvaluation = $true
+                    }
+                }
+                $isCurrentUserSCAlt=$false
+                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "Graph" -or $useGraphEvaluation){
+                    $isCurrentUserSCAlt = [IdentityHelpers]::IsAltAccount($user, [IdentityHelpers]::graphAccessToken)
+                }
+                if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation){
+                    $controlResult.AddMessage([Constants]::graphWarningMessage);
+                    $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
+                    if (-not [string]::IsNullOrEmpty($matchToSCAlt)){
+                        $isCurrentUserSCAlt= $user -match $matchToSCAlt
+                    }
+                }
+                                
+                if($isCurrentUserSCAlt -eq $false){
+                    $this.PublishCustomMessage("The current user is a non SC-ALT account and hence is not allowed to perform the fix. Use -ResetCredentials and login as an SC-ALT acoount.`n",[MessageType]::Warning);
+                    $controlResult.AddMessage([VerificationResult]::Manual,  "The current user is a non SC-ALT account and hence is not allowed to perform the fix. Use -ResetCredentials and login as an SC-ALT acoount.");
+                    return $controlResult
+                }
+            }
+            #exclude users from fix
+            if ($this.InvocationContext.BoundParameters["ExcludePrincipalId"])
+            {
+                $excludePrincipalId = $this.InvocationContext.BoundParameters["ExcludePrincipalId"]
+                $excludePrincipalId = $excludePrincipalId -Split ','
+                $nonSCAccounts = @($nonSCAccounts | where-object {$excludePrincipalId  -notcontains $_.mailAddress })
+            }
+            #add only specific users back into admin groups, applicable only in undofix
+            if ($this.InvocationContext.BoundParameters["AddUsers"] -and $this.UndoFix){
+                $addUsers = $this.InvocationContext.BoundParameters["AddUsers"]
+                $addUsers = $addUsers -Split ','
+                $nonSCAccounts = @($nonSCAccounts | where-object {$addUsers  -contains $_.mailAddress })
+            }            
+            $nonSCAccountsCount = $nonSCAccounts.Count
+            #in case all admins are non sc-alt (after removing current user and exclude principal ids) do not perform the fix
+            if($nonSCAccountsCount -eq $totalAdminCount){
+                $controlResult.AddMessage([VerificationResult]::Manual,  "All admins are non SC-ALT accounts. To preserve accessibility to the project, automated fix will not be performed. Ensure there is atleast one SC-ALT account as Project Administrator");
+                return $controlResult
+            }
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+            if ($nonSCAccounts.Count -gt 0){
+                #to store users part of AAD groups
+                $AADGroupAccounts=@()
+                #to store users successfully deleted/added back
+                $processedAccounts=@()
+                #to store users that could not be deleted/added back due to any error (e.g. the groups have been deleted and we have stale backup, permission issues etc.)
+                $unProcessedAccounts=@()
+                if (-not $this.UndoFix){
+                    foreach ($user in $nonSCAccounts){
+                        foreach ($grp in $user.directMemberOfGroups){
+                            #caching the group name and mapping it with the descriptors
+                            if(-not [Project]::groupMappingsWithDescriptors.ContainsKey($grp)){
+                                $url = "https://vssps.dev.azure.com/{0}/_apis/identities?subjectDescriptors={1}&queryMembership=None&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $grp
+                                $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                [Project]::groupMappingsWithDescriptors[$grp] = $response.providerDisplayName
+                            }
+                            #in case of an aad group, we can't remove users, store this seperately along with group name from cached object
+                            if($grp -match"aadgp.*"){
+                                $AADGroupAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.name}}, @{N = "MailAddress"; E= {$_.mailAddress}}, @{N = "GroupName"; E= {$_.groupName}}, @{N = "DirectMemberOfAADGroup"; E= {[Project]::groupMappingsWithDescriptors[$grp]}} )
+                            }
+                            else{
+                                $url = "https://vssps.dev.azure.com/{0}/_apis/Graph/Memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.descriptor, $grp
+                                try{
+                                    $webRequestResult = Invoke-WebRequest -Uri $url -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                                    $processedAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.name}}, @{N = "MailAddress"; E= {$_.mailAddress}}, @{N = "GroupName"; E= {$_.groupName}}, @{N = "DirectMemberOfNonAADGroup"; E= {[Project]::groupMappingsWithDescriptors[$grp]}})   
+                                }
+                                catch{
+                                    $unProcessedAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.name}}, @{N = "MailAddress"; E= {$_.mailAddress}}, @{N = "GroupName"; E= {$_.groupName}}, @{N = "DirectMemberOfNonAADGroup"; E= {[Project]::groupMappingsWithDescriptors[$grp]}})
+                                }
+                            }
+                        }                        
+                    }   
+                    if($processedAccounts.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Fixed,  "Following non SC-ALT accounts have been removed from admin groups: ");
+                    }
+                    #if all users were part of AAD groups, we have not removed any user
+                    elseif($processedAccounts.Count -eq 0 -and $AADGroupAccounts.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Manual,  "All admin accounts are a part of AAD group. Could not apply fix.");
+                    }                                     
+                }
+                else{
+                    foreach ($user in $nonSCAccounts){
+                        foreach ($grp in $user.directMemberOfGroups){
+                            if(-not [Project]::groupMappingsWithDescriptors.ContainsKey($grp)){
+                                $url = "https://vssps.dev.azure.com/{0}/_apis/identities?subjectDescriptors={1}&queryMembership=None&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $grp
+                                $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                [Project]::groupMappingsWithDescriptors[$grp] = $response.providerDisplayName
+                            }
+                            if($grp -match"aadgp.*"){
+                                $AADGroupAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.name}}, @{N = "MailAddress"; E= {$_.mailAddress}}, @{N = "GroupName"; E= {$_.groupName}}, @{N = "DirectMemberOfAADGroup"; E= {[Project]::groupMappingsWithDescriptors[$grp]}} )
+                            }
+                            else{
+                                $url = "https://vssps.dev.azure.com/{0}/_apis/Graph/Memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.descriptor, $grp
+                                try{
+                                    $webRequestResult = Invoke-WebRequest -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                                    $processedAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.name}}, @{N = "MailAddress"; E= {$_.mailAddress}}, @{N = "GroupName"; E= {$_.groupName}}, @{N = "DirectMemberOfNonAADGroup"; E= {[Project]::groupMappingsWithDescriptors[$grp]}})   
+                                }
+                                catch{
+                                    $unProcessedAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.name}}, @{N = "MailAddress"; E= {$_.mailAddress}}, @{N = "GroupName"; E= {$_.groupName}}, @{N = "DirectMemberOfNonAADGroup"; E= {[Project]::groupMappingsWithDescriptors[$grp]}})
+                                }
+                            }                       
+                         }
+                        
+                    }
+                    if($processedAccounts.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Fixed,  "Following non SC-ALT accounts have been added back into admin groups: ");
+                    }
+                }
+                #to group accounts as a user can be a part of multiple groups, we will have duplicate entries due to group name resolution from the fix
+                if($processedAccounts.Count -gt 0){
+                    $groups = $processedAccounts | Group-Object "mailAddress"
+                    $groupedAdminMembers = @()
+                    $groupedAdminMembers +=foreach ($grpobj in $groups){
+                        $grp = ($grpobj.Group.GroupName  | select -Unique)-join ','
+                        $name = $grpobj.Group.Name | select -Unique
+                        $mailAddress = $grpobj.Group.MailAddress | select -Unique  
+                        $directMemberOfNonAADGroup=($grpobj.Group.DirectMemberOfNonAADGroup  | select -Unique)-join ','              
+                        [PSCustomObject]@{Name = $name;MailAddress = $mailAddress; GroupName = $grp; DirectMemberOfNonAADGroup = $directMemberOfNonAADGroup}
+                    } 
+                    $display = ($groupedAdminMembers |  FT -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                }
+                #in case we have any accounts that errored out, override the result as error and give a list of accounts that could not be removed/added back
+                if($unProcessedAccounts.Count -gt 0){
+                    $controlResult.AddMessage([VerificationResult]::Error,  "Following non SC-ALT accounts could not be fixed: ");
+                    $groups = $unProcessedAccounts | Group-Object "mailAddress"
+                    $groupedAdminMembers = @()
+                    $groupedAdminMembers +=foreach ($grpobj in $groups){
+                        $grp = ($grpobj.Group.GroupName  | select -Unique)-join ','
+                        $name = $grpobj.Group.Name | select -Unique
+                        $mailAddress = $grpobj.Group.MailAddress | select -Unique  
+                        $directMemberOfNonAADGroup=($grpobj.Group.DirectMemberOfNonAADGroup  | select -Unique)-join ','              
+                        [PSCustomObject]@{Name = $name;MailAddress = $mailAddress; GroupName = $grp; DirectMemberOfNonAADGroup = $directMemberOfNonAADGroup}
+                    } 
+                    $display = ($groupedAdminMembers |  FT -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                }
+
+                if($AADGroupAccounts.Count -gt 0){
+                    $groups = $AADGroupAccounts | Group-Object "mailAddress"
+                    $groupedAdminMembers = @()
+                    $groupedAdminMembers +=foreach ($grpobj in $groups){
+                        $grp = ($grpobj.Group.GroupName  | select -Unique)-join ','
+                        $name = $grpobj.Group.Name | select -Unique
+                        $mailAddress = $grpobj.Group.MailAddress | select -Unique  
+                        $directMemberOfAADGroup=($grpobj.Group.DirectMemberOfAADGroup  | select -Unique)-join ','              
+                        [PSCustomObject]@{Name = $name;MailAddress = $mailAddress; GroupName = $grp; DirectMemberOfAADGroup = $directMemberOfAADGroup}
+                    } 
+                    $display = ($groupedAdminMembers |  FT -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage("Following accounts are part of admin groups via AAD groups and need to be removed manually: ")
+                    $controlResult.AddMessage($display)
+                }
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Manual,  "No admins found.");
+            }
+
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
 
     hidden [ControlResult] CheckAllPipelinesAccessOnFeeds([ControlResult] $controlResult)
     {
@@ -2049,7 +2259,7 @@ class Project: ADOSVTBase
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
 
-        if($this.ControlSettings -and  [Helpers]::CheckMember($this.ControlSettings,"Project.AdminGroupsToCheckForInactiveUser"))
+        if($this.ControlSettings.Project.AdminGroupsToCheckForInactiveUser)
         {
             try
             {
@@ -2061,7 +2271,7 @@ class Project: ADOSVTBase
                 $inactiveUsersWithAdminAccess = @()
                 $neverActiveUsersWithAdminAccess = @()
                 $inactivityPeriodInDays = 90
-                if([Helpers]::CheckMember($this.ControlSettings,"Project.AdminInactivityThresholdInDays"))
+                if($this.ControlSettings.Project.AdminInactivityThresholdInDays)
                 {
                     $inactivityPeriodInDays = $this.ControlSettings.Organization.AdminInactivityThresholdInDays
                 }
@@ -2337,7 +2547,7 @@ class Project: ADOSVTBase
         try
         {
             $orgName = $($this.OrganizationContext.OrganizationName)
-            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $projectId = $this.ResourceContext.ResourceDetails.Id #($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
             $projectName = $this.ResourceContext.ResourceName;
             $permissionSetToken = $projectId            
             $restrictedBroaderGroups = @{}
@@ -2563,7 +2773,7 @@ class Project: ADOSVTBase
         try
         {
             $orgName = $($this.OrganizationContext.OrganizationName)
-            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $projectId = $this.ResourceContext.ResourceDetails.Id 
             $projectName = $this.ResourceContext.ResourceName;
             $permissionSetToken = $projectId            
             $restrictedBroaderGroups = @{}
@@ -2789,12 +2999,12 @@ class Project: ADOSVTBase
         $controlResult.VerificationResult = [VerificationResult]::Failed
 
         try {
-            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $projectId = $this.ResourceContext.ResourceDetails.Id 
             $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}" -f $($this.OrganizationContext.OrganizationName), $($projectId);
             $serviceEndPointIdentity = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
             $restrictedGroups = @();
             $restrictedBroaderGroups = @{}
-            if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.RestrictedBroaderGroupsForSvcConn") ) {
+            if ($this.ControlSettings.ServiceConnection.RestrictedBroaderGroupsForSvcConn ) {
                 $restrictedBroaderGroupsForSvcConn = $this.ControlSettings.ServiceConnection.RestrictedBroaderGroupsForSvcConn;
                 $restrictedBroaderGroupsForSvcConn.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
                 if (($serviceEndPointIdentity.Count -gt 0) -and [Helpers]::CheckMember($serviceEndPointIdentity, "identity")) {
@@ -2802,7 +3012,7 @@ class Project: ADOSVTBase
                     $roleAssignments = @();
                     $roleAssignments +=   ($serviceEndPointIdentity | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.Id}},@{Name="Role"; Expression = {$_.role.displayName}},@{Name="Access"; Expression = {$_.access}});
                     #Checking where broader groups have user/admin permission for service connection
-                    if ([Helpers]::CheckMember($this.ControlSettings, "ServiceConnection.CheckForInheritedPermissions") -and $this.ControlSettings.ServiceConnection.CheckForInheritedPermissions) {
+                    if ($this.ControlSettings.ServiceConnection.CheckForInheritedPermissions) {
                         $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1] -and ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
                     }
                     else {
@@ -2914,8 +3124,8 @@ class Project: ADOSVTBase
         try {
             $controlResult.VerificationResult = [VerificationResult]::Failed
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "AgentPool.RestrictedBroaderGroupsForAgentPool")) {
-                $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            if ($this.ControlSettings.AgentPool.RestrictedBroaderGroupsForAgentPool) {
+                $projectId = $this.ResourceContext.ResourceDetails.Id 
                 $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/$($projectId)";
                 $agentPoolPermObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
                 $restrictedBroaderGroups = @{}
@@ -2928,7 +3138,7 @@ class Project: ADOSVTBase
                     # Checking whether the broader groups have User/Admin permissions
                     $restrictedGroups = @();
 
-                    if ([Helpers]::CheckMember($this.ControlSettings, "Agentpool.CheckForInheritedPermissions") -and $this.ControlSettings.Agentpool.CheckForInheritedPermissions) {
+                    if ($this.ControlSettings.Agentpool.CheckForInheritedPermissions) {
                         $restrictedGroups = @($roleAssignments | Where-Object { $restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1] -and ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
                     }
                     else {
@@ -3039,9 +3249,9 @@ class Project: ADOSVTBase
 
         try {
             $controlResult.VerificationResult = [VerificationResult]::Failed
-            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $projectId = $this.ResourceContext.ResourceDetails.Id 
 
-            if ($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings, "VariableGroup.RestrictedBroaderGroupsForVariableGroup") ) {
+            if ($this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup) {
                 $restrictedBroaderGroups = @{}
                 $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForVariableGroup;
                 $restrictedBroaderGroupsForVarGrp.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
@@ -3057,7 +3267,7 @@ class Project: ADOSVTBase
                 }
 
                 # Checking whether the broader groups have User/Admin permissions
-                if ([Helpers]::CheckMember($this.ControlSettings, "VariableGroup.CheckForInheritedPermissions") -and $this.ControlSettings.VariableGroup.CheckForInheritedPermissions) {
+                if ($this.ControlSettings.VariableGroup.CheckForInheritedPermissions) {
                     $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1]) -and  ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
                 }
                 else {
@@ -3162,7 +3372,7 @@ class Project: ADOSVTBase
             $controlResult.VerificationResult = [VerificationResult]::Failed
             $projectId = $this.ResourceContext.ResourceDetails.Id
 
-            if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.RestrictedBroaderGroupsForSecureFile")) {
+            if ($this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile) {
                 $restrictedBroaderGroups = @{}
                 $restrictedBroaderGroupsForSecureFile = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForSecureFile;  
                 $restrictedBroaderGroupsForSecureFile.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
@@ -3178,7 +3388,7 @@ class Project: ADOSVTBase
                 }
 
                 # Checking whether the broader groups have User/Admin permissions
-                if ([Helpers]::CheckMember($this.ControlSettings, "SecureFile.CheckForInheritedPermissions") -and $this.ControlSettings.SecureFile.CheckForInheritedPermissions) {
+                if ($this.ControlSettings.SecureFile.CheckForInheritedPermissions) {
                     $restrictedGroups = @($roleAssignments | Where-Object { ($restrictedBroaderGroups.keys -contains $_.Name.split('\')[-1]) -and  ($_.Role -in $restrictedBroaderGroups[$_.Name.split('\')[-1]]) })
                 }
                 else {
@@ -3295,7 +3505,7 @@ class Project: ADOSVTBase
 
             # Checking if Inherited permissions are allowed or not.
             $allowPermissionBits = @(1)
-            if ([Helpers]::CheckMember($this.ControlSettings, "Repo.CheckForInheritedPermissions") -and $this.ControlSettings.Repo.CheckForInheritedPermissions) {
+            if ($this.ControlSettings.Repo.CheckForInheritedPermissions) {
                 #allow permission bit for inherited permission is '3'
                 $allowPermissionBits = @(1,3)
             }

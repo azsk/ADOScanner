@@ -241,7 +241,8 @@
         "TCP",
         "Automated",
         "AuthN",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
     },

@@ -111,6 +111,8 @@ class ControlHelper: EventBase{
                             $identities = @([ControlHelper]::GetIdentitiesFromAADGroup($orgName, $_.entityId, $_.displayName))
                             if ($identities.Count -gt 0)
                             {
+                                #add the descriptor of group to denote the user is a direct member of this group and is not a part of the group due to nesting, to be used in auto fix
+                                $identities | Add-Member -NotePropertyName "DirectMemberOfGroup" -NotePropertyValue $descriptor
                                 [ControlHelper]::groupMembersResolutionObj[$descriptor] += $identities
 
                             }
@@ -123,6 +125,8 @@ class ControlHelper: EventBase{
                     }
                     else
                     {
+                        #add the descriptor of group to denote the user is a direct member of this group and is not a part of the group due to nesting, to be used in auto fix
+                        $_ | Add-Member -NotePropertyName "DirectMemberOfGroup" -NotePropertyValue $descriptor
                         [ControlHelper]::groupMembersResolutionObj[$descriptor] += $_
                     }
                 }
