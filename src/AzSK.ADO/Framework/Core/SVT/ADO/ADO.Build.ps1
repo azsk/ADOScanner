@@ -20,6 +20,7 @@ class Build: ADOSVTBase
     hidden [string] $BackupFilePath;
     hidden static [bool] $IsPathValidated = $false;
     hidden static $TaskGroupSecurityNamespace = $null
+    hidden static $broadlyEditableVG = @{}
 
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -1336,40 +1337,56 @@ class Build: ADOSVTBase
                 {
                     if([Helpers]::CheckMember($currentVarGrp,"name"))  ## Deleted VGs do not contain "name" property thats why ignoring them
                     {
-                        try {
-                            $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($projectId), $($currentVarGrp.Id);
-                            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                            if($responseObj.Count -gt 0)
-                            {                        
-                                if([Build]::isInheritedPermissionCheckEnabled)
-                                {
-                                    $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
-                                }
-                                else {
-                                    $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access -eq "assigned")})                        
+                        if ([Build]::broadlyEditableVG.keys -notcontains $currentVarGrp.name)
+                        {
+                            try {
+                                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($projectId), $($currentVarGrp.Id);
+                                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                                if($responseObj.Count -gt 0)
+                                {                        
+                                    if([Build]::isInheritedPermissionCheckEnabled)
+                                    {
+                                        $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
+                                    }
+                                    else {
+                                        $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access -eq "assigned")})                        
+                                    }
+        
+                                    if($contributorsObj.Count -gt 0)
+                                    {   
+                                        foreach($obj in $contributorsObj){
+                                            if($obj.role.name -ne 'Reader')
+                                            {
+                                                $failedCount = $failedCount +1
+                                                $editableVarGrps += $currentVarGrp.name
+                                                
+                                                $formattedVarGroupsData = $obj | Select @{l = 'displayName'; e = { $_.identity.displayName } }, @{l = 'userid'; e = { $_.identity.id } }, @{l = 'role'; e = { $_.role.name } }, @{l = 'vargrpid'; e = { $currentVarGrp.id } } , @{l = 'vargrpname'; e = { $currentVarGrp.name } }                                     
+                                            
+                                                if ($this.ControlFixBackupRequired) {
+                                                    #Data object that will be required to fix the control                                            
+                                                    $controlResult.BackupControlState += $formattedVarGroupsData;
+                                                }                                             
+                                            }
+                                        }                            
+                                    }
                                 }
     
-                                if($contributorsObj.Count -gt 0)
-                                {   
-                                    foreach($obj in $contributorsObj){
-                                        if($obj.role.name -ne 'Reader')
-                                        {
-                                            $failedCount = $failedCount +1
-                                            $editableVarGrps += $currentVarGrp.name
-					                        
-                                            $formattedVarGroupsData = $obj | Select @{l = 'displayName'; e = { $_.identity.displayName } }, @{l = 'userid'; e = { $_.identity.id } }, @{l = 'role'; e = { $_.role.name } }, @{l = 'vargrpid'; e = { $currentVarGrp.id } } , @{l = 'vargrpname'; e = { $currentVarGrp.name } }                                     
-                                        
-	                                        if ($this.ControlFixBackupRequired) {
-	                                            #Data object that will be required to fix the control                                            
-	                                            $controlResult.BackupControlState += $formattedVarGroupsData;
-	                                        }                                             
-                                        }
-                                    }                            
+                                if ($currentVarGrp.name -in $editableVarGrps) {
+                                    [Build]::broadlyEditableVG[$currentVarGrp.name] = $true
+                                }
+                                else {
+                                    [Build]::broadlyEditableVG[$currentVarGrp.name] = $false
                                 }
                             }
+                            catch {
+                                $erroredCount = $erroredCount+1
+                            }
                         }
-                        catch {
-                            $erroredCount = $erroredCount+1
+                        else
+                        {
+                            if ([Build]::broadlyEditableVG[$currentVarGrp.name]) {
+                                $editableVarGrps += $currentVarGrp.name
+                            }
                         }
                     }
                     
