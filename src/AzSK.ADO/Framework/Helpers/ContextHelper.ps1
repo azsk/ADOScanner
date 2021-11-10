@@ -211,8 +211,8 @@ class ContextHelper {
         {
             # Validate if token is PAT using lenght (PAT has lengh of 52), if PAT dont go to refresh login session.
             #TODO: Change code to find token type supplied PAT or login session token
-            #if token expiry is within 2 min, refresh.
-            if (([ContextHelper]::currentContext.AccessToken.length -ne 52) -and ([ContextHelper]::currentContext.TokenExpireTimeLocal -le [DateTime]::Now.AddMinutes(2)))
+            #if token expiry is within 2 min, refresh. ([ContextHelper]::currentContext.AccessToken.length -ne 52)
+            if ( [ContextHelper]::IsPATUsed -eq $false -and ([ContextHelper]::currentContext.TokenExpireTimeLocal -le [DateTime]::Now.AddMinutes(58)))
             {
                 [ContextHelper]::GetCurrentContext($true);
             }
@@ -542,6 +542,9 @@ class ContextHelper {
         {
             $contextObj.Tenant.Id = $authNUserInfo[1]
             $contextObj.Account.Id = $authNUserInfo[2]
+        }
+        elseif ([Helpers]::CheckMember($responseObj.authenticatedUser,"customDisplayName")) {
+            $contextObj.Account.Id = $responseObj.authenticatedUser.customDisplayName;
         }
     }
 
