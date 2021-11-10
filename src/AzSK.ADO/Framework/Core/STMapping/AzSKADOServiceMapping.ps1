@@ -109,7 +109,7 @@ class AzSKADOServiceMapping: CommandBase
         } 
         $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
 
-        $this.ReleaseSTDetails = Get-content $this.ReleaseMappingsFilePath | ConvertFrom-Json
+        $this.ReleaseSTDetails = Get-content $this.ReleaseMappingsFilePath | ConvertFrom-Json 
         if ([Helpers]::CheckMember($this.ReleaseSTDetails, "data") -and ($this.ReleaseSTDetails.data | Measure-Object).Count -gt 0)
         {
             $this.ReleaseSTDetails.data = $this.ReleaseSTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}
@@ -120,7 +120,7 @@ class AzSKADOServiceMapping: CommandBase
         }       
 
         # Get Release-Repo mappings
-         try {                         
+        try {                         
             $releaseObjectListURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.orgName), $this.projectName;    
             $releaseObjectList = $this.GetBuildReleaseObjects($ReleaseObjectListURL,'Release');
             $counter =0
@@ -163,7 +163,7 @@ class AzSKADOServiceMapping: CommandBase
            
         }
 
-        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json'); 
+        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
     }
 
     hidden GetRepositoryMapping() {  
@@ -332,13 +332,13 @@ class AzSKADOServiceMapping: CommandBase
     
                             #Arranging in descending order of run time.
                             $svcConnJobs = $svcConnJobs | Sort-Object startTime -Descending
-                            #Taking last 10 runs
-                            $svcConnJobs = $svcConnJobs | Select-Object -First 10
+                            #Taking Unique runs
+                            $svcConnJobs = $svcConnJobs | Select-Object @{l = 'id'; e ={$_.definition.id}}, @{l = 'name'; e ={$_.definition.name}}, @{l = 'planType'; e ={$_.planType}} -Unique
                                             
                             foreach ($job in $svcConnJobs)
                             {                         
                                 if ($job.planType -eq "Build") {
-                                    $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $job.definition.id) };
+                                    $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $job.id) };
                                     if($buildSTData){
                                         $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
                                         $unmappedSerConn = $false; 
@@ -347,7 +347,7 @@ class AzSKADOServiceMapping: CommandBase
                                     
                                 }
                                 elseif ($job.planType -eq "Release") {
-                                    $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $job.definition.id)};
+                                    $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $job.id)};
                                     if($releaseSTData){
                                         $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
                                         $unmappedSerConn = $false; 
@@ -425,8 +425,8 @@ class AzSKADOServiceMapping: CommandBase
                     $agentPoolJobs = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs | Where-Object { $_.scopeId -eq $this.ProjectId };
 
                     #Arranging in descending order of run time.
-                    $agentPoolJobs = @($agentPoolJobs | Sort-Object queueTime -Descending)
-                    #Taking last 10 runs
+                    $agentPoolJobs = $agentPoolJobs | Sort-Object queueTime -Descending
+                    #Taking unique runs
                     $agentPoolJobs = $agentPoolJobs | Select-Object @{l = 'id'; e ={$_.definition.id}}, @{l = 'name'; e ={$_.definition.name}}, @{l = 'planType'; e ={$_.planType}} -Unique
                     #If agent pool has been queued at least once
 
