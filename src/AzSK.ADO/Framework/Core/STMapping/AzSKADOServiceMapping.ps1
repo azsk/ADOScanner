@@ -84,8 +84,11 @@ class AzSKADOServiceMapping: CommandBase
         try {            
             $buildObjectListURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +'&$top=10000') -f $($this.orgName), $this.projectName;       
             $buildObjectList = $this.GetBuildReleaseObjects($buildObjectListURL,'Build');
-            foreach ($build in $buildObjectList) {  
-                try {                         
+            $counter =0
+            foreach ($build in $buildObjectList) {               
+                try {                
+                    $counter++
+                    Write-Progress -Activity 'Build mappings...' -CurrentOperation $build.name -PercentComplete (($counter / $buildObjectList.count) * 100)
                     $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $build.id) };
                     if(!($buildSTData))
                     {
@@ -103,7 +106,7 @@ class AzSKADOServiceMapping: CommandBase
             }        
         }
         catch {           
-        }
+        } 
         $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
 
         $this.ReleaseSTDetails = Get-content $this.ReleaseMappingsFilePath | ConvertFrom-Json
@@ -117,11 +120,14 @@ class AzSKADOServiceMapping: CommandBase
         }       
 
         # Get Release-Repo mappings
-        try {                         
+         try {                         
             $releaseObjectListURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.orgName), $this.projectName;    
             $releaseObjectList = $this.GetBuildReleaseObjects($ReleaseObjectListURL,'Release');
+            $counter =0
             foreach ($release in $releaseObjectList) {  
-                try {    
+                try { 
+                    $counter++
+                    Write-Progress -Activity 'Release mappings...' -CurrentOperation $release.name -PercentComplete (($counter / $releaseObjectList.count) * 100)   
                     $releaseSTData = $this.ReleaseSTDetails.data | where-object {$_.releaseDefinitionID -eq $release.id};
                     if(!($releaseSTData))
                     {                               
@@ -129,7 +135,7 @@ class AzSKADOServiceMapping: CommandBase
                             if($releaseDefnObj[0].artifacts)
                             {
                                     $type = $releaseDefnObj[0].artifacts.type;
-                                    switch ( $type)
+                                    switch ($type)
                                      {
                                         {($_ -eq "GitHubRelease") -or ($_ -eq "Git")}{
                                             $repositoryName =$releaseDefnObj[0].artifacts.definitionReference.definition.name; 
@@ -157,7 +163,7 @@ class AzSKADOServiceMapping: CommandBase
            
         }
 
-        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
+        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json'); 
     }
 
     hidden GetRepositoryMapping() {  
@@ -230,7 +236,7 @@ class AzSKADOServiceMapping: CommandBase
                                             
                             foreach ($job in $svcConnJobs)
                             {                         
-                                if ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Build") {
+                                if ($job.planType -eq "Build") {
                                     $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $job.definition.id) };
                                     if($buildSTData){
                                         $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
@@ -239,7 +245,7 @@ class AzSKADOServiceMapping: CommandBase
                                     }                                   
                                     
                                 }
-                                elseif ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Release") {
+                                elseif ($job.planType -eq "Release") {
                                     $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $job.definition.id)};
                                     if($releaseSTData){
                                         $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
@@ -331,7 +337,7 @@ class AzSKADOServiceMapping: CommandBase
                                             
                             foreach ($job in $svcConnJobs)
                             {                         
-                                if ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Build") {
+                                if ($job.planType -eq "Build") {
                                     $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $job.definition.id) };
                                     if($buildSTData){
                                         $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
@@ -340,7 +346,7 @@ class AzSKADOServiceMapping: CommandBase
                                     }                                   
                                     
                                 }
-                                elseif ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Release") {
+                                elseif ($job.planType -eq "Release") {
                                     $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $job.definition.id)};
                                     if($releaseSTData){
                                         $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
@@ -419,22 +425,22 @@ class AzSKADOServiceMapping: CommandBase
                     $agentPoolJobs = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs | Where-Object { $_.scopeId -eq $this.ProjectId };
 
                     #Arranging in descending order of run time.
-                    $agentPoolJobs = $agentPoolJobs | Sort-Object queueTime -Descending
+                    $agentPoolJobs = @($agentPoolJobs | Sort-Object queueTime -Descending)
                     #Taking last 10 runs
-                    $agentPoolJobs = $agentPoolJobs | Select-Object -First 10
+                    $agentPoolJobs = $agentPoolJobs | Select-Object @{l = 'id'; e ={$_.definition.id}}, @{l = 'name'; e ={$_.definition.name}}, @{l = 'planType'; e ={$_.planType}} -Unique
                     #If agent pool has been queued at least once
 
                     foreach ($job in $agentPoolJobs){
-                        if ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Build") {
-                            $buildSTData = $this.BuildSTDetails.data | Where-Object { ($_.buildDefinitionID -eq $job.definition.id)};
+                        if ($job.planType -eq "Build") {
+                            $buildSTData = $this.BuildSTDetails.data | Where-Object { ($_.buildDefinitionID -eq $job.id)};
                             if($buildSTData){
                                 $agentPoolSTMapping.data += @([PSCustomObject] @{ agentPoolName = $_.Name; agentPoolID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
                                 $unmappedAgentPool = $false;
                                 break;
                             }
                         }
-                        elseif ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Release") {
-                            $releaseSTData = $this.ReleaseSTDetails.data | Where-Object { ($_.releaseDefinitionID -eq $job.definition.id)};
+                        elseif ($job.planType -eq "Release") {
+                            $releaseSTData = $this.ReleaseSTDetails.data | Where-Object { ($_.releaseDefinitionID -eq $job.id)};
                             if($releaseSTData){
                                 $agentPoolSTMapping.data += @([PSCustomObject] @{ agentPoolName = $_.Name; agentPoolID = $_.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
                                 $unmappedAgentPool = $false;
