@@ -30,15 +30,15 @@ class Organization: ADOSVTBase
         # If switch ALtControlEvaluationMethod is set as true in org policy, then evaluating control using graph API. If not then fall back to RegEx based evaluation.
         if ([string]::IsNullOrWhiteSpace([IdentityHelpers]::ALTControlEvaluationMethod)) {
             [IdentityHelpers]::ALTControlEvaluationMethod = "GraphThenRegEx"
-            if ([Helpers]::CheckMember($this.ControlSettings, "ALTControlEvaluationMethod"))
-            {
+            #if ([Helpers]::CheckMember($this.ControlSettings, "ALTControlEvaluationMethod"))
+            #{
                 if (($this.ControlSettings.ALtControlEvaluationMethod -eq "Graph")) {
                     [IdentityHelpers]::ALTControlEvaluationMethod = "Graph"
                 }
                 elseif (($this.ControlSettings.ALtControlEvaluationMethod -eq "RegEx")) {
                     [IdentityHelpers]::ALTControlEvaluationMethod = "RegEx"
                 }
-            }
+            #}
         }
     }
 
@@ -168,7 +168,7 @@ class Organization: ADOSVTBase
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            if(($null -ne $this.ControlSettings) -and [Helpers]::CheckMember($this.ControlSettings, "Organization.GroupsToCheckForSCAltMembers"))
+            if($this.ControlSettings.Organization.GroupsToCheckForSCAltMembers)
             {
                 $adminGroupNames = @($this.ControlSettings.Organization.GroupsToCheckForSCAltMembers);
                 if ($adminGroupNames.Count -gt 0)
@@ -327,7 +327,7 @@ class Organization: ADOSVTBase
                             if ([IdentityHelpers]::ALTControlEvaluationMethod -eq "RegEx" -or $useRegExEvaluation)
                             {
                                 $controlResult.AddMessage([Constants]::graphWarningMessage);
-                                if([Helpers]::CheckMember($this.ControlSettings, "AlernateAccountRegularExpressionForOrg"))
+                                if($this.ControlSettings.AlernateAccountRegularExpressionForOrg)
                                 {
                                     $matchToSCAlt = $this.ControlSettings.AlernateAccountRegularExpressionForOrg
                                     #currently SC-ALT regex is a singleton expression. In case we have multiple regex - we need to make the controlsetting entry as an array and accordingly loop the regex here.
@@ -1941,7 +1941,7 @@ class Organization: ADOSVTBase
                 $csvAdditionalInfo = ""
                 $inactiveGuestUsers = @()
                 $GuestUserInactivePeriodInDays = 90;
-                if ([Helpers]::CheckMember($this.ControlSettings.Organization, "GuestUserInactivePeriodInDays") -and (-not [String]::IsNullOrEmpty($this.ControlSettings.Organization.GuestUserInactivePeriodInDays))) {
+                if (-not [String]::IsNullOrEmpty($this.ControlSettings.Organization.GuestUserInactivePeriodInDays)) {
                     $GuestUserInactivePeriodInDays = $this.ControlSettings.Organization.GuestUserInactivePeriodInDays
                 }
 
@@ -2081,7 +2081,7 @@ class Organization: ADOSVTBase
             $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
 
             $guestAccounts =  @()
-            if(($null -ne $responseObj) -and $responseObj.Count -gt 0 -and ([Helpers]::CheckMember($responseObj[0], 'members')))
+            if($responseObj.Count -gt 0 -and ([Helpers]::CheckMember($responseObj[0], 'members')))
             {
                 $guestAccounts = @($responseObj[0].members)
                 $continuationToken =  $responseObj[0].continuationToken # Use the continuationToken for pagination
@@ -2116,7 +2116,7 @@ class Organization: ADOSVTBase
             $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
 
             $AllUsersAccounts =  @()
-            if(($null -ne $responseObj) -and $responseObj.Count -gt 0 -and ([Helpers]::CheckMember($responseObj[0], 'members')))
+            if($responseObj.Count -gt 0 -and ([Helpers]::CheckMember($responseObj[0], 'members')))
             {
                 $AllUsersAccounts = @($responseObj[0].members)
                 $continuationToken =  $responseObj[0].continuationToken # Use the continuationToken for pagination
@@ -2147,7 +2147,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckGuestUsersAccessInAdminRoles([ControlResult] $controlResult)
     {
-        if($this.ControlSettings -and [Helpers]::CheckMember($this.ControlSettings,"Organization.AdminGroupsToCheckForGuestUser"))
+        if($this.ControlSettings.Organization.AdminGroupsToCheckForGuestUser)
         {
             try {
                 $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -2308,7 +2308,7 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckInactiveUsersInAdminRoles([ControlResult] $controlResult)
     {
-        if($this.ControlSettings -and  [Helpers]::CheckMember($this.ControlSettings,"Organization.AdminGroupsToCheckForInactiveUser"))
+        if($this.ControlSettings.Organization.AdminGroupsToCheckForInactiveUser)
         {
             try
             {
@@ -2318,10 +2318,10 @@ class Organization: ADOSVTBase
                 $inactiveUsersWithAdminAccess = @()
                 $neverActiveUsersWithAdminAccess = @()
                 $inactivityThresholdInDays = 90
-                if([Helpers]::CheckMember($this.ControlSettings,"Organization.AdminInactivityThresholdInDays"))
-                {
+                #if([Helpers]::CheckMember($this.ControlSettings,"Organization.AdminInactivityThresholdInDays"))
+                #{
                     $inactivityThresholdInDays = $this.ControlSettings.Organization.AdminInactivityThresholdInDays
-                }
+                #}
 
                 $thresholdDate = (Get-Date).AddDays(-$inactivityThresholdInDays)
                 ## API Call to fetch Org level collection groups
@@ -2587,7 +2587,7 @@ class Organization: ADOSVTBase
 
     hidden [void] GetExtensionPropertiesFromControlSetting()
     {
-        if ([AzSKRoot]::IsDetailedScanRequired -eq $true -and [Helpers]::CheckMember($this.ControlSettings, "Organization"))
+        if ([AzSKRoot]::IsDetailedScanRequired -eq $true)
         {
             if([Helpers]::CheckMember($this.ControlSettings.Organization, "KnownExtensionPublishers"))
             {
@@ -2880,7 +2880,7 @@ class Organization: ADOSVTBase
 
         if ([AzSKRoot]::IsDetailedScanRequired -eq $false) 
         {
-            if (([Helpers]::CheckMember($this.ControlSettings ,"Organization.KnownExtensionPublishers")))
+            if (([Helpers]::CheckMember($this.ControlSettings.Organization ,"KnownExtensionPublishers")))
             {
                 $knownExtPublishers = $this.ControlSettings.Organization.KnownExtensionPublishers;
                 $controlResult.AddMessage("`nNote: The following are considered as 'known publishers': `n`t[$($this.ControlSettings.Organization.KnownExtensionPublishers -join ', ')]");
