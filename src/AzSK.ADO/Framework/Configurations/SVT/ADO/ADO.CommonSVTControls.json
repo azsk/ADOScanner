@@ -96,6 +96,23 @@
         "Enabled": true
     },
     {
+      "ControlID": "ADO_Feed_SI_Review_Inactive_Feeds",
+      "Description": "Inactive feeds must be removed if no more required.",
+      "Id": "Feed120",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckForInactiveFeeds",
+      "Rationale": "Each additional feed increases the attack surface. An attacker can abuse an inactive feed to start publishing packages that might seem useful to other devs but have trojan horses inside. For good security hygiene and to minimize this risk, ensure that only active and legitimate feeds are present in your environment.",
+      "Recommendation": "1. Go to Project --> 2. Artifacts --> 3. Select Feed --> 4. Feed Settings --> 5. Delete Feed.",
+      "Tags": [
+        "SDL",
+        "Best Practice",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
+  },
+    {
       "ControlID": "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access",
       "Description": "Do not make secure files accessible to all (YAML) pipelines.",
       "Id": "SecureFile100",
