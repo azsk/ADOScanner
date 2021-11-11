@@ -764,7 +764,7 @@ class AzSKADOServiceMapping: CommandBase
                         }
                     }
                     if($unmappedEnv){
-                        $envResourceApiURL = "https://dev.azure.com//{0}/{1}/_environments/{2}?view=resources&__rt=fps&__ver=2 HTTP/1.1" -f $this.OrgName, $this.ProjectName, $_.id;
+                        $envResourceApiURL = "https://dev.azure.com//{0}/{1}/_environments/{2}?view=resources&__rt=fps&__ver=2" -f $this.OrgName, $this.ProjectName, $_.id;
                         $envResourceDetails = @([WebRequestHelper]::InvokeGetWebRequest($envResourceApiURL)); 
 
                         if ([Helpers]::CheckMember($envResourceDetails, "fps.dataProviders") -and $envResourceDetails.fps.dataProviders.data."ms.vss-environments-web.environment-resources-view-data-provider") {
@@ -782,6 +782,7 @@ class AzSKADOServiceMapping: CommandBase
                                                 if($response){
                                                         $serviceId = $response[2].Rows[0][4];
                                                         $environmentSTMapping.data += @([PSCustomObject] @{ environmentName = $_.Name; environmentID = $_.id; serviceID = $serviceId; projectName = $this.ProjectName; projectID = $this.ProjectId; orgName = $this.OrgName } )
+                                                        $unmappedEnv = $false
                                                         break;
                                                     } 
                                                 }
@@ -789,6 +790,26 @@ class AzSKADOServiceMapping: CommandBase
                                             }                                
                                     }
                                 }
+                           }
+                           if($unmappedEnv){
+                               # Type 4 for AKS Cluster
+                               $clusterId =  $envResourceDetails.fps.dataProviders.data."ms.vss-environments-web.environment-resources-view-data-provider".environment.resources | Where-Object type -eq 4 | Select-Object id;
+                               if($clusterId){
+                                $clusterApiURL = "https://dev.azure.com/{0}/{1}/_environments/{2}/providers/kubernetes/{3}?__rt=fps&__ver=2" -f $this.OrgName, $this.ProjectName, $_.id, $clusterId;
+                                $clusterDetails = @([WebRequestHelper]::InvokeGetWebRequest($clusterApiURL));                             
+                                if($clusterDetails)
+                                {
+                                    $subscripId = $clusterDetails.fps.dataProviders.data."ms.vss-environments-web.kubernetes-resource-data-provider".kubernetesEndpoint.data | Where-Object authorizationType -eq "AzureSubscription" | Select-Object azureSubscriptionId;                                    
+                                    if($subscripId){
+                                        $response = $this.GetServiceIdWithSubscrId($subscripId,$accessToken)                                                                     
+                                        if($response){
+                                                $serviceId = $response[2].Rows[0][4];
+                                                $environmentSTMapping.data += @([PSCustomObject] @{ environmentName = $_.Name; environmentID = $_.id; serviceID = $serviceId; projectName = $this.ProjectName; projectID = $this.ProjectId; orgName = $this.OrgName } )
+                                                break;
+                                            }                                                                                                                     
+                                    }
+                                }
+                               }
                            }
                         }
                     }
@@ -893,8 +914,7 @@ class AzSKADOServiceMapping: CommandBase
             $header = @{
                             "Authorization" = "Bearer " + $accessToken
                         }
-            $response = [WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Post,$apiURL,$header,$inputbody,"application/json; charset=UTF-8");     
-                        
+            $response = [WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Post,$apiURL,$header,$inputbody,"application/json; charset=UTF-8");                             
         }
         catch {
             
