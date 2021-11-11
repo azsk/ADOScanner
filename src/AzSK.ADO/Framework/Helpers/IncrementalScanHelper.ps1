@@ -771,6 +771,9 @@ class IncrementalScanHelper
                 #extract resource ids from modified resources
                 $resourceIds+=($_.data.([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[1]) -split("/"))[-1]
                 if($resourceType -eq "GitRepositories"){
+                    #to handle events of permission changes on branches
+                    $resourceIds+=(($_.data.([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[1]) -split("/refs"))[0]) -split("/")[-1]
+                    #to handle events of new repository creation
                     $resourceIds+=($_.data.([IncrementalScanHelper]::auditSchema.$resourceType.AuditEvents.($_.actionId)[1]) -split("\."))[-1]
                 }
             }
