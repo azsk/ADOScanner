@@ -36,7 +36,7 @@ class AzSKADOServiceMapping: CommandBase
         if(![string]::IsNullOrWhiteSpace($this.BuildMappingsFilePath) -and ![string]::IsNullOrWhiteSpace($this.ReleaseMappingsFilePath)){
             if((Test-Path $this.BuildMappingsFilePath) -and (Test-Path $this.ReleaseMappingsFilePath))
             {
-                $this.GetBuildReleaseMapping();
+                $this.GetBuildReleaseMapping();              
                 if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "ServiceConnection")
                 {
                     $this.FetchSvcConnMapping();
@@ -74,10 +74,35 @@ class AzSKADOServiceMapping: CommandBase
             {
                 $this.ProjectId = $this.BuildSTDetails.data[0].projectId
             }
+        }       
+
+        # Get Build-Repo mappings
+        try {            
+            $buildObjectListURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +'&$top=10000') -f $($this.orgName), $this.projectName;       
+            $buildObjectList = $this.GetBuildReleaseObjects($buildObjectListURL,'Build');
+            $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}
+            $counter =0
+            foreach ($build in $buildObjectList) {               
+                try {                
+                    $counter++
+                    Write-Progress -Activity 'Build mappings...' -CurrentOperation $build.name -PercentComplete (($counter / $buildObjectList.count) * 100)                                   
+                    $buildDefnObj = [WebRequestHelper]::InvokeGetWebRequest($build.url);
+                    $repositoryName = $buildDefnObj.repository.name;
+                    $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};
+                    if($repoSTData){
+                        $this.BuildSTDetails.data+=@([PSCustomObject] @{ buildDefinitionName = $build.name; buildDefinitionID = $build.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )                            
+                    }                                            
+                }
+                catch{
+
+                }                
+            }        
         }
+        catch {           
+        } 
         $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
 
-        $this.ReleaseSTDetails = Get-content $this.ReleaseMappingsFilePath | ConvertFrom-Json
+        $this.ReleaseSTDetails = Get-content $this.ReleaseMappingsFilePath | ConvertFrom-Json 
         if ([Helpers]::CheckMember($this.ReleaseSTDetails, "data") -and ($this.ReleaseSTDetails.data | Measure-Object).Count -gt 0)
         {
             $this.ReleaseSTDetails.data = $this.ReleaseSTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}
@@ -85,9 +110,50 @@ class AzSKADOServiceMapping: CommandBase
             {
                 $this.ProjectId = $this.ReleaseSTDetails.data[0].projectId
             }
-        }
-        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
+        }       
 
+        # Get Release-Repo mappings
+        try {                         
+            $releaseObjectListURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.orgName), $this.projectName;    
+            $releaseObjectList = $this.GetBuildReleaseObjects($ReleaseObjectListURL,'Release');
+            $releaseObjectList = $releaseObjectList | Where-Object {$_.id -notin $this.ReleaseSTDetails.data.releaseDefinitionID}
+            $counter =0
+            foreach ($release in $releaseObjectList) {  
+                try { 
+                    $counter++
+                    Write-Progress -Activity 'Release mappings...' -CurrentOperation $release.name -PercentComplete (($counter / $releaseObjectList.count) * 100)                                                     
+                    $releaseDefnObj = [WebRequestHelper]::InvokeGetWebRequest($release.url);                      
+                        if($releaseDefnObj[0].artifacts)
+                        {
+                                $type = $releaseDefnObj[0].artifacts.type;
+                                switch ($type)
+                                    {
+                                    {($_ -eq "GitHubRelease") -or ($_ -eq "Git")}{
+                                        $repositoryName =$releaseDefnObj[0].artifacts.definitionReference.definition.name; 
+                                        $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};
+                                        if($repoSTData){
+                                            $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $release.name; releaseDefinitionID = $release.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )                            
+                                        } 
+                                    }
+                                    Build {  
+                                        $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $releaseDefnObj[0].artifacts.definitionReference.definition.id) -and ($_.projectID -eq $releaseDefnObj[0].artifacts.definitionReference.project.id)};
+                                        If($buildSTData){
+                                            $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $release.name; releaseDefinitionID = $release.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )                            
+                                        }                                            
+                                    }                                                                                                                                                                                           
+                                }
+                        }                                           
+                }
+                catch{
+
+                }                
+            }                                
+        }
+        catch {
+           
+        }
+
+        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
     }
 
     hidden GetRepositoryMapping() {  
@@ -110,8 +176,7 @@ class AzSKADOServiceMapping: CommandBase
         }
         $serviceMapping | ConvertTo-Json -Depth 10 | Out-File (Join-Path $this.OutputFolderPath $fileName) -Encoding ASCII 
     }
-
-
+  
     hidden [bool] FetchSvcConnMapping() {  
         $svcConnSTMapping = @{
             data = @();
@@ -154,13 +219,13 @@ class AzSKADOServiceMapping: CommandBase
     
                             #Arranging in descending order of run time.
                             $svcConnJobs = $svcConnJobs | Sort-Object startTime -Descending
-                            #Taking last 10 runs
-                            $svcConnJobs = $svcConnJobs | Select-Object -First 10
+                            #Taking Unique runs
+                            $svcConnJobs = $svcConnJobs | Select-Object @{l = 'id'; e ={$_.definition.id}}, @{l = 'name'; e ={$_.definition.name}}, @{l = 'planType'; e ={$_.planType}} -Unique
                                             
                             foreach ($job in $svcConnJobs)
                             {                         
-                                if ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Build") {
-                                    $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $job.definition.id) };
+                                if ($job.planType -eq "Build") {
+                                    $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $job.id) };
                                     if($buildSTData){
                                         $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
                                         $unmappedSerConn = $false; 
@@ -168,8 +233,8 @@ class AzSKADOServiceMapping: CommandBase
                                     }                                   
                                     
                                 }
-                                elseif ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Release") {
-                                    $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $job.definition.id)};
+                                elseif ($job.planType -eq "Release") {
+                                    $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $job.id)};
                                     if($releaseSTData){
                                         $svcConnSTMapping.data += @([PSCustomObject] @{ serviceConnectionName = $_.Name; serviceConnectionID = $_.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
                                         $unmappedSerConn = $false; 
@@ -183,7 +248,7 @@ class AzSKADOServiceMapping: CommandBase
                             if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                             {
                                 try {                                
-                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail,$accessToken)                       
+                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId,$accessToken)                       
                                     if($responseObj)
                                     {
                                           $serviceId = $responseObj[2].Rows[0][4];
@@ -221,8 +286,10 @@ class AzSKADOServiceMapping: CommandBase
         try{
             $agentPoolsDefnURL = ("https://{0}.visualstudio.com/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $this.OrgName, $this.ProjectName;
             $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
-            
-            $taskAgentQueues = $null;
+            #generate access token with datastudio api audience
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $taskAgentQueues = $null;           
+
             if (([Helpers]::CheckMember($agentPoolsDefnsObj, "fps.dataProviders.data") ) -and (($agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider") -and $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues)) {
                 $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | where-object{$_.pool.isLegacy -eq $false}; 
             }
@@ -235,35 +302,64 @@ class AzSKADOServiceMapping: CommandBase
             $taskAgentQueues | ForEach-Object {
                 $counter++
                 Write-Progress -Activity 'Agent pool mappings...' -CurrentOperation $_.Name -PercentComplete (($counter / $taskAgentQueues.count) * 100)
-
+                $unmappedAgentPool = $true;
                 $agtPoolId = $_.id
-                $agentPoolsURL = "https://{0}.visualstudio.com/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $this.orgName, $this.ProjectId, $agtPoolId
+                $agtPoolName = $_.name
+                $agentPoolsURL = "https://{0}.visualstudio.com/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $this.orgName, $this.ProjectName, $agtPoolId
                 $agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-                
+
                 if (([Helpers]::CheckMember($agentPool[0], "fps.dataProviders.data") ) -and ($agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider")) {
                     $agentPoolJobs = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs | Where-Object { $_.scopeId -eq $this.ProjectId };
 
                     #Arranging in descending order of run time.
                     $agentPoolJobs = $agentPoolJobs | Sort-Object queueTime -Descending
-                    #Taking last 10 runs
-                    $agentPoolJobs = $agentPoolJobs | Select-Object -First 10
+                    #Taking unique runs
+                    $agentPoolJobs = $agentPoolJobs | Select-Object @{l = 'id'; e ={$_.definition.id}}, @{l = 'name'; e ={$_.definition.name}}, @{l = 'planType'; e ={$_.planType}} -Unique
                     #If agent pool has been queued at least once
 
                     foreach ($job in $agentPoolJobs){
-                        if ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Build") {
-                            $buildSTData = $this.BuildSTDetails.data | Where-Object { ($_.buildDefinitionID -eq $job.definition.id)};
+                        if ($job.planType -eq "Build") {
+                            $buildSTData = $this.BuildSTDetails.data | Where-Object { ($_.buildDefinitionID -eq $job.id)};
                             if($buildSTData){
                                 $agentPoolSTMapping.data += @([PSCustomObject] @{ agentPoolName = $_.Name; agentPoolID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
+                                $unmappedAgentPool = $false;
                                 break;
                             }
                         }
-                        elseif ([Helpers]::CheckMember($job, "planType") -and $job.planType -eq "Release") {
-                            $releaseSTData = $this.ReleaseSTDetails.data | Where-Object { ($_.releaseDefinitionID -eq $job.definition.id)};
+                        elseif ($job.planType -eq "Release") {
+                            $releaseSTData = $this.ReleaseSTDetails.data | Where-Object { ($_.releaseDefinitionID -eq $job.id)};
                             if($releaseSTData){
                                 $agentPoolSTMapping.data += @([PSCustomObject] @{ agentPoolName = $_.Name; agentPoolID = $_.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
+                                $unmappedAgentPool = $false;
                                 break;
                             }
                         }
+                    }
+                }
+                if($unmappedAgentPool)
+                {
+                    $agentList = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider".agents;
+                    $exit = $false
+                    $agentList | Where-Object {$exit -eq $false} | ForEach-Object {                                                
+                        $agtName = $_.Name 
+                        $responseObj = $this.GetAgentSubscrId($agtName)
+                        if($responseObj)
+                        {
+                           $logsRows = $responseObj.tables[0].rows;
+                           if($logsRows.count -gt 0){
+                               $agentSubscriptionID = $logsRows[0][18];
+                               try {
+                                        $response = $this.GetServiceIdWithSubscrId($agentSubscriptionID,$accessToken)                               
+                                        if($response){
+                                                $serviceId = $response[2].Rows[0][4];
+                                                $agentPoolSTMapping.data += @([PSCustomObject] @{ agentPoolName = $agtPoolName; agentPoolID = $agtPoolId; serviceID = $serviceId; projectName = $this.projectName; projectID = $this.projectId; orgName = $organizationName } );
+                                                $exit = $true
+                                            } 
+                                    }
+                              catch {
+                                }                                
+                           }
+                        }                                                
                     }
                 }
             }
@@ -291,8 +387,8 @@ class AzSKADOServiceMapping: CommandBase
 
         try {                    
             $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrgName), $this.ProjectName;
-            $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);              
-           
+            $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);                      
+        
             if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
                 
                 $this.PublishCustomMessage(([Constants]::DoubleDashLine))
@@ -394,7 +490,7 @@ class AzSKADOServiceMapping: CommandBase
                                                             if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                                                             {
                                                                 try {
-                                                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail,$accessToken)                               
+                                                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId,$accessToken)                               
                                                                     if($responseObj)
                                                                     {
                                                                             $serviceId = $responseObj[2].Rows[0][4];
@@ -538,7 +634,7 @@ class AzSKADOServiceMapping: CommandBase
                                                     if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
                                                     {
                                                         try {
-                                                            $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail,$accessToken)                                
+                                                            $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId,$accessToken)                                
                                                             if($responseObj)
                                                             {
                                                                     $serviceId = $responseObj[2].Rows[0][4];                                                    
@@ -627,6 +723,9 @@ class AzSKADOServiceMapping: CommandBase
         try{
             $environmentURL = 'https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?$top=10000&api-version=6.0-preview.1' -f $this.OrgName, $this.ProjectName;
             $environmentsObjList = @([WebRequestHelper]::InvokeGetWebRequest($environmentURL));
+            #generate access token with datastudio api audience
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $unmappedEnv = $true;   
 
             if ($environmentsObjList.count -gt 0 ) {
              
@@ -637,10 +736,10 @@ class AzSKADOServiceMapping: CommandBase
                 
                 $environmentsObjList | ForEach-Object{
                     $counter++
-                    Write-Progress -Activity 'Environments mappings...' -CurrentOperation $_.Name -PercentComplete (($counter / $environmentsObjList.count) * 100)
+                    Write-Progress -Activity 'Environments mappings...' -CurrentOperation $_.Name -PercentComplete (($counter / $environmentsObjList.count) * 100)                   
 
                     $apiURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments/{2}/environmentdeploymentrecords?top=20&api-version=6.0-preview.1" -f $this.OrgName, $this.ProjectName, $_.id;
-                    $envDeploymenyRecords = @([WebRequestHelper]::InvokeGetWebRequest($apiURL)); 
+                    $envDeploymenyRecords = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));                     
                     
                     if ($envDeploymenyRecords.Count -gt 0 -and [Helpers]::CheckMember($envDeploymenyRecords[0],"definition")) {
 
@@ -649,6 +748,7 @@ class AzSKADOServiceMapping: CommandBase
                                 $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $envJob.definition.id) };
                                 if($buildSTData){
                                     $environmentSTMapping.data += @([PSCustomObject] @{ environmentName = $_.Name; environmentID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
+                                    $unmappedEnv =$false;
                                     break;
                                 }
                                 
@@ -657,9 +757,60 @@ class AzSKADOServiceMapping: CommandBase
                                 $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $envJob.definition.id)};
                                 if($releaseSTData){
                                     $environmentSTMapping.data += @([PSCustomObject] @{ environmentName = $_.Name; environmentID = $_.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
+                                    $unmappedEnv =$false;
                                     break;
                                 }
                             }
+                        }
+                    }
+                    if($unmappedEnv){
+                        $envResourceApiURL = "https://dev.azure.com//{0}/{1}/_environments/{2}?view=resources&__rt=fps&__ver=2" -f $this.OrgName, $this.ProjectName, $_.id;
+                        $envResourceDetails = @([WebRequestHelper]::InvokeGetWebRequest($envResourceApiURL)); 
+
+                        if ([Helpers]::CheckMember($envResourceDetails, "fps.dataProviders") -and $envResourceDetails.fps.dataProviders.data."ms.vss-environments-web.environment-resources-view-data-provider") {
+                            # Type 2 for VM
+                           $vmName =  $envResourceDetails.fps.dataProviders.data."ms.vss-environments-web.environment-resources-view-data-provider".environment.resources | Where-Object type -eq 2 | Select-Object name;
+                           if($vmName){
+                            $responseObj = $this.GetAgentSubscrId($vmName)
+                                if($responseObj)
+                                {
+                                    $logsRows = $responseObj.tables[0].rows;
+                                    if($logsRows.count -gt 0){
+                                        $agentSubscriptionID = $logsRows[0][18];
+                                        try {
+                                                $response = $this.GetServiceIdWithSubscrId($agentSubscriptionID,$accessToken)                               
+                                                if($response){
+                                                        $serviceId = $response[2].Rows[0][4];
+                                                        $environmentSTMapping.data += @([PSCustomObject] @{ environmentName = $_.Name; environmentID = $_.id; serviceID = $serviceId; projectName = $this.ProjectName; projectID = $this.ProjectId; orgName = $this.OrgName } )
+                                                        $unmappedEnv = $false
+                                                        break;
+                                                    } 
+                                                }
+                                        catch {
+                                            }                                
+                                    }
+                                }
+                           }
+                           if($unmappedEnv){
+                               # Type 4 for AKS Cluster
+                               $clusterId =  $envResourceDetails.fps.dataProviders.data."ms.vss-environments-web.environment-resources-view-data-provider".environment.resources | Where-Object type -eq 4 | Select-Object id;
+                               if($clusterId){
+                                $clusterApiURL = "https://dev.azure.com/{0}/{1}/_environments/{2}/providers/kubernetes/{3}?__rt=fps&__ver=2" -f $this.OrgName, $this.ProjectName, $_.id, $clusterId;
+                                $clusterDetails = @([WebRequestHelper]::InvokeGetWebRequest($clusterApiURL));                             
+                                if($clusterDetails -and [Helpers]::CheckMember($clusterDetails.fps.dataProviders.data,"ms.vss-environments-web.kubernetes-resource-data-provider"))
+                                {
+                                    $subscripId = $clusterDetails.fps.dataProviders.data."ms.vss-environments-web.kubernetes-resource-data-provider".kubernetesEndpoint.data | Where-Object authorizationType -eq "AzureSubscription" | Select-Object azureSubscriptionId;                                    
+                                    if($subscripId){
+                                        $response = $this.GetServiceIdWithSubscrId($subscripId,$accessToken)                                                                     
+                                        if($response){
+                                                $serviceId = $response[2].Rows[0][4];
+                                                $environmentSTMapping.data += @([PSCustomObject] @{ environmentName = $_.Name; environmentID = $_.id; serviceID = $serviceId; projectName = $this.ProjectName; projectID = $this.ProjectId; orgName = $this.OrgName } )
+                                                break;
+                                            }                                                                                                                     
+                                    }
+                                }
+                               }
+                           }
                         }
                     }
                     
@@ -701,7 +852,7 @@ class AzSKADOServiceMapping: CommandBase
                         $packagesURL = $feed._links.packages.href;
                         $feedPackages = @([WebRequestHelper]::InvokeGetWebRequest($packagesURL)); 
 
-                        if ($feedPackages.count -gt 0 -and [Helpers]::CheckMember($feedPackages[0],"name")) {
+                        if ($feedPackages.count -gt 0) {
 
                             $feedPackages = $feedPackages | Select-Object -First 10;
                             foreach ($package in $feedPackages){
@@ -752,13 +903,10 @@ class AzSKADOServiceMapping: CommandBase
         return $true;
     }
 
-    hidden [object] GetServiceIdWithSubscrId($serviceConnEndPointDetail,$accessToken)
+    hidden [object] GetServiceIdWithSubscrId($subscriptionID,$accessToken)
     {
         $response = $null
-        try {
-            $subscriptionID = $serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId;
-            Write-Progress -Activity 'Fetching Service Id from Azure Data explorer...' -CurrentOperation $serviceConnEndPointDetail.serviceEndpoint.name;
-
+        try {                     
             # call data studio to fetch azure subscription id and servce id mapping
             $apiURL = "https://datastudiostreaming.kusto.windows.net/v2/rest/query"                                                                    
             $inputbody = '{"db": "Shared","csl": "DataStudio_ServiceTree_AzureSubscription_Snapshot | where SubscriptionId contains ''{0}''", "properties": {"Options": {"query_language": "csl","servertimeout": "00:04:00","queryconsistency": "strongconsistency","request_readonly": false,"request_readonly_hardline": false}}}'                                            
@@ -766,8 +914,7 @@ class AzSKADOServiceMapping: CommandBase
             $header = @{
                             "Authorization" = "Bearer " + $accessToken
                         }
-            $response = [WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Post,$apiURL,$header,$inputbody,"application/json; charset=UTF-8");     
-                        
+            $response = [WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Post,$apiURL,$header,$inputbody,"application/json; charset=UTF-8");                             
         }
         catch {
             
@@ -775,4 +922,53 @@ class AzSKADOServiceMapping: CommandBase
         return $response     
     }
 
+    hidden [object] GetAgentSubscrId($agentName)
+    {
+        $response = $null
+        try {                                  
+            
+            #generate access token with datastudio api audience             
+            $accessToken = [ContextHelper]::GetLAWSAccessToken()
+            # call data studio to fetch azure subscription id and servce id mapping
+            $apiURL = "https://api.loganalytics.io/v1/workspaces/b32a5e40-0360-40db-a9d4-ec1083b90f0a/query?timespan=P7D"                                                                    
+            $inputbody = '{"query":"AzSK_ResourceInvInfo_CL| where Name_s =~ ''{0}''| where ResourceType == ''Microsoft.Compute/virtualMachines''","options":{"truncationMaxSize":67108864},"maxRows":30001,"workspaceFilters":{"regions":[]}}'                                       
+            $inputbody = $inputbody.Replace("{0}", $agentName)
+            $header = @{
+                "Authorization" = "Bearer " + $accessToken
+            }                             
+            $response = [WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Post,$apiURL,$header,$inputbody,"application/json; charset=UTF-8");                           
+        }
+        catch {
+            
+        }  
+        return $response     
+    }
+
+    hidden [object] GetBuildReleaseObjects($resourceUrl,$resourceType)
+    {        
+        $skipCount = 0        
+        $applicableDefnsObj=@();     
+        while (($resourceUrl)) 
+        {              
+            $skipCount = 10000;
+            $responseAndUpdatedUri = [WebRequestHelper]::InvokeWebRequestForResourcesInBatch($resourceUrl, $resourceUrl, $skipCount,$resourceType);
+            #API response with resources
+            $resourceDefnsObj = @($responseAndUpdatedUri[0]);           
+            #updated URI: null when there is no continuation token
+            $resourceDfnUrl = $responseAndUpdatedUri[1];           
+            $applicableDefnsObj+=$resourceDefnsObj;            
+            if ( (($applicableDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($applicableDefnsObj[0], "name")) -or ([Helpers]::CheckMember($applicableDefnsObj, "count") -and $applicableDefnsObj[0].count -gt 0)) 
+            {                
+                $resourceUrl =$resourceDfnUrl;                                                                      
+            }
+            else {
+                break;
+            }           
+        }
+        Write-Progress -Activity "All $($resourceType)s fetched" -Status "Ready" -Completed
+        $resourceDefnsObj = $null;        
+        Remove-Variable resourceDefnsObj;        
+        return $applicableDefnsObj;
+    }
+    
 }
