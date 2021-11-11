@@ -36,6 +36,10 @@
             "CheckConfiguration.Modified":[
                 "ResourceType",
                 "ResourceId"
+            ],
+            "Security.RemovePermission":[
+                "NamespaceName",
+                "Token"
             ]
         },
         "ApiResponseFilter":"lastModifiedOn"
@@ -63,6 +67,10 @@
                 "Tokens"
             ],
             "Security.ModifyPermission":[
+                "NamespaceName",
+                "Token"
+            ],
+            "Security.RemovePermission":[
                 "NamespaceName",
                 "Token"
             ]
@@ -94,6 +102,10 @@
             "Security.ModifyPermission":[
                 "NamespaceName",
                 "Token"
+            ],
+            "Security.RemovePermission":[
+                "NamespaceName",
+                "Token"
             ]
         },
         "ApiResponseFilter":"modifiedOn"
@@ -123,7 +135,20 @@
             "Artifacts.Feed.Project.Create":[
                 true,
                 "FeedId"
+            ],
+            "Artifacts.Feed.Project.Modify.Permissions.Deletion":[
+                true,
+                "FeedId"
+            ],
+            "Artifacts.Feed.Project.Modify.Permissions":[
+                true,
+                "FeedId"
+            ],
+            "Security.RemovePermission":[
+                "NamespaceName",
+                "Token"
             ]
+
         }
     },
     "GitRepositories":{
@@ -155,6 +180,10 @@
             "Git.RepositoryCreated":[
                 true,
                 "RepoId"
+            ],
+            "Security.RemovePermission":[
+                "NamespaceName",
+                "Token"
             ]
         }
     }
