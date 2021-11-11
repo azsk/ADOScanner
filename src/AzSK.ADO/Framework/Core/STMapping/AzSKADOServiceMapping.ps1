@@ -797,7 +797,7 @@ class AzSKADOServiceMapping: CommandBase
                                if($clusterId){
                                 $clusterApiURL = "https://dev.azure.com/{0}/{1}/_environments/{2}/providers/kubernetes/{3}?__rt=fps&__ver=2" -f $this.OrgName, $this.ProjectName, $_.id, $clusterId;
                                 $clusterDetails = @([WebRequestHelper]::InvokeGetWebRequest($clusterApiURL));                             
-                                if($clusterDetails)
+                                if($clusterDetails -and [Helpers]::CheckMember($clusterDetails.fps.dataProviders.data,"ms.vss-environments-web.kubernetes-resource-data-provider"))
                                 {
                                     $subscripId = $clusterDetails.fps.dataProviders.data."ms.vss-environments-web.kubernetes-resource-data-provider".kubernetesEndpoint.data | Where-Object authorizationType -eq "AzureSubscription" | Select-Object azureSubscriptionId;                                    
                                     if($subscripId){
@@ -925,9 +925,9 @@ class AzSKADOServiceMapping: CommandBase
     hidden [object] GetAgentSubscrId($agentName)
     {
         $response = $null
-        try {            
-            Write-Progress -Activity 'Fetching Agent subscription Id from Azure LAWS...' -CurrentOperation $agentName;            
-             #generate access token with datastudio api audience             
+        try {                                  
+            
+            #generate access token with datastudio api audience             
             $accessToken = [ContextHelper]::GetLAWSAccessToken()
             # call data studio to fetch azure subscription id and servce id mapping
             $apiURL = "https://api.loganalytics.io/v1/workspaces/b32a5e40-0360-40db-a9d4-ec1083b90f0a/query?timespan=P7D"                                                                    
