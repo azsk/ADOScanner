@@ -211,8 +211,8 @@ class ContextHelper {
         {
             # Validate if token is PAT using lenght (PAT has lengh of 52), if PAT dont go to refresh login session.
             #TODO: Change code to find token type supplied PAT or login session token
-            #if token expiry is within 2 min, refresh.
-            if (([ContextHelper]::currentContext.AccessToken.length -ne 52) -and ([ContextHelper]::currentContext.TokenExpireTimeLocal -le [DateTime]::Now.AddMinutes(2)))
+            #if token expiry is within 2 min, refresh. ([ContextHelper]::currentContext.AccessToken.length -ne 52)
+            if ( [ContextHelper]::IsPATUsed -eq $false -and ([ContextHelper]::currentContext.TokenExpireTimeLocal -le [DateTime]::Now.AddMinutes(2)))
             {
                 [ContextHelper]::GetCurrentContext($true);
             }
@@ -333,7 +333,7 @@ class ContextHelper {
             # generating graph access token using default VSTS client.
             $clientId = [Constants]::DefaultClientId;          
             $replyUri = [Constants]::DefaultReplyUri; 
-            $adoResourceId = "https://help.kusto.windows.net/";                                         
+            $adoResourceId = "https://help.kusto.windows.net";                                         
             if ([ContextHelper]::PSVersion -gt 5) {
                 $result = [ContextHelper]::GetGraphAccess()
             }
@@ -355,6 +355,52 @@ class ContextHelper {
         }
 
 		return $accessToken;
+	}
+
+    static [string] GetLAWSAccessToken()
+	{
+        $accessToken = ''
+        try
+        {              
+            #getting azure context because graph access token requires azure environment details.
+            $Context = @(Get-AzContext -ErrorAction SilentlyContinue )
+            if ($Context.count -eq 0)  
+            {                    
+                Connect-AzAccount -ErrorAction Stop
+                $Context = @(Get-AzContext -ErrorAction SilentlyContinue)
+            }
+
+            if ($null -eq $Context)  
+            {
+                throw "Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate."
+            }
+            else
+            {                
+                $authResult = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate(
+                $Context.Account,
+                $Context.Environment,
+                $Context.Tenant.Id,
+                [System.Security.SecureString] $null,
+                "Never",
+                $null,
+                "https://api.loganalytics.io/");
+
+                if (-not ($authResult -and (-not [string]::IsNullOrWhiteSpace($authResult.AccessToken))))
+                {
+                    throw ([SuppressedException]::new(("Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate."), [SuppressedExceptionType]::Generic))
+                }
+
+                $accessToken = $authResult.AccessToken;
+            }                                  
+        }
+        catch
+        {
+            Write-Host "Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate." -ForegroundColor Red
+            Write-Host "Continuing without graph access." -ForegroundColor Yellow
+            return $null
+        }
+
+		return $accessToken;        
 	}
 
     hidden static [PSobject] GetGraphAccess()
@@ -542,6 +588,9 @@ class ContextHelper {
         {
             $contextObj.Tenant.Id = $authNUserInfo[1]
             $contextObj.Account.Id = $authNUserInfo[2]
+        }
+        elseif ([Helpers]::CheckMember($responseObj.authenticatedUser,"customDisplayName")) {
+            $contextObj.Account.Id = $responseObj.authenticatedUser.customDisplayName;
         }
     }
 

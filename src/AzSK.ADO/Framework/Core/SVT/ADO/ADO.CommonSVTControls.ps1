@@ -663,17 +663,18 @@ class CommonSVTControls: ADOSVTBase {
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try {
-            $url = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=securefile&id={2}&api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id
-            $secureFileObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/securefile/{2}" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            $secureFilePipelinePermObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+            if($secureFilePipelinePermObj.Count -gt 0 -and [Helpers]::CheckMember($secureFilePipelinePermObj,"allPipelines") -and $secureFilePipelinePermObj.allPipelines.authorized -eq $true) {
 
-            if(($secureFileObj.Count -gt 0) -and [Helpers]::CheckMember($secureFileObj[0], "authorized") -and  $secureFileObj[0].authorized -eq $true) {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is accesible to all YAML pipelines.");
+                if ($this.ControlFixBackupRequired){
+                    $controlResult.BackupControlState = $secureFilePipelinePermObj;
+                }
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all YAML pipelines.");
                 try {
-                    $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/securefile/{2}" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
-                    $secureFilePipelinePermObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
                     $buildPipelineIds = @();
                     if ($secureFilePipelinePermObj.Count -gt 0 -and $secureFilePipelinePermObj.pipelines.Count -gt 0) {
                         $buildPipelineIds = $secureFilePipelinePermObj.pipelines.id
@@ -693,6 +694,43 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch authorization details of secure file.");
             $controlResult.LogException($_)
         }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckSecureFilesPermissionAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $this.PublishCustomMessage( "`nAfter applying this fix, any YAML pipelines using this secure file will lose access. You will have to explicitly add them.", [MessageType]::Warning);
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            if (-not $this.UndoFix)
+            {
+                $RawDataObjForControlFix.allPipelines.authorized = $false;
+                $RawDataObjForControlFix.allPipelines.authorizedBy = $null;
+                $RawDataObjForControlFix.allPipelines.authorizedOn = $null;
+                $body = $RawDataObjForControlFix | ConvertTo-Json -Depth 10;
+                $uri = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/securefile/{2}?api-version=5.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                $Result = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
+            
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Secure file is not accessible to all YAML pipelines.");
+            }
+            else {
+                $body = $RawDataObjForControlFix | ConvertTo-Json -Depth 10;
+                $uri = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/securefile/{2}?api-version=5.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                $Result = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
+            
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Secure file is accessible to all YAML pipelines.");
+            }
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        
         return $controlResult
     }
 
@@ -906,11 +944,10 @@ class CommonSVTControls: ADOSVTBase {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
-            if ([Helpers]::CheckMember($this.ControlSettings, "Environment.RestrictedBroaderGroupsForEnvironment")) {
+            $broaderGroups = $this.ControlSettings.Environment.RestrictedBroaderGroupsForEnvironment
+            if(@($broaderGroups.psobject.Properties).Count -gt 0) {
                 $restrictedBroaderGroups = @{}
-                $restrictedBroaderGroupsForEnvironment = $this.ControlSettings.Environment.RestrictedBroaderGroupsForEnvironment
-                $restrictedBroaderGroupsForEnvironment.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
-
+                $broaderGroups.psobject.properties | foreach { $restrictedBroaderGroups[$_.Name] = $_.Value }
                 $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                 $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.environmentreferencerole/roleassignments/resources/{1}_{2}' -f $this.OrganizationContext.OrganizationName, $projectId, $this.ResourceContext.ResourceDetails.Id;
                 $environmentPermissionList = @([WebRequestHelper]::InvokeGetWebRequest($url));
@@ -1476,9 +1513,12 @@ class CommonSVTControls: ADOSVTBase {
                 $policyGroups = $response.dataProviders."ms.vss-code-web.repository-policies-data-provider".policyGroups
                 # fetching "Secrets scanning restriction"
                 $credScanId = $this.ControlSettings.Repo.CredScanPolicyID
-                if ([Helpers]::CheckMember($policyGroups, $credScanId)) {
-                    $currentScopePoliciesSecrets = $policyGroups."$($credScanId)".currentScopePolicies
-                    if ($currentScopePoliciesSecrets.isEnabled) {
+                if ([Helpers]::CheckMember($policyGroups, $credScanId )) {
+                     $currentScopePoliciesSecrets = $policyGroups."$($credScanId)".currentScopePolicies
+                    if($null -eq $currentScopePoliciesSecrets){
+                        $currentScopePoliciesSecrets = $policyGroups."$($credScanId)".inheritedPolicies
+                    }
+                    if ([Helpers]::CheckMember($currentScopePoliciesSecrets, "isEnabled") -and $currentScopePoliciesSecrets.isEnabled) {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Check for credentials and other secrets is enabled.");
                     }
                     else {
@@ -1495,6 +1535,88 @@ class CommonSVTControls: ADOSVTBase {
         }
         catch {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository policies.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckForInactiveFeeds([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            #orgFeedURL will be used to identify if feed is org scoped or project scoped
+            $scope = "Project"
+            #Project property does not exist of org scoped feeds
+            if ("Project" -notin $this.ResourceContext.ResourceDetails.PSobject.Properties.name){
+                $scope = "Organization"
+            }
+
+            if ($scope -eq "Organization")
+            {
+                $url = "https://{0}.feeds.visualstudio.com/_apis/Packaging/Feeds/{1}/Packages?includeDescription=true&includeDeleted=false" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+            }
+            else
+            {
+                $url = "https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/Packages?includeDescription=true&includeDeleted=false" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.project.id, $this.ResourceContext.ResourceDetails.Id;
+            }
+
+            $packagesList = @([WebRequestHelper]::InvokeGetWebRequest($url));
+
+            $inactiveLimit = $this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity;
+
+            if ($packagesList.Count -gt 1)
+            {
+                $packagesList = $packagesList |Sort-Object -Property @{Expression={$_.versions[0].publishDate}} -Descending
+                $latestPackage = $packagesList[0] | select-object name, @{l="publishedDate"; e = {([datetime] $_.versions[0].publishDate).ToString("d MMM yyyy")}}, @{l="version";e={$_.versions.version}}, protocolType
+                $lastPublishDate = $latestPackage.publishedDate
+                if ((((Get-Date) - [datetime]::Parse($lastPublishDate)).Days) -gt $inactiveLimit)
+                {
+                    if ($scope -eq "Organization")
+                    {
+                        $packageUrl = "https://{0}.feeds.visualstudio.com/_apis/Packaging/Feeds/{1}/PackageMetricsBatch?api-version=5.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
+                    }
+                    else
+                    {
+                        $packageUrl = "https://{0}.feeds.visualstudio.com/{1}/_apis/Packaging/Feeds/{2}/PackageMetricsBatch?api-version=5.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.project.id, $this.ResourceContext.ResourceDetails.Id;
+                    }
+
+                    # the below API call will fetch the additional details for the feeds such as download count and last downlad date.
+                    $body = "{'packageIds':['$($packagesList.id -join "','")']}"
+                    $rmContext = [ContextHelper]::GetCurrentContext();
+                    $user = "";
+                    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+                    $response = @(Invoke-RestMethod -Uri $packageUrl -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+                    $lastDownloadedPackage = $response.value | sort-object lastDownloaded -descending | Select-Object -first 1
+                    $lastDownloadedPackage = $lastDownloadedPackage | select-object @{l="Name";e={$packagesList | Where-Object {$_.id -eq $lastDownloadedPackage.packageId}| Select-Object name}}, downloadCount, @{l="lastDownloaded"; e={([datetime] $_.lastDownloaded).ToString("d MMM yyyy")}}
+                    $lastDownloadedDate = $lastDownloadedPackage.lastDownloaded
+
+                    if ((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days) -gt $inactiveLimit)
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed,  "Feed was inactive from last $((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days)) days.");
+                    }
+                    else
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Passed,  "Feed package was last downloaded on $(([datetime] $lastDownloadedDate).ToString("d MMM yyyy")).");
+                    }
+                    $lastDownloadedPackage = ($lastDownloadedPackage | FT -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage("`nLatest downloaded package in the feed: ", $lastDownloadedPackage);
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,  "Feed package was last published on $(([datetime] $lastPublishDate).ToString("d MMM yyyy")).");
+                }
+                $latestPackage = ($latestPackage | FT -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("`nLatest published package in the feed: ", $latestPackage);
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed,  "Feed does not contain any packages.");
+            }         
+        }
+        catch
+        {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not fetch feed activity details.");
             $controlResult.LogException($_)
         }
         return $controlResult

@@ -620,7 +620,7 @@ class AutoBugLog {
         #checking if resource owner is a valid user or not
         $emailRegEx = $this.ControlSettings.Patterns | Where-Object {$_.RegexCode -eq "Email"} | Select-Object -Property RegexList;
         $bugNote = ""
-        if ($emailRegEx -inotmatch $resourceOwner) {
+        if ($resourceOwner -inotmatch $emailRegEx.RegexList) {
             $bugNote = "</br></br><b>Note: </b> The resource owner or last modified identity is a service account.</br>"
         }
 
