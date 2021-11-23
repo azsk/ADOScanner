@@ -127,6 +127,10 @@ class AgentPool: ADOSVTBase
             {
                 if ($this.AgentPoolOrgObj.autoProvision -eq $true) {
                     $controlResult.AddMessage([VerificationResult]::Failed,"Auto-provisioning is enabled for the $($this.AgentPoolOrgObj.name) agent pool.");
+                    if ($this.ControlFixBackupRequired) {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $this.AgentPoolOrgObj;
+                    }
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Auto-provisioning is not enabled for the agent pool.");
@@ -139,6 +143,49 @@ class AgentPool: ADOSVTBase
         }
         catch{
             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch agent pool details.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckOrgAgtAutoProvisioningAutomatedFix([ControlResult] $controlResult)
+    {
+        try 
+        {
+            #Backup data object is not required in this scenario.
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $body = ""
+
+            if (-not $this.UndoFix)
+            {                 
+                if ($body.length -gt 1) {$body += ","}
+                $body += @"
+                {
+                    "id": $($RawDataObjForControlFix.id),
+                    "autoProvision": false
+                }
+"@;
+            }
+            else 
+            {
+                if ($body.length -gt 1) {$body += ","}
+                $body += @"
+                {
+                    "id": $($RawDataObjForControlFix.id),
+                    "autoProvision": true
+                }
+"@;
+
+            }  
+            $url = "https://dev.azure.com/{0}/_apis/distributedtask/pools/{1}?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$($RawDataObjForControlFix.id);          
+			$header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            $webRequestResult = Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body							    
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Auto-provisioning setting for agent pool have been changed.");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
             $controlResult.LogException($_)
         }
         return $controlResult
@@ -192,6 +239,10 @@ class AgentPool: ADOSVTBase
             if([Helpers]::CheckMember($agentPoolsObj[0],"authorized"))
             {
                 $controlResult.AddMessage([VerificationResult]::Failed,"Agent pool is marked as accessible to all pipelines.");
+                if ($this.ControlFixBackupRequired) {
+                    #Data object that will be required to fix the control
+                    $controlResult.BackupControlState = $agentPoolsObj;
+                }
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed,"Agent pool is not marked as accessible to all pipelines.");
@@ -202,6 +253,54 @@ class AgentPool: ADOSVTBase
         catch{
             $controlResult.AddMessage($_);
             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch agent pool details.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckPrjAllPipelineAccessAutomatedFix([ControlResult] $controlResult)
+    {
+        try 
+        {
+            #Backup data object is not required in this scenario.
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $body = "["
+
+            if (-not $this.UndoFix)
+            {                 
+                if ($body.length -gt 1) {$body += ","}
+                $body += @"
+                {
+                    "authorized": false,
+                    "id": "$($RawDataObjForControlFix.id)",
+                    "name": "$($RawDataObjForControlFix.name)",
+                    "type": "queue"
+                }
+"@;
+            }
+            else 
+            {
+                if ($body.length -gt 1) {$body += ","}
+                $body += @"
+                {
+                    "authorized": true,
+                    "id": "$($RawDataObjForControlFix.id)",
+                    "name": "$($RawDataObjForControlFix.name)",
+                    "type": "queue"
+                }
+"@;
+
+            }          
+            $body += "]"  
+            $url = "https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.projectId);          
+			$header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            $webRequestResult = Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body							    
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Pipeline permissions for agent pool have been changed.");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
             $controlResult.LogException($_)
         }
         return $controlResult
