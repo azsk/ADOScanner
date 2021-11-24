@@ -70,28 +70,75 @@ class AzSKADOServiceMapping: CommandBase
         if ([Helpers]::CheckMember($this.BuildSTDetails, "data") -and ($this.BuildSTDetails.data | Measure-Object).Count -gt 0)
         {
             $this.BuildSTDetails.data = $this.BuildSTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}
+            #$this.ProjectId = "3cf66fdf-da98-4143-8ba1-7f2e141d3700"
             if (($this.BuildSTDetails.data | Measure-Object).Count -gt 0)
             {
-                $this.ProjectId = $this.BuildSTDetails.data[0].projectId
+                #$this.ProjectId = "3cf66fdf-da98-4143-8ba1-7f2e141d3700"
+                $this.BuildSTDetails.data[0].projectId
             }
         }       
-
+        $countAgentPoolFix = 0;
         # Get Build-Repo mappings
         try {            
             $buildObjectListURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +'&$top=10000') -f $($this.orgName), $this.projectName;       
             $buildObjectList = $this.GetBuildReleaseObjects($buildObjectListURL,'Build');
             $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}
-            $counter =0
+            #$buildObjectList = $buildObjectList |Where-Object { ($_.id -eq 23255)};
+            $counter =0            
             foreach ($build in $buildObjectList) {               
                 try {                
                     $counter++
                     Write-Progress -Activity 'Build mappings...' -CurrentOperation $build.name -PercentComplete (($counter / $buildObjectList.count) * 100)                                   
                     $buildDefnObj = [WebRequestHelper]::InvokeGetWebRequest($build.url);
                     $repositoryName = $buildDefnObj.repository.name;
-                    $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};
+                    $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};                    
                     if($repoSTData){
                         $this.BuildSTDetails.data+=@([PSCustomObject] @{ buildDefinitionName = $build.name; buildDefinitionID = $build.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )                            
-                    }                                            
+                    }
+                    else {
+
+                        $unmappedAgentPool = $true;
+                        $agtPoolId = $buildDefnObj.queue.id                        
+                        $agentPoolsURL = "https://{0}.visualstudio.com/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $this.orgName, $this.ProjectName, $agtPoolId
+                        $agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
+        
+                        if (([Helpers]::CheckMember($agentPool[0], "fps.dataProviders.data") ) -and ($agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider")) {
+                            $agentPoolJobs = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs | Where-Object { $_.scopeId -eq $this.ProjectId };
+        
+                            #Arranging in descending order of run time.
+                            $agentPoolJobs = $agentPoolJobs | Sort-Object queueTime -Descending
+                            #Taking unique runs
+                            $agentPoolJobs = $agentPoolJobs | Select-Object @{l = 'id'; e ={$_.definition.id}}, @{l = 'name'; e ={$_.definition.name}}, @{l = 'planType'; e ={$_.planType}} -Unique
+                            #If agent pool has been queued at least once                               
+                        }
+                        if($unmappedAgentPool)
+                        {
+                            $agentList = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider".agents | Select-Object -First 10;
+                            $exit = $false
+                            $agentList | Where-Object {$exit -eq $false} | ForEach-Object {                                                
+                                $agtName = $_.Name 
+                                $responseObj = $this.GetAgentSubscrId($agtName)
+                                if($responseObj)
+                                {
+                                   $logsRows = $responseObj.tables[0].rows;
+                                   if($logsRows.count -gt 0){
+                                       $agentSubscriptionID = $logsRows[0][18];
+                                       try {
+                                                $response = $this.GetServiceIdWithSubscrId($agentSubscriptionID,$accessToken)                               
+                                                if($response){
+                                                        $serviceId = $response[2].Rows[0][4];
+                                                        $countAgentPoolFix++;
+                                                        $BuildSTDetails.data += @([PSCustomObject] @{ buildDefinitionName = $build.name; buildDefinitionID = $build.id; serviceID = $serviceId; projectName = $this.projectName; projectID = $this.projectId; orgName = $organizationName } );
+                                                        $exit = $true
+                                                    } 
+                                            }
+                                      catch {
+                                        }                                
+                                   }
+                                }                                                
+                            }
+                        }
+                    }                                                           
                 }
                 catch{
 
@@ -101,6 +148,8 @@ class AzSKADOServiceMapping: CommandBase
         catch {           
         } 
         $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
+        
+        $this.PublishCustomMessage($countAgentPoolFix, [MessageType]::Info)
 
         $this.ReleaseSTDetails = Get-content $this.ReleaseMappingsFilePath | ConvertFrom-Json 
         if ([Helpers]::CheckMember($this.ReleaseSTDetails, "data") -and ($this.ReleaseSTDetails.data | Measure-Object).Count -gt 0)
@@ -113,7 +162,7 @@ class AzSKADOServiceMapping: CommandBase
         }       
 
         # Get Release-Repo mappings
-        try {                         
+        <#try {                         
             $releaseObjectListURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.orgName), $this.projectName;    
             $releaseObjectList = $this.GetBuildReleaseObjects($ReleaseObjectListURL,'Release');
             $releaseObjectList = $releaseObjectList | Where-Object {$_.id -notin $this.ReleaseSTDetails.data.releaseDefinitionID}
@@ -153,7 +202,7 @@ class AzSKADOServiceMapping: CommandBase
            
         }
 
-        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
+        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');#>
     }
 
     hidden GetRepositoryMapping() {  
