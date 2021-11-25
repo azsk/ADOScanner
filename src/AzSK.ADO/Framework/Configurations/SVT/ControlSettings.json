@@ -814,5 +814,25 @@
     ],
   "BackupLimitInDays" : 7
   },
-  "CleanProcessedResources" : false
+  "CleanProcessedResources" : false,
+  "BaselineConfigurationsControls":{
+    "ResourceTypeControlIdMappingList":[
+    {
+      "ResourceType":"Organization",
+      "ControlIds":[
+        "ADO_Organization_AuthN_Use_AAD_Auth",
+        "ADO_Organization_AuthN_Disable_Guest_Users"
+      ]
+    
+    },
+    {
+      "ResourceType":"Project",
+      "ControlIds":[
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Builds",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Releases"
+      ]
+    }
+  ]     
+  }  
+  
 }

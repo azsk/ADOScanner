@@ -31,6 +31,7 @@ class SVTBase: AzSKRoot
 	[bool] $GenerateFixScript = $false;
 	[bool] $UndoFix = $false;
 	[bool] $ControlFixBackupRequired = $false;
+	[bool] $BaselineConfigurationRequired = $false;
 
 	[bool] $IncludeUserComments = $false;
 	[string] $PartialScanIdentifier = [string]::Empty
@@ -670,6 +671,9 @@ class SVTBase: AzSKRoot
 			}
 			if ($this.invocationContext.BoundParameters["PrepareForControlFix"]) { 
 				$this.ControlFixBackupRequired =$true
+			}
+			if($this.invocationContext.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations"){
+				$this.BaselineConfigurationRequired = $true;
 			}
 
             try

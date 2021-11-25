@@ -109,6 +109,12 @@ class SVTResourceResolver: AzSKRoot {
         $this.SetallTheParamValues($ResourceTypeName)
     }
 
+    SVTResourceResolver($OrganizationName, $ProjectNames, $ResourceTypeName, $PATToken): Base($OrganizationName, $PATToken){
+        $this.organizationName = $organizationName
+        $this.ProjectNames = $ProjectNames
+        $this.ResourceTypeName = $ResourceTypeName
+        $this.SetallTheParamValues($this.ProjectNames,$ResourceTypeName)
+    }
 
     [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceIds, $IncludeAdminControls,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan, $UseIncrementalScan, $IncrementalDate) {
 
@@ -237,6 +243,17 @@ class SVTResourceResolver: AzSKRoot {
         }
     }
 
+    [void] SetallTheParamValues($ProjectNames,$ResourceTypeName){
+        if ($ResourceTypeName -eq [ResourceTypeName]::Project){
+            if (-not [string]::IsNullOrEmpty($ProjectNames)) {
+                $this.ProjectNames += $this.ConvertToStringArray($ProjectNames);
+    
+                if ($this.ProjectNames.Count -eq 0) {
+                    throw [SuppressedException] "The parameter 'ProjectNames' does not contain any string."
+                }
+            }
+        }
+    }
 
     # Method called for Set-AzSKADOSecurityStatus, invoked from constructor 
 
@@ -366,6 +383,10 @@ class SVTResourceResolver: AzSKRoot {
         }
         if ($this.ResourceTypeName -in ([ResourceTypeName]::Organization, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User) -and ([string]::IsNullOrEmpty($this.serviceIds)) )
         {
+            if($PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations" -and $this.IsResourceEligibleForBaselineConfig([ResourceTypeName]::Organization,$this.organizationName) -eq $false){
+                $this.PublishCustomMessage("The organization seems to be an operationally working environment. Hence, stopping baseline configurations. If you think this is a new ADO organization or you still wish to configure baseline settings use the '-force' switch with the command. `n", [MessageType]::Warning);
+                return;
+            }
             #First condition if 'includeAdminControls' switch is passed or user is admin(PCA).
             #Second condition if explicitly -rtn flag passed to org or Org_Project_User
             #Third condition if 'gads' contains only admin scan parame, then no need to ask for includeAdminControls switch
@@ -427,6 +448,10 @@ class SVTResourceResolver: AzSKRoot {
                 $nProj = $this.MaxObjectsToScan;
                 if (!$projects) {
                     Write-Host 'No project found to perform the scan.' -ForegroundColor Red                    
+                }
+                if($projects -and $PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations" -and $this.ProjectNames -eq "*" -and $this.IsResourceEligibleForBaselineConfig([ResourceTypeName]::Project,$this.ProjectNames) -eq $false){
+                    $this.PublishCustomMessage("The organization seems to be an operationally working environment. Hence, stopping baseline configurations. If you think this is a new ADO organization or you still wish to configure baseline settings use the '-force' switch with the command. `n", [MessageType]::Warning);
+                    throw;
                 }
                 $TotalSvc = 0;
                 $ScannableSvc = 0;
@@ -490,6 +515,10 @@ class SVTResourceResolver: AzSKRoot {
 
                     if ($this.ResourceTypeName -in ([ResourceTypeName]::Project, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User)  -and ([string]::IsNullOrEmpty($this.serviceIds)))
                     {
+                        if($this.ProjectNames -ne "*" -and $PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations" -and $this.IsResourceEligibleForBaselineConfig([ResourceTypeName]::Project,$thisProj.name) -eq $false){
+                            $this.PublishCustomMessage("The project $($thisProj.name) seems to be an operationally working project. Hence, skipping baseline configurations for this project. If you think this is a new ADO project or you still wish to configure baseline settings use the '-force' switch with the command. `n", [MessageType]::Warning);
+                            continue;
+                        }
                         #First condition if 'includeAdminControls' switch is passed or user is PCA or User is PA.
                         #Second condition if explicitly -rtn flag passed to org or Org_Project_User
                         #Adding $this.isAdminControlScan() check in the end in case $this.isUserPCA is not checked (this happens when u scan using -svcid flag and org controls are not resolved/scanned)
@@ -1093,6 +1122,34 @@ class SVTResourceResolver: AzSKRoot {
             {
                 Write-Host ([Constants]::LongRunningScanStopMsg -f $this.longRunningScanCheckPoint) -ForegroundColor Yellow;
                 $this.SVTResources = $null
+                return $false;
+            }
+        }
+        return $true;
+    }
+
+    [bool] IsResourceEligibleForBaselineConfig($resourceType,$resourceName){
+        if($resourceType -eq [ResourceTypeName]::Organization -or $resourceType -eq [ResourceTypeName]::Org_Project_User -or($resourceType -eq [ResourceTypeName]::Project -and $resourceName -eq "*")){
+            $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=6.0' -f $($this.OrganizationContext.OrganizationName);
+            $responseObj = "";
+            try {
+                $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                $responseObj = $responseObj | Sort-Object -Property lastUpdateTime;
+                $oldestProject = $responseObj[0].name;
+                $buildURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $oldestProject;
+                $builds = @([WebRequestHelper]::InvokeGetWebRequest($buildURL));
+                if($builds.Count -gt 1){
+                    return $false;
+                }
+            }
+            catch{
+                
+            }
+        }
+        else{
+            $buildURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $resourceName;
+            $builds = @([WebRequestHelper]::InvokeGetWebRequest($buildURL));
+            if($builds.Count -gt 1){
                 return $false;
             }
         }
