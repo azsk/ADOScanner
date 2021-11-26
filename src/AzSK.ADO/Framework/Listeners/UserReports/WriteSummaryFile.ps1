@@ -192,6 +192,7 @@ class WriteSummaryFile: FileOutputBase
 			if ($item -and $item.ControlResults){
 				$control = [PSCustomObject]@{
 					'Control' = $item.ControlItem.ControlID
+					'ResourceName' = $item.ResourceContext.ResourceName
 				}
 				if($item.ControlResults[0].VerificationResult -eq "Fixed"){					
 					$fixedControls.Fixed+=$control

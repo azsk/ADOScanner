@@ -41,7 +41,7 @@ class SVTResourceResolver: AzSKRoot {
     [bool] $includeAdminControls = $false;
     [bool] $isUserPCA = $false;
     [bool] $skipOrgUserControls = $false
-
+    [bool] $baselineConfigurationForce = $false;
     [bool] $UseIncrementalScan = $false
     [DateTime] $IncrementalDate = 0
 
@@ -109,11 +109,11 @@ class SVTResourceResolver: AzSKRoot {
         $this.SetallTheParamValues($ResourceTypeName)
     }
 
-    SVTResourceResolver($OrganizationName, $ProjectNames, $ResourceTypeName, $PATToken): Base($OrganizationName, $PATToken){
+    SVTResourceResolver($OrganizationName, $ProjectNames, $ResourceTypeName, $PATToken, $Force): Base($OrganizationName, $PATToken){
         $this.organizationName = $organizationName
         $this.ProjectNames = $ProjectNames
         $this.ResourceTypeName = $ResourceTypeName
-        $this.SetallTheParamValues($this.ProjectNames,$ResourceTypeName)
+        $this.SetallTheParamValues($this.ProjectNames,$ResourceTypeName,$Force)
     }
 
     [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceIds, $IncludeAdminControls,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan, $UseIncrementalScan, $IncrementalDate) {
@@ -243,7 +243,8 @@ class SVTResourceResolver: AzSKRoot {
         }
     }
 
-    [void] SetallTheParamValues($ProjectNames,$ResourceTypeName){
+    [void] SetallTheParamValues($ProjectNames,$ResourceTypeName,$Force){
+        $this.baselineConfigurationForce = $Force
         if ($ResourceTypeName -eq [ResourceTypeName]::Project){
             if (-not [string]::IsNullOrEmpty($ProjectNames)) {
                 $this.ProjectNames += $this.ConvertToStringArray($ProjectNames);
@@ -1129,6 +1130,9 @@ class SVTResourceResolver: AzSKRoot {
     }
 
     [bool] IsResourceEligibleForBaselineConfig($resourceType,$resourceName){
+        if($this.baselineConfigurationForce){
+            return $true;
+        }
         if($resourceType -eq [ResourceTypeName]::Organization -or $resourceType -eq [ResourceTypeName]::Org_Project_User -or($resourceType -eq [ResourceTypeName]::Project -and $resourceName -eq "*")){
             $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=6.0' -f $($this.OrganizationContext.OrganizationName);
             $responseObj = "";

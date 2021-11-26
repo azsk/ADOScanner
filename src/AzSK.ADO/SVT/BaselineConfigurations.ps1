@@ -33,7 +33,12 @@ function Set-AzSKADOBaselineConfigurations {
 
         [ResourceTypeName]
 		[Alias("rtn")]
-		$ResourceTypeName = [ResourceTypeName]::All
+		$ResourceTypeName = [ResourceTypeName]::All,
+
+        [switch]
+        [Parameter()]
+        [Alias("f")]
+        $Force
 
 
 
@@ -91,7 +96,7 @@ function Set-AzSKADOBaselineConfigurations {
 				}
 			}
             
-            $resolver = [SVTResourceResolver]::new($OrganizationName, $ProjectName,$ResourceTypeName,$PATToken);
+            $resolver = [SVTResourceResolver]::new($OrganizationName, $ProjectName,$ResourceTypeName,$PATToken,$Force);
             $secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
             
             if ($secStatus)

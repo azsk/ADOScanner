@@ -72,6 +72,7 @@ class Constants
     static [string] $CompletedAnalysis = [Constants]::SingleDashLine + "`r`nCompleted analysis: [FeatureName: {0}] [ParentGroupName: {1}] [ResourceName: {2}] `r`n" + [Constants]::DoubleDashLine
     static [string] $CompletedAnalysisSub = [Constants]::SingleDashLine + "`r`nCompleted analysis: [FeatureName: {0}] [OrgName: {1}] [OrgId: {2}] `r`n" + [Constants]::DoubleDashLine
 	static [string] $PIMAPIUri="https://api.azrbac.mspim.azure.com/api/v2/privilegedAccess/azureResources/resources";
+	static [string] $BaselineConfigurationMsg = [Constants]::HashLine + "`r`nControl status evaluated to be failing. Attempting fix for resource {0} `r`n" + [Constants]::HashLine
 	#Constants for Attestation
 	static [string] $ModuleAttestStartHeading = [Constants]::DoubleDashLine +
     "`r`nInfo: Starting attestation [{3}/{4}]- [FeatureName: {0}] [ParentGroupName: {1}] [ResourceName: {2}] `r`n" + [Constants]::SingleDashLine
