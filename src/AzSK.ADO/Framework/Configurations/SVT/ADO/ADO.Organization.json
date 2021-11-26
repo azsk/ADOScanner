@@ -33,7 +33,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthN"
+        "AuthN",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -50,7 +51,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "DP"
+        "DP",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -344,7 +346,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "SI"
+        "SI",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -361,7 +364,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -378,7 +382,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -395,7 +400,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
