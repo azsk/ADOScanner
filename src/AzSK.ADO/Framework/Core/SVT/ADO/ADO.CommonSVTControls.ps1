@@ -1565,7 +1565,7 @@ class CommonSVTControls: ADOSVTBase {
 
             $inactiveLimit = $this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity;
 
-            if ($packagesList.Count -gt 1)
+            if ($packagesList.Count -gt 0 -and [Helpers]::CheckMember($packagesList[0],"id"))
             {
                 $packagesList = $packagesList |Sort-Object -Property @{Expression={$_.versions[0].publishDate}} -Descending
                 $latestPackage = $packagesList[0] | select-object name, @{l="publishedDate"; e = {([datetime] $_.versions[0].publishDate).ToString("d MMM yyyy")}}, @{l="version";e={$_.versions.version}}, protocolType
@@ -1587,20 +1587,25 @@ class CommonSVTControls: ADOSVTBase {
                     $user = "";
                     $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
                     $response = @(Invoke-RestMethod -Uri $packageUrl -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-                    $lastDownloadedPackage = $response.value | sort-object lastDownloaded -descending | Select-Object -first 1
-                    $lastDownloadedPackage = $lastDownloadedPackage | select-object @{l="Name";e={$packagesList | Where-Object {$_.id -eq $lastDownloadedPackage.packageId}| Select-Object name}}, downloadCount, @{l="lastDownloaded"; e={([datetime] $_.lastDownloaded).ToString("d MMM yyyy")}}
-                    $lastDownloadedDate = $lastDownloadedPackage.lastDownloaded
-
-                    if ((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days) -gt $inactiveLimit)
-                    {
-                        $controlResult.AddMessage([VerificationResult]::Failed,  "Feed was inactive from last $((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days)) days.");
+                    if(-not[Helpers]::CheckMember($response[0].value,"lastDownloaded")){
+                        $controlResult.AddMessage([VerificationResult]::Failed,  "Feed package has never been downloaded.");
                     }
-                    else
-                    {
-                        $controlResult.AddMessage([VerificationResult]::Passed,  "Feed package was last downloaded on $(([datetime] $lastDownloadedDate).ToString("d MMM yyyy")).");
-                    }
-                    $lastDownloadedPackage = ($lastDownloadedPackage | FT -AutoSize | Out-String -Width 512)
-                    $controlResult.AddMessage("`nLatest downloaded package in the feed: ", $lastDownloadedPackage);
+                    else{
+                        $lastDownloadedPackage = $response.value | sort-object lastDownloaded -descending | Select-Object -first 1
+                        $lastDownloadedPackage = $lastDownloadedPackage | select-object @{l="Name";e={$packagesList | Where-Object {$_.id -eq $lastDownloadedPackage.packageId}| Select-Object name}}, downloadCount, @{l="lastDownloaded"; e={([datetime] $_.lastDownloaded).ToString("d MMM yyyy")}}
+                        $lastDownloadedDate = $lastDownloadedPackage.lastDownloaded    
+                        if ((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days) -gt $inactiveLimit)
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Failed,  "Feed was inactive from last $((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days)) days.");
+                        }
+                        else
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Passed,  "Feed package was last downloaded on $(([datetime] $lastDownloadedDate).ToString("d MMM yyyy")).");
+                        }
+                        $lastDownloadedPackage = ($lastDownloadedPackage | FT -AutoSize | Out-String -Width 512)
+                        $controlResult.AddMessage("`nLatest downloaded package in the feed: ", $lastDownloadedPackage);
+                    }                   
+                    
                 }
                 else
                 {
@@ -1618,6 +1623,93 @@ class CommonSVTControls: ADOSVTBase {
         {
             $controlResult.AddMessage([VerificationResult]::Error,  "Could not fetch feed activity details.");
             $controlResult.LogException($_)
+        }
+        if($controlResult.VerificationResult -eq [VerificationResult]::Failed -and $this.ControlFixBackupRequired){
+            $controlResult.BackupControlState = [PSCustomObject]@{
+                "Feed" = $this.ResourceContext.ResourceDetails.Id
+            }
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckForInactiveFeedsAutomatedFix([ControlResult] $controlResult){
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            $scope = "Project"
+            if ("Project" -notin $this.ResourceContext.ResourceDetails.PSobject.Properties.name){
+                $scope = "Organization"
+            }
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+       
+            if(-not $this.UndoFix){
+                $this.PublishCustomMessage("Feeds deleted from automated fix will remain in 'soft state' for the next 30 days, during which you can restore them back. You cannot undo this operation after 30 days.", [MessageType]::Warning);
+                if($scope -eq "Organization"){
+                    $url = "https://feeds.dev.azure.com/{0}/_apis/packaging/feeds/{1}?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id
+                }
+                else{
+                    $url = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds/{2}?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.project.id, $this.ResourceContext.ResourceDetails.Id
+                }
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Feed has been deleted. It will remain in soft state for next 30 days after which it will be permanently deleted.");
+                Invoke-RestMethod -Uri $url -Method Delete -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
+            }
+            else{
+                if($scope -eq "Organization"){
+                    $url = "https://feeds.dev.azure.com/{0}/_apis/Packaging/FeedRecycleBin/{1}?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id
+                }
+                else{
+                    $url = "https://feeds.dev.azure.com/{0}/{1}/_apis/Packaging/FeedRecycleBin/{2}?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.project.id, $this.ResourceContext.ResourceDetails.Id
+                }
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Feed has been restored.");
+                $body = '[{"path":"/isDeleted","op":"replace","value":false}]'
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+                Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json-patch+json" -Headers $header -Body $body
+            }
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckForInactivePackages([ControlResult] $controlResult){
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $scope = "Project"
+            if ("Project" -notin $this.ResourceContext.ResourceDetails.PSobject.Properties.name){
+                $scope = "Organization"
+            }
+            if($scope -eq "Organization"){
+                $url = "https://feeds.dev.azure.com/{0}/_apis/Packaging/Feeds/{1}/RetentionPolicies?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id
+            }
+            else{
+                $url = "https://feeds.dev.azure.com/{0}/{1}/_apis/Packaging/Feeds/{2}/RetentionPolicies?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.project.id, $this.ResourceContext.ResourceDetails.Id
+            }
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+            $retentionPolicies = Invoke-RestMethod -Uri $url -Method Get -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
+            if($retentionPolicies -eq "null"){
+                $controlResult.AddMessage("Settings to delete older packages has not been enabled for the feed.")
+            }
+            else{
+                if($retentionPolicies.daysToKeepRecentlyDownloadedPackages -gt $this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity){
+                    $controlResult.AddMessage("Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is greater than the threshold days.")
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is less than the threshold days.")
+                }
+                $controlResult.AddMessage("`n Current number of days to keep recently downloaded packages is $($retentionPolicies.daysToKeepRecentlyDownloadedPackages).")
+            }
+
+
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not retrieve feed settings.");
         }
         return $controlResult
     }
