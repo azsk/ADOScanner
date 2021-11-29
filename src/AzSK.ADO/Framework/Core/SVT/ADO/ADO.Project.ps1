@@ -3105,11 +3105,15 @@ class Project: ADOSVTBase
                             $formattedBroaderGrpTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                             $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                             $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
-                            if ($this.ControlFixBackupRequired)
-                            {
-                                #Data object that will be required to fix the control
+                            if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                                {
+                                    #Data object that will be required to fix the control                                    
+                                    $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                                }
+                            if($this.BaselineConfigurationRequired){
+                                $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                                $this.CheckBroaderGroupInheritanceSettingsForReleaseAutomatedFix($controlResult);
                                 
-                                $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
                             }
                             
                             $groups = $groupsWithExcessivePermissionsList | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions -join ',' } 
@@ -3144,8 +3148,12 @@ class Project: ADOSVTBase
     {
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            
             if (-not $this.UndoFix)
             {
                 foreach ($identity in $RawDataObjForControlFix) 
@@ -3259,9 +3267,15 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage("`nList of groups: ", $formattedGroupsTable)
                         $controlResult.SetStateData("List of groups: ", $formattedGroupsData)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to service connection at a project level:  $($restrictedGroupsCount)";
-                        if ($this.ControlFixBackupRequired) {
-                            #Data object that will be required to fix the control
+                        if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                        {
+                            #Data object that will be required to fix the control                                    
                             $controlResult.BackupControlState = $formattedGroupsDataForAutoFix;
+                        }
+                        if($this.BaselineConfigurationRequired){
+                            $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                            $this.CheckBroaderGroupInheritanceSettingsForSvcConnAutomatedFix($controlResult);
+                            
                         }
                         $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role } 
                         $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
@@ -3290,8 +3304,12 @@ class Project: ADOSVTBase
     {
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            $body = "["
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            $body = "["
             if (-not $this.UndoFix)
             {
                 foreach ($identity in $RawDataObjForControlFix) 
@@ -3383,10 +3401,15 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage("`nList of groups: $formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool at a project level: $($restrictedGroupsCount)";
-                        if ($this.ControlFixBackupRequired)
+                        if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                         {
-                            #Data object that will be required to fix the control
+                            #Data object that will be required to fix the control                                    
                             $controlResult.BackupControlState = $restrictedGroups;
+                        }
+                        if($this.BaselineConfigurationRequired){
+                            $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                            $this.CheckBroaderGroupInheritanceSettingsForAgentpoolAutomatedFix($controlResult);
+                            
                         }
                         $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.role } 
                         $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
@@ -3417,7 +3440,12 @@ class Project: ADOSVTBase
     {
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
 
             $body = "["
 
@@ -3512,10 +3540,15 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
-                    if ($this.ControlFixBackupRequired)
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                     {
-                        #Data object that will be required to fix the control
+                        #Data object that will be required to fix the control                                    
                         $controlResult.BackupControlState = $restrictedGroups;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckBroaderGroupInheritanceSettingsForVarGrpAutomatedFix($controlResult);
+                        
                     }
                     $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role } 
                     $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
@@ -3542,7 +3575,12 @@ class Project: ADOSVTBase
 
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
 
             $body = "["
 
@@ -3633,10 +3671,15 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to secure file at a project level: $($restrictedGroupsCount)";
-                    if ($this.ControlFixBackupRequired)
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                     {
-                        #Data object that will be required to fix the control
+                        #Data object that will be required to fix the control                                    
                         $controlResult.BackupControlState = $restrictedGroups;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckBroaderGroupInheritanceSettingsForSecureFileAutomatedFix($controlResult);
+                        
                     }
                 }
                 else {
@@ -3660,7 +3703,12 @@ class Project: ADOSVTBase
 
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
 
             $body = "["
 
@@ -3789,10 +3837,15 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage("Validate that the following broader groups that have excessive permissions to repositories: `n", $($accessList | FT -AutoSize | Out-String -Width 512));
                         $controlResult.SetStateData("List of broader groups having access to repositories: ", $accessList);
                         $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions to repository at a project level: $($groupsWithExcessivePermissionsList.Count)";
-                        if ($this.ControlFixBackupRequired)
+                        if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                         {
-                            #Data object that will be required to fix the control
+                            #Data object that will be required to fix the control                                    
                             $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                        }
+                        if($this.BaselineConfigurationRequired){
+                            $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                            $this.CheckBroaderGroupInheritanceSettingsForRepoAutomatedFix($controlResult);
+                            
                         }
                         $groups = $groupsWithExcessivePermissionsList | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions -join ',' } 
                         $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
@@ -3828,7 +3881,12 @@ class Project: ADOSVTBase
     {
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             
             if (-not $this.UndoFix)
             {
