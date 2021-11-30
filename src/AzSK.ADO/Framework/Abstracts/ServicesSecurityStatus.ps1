@@ -51,6 +51,7 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		}
 		[PartialScanManager]::ClearInstance();
 		$this.BaselineFilterCheck();
+		#get all controls covered under Set-AzSKADOBaselineConfigurations
 		if($invocationContext.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations"){
 			$this.BaselineConfigurationsCheck()
 		}		
@@ -607,27 +608,22 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 	}
 
 	[void] BaselineConfigurationsCheck(){
-		$ResourcesWithBaselineFilter =@()
-			#Load ControlSetting file
+		$ResourcesWithBaselineConfigFilter =@()
 		$ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
-		$baselineControlsDetails = $ControlSettings.BaselineConfigurationsControls;
-		$baselineResourceTypes = $baselineControlsDetails.ResourceTypeControlIdMappingList | Select-Object ResourceType | Foreach-Object {$_.ResourceType}
-				#Filter SVT resources based on baseline resource types
-				$ResourcesWithBaselineFilter += $this.Resolver.SVTResources | Where-Object {$null -ne $_.ResourceTypeMapping -and   $_.ResourceTypeMapping.ResourceTypeName -in $baselineResourceTypes }
+		$baselineConfigControlsDetails = $ControlSettings.BaselineConfigurationsControls;
+		$baselineResourceTypes = $baselineConfigControlsDetails.ResourceTypeControlIdMappingList | Select-Object ResourceType | Foreach-Object {$_.ResourceType}
 				
-				#Get the list of control ids
-				$controlIds = $baselineControlsDetails.ResourceTypeControlIdMappingList | Select-Object ControlIds | ForEach-Object {  $_.ControlIds }
-				$BaselineControlIds = [system.String]::Join(",",$controlIds);
-				if(-not [system.String]::IsNullOrEmpty($BaselineControlIds))
-				{
-					#Assign preview control list to ControlIds filter parameter. This controls gets filtered during scan.
-					$this.ControlIds = $controlIds;
-
-				}
-		#Assign baseline filtered resources to SVTResources list (resource list to be scanned)
-		if(($ResourcesWithBaselineFilter | Measure-Object).Count -gt 0)
+		$ResourcesWithBaselineConfigFilter += $this.Resolver.SVTResources | Where-Object {$null -ne $_.ResourceTypeMapping -and   $_.ResourceTypeMapping.ResourceTypeName -in $baselineResourceTypes }
+		$controlIds = $baselineConfigControlsDetails.ResourceTypeControlIdMappingList | Select-Object ControlIds | ForEach-Object {  $_.ControlIds }
+		$BaselineControlIds = [system.String]::Join(",",$controlIds);
+		if(-not [system.String]::IsNullOrEmpty($BaselineControlIds))
 		{
-			$this.Resolver.SVTResources = [SVTResource[]] $ResourcesWithBaselineFilter
+			$this.ControlIds = $controlIds;
+
+		}
+		if(($ResourcesWithBaselineConfigFilter | Measure-Object).Count -gt 0)
+		{
+			$this.Resolver.SVTResources = [SVTResource[]] $ResourcesWithBaselineConfigFilter
 		}
 	}
 

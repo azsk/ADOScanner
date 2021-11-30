@@ -109,6 +109,7 @@ class SVTResourceResolver: AzSKRoot {
         $this.SetallTheParamValues($ResourceTypeName)
     }
 
+    #Constructor for Set-AzSKADOBaselineConfigurations
     SVTResourceResolver($OrganizationName, $ProjectNames, $ResourceTypeName, $PATToken, $Force): Base($OrganizationName, $PATToken){
         $this.organizationName = $organizationName
         $this.ProjectNames = $ProjectNames
@@ -243,9 +244,10 @@ class SVTResourceResolver: AzSKRoot {
         }
     }
 
+    #Called for Set-AzSKADOBaselineConfigurations
     [void] SetallTheParamValues($ProjectNames,$ResourceTypeName,$Force){
         $this.baselineConfigurationForce = $Force
-        if ($ResourceTypeName -eq [ResourceTypeName]::Project){
+        if ($ResourceTypeName -eq [ResourceTypeName]::Project -or $ResourceTypeName -eq [ResourceTypeName]::All){
             if (-not [string]::IsNullOrEmpty($ProjectNames)) {
                 $this.ProjectNames += $this.ConvertToStringArray($ProjectNames);
     
@@ -399,8 +401,13 @@ class SVTResourceResolver: AzSKRoot {
                     $this.AddSVTResource($this.organizationName, $null ,"ADO.Organization", "organization/$($organizationId)", $null, $link);
                 }
                 elseif ( ($this.ResourceTypeName -in ([ResourceTypeName]::Organization, [ResourceTypeName]::Org_Project_User)) -or ( $this.BuildNames.Count -eq 0 -and $this.ReleaseNames.Count -eq 0 -and $this.ServiceConnections.Count -eq 0 -and $this.AgentPools.Count -eq 0 -and $this.VariableGroups.Count -eq 0) ) {
-                    $this.PublishCustomMessage("You have requested scan for organization controls. However, you do not have admin permission. Use '-IncludeAdminControls' if you'd still like to scan them. (Some controls may not scan correctly due to access issues.)", [MessageType]::Info);
-                    $this.PublishCustomMessage("`r`n");
+                    if($PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations"){
+                        $this.PublishCustomMessage("You have requested baseline configurations for organization controls. However, you do not have admin permissions. Hence, stopping baseline configurations for organization controls.", [MessageType]::Warning);
+                    }
+                    else{
+                        $this.PublishCustomMessage("You have requested scan for organization controls. However, you do not have admin permission. Use '-IncludeAdminControls' if you'd still like to scan them. (Some controls may not scan correctly due to access issues.)", [MessageType]::Info);
+                        $this.PublishCustomMessage("`r`n");
+                    }                    
                 }
             }
         }
@@ -530,8 +537,13 @@ class SVTResourceResolver: AzSKRoot {
                         }
                         #Third condition if 'gads' contains only admin scan parame, then no need to ask for includeAdminControls switch
                         elseif ( ($this.ResourceTypeName -in ([ResourceTypeName]::Project, [ResourceTypeName]::Org_Project_User)) -or ( $this.BuildNames.Count -eq 0 -and $this.ReleaseNames.Count -eq 0 -and $this.ServiceConnections.Count -eq 0 -and $this.AgentPools.Count -eq 0 -and $this.VariableGroups.Count -eq 0) ) {
-                            $this.PublishCustomMessage("`r`n");
-                            $this.PublishCustomMessage("You have requested scan for project controls. However, you do not have admin permission. Use '-IncludeAdminControls' if you'd still like to scan them. (Some controls may not scan correctly due to access issues.)", [MessageType]::Info);
+                            if($PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations"){
+                                $this.PublishCustomMessage("You have requested baseline configurations for project controls. However, you do not have admin permissions. Hence, stopping baseline configurations.", [MessageType]::Warning);
+                            }
+                            else{
+                                $this.PublishCustomMessage("`r`n");
+                                $this.PublishCustomMessage("You have requested scan for project controls. However, you do not have admin permission. Use '-IncludeAdminControls' if you'd still like to scan them. (Some controls may not scan correctly due to access issues.)", [MessageType]::Info);
+                            }                            
                         }
                     }
                     #check if long running scan allowed or not.
@@ -1129,6 +1141,7 @@ class SVTResourceResolver: AzSKRoot {
         return $true;
     }
 
+    #method for Set-AzSKADOBaselineConfigurations to check if org/proj are old 
     [bool] IsResourceEligibleForBaselineConfig($resourceType,$resourceName){
         if($this.baselineConfigurationForce){
             return $true;
