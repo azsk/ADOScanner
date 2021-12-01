@@ -11,12 +11,18 @@ class AzSKADOServiceMapping: CommandBase
     [string] $RepositoryMappingsFilePath
     [string] $MappingType
     [string] $OutputFolderPath
+    [string] $Auto = $false
+    [string] $StorageAccount;
+    [string] $StorageRG;
+    [object] $StorageAccountCtx;
+    [string] $SharedKey
+    [object] $hmacsha
     $BuildSTDetails = @();
     $ReleaseSTDetails =@();
     $RepositorySTDetails =@();
 
 
-	AzSKADOServiceMapping([string] $organizationName, [string] $projectName, [string] $buildFileLocation, [string] $releaseFileLocation, [string] $repositoryFileLocation,[string] $mappingType, [InvocationInfo] $invocationContext): 
+	AzSKADOServiceMapping([string] $organizationName, [string] $projectName, [string] $buildFileLocation, [string] $releaseFileLocation, [string] $repositoryFileLocation,[string] $mappingType,[string] $auto,[InvocationInfo] $invocationContext): 
         Base($organizationName, $invocationContext) 
     { 
         $this.OrgName = $organizationName
@@ -25,6 +31,20 @@ class AzSKADOServiceMapping: CommandBase
         $this.ReleaseMappingsFilePath = $releaseFileLocation
         $this.RepositoryMappingsFilePath = $repositoryFileLocation
         $this.MappingType = $MappingType
+        $this.Auto = $auto
+
+        $this.StorageAccount = $env:StorageName;
+        $this.StorageRG = $env:StorageRG;
+        #get storage details
+        if ($this.StorageRG -and $this.StorageAccount) {
+            $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
+            $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https
+            $this.SharedKey = $keys[0].Value;
+            $this.StorageAccountCtx = $StorageContext.Context;
+
+            $this.hmacsha = New-Object System.Security.Cryptography.HMACSHA256
+            $this.hmacsha.key = [Convert]::FromBase64String($this.SharedKey)
+        }
 	}
 	
 	[MessageData[]] GetSTmapping()
@@ -65,25 +85,28 @@ class AzSKADOServiceMapping: CommandBase
 		return $returnMsgs
     }
     
-    hidden  GetBuildReleaseMapping() {  
-        $this.BuildSTDetails = Get-content $this.BuildMappingsFilePath | ConvertFrom-Json
-        if ([Helpers]::CheckMember($this.BuildSTDetails, "data") -and ($this.BuildSTDetails.data | Measure-Object).Count -gt 0)
-        {
-            $this.BuildSTDetails.data = $this.BuildSTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}
-            #$this.ProjectId = "3cf66fdf-da98-4143-8ba1-7f2e141d3700"
+    hidden  GetBuildReleaseMapping()
+    {  
+        if($this.Auto -eq 'true'){
+            $response = Get-AzStorageBlob -Blob 'buildDefinitions.json' -Container 'adofiles' -Context $this.StorageAccountCtx 
+            $this.BuildSTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
+        }
+        else {
+            $this.BuildSTDetails = Get-content $this.BuildMappingsFilePath | ConvertFrom-Json    
+        }        
+        if ([Helpers]::CheckMember($this.BuildSTDetails, "data") -and ($this.BuildSTDetails.data | Measure-Object).Count -gt 0){
+            $this.BuildSTDetails.data = $this.BuildSTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}            
             if (($this.BuildSTDetails.data | Measure-Object).Count -gt 0)
-            {
-                #$this.ProjectId = "3cf66fdf-da98-4143-8ba1-7f2e141d3700"
+            {                
                 $this.BuildSTDetails.data[0].projectId
             }
-        }       
-        $countAgentPoolFix = 0;
+        }   
+
         # Get Build-Repo mappings
         try {            
             $buildObjectListURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +'&$top=10000') -f $($this.orgName), $this.projectName;       
             $buildObjectList = $this.GetBuildReleaseObjects($buildObjectListURL,'Build');
-            $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}
-            #$buildObjectList = $buildObjectList |Where-Object { ($_.id -eq 23255)};
+            $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}        
             $counter =0            
             foreach ($build in $buildObjectList) {               
                 try {                
@@ -98,7 +121,7 @@ class AzSKADOServiceMapping: CommandBase
                     else {
 
                         $unmappedAgentPool = $true;
-                        $agtPoolId = $buildDefnObj.queue.id                        
+                        $agtPoolId = $buildDefnObj.queue.id
                         $agentPoolsURL = "https://{0}.visualstudio.com/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $this.orgName, $this.ProjectName, $agtPoolId
                         $agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
         
@@ -147,11 +170,16 @@ class AzSKADOServiceMapping: CommandBase
         }
         catch {           
         } 
-        $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
+        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'BuildSTData.json');
         
-        $this.PublishCustomMessage($countAgentPoolFix, [MessageType]::Info)
-
-        $this.ReleaseSTDetails = Get-content $this.ReleaseMappingsFilePath | ConvertFrom-Json 
+        if($this.Auto -eq 'true'){
+            $response = Get-AzStorageBlob -Blob 'releaseDefinitions.json' -Container 'adofiles' -Context $this.StorageAccountCtx 
+            $this.ReleaseSTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
+        }
+        else {
+            $this.ReleaseSTDetails = Get-content $this.ReleaseMappingsFilePath | ConvertFrom-Json     
+        }        
+               
         if ([Helpers]::CheckMember($this.ReleaseSTDetails, "data") -and ($this.ReleaseSTDetails.data | Measure-Object).Count -gt 0)
         {
             $this.ReleaseSTDetails.data = $this.ReleaseSTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}
@@ -162,15 +190,16 @@ class AzSKADOServiceMapping: CommandBase
         }       
 
         # Get Release-Repo mappings
-        <#try {                         
+        try {                         
             $releaseObjectListURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.orgName), $this.projectName;    
             $releaseObjectList = $this.GetBuildReleaseObjects($ReleaseObjectListURL,'Release');
             $releaseObjectList = $releaseObjectList | Where-Object {$_.id -notin $this.ReleaseSTDetails.data.releaseDefinitionID}
+            $releaseObjectList =$releaseObjectList | Where-Object id -eq 1402
             $counter =0
             foreach ($release in $releaseObjectList) {  
                 try { 
                     $counter++
-                    Write-Progress -Activity 'Release mappings...' -CurrentOperation $release.name -PercentComplete (($counter / $releaseObjectList.count) * 100)                                                     
+                    #Write-Progress -Activity 'Release mappings...' -CurrentOperation $release.name -PercentComplete (($counter / $releaseObjectList.count) * 100)                                                     
                     $releaseDefnObj = [WebRequestHelper]::InvokeGetWebRequest($release.url);                      
                         if($releaseDefnObj[0].artifacts)
                         {
@@ -202,10 +231,17 @@ class AzSKADOServiceMapping: CommandBase
            
         }
 
-        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');#>
+        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
     }
 
     hidden GetRepositoryMapping() {  
+        if($this.Auto -eq 'true'){
+            $response = Get-AzStorageBlob -Blob 'repoDefinitions.json' -Container 'adofiles' -Context $this.StorageAccountCtx 
+            $this.RepositorySTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
+        }
+        else {
+            $this.RepositorySTDetails = Get-content $this.RepositoryMappingsFilePath | ConvertFrom-Json     
+        } 
         $this.RepositorySTDetails = Get-content $this.RepositoryMappingsFilePath | ConvertFrom-Json
         if ([Helpers]::CheckMember($this.RepositorySTDetails, "data") -and ($this.RepositorySTDetails.data | Measure-Object).Count -gt 0)
         {
@@ -904,7 +940,8 @@ class AzSKADOServiceMapping: CommandBase
                         if ($feedPackages.count -gt 0) {
 
                             $feedPackages = $feedPackages | Select-Object -First 10;
-                            foreach ($package in $feedPackages){
+                            foreach ($package in $feedPackages)
+                            {
                             $provenanceURL = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/Packages/{3}/Versions/{4}/provenance?api-version=6.0-preview.1" -f $this.OrgName, $this.ProjectName, $feed.id, $package.id, $package.versions[0].id;
                             $provenanceObj = @([WebRequestHelper]::InvokeGetWebRequest($provenanceURL)); 
 

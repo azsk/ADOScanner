@@ -64,7 +64,12 @@ function Get-AzSKADOServiceMapping
         [string]
         [Parameter(Mandatory=$false, HelpMessage="KeyVault URL for PATToken")]
         [Alias("ptu")]
-        $PATTokenURL
+        $PATTokenURL,
+
+        [string]
+        [Parameter(Mandatory=$false, HelpMessage="Flag to Run on Azure")]
+        [Alias("at")]
+        $Auto
     )
     Begin
     {
@@ -133,7 +138,7 @@ function Get-AzSKADOServiceMapping
             }
 
             $resolver = [Resolver]::new($OrganizationName, $PATToken)
-            $mapping = [AzSKADOServiceMapping]::new($OrganizationName, $ProjectName, $BuildMappingsFilePath, $ReleaseMappingsFilePath, $ReposMappingsFilePath, $MappingType, $PSCmdlet.MyInvocation);
+            $mapping = [AzSKADOServiceMapping]::new($OrganizationName, $ProjectName, $BuildMappingsFilePath, $ReleaseMappingsFilePath, $ReposMappingsFilePath, $MappingType,$Auto, $PSCmdlet.MyInvocation);
 
             return $mapping.InvokeFunction($mapping.GetSTmapping);
         }
