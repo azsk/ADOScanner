@@ -8,11 +8,27 @@ class CommonSVTResourceResolver {
     [string] $organizationId
     [string] $projectId
     [psobject] $feedDefnsObj = $null
+    [bool] $UseIncrementalScan = $false
+    [DateTime] $IncrementalDate = 0
+    [PSObject] $organizationContext
 
-    CommonSVTResourceResolver($organizationName, $organizationId, $projectId) {
+    CommonSVTResourceResolver($organizationName, $organizationId, $projectId, $organizationContext) {
         $this.organizationName = $organizationName;
         $this.organizationId = $organizationId;
         $this.projectId = $projectId;
+        $this.organizationContext = $organizationContext
+        if($PSCmdlet.MyInvocation.BoundParameters["IncrementalScan"]){
+            $this.UseIncrementalScan = $true
+            if (-not [string]::IsNullOrWhiteSpace($PSCmdlet.MyInvocation.BoundParameters["IncrementalDate"])) 
+                {
+                    $this.IncrementalDate = $PSCmdlet.MyInvocation.BoundParameters["IncrementalDate"]  
+                }
+                else 
+                {
+                    $this.IncrementalDate = [datetime] 0    
+                }
+            
+        }
     }
 
     [SVTResource[]] LoadResourcesForScan($projectName, $repoNames, $secureFileNames, $feedNames, $environmentNames, $ResourceTypeName, $MaxObjectsToScan, $isServiceIdBasedScan) {
@@ -128,6 +144,14 @@ class CommonSVTResourceResolver {
             if ($repoNames -ne "*") {
                 $repoDefnsObj = $repoDefnsObj | Where-Object { $repoNames -contains $_.name }
             }
+            else{
+                if($this.UseIncrementalScan){                                    
+                    $timestamp = (Get-Date)
+                    $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.organizationName, $projectName, $this.IncrementalDate, $true, $timestamp)
+                    $incrementalScanHelperObj.SetContext($this.projectId, $this.organizationContext)
+                    $repoDefnsObj = $incrementalScanHelperObj.GetModifiedCommonSvtFromAudit("GitRepositories",$repoDefnsObj)
+                }
+            }
 
             return $repoDefnsObj;
         }
@@ -155,6 +179,14 @@ class CommonSVTResourceResolver {
             if ($feedNames -ne "*") {
                 $feedsList = $feedsList | Where-Object { $feedNames -contains $_.name }
             }
+            else{
+                if($this.UseIncrementalScan){                                    
+                    $timestamp = (Get-Date)
+                    $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.organizationName, $projectName, $this.IncrementalDate, $true, $timestamp)
+                    $incrementalScanHelperObj.SetContext($this.projectId, $this.organizationContext)
+                    $feedsList = $incrementalScanHelperObj.GetModifiedCommonSvtFromAudit("Feed",$feedsList)
+                }
+            }
             return $feedsList
         }
         catch {
@@ -169,6 +201,14 @@ class CommonSVTResourceResolver {
             $secureFileDefnObj = [WebRequestHelper]::InvokeGetWebRequest($secureFileDefnURL);
             if ($secureFileNames -ne "*") {
                 $secureFileDefnObj = $secureFileDefnObj | Where-Object { $secureFileNames -contains $_.name }
+            }
+            else{
+                if($this.UseIncrementalScan){                                    
+                    $timestamp = (Get-Date)
+                    $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.organizationName, $projectName, $this.IncrementalDate, $true, $timestamp)
+                    $incrementalScanHelperObj.SetContext($this.projectId, $this.organizationContext)
+                    $secureFileDefnObj = $incrementalScanHelperObj.GetModifiedCommonSvtFromAudit("SecureFile",$secureFileDefnObj)
+                }
             }
             return $secureFileDefnObj;
         }
@@ -192,6 +232,14 @@ class CommonSVTResourceResolver {
 
             if ($environmentNames -ne "*") {
                 $environmentDefnsObj = $environmentDefnsObj | Where-Object { $environmentNames -contains $_.name }
+            }
+            else{
+                if($this.UseIncrementalScan){                                    
+                    $timestamp = (Get-Date)
+                    $incrementalScanHelperObj = [IncrementalScanHelper]::new($this.organizationName, $projectName, $this.IncrementalDate, $true, $timestamp)
+                    $incrementalScanHelperObj.SetContext($this.projectId, $this.organizationContext)
+                    $environmentDefnsObj = $incrementalScanHelperObj.GetModifiedCommonSvtFromAudit("Environment",$environmentDefnsObj)
+                }
             }
 
             return $environmentDefnsObj;

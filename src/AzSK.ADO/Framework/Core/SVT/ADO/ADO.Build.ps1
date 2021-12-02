@@ -20,6 +20,7 @@ class Build: ADOSVTBase
     hidden [string] $BackupFilePath;
     hidden static [bool] $IsPathValidated = $false;
     hidden static $TaskGroupSecurityNamespace = $null
+    hidden static $broadlyEditableVG = @{}
 
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
@@ -150,9 +151,9 @@ class Build: ADOSVTBase
         if([Build]::SecretsScanToolEnabled -eq $true)
         {
             $ToolFolderPath =  [ConfigurationManager]::GetAzSKSettings().SecretsScanToolFolder
-        $SecretsScanToolName = [ConfigurationManager]::GetAzSKSettings().SecretsScanToolName
-        if((-not [string]::IsNullOrEmpty($ToolFolderPath)) -and (Test-Path $ToolFolderPath) -and (-not [string]::IsNullOrEmpty($SecretsScanToolName)))
-        {
+            $SecretsScanToolName = [ConfigurationManager]::GetAzSKSettings().SecretsScanToolName
+            if((-not [string]::IsNullOrEmpty($ToolFolderPath)) -and (Test-Path $ToolFolderPath) -and (-not [string]::IsNullOrEmpty($SecretsScanToolName)))
+            {
             $ToolPath = Get-ChildItem -Path $ToolFolderPath -File -Filter $SecretsScanToolName -Recurse
             if($ToolPath)
             {
@@ -199,7 +200,7 @@ class Build: ADOSVTBase
                     }
                 }
             }
-         }
+             }
         }
         else {
           try {
@@ -831,45 +832,38 @@ class Build: ADOSVTBase
         {
             if ([Helpers]::CheckMember($this.BuildObj[0], "variables"))
             {
-                if ([Helpers]::CheckMember($this.ControlSettings, "Patterns"))
+                $settableURLVars = @();
+                if($null -eq [Build]::RegexForURL)
                 {
-                    $settableURLVars = @();
-                    if($null -eq [Build]::RegexForURL)
+                    $this.FetchRegexForURL()
+                }
+                $regexForURLs = [Build]::RegexForURL;
+                $allVars = Get-Member -InputObject $this.BuildObj[0].variables -MemberType Properties
+
+                $allVars | ForEach-Object {
+                    if ([Helpers]::CheckMember($this.BuildObj[0].variables.$($_.Name), "allowOverride") )
                     {
-                        $this.FetchRegexForURL()
-                    }
-                    $regexForURLs = [Build]::RegexForURL;
-                    $allVars = Get-Member -InputObject $this.BuildObj[0].variables -MemberType Properties
-                     
-                    $allVars | ForEach-Object {
-                        if ([Helpers]::CheckMember($this.BuildObj[0].variables.$($_.Name), "allowOverride") )
-                        {
-                            $varName = $_.Name;
-                            $varValue = $this.BuildObj[0].variables.$($varName).value;
-                            for ($i = 0; $i -lt $regexForURLs.RegexList.Count; $i++) {
-                                if ($varValue -match $regexForURLs.RegexList[$i]) {
-                                    $settableURLVars += @( [PSCustomObject] @{ Name = $varName; Value = $varValue } )
-                                    break
-                                }
+                        $varName = $_.Name;
+                        $varValue = $this.BuildObj[0].variables.$($varName).value;
+                        for ($i = 0; $i -lt $regexForURLs.RegexList.Count; $i++) {
+                            if ($varValue -match $regexForURLs.RegexList[$i]) {
+                                $settableURLVars += @( [PSCustomObject] @{ Name = $varName; Value = $varValue } )
+                                break
                             }
                         }
                     }
-                    $varCount = $settableURLVars.Count
-                    if ($varCount -gt 0)
-                    {
-                        $controlResult.AddMessage("Count of variables that are settable at queue time and contain URL value: $($varCount)");
-                        $controlResult.AddMessage([VerificationResult]::Verify, "List of variables settable at queue time and containing URL value: `n", $($settableURLVars | FT | Out-String));
-                        $controlResult.AdditionalInfo += "Count of variables that are settable at queue time and contain URL value: " + $varCount;
-                        $controlResult.SetStateData("List of variables settable at queue time and containing URL value: ", $settableURLVars);
-                    }
-                    else {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No variables were found in the build pipeline that are settable at queue time and contain URL value.");
-                    }
                 }
-                else
+                $varCount = $settableURLVars.Count
+                if ($varCount -gt 0)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting URLs in pipeline variables are not defined in control settings for your organization.");
+                    $controlResult.AddMessage("Count of variables that are settable at queue time and contain URL value: $($varCount)");
+                    $controlResult.AddMessage([VerificationResult]::Verify, "List of variables settable at queue time and containing URL value: `n", $($settableURLVars | FT | Out-String));
+                    $controlResult.AdditionalInfo += "Count of variables that are settable at queue time and contain URL value: " + $varCount;
+                    $controlResult.SetStateData("List of variables settable at queue time and containing URL value: ", $settableURLVars);
                 }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No variables were found in the build pipeline that are settable at queue time and contain URL value.");
+                }        
             }
             else
             {
@@ -1343,40 +1337,56 @@ class Build: ADOSVTBase
                 {
                     if([Helpers]::CheckMember($currentVarGrp,"name"))  ## Deleted VGs do not contain "name" property thats why ignoring them
                     {
-                        try {
-                            $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($projectId), $($currentVarGrp.Id);
-                            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                            if($responseObj.Count -gt 0)
-                            {                        
-                                if([Build]::isInheritedPermissionCheckEnabled)
-                                {
-                                    $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
-                                }
-                                else {
-                                    $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access -eq "assigned")})                        
+                        if ([Build]::broadlyEditableVG.keys -notcontains $currentVarGrp.name)
+                        {
+                            try {
+                                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($projectId), $($currentVarGrp.Id);
+                                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                                if($responseObj.Count -gt 0)
+                                {                        
+                                    if([Build]::isInheritedPermissionCheckEnabled)
+                                    {
+                                        $contributorsObj = @($responseObj | Where-Object {$_.identity.uniqueName -match "\\Contributors$"})    # Filter both inherited and assigned                     
+                                    }
+                                    else {
+                                        $contributorsObj = @($responseObj | Where-Object {($_.identity.uniqueName -match "\\Contributors$") -and ($_.access -eq "assigned")})                        
+                                    }
+        
+                                    if($contributorsObj.Count -gt 0)
+                                    {   
+                                        foreach($obj in $contributorsObj){
+                                            if($obj.role.name -ne 'Reader')
+                                            {
+                                                $failedCount = $failedCount +1
+                                                $editableVarGrps += $currentVarGrp.name
+                                                
+                                                $formattedVarGroupsData = $obj | Select @{l = 'displayName'; e = { $_.identity.displayName } }, @{l = 'userid'; e = { $_.identity.id } }, @{l = 'role'; e = { $_.role.name } }, @{l = 'vargrpid'; e = { $currentVarGrp.id } } , @{l = 'vargrpname'; e = { $currentVarGrp.name } }                                     
+                                            
+                                                if ($this.ControlFixBackupRequired) {
+                                                    #Data object that will be required to fix the control                                            
+                                                    $controlResult.BackupControlState += $formattedVarGroupsData;
+                                                }                                             
+                                            }
+                                        }                            
+                                    }
                                 }
     
-                                if($contributorsObj.Count -gt 0)
-                                {   
-                                    foreach($obj in $contributorsObj){
-                                        if($obj.role.name -ne 'Reader')
-                                        {
-                                            $failedCount = $failedCount +1
-                                            $editableVarGrps += $currentVarGrp.name
-					                        
-                                            $formattedVarGroupsData = $obj | Select @{l = 'displayName'; e = { $_.identity.displayName } }, @{l = 'userid'; e = { $_.identity.id } }, @{l = 'role'; e = { $_.role.name } }, @{l = 'vargrpid'; e = { $currentVarGrp.id } } , @{l = 'vargrpname'; e = { $currentVarGrp.name } }                                     
-                                        
-	                                        if ($this.ControlFixBackupRequired) {
-	                                            #Data object that will be required to fix the control                                            
-	                                            $controlResult.BackupControlState += $formattedVarGroupsData;
-	                                        }                                             
-                                        }
-                                    }                            
+                                if ($currentVarGrp.name -in $editableVarGrps) {
+                                    [Build]::broadlyEditableVG[$currentVarGrp.name] = $true
+                                }
+                                else {
+                                    [Build]::broadlyEditableVG[$currentVarGrp.name] = $false
                                 }
                             }
+                            catch {
+                                $erroredCount = $erroredCount+1
+                            }
                         }
-                        catch {
-                            $erroredCount = $erroredCount+1
+                        else
+                        {
+                            if ([Build]::broadlyEditableVG[$currentVarGrp.name]) {
+                                $editableVarGrps += $currentVarGrp.name
+                            }
                         }
                     }
                     

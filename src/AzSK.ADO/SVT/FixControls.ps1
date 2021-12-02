@@ -74,7 +74,13 @@ function Set-AzSKADOSecurityStatus
         [string]
         [Parameter(Mandatory = $false)]
         [Alias("exp")]
-        $ExcludePrincipalId
+        $ExcludePrincipalId,
+
+        [string]
+        [Parameter(Mandatory = $false)]
+        [Alias("am")]
+        $AddUsers
+
     )
     Begin
     {

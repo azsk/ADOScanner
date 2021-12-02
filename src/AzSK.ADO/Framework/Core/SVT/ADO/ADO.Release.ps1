@@ -963,17 +963,14 @@ class Release: ADOSVTBase
         {
             if ([Helpers]::CheckMember($this.ReleaseObj[0], "variables"))
             {
-                if ([Helpers]::CheckMember($this.ControlSettings, "Patterns"))
+                $settableURLVars = @();
+                if($null -eq [Release]::RegexForURL)
                 {
-                    $settableURLVars = @();
-                    if($null -eq [Release]::RegexForURL)
-                    {
-                        $this.FetchRegexForURL()
-                    }
-                    $regexForURLs = [Release]::RegexForURL;
-                    $allVars = Get-Member -InputObject $this.ReleaseObj[0].variables -MemberType Properties
-
-                    $allVars | ForEach-Object {
+                    $this.FetchRegexForURL()
+                }
+                $regexForURLs = [Release]::RegexForURL;
+                $allVars = Get-Member -InputObject $this.ReleaseObj[0].variables -MemberType Properties
+                $allVars | ForEach-Object {
                         if ([Helpers]::CheckMember($this.ReleaseObj[0].variables.$($_.Name), "allowOverride") )
                         {
                             $varName = $_.Name;
@@ -985,24 +982,19 @@ class Release: ADOSVTBase
                                 }
                             }
                         }
-                    }
-                    $varCount = $settableURLVars.Count
-                    if ($varCount -gt 0)
-                    {
-                        $controlResult.AddMessage("Count of variables that are settable at release time and contain URL value: $($varCount)");
-                        $controlResult.AddMessage([VerificationResult]::Verify, "List of variables settable at release time and containing URL value: `n", $($settableURLVars | FT | Out-String));
-                        $controlResult.AdditionalInfo += "Count of variables that are settable at release time and contain URL value: " + $varCount;
-                        $controlResult.SetStateData("List of variables settable at release time and containing URL value: ", $settableURLVars);
-                    }
-                    else 
-                    {
-                        $controlResult.AddMessage([VerificationResult]::Passed, "No variables were found in the release pipeline that are settable at release time and contain URL value.");
-                    }
+                }
+                $varCount = $settableURLVars.Count
+                if ($varCount -gt 0)
+                {
+                    $controlResult.AddMessage("Count of variables that are settable at release time and contain URL value: $($varCount)");
+                    $controlResult.AddMessage([VerificationResult]::Verify, "List of variables settable at release time and containing URL value: `n", $($settableURLVars | FT | Out-String));
+                    $controlResult.AdditionalInfo += "Count of variables that are settable at release time and contain URL value: " + $varCount;
+                    $controlResult.SetStateData("List of variables settable at release time and containing URL value: ", $settableURLVars);
                 }
                 else 
                 {
-                    $controlResult.AddMessage([VerificationResult]::Error, "Regular expressions for detecting URLs in pipeline variables are not defined in control settings for your organization.");
-                }
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No variables were found in the release pipeline that are settable at release time and contain URL value.");
+                }                
             }
             else
             {
