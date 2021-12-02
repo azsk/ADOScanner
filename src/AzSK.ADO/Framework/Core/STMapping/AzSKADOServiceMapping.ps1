@@ -14,6 +14,7 @@ class AzSKADOServiceMapping: CommandBase
     [string] $Auto = $false
     [string] $StorageAccount;
     [string] $StorageRG;
+    [string] $Container;
     [object] $StorageAccountCtx;
     [string] $SharedKey
     [object] $hmacsha
@@ -35,13 +36,13 @@ class AzSKADOServiceMapping: CommandBase
 
         $this.StorageAccount = $env:StorageName;
         $this.StorageRG = $env:StorageRG;
+        $this.Container = $env:Container;
         #get storage details
         if ($this.StorageRG -and $this.StorageAccount) {
             $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
             $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https
             $this.SharedKey = $keys[0].Value;
             $this.StorageAccountCtx = $StorageContext.Context;
-
             $this.hmacsha = New-Object System.Security.Cryptography.HMACSHA256
             $this.hmacsha.key = [Convert]::FromBase64String($this.SharedKey)
         }
@@ -88,7 +89,7 @@ class AzSKADOServiceMapping: CommandBase
     hidden  GetBuildReleaseMapping()
     {  
         if($this.Auto -eq 'true'){
-            $response = Get-AzStorageBlob -Blob 'buildDefinitions.json' -Container 'adofiles' -Context $this.StorageAccountCtx 
+            $response = Get-AzStorageBlob -Blob 'buildDefinitions.json' -Container $this.Container -Context $this.StorageAccountCtx 
             $this.BuildSTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
         }
         else {
@@ -98,7 +99,7 @@ class AzSKADOServiceMapping: CommandBase
             $this.BuildSTDetails.data = $this.BuildSTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}            
             if (($this.BuildSTDetails.data | Measure-Object).Count -gt 0)
             {                
-                $this.BuildSTDetails.data[0].projectId
+                $this.BuildSTDetails.data[0].projectId;
             }
         }   
 
@@ -170,10 +171,11 @@ class AzSKADOServiceMapping: CommandBase
         }
         catch {           
         } 
-        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'BuildSTData.json');
+        $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($this.BuildSTDetails, 'BuildSTData.json');
         
         if($this.Auto -eq 'true'){
-            $response = Get-AzStorageBlob -Blob 'releaseDefinitions.json' -Container 'adofiles' -Context $this.StorageAccountCtx 
+            $response = Get-AzStorageBlob -Blob 'releaseDefinitions.json' -Container $this.Container -Context $this.StorageAccountCtx 
             $this.ReleaseSTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
         }
         else {
@@ -232,11 +234,12 @@ class AzSKADOServiceMapping: CommandBase
         }
 
         $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($this.ReleaseSTDetails, 'ReleaseSTData.json');
     }
 
     hidden GetRepositoryMapping() {  
         if($this.Auto -eq 'true'){
-            $response = Get-AzStorageBlob -Blob 'repoDefinitions.json' -Container 'adofiles' -Context $this.StorageAccountCtx 
+            $response = Get-AzStorageBlob -Blob 'repoDefinitions.json' -Container $this.Container -Context $this.StorageAccountCtx 
             $this.RepositorySTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
         }
         else {
@@ -252,6 +255,7 @@ class AzSKADOServiceMapping: CommandBase
             }
         }
         $this.ExportObjToJsonFile($this.RepositorySTDetails, 'RepositorySTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($this.RepositorySTDetails, 'RepositorySTData.json');
     }
 
     hidden ExportObjToJsonFile($serviceMapping, $fileName) {  
@@ -259,7 +263,16 @@ class AzSKADOServiceMapping: CommandBase
         {
             $this.OutputFolderPath = [WriteFolderPath]::GetInstance().FolderPath;
         }
-        $serviceMapping | ConvertTo-Json -Depth 10 | Out-File (Join-Path $this.OutputFolderPath $fileName) -Encoding ASCII 
+        $serviceMapping | ConvertTo-Json -Depth 10 | Out-File (Join-Path $this.OutputFolderPath $fileName) -Encoding ASCII        
+    }
+
+    hidden ExportObjToJsonFileUploadToBlob($serviceMapping, $fileName) {  
+        if ([string]::IsNullOrWhiteSpace($this.OutputFolderPath))
+        {
+            $this.OutputFolderPath = [WriteFolderPath]::GetInstance().FolderPath;
+        }
+        $serviceMapping | ConvertTo-Json -Depth 10 | Out-File (Join-Path $this.OutputFolderPath $fileName) -Encoding ASCII                
+        Set-AzStorageBlobContent -Container $this.Container -File (Join-Path $this.OutputFolderPath $fileName) -Blob $fileName -Context $this.StorageAccountCtx -Force
     }
   
     hidden [bool] FetchSvcConnMapping() {  
