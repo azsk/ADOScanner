@@ -17,7 +17,8 @@ class AzSKADOServiceMapping: CommandBase
     [string] $Container;
     [object] $StorageAccountCtx;
     [string] $SharedKey
-    [object] $hmacsha
+    [object] $hmacsha    
+    [string] $AzSKTempStatePath = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState");
     $BuildSTDetails = @();
     $ReleaseSTDetails =@();
     $RepositorySTDetails =@();
@@ -32,8 +33,7 @@ class AzSKADOServiceMapping: CommandBase
         $this.ReleaseMappingsFilePath = $releaseFileLocation
         $this.RepositoryMappingsFilePath = $repositoryFileLocation
         $this.MappingType = $MappingType
-        $this.Auto = $auto
-
+        $this.Auto = $auto        
         $this.StorageAccount = $env:StorageName;
         $this.StorageRG = $env:StorageRG;
         $this.Container = $env:Container;
@@ -216,18 +216,18 @@ class AzSKADOServiceMapping: CommandBase
     hidden ExportObjToJsonFile($serviceMapping, $fileName) {  
         if ([string]::IsNullOrWhiteSpace($this.OutputFolderPath))
         {
-            $this.OutputFolderPath = [WriteFolderPath]::GetInstance().FolderPath;
+            if($this.auto -eq "true"){
+                $this.OutputFolderPath = $this.AzSKTempStatePath;
+            }
+            else {
+                $this.OutputFolderPath = [WriteFolderPath]::GetInstance().FolderPath;
+            }            
         }
         $serviceMapping | ConvertTo-Json -Depth 10 | Out-File (Join-Path $this.OutputFolderPath $fileName) -Encoding ASCII        
     }
 
-    hidden ExportObjToJsonFileUploadToBlob($serviceMapping, $fileName) {  
-        if ([string]::IsNullOrWhiteSpace($this.OutputFolderPath))
-        {
-            $this.OutputFolderPath = [WriteFolderPath]::GetInstance().FolderPath;
-        }
-        $serviceMapping | ConvertTo-Json -Depth 10 | Out-File (Join-Path $this.OutputFolderPath $fileName) -Encoding ASCII                
-        Set-AzStorageBlobContent -Container $this.Container -File (Join-Path $this.OutputFolderPath $fileName) -Blob $fileName -Context $this.StorageAccountCtx -Force
+    hidden ExportObjToJsonFileUploadToBlob($serviceMapping, $fileName) {                   
+        Set-AzStorageBlobContent -Container $this.Container -File (Join-Path $this.AzSKTempStatePath $fileName) -Blob $fileName -Context $this.StorageAccountCtx -Force
     }
   
     hidden [bool] FetchSvcConnMapping() {  
