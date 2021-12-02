@@ -2298,20 +2298,18 @@ class Project: ADOSVTBase
 
                         if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($currentGroup.descriptor) -and [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor].count -gt 0) {
                             $member = [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
-                            $member | Add-Member -NotePropertyName subjectDescriptor -NotePropertyValue $currentGroup.descriptor
                             $groupMembers  += $member
                         }
                         else
                         {
                             [ControlHelper]::FindGroupMembers($currentGroup.descriptor, $this.OrganizationContext.OrganizationName,"")
                             $member =  [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
-                            $member | Add-Member -NotePropertyName subjectDescriptor -NotePropertyValue $currentGroup.descriptor
                             $groupMembers  += $member
                         }
 
                         if($groupMembers.count -gt 0)
                         {
-                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor ; subjectdescriptor = $_.subjectDescriptor } )}
+                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor ; subjectdescriptor = $_.DirectMemberOfGroup } )}
                         }
                     }
 
@@ -2496,17 +2494,36 @@ class Project: ADOSVTBase
 
             if ($RawDataObjForControlFix.Count -gt 0)
             {
+                #to store users part of AAD groups
+                $AADGroupAccounts=@()
+                #to store users successfully deleted/added back
+                $processedAccounts=@()
                 if (-not $this.UndoFix)
                 {
                     foreach ($user in $RawDataObjForControlFix) 
                     {
                         foreach($groupDescriptor in $user.subjectDescriptor)
-                        {
-                            $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor , $groupDescriptor
-                            $webRequestResult = Invoke-WebRequest -Uri $uri -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                        { #caching the group name and mapping it with the descriptors
+                            if(-not [Organization]::groupMappingsWithDescriptors.ContainsKey($groupDescriptor)){
+                                $url = "https://vssps.dev.azure.com/{0}/_apis/identities?subjectDescriptors={1}&queryMembership=None&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $groupDescriptor
+                                $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                [Organization]::groupMappingsWithDescriptors[$groupDescriptor] = $response.providerDisplayName
+                            }
+                            #in case of an aad group, we can't remove users, store this seperately along with group name from cached object
+                            if($groupDescriptor -match"aadgp.*"){
+                                $AADGroupAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.DisplayName}}, @{N = "MailAddress"; E= {$_.PrincipalName}}, @{N = "GroupName"; E= {$_.Group}}, @{N = "DirectMemberOfAADGroup"; E= {[Organization]::groupMappingsWithDescriptors[$groupDescriptor]}} )
+                            }
+                            else{
+                                $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor , $groupDescriptor
+                                $webRequestResult = Invoke-WebRequest -Uri $uri -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                                $processedAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.DisplayName}}, @{N = "MailAddress"; E= {$_.PrincipalName}}, @{N = "GroupName"; E= {$_.Group}}, @{N = "DirectMemberOfNonAADGroup"; E= {[Organization]::groupMappingsWithDescriptors[$groupDescriptor]}})
+                            }
+                            
                         }
                     }
-                    $controlResult.AddMessage([VerificationResult]::Fixed, "Admin permissions for these users has been removed: ");
+                    if($processedAccounts.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Fixed, "Admin permissions for these users has been removed: ");
+                    }
                 }
                 else
                 {
@@ -2514,18 +2531,57 @@ class Project: ADOSVTBase
                     {
                         foreach($groupDescriptor in $user.subjectDescriptor)
                         {
+                            #caching the group name and mapping it with the descriptors
+                            if(-not [Organization]::groupMappingsWithDescriptors.ContainsKey($groupDescriptor)){
+                                $url = "https://vssps.dev.azure.com/{0}/_apis/identities?subjectDescriptors={1}&queryMembership=None&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $groupDescriptor
+                                $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                [Organization]::groupMappingsWithDescriptors[$groupDescriptor] = $response.providerDisplayName
+                            }
+                            #in case of an aad group, we can't remove users, store this seperately along with group name from cached object
+                            if($groupDescriptor -match"aadgp.*"){
+                                $AADGroupAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.DisplayName}}, @{N = "MailAddress"; E= {$_.PrincipalName}}, @{N = "GroupName"; E= {$_.Group}}, @{N = "DirectMemberOfAADGroup"; E= {[Organization]::groupMappingsWithDescriptors[$groupDescriptor]}} )
+                            }
+                            else{
+                                $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor , $groupDescriptor
+                                $webRequestResult = Invoke-RestMethod -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
+                                $processedAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.DisplayName}}, @{N = "MailAddress"; E= {$_.PrincipalName}}, @{N = "GroupName"; E= {$_.Group}}, @{N = "DirectMemberOfNonAADGroup"; E= {[Organization]::groupMappingsWithDescriptors[$groupDescriptor]}})
+                            }                            
                             
-                            $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor , $groupDescriptor
-                            $webRequestResult = Invoke-RestMethod -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
                         }
                     }
-                    $controlResult.AddMessage([VerificationResult]::Fixed,"Admin permissions for these users has been restored: ");
+                    if($processedAccounts.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Fixed,"Admin permissions for these users has been restored: ");
+                    }
                 }
 
-                $display = ($RawDataObjForControlFix |  FT PrincipalName,Group,DisplayName -AutoSize | Out-String -Width 512)
-                $controlResult.AddMessage($display)
-                $controlResult.AddMessage("Note: Users which are part of admin groups via AAD group will need to be modified manually.");
-                #Note: api does not fail even if the user is getting flagged from a team foundation group, but the user does not get deleted from the group
+                #to group accounts as a user can be a part of multiple groups, we will have duplicate entries due to group name resolution from the fix
+                if($processedAccounts.Count -gt 0){
+                    $groups = $processedAccounts | Group-Object "mailAddress"
+                    $groupedAdminMembers = @()
+                    $groupedAdminMembers +=foreach ($grpobj in $groups){
+                        $grp = ($grpobj.Group.GroupName  | select -Unique)-join ','
+                        $name = $grpobj.Group.Name | select -Unique
+                        $mailAddress = $grpobj.Group.MailAddress | select -Unique  
+                        $directMemberOfNonAADGroup=($grpobj.Group.DirectMemberOfNonAADGroup  | select -Unique)-join ','              
+                        [PSCustomObject]@{Name = $name;MailAddress = $mailAddress; GroupName = $grp; DirectMemberOfNonAADGroup = $directMemberOfNonAADGroup}
+                    } 
+                    $display = ($groupedAdminMembers |  FT -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                }
+                if($AADGroupAccounts.Count -gt 0){
+                    $groups = $AADGroupAccounts | Group-Object "mailAddress"
+                    $groupedAdminMembers = @()
+                    $groupedAdminMembers +=foreach ($grpobj in $groups){
+                        $grp = ($grpobj.Group.GroupName  | select -Unique)-join ','
+                        $name = $grpobj.Group.Name | select -Unique
+                        $mailAddress = $grpobj.Group.MailAddress | select -Unique  
+                        $directMemberOfAADGroup=($grpobj.Group.DirectMemberOfAADGroup  | select -Unique)-join ','              
+                        [PSCustomObject]@{Name = $name;MailAddress = $mailAddress; GroupName = $grp; DirectMemberOfAADGroup = $directMemberOfAADGroup}
+                    } 
+                    $display = ($groupedAdminMembers |  FT -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage("Following accounts are part of admin groups via AAD groups and need to be removed manually: ")
+                    $controlResult.AddMessage($display)
+                }
             }
             else
             {
