@@ -118,50 +118,6 @@ class AzSKADOServiceMapping: CommandBase
                     if($repoSTData){
                         $this.BuildSTDetails.data+=@([PSCustomObject] @{ buildDefinitionName = $build.name; buildDefinitionID = $build.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )                            
                     }
-                    else {
-
-                        $unmappedAgentPool = $true;
-                        $agtPoolId = $buildDefnObj.queue.id
-                        $agentPoolsURL = "https://{0}.visualstudio.com/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2" -f $this.orgName, $this.ProjectName, $agtPoolId
-                        $agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
-        
-                        if (([Helpers]::CheckMember($agentPool[0], "fps.dataProviders.data") ) -and ($agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider")) {
-                            $agentPoolJobs = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs | Where-Object { $_.scopeId -eq $this.ProjectId };
-        
-                            #Arranging in descending order of run time.
-                            $agentPoolJobs = $agentPoolJobs | Sort-Object queueTime -Descending
-                            #Taking unique runs
-                            $agentPoolJobs = $agentPoolJobs | Select-Object @{l = 'id'; e ={$_.definition.id}}, @{l = 'name'; e ={$_.definition.name}}, @{l = 'planType'; e ={$_.planType}} -Unique
-                            #If agent pool has been queued at least once                               
-                        }
-                        if($unmappedAgentPool)
-                        {
-                            $agentList = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider".agents | Select-Object -First 10;
-                            $exit = $false
-                            $agentList | Where-Object {$exit -eq $false} | ForEach-Object {                                                
-                                $agtName = $_.Name 
-                                $responseObj = $this.GetAgentSubscrId($agtName)
-                                if($responseObj)
-                                {
-                                   $logsRows = $responseObj.tables[0].rows;
-                                   if($logsRows.count -gt 0){
-                                       $agentSubscriptionID = $logsRows[0][18];
-                                       try {
-                                                $response = $this.GetServiceIdWithSubscrId($agentSubscriptionID,$accessToken)                               
-                                                if($response){
-                                                        $serviceId = $response[2].Rows[0][4];
-                                                        $countAgentPoolFix++;
-                                                        $BuildSTDetails.data += @([PSCustomObject] @{ buildDefinitionName = $build.name; buildDefinitionID = $build.id; serviceID = $serviceId; projectName = $this.projectName; projectID = $this.projectId; orgName = $organizationName } );
-                                                        $exit = $true
-                                                    } 
-                                            }
-                                      catch {
-                                        }                                
-                                   }
-                                }                                                
-                            }
-                        }
-                    }                                                           
                 }
                 catch{
 
