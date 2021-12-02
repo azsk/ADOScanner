@@ -97,8 +97,7 @@ class AzSKADOServiceMapping: CommandBase
         }        
         if ([Helpers]::CheckMember($this.BuildSTDetails, "data") -and ($this.BuildSTDetails.data | Measure-Object).Count -gt 0){
             $this.BuildSTDetails.data = $this.BuildSTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}            
-            if (($this.BuildSTDetails.data | Measure-Object).Count -gt 0)
-            {                
+            if (($this.BuildSTDetails.data | Measure-Object).Count -gt 0){
                 $this.BuildSTDetails.data[0].projectId;
             }
         }   
@@ -107,15 +106,15 @@ class AzSKADOServiceMapping: CommandBase
         try {            
             $buildObjectListURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +'&$top=10000') -f $($this.orgName), $this.projectName;       
             $buildObjectList = $this.GetBuildReleaseObjects($buildObjectListURL,'Build');
-            $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}        
-            $counter =0            
+            $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}
+            $counter =0
             foreach ($build in $buildObjectList) {               
                 try {                
                     $counter++
                     Write-Progress -Activity 'Build mappings...' -CurrentOperation $build.name -PercentComplete (($counter / $buildObjectList.count) * 100)                                   
                     $buildDefnObj = [WebRequestHelper]::InvokeGetWebRequest($build.url);
                     $repositoryName = $buildDefnObj.repository.name;
-                    $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};                    
+                    $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};
                     if($repoSTData){
                         $this.BuildSTDetails.data+=@([PSCustomObject] @{ buildDefinitionName = $build.name; buildDefinitionID = $build.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )                            
                     }
@@ -209,7 +208,7 @@ class AzSKADOServiceMapping: CommandBase
                                 switch ($type)
                                     {
                                     {($_ -eq "GitHubRelease") -or ($_ -eq "Git")}{
-                                        $repositoryName =$releaseDefnObj[0].artifacts.definitionReference.definition.name; 
+                                        $repositoryName =$releaseDefnObj[0].artifacts.definitionReference.definition.name;
                                         $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};
                                         if($repoSTData){
                                             $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $release.name; releaseDefinitionID = $release.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )                            
@@ -953,8 +952,7 @@ class AzSKADOServiceMapping: CommandBase
                         if ($feedPackages.count -gt 0) {
 
                             $feedPackages = $feedPackages | Select-Object -First 10;
-                            foreach ($package in $feedPackages)
-                            {
+                            foreach ($package in $feedPackages){
                             $provenanceURL = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/Packages/{3}/Versions/{4}/provenance?api-version=6.0-preview.1" -f $this.OrgName, $this.ProjectName, $feed.id, $package.id, $package.versions[0].id;
                             $provenanceObj = @([WebRequestHelper]::InvokeGetWebRequest($provenanceURL)); 
 
