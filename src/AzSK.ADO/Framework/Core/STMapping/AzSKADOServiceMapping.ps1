@@ -50,7 +50,8 @@ class AzSKADOServiceMapping: CommandBase
 	
 	[MessageData[]] GetSTmapping()
 	{
-        if(![string]::IsNullOrWhiteSpace($this.RepositoryMappingsFilePath) -and(Test-Path $this.RepositoryMappingsFilePath)) {
+        if(![string]::IsNullOrWhiteSpace($this.RepositoryMappingsFilePath)) {
+            Write-Host $this.AzSKTempStatePath
             $this.GetRepositoryMapping();
         }
 
@@ -199,8 +200,7 @@ class AzSKADOServiceMapping: CommandBase
         }
         else {
             $this.RepositorySTDetails = Get-content $this.RepositoryMappingsFilePath | ConvertFrom-Json     
-        } 
-        $this.RepositorySTDetails = Get-content $this.RepositoryMappingsFilePath | ConvertFrom-Json
+        }         
         if ([Helpers]::CheckMember($this.RepositorySTDetails, "data") -and ($this.RepositorySTDetails.data | Measure-Object).Count -gt 0)
         {
             $this.RepositorySTDetails.data = $this.RepositorySTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}
@@ -209,20 +209,20 @@ class AzSKADOServiceMapping: CommandBase
                 $this.ProjectId = $this.RepositorySTDetails.data[0].projectId
             }
         }
+        Write-Host "Extracting json"
         $this.ExportObjToJsonFile($this.RepositorySTDetails, 'RepositorySTData.json');
         $this.ExportObjToJsonFileUploadToBlob($this.RepositorySTDetails, 'RepositorySTData.json');
     }
 
     hidden ExportObjToJsonFile($serviceMapping, $fileName) {  
-        if ([string]::IsNullOrWhiteSpace($this.OutputFolderPath))
-        {
-            if($this.auto -eq "true"){
-                $this.OutputFolderPath = $this.AzSKTempStatePath;
-            }
-            else {
-                $this.OutputFolderPath = [WriteFolderPath]::GetInstance().FolderPath;
-            }            
+        Write-Host $this.AzSKTempStatePath
+        if($this.auto -eq "true"){
+            $this.OutputFolderPath = $this.AzSKTempStatePath;
         }
+        else {
+            $this.OutputFolderPath = [WriteFolderPath]::GetInstance().FolderPath;
+        }            
+        
         $serviceMapping | ConvertTo-Json -Depth 10 | Out-File (Join-Path $this.OutputFolderPath $fileName) -Encoding ASCII        
     }
 
