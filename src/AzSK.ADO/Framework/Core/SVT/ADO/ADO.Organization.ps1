@@ -3408,7 +3408,7 @@ class Organization: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of broader groups that have access to administer feeds at a organization level: $($restrictedGroupsCount)";
                     $controlResult.AdditionalInfoInCSV = $restrictedGroups -join ' ; '
                 
-                    if ($this.ControlFixBackupRequired)
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                     {   
                         $excesiveFeedsPermissions =@()
                         $responseObj | ForEach-Object {
@@ -3419,6 +3419,11 @@ class Organization: ADOSVTBase
 
                         $controlResult.BackupControlState = $excesiveFeedsPermissions | where-object {$_.Id -in $restrictedGroups.originId}
 
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckBroaderGroupInheritanceSettingsForFeedAutomatedFix($controlResult);
+                        
                     }
                 
                 }
@@ -3444,8 +3449,12 @@ class Organization: ADOSVTBase
     {
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            #$scope = $RawDataObjForControlFix[0].Scope
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
 
             $body = "["
 
