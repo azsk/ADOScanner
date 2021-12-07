@@ -827,12 +827,13 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckSettableAtQueueTimeForURL([ControlResult] $controlResult)
     {
-        $controlResult.VerificationResult = [VerificationResult]::Verify
+        $controlResult.VerificationResult = [VerificationResult]::Failed
         try
         {
             if ([Helpers]::CheckMember($this.BuildObj[0], "variables"))
             {
                 $settableURLVars = @();
+                $settableURLbackup = @();
                 if($null -eq [Build]::RegexForURL)
                 {
                     $this.FetchRegexForURL()
@@ -845,21 +846,30 @@ class Build: ADOSVTBase
                     {
                         $varName = $_.Name;
                         $varValue = $this.BuildObj[0].variables.$($varName).value;
+                        $override= $this.BuildObj[0].variables.$($varName).allowOverride;
                         for ($i = 0; $i -lt $regexForURLs.RegexList.Count; $i++) {
                             if ($varValue -match $regexForURLs.RegexList[$i]) {
-                                $settableURLVars += @( [PSCustomObject] @{ Name = $varName; Value = $varValue } )
+                                $settableURLVars += @( [PSCustomObject] @{ Name = $varName; Value = $varValue; Allowoverride = $override  })
+                                $settableURLbackup += @( [PSCustomObject] @{ Name = $varName; Allowoverride = $override  } ) 
                                 break
                             }
                         }
                     }
                 }
+                
                 $varCount = $settableURLVars.Count
                 if ($varCount -gt 0)
                 {
                     $controlResult.AddMessage("Count of variables that are settable at queue time and contain URL value: $($varCount)");
-                    $controlResult.AddMessage([VerificationResult]::Verify, "List of variables settable at queue time and containing URL value: `n", $($settableURLVars | FT | Out-String));
+                    $controlResult.AddMessage([VerificationResult]::Failed, "List of variables settable at queue time and containing URL value: `n", $($settableURLVars | FT | Out-String));
                     $controlResult.AdditionalInfo += "Count of variables that are settable at queue time and contain URL value: " + $varCount;
                     $controlResult.SetStateData("List of variables settable at queue time and containing URL value: ", $settableURLVars);
+                    if ($this.ControlFixBackupRequired)
+                            {
+                                #Data object that will be required to fix the control
+                                $controlResult.BackupControlState = $settableURLbackup;
+                            }
+                    
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No variables were found in the build pipeline that are settable at queue time and contain URL value.");
@@ -877,6 +887,48 @@ class Build: ADOSVTBase
         }
         return $controlResult;
     }
+    hidden [ControlResult] CheckSettableAtQueueTimeForURLAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            
+            $uri = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=5.0-preview.6" -f ($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $($this.BuildObj.id) 
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+            if (-not $this.UndoFix) {
+                $RawDataObjForControlFix | ForEach-Object {
+                if ([Helpers]::CheckMember($this.BuildObj[0].variables.$($_.Name), "allowOverride")  ){ $this.BuildObj[0].variables.$($_.Name).allowOverride = $false;}  }
+                $body = $this.BuildObj[0] | ConvertTo-Json -Depth 10
+                $buildDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
+                $controlResult.AddMessage([VerificationResult]::Fixed,"Pipeline variables unmarked settable at queue time and containing URLs.");
+            }
+            else {
+                $allVars = Get-Member -InputObject $this.BuildObj[0].variables -MemberType Properties
+                $allVars | ForEach-Object {
+                    
+                if (-not [Helpers]::CheckMember($this.BuildObj[0].variables.$($_.Name), "allowOverride")) {
+                    $new_name = $($_.Name)
+                    $filteredName = $RawDataObjForControlFix | Where-Object { $_.Name -eq $new_name } 
+                    if($filteredName -ne $null){
+                    $this.BuildObj[0].variables.$($filteredName.Name)  |  Add-Member -Name 'allowoverride' -Type NoteProperty -Value $true
+                    }
+                }
+            
+            }
+                $body = $this.BuildObj[0] | ConvertTo-Json -Depth 10
+                $buildDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
+                $controlResult.AddMessage([VerificationResult]::Fixed,"Pipeline variables unmarked settable at queue time and containing URLs.");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+    <#$this.BuildObj[0].variables | ForEach-Object {
+                $_ | ForEach-Object { 
+                $new_name = $_ 
+                $RawDataObjForControlFix | Where-Object { $_ -eq $new_name } |Add-Member -Name 'allowoverride' -Type NoteProperty -Value $true } } #>
 
     hidden [ControlResult] CheckExternalSources([ControlResult] $controlResult)
     {
