@@ -866,6 +866,10 @@ class CommonSVTControls: ADOSVTBase {
             if (($envPipelinePermissionObj.Count -gt 0) -and ([Helpers]::CheckMember($envPipelinePermissionObj[0],"allPipelines")) -and ($envPipelinePermissionObj[0].allPipelines.authorized -eq $true))
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Environment is accessible to all YAML pipelines.");
+                
+                if ($this.ControlFixBackupRequired){
+                    $controlResult.BackupControlState = $envPipelinePermissionObj;
+                }
             }
             else
             {
@@ -878,6 +882,47 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.LogException($_)
         }
        return $controlResult
+    }
+
+    hidden [ControlResult] CheckEnviornmentAccessAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $this.PublishCustomMessage( "`nAfter applying this fix, any YAML pipelines using this Environment will lose access. You will have to explicitly add them.", [MessageType]::Warning);
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            if (-not $this.UndoFix)
+            {
+                $RawDataObjForControlFix.allPipelines.authorized = $false;
+                $RawDataObjForControlFix.allPipelines.authorizedBy = $null;
+                $RawDataObjForControlFix.allPipelines.authorizedOn = $null;
+                $body = $RawDataObjForControlFix | ConvertTo-Json -Depth 10;
+                $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                $uri = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/environment/{2}?api-version=5.1-preview.1" -f ($this.OrganizationContext.OrganizationName), $projectId, $($this.ResourceContext.ResourceDetails.id);
+               
+
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                $Result = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
+            
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Service connection is not accessible to all YAML pipelines.");
+            }
+            else {
+                $body = $RawDataObjForControlFix | ConvertTo-Json -Depth 10;
+                $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                $uri = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/environment/{2}?api-version=5.1-preview.1" -f ($this.OrganizationContext.OrganizationName), $projectId, $($this.ResourceContext.ResourceDetails.id);
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                $Result = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
+            
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Service connection is accessible to all YAML pipelines.");
+            }
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        
+        return $controlResult
     }
 
     hidden [ControlResult] CheckPreDeploymentApprovalOnEnv([ControlResult] $controlResult){
@@ -958,7 +1003,7 @@ class CommonSVTControls: ADOSVTBase {
                 }
                 
                 $excesiveEnvironmentPermissions = @($roleAssignmentsToCheck | Where-Object { $restrictedBroaderGroups.keys -contains $_.identity.displayName.split('\')[-1] -and ($_.role.name -in $restrictedBroaderGroups[$_.identity.displayName.split('\')[-1]])})
-                $environmentWithBroaderGroup = @($excesiveEnvironmentPermissions | Select-Object -Property @{Name="EnvironmentName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role.name}},@{Name="Name"; Expression = {$_.identity.displayName}}) ;
+                $environmentWithBroaderGroup = @($excesiveEnvironmentPermissions | Select-Object -Property @{Name="EnvironmentName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role.name}},@{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.id}}) ;
 
                 if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $environmentWithBroaderGroup.Count -gt 0)
                 {
@@ -971,9 +1016,14 @@ class CommonSVTControls: ADOSVTBase {
                 if ($environmentWithBroaderGroupCount -gt 0)
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have user/administrator access to environment: $($environmentWithBroaderGroupCount)")
-                    
+                    $backupDataObject = $environmentWithBroaderGroup | Select @{l = 'Name'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id} }, @{l = 'Role'; e = { $_.Role } }
                     $display = ($environmentWithBroaderGroup |  FT Name, Role -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
+                    
+                    if ($this.ControlFixBackupRequired) {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $backupDataObject;
+                    }
                 }
                 else
                 {
@@ -994,6 +1044,64 @@ class CommonSVTControls: ADOSVTBase {
         }
         return $controlResult
     }
+
+    hidden [ControlResult] CheckBroaderGroupAccessOnEnvironmentAutomatedFix ([ControlResult] $controlResult) {
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $body = "["
+
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {                    
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                        {
+                            "userId": "$($identity.Id)",
+                            "roleName": "Reader"
+                        }
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {                    
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                        {
+                            "userId": "$($identity.Id)",
+                            "roleName": "$($identity.Role)"                          
+                        }
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+            }
+            $body += "]"
+
+            #Put request           
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.environmentreferencerole/roleassignments/resources/{1}_{2}?api-version=5.0-preview.1' -f $this.OrganizationContext.OrganizationName, $projectId, $this.ResourceContext.ResourceDetails.Id;
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+			$webRequestResult = Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -Body $body
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
+            $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult  
+    }
+
 
     hidden [ControlResult] CheckBranchHygieneOnEnv([ControlResult] $controlResult){
         try{
