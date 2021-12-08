@@ -958,7 +958,7 @@ class Release: ADOSVTBase
 
     hidden [ControlResult] CheckSettableAtReleaseTimeForURL([ControlResult] $controlResult)
     {
-        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $controlResult.VerificationResult = [VerificationResult]::Verify
         try
         {
             if ([Helpers]::CheckMember($this.ReleaseObj[0], "variables"))
@@ -991,7 +991,7 @@ class Release: ADOSVTBase
                 if ($varCount -gt 0)
                 {
                     $controlResult.AddMessage("Count of variables that are settable at release time and contain URL value: $($varCount)");
-                    $controlResult.AddMessage([VerificationResult]::Failed, "List of variables settable at release time and containing URL value: `n", $($settableURLVars | FT | Out-String));
+                    $controlResult.AddMessage([VerificationResult]::Verify, "List of variables settable at release time and containing URL value: `n", $($settableURLVars | FT | Out-String));
                     $controlResult.AdditionalInfo += "Count of variables that are settable at release time and contain URL value: " + $varCount;
                     $controlResult.SetStateData("List of variables settable at release time and containing URL value: ", $settableURLVars);
 
@@ -1032,7 +1032,9 @@ class Release: ADOSVTBase
                 if ([Helpers]::CheckMember($this.ReleaseObj[0].variables.$($_.Name), "allowOverride")  ){ $this.ReleaseObj[0].variables.$($_.Name).allowOverride = $false;}  }
                 $body = $this.ReleaseObj[0] | ConvertTo-Json -Depth 10
                 $ReleaseDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
-                $controlResult.AddMessage([VerificationResult]::Fixed,"Release Pipeline variables unmarked settable at queue time and containing URLs.");
+                $controlResult.AddMessage([VerificationResult]::Fixed,"The following Release Pipeline variables unmarked settable at release time and containing URLs:");
+                $display = ($RawDataObjForControlFix.Name |  FT -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("$display");
             }
             else {
                 $allVars = Get-Member -InputObject $this.ReleaseObj[0].variables -MemberType Properties
@@ -1049,7 +1051,9 @@ class Release: ADOSVTBase
             }
                 $body = $this.ReleaseObj[0] | ConvertTo-Json -Depth 10
                 $ReleaseDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
-                $controlResult.AddMessage([VerificationResult]::Fixed,"Release Pipeline variables unmarked settable at queue time and containing URLs.");
+                $controlResult.AddMessage([VerificationResult]::Fixed,"The following Release Pipeline variables marked settable at release time and containing URLs.");
+                $display = ($RawDataObjForControlFix.Name |  FT -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("$display");
             }
         }
         catch {

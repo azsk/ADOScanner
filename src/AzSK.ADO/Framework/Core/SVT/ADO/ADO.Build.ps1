@@ -827,7 +827,7 @@ class Build: ADOSVTBase
 
     hidden [ControlResult] CheckSettableAtQueueTimeForURL([ControlResult] $controlResult)
     {
-        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $controlResult.VerificationResult = [VerificationResult]::Verify
         try
         {
             if ([Helpers]::CheckMember($this.BuildObj[0], "variables"))
@@ -861,7 +861,7 @@ class Build: ADOSVTBase
                 if ($varCount -gt 0)
                 {
                     $controlResult.AddMessage("Count of variables that are settable at queue time and contain URL value: $($varCount)");
-                    $controlResult.AddMessage([VerificationResult]::Failed, "List of variables settable at queue time and containing URL value: `n", $($settableURLVars | FT | Out-String));
+                    $controlResult.AddMessage([VerificationResult]::Verify, "List of variables settable at queue time and containing URL value: `n", $($settableURLVars | FT | Out-String));
                     $controlResult.AdditionalInfo += "Count of variables that are settable at queue time and contain URL value: " + $varCount;
                     $controlResult.SetStateData("List of variables settable at queue time and containing URL value: ", $settableURLVars);
                     if ($this.ControlFixBackupRequired)
@@ -899,7 +899,9 @@ class Build: ADOSVTBase
                 if ([Helpers]::CheckMember($this.BuildObj[0].variables.$($_.Name), "allowOverride")  ){ $this.BuildObj[0].variables.$($_.Name).allowOverride = $false;}  }
                 $body = $this.BuildObj[0] | ConvertTo-Json -Depth 10
                 $buildDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
-                $controlResult.AddMessage([VerificationResult]::Fixed,"Pipeline variables unmarked settable at queue time and containing URLs.");
+                $controlResult.AddMessage([VerificationResult]::Fixed,"The following pipeline variables unmarked settable at queue time and containing URLs :");
+                $display = ($RawDataObjForControlFix.Name |  FT -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("$display"); 
             }
             else {
                 $allVars = Get-Member -InputObject $this.BuildObj[0].variables -MemberType Properties
@@ -916,7 +918,9 @@ class Build: ADOSVTBase
             }
                 $body = $this.BuildObj[0] | ConvertTo-Json -Depth 10
                 $buildDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
-                $controlResult.AddMessage([VerificationResult]::Fixed,"Pipeline variables unmarked settable at queue time and containing URLs.");
+                $controlResult.AddMessage([VerificationResult]::Fixed,"The following pipeline variables marked settable at queue time and containing URLs:");
+                $display = ($RawDataObjForControlFix.Name |  FT -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("$display");  
             }
         }
         catch {
