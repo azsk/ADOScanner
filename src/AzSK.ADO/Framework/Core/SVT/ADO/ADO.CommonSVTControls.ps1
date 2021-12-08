@@ -904,7 +904,7 @@ class CommonSVTControls: ADOSVTBase {
                 $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
                 $Result = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
             
-                $controlResult.AddMessage([VerificationResult]::Fixed,  "Service connection is not accessible to all YAML pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Environment is not accessible to all YAML pipelines.");
             }
             else {
                 $body = $RawDataObjForControlFix | ConvertTo-Json -Depth 10;
@@ -913,7 +913,7 @@ class CommonSVTControls: ADOSVTBase {
                 $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
                 $Result = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
             
-                $controlResult.AddMessage([VerificationResult]::Fixed,  "Service connection is accessible to all YAML pipelines.");
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Environment is accessible to all YAML pipelines.");
             }
             
         }
