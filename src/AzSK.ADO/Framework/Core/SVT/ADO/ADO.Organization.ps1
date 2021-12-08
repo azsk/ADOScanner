@@ -3295,4 +3295,34 @@ class Organization: ADOSVTBase
         }
         return $controlResult;
     } 
+
+    hidden [ControlResult] CheckExtPkgProtectionPolicy([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+
+        if([Helpers]::CheckMember($this.OrgPolicyObj,"security"))
+        {
+            $extPkgProtectionObj = @($this.OrgPolicyObj.security | Where-Object {$_.Policy.Name -eq "Policy.ArtifactsExternalPackageProtectionToken"})
+            if($extPkgProtectionObj.Count -gt 0)
+            {
+                if($extPkgProtectionObj.policy.effectiveValue -eq $false )
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Additional protection when using public package registries is disabled for the organization.");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Additional protection when using public package registries is enabled for the organization.");                    
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch security policy details of the organization.");
+            }
+        }
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch security policy details of the organization.");
+        }
+        return $controlResultdvd
+    }
 }

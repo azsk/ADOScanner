@@ -335,7 +335,12 @@ function Get-AzSKADOSecurityStatus
 		[Parameter(HelpMessage="Switch to copy current data object in local folder to facilitate control fix.")]
 		[Alias("pcf")]
 		$PrepareForControlFix,
-	
+
+		[switch]
+		[Parameter(HelpMessage="Scan and generate backup of feeds on which current user has owner access for control fix.")]
+		[Alias("uoa")]
+		$CheckOwnerAccess,
+
 		[switch]
         [Parameter(Mandatory = $false, HelpMessage="Scan only those resource objects modified after immediately previous scan.")]
 		[Alias("inc", "ScanIncrementally")]
@@ -409,6 +414,8 @@ function Get-AzSKADOSecurityStatus
 			}
       
 			if ($PrepareForControlFix -eq $true)  {
+				#clear up this variable, it will contain non scanned resources from previous scan in same session.
+				$env:nonScannedResources=@()
 				if ($UsePartialCommits -ne $true)  {
 					Write-Host "PrepareForControlFix switch requires -UsePartialCommits switch." -ForegroundColor Red
 					return;

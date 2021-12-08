@@ -49,6 +49,10 @@ class WriteSummaryFile: FileOutputBase
 			{
 				$currentInstance.SetFilePath($Event.SourceArgs[0].OrganizationContext, ("SecurityReport-" + $currentInstance.RunIdentifier + ".csv"));
 			}
+			#in case of control fix, csv will have been already generated due to upc, need to generate list of non scanned resources
+            elseif($currentInstance.InvocationContext.BoundParameters["CheckOwnerAccess"] -and $currentInstance.InvocationContext.BoundParameters["PrepareForControlFix"] -and $null -ne $env:nonScannedResources){
+                $currentInstance.WriteNonScannedResourcesInfo();
+            }
 			else
 			{
 				# While running GAI -InfoType AttestationInfo, no controls are evaluated. So the value of VerificationResult is by default NotScanned for all controls.
@@ -337,6 +341,18 @@ class WriteSummaryFile: FileOutputBase
 			($csvItems | Select-Object -Property $nonNullProps) | Group-Object -Property FeatureName | Foreach-Object {$_.Group | Export-Csv -Path $this.FilePath -append -NoTypeInformation}
         }
     }	
+
+	[void] WriteNonScannedResourcesInfo(){
+		$resources = @();
+		$env:nonScannedResources -split '\s+' | foreach{
+			$nonScannedResource = [PSCustomObject]@{
+				"Resource Link" = $_
+			}
+			$resources+=$nonScannedResource
+		}
+		$filePath = $this.FolderPath+"\ResourcesNotScanned.json"
+		Add-Content $filePath -Value ($resources | ConvertTo-JSON | % { [System.Text.RegularExpressions.Regex]::Unescape($_) })
+	}
 
 }
 
