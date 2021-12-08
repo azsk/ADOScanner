@@ -115,7 +115,7 @@ class ConfigOverride
 		[ConfigurationHelper]::IsIssueLogged = $false
 		[ConfigurationHelper]::LocalPolicyEnabled = $false
 		[ContextHelper]::currentContext = $null
-		[ConfigurationHelper]::PolicyCacheContent = @()
-		[ConfigurationHelper]::NotExtendedTypes = @{}
+		[ControlHelper]::groupMembersResolutionObj=@{}
+
 	}
 }
