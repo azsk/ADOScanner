@@ -104,7 +104,7 @@ class AzSKADOServiceMapping: CommandBase
         }   
 
         # Get Build-Repo mappings
-        try {            
+        <#try {            
             $buildObjectListURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +'&$top=10000') -f $($this.orgName), $this.projectName;       
             $buildObjectList = $this.GetBuildReleaseObjects($buildObjectListURL,'Build');
             $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}
@@ -126,9 +126,9 @@ class AzSKADOServiceMapping: CommandBase
             }        
         }
         catch {           
-        } 
+        } #>
         $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
-        $this.ExportObjToJsonFileUploadToBlob($this.BuildSTDetails, 'BuildSTData.json');
+        #$this.ExportObjToJsonFileUploadToBlob($this.BuildSTDetails, 'BuildSTData.json');
         
         if($this.Auto -eq 'true'){
             $response = Get-AzStorageBlob -Blob 'releaseDefinitions.json' -Container $this.Container -Context $this.StorageAccountCtx 
@@ -148,7 +148,7 @@ class AzSKADOServiceMapping: CommandBase
         }       
 
         # Get Release-Repo mappings
-        try {                         
+        <#try {                         
             $releaseObjectListURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.orgName), $this.projectName;    
             $releaseObjectList = $this.GetBuildReleaseObjects($ReleaseObjectListURL,'Release');
             $releaseObjectList = $releaseObjectList | Where-Object {$_.id -notin $this.ReleaseSTDetails.data.releaseDefinitionID}
@@ -187,10 +187,10 @@ class AzSKADOServiceMapping: CommandBase
         }
         catch {
            
-        }
+        }#>
 
         $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
-        $this.ExportObjToJsonFileUploadToBlob($this.ReleaseSTDetails, 'ReleaseSTData.json');
+        #$this.ExportObjToJsonFileUploadToBlob($this.ReleaseSTDetails, 'ReleaseSTData.json');
     }
 
     hidden GetRepositoryMapping() {  
