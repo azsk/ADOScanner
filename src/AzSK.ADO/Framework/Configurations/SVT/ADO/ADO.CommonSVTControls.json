@@ -108,10 +108,28 @@
         "SDL",
         "Best Practice",
         "Automated",
-        "SI"
+        "SI",
+        "AutomatedFix"
       ],
       "Enabled": true
   },
+    {
+      "ControlID": "ADO_Feed_SI_Delete_Inactive_Packages",
+      "Description": "Inactive packages must be removed if no more required.",
+      "Id": "Feed130",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckForInactivePackages",
+      "Rationale": "Each additional feed package increases the attack surface. An attacker can abuse an inactive package to start publishing updates to such packages that might seem useful to other devs but have trojan horses inside. For good security hygiene and to minimize this risk, ensure that only active and legitimate packages are present in your environment.",
+      "Recommendation": "1. Go to Project --> 2. Artifacts --> 3. Select Feed --> 4. Feed Settings --> 5. Check the 'Enable package retention' option. --> Under 'Days to keep recently downloaded packages', enter the number of days after which a package should be deleted if it is has not been downloaded. Make sure it is under the threshold days i.e. $($this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity) days.",
+      "Tags": [
+        "SDL",
+        "Best Practice",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
+    },
     {
       "ControlID": "ADO_SecureFile_AuthZ_Dont_Grant_All_Pipelines_Access",
       "Description": "Do not make secure files accessible to all (YAML) pipelines.",

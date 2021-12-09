@@ -9,14 +9,16 @@ class CommonSVTResourceResolver {
     [string] $projectId
     [psobject] $feedDefnsObj = $null
     [bool] $UseIncrementalScan = $false
+    [bool] $IsAutomatedFixUndoCmd = $false;
     [DateTime] $IncrementalDate = 0
     [PSObject] $organizationContext
 
-    CommonSVTResourceResolver($organizationName, $organizationId, $projectId, $organizationContext) {
+    CommonSVTResourceResolver($organizationName, $organizationId, $projectId, $organizationContext, $IsAutomatedFixUndoCmd) {
         $this.organizationName = $organizationName;
         $this.organizationId = $organizationId;
         $this.projectId = $projectId;
         $this.organizationContext = $organizationContext
+        $this.IsAutomatedFixUndoCmd = $IsAutomatedFixUndoCmd
         if($PSCmdlet.MyInvocation.BoundParameters["IncrementalScan"]){
             $this.UseIncrementalScan = $true
             if (-not [string]::IsNullOrWhiteSpace($PSCmdlet.MyInvocation.BoundParameters["IncrementalDate"])) 
@@ -165,7 +167,13 @@ class CommonSVTResourceResolver {
             #Fetching project and org scoped feeds
             if($null -eq $this.feedDefnsObj)
             {
-                $feedDefnURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds?api-version=6.0-preview.1&includeUrls=false' -f $this.organizationName
+                #When controls undo fix is called, resources need to be fetched from deleted list (only for controls ids in RevertDeletedResourcesControlList)
+                if($this.IsAutomatedFixUndoCmd){
+                    $feedDefnURL = 'https://feeds.dev.azure.com/{0}/_apis/Packaging/FeedRecycleBin?api-version=6.0-preview.1&includeUrls=false' -f $this.organizationName
+                }
+                else{
+                    $feedDefnURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds?api-version=6.0-preview.1&includeUrls=false' -f $this.organizationName
+                }                
                 $this.feedDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($feedDefnURL);
             }
             $feedsList = @()

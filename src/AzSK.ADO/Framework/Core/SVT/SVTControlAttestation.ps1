@@ -450,7 +450,10 @@ class SVTControlAttestation
 				$this.bulkAttestMode = $true;
 				Write-Host "$([Constants]::SingleDashLine)" -ForegroundColor Yellow
 		        if ($this.isApprovedExceptionEnforced) {
-                    $bulkAttestedControl = $this.ControlResults.ControlItem[0].ControlID ;
+                    $bulkAttestedControl = ""
+                    if(($this.ControlResults| Measure-Object).Count -gt 0){
+                        $bulkAttestedControl = $this.ControlResults.ControlItem[0].ControlID ;
+                    }                    
                     #Blocking bulk attestation for multiple resources as approved exception id will not be provided for bulk resources
                     if($this.approvedExceptionControlsList -contains $bulkAttestedControl) {
 						#if bulk attestation is for single resource, continue with the attestation
@@ -512,13 +515,13 @@ class SVTControlAttestation
 				Write-Host ("$([Constants]::SingleDashLine)`nNote: Enter 9 during any stage to exit the attestation workflow. This will abort attestation process for the current resource and remaining resources.`n$([Constants]::SingleDashLine)") -ForegroundColor Yellow
 			}
 
-			if($null -eq $this.ControlResults)
+			if(($this.ControlResults| Measure-Object).Count -eq 0)
 			{
 				Write-Host "No control results found." -ForegroundColor Yellow
 			}
 
 
-			if ($this.attestOptions.AttestationStatus -eq "ApprovedException" -and  [string]::IsNullOrWhiteSpace($this.attestOptions.ApprovedExceptionID)) {
+			if ($this.attestOptions.AttestationStatus -eq "ApprovedException" -and  [string]::IsNullOrWhiteSpace($this.attestOptions.ApprovedExceptionID) -and ($this.ControlResults| Measure-Object).Count -gt 0) {
 				Write-Host "Exception id is mandatory for approved exception." -ForegroundColor Cyan
 				$exceptionId = Read-Host "Please enter the approved exception id"
 				if ([string]::IsNullOrWhiteSpace($exceptionId)) {
