@@ -58,9 +58,9 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Helpers\WebRequestHelper.ps1
 . $PSScriptRoot\Helpers\SVTMapping.ps1
 . $FrameworkPath\Helpers\IdentityHelpers.ps1
+. $FrameworkPath\Helpers\ConfigOverride.ps1
 . $FrameworkPath\Helpers\ControlHelper.ps1
 . $PSScriptRoot\Helpers\AdministratorHelper.ps1
-. $FrameworkPath\Helpers\ConfigOverride.ps1
 . $FrameworkPath\Models\Common\ResourceInventory.ps1
 
 
