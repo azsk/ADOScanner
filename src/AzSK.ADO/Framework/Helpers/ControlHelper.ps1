@@ -11,6 +11,8 @@ class ControlHelper: EventBase{
     static $GroupsToExpand = @() # Groups for which meber counts need to check (fetched from controlsettings)
     static $GroupsWithDescriptor = @{} # All broder groups with descriptors
     static [string] $parentGroup = $null #used to store current broader group
+    static $CurrentGroupResolutionLevel = -1 # used to define the level of group expansion. Negative value indicates all level.
+    static $GroupResolutionLevel = 1 # used to define the level of group expansion. Negative value indicates all level.
       
     #Checks if the severities passed by user are valid and filter out invalid ones
    hidden static [string []] CheckValidSeverities([string []] $ParamSeverities)
@@ -149,49 +151,52 @@ class ControlHelper: EventBase{
     {
         $groupPrincipalName = $groupObj.principalName
         $members = @()
-        if ([ControlHelper]::ResolvedBroaderGroups.ContainsKey($groupPrincipalName))
+        [ControlHelper]::CurrentGroupResolutionLevel += 1
+        if ([ControlHelper]::CurrentGroupResolutionLevel -le [ControlHelper]::GroupResolutionLevel) 
         {
-            $members += [ControlHelper]::ResolvedBroaderGroups[$_.principalName];
-            return $members
-        }
-        else
-        {
-            [ControlHelper]::ResolvedBroaderGroups[$groupPrincipalName] = @()
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
-            $memberslist = @()
-            if ([string]::IsNullOrWhiteSpace($groupObj.descriptor) -and (-not [string]::IsNullOrWhiteSpace($groupObj.entityId)))
+            if ([ControlHelper]::ResolvedBroaderGroups.ContainsKey($groupPrincipalName))
             {
-                $apiUrl = 'https://dev.azure.com/{0}/_apis/IdentityPicker/Identities/{1}/connections?identityTypes=user&identityTypes=group&operationScopes=ims&operationScopes=source&connectionTypes=successors&depth=1&properties=DisplayName&properties=SubjectDescriptor&properties=SignInAddress' -f $($OrgName), $($groupObj.entityId)
-                $responseObj = @(Invoke-RestMethod -Method Get -Uri $apiURL -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -UseBasicParsing)
-                # successors property will not be available if there are no users added to group.
-                if ([Helpers]::CheckMember($responseObj[0], "successors")) {
-                    $memberslist = @($responseObj.successors | Select-Object entityId, originId, descriptor, @{Name = "principalName"; Expression = { $_.displayName } }, @{Name = "mailAddress"; Expression = { $_.signInAddress } }, @{Name = "subjectKind"; Expression = { $_.entityType } })
-                }
-                $members += [ControlHelper]::NestedGroupResolverHelper($memberslist)
+                $members += [ControlHelper]::ResolvedBroaderGroups[$_.principalName];
             }
             else
             {
-                $descriptor = $groupObj.descriptor
-                $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($orgName);
-                $postbody=@'
-                {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{1}/{2}/_settings/permissions?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
-'@
-                $postbody=$postbody.Replace("{0}",$descriptor)
-                $postbody=$postbody.Replace("{1}",$orgName)
-                $postbody=$postbody.Replace("{2}",$projName)
-                $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
-                if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
+                [ControlHelper]::ResolvedBroaderGroups[$groupPrincipalName] = @()
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+                $memberslist = @()
+                if ([string]::IsNullOrWhiteSpace($groupObj.descriptor) -and (-not [string]::IsNullOrWhiteSpace($groupObj.entityId)))
                 {
-                    $memberslist = @($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities)
+                    $apiUrl = 'https://dev.azure.com/{0}/_apis/IdentityPicker/Identities/{1}/connections?identityTypes=user&identityTypes=group&operationScopes=ims&operationScopes=source&connectionTypes=successors&depth=1&properties=DisplayName&properties=SubjectDescriptor&properties=SignInAddress' -f $($OrgName), $($groupObj.entityId)
+                    $responseObj = @(Invoke-RestMethod -Method Get -Uri $apiURL -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -UseBasicParsing)
+                    # successors property will not be available if there are no users added to group.
+                    if ([Helpers]::CheckMember($responseObj[0], "successors")) {
+                        $memberslist = @($responseObj.successors | Select-Object entityId, originId, descriptor, @{Name = "principalName"; Expression = { $_.displayName } }, @{Name = "mailAddress"; Expression = { $_.signInAddress } }, @{Name = "subjectKind"; Expression = { $_.entityType } })
+                    }
+                    $members += [ControlHelper]::NestedGroupResolverHelper($memberslist)
                 }
-                $members += [ControlHelper]::NestedGroupResolverHelper($memberslist)
-            }
+                else
+                {
+                    $descriptor = $groupObj.descriptor
+                    $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($orgName);
+                    $postbody=@'
+                    {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{1}/{2}/_settings/permissions?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
+'@
+                    $postbody=$postbody.Replace("{0}",$descriptor)
+                    $postbody=$postbody.Replace("{1}",$orgName)
+                    $postbody=$postbody.Replace("{2}",$projName)
+                    $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
+                    if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
+                    {
+                        $memberslist = @($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities)
+                    }
+                    $members += [ControlHelper]::NestedGroupResolverHelper($memberslist)
+                }
 
-            [ControlHelper]::ResolvedBroaderGroups[$groupPrincipalName] = $members
-            return $members
+                [ControlHelper]::ResolvedBroaderGroups[$groupPrincipalName] = $members
+            }
         }
+        return $members
     }
 
     static [PSObject] NestedGroupResolverHelper($memberslist)
@@ -208,7 +213,9 @@ class ControlHelper: EventBase{
                     else
                     {
                         $members += [ControlHelper]::ResolveNestedBroaderGroupMembers($_, $orgName, $projName)
-                        Write-Host "Group: [$($_.principalName)]; MemberCount: $([ControlHelper]::ResolvedBroaderGroups[$_.principalName].Count)" -ForegroundColor Cyan
+                        [ControlHelper]::CurrentGroupResolutionLevel -= 1
+                        # Uncomment the below code if member count needs to be displayed on console.
+                        # Write-Host "Group: [$($_.principalName)]; MemberCount: $([ControlHelper]::ResolvedBroaderGroups[$_.principalName].Count)" -ForegroundColor Cyan
                     }
                 }
                 else
@@ -260,6 +267,7 @@ class ControlHelper: EventBase{
         [ControlHelper]::AllowedMemberCountPerBroadGroup = @($ControlSettingsObj.AllowedMemberCountPerBroadGroup)
         [ControlHelper]::GroupsToExpand = @($ControlSettingsObj.BroaderGroupsToExpand)
         [ControlHelper]::IsGroupDetailsFetchedFromPolicy = $true
+        [ControlHelper]::GroupResolutionLevel = $ControlSettingsObj.GroupResolution.GroupResolutionLevel
     }
 
     static [PSObject] FilterBroadGroupMembers([PSObject] $groupList, [bool] $fetchDescriptor)
@@ -268,6 +276,15 @@ class ControlHelper: EventBase{
         if ([ControlHelper]::IsGroupDetailsFetchedFromPolicy -eq $false) {
             [ControlHelper]::FetchControlSettingDetails()
         }
+        # if the value is set to -1, it means all level of the groups needs be expaned.
+        if ([ControlHelper]::GroupResolutionLevel -eq -1) {
+            [ControlHelper]::GroupResolutionLevel = 1000 
+        }
+        # if environment variable is provided, it will override the policy configuration.
+        if ($null -ne $env:GroupResolutionLevel) {
+            [ControlHelper]::GroupResolutionLevel = $env:GroupResolutionLevel
+        }
+        [ControlHelper]::CurrentGroupResolutionLevel = 0
         $groupList | Foreach-Object {
             # In some cases, group object doesn't contains descriptor key which requires to expand the groups.
             if ($fetchDescriptor) {

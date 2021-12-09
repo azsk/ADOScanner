@@ -267,6 +267,9 @@
     "Medium": "Medium",
     "Low": "Low"
   },
+  "GroupResolution": {
+    "GroupResolutionLevel": -1
+  },
   "Build": {
     "BuildHistoryPeriodInDays": 180,
     "ExemptedUserIdentities": [
