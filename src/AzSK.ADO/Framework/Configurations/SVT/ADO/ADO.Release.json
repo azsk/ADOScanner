@@ -154,7 +154,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "SI"
+        "SI",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
