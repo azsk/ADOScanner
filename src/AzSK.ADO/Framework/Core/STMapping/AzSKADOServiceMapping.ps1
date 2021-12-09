@@ -322,8 +322,8 @@ class AzSKADOServiceMapping: CommandBase
             #eat exception
         }
         $this.PublishCustomMessage("Service mapping found:  $(($svcConnSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-
         $this.ExportObjToJsonFile($svcConnSTMapping, 'ServiceConnectionSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($svcConnSTMapping, 'ServiceConnectionSTData.json');
         return $true;
     }
 
@@ -418,8 +418,8 @@ class AzSKADOServiceMapping: CommandBase
             #eat exception
         }
         $this.PublishCustomMessage("Service mapping found:  $(($agentPoolSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-
         $this.ExportObjToJsonFile($agentPoolSTMapping, 'AgentPoolSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($agentPoolSTMapping, 'AgentPoolSTData.json');
         return $true;
     }
 
@@ -749,18 +749,16 @@ class AzSKADOServiceMapping: CommandBase
         #Removing duplicate entries of the tuple (variableGroupId,serviceId)
         if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
             $variableGroupSTMapping.data = $variableGroupSTMapping.data | Sort-Object -Unique variableGroupID,serviceID
-
             $this.PublishCustomMessage("Service mapping found:  $(($variableGroupSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-
             $this.ExportObjToJsonFile($variableGroupSTMapping, 'VariableGroupSTData.json');
+            $this.ExportObjToJsonFileUploadToBlob($variableGroupSTMapping, 'VariableGroupSTData.json');
         }
         #Removing duplicate entries of the tuple (securefile,serviceId)
         if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
             $secureFileSTMapping.data = $secureFileSTMapping.data | Sort-Object -Unique secureFileID,serviceID
-
             $this.PublishCustomMessage("Service mapping found:  $(($secureFileSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-
             $this.ExportObjToJsonFile($secureFileSTMapping, 'SecureFileSTData.json');
+            $this.ExportObjToJsonFileUploadToBlob($secureFileSTMapping, 'SecureFileSTData.json');
         }
         return $true;
     }
@@ -871,8 +869,8 @@ class AzSKADOServiceMapping: CommandBase
             #eat exception
         }
         $this.PublishCustomMessage("Service mapping found:  $(($environmentSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-
         $this.ExportObjToJsonFile($environmentSTMapping, 'EnvironmentSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($environmentSTMapping, 'EnvironmentSTData.json');
         return $true;
     }
 
@@ -947,8 +945,8 @@ class AzSKADOServiceMapping: CommandBase
         }
         
         $this.PublishCustomMessage("Service mapping found:  $(($feedSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-
         $this.ExportObjToJsonFile($feedSTMapping, 'FeedSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($feedSTMapping, 'FeedSTData.json');
         return $true;
     }
 
