@@ -338,7 +338,7 @@ function Get-AzSKADOSecurityStatus
 
 		[switch]
 		[Parameter(HelpMessage="Scan and generate backup of feeds on which current user has owner access for control fix.")]
-		[Alias("uoa")]
+		[Alias("coa")]
 		$CheckOwnerAccess,
 
 		[switch]

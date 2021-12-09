@@ -3323,6 +3323,6 @@ class Organization: ADOSVTBase
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch security policy details of the organization.");
         }
-        return $controlResultdvd
+        return $controlResult
     }
 }
