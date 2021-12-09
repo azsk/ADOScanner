@@ -2698,32 +2698,25 @@ class Project: ADOSVTBase
             
             if (-not $this.UndoFix)
             {
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
                 foreach ($identity in $RawDataObjForControlFix) 
                 {
                     
-                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    $excessivePermissions = $identity.ExcessivePermissions -split ","                    
                     foreach ($excessivePermission in $excessivePermissions) {
-                        $roleId = [int][BuildPermissions] $excessivePermission.Replace(" ","");
-                        #need to invoke a post request which does not accept all permissions added in the body at once
-                        #hence need to call invoke seperately for each permission
-                         $body = "{
-                            'token': '$($identity.PermissionSetToken)',
-                            'merge': true,
-                            'accessControlEntries' : [{
-                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
-                                'allow':0,
-                                'deny':$($roleId)                              
-                            }]
-                        }" | ConvertFrom-Json
-                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$RawDataObjForControlFix[0].PermissionSetId
-
-                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
-
+                        $roleId = [int][BuildPermissions] $excessivePermission.Replace(" ","");                        
+                        $url = "https://dev.azure.com/{0}/_apis/Permissions/{1}/{2}?descriptor=Microsoft.TeamFoundation.Identity;{3}&token={4}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($RawDataObjForControlFix[0].PermissionSetId), $roleId,$($identity.Descriptor), $($identity.PermissionSetToken)
+                        $response = Invoke-WebRequest -Uri $url -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                        #API takes some time to reflect the changes, if a new API call is made before that this permission might not be reflected even though status code is 200
+                        if($response.StatusCode -eq 200){
+                            Start-Sleep -seconds 1
+                        }
                     }
                     $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Allow"
-                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Not set"
 
-                }              
+                }             
                 
             }
             else {
@@ -2748,7 +2741,7 @@ class Project: ADOSVTBase
                         [WebRequestHelper]:: InvokePostWebRequest($url,$body)
 
                     }
-                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Not set"
                     $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Allow"
                 }
 
@@ -2926,30 +2919,23 @@ class Project: ADOSVTBase
             
             if (-not $this.UndoFix)
             {
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
                 foreach ($identity in $RawDataObjForControlFix) 
                 {
                     
-                    $excessivePermissions = $identity.ExcessivePermissions -split ","
+                    $excessivePermissions = $identity.ExcessivePermissions -split ","                    
                     foreach ($excessivePermission in $excessivePermissions) {
-                        $roleId = [int][ReleasePermissions] $excessivePermission.Replace(" ","");
-                        #need to invoke a post request which does not accept all permissions added in the body at once
-                        #hence need to call invoke seperately for each permission
-                         $body = "{
-                            'token': '$($identity.PermissionSetToken)',
-                            'merge': true,
-                            'accessControlEntries' : [{
-                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
-                                'allow':0,
-                                'deny':$($roleId)                              
-                            }]
-                        }" | ConvertFrom-Json
-                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$RawDataObjForControlFix[0].PermissionSetId
-                        
-                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
-
+                        $roleId = [int][ReleasePermissions] $excessivePermission.Replace(" ","");                        
+                        $url = "https://dev.azure.com/{0}/_apis/Permissions/{1}/{2}?descriptor=Microsoft.TeamFoundation.Identity;{3}&token={4}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($RawDataObjForControlFix[0].PermissionSetId), $roleId,$($identity.Descriptor), $($identity.PermissionSetToken)
+                        $response = Invoke-WebRequest -Uri $url -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                        #API takes some time to reflect the changes, if a new API call is made before that this permission might not be reflected even though status code is 200
+                        if($response.StatusCode -eq 200){
+                            Start-Sleep -seconds 1
+                        }
                     }
                     $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Allow"
-                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Not set"
 
                 }              
                 
@@ -2977,7 +2963,7 @@ class Project: ADOSVTBase
                         [WebRequestHelper]:: InvokePostWebRequest($url,$body)
 
                     }
-                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Not set"
                     $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Allow"
                 }
 
@@ -3610,6 +3596,8 @@ class Project: ADOSVTBase
             
             if (-not $this.UndoFix)
             {
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
                 foreach ($identity in $RawDataObjForControlFix) 
                 {
                     
@@ -3624,24 +3612,15 @@ class Project: ADOSVTBase
                         else {
                             $roleId = [int][RepoPermissions] $excessivePermission.Replace(" ","");
                         }
-                        #need to invoke a post request which does not accept all permissions added in the body at once
-                        #hence need to call invoke seperately for each permission
-                         $body = "{
-                            'token': 'repoV2/$($identity.PermissionSetToken)',
-                            'merge': true,
-                            'accessControlEntries' : [{
-                                'descriptor' : 'Microsoft.TeamFoundation.Identity;$($identity.Descriptor)',
-                                'allow':0,
-                                'deny':$($roleId)                              
-                            }]
-                        }" | ConvertFrom-Json
-                        $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName),$RawDataObjForControlFix[0].PermissionSetId
-
-                        [WebRequestHelper]:: InvokePostWebRequest($url,$body)
-
+                        $url = "https://dev.azure.com/{0}/_apis/Permissions/{1}/{2}?descriptor=Microsoft.TeamFoundation.Identity;{3}&token=repoV2/{4}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $($RawDataObjForControlFix[0].PermissionSetId), $roleId,$($identity.Descriptor), $($identity.PermissionSetToken)
+                        $response = Invoke-WebRequest -Uri $url -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                        #API takes some time to reflect the changes, if a new API call is made before that this permission might not be reflected even though status code is 200
+                        if($response.StatusCode -eq 200){
+                            Start-Sleep -seconds 1
+                        }
                     }
                     $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Allow"
-                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Not set"
 
                 }              
                 
@@ -3676,7 +3655,7 @@ class Project: ADOSVTBase
                         [WebRequestHelper]:: InvokePostWebRequest($url,$body)
 
                     }
-                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Deny"
+                    $identity | Add-Member -NotePropertyName OldPermission -NotePropertyValue "Not set"
                     $identity | Add-Member -NotePropertyName NewPermission -NotePropertyValue "Allow"
                 }
 
