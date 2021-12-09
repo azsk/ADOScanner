@@ -3126,11 +3126,14 @@ class Organization: ADOSVTBase
             if($this.FeedGlobalPermissions.Count -gt 0)
             {
                 #get identity details for groups fetched from above api
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+
                 $responseObj = $this.FeedGlobalPermissions | where-object {$_.role -eq 'administrator'}
                 $ids = $responseObj.identityId -join ';'
                 $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/IdentityPicker/Identities?api-version=5.0-preview.1" #-f $($OrgName), $($groupObj.entityId)
                 $body = '{"query":"'+ $ids +'","identityTypes":["group"],"operationScopes":["ims"],"queryTypeHint":"uid","properties":["DisplayName","ScopeName"]}'
-                $response = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/json" -Body $body -UseBasicParsing
+                $response = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} -Body $body -UseBasicParsing
             
                 $groups = $response.Content | Convertfrom-json
                 $roleAssignments = $groups.results.identities 
@@ -3264,10 +3267,13 @@ class Organization: ADOSVTBase
             $responseObj = @($this.FeedGlobalPermissions | where-object {$_.role -eq 'feedCreator'})
             if ($responseObj.Count -gt 0)
             {
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+
                 $ids = $responseObj.identityId -join ';'
                 $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/IdentityPicker/Identities?api-version=5.0-preview.1" #-f $($OrgName), $($groupObj.entityId)
                 $body = '{"query":"'+ $ids +'","identityTypes":["group"],"operationScopes":["ims"],"queryTypeHint":"uid","properties":["DisplayName","ScopeName"]}'
-                $response = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/json" -Body $body -UseBasicParsing
+                $response = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} -Body $body -UseBasicParsing
             
                 $groups = $response.Content | Convertfrom-json
                 $roleAssignments = $groups.results.identities.displayname
