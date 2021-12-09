@@ -18,7 +18,7 @@ class AzSKADOServiceMapping: CommandBase
     [object] $StorageAccountCtx;
     [string] $SharedKey
     [object] $hmacsha    
-    [string] $AzSKTempStatePath = (Join-Path $([Constants]::AzSKAppFolderPath) "TempState");
+    [string] $AzSKTempStatePath = [Constants]::AzSKTempFolderPath
     $BuildSTDetails = @();
     $ReleaseSTDetails =@();
     $RepositorySTDetails =@();
@@ -104,7 +104,7 @@ class AzSKADOServiceMapping: CommandBase
         }   
 
         # Get Build-Repo mappings
-        <#try {            
+        try {            
             $buildObjectListURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +'&$top=10000') -f $($this.orgName), $this.projectName;       
             $buildObjectList = $this.GetBuildReleaseObjects($buildObjectListURL,'Build');
             $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}
@@ -126,9 +126,9 @@ class AzSKADOServiceMapping: CommandBase
             }        
         }
         catch {           
-        } #>
+        }
         $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
-        #$this.ExportObjToJsonFileUploadToBlob($this.BuildSTDetails, 'BuildSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($this.BuildSTDetails, 'BuildSTData.json');
         
         if($this.Auto -eq 'true'){
             $response = Get-AzStorageBlob -Blob 'releaseDefinitions.json' -Container $this.Container -Context $this.StorageAccountCtx 
@@ -148,7 +148,7 @@ class AzSKADOServiceMapping: CommandBase
         }       
 
         # Get Release-Repo mappings
-        <#try {                         
+        try {                         
             $releaseObjectListURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.orgName), $this.projectName;    
             $releaseObjectList = $this.GetBuildReleaseObjects($ReleaseObjectListURL,'Release');
             $releaseObjectList = $releaseObjectList | Where-Object {$_.id -notin $this.ReleaseSTDetails.data.releaseDefinitionID}
@@ -175,7 +175,7 @@ class AzSKADOServiceMapping: CommandBase
                                         $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $releaseDefnObj[0].artifacts.definitionReference.definition.id) -and ($_.projectID -eq $releaseDefnObj[0].artifacts.definitionReference.project.id)};
                                         If($buildSTData){
                                             $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $release.name; releaseDefinitionID = $release.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )                            
-                                        }                                            
+                                        }
                                     }                                                                                                                                                                                           
                                 }
                         }                                           
@@ -187,10 +187,10 @@ class AzSKADOServiceMapping: CommandBase
         }
         catch {
            
-        }#>
+        }
 
         $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
-        #$this.ExportObjToJsonFileUploadToBlob($this.ReleaseSTDetails, 'ReleaseSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($this.ReleaseSTDetails, 'ReleaseSTData.json');
     }
 
     hidden GetRepositoryMapping() {  
