@@ -50,8 +50,7 @@ class AzSKADOServiceMapping: CommandBase
 	
 	[MessageData[]] GetSTmapping()
 	{
-        if(![string]::IsNullOrWhiteSpace($this.RepositoryMappingsFilePath)) {
-            Write-Host $this.AzSKTempStatePath
+        if(![string]::IsNullOrWhiteSpace($this.RepositoryMappingsFilePath)) {            
             $this.GetRepositoryMapping();
         }
 
@@ -151,13 +150,12 @@ class AzSKADOServiceMapping: CommandBase
         try {                         
             $releaseObjectListURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.orgName), $this.projectName;    
             $releaseObjectList = $this.GetBuildReleaseObjects($ReleaseObjectListURL,'Release');
-            $releaseObjectList = $releaseObjectList | Where-Object {$_.id -notin $this.ReleaseSTDetails.data.releaseDefinitionID}
-            $releaseObjectList =$releaseObjectList | Where-Object id -eq 1402
+            $releaseObjectList = $releaseObjectList | Where-Object {$_.id -notin $this.ReleaseSTDetails.data.releaseDefinitionID}            
             $counter =0
             foreach ($release in $releaseObjectList) {  
                 try { 
                     $counter++
-                    #Write-Progress -Activity 'Release mappings...' -CurrentOperation $release.name -PercentComplete (($counter / $releaseObjectList.count) * 100)                                                     
+                    Write-Progress -Activity 'Release mappings...' -CurrentOperation $release.name -PercentComplete (($counter / $releaseObjectList.count) * 100)                                                     
                     $releaseDefnObj = [WebRequestHelper]::InvokeGetWebRequest($release.url);                      
                         if($releaseDefnObj[0].artifacts)
                         {
@@ -208,14 +206,12 @@ class AzSKADOServiceMapping: CommandBase
             {
                 $this.ProjectId = $this.RepositorySTDetails.data[0].projectId
             }
-        }
-        Write-Host "Extracting json"
+        }        
         $this.ExportObjToJsonFile($this.RepositorySTDetails, 'RepositorySTData.json');
         $this.ExportObjToJsonFileUploadToBlob($this.RepositorySTDetails, 'RepositorySTData.json');
     }
 
-    hidden ExportObjToJsonFile($serviceMapping, $fileName) {  
-        Write-Host $this.AzSKTempStatePath
+    hidden ExportObjToJsonFile($serviceMapping, $fileName) {          
         if($this.auto -eq "true"){
             $this.OutputFolderPath = $this.AzSKTempStatePath;
         }
