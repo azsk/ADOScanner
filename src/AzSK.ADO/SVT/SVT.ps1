@@ -414,8 +414,6 @@ function Get-AzSKADOSecurityStatus
 			}
       
 			if ($PrepareForControlFix -eq $true)  {
-				#clear up this variable, it will contain non scanned resources from previous scan in same session.
-				$env:nonScannedResources=@()
 				if ($UsePartialCommits -ne $true)  {
 					Write-Host "PrepareForControlFix switch requires -UsePartialCommits switch." -ForegroundColor Red
 					return;

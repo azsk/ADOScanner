@@ -352,6 +352,8 @@ class WriteSummaryFile: FileOutputBase
 		}
 		$filePath = $this.FolderPath+"\ResourcesNotScanned.json"
 		Add-Content $filePath -Value ($resources | ConvertTo-JSON | % { [System.Text.RegularExpressions.Regex]::Unescape($_) })
+		#clear up this variable for later scans, as we do not need it from here
+		$env:nonScannedResources=@()
 	}
 
 }
