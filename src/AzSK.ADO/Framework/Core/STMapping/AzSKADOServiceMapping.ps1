@@ -216,14 +216,18 @@ class AzSKADOServiceMapping: CommandBase
             $this.OutputFolderPath = $this.AzSKTempStatePath;
         }
         else {
-            $this.OutputFolderPath = [WriteFolderPath]::GetInstance().FolderPath;
-        }            
-        
+            $this.OutputFolderPath = [WriteFolderPath]::GetInstance().FolderPath + "/" + $this.OrgName + "/" + $this.ProjectName;
+            If(!(test-path $this.OutputFolderPath)){
+                    New-Item -ItemType Directory -Force -Path $this.OutputFolderPath
+                }
+        }                    
         $serviceMapping | ConvertTo-Json -Depth 10 | Out-File (Join-Path $this.OutputFolderPath $fileName) -Encoding ASCII        
     }
 
-    hidden ExportObjToJsonFileUploadToBlob($serviceMapping, $fileName) {                   
+    hidden ExportObjToJsonFileUploadToBlob($serviceMapping, $fileName) {
+        if($this.auto -eq "true"){                
         Set-AzStorageBlobContent -Container $this.Container -File (Join-Path $this.AzSKTempStatePath $fileName) -Blob $fileName -Context $this.StorageAccountCtx -Force
+        }
     }
   
     hidden [bool] FetchSvcConnMapping() {  
