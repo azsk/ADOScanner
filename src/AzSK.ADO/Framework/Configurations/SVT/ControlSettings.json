@@ -826,7 +826,8 @@
         "ADO_Organization_SI_Limit_Variables_Settable_At_Queue_Time",
         "ADO_Organization_DP_Dont_Allow_Public_Projects",
         "ADO_Organization_AuthN_Disable_Guest_Users",
-        "ADO_Organization_AuthZ_Restrict_Broader_Group_Access_on_Feed"
+        "ADO_Organization_AuthZ_Restrict_Broader_Group_Access_on_Feed",
+        "ADO_Organization_Enable_Audit_Stream"
       ]
     
     },

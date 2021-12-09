@@ -452,7 +452,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "Audit"
+        "Audit",
+        "AutomatedFix"
       ],
       "Enabled": true
     },

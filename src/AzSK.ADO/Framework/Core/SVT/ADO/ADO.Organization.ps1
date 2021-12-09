@@ -2069,6 +2069,10 @@ class Organization: ADOSVTBase
             if(([Helpers]::CheckMember($responseObj[0],"count",$false)) -and ($responseObj[0].count -eq 0))
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Audit streaming is not setup for the organization.");
+                if($this.BaselineConfigurationRequired -or $this.ControlFixBackupRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $controlResult.AddMessage("Since no audit streams were found, the control cannot be fixed via the scanner. You need to configure a stream manually in the organization. Follow the recommendation from Security Report to know more details.")
+                }
             }
              # When audit streams are configured - the below condition will be true.
             elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0))
@@ -2089,16 +2093,96 @@ class Organization: ADOSVTBase
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "None of the audit streams that have been configured are currently enabled.");
-                }
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                    {
+                        $disabledStreams = @($responseObj | Where-Object {$_.status -ne 'enabled'} | Select-Object id,displayName)
+                        #Data object that will be required to fix the control                                    
+                        $controlResult.BackupControlState = $disabledStreams;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckAuditStreamAutomatedFix($controlResult);
+                        
+                    }
+            }
             }
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "No audit stream has been configured on the organization.");
+                if($this.BaselineConfigurationRequired -or $this.ControlFixBackupRequired ){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $controlResult.AddMessage("Since no audit streams were found, the control cannot be fixed via the scanner. You need to configure a stream manually in the organization. Follow the recommendation from Security Report to know more details.")
+                }
             }
         }
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of audit streams enabled on the organization.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckAuditStreamAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            if ($this.BaselineConfigurationRequired) {
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else {
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object { $_.ResourceId -eq $this.ResourceId }).DataObject
+            }            
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+            $erroredStreams = @();
+            $processedStreams = @();
+            if (-not $this.UndoFix) {
+                foreach ($stream in $RawDataObjForControlFix) {
+                    try {
+                        $url = "https://auditservice.dev.azure.com/{0}/_apis/audit/streams/{1}?status=1&api-version=5.0-preview.1" -f ($this.OrganizationContext.OrganizationName), $stream.id
+                        Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)}
+                        $processedStreams += $stream
+                    }
+                    catch {
+                        $erroredStreams += $stream
+                    }
+                   
+                }
+                if ($processedStreams.Count -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Fixed, "The following streams have been enabled: ");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Error, "None of the streams could be enabled.");
+                }
+            }
+            else {
+                foreach ($stream in $RawDataObjForControlFix) {
+                    try {
+                        $url = "https://auditservice.dev.azure.com/{0}/_apis/audit/streams/{1}?status=2&api-version=5.0-preview.1" -f ($this.OrganizationContext.OrganizationName), $stream.id
+                        Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)}
+                        $processedStreams += $stream
+                    }
+                    catch {
+                        $erroredStreams += $stream
+                    }
+                }
+                if ($processedStreams.Count -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Fixed, "The following streams have been disabled: ");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Error, "None of the streams could be disabled.");
+                }
+            }
+            if ($processedStreams.Count -gt 0) {
+                $controlResult.AddMessage(($processedStreams | FT | out-string));
+            }
+            if ($erroredStreams.Count -gt 0) {
+                $controlResult.AddMessage("The following streams could not be processed: ")
+                $controlResult.AddMessage(($erroredStreams | FT | out-string));
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not apply fix.");
             $controlResult.LogException($_)
         }
         return $controlResult

@@ -187,6 +187,7 @@ class WriteSummaryFile: FileOutputBase
 		$passedControls = @{Passed = @()}
 		$fixedControls = @{Fixed = @()}
 		$erroredControls = @{Error = @()}
+		$failedControls = @{Failed =@()}
 		$arguments | foreach{
 			$item = $_;
 			if ($item -and $item.ControlResults){
@@ -199,6 +200,9 @@ class WriteSummaryFile: FileOutputBase
 				}
 				elseif($item.ControlResults[0].VerificationResult -eq "Passed"){					
 					$passedControls.Passed+=$control
+				}
+				elseif($item.ControlResults[0].VerificationResult -eq "Failed"){
+					$failedControls.Failed+=$control
 				}
 				else{
 					$erroredControls.Error+=$control
@@ -215,6 +219,9 @@ class WriteSummaryFile: FileOutputBase
 		}
 		if($erroredControls.Error){
 			$combinedJSON+=$erroredControls
+		}
+		if($failedControls.Failed){
+			$combinedJSON+=$failedControls
 		}
 		if($combinedJSON){
 			Add-Content $filePath -Value ($combinedJSON | ConvertTo-JSON)

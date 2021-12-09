@@ -1155,7 +1155,9 @@ class SVTResourceResolver: AzSKRoot {
                 $oldestProject = $responseObj[0].name;
                 $buildURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $oldestProject;
                 $builds = @([WebRequestHelper]::InvokeGetWebRequest($buildURL));
-                if($builds.Count -gt 1){
+                $releaseURL = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $oldestProject;
+                $releases = @([WebRequestHelper]::InvokeGetWebRequest($releaseURL));
+                if($builds.Count -gt 1 -or $releases.Count -gt 1){
                     return $false;
                 }
             }
@@ -1165,8 +1167,10 @@ class SVTResourceResolver: AzSKRoot {
         }
         else{
             $buildURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $resourceName;
+            $releaseURL = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $resourceName;
+            $releases = @([WebRequestHelper]::InvokeGetWebRequest($releaseURL));
             $builds = @([WebRequestHelper]::InvokeGetWebRequest($buildURL));
-            if($builds.Count -gt 1){
+            if($builds.Count -gt 1 -or $releases.Count -gt 1){
                 return $false;
             }
         }
