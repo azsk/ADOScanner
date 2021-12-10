@@ -15,6 +15,7 @@ class AzSKADOServiceMapping: CommandBase
     [string] $StorageAccount;
     [string] $StorageRG;
     [string] $Container;
+    [string] $ReportContainer;
     [object] $StorageAccountCtx;
     [string] $SharedKey
     [object] $hmacsha    
@@ -37,6 +38,7 @@ class AzSKADOServiceMapping: CommandBase
         $this.StorageAccount = $env:StorageName;
         $this.StorageRG = $env:StorageRG;
         $this.Container = $env:Container;
+        $this.ReportContainer = $env:ReportContainer;
         #get storage details
         if ($this.StorageRG -and $this.StorageAccount) {
             $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
@@ -227,6 +229,7 @@ class AzSKADOServiceMapping: CommandBase
     hidden ExportObjToJsonFileUploadToBlob($serviceMapping, $fileName) {
         if($this.auto -eq "true"){                
         Set-AzStorageBlobContent -Container $this.Container -File (Join-Path $this.AzSKTempStatePath $fileName) -Blob $fileName -Context $this.StorageAccountCtx -Force
+        Set-AzStorageBlobContent -Container $this.ReportContainer -File (Join-Path $this.AzSKTempStatePath $fileName) -Blob $fileName -Context $this.StorageAccountCtx -Force
         }
     }
   
