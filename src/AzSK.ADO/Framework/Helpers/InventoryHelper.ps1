@@ -125,8 +125,8 @@ class InventoryHelper {
             # fetch the environments count
             try {
                 if ($projectData["Environments"] -eq 0) {
-                    $topNQueryString = '&$top=10000'
-                    $environmentDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1" + $topNQueryString) -f $organizationName, $projectName;
+                    #$topNQueryString = '&$top=10000'
+                    $environmentDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?api-version=6.0-preview.1") -f $organizationName, $projectName;
                     $environmentDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($environmentDefnURL);
                     if (([Helpers]::CheckMember($environmentDefnsObj, "count") -and $environmentDefnsObj[0].count -gt 0) -or (($environmentDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($environmentDefnsObj[0], "name"))) {
                         $projectData["Environments"] = ($environmentDefnsObj | Measure-Object).Count
