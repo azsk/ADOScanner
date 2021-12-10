@@ -11,7 +11,7 @@ class ControlHelper: EventBase{
     static $GroupsToExpand = @() # Groups for which meber counts need to check (fetched from controlsettings)
     static $GroupsWithDescriptor = @{} # All broder groups with descriptors
     static [string] $parentGroup = $null #used to store current broader group
-    static $CurrentGroupResolutionLevel = -1 # used to define the level of group expansion. Negative value indicates all level.
+    static $CurrentGroupResolutionLevel = -1 # used to define the current level of group which is expanding. Negative value indicates all level.
     static $GroupResolutionLevel = 1 # used to define the level of group expansion. Negative value indicates all level.
       
     #Checks if the severities passed by user are valid and filter out invalid ones
@@ -151,7 +151,8 @@ class ControlHelper: EventBase{
     {
         $groupPrincipalName = $groupObj.principalName
         $members = @()
-        [ControlHelper]::CurrentGroupResolutionLevel += 1
+        #increasing the level of group which is currently expanding and comparing it with defined expansion limit on each recursion.
+        [ControlHelper]::CurrentGroupResolutionLevel += 1 
         if ([ControlHelper]::CurrentGroupResolutionLevel -le [ControlHelper]::GroupResolutionLevel) 
         {
             if ([ControlHelper]::ResolvedBroaderGroups.ContainsKey($groupPrincipalName))
@@ -213,6 +214,7 @@ class ControlHelper: EventBase{
                     else
                     {
                         $members += [ControlHelper]::ResolveNestedBroaderGroupMembers($_, $orgName, $projName)
+                        #decreasing the current level of resolution, so that other groups present at the same level can also be expanded.
                         [ControlHelper]::CurrentGroupResolutionLevel -= 1
                         # Uncomment the below code if member count needs to be displayed on console.
                         # Write-Host "Group: [$($_.principalName)]; MemberCount: $(@([ControlHelper]::ResolvedBroaderGroups[$_.principalName]).Count)" -ForegroundColor Cyan
