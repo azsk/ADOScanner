@@ -28,7 +28,8 @@
           "ADO_Organization_AuthZ_Remove_Inactive_Guest_Users",
           "ADO_Organization_AuthZ_Remove_Disconnected_Accounts",
           "ADO_Organization_AuthZ_Restrict_Broader_Group_Access_on_Feed",
-          "ADO_Organization_AuthZ_Restrict_Feed_Create_Permission"
+          "ADO_Organization_AuthZ_Restrict_Feed_Create_Permission",
+          "ADO_Organization_Allow_Additional_Protection_For_Public_Package_Registries"
         ]
       },
       {
@@ -441,7 +442,8 @@
     "ThreshHoldDaysForWorkItemInactivity":180
   },
   "FeedsAndPackages":{
-    "ThreshHoldDaysForFeedsAndPackagesInactivity":180
+    "ThreshHoldDaysForFeedsAndPackagesInactivity":180,
+    "ThresholdPackagesPerFeed":5
   },
   "TestPlans":{
     "ThreshHoldDaysForTestPlansInactivity":180
@@ -810,7 +812,8 @@
   "AutomatedFix" : {
     "RevertDeletedResourcesControlList" : [
         "ADO_Build_DP_Review_Inactive_Build",
-        "ADO_Release_DP_Review_Inactive_Release"
+        "ADO_Release_DP_Review_Inactive_Release",
+        "ADO_Feed_SI_Review_Inactive_Feeds"
     ],
   "BackupLimitInDays" : 7
   },

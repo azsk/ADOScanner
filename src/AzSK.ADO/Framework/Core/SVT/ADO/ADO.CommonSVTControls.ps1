@@ -1809,9 +1809,15 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AddMessage("Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is greater than the threshold days.")
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Passed,"Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is less than the threshold days.")
+                    if($retentionPolicies.countLimit -gt $this.ControlSettings.FeedsAndPackages.ThresholdPackagesPerFeed){
+                        $controlResult.AddMessage("Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is under the threshold days, but maximum number of packages to keep per feed is greater than threshold.")
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is less than the threshold days.")
+                    }                    
                 }
                 $controlResult.AddMessage("`n Current number of days to keep recently downloaded packages is $($retentionPolicies.daysToKeepRecentlyDownloadedPackages).")
+                $controlResult.AddMessage("`n Maximum number of packages per feed is $($retentionPolicies.countLimit).")
             }
 
 
