@@ -182,7 +182,10 @@ class CommandBase: AzSKRoot {
 			[PartialScanManager]::ControlResultsWithSARIFSummary=@()
         }
 		# Publish command complete events
-        $this.CommandCompleted($methodResult);
+		if(!$this.InvocationContext.BoundParameters["ScanResultFilePath"])
+		{
+        	$this.CommandCompleted($methodResult);
+		}
 		[AIOrgTelemetryHelper]::TrackCommandExecution("Command Completed",
 			@{"RunIdentifier" = $this.RunIdentifier},
 			@{"TimeTakenInMs" = $sw.ElapsedMilliseconds; "SuccessCount" = 1},

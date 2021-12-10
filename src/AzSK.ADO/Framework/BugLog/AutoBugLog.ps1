@@ -16,6 +16,7 @@ class AutoBugLog {
     hidden [BugLogHelper] $BugLogHelperObj;
     hidden [string] $ScanSource;
     hidden [bool] $LogBugsForUnmappedResource = $true;
+    hidden [string] $BugLogProjectName = $null;
 
     #IsUpdateBugEnabled is used to store whether update bug is enabled in org-policy. 
     hidden [bool] $IsUpdateBugEnabled = $false;
@@ -84,7 +85,7 @@ class AutoBugLog {
         #check if user has permissions to log bug for the current resource
         if ($this.CheckPermsForBugLog($ControlResults[0])) {
             #retrieve the project name for the current resource
-            $ProjectName = $this.GetProjectForBugLog($ControlResults[0])
+            $ProjectName = $this.GetProjectForBugLog($ControlResults[0], $false)
 
             #check if the area and iteration path are valid 
             if ([BugLogPathManager]::CheckIfPathIsValid($this.OrganizationName, $ProjectName, $this.InvocationContext, $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $this.IsBugLogCustomFlow)) {
@@ -160,7 +161,7 @@ class AutoBugLog {
                                 $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
                     
                                 #function to attempt bug logging
-                                $this.AddWorkItem($Title, $Description, $AssignedTo, $Severity, $ProjectName, $control, $hash, $serviceId);
+                                $this.AddWorkItem($Title, $Description, $AssignedTo, $Severity, $ProjectName, $control, $hash, $serviceId, $null); #added null for bug template
                                 }
                             }
                         }
@@ -176,6 +177,81 @@ class AutoBugLog {
             }
         }
 
+    }
+
+    hidden [void] LogBugInADOCSV([SVTEventContext[]] $ControlResults, $BugLogProjectName, $BugTemplate, $STMappingFilePath) {
+        $ProjectName = $this.GetProjectForBugLog($ControlResults[0], $true)
+        #check if the area and iteration path are valid 
+        if ([BugLogPathManager]::CheckIfPathIsValid($this.OrganizationName, $BugLogProjectName, $this.InvocationContext, $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $this.IsBugLogCustomFlow)) {
+            #Obtain the assignee for the current resource, will be same for all the control failures for this particular resource
+            $metaProviderObj = [BugMetaInfoProvider]::new($true, $STMappingFilePath);   
+            $ResourceType = $ControlResults[0].ResourceContext.ResourceTypeName;
+            if($ResourceType -eq 'Organization' -or $ResourceType -eq 'Project') {
+                try {
+                    if ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First 10 non-ALT admins:*") {
+                        $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("First 10 non-ALT admins:"))[-1].split(':')[1]
+                    }
+                    elseif ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First 10 Non_Alt_Admins*") {
+                        $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("First 10 Non_Alt_Admins:"))[-1].split(':')[1].split(';')[0]
+                    }
+                    else {
+                        Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID). Assignee could not be determined." -ForegroundColor Yellow
+                        return;
+                    }
+                }
+                catch {
+                    Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID). Assignee could not be determined." -ForegroundColor Yellow
+                    return;
+                }
+            }
+            else {
+                $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.InvocationContext);
+            }
+            $serviceId = $metaProviderObj.ServiceId
+            $resourceOwner = "";
+            if($serviceId -or $ResourceType -eq 'Organization' -or $ResourceType -eq 'Project')
+            {
+                #Set ShowBugsInS360 if customebuglog is enabled and sericeid not null and ShowBugsInS360 enabled in policy
+                if ($this.IsBugLogCustomFlow -and (-not [string]::IsNullOrEmpty($serviceId)) -and ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "ShowBugsInS360") -and $this.ControlSettings.BugLogging.ShowBugsInS360) ) {
+                    $this.ShowBugsInS360 = $true;
+                }
+                else {
+                    $this.ShowBugsInS360 = $false;
+                }
+
+                $printLogBugMsg = $true;
+                $ControlResults | ForEach-Object {
+                    $control = $_;
+                    try
+                    {   
+                        #compute hash of control Id and resource Id 
+                        $hash = $this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
+                                
+                        #check if a bug with the computed hash exists
+                        $workItem = $this.GetWorkItemByHash($hash, [BugLogPathManager]::BugLoggingProject)
+                        if ($workItem[0].results.count -gt 0) {
+                            $this.ManageActiveAndResolvedBugs($BugLogProjectName, $control, $workItem, $AssignedTo, $serviceId, $resourceOwner)
+                        }
+                        else {
+                            #filling the bug template
+                            $Title = $this.GetTitle($control);
+                            $Description = $this.GetDescription($control, $resourceOwner);
+                            $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
+                        
+                            #function to attempt bug logging
+                            $this.AddWorkItem($Title, $Description, $AssignedTo, $Severity, $BugLogProjectName, $control, $hash, $serviceId, $BugTemplate);
+                        }
+                    }
+                    catch
+                    {
+                        Write-Host "Could not log/reactivate the bug for resource $($control.ResourceContext.ResourceName) and control $($control.ControlItem.ControlID)." -ForegroundColor Red
+                    } 
+                }
+            }
+            else {
+                Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID). Assignee could not be determined." -ForegroundColor Yellow
+            }    
+        }
     }
 
     #function to get the security command for repro of this bug 
@@ -200,10 +276,10 @@ class AutoBugLog {
     }
     
     #function to retrieve project name according to the resource
-    hidden [string] GetProjectForBugLog([SVTEventContext[]] $ControlResult) {
+    hidden [string] GetProjectForBugLog([SVTEventContext[]] $ControlResult, $BugLogUsingCSV) {
         $ProjectName = ""
         #if resource is the organization, call control state extension to retreive attestation host project
-        if ($ControlResult.FeatureName -eq "Organization") {
+        if ($ControlResult.FeatureName -eq "Organization" -and !$BugLogUsingCSV) {
             $ProjectName = $this.ControlStateExt.GetProject()
         }
         #for all the other resource types, retrieve the project name from the control itself
@@ -223,23 +299,23 @@ class AutoBugLog {
              return $true;
         }
         elseif($ControlResult.FeatureName -eq 'Organization') {
-                #check if any host project can be retrieved, if not use getHostProject to return the correct behaviour output
-                if (!($this.GetHostProject($ControlResult))) {
-                    return $false
-                }				
-            }
-        elseif($ControlResult.FeatureName -eq 'Project') {
-                #check if user is member of PA/PCA
-                if (!$this.ControlStateExt.GetControlStatePermission($ControlResult.FeatureName, $ControlResult.ResourceContext.ResourceName)) {
-                    Write-Host "`nAuto bug logging denied due to insufficient permissions. Make sure you are a project administrator. " -ForegroundColor Red
-                    return $false
-                }
-            }
-        elseif($ControlResult.FeatureName -eq 'User') {
-                #TODO: User controls dont have a project associated with them, can be rectified in future versions
-                Write-Host "`nAuto bug logging for user control failures is currently not supported." -ForegroundColor Yellow
+            #check if any host project can be retrieved, if not use getHostProject to return the correct behaviour output
+            if (!($this.GetHostProject($ControlResult))) {
+                return $false
+            }				
+        }
+    elseif($ControlResult.FeatureName -eq 'Project') {
+            #check if user is member of PA/PCA
+            if (!$this.ControlStateExt.GetControlStatePermission($ControlResult.FeatureName, $ControlResult.ResourceContext.ResourceName)) {
+                Write-Host "`nAuto bug logging denied due to insufficient permissions. Make sure you are a project administrator. " -ForegroundColor Red
                 return $false
             }
+        }
+    elseif($ControlResult.FeatureName -eq 'User') {
+            #TODO: User controls dont have a project associated with them, can be rectified in future versions
+            Write-Host "`nAuto bug logging for user control failures is currently not supported." -ForegroundColor Yellow
+            return $false
+        }
         return $true
     }
     
@@ -620,7 +696,7 @@ class AutoBugLog {
         #checking if resource owner is a valid user or not
         $emailRegEx = $this.ControlSettings.Patterns | Where-Object {$_.RegexCode -eq "Email"} | Select-Object -Property RegexList;
         $bugNote = ""
-        if ($resourceOwner -inotmatch $emailRegEx.RegexList) {
+        if ($resourceOwner -and $resourceOwner -inotmatch $emailRegEx.RegexList) {
             $bugNote = "</br></br><b>Note: </b> The resource owner or last modified identity is a service account.</br>"
         }
 
@@ -734,7 +810,7 @@ class AutoBugLog {
     }
     
     #Logging new bugs
-    hidden [void] AddWorkItem([string] $Title, [string] $Description, [string] $AssignedTo, [string]$Severity, [string]$ProjectName, [SVTEventContext[]] $control, [string] $hash, [string] $serviceId) 
+    hidden [void] AddWorkItem([string] $Title, [string] $Description, [string] $AssignedTo, [string]$Severity, [string]$ProjectName, [SVTEventContext[]] $control, [string] $hash, [string] $serviceId, $BugTemplateInCMD) 
     {	
         $apiurl = 'https://dev.azure.com/{0}/{1}/_apis/wit/workitems/$bug?api-version=5.1' -f $this.OrganizationName, $ProjectName;
 
@@ -752,6 +828,9 @@ class AutoBugLog {
                 $secSeverity = $control.ControlItem.ControlSeverity;
             }
             $SecuritySeverity = $this.GetSecuritySeverity($secSeverity)		
+        }
+        elseif ($BugTemplateInCMD) {
+         $BugTemplate = $BugTemplateInCMD;   
         }
         else {
             $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForNewBug.json");
@@ -775,7 +854,7 @@ class AutoBugLog {
         else {
             $BugTemplate = $BugTemplate.Replace("{5}", $hash)
         }
-        $BugTemplate = $BugTemplate.Replace("{6}", $AssignedTo)
+        $BugTemplate = $BugTemplate.Replace("{6}", $AssignedTo.trim())
 
         if ($this.ShowBugsInS360) {
             $BugTemplate = $BugTemplate.Replace("{7}", $this.controlsettings.BugLogging.HowFound)

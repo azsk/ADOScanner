@@ -7,6 +7,7 @@ class MetaInfoProvider {
 	hidden [string] $code;
     hidden [string] $baseURL;
     hidden [PSObject] $ControlSettings; 
+    hidden [string] $LocalSTMappingFilePath = $null;
     
     hidden $buildSTDetails = @{};
     hidden $releaseSTDetails = @{};
@@ -149,9 +150,10 @@ class MetaInfoProvider {
     }
     
     #Fetching service tree info details based on resource id and internally calling adoinfo api and loading resource file if enabled, else loading resource file from local org policy files
-    [PSObject] FetchResourceMappingWithServiceData($rscId, $projectName, $resourceTypeName)
+    [PSObject] FetchResourceMappingWithServiceData($rscId, $projectName, $resourceTypeName, $localSTMappingFilePath)
     {
         $serviceTreeInfo = $null;
+        $this.LocalSTMappingFilePath = $localSTMappingFilePath;
         try 
         {
             #check if adoinfoapi is enabled in org-policy file 
@@ -234,38 +236,64 @@ class MetaInfoProvider {
 		if ($ResourceTypeName -in ([ResourceTypeName]::Build, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
 		{
 		   if (!$this.buildSTDetails.ContainsKey("$projectName")) {
-                $this.buildSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\BuildSTData.json"));
+               if ($this.LocalSTMappingFilePath) {
+                    $BuildST = Get-content "$($this.LocalSTMappingFilePath)\$projectName\BuildSTData.json" | ConvertFrom-Json;
+                    $this.buildSTDetails.add($projectName, $BuildST);
+               }
+               else {
+                    $this.buildSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\BuildSTData.json"));
+               }
             }	
 		}
 
 		if ($ResourceTypeName -in ([ResourceTypeName]::Release, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources))
 		{
 			if (!$this.releaseSTDetails.ContainsKey("$projectName")) {
-                $this.releaseSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\ReleaseSTData.json"));
-
+                if ($this.LocalSTMappingFilePath) {
+                    $ReleaseST = Get-content "$($this.LocalSTMappingFilePath)\$projectName\ReleaseSTData.json" | ConvertFrom-Json;
+                    $this.releaseSTDetails.add($projectName, $ReleaseST);
+               }
+               else {
+                    $this.releaseSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\ReleaseSTData.json"));
+               }
 			}
 		}
 
 		if ($ResourceTypeName -in ([ResourceTypeName]::ServiceConnection, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))
 		{
 			if (!$this.svcConnSTDetails.ContainsKey("$projectName")) {
-                $this.svcConnSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\ServiceConnectionSTData.json"));
-                
+                if ($this.LocalSTMappingFilePath) {
+                    $SvcConnST = Get-content "$($this.LocalSTMappingFilePath)\$projectName\ServiceConnectionSTData.json" | ConvertFrom-Json;
+                    $this.svcConnSTDetails.add($projectName, $SvcConnST);
+               }
+               else {
+                    $this.svcConnSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\ServiceConnectionSTData.json"));
+               }                
 			}
 		}
 		if ($ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))
 		{
 			if (!$this.agtPoolSTDetails.ContainsKey("$projectName")) {
-                $this.agtPoolSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\AgentPoolSTData.json"));
-                
+                if ($this.LocalSTMappingFilePath) {
+                    $AgtPoolST = Get-content "$($this.LocalSTMappingFilePath)\$projectName\AgentPoolSTData.json" | ConvertFrom-Json;
+                    $this.agtPoolSTDetails.add($projectName, $AgtPoolST);
+               }
+               else {
+                    $this.agtPoolSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\AgentPoolSTData.json"));
+               }
 			}
 		}
 
 		if ($ResourceTypeName -in ([ResourceTypeName]::VariableGroup, [ResourceTypeName]::All,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))
 		{
 			if (!$this.varGroupSTDetails.ContainsKey("$projectName")) {
-                $this.varGroupSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\VariableGroupSTData.json"));
-                
+                if ($this.LocalSTMappingFilePath) {
+                    $VGGrpST = Get-content "$($this.LocalSTMappingFilePath)\$projectName\VariableGroupSTData.json" | ConvertFrom-Json;
+                    $this.varGroupSTDetails.add($projectName, $VGGrpST);
+               }
+               else {
+                    $this.varGroupSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\VariableGroupSTData.json"));
+               }
             }
         
         }
@@ -273,41 +301,64 @@ class MetaInfoProvider {
         if ($ResourceTypeName -eq "ServiceTree")
 		{
 			if (!$this.serviceTreeDetails.ContainsKey("$projectName")) {
-                $this.serviceTreeDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\ServiceTreeData.json"));
-                
+                if ($this.LocalSTMappingFilePath) {
+                    $STDetails = Get-content "$($this.LocalSTMappingFilePath)\$projectName\ServiceTreeData.json" | ConvertFrom-Json;
+                    $this.serviceTreeDetails.add($projectName, $STDetails);
+               }
+               else {
+                    $this.serviceTreeDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\ServiceTreeData.json"));   
+               }                
             }
 		}
         if ($ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))
 		{
 			if (!$this.repositorySTDetails.ContainsKey("$projectName")) {
-                $this.repositorySTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\RepositorySTData.json"));
-                
+                if ($this.LocalSTMappingFilePath) {
+                    $RepoST = Get-content "$($this.LocalSTMappingFilePath)\$projectName\RepositorySTData.json" | ConvertFrom-Json;
+                    $this.repositorySTDetails.add($projectName, $RepoST);
+                }
+                else {
+                    $this.repositorySTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\RepositorySTData.json"));   
+                }                
             }
         
         }
         if ($ResourceTypeName -in ([ResourceTypeName]::Feed, [ResourceTypeName]::All,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))
 		{
 			if (!$this.feedSTDetails.ContainsKey("$projectName")) {
-                $this.feedSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\FeedSTData.json"));
-                
+                if ($this.LocalSTMappingFilePath) {
+                    $FeedST = Get-content "$($this.LocalSTMappingFilePath)\$projectName\FeedSTData.json" | ConvertFrom-Json;
+                    $this.feedSTDetails.add($projectName, $FeedST);
+                }
+                else {
+                    $this.feedSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\FeedSTData.json"));
+                }
             }
         
         }
         if ($ResourceTypeName -in ([ResourceTypeName]::SecureFile, [ResourceTypeName]::All,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))
 		{
 			if (!$this.secureFileSTDetails.ContainsKey("$projectName")) {
-                $this.secureFileSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\SecureFileSTData.json"));
-                
+                if ($this.LocalSTMappingFilePath) {
+                    $SecFileST = Get-content "$($this.LocalSTMappingFilePath)\$projectName\SecureFileSTData.json" | ConvertFrom-Json;
+                    $this.secureFileSTDetails.add($projectName, $SecFileST);
+                }
+                else {
+                    $this.secureFileSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\SecureFileSTData.json"));
+                }
             }
-        
         }
         if ($ResourceTypeName -in ([ResourceTypeName]::Environment, [ResourceTypeName]::All,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))
 		{
 			if (!$this.environmentSTDetails.ContainsKey("$projectName")) {
-                $this.environmentSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\EnvironmentSTData.json"));
-                
+                if ($this.LocalSTMappingFilePath) {
+                    $EnvST = Get-content "$($this.LocalSTMappingFilePath)\$projectName\EnvironmentSTData.json" | ConvertFrom-Json;
+                    $this.environmentSTDetails.add($projectName, $EnvST);
+                }
+                else {
+                    $this.environmentSTDetails.add($projectName, [ConfigurationManager]::LoadServerConfigFile("$projectName\EnvironmentSTData.json"));   
+                }
             }
-        
         }
     }
 

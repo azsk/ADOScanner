@@ -4,7 +4,7 @@ Set-StrictMode -Version Latest
 
 
 #These are the topmost folder PS1 files that load
-@("$PSScriptRoot\SVT", "$PSScriptRoot\AlertMonitoring", "$PSScriptRoot\ContinuousAssurance","$PSScriptRoot\AzSKADOInfo", "$PSScriptRoot\STMapping") |
+@("$PSScriptRoot\SVT", "$PSScriptRoot\AlertMonitoring", "$PSScriptRoot\ContinuousAssurance","$PSScriptRoot\AzSKADOInfo", "$PSScriptRoot\STMapping", "$PSScriptRoot\AutoBugLogCMD") |
     ForEach-Object {
     (Get-ChildItem -Path $_ -Recurse -File -Include "*.ps1") |
         ForEach-Object {

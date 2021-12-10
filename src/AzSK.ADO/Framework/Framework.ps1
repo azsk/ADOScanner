@@ -158,5 +158,6 @@ $FrameworkPath = $PSScriptRoot
 . $PSScriptRoot\Core\SVT\SVTResourceResolver.ps1
 . $PSScriptRoot\Abstracts\ServicesSecurityStatus.ps1
 . $PSScriptRoot\Core\SVT\Resolver.ps1
+. $FrameworkPath\BugLog\AzSKADOAutoBugLogging.ps1
 . $PSScriptRoot\Core\ContinuousAssurance\CAAutomation.ps1
 . $PSScriptRoot\Core\ADOMonitoring\LogAnalyticsMonitoring.ps1
