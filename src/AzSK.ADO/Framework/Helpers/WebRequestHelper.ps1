@@ -378,6 +378,9 @@ class WebRequestHelper {
 									elseif($uri.Contains("auditservice")){
 										$uri = $orginalUri+"&continuationToken="+$json.continuationToken
 									}
+									elseif($uri.Contains("testplan/plans") -or $uri.Contains("distributedtask/environments")){
+										$uri = $orginalUri+"&continuationToken="+$nPKey
+									}
 									else {
 										$uri = [string]::Empty;
 									}
