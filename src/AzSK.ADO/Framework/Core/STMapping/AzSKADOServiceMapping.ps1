@@ -48,15 +48,29 @@ class AzSKADOServiceMapping: CommandBase
         if($this.Auto -eq 'true'){
             if ($this.StorageRG -and $this.StorageAccount) {
                 $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
-                #storage context to save ST files for ADO scanner
-                $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https                
-                $this.StorageAccountCtx = $StorageContext.Context;               
+                if ($null -eq $keys)
+				{
+					$this.PublishCustomMessage("Status:   Storage account not found.", [MessageType]::Error);
+				}
+                else {
+                   #storage context to save ST files for ADO scanner
+                    $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https                
+                    $this.StorageAccountCtx = $StorageContext.Context;   
+                }
+                             
             }
             if ($this.ReportStorageRG -and $this.ReportStorageAccount) {
                 $keys = Get-AzStorageAccountKey -ResourceGroupName $this.ReportStorageRG -Name $this.ReportStorageAccount
-                #storage context to save ST files for Power Bi reports
-                $ReportStorageContext = New-AzStorageContext -StorageAccountName $this.ReportStorageAccount -StorageAccountKey $keys[0].Value -Protocol Https                                
-                $this.ReportStorageAccountCtx = $ReportStorageContext.Context;              
+                if ($null -eq $keys)
+				{
+					$this.PublishCustomMessage("Status:   Storage account not found.", [MessageType]::Error);
+				}
+                else {
+                   #storage context to save ST files for Power Bi reports
+                    $ReportStorageContext = New-AzStorageContext -StorageAccountName $this.ReportStorageAccount -StorageAccountKey $keys[0].Value -Protocol Https                                
+                    $this.ReportStorageAccountCtx = $ReportStorageContext.Context;  
+                }
+                             
             }
         }
 	}
@@ -239,10 +253,15 @@ class AzSKADOServiceMapping: CommandBase
     }
 
     hidden ExportObjToJsonFileUploadToBlob($serviceMapping, $fileName) {
-        if($this.auto -eq "true"){   
+        if($this.auto -eq "true"){
+            
         $fileName =$this.OrgName.ToLower() + "/" + $this.ProjectName.ToLower() + "/" + $fileName
-        Set-AzStorageBlobContent -Container $this.Container -File (Join-Path $this.AzSKTempStatePath $fileName) -Blob $fileName -Context $this.StorageAccountCtx -Force
-        Set-AzStorageBlobContent -Container $this.ReportContainer -File (Join-Path $this.AzSKTempStatePath $fileName) -Blob $fileName -Context $this.ReportStorageAccountCtx -Force
+            if ($null -ne $this.StorageAccountCtx){
+                Set-AzStorageBlobContent -Container $this.Container -File (Join-Path $this.AzSKTempStatePath $fileName) -Blob $fileName -Context $this.StorageAccountCtx -Force
+            }
+            if ($null -ne $this.ReportStorageAccountCtx){
+                Set-AzStorageBlobContent -Container $this.ReportContainer -File (Join-Path $this.AzSKTempStatePath $fileName) -Blob $fileName -Context $this.ReportStorageAccountCtx -Force
+            }        
         }
     }
   
