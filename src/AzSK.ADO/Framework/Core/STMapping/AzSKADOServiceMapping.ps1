@@ -14,11 +14,13 @@ class AzSKADOServiceMapping: CommandBase
     [string] $Auto = $false
     [string] $StorageAccount;
     [string] $StorageRG;
-    [string] $Container;
-    [string] $ReportContainer;
-    [object] $StorageAccountCtx;
-    [string] $SharedKey
-    [object] $hmacsha    
+    [string] $Container;    
+    [object] $StorageAccountCtx;     
+    # Report Storage settings
+    [string] $ReportStorageAccount;
+    [string] $ReportStorageRG;
+    [string] $ReportContainer;    
+    [object] $ReportStorageAccountCtx;     
     [string] $AzSKTempStatePath = [Constants]::AzSKTempFolderPath
     $BuildSTDetails = @();
     $ReleaseSTDetails =@();
@@ -38,15 +40,22 @@ class AzSKADOServiceMapping: CommandBase
         $this.StorageAccount = $env:StorageName;
         $this.StorageRG = $env:StorageRG;
         $this.Container = $env:Container;
-        $this.ReportContainer = $env:ReportContainer;
+        # Report Storage settings
+        $this.ReportStorageAccount = $env:ReportStorageName;
+        $this.ReportStorageRG = $env:ReportStorageRG;
+        $this.ReportContainer = $env:ReportContainer;                
         #get storage details
-        if ($this.StorageRG -and $this.StorageAccount) {
-            $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
-            $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https
-            $this.SharedKey = $keys[0].Value;
-            $this.StorageAccountCtx = $StorageContext.Context;
-            $this.hmacsha = New-Object System.Security.Cryptography.HMACSHA256
-            $this.hmacsha.key = [Convert]::FromBase64String($this.SharedKey)
+        if($this.Auto -eq 'true'){
+            if ($this.StorageRG -and $this.StorageAccount) {
+                $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
+                $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https                
+                $this.StorageAccountCtx = $StorageContext.Context;               
+            }
+            if ($this.ReportStorageRG -and $this.ReportStorageAccount) {
+                $keys = Get-AzStorageAccountKey -ResourceGroupName $this.ReportStorageRG -Name $this.ReportStorageAccount
+                $ReportStorageContext = New-AzStorageContext -StorageAccountName $this.ReportStorageAccount -StorageAccountKey $keys[0].Value -Protocol Https                
+                $this.ReportStorageAccountCtx = $ReportStorageContext.Context;              
+            }
         }
 	}
 	
@@ -213,23 +222,25 @@ class AzSKADOServiceMapping: CommandBase
         $this.ExportObjToJsonFileUploadToBlob($this.RepositorySTDetails, 'RepositorySTData.json');
     }
 
-    hidden ExportObjToJsonFile($serviceMapping, $fileName) {          
+    hidden ExportObjToJsonFile($serviceMapping, $fileName) {   
+        $folderPath ="/" + $this.OrgName.ToLower() + "/" + $this.ProjectName.ToLower(); 
         if($this.auto -eq "true"){
-            $this.OutputFolderPath = $this.AzSKTempStatePath;
+            $this.OutputFolderPath = $this.AzSKTempStatePath + $folderPath;
         }
         else {
-            $this.OutputFolderPath = [WriteFolderPath]::GetInstance().FolderPath + "/" + $this.OrgName + "/" + $this.ProjectName;
-            If(!(test-path $this.OutputFolderPath)){
-                    New-Item -ItemType Directory -Force -Path $this.OutputFolderPath
-                }
+            $this.OutputFolderPath = [WriteFolderPath]::GetInstance().FolderPath + $folderPath;         
+        }
+        If(!(test-path $this.OutputFolderPath)){
+            New-Item -ItemType Directory -Force -Path $this.OutputFolderPath
         }                    
         $serviceMapping | ConvertTo-Json -Depth 10 | Out-File (Join-Path $this.OutputFolderPath $fileName) -Encoding ASCII        
     }
 
     hidden ExportObjToJsonFileUploadToBlob($serviceMapping, $fileName) {
-        if($this.auto -eq "true"){                
+        if($this.auto -eq "true"){   
+        $fileName =$this.OrgName.ToLower() + "/" + $this.ProjectName.ToLower() + "/" + $fileName
         Set-AzStorageBlobContent -Container $this.Container -File (Join-Path $this.AzSKTempStatePath $fileName) -Blob $fileName -Context $this.StorageAccountCtx -Force
-        Set-AzStorageBlobContent -Container $this.ReportContainer -File (Join-Path $this.AzSKTempStatePath $fileName) -Blob $fileName -Context $this.StorageAccountCtx -Force
+        Set-AzStorageBlobContent -Container $this.ReportContainer -File (Join-Path $this.AzSKTempStatePath $fileName) -Blob $fileName -Context $this.ReportStorageAccountCtx -Force
         }
     }
   
