@@ -387,7 +387,7 @@ class SVTResourceResolver: AzSKRoot {
         if ($this.ResourceTypeName -in ([ResourceTypeName]::Organization, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User) -and ([string]::IsNullOrEmpty($this.serviceIds)) )
         {
             if($PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations" -and $this.IsResourceEligibleForBaselineConfig([ResourceTypeName]::Organization,$this.organizationName) -eq $false){
-                $this.PublishCustomMessage("The organization seems to be an operationally working environment. Hence, stopping baseline configurations. If you think this is a new ADO organization or you still wish to configure baseline settings use the '-force' switch with the command. `n", [MessageType]::Warning);
+                $this.PublishCustomMessage([Constants]::BaselineConfigurationErrorMsgOrg, [MessageType]::Warning);
                 return;
             }
             #First condition if 'includeAdminControls' switch is passed or user is admin(PCA).
@@ -458,8 +458,8 @@ class SVTResourceResolver: AzSKRoot {
                     Write-Host 'No project found to perform the scan.' -ForegroundColor Red                    
                 }
                 if($projects -and $PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations" -and $this.ProjectNames -eq "*" -and $this.IsResourceEligibleForBaselineConfig([ResourceTypeName]::Project,$this.ProjectNames) -eq $false){
-                    $this.PublishCustomMessage("The organization seems to be an operationally working environment. Hence, stopping baseline configurations. If you think this is a new ADO organization or you still wish to configure baseline settings use the '-force' switch with the command. `n", [MessageType]::Warning);
-                    throw;
+                    $this.PublishCustomMessage([Constants]::BaselineConfigurationErrorMsgOrg, [MessageType]::Warning);
+                    return;
                 }
                 $TotalSvc = 0;
                 $ScannableSvc = 0;
@@ -524,7 +524,8 @@ class SVTResourceResolver: AzSKRoot {
                     if ($this.ResourceTypeName -in ([ResourceTypeName]::Project, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User)  -and ([string]::IsNullOrEmpty($this.serviceIds)))
                     {
                         if($this.ProjectNames -ne "*" -and $PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations" -and $this.IsResourceEligibleForBaselineConfig([ResourceTypeName]::Project,$thisProj.name) -eq $false){
-                            $this.PublishCustomMessage("The project $($thisProj.name) seems to be an operationally working project. Hence, skipping baseline configurations for this project. If you think this is a new ADO project or you still wish to configure baseline settings use the '-force' switch with the command. `n", [MessageType]::Warning);
+                            $msg = [Constants]::BaselineConfigurationErrorMsgProj -f $($thisProj.name)
+                            $this.PublishCustomMessage($msg, [MessageType]::Warning);
                             continue;
                         }
                         #First condition if 'includeAdminControls' switch is passed or user is PCA or User is PA.
@@ -1146,6 +1147,7 @@ class SVTResourceResolver: AzSKRoot {
         if($this.baselineConfigurationForce){
             return $true;
         }
+        #if rtn is Org or Org and Project both, we first find the oldest project and check number of pipelines. In case rtn is project and * is given as project names, then also we find the oldest project pipeline
         if($resourceType -eq [ResourceTypeName]::Organization -or $resourceType -eq [ResourceTypeName]::Org_Project_User -or($resourceType -eq [ResourceTypeName]::Project -and $resourceName -eq "*")){
             $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=6.0' -f $($this.OrganizationContext.OrganizationName);
             $responseObj = "";
@@ -1165,6 +1167,8 @@ class SVTResourceResolver: AzSKRoot {
                 
             }
         }
+        #We reach here when -rtn is just project and we have project names (either one or multiple), we check the number of pipelines in the current project
+        #This will be checked once for each project
         else{
             $buildURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $resourceName;
             $releaseURL = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $resourceName;
