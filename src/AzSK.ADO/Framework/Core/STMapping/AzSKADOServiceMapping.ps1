@@ -12,14 +12,14 @@ class AzSKADOServiceMapping: CommandBase
     [string] $MappingType
     [string] $OutputFolderPath
     [string] $Auto = $false
-    [string] $StorageAccount;
-    [string] $StorageRG;
-    [string] $Container;    
+    [string] $StorageAccount; # Storage account name
+    [string] $StorageRG;# Storage resource group name
+    [string] $Container;# Storage Container to store ST mapping files    
     [object] $StorageAccountCtx;     
-    # Report Storage settings
-    [string] $ReportStorageAccount;
-    [string] $ReportStorageRG;
-    [string] $ReportContainer;    
+    # Power BI Report Storage settings to store ST mapping files
+    [string] $ReportStorageAccount;# Storage account name for powerbi 
+    [string] $ReportStorageRG;# Storage resource group name for powerbi 
+    [string] $ReportContainer;#Storage Container to store ST mapping files use by Power Bi  resports    
     [object] $ReportStorageAccountCtx;     
     [string] $AzSKTempStatePath = [Constants]::AzSKTempFolderPath
     $BuildSTDetails = @();
@@ -36,11 +36,11 @@ class AzSKADOServiceMapping: CommandBase
         $this.ReleaseMappingsFilePath = $releaseFileLocation
         $this.RepositoryMappingsFilePath = $repositoryFileLocation
         $this.MappingType = $MappingType
-        $this.Auto = $auto        
+        $this.Auto = $auto.ToLower();        
         $this.StorageAccount = $env:StorageName;
         $this.StorageRG = $env:StorageRG;
         $this.Container = $env:Container;
-        # Report Storage settings
+        # Power BI Report Storage settings
         $this.ReportStorageAccount = $env:ReportStorageName;
         $this.ReportStorageRG = $env:ReportStorageRG;
         $this.ReportContainer = $env:ReportContainer;                
@@ -48,12 +48,14 @@ class AzSKADOServiceMapping: CommandBase
         if($this.Auto -eq 'true'){
             if ($this.StorageRG -and $this.StorageAccount) {
                 $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
+                #storage context to save ST files for ADO scanner
                 $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https                
                 $this.StorageAccountCtx = $StorageContext.Context;               
             }
             if ($this.ReportStorageRG -and $this.ReportStorageAccount) {
                 $keys = Get-AzStorageAccountKey -ResourceGroupName $this.ReportStorageRG -Name $this.ReportStorageAccount
-                $ReportStorageContext = New-AzStorageContext -StorageAccountName $this.ReportStorageAccount -StorageAccountKey $keys[0].Value -Protocol Https                
+                #storage context to save ST files for Power Bi reports
+                $ReportStorageContext = New-AzStorageContext -StorageAccountName $this.ReportStorageAccount -StorageAccountKey $keys[0].Value -Protocol Https                                
                 $this.ReportStorageAccountCtx = $ReportStorageContext.Context;              
             }
         }
@@ -66,7 +68,7 @@ class AzSKADOServiceMapping: CommandBase
         }
 
         if(![string]::IsNullOrWhiteSpace($this.BuildMappingsFilePath) -and ![string]::IsNullOrWhiteSpace($this.ReleaseMappingsFilePath)){
-            if((Test-Path $this.BuildMappingsFilePath) -and (Test-Path $this.ReleaseMappingsFilePath))
+            if(((Test-Path $this.BuildMappingsFilePath) -and (Test-Path $this.ReleaseMappingsFilePath)) -or $this.Auto -eq 'true')
             {
                 $this.GetBuildReleaseMapping();              
                 if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "ServiceConnection")
@@ -117,7 +119,7 @@ class AzSKADOServiceMapping: CommandBase
         try {            
             $buildObjectListURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +'&$top=10000') -f $($this.orgName), $this.projectName;       
             $buildObjectList = $this.GetBuildReleaseObjects($buildObjectListURL,'Build');
-            $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}
+            $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}            
             $counter =0
             foreach ($build in $buildObjectList) {               
                 try {                
@@ -161,7 +163,7 @@ class AzSKADOServiceMapping: CommandBase
         try {                         
             $releaseObjectListURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.orgName), $this.projectName;    
             $releaseObjectList = $this.GetBuildReleaseObjects($ReleaseObjectListURL,'Release');
-            $releaseObjectList = $releaseObjectList | Where-Object {$_.id -notin $this.ReleaseSTDetails.data.releaseDefinitionID}            
+            $releaseObjectList = $releaseObjectList | Where-Object {$_.id -notin $this.ReleaseSTDetails.data.releaseDefinitionID}                     
             $counter =0
             foreach ($release in $releaseObjectList) {  
                 try { 
