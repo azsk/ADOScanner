@@ -215,7 +215,7 @@ class ControlHelper: EventBase{
                         $members += [ControlHelper]::ResolveNestedBroaderGroupMembers($_, $orgName, $projName)
                         [ControlHelper]::CurrentGroupResolutionLevel -= 1
                         # Uncomment the below code if member count needs to be displayed on console.
-                        # Write-Host "Group: [$($_.principalName)]; MemberCount: $([ControlHelper]::ResolvedBroaderGroups[$_.principalName].Count)" -ForegroundColor Cyan
+                        # Write-Host "Group: [$($_.principalName)]; MemberCount: $(@([ControlHelper]::ResolvedBroaderGroups[$_.principalName]).Count)" -ForegroundColor Cyan
                     }
                 }
                 else
