@@ -4,15 +4,15 @@ function Start-AzSKADOBugLogging
 {
 	<#
 	.SYNOPSIS
-	This command would help in validating the security controls for the Azure resources meeting the specified input criteria.
+	This command would help in logging the bugs for failed resources meeting the specified input criteria.
 	.DESCRIPTION
-	This command will execute the security controls and will validate their status as 'Success' or 'Failure' based on the security guidance. Refer https://aka.ms/azskossdocs for more information
+	This command will execute the bug logging for security controls.
 
 	.PARAMETER OrganizationName
-		Organization name for which the security evaluation has to be performed.
+		Organization name for which the bug logging evaluation has to be performed.
 
 	.PARAMETER ProjectNames
-		Project name for which the security evaluation has to be performed.
+		Bug log project name under which the bug logging evaluation has to be performed.
 	#>
 
 	[Alias("Run-AzSKADOBugLogging")]
@@ -24,12 +24,6 @@ function Start-AzSKADOBugLogging
 		[ValidateNotNullOrEmpty()]
 		[Alias("oz")]
 		$OrganizationName,
-#
-		#[string]
-		#[Parameter(Position = 0, Mandatory = $true, HelpMessage="Project names for which the bug logging has to be performed.")]
-		#[ValidateNotNullOrEmpty()]
-		#[Alias("pns", "pn")]
-		#$ProjectName,
 
 
 		[ValidateSet("All","BaselineControls","PreviewBaselineControls", "Custom")]
@@ -65,13 +59,13 @@ function Start-AzSKADOBugLogging
 		$SecuritySeverity,
 
 		[string]
-		[Parameter(Mandatory = $true, HelpMessage="Folder path of scan result csv file for bug logging.")]
+		[Parameter(Mandatory = $true, HelpMessage="Full path of scan result csv file for bug logging.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("fp", "sfp")]
 		$ScanResultFilePath,
 
 		[string]
-		[Parameter(Mandatory = $false, HelpMessage="Folder path of bug template file for bug logging.")]
+		[Parameter(Mandatory = $false, HelpMessage="Full path of bug template file for bug logging.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("btfp", "btp")]
 		$BugTemplateFilePath,
@@ -127,7 +121,7 @@ function Start-AzSKADOBugLogging
 			[AzSKSettings]::Instance = $null
 			[AzSKConfig]::Instance = $null
 			[ConfigurationHelper]::ServerConfigMetadata = $null
-			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
+			#Refresh singlton in different commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
       		[AutoBugLog]::AutoBugInstance = $null
 			[BugLogHelper]::BugLogHelperInstance = $null
       

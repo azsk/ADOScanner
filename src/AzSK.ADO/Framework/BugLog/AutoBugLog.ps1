@@ -195,12 +195,12 @@ class AutoBugLog {
                         $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("First 10 Non_Alt_Admins:"))[-1].split(':')[1].split(';')[0]
                     }
                     else {
-                        Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID). Assignee could not be determined." -ForegroundColor Yellow
+                        Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID).`n Assignee could not be determined." -ForegroundColor Yellow
                         return;
                     }
                 }
                 catch {
-                    Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID). Assignee could not be determined." -ForegroundColor Yellow
+                    Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID).`n Assignee could not be determined." -ForegroundColor Yellow
                     return;
                 }
             }
@@ -249,7 +249,7 @@ class AutoBugLog {
                 }
             }
             else {
-                Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID). Assignee could not be determined." -ForegroundColor Yellow
+                Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID).`n Assignee could not be determined." -ForegroundColor Yellow
             }    
         }
     }
