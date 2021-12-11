@@ -268,7 +268,8 @@ class CommandBase: AzSKRoot {
 				$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
 				$bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
 		}
-		else
+		# added condition for standalone bug logging. if it is standalone bug logging then close bug only if autoclose parameter is supplied.
+		elseif(!$this.InvocationContext.BoundParameters["ScanResultFilePath"] -or ($this.InvocationContext.BoundParameters["ScanResultFilePath"] -and $this.InvocationContext.BoundParameters["AutoCloseBugs"]))
 		{
 			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 			$AutoClose.AutoCloseBug($methodResult)
