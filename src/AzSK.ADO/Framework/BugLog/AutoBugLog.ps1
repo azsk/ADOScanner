@@ -829,9 +829,10 @@ class AutoBugLog {
             }
             $SecuritySeverity = $this.GetSecuritySeverity($secSeverity)		
         }
-        elseif ($BugTemplateInCMD) {
+        elseif ($BugTemplateInCMD) { #in case of stand alone bug logging we will have bug template supplied in the command param so use tht template.
          $BugTemplate = $BugTemplateInCMD;  
          if ($BugTemplate.length -gt 7 -and $BugTemplate[7].path -like "*HowFound*") { #get it outside.
+            #below variable is used to check whether serviceid related fields values needs to add or not.
             $this.ShowBugsInS360 = $true;  
          } 
         }

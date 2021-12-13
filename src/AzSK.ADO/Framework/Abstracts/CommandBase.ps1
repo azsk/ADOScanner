@@ -181,7 +181,8 @@ class CommandBase: AzSKRoot {
 			}
 			[PartialScanManager]::ControlResultsWithSARIFSummary=@()
         }
-		# Publish command complete events
+		# Publish command complete events.
+		#Not calling this method if command is standalon bug logging. (as it is retuning different result, and also not needed to call this method-.)
 		if(!$this.InvocationContext.BoundParameters["ScanResultFilePath"])
 		{
         	$this.CommandCompleted($methodResult);

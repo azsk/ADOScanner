@@ -25,6 +25,12 @@ function Start-AzSKADOBugLogging
 		[Alias("oz")]
 		$OrganizationName,
 
+		[string]
+		[Parameter(Mandatory = $true, HelpMessage="Project name in which the bug logging has to be performed.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("blpns", "blpn")]
+		$BugLogProjectName,
+
 
 		[ValidateSet("All","BaselineControls","PreviewBaselineControls", "Custom")]
 		[Parameter(Mandatory = $false)]
@@ -36,12 +42,6 @@ function Start-AzSKADOBugLogging
 		[Parameter(HelpMessage = "Switch to auto-close bugs.")]
 		[Alias("acb")]
 		$AutoCloseBugs,
-
-		[string]
-		[Parameter(Mandatory = $true, HelpMessage="Project name in which the bug logging has to be performed.")]
-		[ValidateNotNullOrEmpty()]
-		[Alias("blpns", "blpn")]
-		$BugLogProjectName,
 
 		[string]
 		[Parameter(Mandatory=$false)]
@@ -218,7 +218,7 @@ function Start-AzSKADOBugLogging
 				if ([Helpers]::CheckMember($ScanResult, "ResourceLink")) {
 					$Organization = $ScanResult[0].ResourceLink.Split('/')[3];
 				}
-				elseif ([Helpers]::CheckMember($ScanResult, "ResourceLink_s")) {
+				elseif ([Helpers]::CheckMember($ScanResult, "ResourceLink_s")) { #In case of LA files property name will be ResourceLink_s
 					if ($ScanResult[0].ResourceLink_s) {
 						$Organization = $ScanResult[0].ResourceLink_s.Split('/')[3];
 						$IsLAFile = $true;
@@ -231,13 +231,14 @@ function Start-AzSKADOBugLogging
 			}
 				$resolver = [Resolver]::new($Organization, $PATToken);
 
-				$blPnAcc = $false;
+				#Validating access on bug log project, default value is false if user has access then assigning it to true.
+				$bugLogProjectAccess = $false;
 				if ($BugLogProjectName) {
 					Write-Host "Validating access on bug log project [$BugLogProjectName]....." -ForegroundColor Cyan
-					$blPnAcc = CheckProjectAccess $BugLogProjectName $Organization
+					$bugLogProjectAccess = CheckProjectAccess $BugLogProjectName $Organization
 				}
 
-				if ($blPnAcc -or !$BugLogProjectName) {
+				if ($bugLogProjectAccess -or !$BugLogProjectName) {
 					if ($AutoBugLog) {
 						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $AutoBugLog, $ResourceTypeName, $ControlIds, $ScanResult,$BugTemplate, $PSCmdlet.MyInvocation, $IsLAFile, $STMappingFilePath);
 						return $secStatus.InvokeFunction($secStatus.StartBugLogging);	
@@ -294,11 +295,11 @@ function ValidateBugTemplate {
 		$BugTemplate
 	)
 
-	$mandetorytemplateItems = @("/fields/System.Title", "/fields/System.AreaPath", "/fields/System.IterationPath", "/fields/System.Tags", "/fields/System.AssignedTo")
+	$mandatorytemplateItems = @("/fields/System.Title", "/fields/System.AreaPath", "/fields/System.IterationPath", "/fields/System.Tags", "/fields/System.AssignedTo")
 	try {
-		foreach ($templateItem in $mandetorytemplateItems) {
+		foreach ($templateItem in $mandatorytemplateItems) {
 			if($templateItem -notin $BugTemplate.path) {
-				Write-Host "Bug template formate is not correct. Mandetory field is not supplied in the template." -ForegroundColor Red
+				Write-Host "Bug template format is not correct. mandatory fields are not supplied in the template." -ForegroundColor Red
 				return $false;
 			}	
 		}
@@ -306,7 +307,7 @@ function ValidateBugTemplate {
 		return $true;
 	}
 	catch {
-		Write-Host "Could not parse bug template. please validate the template formate." -ForegroundColor Red
+		Write-Host "Could not parse bug template. please validate the template format." -ForegroundColor Red
 		return $false;
 	}	
 }
