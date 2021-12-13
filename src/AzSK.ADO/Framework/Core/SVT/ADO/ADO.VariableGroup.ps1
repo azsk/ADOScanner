@@ -284,6 +284,7 @@ class VariableGroup: ADOSVTBase
                 if([Helpers]::CheckMember($this.VarGrp[0],"variables"))
                 {
                     $varList = @();
+                    $variablesWithCreds=@{};
                     $noOfCredFound = 0;
                     $patterns = @($this.ControlSettings.Patterns | where-object {$_.RegexCode -eq "SecretsInVariables"} | Select-Object -Property RegexList);
                     $exclusions = $this.ControlSettings.Build.ExcludeFromSecretsCheck;
@@ -317,6 +318,10 @@ class VariableGroup: ADOSVTBase
                                         if ($varValue -cmatch $patterns.RegexList[$i]) {
                                             $noOfCredFound +=1
                                             $varList += $varName;
+                                            #if auto fix is required save the variable value after encrypting it, will be needed during undofix
+                                            if($this.ControlFixBackupRequired){
+                                                $variablesWithCreds[$varName] = ($varValue  | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString)
+                                            }
                                             break
                                             }
                                         }
@@ -326,6 +331,9 @@ class VariableGroup: ADOSVTBase
                         if($noOfCredFound -gt 0)
                         {
                             $varList = @($varList | Select-Object -Unique)
+                            if($this.ControlFixBackupRequired){
+                                $controlResult.BackupControlState = $variablesWithCreds
+                            }
                             $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in variable group.`nList of variables: ", $varList );
                             $controlResult.SetStateData("List of variable name containing secret: ", $varList);
                             $controlResult.AdditionalInfo += "Count of variable(s) containing secret: " + $varList.Count;
@@ -353,6 +361,50 @@ class VariableGroup: ADOSVTBase
             }
         }
         return $controlResult;
+    }
+
+    hidden [ControlResult] CheckCredInVarGrpAutomatedFix([ControlResult] $controlResult){
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            $varList = @();
+            if (-not $this.UndoFix) {
+                $RawDataObjForControlFix.PSObject.Properties | foreach {
+                    #The api does not allow updating individual variables inside a var grp, all variables have to be a part of the body or else they will be removed from the grp.
+                    #Hence using the global var grp object to store all variables details inside the post body and updating only the required variable.
+                    $this.VarGrp.variables.($_.Name) | Add-Member NoteProperty -name "isSecret" -value $true                    
+                    $varList+=$_.Name;
+                    
+                }
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Following variables have been marked as secret: ");
+               
+            }
+            else {
+                $RawDataObjForControlFix.PSObject.Properties | foreach {  
+                    #The api does not allow updating individual variables inside a var grp, all variables have to be a part of the body or else they will be removed from the grp.
+                    #Hence using the global var grp object to store all variables details inside the post body and updating only the required variable.                  
+                    $this.VarGrp.variables.($_.Name).isSecret = $false
+                    #We do not get variable value in API response, if we do not set the value, the variable becomes null, thus decrypting the value from backup state
+                    $secureVariableValue = $_.Value | ConvertTo-SecureString
+                    $this.VarGrp.variables.($_.Name).value = [Helpers]::ConvertToPlainText($secureVariableValue);
+                    $varList+=$_.Name;
+                }
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Following variables have been removed as secret: ");
+            }
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "", $rmContext.AccessToken)))
+            $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ProjectId)/_apis/distributedtask/variablegroups/$($this.VarGrpId)?api-version=6.1-preview.2"
+            $body = @($this.VarGrp) | ConvertTo-JSON -depth 99;
+            Invoke-RestMethod -Method Put -Uri $apiURL -Body $body  -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) };
+            $display = ($varList |  FT -AutoSize | Out-String -Width 512);
+            $controlResult.AddMessage("`n$display");
+
+        }   
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
 
     hidden [ControlResult] CheckBroaderGroupAccess ([ControlResult] $controlResult) {

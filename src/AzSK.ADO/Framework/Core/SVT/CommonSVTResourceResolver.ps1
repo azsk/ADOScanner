@@ -9,14 +9,16 @@ class CommonSVTResourceResolver {
     [string] $projectId
     [psobject] $feedDefnsObj = $null
     [bool] $UseIncrementalScan = $false
+    [bool] $IsAutomatedFixUndoCmd = $false;
     [DateTime] $IncrementalDate = 0
     [PSObject] $organizationContext
 
-    CommonSVTResourceResolver($organizationName, $organizationId, $projectId, $organizationContext) {
+    CommonSVTResourceResolver($organizationName, $organizationId, $projectId, $organizationContext, $IsAutomatedFixUndoCmd) {
         $this.organizationName = $organizationName;
         $this.organizationId = $organizationId;
         $this.projectId = $projectId;
         $this.organizationContext = $organizationContext
+        $this.IsAutomatedFixUndoCmd = $IsAutomatedFixUndoCmd
         if($PSCmdlet.MyInvocation.BoundParameters["IncrementalScan"]){
             $this.UseIncrementalScan = $true
             if (-not [string]::IsNullOrWhiteSpace($PSCmdlet.MyInvocation.BoundParameters["IncrementalDate"])) 
@@ -165,7 +167,16 @@ class CommonSVTResourceResolver {
             #Fetching project and org scoped feeds
             if($null -eq $this.feedDefnsObj)
             {
-                $feedDefnURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds?api-version=6.0-preview.1&includeUrls=false' -f $this.organizationName
+                #When controls undo fix is called, resources need to be fetched from deleted list (only for controls ids in RevertDeletedResourcesControlList)
+                if($this.IsAutomatedFixUndoCmd){
+                    $feedDefnURL = 'https://feeds.dev.azure.com/{0}/_apis/Packaging/FeedRecycleBin?api-version=6.0-preview.1&includeUrls=false' -f $this.organizationName
+                }
+                elseif($PSCmdlet.MyInvocation.BoundParameters["CheckOwnerAccess"] -and $PSCmdlet.MyInvocation.BoundParameters["PrepareForControlFix"]){
+                    $feedDefnURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds?feedRole=administrator&api-version=6.0-preview.1&includeUrls=false' -f $this.organizationName
+                }
+                else{
+                    $feedDefnURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds?api-version=6.0-preview.1&includeUrls=false' -f $this.organizationName
+                }                
                 $this.feedDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($feedDefnURL);
             }
             $feedsList = @()
@@ -178,7 +189,7 @@ class CommonSVTResourceResolver {
 
             if ($feedNames -ne "*") {
                 $feedsList = $feedsList | Where-Object { $feedNames -contains $_.name }
-            }
+            }            
             else{
                 if($this.UseIncrementalScan){                                    
                     $timestamp = (Get-Date)
@@ -186,6 +197,25 @@ class CommonSVTResourceResolver {
                     $incrementalScanHelperObj.SetContext($this.projectId, $this.organizationContext)
                     $feedsList = $incrementalScanHelperObj.GetModifiedCommonSvtFromAudit("Feed",$feedsList)
                 }
+            }
+            #Following piece of code is to get a list of all feeds that wont be scanned due to insufficient privileges, will be used only for control fix
+            if($PSCmdlet.MyInvocation.BoundParameters["CheckOwnerAccess"] -and $PSCmdlet.MyInvocation.BoundParameters["PrepareForControlFix"]){
+                $totalFeedsURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds?api-version=6.0-preview.1&includeUrls=false' -f $this.organizationName
+                $totalFeedsObj = [WebRequestHelper]::InvokeGetWebRequest($totalFeedsURL);
+                $totalFeeds=@();
+                $totalFeeds += $totalFeedsObj | where-object {"Project" -in $_.PSobject.Properties.name -and $_.Project.id -eq $this.projectId}
+                $totalFeeds +=  $totalFeedsObj | where-object {"Project" -notin $_.PSobject.Properties.name}
+                $nonScannedResources = @();
+                #get all feeds not being scanned
+                $nonScannedResources += ((Compare-Object $totalFeeds $feedsList -Property name,id) | select -ExpandProperty name)
+                #update the list with the corresponding resource links
+                $nonScannedResources = $nonScannedResources | foreach{
+                    $_ =  "https://dev.azure.com/{0}/{1}/_packaging?_a=feed&feed={2}" -f $this.organizationName, $projectName, $_;
+                    $_;
+                }
+                #saving this in an env variable as we have to access it while saving a list of these resources in logs.
+                $env:nonScannedResources +=$nonScannedResources
+                Write-Host "Found $($totalFeeds.Count) feeds. Current user has owner access on $($feedsList.Count) feeds. $($totalFeeds.Count - $feedsList.Count) feeds will not be scanned and hence backup not be generated for control fix due to insufficient permissions." -ForegroundColor Yellow
             }
             return $feedsList
         }
