@@ -125,7 +125,7 @@ class AzSKADOServiceMapping: CommandBase
         if ([Helpers]::CheckMember($this.BuildSTDetails, "data") -and ($this.BuildSTDetails.data | Measure-Object).Count -gt 0){
             $this.BuildSTDetails.data = $this.BuildSTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}            
             if (($this.BuildSTDetails.data | Measure-Object).Count -gt 0){
-                $this.BuildSTDetails.data[0].projectId;
+                $this.ProjectId = $this.BuildSTDetails.data[0].projectId;
             }
         }   
 
