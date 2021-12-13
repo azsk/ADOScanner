@@ -92,6 +92,7 @@
         'Set-AzSKADOSecurityStatus',
         'Get-AzSKADOSecurityStatusBatchMode',
         'Get-AzSKADOSecurityStatusCombinedResults',
+        'Start-AzSKADOBugLogging',
         'Set-AzSKADOBaselineConfigurations'
     )
 

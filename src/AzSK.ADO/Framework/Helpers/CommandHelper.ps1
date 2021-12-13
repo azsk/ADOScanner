@@ -80,6 +80,12 @@ class CommandHelper
             Noun = "AzSKADOBaselineConfigurations";
             ShortName = "sbc";
 			IsLatestRequired = $false;
+        },
+		[CommandDetails]@{
+            Verb = "Start";
+            Noun = "AzSKADOBugLogging";
+            ShortName = "sadbl";
+			IsLatestRequired = $false;
         }
     );
 

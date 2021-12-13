@@ -200,6 +200,140 @@ class AutoCloseBugManager {
         Remove-Variable hashToControlIDMap;    
     }
 
+    #function to auto close resolved bugs
+    hidden [void] AutoCloseBugCSV([SVTEventContext []] $PassedControlResults) {
+
+        #tags that need to be searched
+        $TagSearchKeyword = ""
+        #flag to check number of current keywords in the tag
+        $QueryKeyWordCount = 0;
+        #maximum no of keywords that need to be checked per batch
+        $MaxKeyWordsToQuery=0;    
+        $autoCloseOrgBugFlag=$true
+        $autoCloseProjBugFlag=$true;
+        [AutoCloseBugManager]::ClosedBugs=$null
+
+        try {
+            $MaxKeyWordsToQuery = $this.ControlSettings.BugLogging.MaxKeyWordsToQueryForBugClose;
+            $autoCloseOrgBugFlag=$this.ControlSettings.BugLogging.AutoCloseOrgBug
+            $autoCloseProjBugFlag=$this.ControlSettings.BugLogging.AutoCloseProjectBug
+        }
+        catch {
+            $MaxKeyWordsToQuery=30
+            $autoCloseOrgBugFlag=$true
+            $autoCloseProjBugFlag=$true;
+        }
+
+        #number of passed controls
+        $PassedControlResultsLength = ($PassedControlResults | Measure-Object).Count
+        #This Hash map is used to map an ADOScan hashtag value to a control. 
+        $hashToControlIDMap=@{}
+
+        $PassedControlResults | ForEach-Object {    			
+            $control = $_;
+
+            #if control results are less than the maximum no of tags per batch
+            #ToDo add common method for both if and else condition
+            if ($PassedControlResultsLength -lt $MaxKeyWordsToQuery) {
+                #check for number of tags in current query
+                $QueryKeyWordCount++;
+
+                if ($this.UseAzureStorageAccount )
+                {
+                    $tagHash=$this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
+                    $hashToControlIDMap.add($tagHash,$control);
+                    #complete the query
+                    $TagSearchKeyword += "(ADOScannerHashId eq '" + $tagHash + "') or "
+                    #if the query count equals the passing control results, search for bugs for this batch
+                    if ($QueryKeyWordCount -eq $PassedControlResultsLength) {
+                        #to remove OR from the last tag keyword. Ex: Tags: Tag1 OR Tags: Tag2 OR. Remove the last OR from this keyword
+                        $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
+                        $closedBugsResponse = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword)
+                        if ($closedBugsResponse){
+                            $this.closedBugInfoCollect($closedBugsResponse, $hashToControlIDMap)
+                        }
+                    }
+                }
+                else {
+                    $tagHash=$this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
+                    $hashToControlIDMap.add($tagHash,$control);
+                    $TagSearchKeyword += "Tags: " + $tagHash + " OR "
+                    #if the query count equals the passing control results, search for bugs for this batch
+                    if ($QueryKeyWordCount -eq $PassedControlResultsLength) {
+                        #to remove OR from the last tag keyword. Ex: Tags: Tag1 OR Tags: Tag2 OR. Remove the last OR from this keyword
+                        $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
+                        $response = $this.GetWorkItemByHash($TagSearchKeyword,$MaxKeyWordsToQuery)
+                        #if bug was present
+                        if ($response[0].results.count -gt 0) {
+                            $ids = @();
+                            $ids += $response.results.fields."system.id";
+                            $closedBugsResponse = $this.CloseBugsInBulk($ids);
+                            if ($closedBugsResponse){
+                                $this.closedBugInfoCollect($closedBugsResponse, $hashToControlIDMap)
+                            }
+                        }
+                    }
+                }
+            }
+                #if the number of control results was more than batch size
+                else {
+                    $QueryKeyWordCount++;
+                    if ($this.UseAzureStorageAccount )
+                    {
+                        $tagHash=$this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId)
+                        $hashToControlIDMap.add($tagHash,$control);
+                        $TagSearchKeyword += "(ADOScannerHashId eq '" + $tagHash + "') or "
+
+                        #if number of tags reaches batch limit
+                        if ($QueryKeyWordCount -eq $MaxKeyWordsToQuery) {
+                            #query for all these tags and their bugs
+                            $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
+                            $closedBugsResponse = $this.BugLogHelperObj.GetTableEntityAndCloseBug($TagSearchKeyword);
+
+                            if ($closedBugsResponse){
+                                $this.closedBugInfoCollect($closedBugsResponse, $hashToControlIDMap)
+                            }
+                            #Reinitialize for the next batch
+                            $QueryKeyWordCount = 0;
+                            $TagSearchKeyword = "";
+                            $PassedControlResultsLength -= $MaxKeyWordsToQuery
+                            $hashToControlIDMap.Clear();
+                        }
+                    }
+                    else
+                    {
+                        $tagHash=$this.GetHashedTag($control.ControlItem.Id, $control.ResourceContext.ResourceId) 
+                        $hashToControlIDMap.add($tagHash,$control);
+                        $TagSearchKeyword += "Tags: " + $tagHash + " OR "
+                        #if number of tags reaches batch limit
+                        if ($QueryKeyWordCount -eq $MaxKeyWordsToQuery) {
+                        #query for all these tags and their bugs
+                        $TagSearchKeyword = $TagSearchKeyword.Substring(0, $TagSearchKeyword.length - 3)
+                        $response = $this.GetWorkItemByHash($TagSearchKeyword,$MaxKeyWordsToQuery)
+                        if ($response[0].results.count -gt 0) {
+                            $ids = @();
+                            $ids += $response.results.fields."system.id";
+                            $closedBugsResponse = $this.CloseBugsInBulk($ids);
+
+                            if ($closedBugsResponse){
+                                $this.closedBugInfoCollect($closedBugsResponse, $hashToControlIDMap)
+                            }
+                        }
+                        #Reinitialize for the next batch
+                        $QueryKeyWordCount = 0;
+                        $TagSearchKeyword = "";
+                        $PassedControlResultsLength -= $MaxKeyWordsToQuery
+                        $hashToControlIDMap.Clear();
+                        }
+                    }
+                }
+                
+            }
+        $hashToControlIDMap.Clear();
+        $hashToControlIDMap=$null
+        Remove-Variable hashToControlIDMap;    
+    }
+
     #function to close an active bug
     hidden [void] CloseBug([string] $id, [string] $Project) {
         $url = "https://dev.azure.com/{0}/{1}/_apis/wit/workitems/{2}?api-version=6.0" -f $this.OrganizationName, $Project, $id
