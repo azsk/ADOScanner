@@ -739,7 +739,7 @@ class Organization: ADOSVTBase
                 $body = '[{"from":"","op":2,"path":"/Value","value":"false"}]' 
                 $controlResult.AddMessage([VerificationResult]::Fixed, "External guest access has been enabled for the organization.");
             }
-            $url = "https://dev.azure.com/juhitiwari/_apis/OrganizationPolicy/Policies/Policy.DisallowAadGuestUserAccess?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
+            $url = "https://dev.azure.com/{0}/_apis/OrganizationPolicy/Policies/Policy.DisallowAadGuestUserAccess?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
             $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
             Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json-patch+json" -Headers $header -Body $body
             
@@ -839,7 +839,7 @@ class Organization: ADOSVTBase
                 $body = '[{"from":"","op":2,"path":"/Value","value":"true"}]' 
                 $controlResult.AddMessage([VerificationResult]::Fixed, "Allowing p ublic projects have been enabled in the organization.");
             }
-            $url = "https://dev.azure.com/juhitiwari/_apis/OrganizationPolicy/Policies/Policy.AllowAnonymousAccess?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
+            $url = "https://dev.azure.com/{0}/_apis/OrganizationPolicy/Policies/Policy.AllowAnonymousAccess?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
             $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
             Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json-patch+json" -Headers $header -Body $body
             
@@ -1679,7 +1679,7 @@ class Organization: ADOSVTBase
                 }
                 if($this.BaselineConfigurationRequired){
                     $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
-                    $this.CheckAuthZRepoScopeScopeAutomatedFix($controlResult);
+                    $this.CheckAuthZRepoScopeAutomatedFix($controlResult);
                     
                 }
             }
@@ -1691,7 +1691,7 @@ class Organization: ADOSVTBase
         return $controlResult
     }
 
-    hidden [ControlResult] CheckAuthZRepoScopeScopeAutomatedFix([ControlResult] $controlResult){
+    hidden [ControlResult] CheckAuthZRepoScopeAutomatedFix([ControlResult] $controlResult){
         try {
             $RawDataObjForControlFix = @();
             if($this.BaselineConfigurationRequired){
