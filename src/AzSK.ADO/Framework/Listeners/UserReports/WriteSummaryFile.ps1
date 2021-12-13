@@ -66,6 +66,9 @@ class WriteSummaryFile: FileOutputBase
 				try 
 				{
 					$currentInstance.WriteToCSV($Event.SourceArgs);
+					if($currentInstance.InvocationContext.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations"){
+						$currentInstance.WriteBaselineConfigurationsToFile($Event.SourceArgs)
+					}
 					$currentInstance.FilePath = "";
 				}
 				catch 
@@ -181,6 +184,54 @@ class WriteSummaryFile: FileOutputBase
 		});
 	}
 	
+	[void] WriteBaselineConfigurationsToFile([SVTEventContext[]] $arguments){
+		if ([string]::IsNullOrEmpty($this.FolderPath)) {
+            return;
+        }
+		$passedControls = @{Passed = @()}
+		$fixedControls = @{Fixed = @()}
+		$erroredControls = @{Error = @()}
+		$failedControls = @{Failed =@()}
+		$arguments | foreach{
+			$item = $_;
+			if ($item -and $item.ControlResults){
+				$control = [PSCustomObject]@{
+					'Control' = $item.ControlItem.ControlID
+					'ResourceName' = $item.ResourceContext.ResourceName
+				}
+				if($item.ControlResults[0].VerificationResult -eq "Fixed"){					
+					$fixedControls.Fixed+=$control
+				}
+				elseif($item.ControlResults[0].VerificationResult -eq "Passed"){					
+					$passedControls.Passed+=$control
+				}
+				elseif($item.ControlResults[0].VerificationResult -eq "Failed"){
+					$failedControls.Failed+=$control
+				}
+				else{
+					$erroredControls.Error+=$control
+				}
+			}
+		}
+		$filePath = $this.FolderPath+"\BaselineConfigurationReport.json"
+		$combinedJSON = $null
+		if($passedControls.Passed){
+			$combinedJSON = $passedControls
+		}
+		if($fixedControls.Fixed){
+			$combinedJSON+=$fixedControls
+		}
+		if($erroredControls.Error){
+			$combinedJSON+=$erroredControls
+		}
+		if($failedControls.Failed){
+			$combinedJSON+=$failedControls
+		}
+		if($combinedJSON){
+			Add-Content $filePath -Value ($combinedJSON | ConvertTo-JSON)
+		}
+
+	}
 	
 
    [void] WriteToCSV([SVTEventContext[]] $arguments)

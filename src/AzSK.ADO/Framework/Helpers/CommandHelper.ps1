@@ -74,6 +74,12 @@ class CommandHelper
             Noun = "AzSKADOSecurityStatusCombinedResults";
             ShortName = "gadscr";
 			IsLatestRequired = $false;
+        },
+		[CommandDetails]@{
+            Verb = "Set";
+            Noun = "AzSKADOBaselineConfigurations";
+            ShortName = "sbc";
+			IsLatestRequired = $false;
         }
     );
 

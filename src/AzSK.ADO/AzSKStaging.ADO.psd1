@@ -91,7 +91,8 @@
         'Set-AzSKADOUserPreference',
         'Set-AzSKADOSecurityStatus',
         'Get-AzSKADOSecurityStatusBatchMode',
-        'Get-AzSKADOSecurityStatusCombinedResults'
+        'Get-AzSKADOSecurityStatusCombinedResults',
+        'Set-AzSKADOBaselineConfigurations'
     )
 
     # Cmdlets to export from this module

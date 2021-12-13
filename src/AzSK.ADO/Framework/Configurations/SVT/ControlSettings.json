@@ -817,5 +817,41 @@
     ],
   "BackupLimitInDays" : 7
   },
-  "CleanProcessedResources" : false
+  "CleanProcessedResources" : false,
+  "BaselineConfigurationsControls":{
+    "ResourceTypeControlIdMappingList":[
+    {
+      "ResourceType":"Organization",
+      "ControlIds":[
+        "ADO_Organization_AuthZ_Limit_Non_Release_Pipeline_Scope",
+        "ADO_Organization_AuthZ_Limit_Pipeline_Scope_To_Referenced_Repos",
+        "ADO_Organization_AuthZ_Limit_Release_Pipeline_Scope",
+        "ADO_Organization_SI_Limit_Variables_Settable_At_Queue_Time",
+        "ADO_Organization_DP_Dont_Allow_Public_Projects",
+        "ADO_Organization_AuthN_Disable_Guest_Users",
+        "ADO_Organization_AuthZ_Restrict_Broader_Group_Access_on_Feed",
+        "ADO_Organization_Enable_Audit_Stream"
+      ]
+    
+    },
+    {
+      "ResourceType":"Project",
+      "ControlIds":[
+        "ADO_Project_AuthZ_Limit_Non_Release_Pipeline_Scope",
+        "ADO_Project_AuthZ_Limit_Pipeline_Scope_To_Referenced_Repos",
+        "ADO_Project_AuthZ_Limit_Release_Pipeline_Scope",
+        "ADO_Project_SI_Limit_Variables_Settable_At_Queue_Time",
+        "ADO_Project_AuthZ_Set_Visibility_Private_Or_Enterprise",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Builds",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Releases",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SvcConn",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_AgentPool",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_VarGrp",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Repo",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SecureFile"
+      ]
+    }
+  ]     
+  }  
+  
 }

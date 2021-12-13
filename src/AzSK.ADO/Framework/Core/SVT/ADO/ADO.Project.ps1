@@ -80,6 +80,17 @@ class Project: ADOSVTBase
                 else # For orgs with public projects allowed, this control needs to be attested by the project admins.
                 {
                     $controlResult.AddMessage("Project visibility is set to '$visibility'.");
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                    {
+                        #Data object that will be required to fix the control                                    
+                        $controlResult.BackupControlState = [PSCustomObject]@{
+                            "visibility" = "Public"                        };
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckProjectVisibilityAutomatedFix($controlResult);
+                        
+                    }
                 }
                 $controlResult.AdditionalInfo += "Project visibility is set to: " + $visibility;
             }
@@ -94,6 +105,36 @@ class Project: ADOSVTBase
             $controlResult.LogException($_)
         }
         return $controlResult;
+    }
+
+    hidden [ControlResult] CheckProjectVisibilityAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            
+            
+            if (-not $this.UndoFix){
+                $body = '{"visibility":1,"state":-2}'
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Project visibility has been set to 'Enterprise'.");
+            }
+            else{
+                $body = '{"visibility":2,"state":-2}' 
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Project visibility has been set to 'Public'.");
+            }
+            $url = "https://dev.azure.com/{0}/_apis/projects/{1}?api-version=5.1-preview.4" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.id
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
     }
 
     hidden [ControlResult] CheckBadgeAnonAccess([ControlResult] $controlResult)
@@ -127,10 +168,53 @@ class Project: ADOSVTBase
             }
             else{
                 $controlResult.AddMessage("All variables can be set at queue time. It is set as '$($this.PipelineSettingsObj.enforceSettableVar.orgEnabled)' at organization scope.");
+                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                {
+                    #Data object that will be required to fix the control                                    
+                    $controlResult.BackupControlState = [PSCustomObject]@{
+                        "enforceSettableVar" = $false
+                    };
+                }
+                if($this.BaselineConfigurationRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $this.CheckSettableQueueTimeAutomatedFix($controlResult);
+                    
+                }
             }
         }
         else{
             $controlResult.AddMessage([VerificationResult]::Error, "Pipeline settings could not be fetched for the project.");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckSettableQueueTimeAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            
+            
+            if (-not $this.UndoFix){
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-general-settings-data-provider"],"dataProviderContext":{"properties":{"enforceSettableVar":"true","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"adminPivot":"settings","controller":"ContributedPage","action":"Execute","project":""}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Settable at queue time has been disabled. Only explicitly marked 'settable at queue time' variables can be set at queue time. It is set as '$($this.PipelineSettingsObj.enforceSettableVar.orgEnabled)' at organization scope.");
+            }
+            else{
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-general-settings-data-provider"],"dataProviderContext":{"properties":{"enforceSettableVar":"false","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"adminPivot":"settings","controller":"ContributedPage","action":"Execute","project":""}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Settable at queue time has been enabled. All variables can be set at queue time. It is set as '$($this.PipelineSettingsObj.enforceSettableVar.orgEnabled)' at organization scope.");
+            }
+            $body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/settings"
+            $body.dataProviderContext.properties.sourcePage.routeValues.project=$this.ResourceContext.ResourceName
+            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
+            $response = [WebRequestHelper]::InvokePostWebRequest($url,$body)
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -151,6 +235,18 @@ class Project: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope is set to project collection for non-release pipelines.");
+                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                {
+                    #Data object that will be required to fix the control                                    
+                    $controlResult.BackupControlState = [PSCustomObject]@{
+                        "enforceJobAuthScope" = $false
+                    };
+                }
+                if($this.BaselineConfigurationRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $this.CheckJobAuthZScopeAutomatedFix($controlResult);
+                    
+                }
             }
 
             if($orgLevelScope -eq $true )
@@ -165,6 +261,37 @@ class Project: ADOSVTBase
         else
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch project pipeline settings.");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckJobAuthZScopeAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            
+            
+            if (-not $this.UndoFix){
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-general-settings-data-provider"],"dataProviderContext":{"properties":{"enforceJobAuthScope":"true","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"adminPivot":"settings","controller":"ContributedPage","action":"Execute","project":""}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Job authorization scope has been limited to current project for non-release pipelines.");
+            }
+            else{
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-general-settings-data-provider"],"dataProviderContext":{"properties":{"enforceJobAuthScope":"false","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"adminPivot":"settings","controller":"ContributedPage","action":"Execute","project":""}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Job authorization scope has been set to project collection for non-release pipelines.");
+            }
+            $body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/settings"
+            $body.dataProviderContext.properties.sourcePage.routeValues.project=$this.ResourceContext.ResourceName
+            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
+            $response = [WebRequestHelper]::InvokePostWebRequest($url,$body)
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -184,6 +311,18 @@ class Project: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope is set to project collection for release pipelines.");
+                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                {
+                    #Data object that will be required to fix the control                                    
+                    $controlResult.BackupControlState = [PSCustomObject]@{
+                        "enforceJobAuthScopeForReleases" = $false
+                    };
+                }
+                if($this.BaselineConfigurationRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $this.CheckJobAuthZReleaseScopeAutomatedFix($controlResult);
+                    
+                }
             }
 
             if($orgLevelScope -eq $true )
@@ -198,6 +337,37 @@ class Project: ADOSVTBase
         else
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch project pipeline settings.");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckJobAuthZReleaseScopeAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            
+            
+            if (-not $this.UndoFix){
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-general-settings-data-provider"],"dataProviderContext":{"properties":{"enforceJobAuthScopeForReleases":"true","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"adminPivot":"settings","controller":"ContributedPage","action":"Execute","project":""}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Job authorization scope has been limited to current project for release pipelines.");
+            }
+            else{
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-general-settings-data-provider"],"dataProviderContext":{"properties":{"enforceJobAuthScopeForReleases":"false","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"adminPivot":"settings","controller":"ContributedPage","action":"Execute","project":""}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Job authorization scope has been set to project collection for release pipelines.");
+            }
+            $body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/settings"
+            $body.dataProviderContext.properties.sourcePage.routeValues.project=$this.ResourceContext.ResourceName
+            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
+            $response = [WebRequestHelper]::InvokePostWebRequest($url,$body)
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -217,6 +387,18 @@ class Project: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope of pipelines is set to all Azure DevOps repositories in the authorized projects.");
+                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                {
+                    #Data object that will be required to fix the control                                    
+                    $controlResult.BackupControlState = [PSCustomObject]@{
+                        "enforceReferencedRepoScopedToken" = $false
+                    };
+                }
+                if($this.BaselineConfigurationRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $this.CheckAuthZRepoScopeAutomatedFix($controlResult);
+                    
+                }
             }
 
             if($orgLevelScope -eq $true )
@@ -231,6 +413,37 @@ class Project: ADOSVTBase
         else
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch project pipeline settings.");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckAuthZRepoScopeAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            
+            
+            if (-not $this.UndoFix){
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-general-settings-data-provider"],"dataProviderContext":{"properties":{"enforceReferencedRepoScopedToken":"true","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"adminPivot":"settings","controller":"ContributedPage","action":"Execute","project":""}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Job authorization scope of pipelines has been limited to explicitly referenced Azure DevOps repositories.");
+            }
+            else{
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-general-settings-data-provider"],"dataProviderContext":{"properties":{"enforceReferencedRepoScopedToken":"false","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"adminPivot":"settings","controller":"ContributedPage","action":"Execute","project":""}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Job authorization scope of pipelines has been set to all Azure DevOps repositories in the authorized projects.");
+            }
+            $body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/settings"
+            $body.dataProviderContext.properties.sourcePage.routeValues.project=$this.ResourceContext.ResourceName
+            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
+            $response = [WebRequestHelper]::InvokePostWebRequest($url,$body)
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -2712,12 +2925,16 @@ class Project: ADOSVTBase
                             $formattedBroaderGrpTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                             $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                             $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
-                            if ($this.ControlFixBackupRequired)
+                            if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                                 {
-                                    #Data object that will be required to fix the control
-                                    
+                                    #Data object that will be required to fix the control                                    
                                     $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
                                 }
+                            if($this.BaselineConfigurationRequired){
+                                $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                                $this.CheckBroaderGroupInheritanceSettingsForBuildAutomatedFix($controlResult);
+                                
+                            }
                             $groups = $groupsWithExcessivePermissionsList | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions -join ',' } 
                             $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                         }
@@ -2750,7 +2967,12 @@ class Project: ADOSVTBase
     {
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            
             
             if (-not $this.UndoFix)
             {
@@ -2932,11 +3154,15 @@ class Project: ADOSVTBase
                             $formattedBroaderGrpTable = ($formattedGroupsData | FT -AutoSize | Out-String -Width 512)
                             $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                             $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
-                            if ($this.ControlFixBackupRequired)
-                            {
-                                #Data object that will be required to fix the control
+                            if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                                {
+                                    #Data object that will be required to fix the control                                    
+                                    $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                                }
+                            if($this.BaselineConfigurationRequired){
+                                $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                                $this.CheckBroaderGroupInheritanceSettingsForReleaseAutomatedFix($controlResult);
                                 
-                                $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
                             }
                             
                             $groups = $groupsWithExcessivePermissionsList | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions -join ',' } 
@@ -2971,8 +3197,12 @@ class Project: ADOSVTBase
     {
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            
             if (-not $this.UndoFix)
             {
                 $rmContext = [ContextHelper]::GetCurrentContext();
@@ -3079,9 +3309,15 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage("`nList of groups: ", $formattedGroupsTable)
                         $controlResult.SetStateData("List of groups: ", $formattedGroupsData)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to service connection at a project level:  $($restrictedGroupsCount)";
-                        if ($this.ControlFixBackupRequired) {
-                            #Data object that will be required to fix the control
+                        if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                        {
+                            #Data object that will be required to fix the control                                    
                             $controlResult.BackupControlState = $formattedGroupsDataForAutoFix;
+                        }
+                        if($this.BaselineConfigurationRequired){
+                            $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                            $this.CheckBroaderGroupInheritanceSettingsForSvcConnAutomatedFix($controlResult);
+                            
                         }
                         $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role } 
                         $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
@@ -3110,8 +3346,12 @@ class Project: ADOSVTBase
     {
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            $body = "["
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            $body = "["
             if (-not $this.UndoFix)
             {
                 foreach ($identity in $RawDataObjForControlFix) 
@@ -3203,10 +3443,15 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage("`nList of groups: $formattedGroupsTable")
                         $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to agent pool at a project level: $($restrictedGroupsCount)";
-                        if ($this.ControlFixBackupRequired)
+                        if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                         {
-                            #Data object that will be required to fix the control
+                            #Data object that will be required to fix the control                                    
                             $controlResult.BackupControlState = $restrictedGroups;
+                        }
+                        if($this.BaselineConfigurationRequired){
+                            $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                            $this.CheckBroaderGroupInheritanceSettingsForAgentpoolAutomatedFix($controlResult);
+                            
                         }
                         $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.role } 
                         $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
@@ -3237,7 +3482,12 @@ class Project: ADOSVTBase
     {
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
 
             $body = "["
 
@@ -3332,10 +3582,15 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to variable group at a project level: $($restrictedGroupsCount)";
-                    if ($this.ControlFixBackupRequired)
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                     {
-                        #Data object that will be required to fix the control
+                        #Data object that will be required to fix the control                                    
                         $controlResult.BackupControlState = $restrictedGroups;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckBroaderGroupInheritanceSettingsForVarGrpAutomatedFix($controlResult);
+                        
                     }
                     $groups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role } 
                     $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
@@ -3362,7 +3617,12 @@ class Project: ADOSVTBase
 
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
 
             $body = "["
 
@@ -3453,10 +3713,15 @@ class Project: ADOSVTBase
                     $controlResult.AddMessage("`nList of groups: `n$formattedGroupsTable")
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator access to secure file at a project level: $($restrictedGroupsCount)";
-                    if ($this.ControlFixBackupRequired)
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                     {
-                        #Data object that will be required to fix the control
+                        #Data object that will be required to fix the control                                    
                         $controlResult.BackupControlState = $restrictedGroups;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckBroaderGroupInheritanceSettingsForSecureFileAutomatedFix($controlResult);
+                        
                     }
                 }
                 else {
@@ -3480,7 +3745,12 @@ class Project: ADOSVTBase
 
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
 
             $body = "["
 
@@ -3609,10 +3879,15 @@ class Project: ADOSVTBase
                         $controlResult.AddMessage("Validate that the following broader groups that have excessive permissions to repositories: `n", $($accessList | FT -AutoSize | Out-String -Width 512));
                         $controlResult.SetStateData("List of broader groups having access to repositories: ", $accessList);
                         $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions to repository at a project level: $($groupsWithExcessivePermissionsList.Count)";
-                        if ($this.ControlFixBackupRequired)
+                        if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                         {
-                            #Data object that will be required to fix the control
+                            #Data object that will be required to fix the control                                    
                             $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                        }
+                        if($this.BaselineConfigurationRequired){
+                            $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                            $this.CheckBroaderGroupInheritanceSettingsForRepoAutomatedFix($controlResult);
+                            
                         }
                         $groups = $groupsWithExcessivePermissionsList | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions -join ',' } 
                         $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
@@ -3648,7 +3923,12 @@ class Project: ADOSVTBase
     {
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             
             if (-not $this.UndoFix)
             {

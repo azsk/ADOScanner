@@ -72,6 +72,10 @@ class Constants
     static [string] $CompletedAnalysis = [Constants]::SingleDashLine + "`r`nCompleted analysis: [FeatureName: {0}] [ParentGroupName: {1}] [ResourceName: {2}] `r`n" + [Constants]::DoubleDashLine
     static [string] $CompletedAnalysisSub = [Constants]::SingleDashLine + "`r`nCompleted analysis: [FeatureName: {0}] [OrgName: {1}] [OrgId: {2}] `r`n" + [Constants]::DoubleDashLine
 	static [string] $PIMAPIUri="https://api.azrbac.mspim.azure.com/api/v2/privilegedAccess/azureResources/resources";
+	static [string] $BaselineConfigurationMsg = [Constants]::HashLine + "`r`nControl status evaluated to be failing. Attempting fix for resource {0} `r`n" + [Constants]::HashLine
+	static [string] $BaselineConfigurationErrorMsgOrg = "The organization seems to be an operationally working environment. Hence, stopping baseline configurations. If you think this is a new ADO organization or you still wish to configure baseline settings use the '-force' switch with the command. `n"
+	static [string] $BaselineConfigurationErrorMsgProj = "The project {0} seems to be an operationally working project. Hence, skipping baseline configurations for this project. If you think this is a new ADO project or you still wish to configure baseline settings use the '-force' switch with the command. `n"
+	
 	#Constants for Attestation
 	static [string] $ModuleAttestStartHeading = [Constants]::DoubleDashLine +
     "`r`nInfo: Starting attestation [{3}/{4}]- [FeatureName: {0}] [ParentGroupName: {1}] [ResourceName: {2}] `r`n" + [Constants]::SingleDashLine
