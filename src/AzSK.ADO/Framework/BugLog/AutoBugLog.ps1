@@ -885,7 +885,7 @@ class AutoBugLog {
             if ($_.ErrorDetails.Message -like '*System.AssignedTo*') #added second param to standalone bug logging if assignee not in the org then not logging bug.
             { 
                 if ($BugTemplateInCMD) {
-                    Write-Host "Could not log the bug. Assignee is not found." -ForegroundColor Yellow
+                    Write-Host "Could not log the bug. Assignee [$($AssignedTo.trim())] is not found in organization." -ForegroundColor Yellow
                 }
                 else {
                     $BugTemplate = $BugTemplate | ConvertFrom-Json
