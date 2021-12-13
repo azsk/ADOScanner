@@ -17,8 +17,8 @@ class AzSKADOServiceMapping: CommandBase
     [string] $Container;# Storage Container to store ST mapping files    
     [object] $StorageAccountCtx;     
     # Power BI Report Storage settings to store ST mapping files
-    [string] $ReportStorageAccount;# Storage account name for powerbi 
-    [string] $ReportStorageRG;# Storage resource group name for powerbi 
+    [string] $ReportStorageAccount;# Storage account name for Dashboard 
+    [string] $ReportStorageRG;# Storage resource group name for Dashboard 
     [string] $ReportContainer;#Storage Container to store ST mapping files use by Power Bi  resports    
     [object] $ReportStorageAccountCtx;     
     [string] $AzSKTempStatePath = [Constants]::AzSKTempFolderPath
