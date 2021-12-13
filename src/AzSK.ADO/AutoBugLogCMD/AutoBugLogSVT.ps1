@@ -212,15 +212,18 @@ function Start-AzSKADOBugLogging
 				}
 			}
 
-			$Organization = "";
+			$Organization = $OrganizationName;
 			$IsLAFile = $false;
 			if ($ScanResult.count -gt 0) {
-				if ([Helpers]::CheckMember($ScanResult, "ResourceLink")) {
+				#if org is not supplied then take it from csv.
+				if (!$OrganizationName -and [Helpers]::CheckMember($ScanResult, "ResourceLink")) {
 					$Organization = $ScanResult[0].ResourceLink.Split('/')[3];
 				}
-				elseif ([Helpers]::CheckMember($ScanResult, "ResourceLink_s")) { #In case of LA files property name will be ResourceLink_s
+				if ([Helpers]::CheckMember($ScanResult, "ResourceLink_s")) { #In case of LA files property name will be ResourceLink_s
 					if ($ScanResult[0].ResourceLink_s) {
-						$Organization = $ScanResult[0].ResourceLink_s.Split('/')[3];
+						if (!$OrganizationName) {
+							$Organization = $ScanResult[0].ResourceLink_s.Split('/')[3];
+						}
 						$IsLAFile = $true;
 					}
 					else {
