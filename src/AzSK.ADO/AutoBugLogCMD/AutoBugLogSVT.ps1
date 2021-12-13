@@ -121,7 +121,7 @@ function Start-AzSKADOBugLogging
 			[AzSKSettings]::Instance = $null
 			[AzSKConfig]::Instance = $null
 			[ConfigurationHelper]::ServerConfigMetadata = $null
-			#Refresh singlton in different commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
+			#Refresh singleton in different commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
       		[AutoBugLog]::AutoBugInstance = $null
 			[BugLogHelper]::BugLogHelperInstance = $null
       
@@ -302,7 +302,7 @@ function ValidateBugTemplate {
 	try {
 		foreach ($templateItem in $mandatorytemplateItems) {
 			if($templateItem -notin $BugTemplate.path) {
-				Write-Host "Bug template format is not correct. mandatory fields are not supplied in the template." -ForegroundColor Red
+				Write-Host "Bug template format is not correct. Mandatory fields are not supplied in the template." -ForegroundColor Red
 				return $false;
 			}	
 		}
@@ -310,7 +310,7 @@ function ValidateBugTemplate {
 		return $true;
 	}
 	catch {
-		Write-Host "Could not parse bug template. please validate the template format." -ForegroundColor Red
+		Write-Host "Could not parse bug template. Please validate the template format." -ForegroundColor Red
 		return $false;
 	}	
 }
