@@ -361,8 +361,8 @@ class AzSKADOServiceMapping: CommandBase
             #eat exception
         }
         $this.PublishCustomMessage("Service mapping found:  $(($svcConnSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-        $this.ExportObjToJsonFile($svcConnSTMapping, 'ServiceConnectionSTData.json');
-        $this.ExportObjToJsonFileUploadToBlob($svcConnSTMapping, 'ServiceConnectionSTData.json');
+        $this.ExportObjToJsonFile($svcConnSTMapping.data, 'ServiceConnectionSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($svcConnSTMapping.data, 'ServiceConnectionSTData.json');
         return $true;
     }
 
@@ -457,8 +457,8 @@ class AzSKADOServiceMapping: CommandBase
             #eat exception
         }
         $this.PublishCustomMessage("Service mapping found:  $(($agentPoolSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-        $this.ExportObjToJsonFile($agentPoolSTMapping, 'AgentPoolSTData.json');
-        $this.ExportObjToJsonFileUploadToBlob($agentPoolSTMapping, 'AgentPoolSTData.json');
+        $this.ExportObjToJsonFile($agentPoolSTMapping.data, 'AgentPoolSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($agentPoolSTMapping.data, 'AgentPoolSTData.json');
         return $true;
     }
 
@@ -789,15 +789,15 @@ class AzSKADOServiceMapping: CommandBase
         if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
             $variableGroupSTMapping.data = $variableGroupSTMapping.data | Sort-Object -Unique variableGroupID,serviceID
             $this.PublishCustomMessage("Service mapping found:  $(($variableGroupSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-            $this.ExportObjToJsonFile($variableGroupSTMapping, 'VariableGroupSTData.json');
-            $this.ExportObjToJsonFileUploadToBlob($variableGroupSTMapping, 'VariableGroupSTData.json');
+            $this.ExportObjToJsonFile($variableGroupSTMapping.data, 'VariableGroupSTData.json');
+            $this.ExportObjToJsonFileUploadToBlob($variableGroupSTMapping.data, 'VariableGroupSTData.json');
         }
         #Removing duplicate entries of the tuple (securefile,serviceId)
         if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
             $secureFileSTMapping.data = $secureFileSTMapping.data | Sort-Object -Unique secureFileID,serviceID
             $this.PublishCustomMessage("Service mapping found:  $(($secureFileSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-            $this.ExportObjToJsonFile($secureFileSTMapping, 'SecureFileSTData.json');
-            $this.ExportObjToJsonFileUploadToBlob($secureFileSTMapping, 'SecureFileSTData.json');
+            $this.ExportObjToJsonFile($secureFileSTMapping.data, 'SecureFileSTData.json');
+            $this.ExportObjToJsonFileUploadToBlob($secureFileSTMapping.data, 'SecureFileSTData.json');
         }
         return $true;
     }
@@ -908,8 +908,8 @@ class AzSKADOServiceMapping: CommandBase
             #eat exception
         }
         $this.PublishCustomMessage("Service mapping found:  $(($environmentSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-        $this.ExportObjToJsonFile($environmentSTMapping, 'EnvironmentSTData.json');
-        $this.ExportObjToJsonFileUploadToBlob($environmentSTMapping, 'EnvironmentSTData.json');
+        $this.ExportObjToJsonFile($environmentSTMapping.data, 'EnvironmentSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($environmentSTMapping.data, 'EnvironmentSTData.json');
         return $true;
     }
 
@@ -984,8 +984,8 @@ class AzSKADOServiceMapping: CommandBase
         }
         
         $this.PublishCustomMessage("Service mapping found:  $(($feedSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-        $this.ExportObjToJsonFile($feedSTMapping, 'FeedSTData.json');
-        $this.ExportObjToJsonFileUploadToBlob($feedSTMapping, 'FeedSTData.json');
+        $this.ExportObjToJsonFile($feedSTMapping.data, 'FeedSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($feedSTMapping.data, 'FeedSTData.json');
         return $true;
     }
 
