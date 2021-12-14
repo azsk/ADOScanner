@@ -116,7 +116,7 @@ class AzSKADOServiceMapping: CommandBase
     hidden  GetBuildReleaseMapping()
     {  
         if($this.Auto -eq 'true'){
-            $response = Get-AzStorageBlob -Blob 'buildDefinitions.json' -Container $this.Container -Context $this.StorageAccountCtx 
+            $response = Get-AzStorageBlob -Blob 'BuildServiceMappingData.json' -Container $this.Container -Context $this.StorageAccountCtx 
             $this.BuildSTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
         }
         else {
@@ -157,7 +157,7 @@ class AzSKADOServiceMapping: CommandBase
         $this.ExportObjToJsonFileUploadToBlob($this.BuildSTDetails, 'BuildSTData.json');
         
         if($this.Auto -eq 'true'){
-            $response = Get-AzStorageBlob -Blob 'releaseDefinitions.json' -Container $this.Container -Context $this.StorageAccountCtx 
+            $response = Get-AzStorageBlob -Blob 'ReleaseServiceMappingData.json' -Container $this.Container -Context $this.StorageAccountCtx 
             $this.ReleaseSTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
         }
         else {
@@ -220,7 +220,7 @@ class AzSKADOServiceMapping: CommandBase
 
     hidden GetRepositoryMapping() {  
         if($this.Auto -eq 'true'){
-            $response = Get-AzStorageBlob -Blob 'repoDefinitions.json' -Container $this.Container -Context $this.StorageAccountCtx 
+            $response = Get-AzStorageBlob -Blob 'RepoServiceMappingData.json' -Container $this.Container -Context $this.StorageAccountCtx 
             $this.RepositorySTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
         }
         else {
