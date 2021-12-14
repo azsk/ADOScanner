@@ -1806,14 +1806,14 @@ class CommonSVTControls: ADOSVTBase {
             }
             else{
                 if($retentionPolicies.daysToKeepRecentlyDownloadedPackages -gt $this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity){
-                    $controlResult.AddMessage("Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is greater than the threshold days.")
+                    $controlResult.AddMessage("Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is greater than $($this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity) days .")
                 }
                 else{
                     if($retentionPolicies.countLimit -gt $this.ControlSettings.FeedsAndPackages.ThresholdPackagesPerFeed){
-                        $controlResult.AddMessage("Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is under the threshold days, but maximum number of packages to keep per feed is greater than threshold.")
+                        $controlResult.AddMessage("Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is under $($this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity) days, but maximum number of packages to keep per feed is more than $($this.ControlSettings.FeedsAndPackages.ThresholdPackagesPerFeed) packages.")
                     }
                     else{
-                        $controlResult.AddMessage([VerificationResult]::Passed,"Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is less than the threshold days.")
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is less than $($this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity) days.")
                     }                    
                 }
                 $controlResult.AddMessage("`n Current number of days to keep recently downloaded packages is $($retentionPolicies.daysToKeepRecentlyDownloadedPackages).")
