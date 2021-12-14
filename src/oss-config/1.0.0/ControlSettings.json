@@ -29,7 +29,7 @@
           "ADO_Organization_AuthZ_Remove_Disconnected_Accounts",
           "ADO_Organization_AuthZ_Restrict_Broader_Group_Access_on_Feed",
           "ADO_Organization_AuthZ_Restrict_Feed_Create_Permission",
-          "ADO_Organization_Allow_Additional_Protection_For_Public_Package_Registries"
+          "ADO_Organization_SI_Protect_Private_Feeds_Impersonation"
         ]
       },
       {
