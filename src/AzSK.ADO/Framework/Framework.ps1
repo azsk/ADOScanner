@@ -58,8 +58,8 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Helpers\WebRequestHelper.ps1
 . $PSScriptRoot\Helpers\SVTMapping.ps1
 . $FrameworkPath\Helpers\IdentityHelpers.ps1
-. $FrameworkPath\Helpers\ConfigOverride.ps1
 . $FrameworkPath\Helpers\ControlHelper.ps1
+. $FrameworkPath\Helpers\ConfigOverride.ps1
 . $PSScriptRoot\Helpers\AdministratorHelper.ps1
 . $FrameworkPath\Models\Common\ResourceInventory.ps1
 
@@ -158,5 +158,6 @@ $FrameworkPath = $PSScriptRoot
 . $PSScriptRoot\Core\SVT\SVTResourceResolver.ps1
 . $PSScriptRoot\Abstracts\ServicesSecurityStatus.ps1
 . $PSScriptRoot\Core\SVT\Resolver.ps1
+. $FrameworkPath\BugLog\AzSKADOAutoBugLogging.ps1
 . $PSScriptRoot\Core\ContinuousAssurance\CAAutomation.ps1
 . $PSScriptRoot\Core\ADOMonitoring\LogAnalyticsMonitoring.ps1

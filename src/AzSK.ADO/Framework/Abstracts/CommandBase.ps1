@@ -181,8 +181,12 @@ class CommandBase: AzSKRoot {
 			}
 			[PartialScanManager]::ControlResultsWithSARIFSummary=@()
         }
-		# Publish command complete events
-        $this.CommandCompleted($methodResult);
+		# Publish command complete events.
+		#Not calling this method if command is standalon bug logging. (as it is retuning different result, and also not needed to call this method-.)
+		if(!$this.InvocationContext.BoundParameters["ScanResultFilePath"])
+		{
+        	$this.CommandCompleted($methodResult);
+		}
 		[AIOrgTelemetryHelper]::TrackCommandExecution("Command Completed",
 			@{"RunIdentifier" = $this.RunIdentifier},
 			@{"TimeTakenInMs" = $sw.ElapsedMilliseconds; "SuccessCount" = 1},
@@ -265,7 +269,8 @@ class CommandBase: AzSKRoot {
 				$methodResult = [PartialScanManager]::ControlResultsWithBugSummary
 				$bugsClosed=[PartialScanManager]::ControlResultsWithClosedBugSummary
 		}
-		else
+		# added condition for standalone bug logging. if it is standalone bug logging then close bug only if autoclose parameter is supplied.
+		elseif(!$this.InvocationContext.BoundParameters["ScanResultFilePath"] -or ($this.InvocationContext.BoundParameters["ScanResultFilePath"] -and $this.InvocationContext.BoundParameters["AutoCloseBugs"]))
 		{
 			$AutoClose=[AutoCloseBugManager]::new($this.OrganizationContext.OrganizationName);
 			$AutoClose.AutoCloseBug($methodResult)

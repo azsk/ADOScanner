@@ -49,6 +49,10 @@ class WriteSummaryFile: FileOutputBase
 			{
 				$currentInstance.SetFilePath($Event.SourceArgs[0].OrganizationContext, ("SecurityReport-" + $currentInstance.RunIdentifier + ".csv"));
 			}
+			#in case of control fix, csv will have been already generated due to upc, need to generate list of non scanned resources
+            elseif($currentInstance.InvocationContext.BoundParameters["CheckOwnerAccess"] -and $currentInstance.InvocationContext.BoundParameters["PrepareForControlFix"] -and $null -ne $env:nonScannedResources){
+                $currentInstance.WriteNonScannedResourcesInfo();
+            }
 			else
 			{
 				# While running GAI -InfoType AttestationInfo, no controls are evaluated. So the value of VerificationResult is by default NotScanned for all controls.
@@ -62,6 +66,9 @@ class WriteSummaryFile: FileOutputBase
 				try 
 				{
 					$currentInstance.WriteToCSV($Event.SourceArgs);
+					if($currentInstance.InvocationContext.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations"){
+						$currentInstance.WriteBaselineConfigurationsToFile($Event.SourceArgs)
+					}
 					$currentInstance.FilePath = "";
 				}
 				catch 
@@ -177,6 +184,54 @@ class WriteSummaryFile: FileOutputBase
 		});
 	}
 	
+	[void] WriteBaselineConfigurationsToFile([SVTEventContext[]] $arguments){
+		if ([string]::IsNullOrEmpty($this.FolderPath)) {
+            return;
+        }
+		$passedControls = @{Passed = @()}
+		$fixedControls = @{Fixed = @()}
+		$erroredControls = @{Error = @()}
+		$failedControls = @{Failed =@()}
+		$arguments | foreach{
+			$item = $_;
+			if ($item -and $item.ControlResults){
+				$control = [PSCustomObject]@{
+					'Control' = $item.ControlItem.ControlID
+					'ResourceName' = $item.ResourceContext.ResourceName
+				}
+				if($item.ControlResults[0].VerificationResult -eq "Fixed"){					
+					$fixedControls.Fixed+=$control
+				}
+				elseif($item.ControlResults[0].VerificationResult -eq "Passed"){					
+					$passedControls.Passed+=$control
+				}
+				elseif($item.ControlResults[0].VerificationResult -eq "Failed"){
+					$failedControls.Failed+=$control
+				}
+				else{
+					$erroredControls.Error+=$control
+				}
+			}
+		}
+		$filePath = $this.FolderPath+"\BaselineConfigurationReport.json"
+		$combinedJSON = $null
+		if($passedControls.Passed){
+			$combinedJSON = $passedControls
+		}
+		if($fixedControls.Fixed){
+			$combinedJSON+=$fixedControls
+		}
+		if($erroredControls.Error){
+			$combinedJSON+=$erroredControls
+		}
+		if($failedControls.Failed){
+			$combinedJSON+=$failedControls
+		}
+		if($combinedJSON){
+			Add-Content $filePath -Value ($combinedJSON | ConvertTo-JSON)
+		}
+
+	}
 	
 
    [void] WriteToCSV([SVTEventContext[]] $arguments)
@@ -337,6 +392,20 @@ class WriteSummaryFile: FileOutputBase
 			($csvItems | Select-Object -Property $nonNullProps) | Group-Object -Property FeatureName | Foreach-Object {$_.Group | Export-Csv -Path $this.FilePath -append -NoTypeInformation}
         }
     }	
+
+	[void] WriteNonScannedResourcesInfo(){
+		$resources = @();
+		$env:nonScannedResources -split '\s+' | foreach{
+			$nonScannedResource = [PSCustomObject]@{
+				"Resource Link" = $_
+			}
+			$resources+=$nonScannedResource
+		}
+		$filePath = $this.FolderPath+"\ResourcesNotScanned.json"
+		Add-Content $filePath -Value ($resources | ConvertTo-JSON | % { [System.Text.RegularExpressions.Regex]::Unescape($_) })
+		#clear up this variable for later scans, as we do not need it from here
+		$env:nonScannedResources=@()
+	}
 
 }
 

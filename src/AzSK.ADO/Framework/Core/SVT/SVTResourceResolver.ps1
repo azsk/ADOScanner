@@ -41,7 +41,7 @@ class SVTResourceResolver: AzSKRoot {
     [bool] $includeAdminControls = $false;
     [bool] $isUserPCA = $false;
     [bool] $skipOrgUserControls = $false
-
+    [bool] $baselineConfigurationForce = $false;
     [bool] $UseIncrementalScan = $false
     [DateTime] $IncrementalDate = 0
 
@@ -109,6 +109,13 @@ class SVTResourceResolver: AzSKRoot {
         $this.SetallTheParamValues($ResourceTypeName)
     }
 
+    #Constructor for Set-AzSKADOBaselineConfigurations
+    SVTResourceResolver($OrganizationName, $ProjectNames, $ResourceTypeName, $PATToken, $Force): Base($OrganizationName, $PATToken){
+        $this.organizationName = $organizationName
+        $this.ProjectNames = $ProjectNames
+        $this.ResourceTypeName = $ResourceTypeName
+        $this.SetallTheParamValues($this.ProjectNames,$ResourceTypeName,$Force)
+    }
 
     [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceIds, $IncludeAdminControls,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan, $UseIncrementalScan, $IncrementalDate) {
 
@@ -237,6 +244,19 @@ class SVTResourceResolver: AzSKRoot {
         }
     }
 
+    #Called for Set-AzSKADOBaselineConfigurations
+    [void] SetallTheParamValues($ProjectNames,$ResourceTypeName,$Force){
+        $this.baselineConfigurationForce = $Force
+        if ($ResourceTypeName -eq [ResourceTypeName]::Project -or $ResourceTypeName -eq [ResourceTypeName]::All){
+            if (-not [string]::IsNullOrEmpty($ProjectNames)) {
+                $this.ProjectNames += $this.ConvertToStringArray($ProjectNames);
+    
+                if ($this.ProjectNames.Count -eq 0) {
+                    throw [SuppressedException] "The parameter 'ProjectNames' does not contain any string."
+                }
+            }
+        }
+    }
 
     # Method called for Set-AzSKADOSecurityStatus, invoked from constructor 
 
@@ -366,6 +386,10 @@ class SVTResourceResolver: AzSKRoot {
         }
         if ($this.ResourceTypeName -in ([ResourceTypeName]::Organization, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User) -and ([string]::IsNullOrEmpty($this.serviceIds)) )
         {
+            if($PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations" -and $this.IsResourceEligibleForBaselineConfig([ResourceTypeName]::Organization,$this.organizationName) -eq $false){
+                $this.PublishCustomMessage([Constants]::BaselineConfigurationErrorMsgOrg, [MessageType]::Warning);
+                return;
+            }
             #First condition if 'includeAdminControls' switch is passed or user is admin(PCA).
             #Second condition if explicitly -rtn flag passed to org or Org_Project_User
             #Third condition if 'gads' contains only admin scan parame, then no need to ask for includeAdminControls switch
@@ -377,8 +401,13 @@ class SVTResourceResolver: AzSKRoot {
                     $this.AddSVTResource($this.organizationName, $null ,"ADO.Organization", "organization/$($organizationId)", $null, $link);
                 }
                 elseif ( ($this.ResourceTypeName -in ([ResourceTypeName]::Organization, [ResourceTypeName]::Org_Project_User)) -or ( $this.BuildNames.Count -eq 0 -and $this.ReleaseNames.Count -eq 0 -and $this.ServiceConnections.Count -eq 0 -and $this.AgentPools.Count -eq 0 -and $this.VariableGroups.Count -eq 0) ) {
-                    $this.PublishCustomMessage("You have requested scan for organization controls. However, you do not have admin permission. Use '-IncludeAdminControls' if you'd still like to scan them. (Some controls may not scan correctly due to access issues.)", [MessageType]::Info);
-                    $this.PublishCustomMessage("`r`n");
+                    if($PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations"){
+                        $this.PublishCustomMessage("You have requested baseline configurations for organization controls. However, you do not have admin permissions. Hence, stopping baseline configurations for organization controls.", [MessageType]::Warning);
+                    }
+                    else{
+                        $this.PublishCustomMessage("You have requested scan for organization controls. However, you do not have admin permission. Use '-IncludeAdminControls' if you'd still like to scan them. (Some controls may not scan correctly due to access issues.)", [MessageType]::Info);
+                        $this.PublishCustomMessage("`r`n");
+                    }                    
                 }
             }
         }
@@ -427,6 +456,10 @@ class SVTResourceResolver: AzSKRoot {
                 $nProj = $this.MaxObjectsToScan;
                 if (!$projects) {
                     Write-Host 'No project found to perform the scan.' -ForegroundColor Red                    
+                }
+                if($projects -and $PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations" -and $this.ProjectNames -eq "*" -and $this.IsResourceEligibleForBaselineConfig([ResourceTypeName]::Project,$this.ProjectNames) -eq $false){
+                    $this.PublishCustomMessage([Constants]::BaselineConfigurationErrorMsgOrg, [MessageType]::Warning);
+                    return;
                 }
                 $TotalSvc = 0;
                 $ScannableSvc = 0;
@@ -490,6 +523,11 @@ class SVTResourceResolver: AzSKRoot {
 
                     if ($this.ResourceTypeName -in ([ResourceTypeName]::Project, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User)  -and ([string]::IsNullOrEmpty($this.serviceIds)))
                     {
+                        if($this.ProjectNames -ne "*" -and $PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations" -and $this.IsResourceEligibleForBaselineConfig([ResourceTypeName]::Project,$thisProj.name) -eq $false){
+                            $msg = [Constants]::BaselineConfigurationErrorMsgProj -f $($thisProj.name)
+                            $this.PublishCustomMessage($msg, [MessageType]::Warning);
+                            continue;
+                        }
                         #First condition if 'includeAdminControls' switch is passed or user is PCA or User is PA.
                         #Second condition if explicitly -rtn flag passed to org or Org_Project_User
                         #Adding $this.isAdminControlScan() check in the end in case $this.isUserPCA is not checked (this happens when u scan using -svcid flag and org controls are not resolved/scanned)
@@ -500,8 +538,13 @@ class SVTResourceResolver: AzSKRoot {
                         }
                         #Third condition if 'gads' contains only admin scan parame, then no need to ask for includeAdminControls switch
                         elseif ( ($this.ResourceTypeName -in ([ResourceTypeName]::Project, [ResourceTypeName]::Org_Project_User)) -or ( $this.BuildNames.Count -eq 0 -and $this.ReleaseNames.Count -eq 0 -and $this.ServiceConnections.Count -eq 0 -and $this.AgentPools.Count -eq 0 -and $this.VariableGroups.Count -eq 0) ) {
-                            $this.PublishCustomMessage("`r`n");
-                            $this.PublishCustomMessage("You have requested scan for project controls. However, you do not have admin permission. Use '-IncludeAdminControls' if you'd still like to scan them. (Some controls may not scan correctly due to access issues.)", [MessageType]::Info);
+                            if($PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations"){
+                                $this.PublishCustomMessage("You have requested baseline configurations for project controls. However, you do not have admin permissions. Hence, stopping baseline configurations.", [MessageType]::Warning);
+                            }
+                            else{
+                                $this.PublishCustomMessage("`r`n");
+                                $this.PublishCustomMessage("You have requested scan for project controls. However, you do not have admin permission. Use '-IncludeAdminControls' if you'd still like to scan them. (Some controls may not scan correctly due to access issues.)", [MessageType]::Info);
+                            }                            
                         }
                     }
                     #check if long running scan allowed or not.
@@ -1023,7 +1066,7 @@ class SVTResourceResolver: AzSKRoot {
 
                     #Creating resource in common resource resolver
                     if ($this.RepoNames.count -gt 0 -or $this.SecureFileNames.count -gt 0 -or $this.FeedNames.count -gt 0 -or $this.EnvironmentNames.count -gt 0 -or ($this.ResourceTypeName -in ([ResourceTypeName]::Repository, [ResourceTypeName]::SecureFile, [ResourceTypeName]::Feed, [ResourceTypeName]::Environment,[ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources))) {
-                        $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName, $organizationId, $projectId,$this.OrganizationContext);
+                        $commonSVTResourceResolverObj = [CommonSVTResourceResolver]::new($this.organizationName, $organizationId, $projectId,$this.OrganizationContext, $this.IsAutomatedFixUndoCmd);
                         $commonSVTResourceList =  $commonSVTResourceResolverObj.LoadResourcesForScan($projectName, $this.RepoNames, $this.SecureFileNames, $this.FeedNames, $this.EnvironmentNames, $this.ResourceTypeName, $this.MaxObjectsToScan, $this.isServiceIdBasedScan);
                         foreach ($commonSVTRsrc in $commonSVTResourceList) {
                             $this.SVTResources.add($commonSVTRsrc)
@@ -1048,7 +1091,7 @@ class SVTResourceResolver: AzSKRoot {
                     # getting all the resources count
                     # and sending them to telemetry as well
                     $scanSource = [AzSKSettings]::GetInstance().GetScanSource(); # Disabling resource telemetry for SDL scan.
-                    if($this.IsAIEnabled -eq $true -and $scanSource -ne 'SDL') {
+                    if($env:FetchInventoryDetails -eq $true -and $this.IsAIEnabled -eq $true -and $scanSource -ne 'SDL') {
                         [InventoryHelper]::GetResourceCount($this.organizationName, $projectName, $projectId, $projectData);
                     }
                     #check if long running scan allowed or not.
@@ -1093,6 +1136,45 @@ class SVTResourceResolver: AzSKRoot {
             {
                 Write-Host ([Constants]::LongRunningScanStopMsg -f $this.longRunningScanCheckPoint) -ForegroundColor Yellow;
                 $this.SVTResources = $null
+                return $false;
+            }
+        }
+        return $true;
+    }
+
+    #method for Set-AzSKADOBaselineConfigurations to check if org/proj are old 
+    [bool] IsResourceEligibleForBaselineConfig($resourceType,$resourceName){
+        if($this.baselineConfigurationForce){
+            return $true;
+        }
+        #if rtn is Org or Org and Project both, we first find the oldest project and check number of pipelines. In case rtn is project and * is given as project names, then also we find the oldest project pipeline
+        if($resourceType -eq [ResourceTypeName]::Organization -or $resourceType -eq [ResourceTypeName]::Org_Project_User -or($resourceType -eq [ResourceTypeName]::Project -and $resourceName -eq "*")){
+            $apiURL = 'https://dev.azure.com/{0}/_apis/projects?$top=1000&api-version=6.0' -f $($this.OrganizationContext.OrganizationName);
+            $responseObj = "";
+            try {
+                $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                $responseObj = $responseObj | Sort-Object -Property lastUpdateTime;
+                $oldestProject = $responseObj[0].name;
+                $buildURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $oldestProject;
+                $builds = @([WebRequestHelper]::InvokeGetWebRequest($buildURL));
+                $releaseURL = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $oldestProject;
+                $releases = @([WebRequestHelper]::InvokeGetWebRequest($releaseURL));
+                if(($builds.Count -ge 1 -and [Helpers]::CheckMember($builds[0],"id")) -or ($releases.Count -ge 1 -and [Helpers]::CheckMember($releases[0],"id"))){
+                    return $false;
+                }
+            }
+            catch{
+                
+            }
+        }
+        #We reach here when -rtn is just project and we have project names (either one or multiple), we check the number of pipelines in the current project
+        #This will be checked once for each project
+        else{
+            $buildURL = "https://dev.azure.com/{0}/{1}/_apis/build/definitions?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $resourceName;
+            $releaseURL = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $resourceName;
+            $releases = @([WebRequestHelper]::InvokeGetWebRequest($releaseURL));
+            $builds = @([WebRequestHelper]::InvokeGetWebRequest($buildURL));
+            if(($builds.Count -ge 1 -and [Helpers]::CheckMember($builds[0],"id")) -or ($releases.Count -ge 1 -and [Helpers]::CheckMember($releases[0],"id"))){
                 return $false;
             }
         }

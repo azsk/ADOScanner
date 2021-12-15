@@ -11,12 +11,23 @@ class AzSKADOServiceMapping: CommandBase
     [string] $RepositoryMappingsFilePath
     [string] $MappingType
     [string] $OutputFolderPath
+    [string] $Auto = $false
+    [string] $StorageAccount; # Storage account name
+    [string] $StorageRG;# Storage resource group name
+    [string] $Container;# Storage Container to store ST mapping files    
+    [object] $StorageAccountCtx;     
+    # Power BI Report Storage settings to store ST mapping files
+    [string] $ReportStorageAccount;# Storage account name for Dashboard 
+    [string] $ReportStorageRG;# Storage resource group name for Dashboard 
+    [string] $ReportContainer;#Storage Container to store ST mapping files use by Power Bi  resports    
+    [object] $ReportStorageAccountCtx;     
+    [string] $AzSKTempStatePath = [Constants]::AzSKTempFolderPath
     $BuildSTDetails = @();
     $ReleaseSTDetails =@();
     $RepositorySTDetails =@();
 
 
-	AzSKADOServiceMapping([string] $organizationName, [string] $projectName, [string] $buildFileLocation, [string] $releaseFileLocation, [string] $repositoryFileLocation,[string] $mappingType, [InvocationInfo] $invocationContext): 
+	AzSKADOServiceMapping([string] $organizationName, [string] $projectName, [string] $buildFileLocation, [string] $releaseFileLocation, [string] $repositoryFileLocation,[string] $mappingType,[string] $auto,[InvocationInfo] $invocationContext): 
         Base($organizationName, $invocationContext) 
     { 
         $this.OrgName = $organizationName
@@ -25,16 +36,53 @@ class AzSKADOServiceMapping: CommandBase
         $this.ReleaseMappingsFilePath = $releaseFileLocation
         $this.RepositoryMappingsFilePath = $repositoryFileLocation
         $this.MappingType = $MappingType
+        $this.Auto = $auto.ToLower();        
+        $this.StorageAccount = $env:StorageName;
+        $this.StorageRG = $env:StorageRG;
+        $this.Container = $env:Container;
+        # Power BI Report Storage settings
+        $this.ReportStorageAccount = $env:ReportStorageName;
+        $this.ReportStorageRG = $env:ReportStorageRG;
+        $this.ReportContainer = $env:ReportContainer;                
+        #get storage details
+        if($this.Auto -eq 'true'){
+            if ($this.StorageRG -and $this.StorageAccount) {
+                $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
+                if ($null -eq $keys)
+				{
+					$this.PublishCustomMessage("Status:   Storage account not found.", [MessageType]::Error);
+				}
+                else {
+                   #storage context to save ST files for ADO scanner
+                    $StorageContext = New-AzStorageContext -StorageAccountName $this.StorageAccount -StorageAccountKey $keys[0].Value -Protocol Https                
+                    $this.StorageAccountCtx = $StorageContext.Context;   
+                }
+                             
+            }
+            if ($this.ReportStorageRG -and $this.ReportStorageAccount) {
+                $keys = Get-AzStorageAccountKey -ResourceGroupName $this.ReportStorageRG -Name $this.ReportStorageAccount
+                if ($null -eq $keys)
+				{
+					$this.PublishCustomMessage("Status:   Storage account not found.", [MessageType]::Error);
+				}
+                else {
+                   #storage context to save ST files for Power Bi reports
+                    $ReportStorageContext = New-AzStorageContext -StorageAccountName $this.ReportStorageAccount -StorageAccountKey $keys[0].Value -Protocol Https                                
+                    $this.ReportStorageAccountCtx = $ReportStorageContext.Context;  
+                }
+                             
+            }
+        }
 	}
 	
 	[MessageData[]] GetSTmapping()
 	{
-        if(![string]::IsNullOrWhiteSpace($this.RepositoryMappingsFilePath) -and(Test-Path $this.RepositoryMappingsFilePath)) {
+        if(![string]::IsNullOrWhiteSpace($this.RepositoryMappingsFilePath)) {            
             $this.GetRepositoryMapping();
         }
 
         if(![string]::IsNullOrWhiteSpace($this.BuildMappingsFilePath) -and ![string]::IsNullOrWhiteSpace($this.ReleaseMappingsFilePath)){
-            if((Test-Path $this.BuildMappingsFilePath) -and (Test-Path $this.ReleaseMappingsFilePath))
+            if(((Test-Path $this.BuildMappingsFilePath) -and (Test-Path $this.ReleaseMappingsFilePath)) -or $this.Auto -eq 'true')
             {
                 $this.GetBuildReleaseMapping();              
                 if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "ServiceConnection")
@@ -65,22 +113,27 @@ class AzSKADOServiceMapping: CommandBase
 		return $returnMsgs
     }
     
-    hidden  GetBuildReleaseMapping() {  
-        $this.BuildSTDetails = Get-content $this.BuildMappingsFilePath | ConvertFrom-Json
-        if ([Helpers]::CheckMember($this.BuildSTDetails, "data") -and ($this.BuildSTDetails.data | Measure-Object).Count -gt 0)
-        {
-            $this.BuildSTDetails.data = $this.BuildSTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}
-            if (($this.BuildSTDetails.data | Measure-Object).Count -gt 0)
-            {
-                $this.ProjectId = $this.BuildSTDetails.data[0].projectId
+    hidden  GetBuildReleaseMapping()
+    {  
+        if($this.Auto -eq 'true'){
+            $response = Get-AzStorageBlob -Blob 'BuildServiceMappingData.json' -Container $this.Container -Context $this.StorageAccountCtx 
+            $this.BuildSTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
+        }
+        else {
+            $this.BuildSTDetails = Get-content $this.BuildMappingsFilePath | ConvertFrom-Json    
+        }        
+        if ([Helpers]::CheckMember($this.BuildSTDetails, "data") -and ($this.BuildSTDetails.data | Measure-Object).Count -gt 0){
+            $this.BuildSTDetails.data = $this.BuildSTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}            
+            if (($this.BuildSTDetails.data | Measure-Object).Count -gt 0){
+                $this.ProjectId = $this.BuildSTDetails.data[0].projectId;
             }
-        }       
+        }   
 
         # Get Build-Repo mappings
         try {            
             $buildObjectListURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +'&$top=10000') -f $($this.orgName), $this.projectName;       
             $buildObjectList = $this.GetBuildReleaseObjects($buildObjectListURL,'Build');
-            $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}
+            $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}            
             $counter =0
             foreach ($build in $buildObjectList) {               
                 try {                
@@ -91,7 +144,7 @@ class AzSKADOServiceMapping: CommandBase
                     $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};
                     if($repoSTData){
                         $this.BuildSTDetails.data+=@([PSCustomObject] @{ buildDefinitionName = $build.name; buildDefinitionID = $build.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )                            
-                    }                                            
+                    }
                 }
                 catch{
 
@@ -99,10 +152,18 @@ class AzSKADOServiceMapping: CommandBase
             }        
         }
         catch {           
-        } 
+        }
         $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
-
-        $this.ReleaseSTDetails = Get-content $this.ReleaseMappingsFilePath | ConvertFrom-Json 
+        $this.ExportObjToJsonFileUploadToBlob($this.BuildSTDetails, 'BuildSTData.json');
+        
+        if($this.Auto -eq 'true'){
+            $response = Get-AzStorageBlob -Blob 'ReleaseServiceMappingData.json' -Container $this.Container -Context $this.StorageAccountCtx 
+            $this.ReleaseSTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
+        }
+        else {
+            $this.ReleaseSTDetails = Get-content $this.ReleaseMappingsFilePath | ConvertFrom-Json     
+        }        
+               
         if ([Helpers]::CheckMember($this.ReleaseSTDetails, "data") -and ($this.ReleaseSTDetails.data | Measure-Object).Count -gt 0)
         {
             $this.ReleaseSTDetails.data = $this.ReleaseSTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}
@@ -116,7 +177,7 @@ class AzSKADOServiceMapping: CommandBase
         try {                         
             $releaseObjectListURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.orgName), $this.projectName;    
             $releaseObjectList = $this.GetBuildReleaseObjects($ReleaseObjectListURL,'Release');
-            $releaseObjectList = $releaseObjectList | Where-Object {$_.id -notin $this.ReleaseSTDetails.data.releaseDefinitionID}
+            $releaseObjectList = $releaseObjectList | Where-Object {$_.id -notin $this.ReleaseSTDetails.data.releaseDefinitionID}                     
             $counter =0
             foreach ($release in $releaseObjectList) {  
                 try { 
@@ -129,7 +190,7 @@ class AzSKADOServiceMapping: CommandBase
                                 switch ($type)
                                     {
                                     {($_ -eq "GitHubRelease") -or ($_ -eq "Git")}{
-                                        $repositoryName =$releaseDefnObj[0].artifacts.definitionReference.definition.name; 
+                                        $repositoryName =$releaseDefnObj[0].artifacts.definitionReference.definition.name;
                                         $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};
                                         if($repoSTData){
                                             $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $release.name; releaseDefinitionID = $release.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )                            
@@ -139,7 +200,7 @@ class AzSKADOServiceMapping: CommandBase
                                         $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $releaseDefnObj[0].artifacts.definitionReference.definition.id) -and ($_.projectID -eq $releaseDefnObj[0].artifacts.definitionReference.project.id)};
                                         If($buildSTData){
                                             $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $release.name; releaseDefinitionID = $release.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )                            
-                                        }                                            
+                                        }
                                     }                                                                                                                                                                                           
                                 }
                         }                                           
@@ -154,10 +215,17 @@ class AzSKADOServiceMapping: CommandBase
         }
 
         $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($this.ReleaseSTDetails, 'ReleaseSTData.json');
     }
 
     hidden GetRepositoryMapping() {  
-        $this.RepositorySTDetails = Get-content $this.RepositoryMappingsFilePath | ConvertFrom-Json
+        if($this.Auto -eq 'true'){
+            $response = Get-AzStorageBlob -Blob 'RepoServiceMappingData.json' -Container $this.Container -Context $this.StorageAccountCtx 
+            $this.RepositorySTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
+        }
+        else {
+            $this.RepositorySTDetails = Get-content $this.RepositoryMappingsFilePath | ConvertFrom-Json     
+        }         
         if ([Helpers]::CheckMember($this.RepositorySTDetails, "data") -and ($this.RepositorySTDetails.data | Measure-Object).Count -gt 0)
         {
             $this.RepositorySTDetails.data = $this.RepositorySTDetails.data | where-object {$_.ProjectName -eq $this.ProjectName}
@@ -165,16 +233,36 @@ class AzSKADOServiceMapping: CommandBase
             {
                 $this.ProjectId = $this.RepositorySTDetails.data[0].projectId
             }
-        }
+        }        
         $this.ExportObjToJsonFile($this.RepositorySTDetails, 'RepositorySTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($this.RepositorySTDetails, 'RepositorySTData.json');
     }
 
-    hidden ExportObjToJsonFile($serviceMapping, $fileName) {  
-        if ([string]::IsNullOrWhiteSpace($this.OutputFolderPath))
-        {
-            $this.OutputFolderPath = [WriteFolderPath]::GetInstance().FolderPath;
+    hidden ExportObjToJsonFile($serviceMapping, $fileName) {   
+        $folderPath ="/" + $this.OrgName.ToLower() + "/" + $this.ProjectName.ToLower(); 
+        if($this.auto -eq "true"){
+            $this.OutputFolderPath = $this.AzSKTempStatePath + $folderPath;
         }
-        $serviceMapping | ConvertTo-Json -Depth 10 | Out-File (Join-Path $this.OutputFolderPath $fileName) -Encoding ASCII 
+        else {
+            $this.OutputFolderPath = [WriteFolderPath]::GetInstance().FolderPath + $folderPath;         
+        }
+        If(!(test-path $this.OutputFolderPath)){
+            New-Item -ItemType Directory -Force -Path $this.OutputFolderPath
+        }                    
+        $serviceMapping | ConvertTo-Json -Depth 10 | Out-File (Join-Path $this.OutputFolderPath $fileName) -Encoding ASCII        
+    }
+
+    hidden ExportObjToJsonFileUploadToBlob($serviceMapping, $fileName) {
+        if($this.auto -eq "true"){
+            
+        $fileName =$this.OrgName.ToLower() + "/" + $this.ProjectName.ToLower() + "/" + $fileName
+            if ($null -ne $this.StorageAccountCtx){
+                Set-AzStorageBlobContent -Container $this.Container -File (Join-Path $this.AzSKTempStatePath $fileName) -Blob $fileName -Context $this.StorageAccountCtx -Force
+            }
+            if ($null -ne $this.ReportStorageAccountCtx){
+                Set-AzStorageBlobContent -Container $this.ReportContainer -File (Join-Path $this.AzSKTempStatePath $fileName) -Blob $fileName -Context $this.ReportStorageAccountCtx -Force
+            }        
+        }
     }
   
     hidden [bool] FetchSvcConnMapping() {  
@@ -273,8 +361,8 @@ class AzSKADOServiceMapping: CommandBase
             #eat exception
         }
         $this.PublishCustomMessage("Service mapping found:  $(($svcConnSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-
-        $this.ExportObjToJsonFile($svcConnSTMapping, 'ServiceConnectionSTData.json');
+        $this.ExportObjToJsonFile($svcConnSTMapping.data, 'ServiceConnectionSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($svcConnSTMapping.data, 'ServiceConnectionSTData.json');
         return $true;
     }
 
@@ -369,8 +457,8 @@ class AzSKADOServiceMapping: CommandBase
             #eat exception
         }
         $this.PublishCustomMessage("Service mapping found:  $(($agentPoolSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-
-        $this.ExportObjToJsonFile($agentPoolSTMapping, 'AgentPoolSTData.json');
+        $this.ExportObjToJsonFile($agentPoolSTMapping.data, 'AgentPoolSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($agentPoolSTMapping.data, 'AgentPoolSTData.json');
         return $true;
     }
 
@@ -700,18 +788,16 @@ class AzSKADOServiceMapping: CommandBase
         #Removing duplicate entries of the tuple (variableGroupId,serviceId)
         if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
             $variableGroupSTMapping.data = $variableGroupSTMapping.data | Sort-Object -Unique variableGroupID,serviceID
-
             $this.PublishCustomMessage("Service mapping found:  $(($variableGroupSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-
-            $this.ExportObjToJsonFile($variableGroupSTMapping, 'VariableGroupSTData.json');
+            $this.ExportObjToJsonFile($variableGroupSTMapping.data, 'VariableGroupSTData.json');
+            $this.ExportObjToJsonFileUploadToBlob($variableGroupSTMapping.data, 'VariableGroupSTData.json');
         }
         #Removing duplicate entries of the tuple (securefile,serviceId)
         if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
             $secureFileSTMapping.data = $secureFileSTMapping.data | Sort-Object -Unique secureFileID,serviceID
-
             $this.PublishCustomMessage("Service mapping found:  $(($secureFileSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-
-            $this.ExportObjToJsonFile($secureFileSTMapping, 'SecureFileSTData.json');
+            $this.ExportObjToJsonFile($secureFileSTMapping.data, 'SecureFileSTData.json');
+            $this.ExportObjToJsonFileUploadToBlob($secureFileSTMapping.data, 'SecureFileSTData.json');
         }
         return $true;
     }
@@ -822,8 +908,8 @@ class AzSKADOServiceMapping: CommandBase
             #eat exception
         }
         $this.PublishCustomMessage("Service mapping found:  $(($environmentSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-
-        $this.ExportObjToJsonFile($environmentSTMapping, 'EnvironmentSTData.json');
+        $this.ExportObjToJsonFile($environmentSTMapping.data, 'EnvironmentSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($environmentSTMapping.data, 'EnvironmentSTData.json');
         return $true;
     }
 
@@ -898,8 +984,8 @@ class AzSKADOServiceMapping: CommandBase
         }
         
         $this.PublishCustomMessage("Service mapping found:  $(($feedSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-
-        $this.ExportObjToJsonFile($feedSTMapping, 'FeedSTData.json');
+        $this.ExportObjToJsonFile($feedSTMapping.data, 'FeedSTData.json');
+        $this.ExportObjToJsonFileUploadToBlob($feedSTMapping.data, 'FeedSTData.json');
         return $true;
     }
 

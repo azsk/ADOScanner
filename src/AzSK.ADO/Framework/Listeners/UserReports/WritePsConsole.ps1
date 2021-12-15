@@ -236,6 +236,10 @@ class WritePsConsole: FileOutputBase
 					
                     # Print summary
                     $currentInstance.PrintSummaryData($Event);
+					if($currentInstance.InvocationContext.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations"){
+						$currentInstance.WriteMessage([Constants]::DoubleDashLine, [MessageType]::Info)
+						$currentInstance.PrintBaselineConfigurationData($Event);
+					}				
 					
                     $AttestControlParamFound = $currentInstance.InvocationContext.BoundParameters["AttestControls"];
                     if($null -eq $AttestControlParamFound)
@@ -556,6 +560,52 @@ class WritePsConsole: FileOutputBase
 				$this.WriteMessage(([PartialScanManager]::CollatedSummaryCount | Format-Table -Property $nonNullProps | Out-String), [MessageType]::Info)
 				[PartialScanManager]::CollatedSummaryCount = @()
 			}
+		}
+	}
+
+	hidden [void] PrintBaselineConfigurationData($event){
+		$erroredControls = 0;
+		$passedControls = @{Passed = @()}
+		$fixedControls = @{Fixed = @()}
+		if (($event.SourceArgs | Measure-Object).Count -ne 0){
+			$event.SourceArgs | ForEach-Object {
+				$item = $_
+				if ($item -and $item.ControlResults){
+					$control = [PSCustomObject]@{
+						'Control' = $item.ControlItem.ControlID
+						'ResourceName' = $item.ResourceContext.ResourceName
+					}
+					if($item.ControlResults[0].VerificationResult -eq "Fixed"){
+						$fixedControls.Fixed+=$control
+					}
+					elseif($item.ControlResults[0].VerificationResult -eq "Passed"){
+						$passedControls.Passed+=$control
+					}
+					else{
+						$erroredControls++;
+					}
+				}			
+
+			}
+			$totalControls = $fixedControls.Fixed.Count + $passedControls.Passed.Count+$erroredControls;
+			$oldBaselineCompliance = ($passedControls.Passed.Count/$totalControls) *100;
+			$newBaselineCompliance = (($passedControls.Passed.Count+$fixedControls.Fixed.Count)/$totalControls) *100;
+			$currentInstance = [WritePsConsole]::GetInstance();
+			$currentInstance.WriteMessage("Baseline compliance before configurations: "+$oldBaselineCompliance+"%`n",[MessageType]::Update);
+			$currentInstance.WriteMessage("Baseline compliance after configurations: "+$newBaselineCompliance+"%`n",[MessageType]::Update);
+			$currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Update)
+			if($passedControls.Passed.Count -gt 0){
+				$currentInstance.WriteMessage("Following controls have been found to be already passing: ",[MessageType]::Update);
+				$currentInstance.WriteMessage($passedControls.Passed,[MessageType]::Update);
+			}
+			if($fixedControls.Fixed.Count -gt 0){
+				$currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Update)
+				$currentInstance.WriteMessage("Following controls have been fixed to increase baseline compliance: ",[MessageType]::Update);
+				$currentInstance.WriteMessage($fixedControls.Fixed,[MessageType]::Update);
+			}
+			$currentInstance.WriteMessage([Constants]::SingleDashLine, [MessageType]::Update)
+			
+
 		}
 	}
 

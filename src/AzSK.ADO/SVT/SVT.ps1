@@ -335,7 +335,12 @@ function Get-AzSKADOSecurityStatus
 		[Parameter(HelpMessage="Switch to copy current data object in local folder to facilitate control fix.")]
 		[Alias("pcf")]
 		$PrepareForControlFix,
-	
+
+		[switch]
+		[Parameter(HelpMessage="Scan and generate backup of feeds on which current user has owner access for control fix.")]
+		[Alias("coa")]
+		$CheckOwnerAccess,
+
 		[switch]
         [Parameter(Mandatory = $false, HelpMessage="Scan only those resource objects modified after immediately previous scan.")]
 		[Alias("inc", "ScanIncrementally")]

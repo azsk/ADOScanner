@@ -5,8 +5,16 @@ class BugMetaInfoProvider {
     hidden [string] $ServiceId
     hidden static [PSObject] $ServiceTreeInfo
     hidden [PSObject] $InvocationContext
+    hidden [bool] $BugLogUsingCSV = $false;
+    hidden [string] $STMappingFilePath = $null
 
     BugMetaInfoProvider() {
+
+    }
+
+    BugMetaInfoProvider($bugLogUsingCSV, $stMappingFilePath) {
+        $this.BugLogUsingCSV = $bugLogUsingCSV;
+        $this.STMappingFilePath = $stMappingFilePath;
     }
 
     hidden [string] GetAssignee([SVTEventContext[]] $ControlResult, $controlSettingsBugLog, $isBugLogCustomFlow, $serviceIdPassedInCMD, $invocationContext) {
@@ -19,6 +27,11 @@ class BugMetaInfoProvider {
         else {
             return $this.GetAssigneeFallback($ControlResult);
         }
+    }
+
+    hidden [string] GetAssignee([SVTEventContext[]] $ControlResult, $invocationContext) {
+        $this.InvocationContext = $invocationContext;	
+        return $this.BugLogCustomFlow($ControlResult, "")
     }
 
     hidden [string] BugLogCustomFlow($ControlResult, $serviceIdPassedInCMD)
@@ -36,7 +49,7 @@ class BugMetaInfoProvider {
             else {
                 $rscId = ($ControlResult.ResourceContext.ResourceId -split "$resourceType/")[-1];
                 $assignee = $this.CalculateAssignee($rscId, $projectName, $resourceType, $serviceIdPassedInCMD);
-                if (!$assignee) {
+                if (!$assignee -and (!$this.BugLogUsingCSV)) {
                     $assignee = $this.GetAssigneeFallback($ControlResult)
                 }
             }            
@@ -56,13 +69,15 @@ class BugMetaInfoProvider {
             #First condition if not serviceid based scan then go inside every time.
             #Second condition if serviceid based scan and [BugMetaInfoProvider]::ServiceTreeInfo not null then only go inside.
             if (!$serviceIdPassedInCMD -or ($serviceIdPassedInCMD -and ![BugMetaInfoProvider]::ServiceTreeInfo)) {
-                [BugMetaInfoProvider]::ServiceTreeInfo = $metaInfo.FetchResourceMappingWithServiceData($rscId, $projectName, $resourceType);
+                [BugMetaInfoProvider]::ServiceTreeInfo = $metaInfo.FetchResourceMappingWithServiceData($rscId, $projectName, $resourceType, $this.STMappingFilePath);
             }
             if([BugMetaInfoProvider]::ServiceTreeInfo)
             {
                 #Filter based on area path match project name and take first items (if duplicate service tree entry found).
                 #Split areapath to match with projectname
-                [BugMetaInfoProvider]::ServiceTreeInfo = ([BugMetaInfoProvider]::ServiceTreeInfo | Where {($_.areaPath).Split('\')[0] -eq $projectName})[0]
+                if (!$this.BugLogUsingCSV) {
+                    [BugMetaInfoProvider]::ServiceTreeInfo = ([BugMetaInfoProvider]::ServiceTreeInfo | Where {($_.areaPath).Split('\')[0] -eq $projectName})[0]
+                }
                 $this.ServiceId = [BugMetaInfoProvider]::ServiceTreeInfo.serviceId;
                 #Check if area path is not supplied in command parameter then only set from service tree.
                 if (!$this.InvocationContext.BoundParameters["AreaPath"]) {
@@ -72,6 +87,9 @@ class BugMetaInfoProvider {
                 if([Helpers]::CheckMember($this.ControlSettingsBugLog, "DomainName"))
                 {
                     $domainNameForAssignee = $this.ControlSettingsBugLog.DomainName;
+                }
+                elseif ($this.BugLogUsingCSV) {
+                    $domainNameForAssignee = "microsoft.com";
                 }
                 $assignee = [BugMetaInfoProvider]::ServiceTreeInfo.devOwner.Split(";")[0] + "@"+ $domainNameForAssignee
             }

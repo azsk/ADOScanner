@@ -866,6 +866,10 @@ class CommonSVTControls: ADOSVTBase {
             if (($envPipelinePermissionObj.Count -gt 0) -and ([Helpers]::CheckMember($envPipelinePermissionObj[0],"allPipelines")) -and ($envPipelinePermissionObj[0].allPipelines.authorized -eq $true))
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Environment is accessible to all YAML pipelines.");
+                
+                if ($this.ControlFixBackupRequired){
+                    $controlResult.BackupControlState = $envPipelinePermissionObj;
+                }
             }
             else
             {
@@ -878,6 +882,47 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.LogException($_)
         }
        return $controlResult
+    }
+
+    hidden [ControlResult] CheckEnviornmentAccessAutomatedFix([ControlResult] $controlResult)
+    {
+        try{
+            $this.PublishCustomMessage( "`nAfter applying this fix, any YAML pipelines using this Environment will lose access. You will have to explicitly add them.", [MessageType]::Warning);
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            if (-not $this.UndoFix)
+            {
+                $RawDataObjForControlFix.allPipelines.authorized = $false;
+                $RawDataObjForControlFix.allPipelines.authorizedBy = $null;
+                $RawDataObjForControlFix.allPipelines.authorizedOn = $null;
+                $body = $RawDataObjForControlFix | ConvertTo-Json -Depth 10;
+                $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                $uri = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/environment/{2}?api-version=5.1-preview.1" -f ($this.OrganizationContext.OrganizationName), $projectId, $($this.ResourceContext.ResourceDetails.id);
+               
+
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                $Result = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
+            
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Environment is not accessible to all YAML pipelines.");
+            }
+            else {
+                $body = $RawDataObjForControlFix | ConvertTo-Json -Depth 10;
+                $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                $uri = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/environment/{2}?api-version=5.1-preview.1" -f ($this.OrganizationContext.OrganizationName), $projectId, $($this.ResourceContext.ResourceDetails.id);
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                $Result = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
+            
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Environment is accessible to all YAML pipelines.");
+            }
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        
+        return $controlResult
     }
 
     hidden [ControlResult] CheckPreDeploymentApprovalOnEnv([ControlResult] $controlResult){
@@ -958,7 +1003,7 @@ class CommonSVTControls: ADOSVTBase {
                 }
                 
                 $excesiveEnvironmentPermissions = @($roleAssignmentsToCheck | Where-Object { $restrictedBroaderGroups.keys -contains $_.identity.displayName.split('\')[-1] -and ($_.role.name -in $restrictedBroaderGroups[$_.identity.displayName.split('\')[-1]])})
-                $environmentWithBroaderGroup = @($excesiveEnvironmentPermissions | Select-Object -Property @{Name="EnvironmentName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role.name}},@{Name="Name"; Expression = {$_.identity.displayName}}) ;
+                $environmentWithBroaderGroup = @($excesiveEnvironmentPermissions | Select-Object -Property @{Name="EnvironmentName"; Expression = {$this.ResourceContext.ResourceName}},@{Name="Role"; Expression = {$_.role.name}},@{Name="Name"; Expression = {$_.identity.displayName}},@{Name="Id"; Expression = {$_.identity.id}}) ;
 
                 if ($this.ControlSettings.CheckForBroadGroupMemberCount -and $environmentWithBroaderGroup.Count -gt 0)
                 {
@@ -971,9 +1016,14 @@ class CommonSVTControls: ADOSVTBase {
                 if ($environmentWithBroaderGroupCount -gt 0)
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have user/administrator access to environment: $($environmentWithBroaderGroupCount)")
-                    
+                    $backupDataObject = $environmentWithBroaderGroup | Select @{l = 'Name'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id} }, @{l = 'Role'; e = { $_.Role } }
                     $display = ($environmentWithBroaderGroup |  FT Name, Role -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
+                    
+                    if ($this.ControlFixBackupRequired) {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $backupDataObject;
+                    }
                 }
                 else
                 {
@@ -994,6 +1044,64 @@ class CommonSVTControls: ADOSVTBase {
         }
         return $controlResult
     }
+
+    hidden [ControlResult] CheckBroaderGroupAccessOnEnvironmentAutomatedFix ([ControlResult] $controlResult) {
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $body = "["
+
+            if (-not $this.UndoFix)
+            {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {                    
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                        {
+                            "userId": "$($identity.Id)",
+                            "roleName": "Reader"
+                        }
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+            }
+            else {
+                foreach ($identity in $RawDataObjForControlFix) 
+                {                    
+                    if ($body.length -gt 1) {$body += ","}
+                    $body += @"
+                        {
+                            "userId": "$($identity.Id)",
+                            "roleName": "$($identity.Role)"                          
+                        }
+"@;
+                }
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.Name}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+            }
+            $body += "]"
+
+            #Put request           
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.environmentreferencerole/roleassignments/resources/{1}_{2}?api-version=5.0-preview.1' -f $this.OrganizationContext.OrganizationName, $projectId, $this.ResourceContext.ResourceDetails.Id;
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+			$webRequestResult = Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) } -Body $body
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
+            $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
+
+            $controlResult.AddMessage("`n$display");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult  
+    }
+
 
     hidden [ControlResult] CheckBranchHygieneOnEnv([ControlResult] $controlResult){
         try{
@@ -1565,7 +1673,7 @@ class CommonSVTControls: ADOSVTBase {
 
             $inactiveLimit = $this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity;
 
-            if ($packagesList.Count -gt 1)
+            if ($packagesList.Count -gt 0 -and [Helpers]::CheckMember($packagesList[0],"id"))
             {
                 $packagesList = $packagesList |Sort-Object -Property @{Expression={$_.versions[0].publishDate}} -Descending
                 $latestPackage = $packagesList[0] | select-object name, @{l="publishedDate"; e = {([datetime] $_.versions[0].publishDate).ToString("d MMM yyyy")}}, @{l="version";e={$_.versions.version}}, protocolType
@@ -1587,20 +1695,25 @@ class CommonSVTControls: ADOSVTBase {
                     $user = "";
                     $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
                     $response = @(Invoke-RestMethod -Uri $packageUrl -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-                    $lastDownloadedPackage = $response.value | sort-object lastDownloaded -descending | Select-Object -first 1
-                    $lastDownloadedPackage = $lastDownloadedPackage | select-object @{l="Name";e={$packagesList | Where-Object {$_.id -eq $lastDownloadedPackage.packageId}| Select-Object name}}, downloadCount, @{l="lastDownloaded"; e={([datetime] $_.lastDownloaded).ToString("d MMM yyyy")}}
-                    $lastDownloadedDate = $lastDownloadedPackage.lastDownloaded
-
-                    if ((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days) -gt $inactiveLimit)
-                    {
-                        $controlResult.AddMessage([VerificationResult]::Failed,  "Feed was inactive from last $((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days)) days.");
+                    if(-not[Helpers]::CheckMember($response[0].value,"lastDownloaded")){
+                        $controlResult.AddMessage([VerificationResult]::Failed,  "Feed package has never been downloaded.");
                     }
-                    else
-                    {
-                        $controlResult.AddMessage([VerificationResult]::Passed,  "Feed package was last downloaded on $(([datetime] $lastDownloadedDate).ToString("d MMM yyyy")).");
-                    }
-                    $lastDownloadedPackage = ($lastDownloadedPackage | FT -AutoSize | Out-String -Width 512)
-                    $controlResult.AddMessage("`nLatest downloaded package in the feed: ", $lastDownloadedPackage);
+                    else{
+                        $lastDownloadedPackage = $response.value | sort-object lastDownloaded -descending | Select-Object -first 1
+                        $lastDownloadedPackage = $lastDownloadedPackage | select-object @{l="Name";e={$packagesList | Where-Object {$_.id -eq $lastDownloadedPackage.packageId}| Select-Object name}}, downloadCount, @{l="lastDownloaded"; e={([datetime] $_.lastDownloaded).ToString("d MMM yyyy")}}
+                        $lastDownloadedDate = $lastDownloadedPackage.lastDownloaded    
+                        if ((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days) -gt $inactiveLimit)
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Failed,  "Feed was inactive from last $((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days)) days.");
+                        }
+                        else
+                        {
+                            $controlResult.AddMessage([VerificationResult]::Passed,  "Feed package was last downloaded on $(([datetime] $lastDownloadedDate).ToString("d MMM yyyy")).");
+                        }
+                        $lastDownloadedPackage = ($lastDownloadedPackage | FT -AutoSize | Out-String -Width 512)
+                        $controlResult.AddMessage("`nLatest downloaded package in the feed: ", $lastDownloadedPackage);
+                    }                   
+                    
                 }
                 else
                 {
@@ -1618,6 +1731,99 @@ class CommonSVTControls: ADOSVTBase {
         {
             $controlResult.AddMessage([VerificationResult]::Error,  "Could not fetch feed activity details.");
             $controlResult.LogException($_)
+        }
+        if($controlResult.VerificationResult -eq [VerificationResult]::Failed -and $this.ControlFixBackupRequired){
+            $controlResult.BackupControlState = [PSCustomObject]@{
+                "Feed" = $this.ResourceContext.ResourceDetails.Id
+            }
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckForInactiveFeedsAutomatedFix([ControlResult] $controlResult){
+        try{
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            $scope = "Project"
+            if ("Project" -notin $this.ResourceContext.ResourceDetails.PSobject.Properties.name){
+                $scope = "Organization"
+            }
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+       
+            if(-not $this.UndoFix){
+                $this.PublishCustomMessage("Feeds deleted from automated fix will remain in 'soft state' for the next 30 days, during which you can restore them back. You cannot undo this operation after 30 days.", [MessageType]::Warning);
+                if($scope -eq "Organization"){
+                    $url = "https://feeds.dev.azure.com/{0}/_apis/packaging/feeds/{1}?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id
+                }
+                else{
+                    $url = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/feeds/{2}?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.project.id, $this.ResourceContext.ResourceDetails.Id
+                }
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Feed has been deleted. It will remain in soft state for next 30 days after which it will be permanently deleted.");
+                Invoke-RestMethod -Uri $url -Method Delete -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
+            }
+            else{
+                if($scope -eq "Organization"){
+                    $url = "https://feeds.dev.azure.com/{0}/_apis/Packaging/FeedRecycleBin/{1}?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id
+                }
+                else{
+                    $url = "https://feeds.dev.azure.com/{0}/{1}/_apis/Packaging/FeedRecycleBin/{2}?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.project.id, $this.ResourceContext.ResourceDetails.Id
+                }
+                $controlResult.AddMessage([VerificationResult]::Fixed,  "Feed has been restored.");
+                $body = '[{"path":"/isDeleted","op":"replace","value":false}]'
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+                Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json-patch+json" -Headers $header -Body $body
+            }
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckForInactivePackages([ControlResult] $controlResult){
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        try
+        {
+            $scope = "Project"
+            if ("Project" -notin $this.ResourceContext.ResourceDetails.PSobject.Properties.name){
+                $scope = "Organization"
+            }
+            if($scope -eq "Organization"){
+                $url = "https://feeds.dev.azure.com/{0}/_apis/Packaging/Feeds/{1}/RetentionPolicies?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id
+            }
+            else{
+                $url = "https://feeds.dev.azure.com/{0}/{1}/_apis/Packaging/Feeds/{2}/RetentionPolicies?api-version=6.0-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.project.id, $this.ResourceContext.ResourceDetails.Id
+            }
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+            $retentionPolicies = Invoke-RestMethod -Uri $url -Method Get -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
+            if($retentionPolicies -eq "null"){
+                $controlResult.AddMessage("Settings to delete older packages has not been enabled for the feed.")
+            }
+            else{
+                if($retentionPolicies.daysToKeepRecentlyDownloadedPackages -gt $this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity){
+                    $controlResult.AddMessage("Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is greater than $($this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity) days. Please keep it less than the threshold days ($($this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity) days).")
+                }
+                else{
+                    if($retentionPolicies.countLimit -gt $this.ControlSettings.FeedsAndPackages.ThresholdPackagesPerFeed){
+                        $controlResult.AddMessage("Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is under $($this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity) days, but maximum number of packages to keep per feed is more than $($this.ControlSettings.FeedsAndPackages.ThresholdPackagesPerFeed) packages. Please keep the number of packages to retain per feed less than the threshold ($($this.ControlSettings.FeedsAndPackages.ThresholdPackagesPerFeed)).")
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed,"Settings to delete older packages is enabled for the feed. The maximum number of days to keep recently downloaded packages is less than $($this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity) days.")
+                    }                    
+                }
+                $controlResult.AddMessage("`n Current number of days to keep recently downloaded packages is $($retentionPolicies.daysToKeepRecentlyDownloadedPackages).")
+                $controlResult.AddMessage("`n Maximum number of packages per feed is $($retentionPolicies.countLimit).")
+            }
+
+
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not retrieve feed settings.");
         }
         return $controlResult
     }
