@@ -964,6 +964,7 @@ class Release: ADOSVTBase
             if ([Helpers]::CheckMember($this.ReleaseObj[0], "variables"))
             {
                 $settableURLVars = @();
+                $settableURLbackup = @();
                 if($null -eq [Release]::RegexForURL)
                 {
                     $this.FetchRegexForURL()
@@ -975,9 +976,12 @@ class Release: ADOSVTBase
                         {
                             $varName = $_.Name;
                             $varValue = $this.ReleaseObj[0].variables.$($varName).value;
-                            for ($i = 0; $i -lt $regexForURLs.RegexList.Count; $i++) {
+                            $override= $this.ReleaseObj[0].variables.$($varName).allowOverride;
+                                for ($i = 0; $i -lt $regexForURLs.RegexList.Count; $i++) {
                                 if ($varValue -match $regexForURLs.RegexList[$i]) {
                                     $settableURLVars += @( [PSCustomObject] @{ Name = $varName; Value = $varValue } )
+                                    $settableURLbackup += @( [PSCustomObject] @{ Name = $varName; Allowoverride = $override  } ) 
+                                    
                                     break
                                 }
                             }
@@ -990,6 +994,12 @@ class Release: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Verify, "List of variables settable at release time and containing URL value: `n", $($settableURLVars | FT | Out-String));
                     $controlResult.AdditionalInfo += "Count of variables that are settable at release time and contain URL value: " + $varCount;
                     $controlResult.SetStateData("List of variables settable at release time and containing URL value: ", $settableURLVars);
+
+                    if ($this.ControlFixBackupRequired)
+                    {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $settableURLbackup;
+                    }
                 }
                 else 
                 {
@@ -1008,6 +1018,51 @@ class Release: ADOSVTBase
         }
         return $controlResult;
     }
+
+    hidden [ControlResult] CheckSettableAtReleaseTimeForURLAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            
+            $uri = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions/{2}?api-version=6.0" -f ($this.OrganizationContext.OrganizationName), $($this.projectid), $($this.ReleaseObj.id) 
+            
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+            if (-not $this.UndoFix) {
+                $RawDataObjForControlFix | ForEach-Object {
+                if ([Helpers]::CheckMember($this.ReleaseObj[0].variables.$($_.Name), "allowOverride")  ){ $this.ReleaseObj[0].variables.$($_.Name).allowOverride = $false;}  }
+                $body = $this.ReleaseObj[0] | ConvertTo-Json -Depth 10
+                $ReleaseDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
+                $controlResult.AddMessage([VerificationResult]::Fixed,"The following Release Pipeline variables unmarked settable at release time and containing URLs:");
+                $display = ($RawDataObjForControlFix.Name |  FT -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("$display");
+            }
+            else {
+                $allVars = Get-Member -InputObject $this.ReleaseObj[0].variables -MemberType Properties
+                $allVars | ForEach-Object {
+                    
+                if (-not [Helpers]::CheckMember($this.ReleaseObj[0].variables.$($_.Name), "allowOverride")) {
+                    $new_name = $($_.Name)
+                    $filteredName = $RawDataObjForControlFix | Where-Object { $_.Name -eq $new_name } 
+                    if($filteredName -ne $null){
+                    $this.ReleaseObj[0].variables.$($filteredName.Name)  |  Add-Member -Name 'allowoverride' -Type NoteProperty -Value $true
+                    }
+                }
+            
+            }
+                $body = $this.ReleaseObj[0] | ConvertTo-Json -Depth 10
+                $ReleaseDefnsObj = Invoke-RestMethod -Uri $uri -Method PUT -ContentType "application/json" -Headers $header -Body $body
+                $controlResult.AddMessage([VerificationResult]::Fixed,"The following Release Pipeline variables marked settable at release time and containing URLs.");
+                $display = ($RawDataObjForControlFix.Name |  FT -AutoSize | Out-String -Width 512)
+                $controlResult.AddMessage("$display");
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
     hidden [ControlResult] CheckTaskGroupEditPermission([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed

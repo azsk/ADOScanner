@@ -117,5 +117,7 @@ class ConfigOverride
 		[ContextHelper]::currentContext = $null
 		[ConfigurationHelper]::PolicyCacheContent = @()
 		[ConfigurationHelper]::NotExtendedTypes = @{}
+		[ControlHelper]::groupMembersResolutionObj=@{}
+
 	}
 }

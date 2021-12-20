@@ -694,6 +694,18 @@ class Organization: ADOSVTBase
                         $controlResult.AddMessage("`nCount of guest users in the organization: $($totalGuestCount)");
                         $controlResult.AdditionalInfo += "Count of guest users in the organization: " + $totalGuestCount;
                     }
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                    {
+                        #Data object that will be required to fix the control                                    
+                        $controlResult.BackupControlState = [PSCustomObject]@{
+                            "Policy.DisallowAadGuestUserAccess" = $true
+                        };
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckExternalUserPolicyAutomatedFix($controlResult);
+                        
+                    }
                 }
             }
             else
@@ -705,6 +717,36 @@ class Organization: ADOSVTBase
         else
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch user policy details of the organization.");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckExternalUserPolicyAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            
+            
+            if (-not $this.UndoFix){
+                $body = '[{"from":"","op":2,"path":"/Value","value":"true"}]'
+                $controlResult.AddMessage([VerificationResult]::Fixed, "External guest access has been disabled for the organization.");
+            }
+            else{
+                $body = '[{"from":"","op":2,"path":"/Value","value":"false"}]' 
+                $controlResult.AddMessage([VerificationResult]::Fixed, "External guest access has been enabled for the organization.");
+            }
+            $url = "https://dev.azure.com/juhitiwari/_apis/OrganizationPolicy/Policies/Policy.DisallowAadGuestUserAccess?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json-patch+json" -Headers $header -Body $body
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -725,6 +767,18 @@ class Organization: ADOSVTBase
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed, "Public projects are allowed in the organization.");
+                        if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                        {
+                            #Data object that will be required to fix the control                                    
+                            $controlResult.BackupControlState = [PSCustomObject]@{
+                                "Policy.AllowAnonymousAccess" = $true
+                            };
+                        }
+                        if($this.BaselineConfigurationRequired){
+                            $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                            $this.CheckPublicProjectPolicyAutomatedFix($controlResult);
+                            
+                        }
                         try {
                             $publicprojects = @();
                             $totalProjects = @();
@@ -763,6 +817,36 @@ class Organization: ADOSVTBase
         else
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization security policies.");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckPublicProjectPolicyAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            
+            
+            if (-not $this.UndoFix){
+                $body = '[{"from":"","op":2,"path":"/Value","value":"false"}]'
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Allowing public projects have been disabled in the organization.");
+            }
+            else{
+                $body = '[{"from":"","op":2,"path":"/Value","value":"true"}]' 
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Allowing p ublic projects have been enabled in the organization.");
+            }
+            $url = "https://dev.azure.com/juhitiwari/_apis/OrganizationPolicy/Policies/Policy.AllowAnonymousAccess?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json-patch+json" -Headers $header -Body $body
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -1393,11 +1477,53 @@ class Organization: ADOSVTBase
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "All variables can be set at queue time.");
+                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                {
+                    #Data object that will be required to fix the control                                    
+                    $controlResult.BackupControlState = [PSCustomObject]@{
+                        "enforceSettableVar" = $false
+                    };
+                }
+                if($this.BaselineConfigurationRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $this.CheckSettableQueueTimeAutomatedFix($controlResult);
+                    
+                }
             }
             $controlResult.AdditionalInfoInCSV = "NA";
         }
         else{
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
+        }
+        return $controlResult
+    }
+    hidden [ControlResult] CheckSettableQueueTimeAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            
+            
+            if (-not $this.UndoFix){
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-org-settings-data-provider"],"dataProviderContext":{"properties":{"enforceSettableVar":"true","sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"pipelinessettings","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Settable at queue time option has been disabled. Only explicitly marked 'settable at queue time' variables can be set at queue time.");
+            }
+            else{
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-org-settings-data-provider"],"dataProviderContext":{"properties":{"enforceSettableVar":"false","sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"pipelinessettings","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Settable at queue time option has been enabled. All variables can be set at queue time.");
+            }
+            $body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_settings/pipelinessettings"
+
+            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
+            $response = [WebRequestHelper]::InvokePostWebRequest($url,$body)
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -1415,12 +1541,55 @@ class Organization: ADOSVTBase
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope is set to project collection for non-release pipelines at organization level.");
+                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                {
+                    #Data object that will be required to fix the control                                    
+                    $controlResult.BackupControlState = [PSCustomObject]@{
+                        "enforceJobAuthScope" = $false
+                    };
+                }
+                if($this.BaselineConfigurationRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $this.CheckJobAuthZScopeAutomatedFix($controlResult);
+                    
+                }
             }
             $controlResult.AdditionalInfoInCSV = "NA";
        }
        else{
              $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckJobAuthZScopeAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            
+            
+            if (-not $this.UndoFix){
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-org-settings-data-provider"],"dataProviderContext":{"properties":{"enforceJobAuthScope":"true","sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"pipelinessettings","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Job authorization scope has been limited to current project for non-release pipelines at organization level.");
+            }
+            else{
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-org-settings-data-provider"],"dataProviderContext":{"properties":{"enforceJobAuthScope":"false","sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"pipelinessettings","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Job authorization scope has been set to project collection for non-release pipelines at organization level.");
+            }
+            $body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_settings/pipelinessettings"
+
+            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
+            $response = [WebRequestHelper]::InvokePostWebRequest($url,$body)
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
         return $controlResult
     }
 
@@ -1437,12 +1606,54 @@ class Organization: ADOSVTBase
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope is set to project collection for release pipelines at organization level.");
+                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                {
+                    #Data object that will be required to fix the control                                    
+                    $controlResult.BackupControlState = [PSCustomObject]@{
+                        "enforceJobAuthScopeForReleases" = $false
+                    };
+                }
+                if($this.BaselineConfigurationRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $this.CheckJobAuthZReleaseScopeAutomatedFix($controlResult);
+                    
+                }
             }
             $controlResult.AdditionalInfoInCSV = "NA";
        }
        else{
              $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckJobAuthZReleaseScopeAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            
+            
+            if (-not $this.UndoFix){
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-org-settings-data-provider"],"dataProviderContext":{"properties":{"enforceJobAuthScopeForReleases":"true","sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"pipelinessettings","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Job authorization scope has been limited to current project for release pipelines at organization level.");
+            }
+            else{
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-org-settings-data-provider"],"dataProviderContext":{"properties":{"enforceJobAuthScopeForReleases":"false","sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"pipelinessettings","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Job authorization scope has been set to project collection for release pipelines at organization level.");
+            }
+            $body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_settings/pipelinessettings"
+            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
+            $response = [WebRequestHelper]::InvokePostWebRequest($url,$body)
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
         return $controlResult
     }
 
@@ -1459,11 +1670,53 @@ class Organization: ADOSVTBase
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Job authorization scope of pipelines is set to all Azure DevOps repositories in the authorized projects at organization level.");
+                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                {
+                    #Data object that will be required to fix the control                                    
+                    $controlResult.BackupControlState = [PSCustomObject]@{
+                        "enforceReferencedRepoScopedToken" = $false
+                    };
+                }
+                if($this.BaselineConfigurationRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $this.CheckAuthZRepoScopeScopeAutomatedFix($controlResult);
+                    
+                }
             }
             $controlResult.AdditionalInfoInCSV = "NA";
         }
         else{
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckAuthZRepoScopeScopeAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }            
+            
+            if (-not $this.UndoFix){
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-org-settings-data-provider"],"dataProviderContext":{"properties":{"enforceReferencedRepoScopedToken":"true","sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"pipelinessettings","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Job authorization scope of pipelines has been limited to explicitly referenced Azure DevOps repositories at organization level.");
+            }
+            else{
+                $body = '{"contributionIds":["ms.vss-build-web.pipelines-org-settings-data-provider"],"dataProviderContext":{"properties":{"enforceReferencedRepoScopedToken":"false","sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"pipelinessettings","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Job authorization scope of pipelines has been set to all Azure DevOps repositories in the authorized projects at organization level.");
+            }
+            $body.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_settings/pipelinessettings"
+            $url = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
+            $response = [WebRequestHelper]::InvokePostWebRequest($url,$body)
+            
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }
@@ -1816,6 +2069,10 @@ class Organization: ADOSVTBase
             if(([Helpers]::CheckMember($responseObj[0],"count",$false)) -and ($responseObj[0].count -eq 0))
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Audit streaming is not setup for the organization.");
+                if($this.BaselineConfigurationRequired -or $this.ControlFixBackupRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $controlResult.AddMessage("Since no audit streams were found, the control cannot be fixed via the scanner. You need to configure a stream manually in the organization. Follow the recommendation from Security Report to know more details.")
+                }
             }
              # When audit streams are configured - the below condition will be true.
             elseif((-not ([Helpers]::CheckMember($responseObj[0],"count"))) -and ($responseObj.Count -gt 0))
@@ -1836,16 +2093,96 @@ class Organization: ADOSVTBase
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "None of the audit streams that have been configured are currently enabled.");
-                }
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                    {
+                        $disabledStreams = @($responseObj | Where-Object {$_.status -ne 'enabled'} | Select-Object id,displayName)
+                        #Data object that will be required to fix the control                                    
+                        $controlResult.BackupControlState = $disabledStreams;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckAuditStreamAutomatedFix($controlResult);
+                        
+                    }
+            }
             }
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "No audit stream has been configured on the organization.");
+                if($this.BaselineConfigurationRequired -or $this.ControlFixBackupRequired ){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $controlResult.AddMessage("Since no audit streams were found, the control cannot be fixed via the scanner. You need to configure a stream manually in the organization. Follow the recommendation from Security Report to know more details.")
+                }
             }
         }
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the list of audit streams enabled on the organization.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckAuditStreamAutomatedFix([ControlResult] $controlResult){
+        try {
+            $RawDataObjForControlFix = @();
+            if ($this.BaselineConfigurationRequired) {
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else {
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object { $_.ResourceId -eq $this.ResourceId }).DataObject
+            }            
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
+            $erroredStreams = @();
+            $processedStreams = @();
+            if (-not $this.UndoFix) {
+                foreach ($stream in $RawDataObjForControlFix) {
+                    try {
+                        $url = "https://auditservice.dev.azure.com/{0}/_apis/audit/streams/{1}?status=1&api-version=5.0-preview.1" -f ($this.OrganizationContext.OrganizationName), $stream.id
+                        Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)}
+                        $processedStreams += $stream
+                    }
+                    catch {
+                        $erroredStreams += $stream
+                    }
+                   
+                }
+                if ($processedStreams.Count -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Fixed, "The following streams have been enabled: ");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Error, "None of the streams could be enabled.");
+                }
+            }
+            else {
+                foreach ($stream in $RawDataObjForControlFix) {
+                    try {
+                        $url = "https://auditservice.dev.azure.com/{0}/_apis/audit/streams/{1}?status=2&api-version=5.0-preview.1" -f ($this.OrganizationContext.OrganizationName), $stream.id
+                        Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)}
+                        $processedStreams += $stream
+                    }
+                    catch {
+                        $erroredStreams += $stream
+                    }
+                }
+                if ($processedStreams.Count -gt 0) {
+                    $controlResult.AddMessage([VerificationResult]::Fixed, "The following streams have been disabled: ");
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Error, "None of the streams could be disabled.");
+                }
+            }
+            if ($processedStreams.Count -gt 0) {
+                $controlResult.AddMessage(($processedStreams | FT | out-string));
+            }
+            if ($erroredStreams.Count -gt 0) {
+                $controlResult.AddMessage("The following streams could not be processed: ")
+                $controlResult.AddMessage(($erroredStreams | FT | out-string));
+            }
+        }
+        catch {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not apply fix.");
             $controlResult.LogException($_)
         }
         return $controlResult
@@ -2345,21 +2682,19 @@ class Organization: ADOSVTBase
 
                         if ([ControlHelper]::groupMembersResolutionObj.ContainsKey($currentGroup.descriptor) -and [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor].count -gt 0) {
                             $member = [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
-                            $member | Add-Member -NotePropertyName subjectDescriptor -NotePropertyValue $currentGroup.descriptor
                             $groupMembers  += $member
                         }
                         else
                         {
                             [ControlHelper]::FindGroupMembers($currentGroup.descriptor, $this.OrganizationContext.OrganizationName,"")
                             $member =  [ControlHelper]::groupMembersResolutionObj[$currentGroup.descriptor]
-                            $member | Add-Member -NotePropertyName subjectDescriptor -NotePropertyValue $currentGroup.descriptor
                             $groupMembers  += $member
                         }
 
                         # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
                         if($groupMembers.count -gt 0)
                         {
-                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor ; subjectdescriptor = $_.subjectDescriptor } )}
+                            $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor ; subjectdescriptor = $_.DirectMemberOfGroup } )}
                         }
                     }
 
@@ -2541,17 +2876,37 @@ class Organization: ADOSVTBase
 
             if ($RawDataObjForControlFix.Count -gt 0)
             {
+                #to store users part of AAD groups
+                $AADGroupAccounts=@()
+                #to store users successfully deleted/added back
+                $processedAccounts=@()
                 if (-not $this.UndoFix)
                 {
                     foreach ($user in $RawDataObjForControlFix) 
                     {
                         foreach($groupDescriptor in $user.subjectDescriptor)
                         {
-                            $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor , $groupDescriptor
-                            $webRequestResult = Invoke-WebRequest -Uri $uri -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                            #caching the group name and mapping it with the descriptors
+                            if(-not [Organization]::groupMappingsWithDescriptors.ContainsKey($groupDescriptor)){
+                                $url = "https://vssps.dev.azure.com/{0}/_apis/identities?subjectDescriptors={1}&queryMembership=None&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $groupDescriptor
+                                $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                [Organization]::groupMappingsWithDescriptors[$groupDescriptor] = $response.providerDisplayName
+                            }
+                            #in case of an aad group, we can't remove users, store this seperately along with group name from cached object
+                            if($groupDescriptor -match"aadgp.*"){
+                                $AADGroupAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.DisplayName}}, @{N = "MailAddress"; E= {$_.PrincipalName}}, @{N = "GroupName"; E= {$_.Group}}, @{N = "DirectMemberOfAADGroup"; E= {[Organization]::groupMappingsWithDescriptors[$groupDescriptor]}} )
+                            }
+                            else{
+                                $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor , $groupDescriptor
+                                $webRequestResult = Invoke-WebRequest -Uri $uri -Method Delete -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} 
+                                $processedAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.DisplayName}}, @{N = "MailAddress"; E= {$_.PrincipalName}}, @{N = "GroupName"; E= {$_.Group}}, @{N = "DirectMemberOfNonAADGroup"; E= {[Organization]::groupMappingsWithDescriptors[$groupDescriptor]}})   
+                            }
+                            
                         }
                     }
-                    $controlResult.AddMessage([VerificationResult]::Fixed, "Admin permissions for these users has been removed: ");
+                    if($processedAccounts.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Fixed, "Admin permissions for these users has been removed: ");
+                    }                    
                 }
                 else
                 {
@@ -2559,18 +2914,57 @@ class Organization: ADOSVTBase
                     {
                         foreach($groupDescriptor in $user.subjectDescriptor)
                         {
+                            #caching the group name and mapping it with the descriptors
+                            if(-not [Organization]::groupMappingsWithDescriptors.ContainsKey($groupDescriptor)){
+                                $url = "https://vssps.dev.azure.com/{0}/_apis/identities?subjectDescriptors={1}&queryMembership=None&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $groupDescriptor
+                                $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+                                [Organization]::groupMappingsWithDescriptors[$groupDescriptor] = $response.providerDisplayName
+                            }
+                            #in case of an aad group, we can't remove users, store this seperately along with group name from cached object
+                            if($groupDescriptor -match"aadgp.*"){
+                                $AADGroupAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.DisplayName}}, @{N = "MailAddress"; E= {$_.PrincipalName}}, @{N = "GroupName"; E= {$_.Group}}, @{N = "DirectMemberOfAADGroup"; E= {[Organization]::groupMappingsWithDescriptors[$groupDescriptor]}} )
+                            }
+                            else{
+                                $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor , $groupDescriptor
+                                $webRequestResult = Invoke-RestMethod -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
+                                $processedAccounts+= @($user | Select-Object -property @{N = "Name"; E= {$_.DisplayName}}, @{N = "MailAddress"; E= {$_.PrincipalName}}, @{N = "GroupName"; E= {$_.Group}}, @{N = "DirectMemberOfNonAADGroup"; E= {[Organization]::groupMappingsWithDescriptors[$groupDescriptor]}})
+                            }
                             
-                            $uri = "https://vssps.dev.azure.com/{0}/_apis/graph/memberships/{1}/{2}?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $user.Descriptor , $groupDescriptor
-                            $webRequestResult = Invoke-RestMethod -Uri $uri -Method Put -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
                         }
                     }
-                    $controlResult.AddMessage([VerificationResult]::Fixed,"Admin permissions for these users has been restored: ");
+                    if($processedAccounts.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Fixed,"Admin permissions for these users has been restored: ");
+                    }                    
                 }
 
-                $display = ($RawDataObjForControlFix |  FT PrincipalName,Group,DisplayName -AutoSize | Out-String -Width 512)
-                $controlResult.AddMessage($display)
-                $controlResult.AddMessage("Note: Users which are part of admin groups via AAD group will need to be modified manually.");
-                #Note: api does not fail even if the user is getting flagged from a team foundation group, but the user does not get deleted from the group
+                #to group accounts as a user can be a part of multiple groups, we will have duplicate entries due to group name resolution from the fix
+                if($processedAccounts.Count -gt 0){
+                    $groups = $processedAccounts | Group-Object "mailAddress"
+                    $groupedAdminMembers = @()
+                    $groupedAdminMembers +=foreach ($grpobj in $groups){
+                        $grp = ($grpobj.Group.GroupName  | select -Unique)-join ','
+                        $name = $grpobj.Group.Name | select -Unique
+                        $mailAddress = $grpobj.Group.MailAddress | select -Unique  
+                        $directMemberOfNonAADGroup=($grpobj.Group.DirectMemberOfNonAADGroup  | select -Unique)-join ','              
+                        [PSCustomObject]@{Name = $name;MailAddress = $mailAddress; GroupName = $grp; DirectMemberOfNonAADGroup = $directMemberOfNonAADGroup}
+                    } 
+                    $display = ($groupedAdminMembers |  FT -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage($display)
+                }
+                if($AADGroupAccounts.Count -gt 0){
+                    $groups = $AADGroupAccounts | Group-Object "mailAddress"
+                    $groupedAdminMembers = @()
+                    $groupedAdminMembers +=foreach ($grpobj in $groups){
+                        $grp = ($grpobj.Group.GroupName  | select -Unique)-join ','
+                        $name = $grpobj.Group.Name | select -Unique
+                        $mailAddress = $grpobj.Group.MailAddress | select -Unique  
+                        $directMemberOfAADGroup=($grpobj.Group.DirectMemberOfAADGroup  | select -Unique)-join ','              
+                        [PSCustomObject]@{Name = $name;MailAddress = $mailAddress; GroupName = $grp; DirectMemberOfAADGroup = $directMemberOfAADGroup}
+                    } 
+                    $display = ($groupedAdminMembers |  FT -AutoSize | Out-String -Width 512)
+                    $controlResult.AddMessage("Following accounts are part of admin groups via AAD groups and need to be removed manually: ")
+                    $controlResult.AddMessage($display)
+                }
             }
             else
             {
@@ -3158,7 +3552,7 @@ class Organization: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of broader groups that have access to administer feeds at a organization level: $($restrictedGroupsCount)";
                     $controlResult.AdditionalInfoInCSV = $restrictedGroups -join ' ; '
                 
-                    if ($this.ControlFixBackupRequired)
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                     {   
                         $excesiveFeedsPermissions =@()
                         $responseObj | ForEach-Object {
@@ -3169,6 +3563,11 @@ class Organization: ADOSVTBase
 
                         $controlResult.BackupControlState = $excesiveFeedsPermissions | where-object {$_.Id -in $restrictedGroups.originId}
 
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckBroaderGroupInheritanceSettingsForFeedAutomatedFix($controlResult);
+                        
                     }
                 
                 }
@@ -3194,8 +3593,12 @@ class Organization: ADOSVTBase
     {
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            #$scope = $RawDataObjForControlFix[0].Scope
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
 
             $body = "["
 
@@ -3301,4 +3704,34 @@ class Organization: ADOSVTBase
         }
         return $controlResult;
     } 
+
+    hidden [ControlResult] CheckExtPkgProtectionPolicy([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+
+        if([Helpers]::CheckMember($this.OrgPolicyObj,"security"))
+        {
+            $extPkgProtectionObj = @($this.OrgPolicyObj.security | Where-Object {$_.Policy.Name -eq "Policy.ArtifactsExternalPackageProtectionToken"})
+            if($extPkgProtectionObj.Count -gt 0)
+            {
+                if($extPkgProtectionObj.policy.effectiveValue -eq $false )
+                {
+                    $controlResult.AddMessage([VerificationResult]::Failed,"Additional protection when using public package registries is disabled for the organization.");
+                }
+                else
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Additional protection when using public package registries is enabled for the organization.");                    
+                }
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch security policy details of the organization.");
+            }
+        }
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch security policy details of the organization.");
+        }
+        return $controlResult
+    }
 }

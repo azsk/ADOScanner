@@ -51,6 +51,10 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 		}
 		[PartialScanManager]::ClearInstance();
 		$this.BaselineFilterCheck();
+		#get all controls covered under Set-AzSKADOBaselineConfigurations
+		if($invocationContext.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations"){
+			$this.BaselineConfigurationsCheck()
+		}		
 		$this.UsePartialCommitsCheck();
     }
     
@@ -600,6 +604,26 @@ class ServicesSecurityStatus: ADOSVTCommandBase
 			{
 				$this.Resolver.SVTResources = [SVTResource[]] $ResourcesWithBaselineFilter
 			}
+		}
+	}
+
+	[void] BaselineConfigurationsCheck(){
+		$ResourcesWithBaselineConfigFilter =@()
+		$ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+		$baselineConfigControlsDetails = $ControlSettings.BaselineConfigurationsControls;
+		$baselineResourceTypes = $baselineConfigControlsDetails.ResourceTypeControlIdMappingList | Select-Object ResourceType | Foreach-Object {$_.ResourceType}
+				
+		$ResourcesWithBaselineConfigFilter += $this.Resolver.SVTResources | Where-Object {$null -ne $_.ResourceTypeMapping -and   $_.ResourceTypeMapping.ResourceTypeName -in $baselineResourceTypes }
+		$controlIds = $baselineConfigControlsDetails.ResourceTypeControlIdMappingList | Select-Object ControlIds | ForEach-Object {  $_.ControlIds }
+		$BaselineControlIds = [system.String]::Join(",",$controlIds);
+		if(-not [system.String]::IsNullOrEmpty($BaselineControlIds))
+		{
+			$this.ControlIds = $controlIds;
+
+		}
+		if(($ResourcesWithBaselineConfigFilter | Measure-Object).Count -gt 0)
+		{
+			$this.Resolver.SVTResources = [SVTResource[]] $ResourcesWithBaselineConfigFilter
 		}
 	}
 

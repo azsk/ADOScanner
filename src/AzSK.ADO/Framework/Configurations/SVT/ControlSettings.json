@@ -28,7 +28,8 @@
           "ADO_Organization_AuthZ_Remove_Inactive_Guest_Users",
           "ADO_Organization_AuthZ_Remove_Disconnected_Accounts",
           "ADO_Organization_AuthZ_Restrict_Broader_Group_Access_on_Feed",
-          "ADO_Organization_AuthZ_Restrict_Feed_Create_Permission"
+          "ADO_Organization_AuthZ_Restrict_Feed_Create_Permission",
+          "ADO_Organization_Allow_Additional_Protection_For_Public_Package_Registries"
         ]
       },
       {
@@ -267,6 +268,9 @@
     "Medium": "Medium",
     "Low": "Low"
   },
+  "GroupResolution": {
+    "GroupResolutionLevel": -1
+  },
   "Build": {
     "BuildHistoryPeriodInDays": 180,
     "ExemptedUserIdentities": [
@@ -441,7 +445,8 @@
     "ThreshHoldDaysForWorkItemInactivity":180
   },
   "FeedsAndPackages":{
-    "ThreshHoldDaysForFeedsAndPackagesInactivity":180
+    "ThreshHoldDaysForFeedsAndPackagesInactivity":180,
+    "ThresholdPackagesPerFeed":5
   },
   "TestPlans":{
     "ThreshHoldDaysForTestPlansInactivity":180
@@ -784,7 +789,7 @@
     "LogBugsForInactiveResources": true,
     "CustomControlList": [],
     "LogBugsForUnmappedResource": true,
-    "Description":"Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a> </br></br> <b> Resource Owner/Last Modified By: </b> {10} {11} </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>",
+    "Description":"Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a> </br></br> <b> Resource Owner/Last Modified By: </b> {10} {11} </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Note: </b> In case the resource has been deleted or you decide to delete it as a bug fix, ADO scanner does not close bugs for deleted resources. You need to close the bug manually. </br> </br> <b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>",
     "UpdateBug": []
   },
   "GenerateSecurityEvaluationJsonFile" : false,
@@ -810,9 +815,46 @@
   "AutomatedFix" : {
     "RevertDeletedResourcesControlList" : [
         "ADO_Build_DP_Review_Inactive_Build",
-        "ADO_Release_DP_Review_Inactive_Release"
+        "ADO_Release_DP_Review_Inactive_Release",
+        "ADO_Feed_SI_Review_Inactive_Feeds"
     ],
   "BackupLimitInDays" : 7
   },
-  "CleanProcessedResources" : false
+  "CleanProcessedResources" : false,
+  "BaselineConfigurationsControls":{
+    "ResourceTypeControlIdMappingList":[
+    {
+      "ResourceType":"Organization",
+      "ControlIds":[
+        "ADO_Organization_AuthZ_Limit_Non_Release_Pipeline_Scope",
+        "ADO_Organization_AuthZ_Limit_Pipeline_Scope_To_Referenced_Repos",
+        "ADO_Organization_AuthZ_Limit_Release_Pipeline_Scope",
+        "ADO_Organization_SI_Limit_Variables_Settable_At_Queue_Time",
+        "ADO_Organization_DP_Dont_Allow_Public_Projects",
+        "ADO_Organization_AuthN_Disable_Guest_Users",
+        "ADO_Organization_AuthZ_Restrict_Broader_Group_Access_on_Feed",
+        "ADO_Organization_Enable_Audit_Stream"
+      ]
+    
+    },
+    {
+      "ResourceType":"Project",
+      "ControlIds":[
+        "ADO_Project_AuthZ_Limit_Non_Release_Pipeline_Scope",
+        "ADO_Project_AuthZ_Limit_Pipeline_Scope_To_Referenced_Repos",
+        "ADO_Project_AuthZ_Limit_Release_Pipeline_Scope",
+        "ADO_Project_SI_Limit_Variables_Settable_At_Queue_Time",
+        "ADO_Project_AuthZ_Set_Visibility_Private_Or_Enterprise",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Builds",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Releases",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SvcConn",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_AgentPool",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_VarGrp",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Repo",
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SecureFile"
+      ]
+    }
+  ]     
+  }  
+  
 }

@@ -33,7 +33,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthN"
+        "AuthN",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -50,7 +51,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "DP"
+        "DP",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -344,7 +346,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "SI"
+        "SI",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -361,7 +364,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -378,7 +382,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -395,7 +400,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "AuthZ",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -446,7 +452,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "Audit"
+        "Audit",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -644,6 +651,24 @@
           "MSW"
         ],
         "Enabled": true
-    }
+    },
+    {
+      "ControlID": "ADO_Organization_Allow_Additional_Protection_For_Public_Package_Registries",
+      "Description": "Enable protection from externally sourced packages in Azure Artifacts feeds.",
+      "Id": "Organization490",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckExtPkgProtectionPolicy",
+      "Rationale": "Enabling this setting provides an additional layer of security by preventing malicious packages from a public registry being inadvertently consumed. This secures your private feed by limiting access to externally sourced packages. Note: even after enabling this setting, you can still control this behaviour on individual packages.",
+      "Recommendation": "1. Go to Organization Settings --> 2. Security --> 3. Policies --> 4. Under 'Security Policies' enable 'Additional protections when using public package registries'. --> 5. To apply this protection at a package level, go to the respective package. Select 'View options' on top right and disable 'Allow externally sourced versions'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "MSW"
+      ],
+      "Enabled": true
+  }
   ]
 }
