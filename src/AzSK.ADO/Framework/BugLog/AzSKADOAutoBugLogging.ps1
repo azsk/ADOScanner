@@ -13,7 +13,6 @@ class AzSKADOAutoBugLogging : CommandBase
     $BugTemplate = $null;
     $STMappingFilePath = $null;
     $BugDescription = $null;
-    $ClosedBugTemplate = $null;
 
 
 	AzSKADOAutoBugLogging([string] $organizationName, $BugLogProject, $AutoBugLog, $ResourceTypeName, $ControlIds, $scanResultData, $BugTemplate, [InvocationInfo] $invocationContext, $isLAFile, $stMappingFilePath, $BugDescription): 
@@ -46,13 +45,12 @@ class AzSKADOAutoBugLogging : CommandBase
 
 	}
 
-    AzSKADOAutoBugLogging([string] $organizationName, $BugLogProject, $ResourceTypeName, $ControlIds, $scanResultData, [InvocationInfo] $invocationContext, $isLAFile, $ClosedBugTemplate): 
+    AzSKADOAutoBugLogging([string] $organizationName, $BugLogProject, $ResourceTypeName, $ControlIds, $scanResultData, [InvocationInfo] $invocationContext, $isLAFile): 
         Base($organizationName, $invocationContext) 
     { 
         $this.OrgName = $organizationName;
         $this.BugLogProjectName = $BugLogProject;
         $this.IsLAFile = $isLAFile;
-        $this.ClosedBugTemplate = $ClosedBugTemplate;
 
         #Can remove later if not needed.
         $resourcetypes = @()
@@ -195,7 +193,7 @@ class AzSKADOAutoBugLogging : CommandBase
                     $cids = $this.ConvertToStringArray($ControlIds);
                     $scanResultData = $scanResultData | Where { $_.ControlId_s -In $cids }
                 }
-                if ($scanResultData -and $AutoBugLog -eq $null) {
+                if ($scanResultData -and $AutoBugLog -ne $null) {
                     $scanResultData = $scanResultData | Where {$_.ControlStatus_s -eq "Failed" -or $_.ControlStatus_s -eq "Varify"}
                     
                 }

@@ -725,13 +725,14 @@ class AutoBugLog {
         $description = $description.Replace("##Resource Type##", $control.ResourceContext.ResourceTypeName);
         $description = $description.Replace("##Resource Name##","<a href = {0} target='_blank'>{1}</a>")
         if($control.ResourceContext.ResourceTypeName -eq "Project"){
-            $description = $description -f $control.ResourceContext.ResourceDetails.ResourceLink,$control.ResourceContext.ResourceGroupName+"/"+$control.ResourceContext.ResourceName
+            $description = $description -f $control.ResourceContext.ResourceDetails.ResourceLink,($control.ResourceContext.ResourceGroupName+"/"+$control.ResourceContext.ResourceName)
         }
         else{
             $description = $description -f $control.ResourceContext.ResourceDetails.ResourceLink,$control.ResourceContext.ResourceName
         }
         $description = $description.Replace("##Additional Info##", $control.ControlResults[0].AdditionalInfoInCSV)
         $description = $description.Replace("`"","'")
+        $description = $description.Replace("\", "\\")
         return $description;
     }
 
@@ -802,7 +803,9 @@ class AutoBugLog {
             }
             else {
                 #resolved bug needs to be reactivated, hence search for new/active/resolved bugs
-                $body = '{"searchText": "{0}","$skip": 0,"$top": 2,"filters": {"System.TeamProject": ["{1}"],"System.WorkItemType": ["Bug"],"System.State": ["New","Active","Resolved"]}}'| ConvertFrom-Json
+                #sprint 2201: added new states for standalone bug logging
+                #TODO: in case we need custom system states for partner teams, fetch system states to check from org policy
+                $body = '{"searchText": "{0}","$skip": 0,"$top": 2,"filters": {"System.TeamProject": ["{1}"],"System.WorkItemType": ["Bug"],"System.State": ["New","Active","Resolved","Approved","Committed","In Progress","In Review"]}}'| ConvertFrom-Json
             }
     
             #tag to be searched

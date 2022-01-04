@@ -225,10 +225,10 @@ function Start-AzSKADOBugLogging
 			}
 			if(![string]::IsNullOrWhiteSpace($BugDescriptionFilePath) -and (Test-Path $BugDescriptionFilePath)) {
 				$BugDescription = Get-Content $BugDescriptionFilePath -raw
-
 			}
-			if(![string]::IsNullOrWhiteSpace($ClosedBugTemplateFilePath) -and (Test-Path $ClosedBugTemplateFilePath)) {
-				$ClosedBugTemplate = Get-content $ClosedBugTemplateFilePath | ConvertFrom-Json;
+			if(![string]::IsNullOrWhiteSpace($ClosedBugTemplateFilePath) -and !(Test-Path $ClosedBugTemplateFilePath)) {
+				Write-Host "Template file path seems to be invalid. Please check again."
+				return;
 
 			}
 			$Organization = $OrganizationName;
@@ -266,7 +266,7 @@ function Start-AzSKADOBugLogging
 						return $secStatus.InvokeFunction($secStatus.StartBugLogging);	
 					}
 					elseif ($AutoCloseBugs) {
-						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $ResourceTypeName, $ControlIds, $ScanResult, $PSCmdlet.MyInvocation, $IsLAFile, $ClosedBugTemplate);
+						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $ResourceTypeName, $ControlIds, $ScanResult, $PSCmdlet.MyInvocation, $IsLAFile);
 						return $secStatus.InvokeFunction($secStatus.ClosingLoggedBugs);	
 					}
 					
