@@ -360,9 +360,19 @@ class AutoCloseBugManager {
     {
         try {
             $closeBugTemplate = @();
-            foreach ($id in $ids) {
-                $closeBugTemplate += [PSCustomObject] @{ method = 'PATCH'; uri = "/_apis/wit/workitems/$($id)?api-version=4.1"; headers = @{"Content-Type" = 'application/json-patch+json'};
-                body = @(@{op = "add"; "path"= "/fields/System.State"; "value"= "Closed"}; @{op = "add"; "path"= "/fields/Microsoft.VSTS.Common.ResolvedReason"; "value"= ""})
+            if($PSCmdlet.MyInvocation.BoundParameters["ClosedBugTemplateFilePath"]){
+                $closedBugTemplate = Get-Content $PSCmdlet.MyInvocation.BoundParameters["ClosedBugTemplateFilePath"] | ConvertFrom-Json
+                foreach ($id in $ids) {
+                    $closeBugTemplate += [PSCustomObject] @{ method = 'PATCH'; uri = "/_apis/wit/workitems/$($id)?api-version=4.1"; headers = @{"Content-Type" = 'application/json-patch+json'};
+                    body =@($closedBugTemplate)
+                    }
+                }
+            }
+            else{
+                foreach ($id in $ids) {
+                    $closeBugTemplate += [PSCustomObject] @{ method = 'PATCH'; uri = "/_apis/wit/workitems/$($id)?api-version=4.1"; headers = @{"Content-Type" = 'application/json-patch+json'};
+                    body = @(@{op = "add"; "path"= "/fields/System.State"; "value"= "Closed"}; @{op = "add"; "path"= "/fields/Microsoft.VSTS.Common.ResolvedReason"; "value"= ""})
+                    }
                 }
             }
             if ($closeBugTemplate.count -gt 0) {
@@ -403,6 +413,9 @@ class AutoCloseBugManager {
             #Fetch hash for regular scan
             else{
                 $controlHashValue=$bug.fields.'System.Tags'
+                #in case the bug has multiple tags, even if bug is closed, CSV will not be generated if we dont find the tag explicit to scan id
+                $controlHashValue = $controlHashValue.Split(";") | where {$_.Trim() -like "ADOScanID: *"}
+                $controlHashValue = $controlHashValue.Trim();
             }
             
             if ($hashToControlIDMap.ContainsKey($controlHashValue) -and $bug.fields.'System.State' -eq 'Closed')

@@ -12,9 +12,11 @@ class AzSKADOAutoBugLogging : CommandBase
     $ResourceControlJson = @();
     $BugTemplate = $null;
     $STMappingFilePath = $null;
+    $BugDescription = $null;
+    $ClosedBugTemplate = $null;
 
 
-	AzSKADOAutoBugLogging([string] $organizationName, $BugLogProject, $AutoBugLog, $ResourceTypeName, $ControlIds, $scanResultData, $BugTemplate, [InvocationInfo] $invocationContext, $isLAFile, $stMappingFilePath): 
+	AzSKADOAutoBugLogging([string] $organizationName, $BugLogProject, $AutoBugLog, $ResourceTypeName, $ControlIds, $scanResultData, $BugTemplate, [InvocationInfo] $invocationContext, $isLAFile, $stMappingFilePath, $BugDescription): 
         Base($organizationName, $invocationContext) 
     { 
         $this.OrgName = $organizationName;
@@ -22,6 +24,7 @@ class AzSKADOAutoBugLogging : CommandBase
         $this.IsLAFile = $isLAFile;
         $this.BugTemplate = $BugTemplate;
         $this.STMappingFilePath = $stMappingFilePath;
+        $this.BugDescription = $BugDescription;
 
         #Can remove later if not needed.
         $resourcetypes = @()
@@ -43,12 +46,13 @@ class AzSKADOAutoBugLogging : CommandBase
 
 	}
 
-    AzSKADOAutoBugLogging([string] $organizationName, $BugLogProject, $ResourceTypeName, $ControlIds, $scanResultData, [InvocationInfo] $invocationContext, $isLAFile): 
+    AzSKADOAutoBugLogging([string] $organizationName, $BugLogProject, $ResourceTypeName, $ControlIds, $scanResultData, [InvocationInfo] $invocationContext, $isLAFile, $ClosedBugTemplate): 
         Base($organizationName, $invocationContext) 
     { 
         $this.OrgName = $organizationName;
         $this.BugLogProjectName = $BugLogProject;
         $this.IsLAFile = $isLAFile;
+        $this.ClosedBugTemplate = $ClosedBugTemplate;
 
         #Can remove later if not needed.
         $resourcetypes = @()
@@ -139,7 +143,7 @@ class AzSKADOAutoBugLogging : CommandBase
                 }
                 $resourcename = $controlResult.ResourceContext.ResourceName 
 
-		        $AutoBugLog.LogBugInADOCSV($controlResult, $this.BugLogProjectName, $this.BugTemplate, $this.STMappingFilePath) 
+		        $AutoBugLog.LogBugInADOCSV($controlResult, $this.BugLogProjectName, $this.BugTemplate, $this.STMappingFilePath, $this.BugDescription) 
             }
         }
         else {

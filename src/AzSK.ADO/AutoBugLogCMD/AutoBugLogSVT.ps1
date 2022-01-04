@@ -99,7 +99,19 @@ function Start-AzSKADOBugLogging
 		[string]
 		[Parameter(Mandatory=$false, HelpMessage="KeyVault URL for PATToken")]
 		[Alias("ptu")]
-		$PATTokenURL
+		$PATTokenURL,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage="Full path of HTML Template for bug description for bug logging.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("bdfp")]
+		$BugDescriptionFilePath,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage="Full path for bug template for auto closing bugs.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("cbtfp","cbt")]
+		$ClosedBugTemplateFilePath
 
 	)
 	Begin
@@ -211,7 +223,14 @@ function Start-AzSKADOBugLogging
 					return;
 				}
 			}
+			if(![string]::IsNullOrWhiteSpace($BugDescriptionFilePath) -and (Test-Path $BugDescriptionFilePath)) {
+				$BugDescription = Get-Content $BugDescriptionFilePath -raw
 
+			}
+			if(![string]::IsNullOrWhiteSpace($ClosedBugTemplateFilePath) -and (Test-Path $ClosedBugTemplateFilePath)) {
+				$ClosedBugTemplate = Get-content $ClosedBugTemplateFilePath | ConvertFrom-Json;
+
+			}
 			$Organization = $OrganizationName;
 			$IsLAFile = $false;
 			if ($ScanResult.count -gt 0) {
@@ -243,11 +262,11 @@ function Start-AzSKADOBugLogging
 
 				if ($bugLogProjectAccess -or !$BugLogProjectName) {
 					if ($AutoBugLog) {
-						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $AutoBugLog, $ResourceTypeName, $ControlIds, $ScanResult,$BugTemplate, $PSCmdlet.MyInvocation, $IsLAFile, $STMappingFilePath);
+						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $AutoBugLog, $ResourceTypeName, $ControlIds, $ScanResult,$BugTemplate, $PSCmdlet.MyInvocation, $IsLAFile, $STMappingFilePath, $BugDescription);
 						return $secStatus.InvokeFunction($secStatus.StartBugLogging);	
 					}
 					elseif ($AutoCloseBugs) {
-						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $ResourceTypeName, $ControlIds, $ScanResult, $PSCmdlet.MyInvocation, $IsLAFile);
+						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $ResourceTypeName, $ControlIds, $ScanResult, $PSCmdlet.MyInvocation, $IsLAFile, $ClosedBugTemplate);
 						return $secStatus.InvokeFunction($secStatus.ClosingLoggedBugs);	
 					}
 					

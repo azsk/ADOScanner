@@ -179,7 +179,7 @@ class AutoBugLog {
 
     }
 
-    hidden [void] LogBugInADOCSV([SVTEventContext[]] $ControlResults, $BugLogProjectName, $BugTemplate, $STMappingFilePath) {
+    hidden [void] LogBugInADOCSV([SVTEventContext[]] $ControlResults, $BugLogProjectName, $BugTemplate, $STMappingFilePath, $BugDescription) {
         $ProjectName = $this.GetProjectForBugLog($ControlResults[0], $true)
         #check if the area and iteration path are valid 
         if ([BugLogPathManager]::CheckIfPathIsValid($this.OrganizationName, $BugLogProjectName, $this.InvocationContext, $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $this.IsBugLogCustomFlow)) {
@@ -235,7 +235,13 @@ class AutoBugLog {
                         else {
                             #filling the bug template
                             $Title = $this.GetTitle($control);
-                            $Description = $this.GetDescription($control, $resourceOwner);
+                            if($null -eq $BugDescription){
+                                $Description = $this.GetDescription($control, $resourceOwner);
+                            }
+                            else{
+                                $Description = $this.GetDescriptionFromTemplate($BugDescription, $control)
+                            }
+                            
                             $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
                         
                             #function to attempt bug logging
@@ -712,6 +718,21 @@ class AutoBugLog {
         $Description = $Description.Replace("`"", "'")
 
         return $Description;
+    }
+
+    hidden [string] GetDescriptionFromTemplate($BugDescription, $control){
+        $description = $BugDescription;
+        $description = $description.Replace("##Resource Type##", $control.ResourceContext.ResourceTypeName);
+        $description = $description.Replace("##Resource Name##","<a href = {0} target='_blank'>{1}</a>")
+        if($control.ResourceContext.ResourceTypeName -eq "Project"){
+            $description = $description -f $control.ResourceContext.ResourceDetails.ResourceLink,$control.ResourceContext.ResourceGroupName+"/"+$control.ResourceContext.ResourceName
+        }
+        else{
+            $description = $description -f $control.ResourceContext.ResourceDetails.ResourceLink,$control.ResourceContext.ResourceName
+        }
+        $description = $description.Replace("##Additional Info##", $control.ControlResults[0].AdditionalInfoInCSV)
+        $description = $description.Replace("`"","'")
+        return $description;
     }
 
     hidden [string] GetTitle($control) {
