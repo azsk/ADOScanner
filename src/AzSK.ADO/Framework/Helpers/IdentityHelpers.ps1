@@ -5,6 +5,8 @@ class IdentityHelpers
 	static hidden [bool] $hasGraphAccess = $false
 	static hidden [string] $graphAccessToken = $null
 	static hidden [string] $ALTControlEvaluationMethod
+	static hidden [bool] $hasSIPAccess = $false
+	static hidden [string] $dataExplorerAccessToken = $null
 
 	hidden static [bool] IsAltAccount($SignInName, $graphToken)
 	{
@@ -131,6 +133,41 @@ class IdentityHelpers
 				catch
 				{
 					[IdentityHelpers]::hasGraphAccess = $false;
+				}
+			}
+		}
+	}
+
+	static CheckSIPAccess()
+	{
+		# In CA mode, we use azure context to fetch the data explorer access token, because VSTS authentication is not supported in CA.
+		$useAzContext = $false
+		$scanSource = [AzSKSettings]::GetInstance().GetScanSource();
+		if ($scanSource -eq 'CICD') {
+			[IdentityHelpers]::hasSIPAccess = $false
+		}
+		else
+		{
+			if ($scanSource -eq "CA") {
+				$useAzContext = $true
+			}
+			
+			[IdentityHelpers]::dataExplorerAccessToken = [ContextHelper]::GetDataExplorerAccessToken($useAzContext)
+			if (-not [string]::IsNullOrWhiteSpace([IdentityHelpers]::dataExplorerAccessToken))
+			{
+				$header = @{
+					"Authorization" = "Bearer " + [IdentityHelpers]::dataExplorerAccessToken
+				}
+				$apiURL = "https://dsresip.kusto.windows.net/v2/rest/query"                                                                    
+            	$inputbody = "{`"db`": `"AADUsersData`",`"csl`": `"UsersInfo | take 1`"}"
+				try
+				{
+					$kustoResponse = Invoke-RestMethod -Uri $apiURL -Method Post  -ContentType "application/json; charset=utf-8" -Headers $header -Body $inputbody; 
+					[IdentityHelpers]::hasSIPAccess = $true;
+				}
+				catch
+				{
+					[IdentityHelpers]::hasSIPAccess = $false;
 				}
 			}
 		}

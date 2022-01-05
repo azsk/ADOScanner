@@ -13,7 +13,9 @@ class ControlHelper: EventBase{
     static [string] $parentGroup = $null #used to store current broader group
     static $CurrentGroupResolutionLevel = -1 # used to define the current level of group which is expanding. Negative value indicates all level.
     static $GroupResolutionLevel = 1 # used to define the level of group expansion. Negative value indicates all level.
-      
+    static $UseSIPFeedForAADGroupExpansion = $false
+    static $AADGroupsObjFromPolicy = $null
+
     #Checks if the severities passed by user are valid and filter out invalid ones
    hidden static [string []] CheckValidSeverities([string []] $ParamSeverities)
    {
@@ -108,21 +110,28 @@ class ControlHelper: EventBase{
                 $data | ForEach-Object{
                     if($_.subjectKind -eq "group")
                     {
-                        if ([string]::IsNullOrWhiteSpace($_.descriptor) -and (-not [string]::IsNullOrWhiteSpace($_.entityId)))
-                        {
-                            $identities = @([ControlHelper]::GetIdentitiesFromAADGroup($orgName, $_.entityId, $_.displayName))
-                            if ($identities.Count -gt 0)
-                            {
-                                #add the descriptor of group to denote the user is a direct member of this group and is not a part of the group due to nesting, to be used in auto fix
-                                $identities | Add-Member -NotePropertyName "DirectMemberOfGroup" -NotePropertyValue $descriptor
-                                [ControlHelper]::groupMembersResolutionObj[$descriptor] += $identities
-
-                            }
+                        if ([ControlHelper]::UseSIPFeedForAADGroupExpansion -and [Helpers]::CheckMember($_,"isAadGroup") -and $_.isAadGroup -eq $true) {
+                            $members = [ControlHelper]::ResolveGroupUsingSPIData($orgName, $_)
+                            [ControlHelper]::groupMembersResolutionObj[$descriptor] += $members
                         }
-                        else
+                        else 
                         {
-                           [ControlHelper]::ResolveNestedGroupMembers($_.descriptor,$orgName,$projName)
-                           [ControlHelper]::groupMembersResolutionObj[$descriptor] += [ControlHelper]::groupMembersResolutionObj[$_.descriptor]
+                            if ([string]::IsNullOrWhiteSpace($_.descriptor) -and (-not [string]::IsNullOrWhiteSpace($_.entityId)))
+                            {
+                                $identities = @([ControlHelper]::GetIdentitiesFromAADGroup($orgName, $_.entityId, $_.displayName))
+                                if ($identities.Count -gt 0)
+                                {
+                                    #add the descriptor of group to denote the user is a direct member of this group and is not a part of the group due to nesting, to be used in auto fix
+                                    $identities | Add-Member -NotePropertyName "DirectMemberOfGroup" -NotePropertyValue $descriptor
+                                    [ControlHelper]::groupMembersResolutionObj[$descriptor] += $identities
+
+                                }
+                            }
+                            else
+                            {
+                                [ControlHelper]::ResolveNestedGroupMembers($_.descriptor,$orgName,$projName)
+                                [ControlHelper]::groupMembersResolutionObj[$descriptor] += [ControlHelper]::groupMembersResolutionObj[$_.descriptor]
+                            }
                         }
                     }
                     else
@@ -143,8 +152,64 @@ class ControlHelper: EventBase{
         if (-not [ControlHelper]::GroupMembersResolutionObj.ContainsKey("OrgName")) {
             [ControlHelper]::GroupMembersResolutionObj["OrgName"] = $orgName
         }
+        if ([ControlHelper]::IsGroupDetailsFetchedFromPolicy -eq $false) {
+            [ControlHelper]::FetchControlSettingDetails()
+        }
+        if ([ControlHelper]::UseSIPFeedForAADGroupExpansion) {
+            if (-not [IdentityHelpers]::hasSIPAccess) {
+                [ControlHelper]::UseSIPFeedForAADGroupExpansion = $false
+            }
+        }
 
         [ControlHelper]::ResolveNestedGroupMembers($descriptor, $orgName, $projName)
+    }
+
+    static [PSObject] ResolveGroupUsingSPIData([string] $OrgName, $group)
+    {
+        $users = @()
+        try 
+        {
+            #check if group object id is present in the policy file
+            if ($null -eq [ControlHelper]::AADGroupsObjFromPolicy) {
+                [ControlHelper]::AADGroupsObjFromPolicy = [ConfigurationHelper]::LoadServerFileRaw("AAD_Groups.csv", [ConfigurationManager]::GetAzSKSettings().UseOnlinePolicyStore, [ConfigurationManager]::GetAzSKSettings().OnlinePolicyStoreUrl, [ConfigurationManager]::GetAzSKSettings().EnableAADAuthForOnlinePolicyStore) | ConvertFrom-Csv
+            }
+
+            if ([ControlHelper]::AADGroupsObjFromPolicy.displayName -contains $group.displayName) 
+            {
+                $groupObj = [ControlHelper]::AADGroupsObjFromPolicy | where-object {$_.displayName -eq $group.displayName}
+            }
+            else 
+            {
+                #Get the object id of the group which will then be used to create mapping with SIP database
+                $groupObj = @()
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
+                $url=" https://vssps.dev.azure.com/{0}/_apis/Graph/SubjectQuery?api-version=5.2-preview.1" -f $($orgName);
+                $postbody='{"query":"' + $($group.displayName) + '","subjectKind":["Group"]}'
+                $responseObj = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
+                if ([Helpers]::CheckMember($responseObj,"value") -and $group.descriptor -eq $responseObj.value[0].descriptor)
+                {
+                    $groupObj = $responseObj.value[0]
+                }
+            }
+
+            #Get the members of the group from the SIP database
+            $accessToken = [IdentityHelpers]::dataExplorerAccessToken
+            $apiURL = "https://dsresip.kusto.windows.net/v2/rest/query"                                                                    
+            $inputbody = "{`"db`": `"AADUsersData`",`"csl`": `"let GroupObjectIds = dynamic(['$($groupObj.originId)']); let LatestGroupEtlDate = toscalar (  cluster('dsresip.kusto.windows.net').database('AADGroupsData').GroupMembers | summarize arg_max(etldate,*) | project etldate); let LatestUserEtlDate = toscalar ( UsersInfo | summarize arg_max(etldate,*) | project etldate); cluster('dsresip.kusto.windows.net').database('AADGroupsData').GroupMembers | where etldate == LatestGroupEtlDate and GroupId   in~ (GroupObjectIds) | project GroupId,GroupDisplayName, GroupPrincipalName, objectId= UserId | join kind=inner (UsersInfo | where etldate == LatestUserEtlDate | project objectId = UserId, providerDisplayName = UserDisplayName, mail = UserPrincipalName,extensionAttribute2) on objectId | project GroupId,GroupDisplayName,GroupPrincipalName, objectId , providerDisplayName , mail ,extensionAttribute2`"}"
+            $header = @{
+                "Authorization" = "Bearer " + $accessToken
+            }
+            $kustoResponse = Invoke-RestMethod -Uri $apiURL -Method Post  -ContentType "application/json; charset=utf-8" -Headers $header -Body $inputbody; 
+            $kustoResponse = $kustoResponse | Where-Object {$_.FrameType -eq "DataTable" -and $_.TableKind -eq 'PrimaryResult'}
+            $kustoResponse.rows | Where-Object {$_[0] -eq $groupObj.originId} | ForEach-Object {$user = "" | select-object identityId, originId, subjectKind, displayName, mailAddress, descriptor, DirectMemberOfGroup; $user.identityId = $_[3]; $user.originId = $_[3]; $user.subjectKind = 'user'; $user.displayName = $_[4]; $user.mailAddress = $_[5]; $user.DirectMemberOfGroup = $_[1]; $users += $user}
+        }
+        catch {
+            #eat exception
+        }
+
+        return $users
     }
 
     static [PSObject] ResolveNestedBroaderGroupMembers([PSObject]$groupObj,[string] $orgName,[string] $projName)
@@ -270,6 +335,7 @@ class ControlHelper: EventBase{
         [ControlHelper]::GroupsToExpand = @($ControlSettingsObj.BroaderGroupsToExpand)
         [ControlHelper]::IsGroupDetailsFetchedFromPolicy = $true
         [ControlHelper]::GroupResolutionLevel = $ControlSettingsObj.GroupResolution.GroupResolutionLevel
+        [ControlHelper]::UseSIPFeedForAADGroupExpansion = $ControlSettingsObj.GroupResolution.UseSIPFeedForAADGroupExpansion
     }
 
     static [PSObject] FilterBroadGroupMembers([PSObject] $groupList, [bool] $fetchDescriptor)

@@ -53,6 +53,10 @@ class ADOSVTCommandBase: SVTCommandBase {
             {
                 # Checking if user has graph access or not before starting control evaluation.
                 [IdentityHelpers]::CheckGraphAccess();
+                $controlSettingObj = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
+                if ($controlSettingObj.GroupResolution.UseSIPFeedForAADGroupExpansion) {
+                    [IdentityHelpers]::CheckSIPAccess();
+                }
             }
             catch {
             #eat exception 

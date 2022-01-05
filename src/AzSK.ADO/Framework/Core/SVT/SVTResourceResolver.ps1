@@ -370,18 +370,13 @@ class SVTResourceResolver: AzSKRoot {
             }
             else
             {
-                if ($env:OrganizationId) {
-                    $organizationId = $env:OrganizationId
-                }
-                else {
-                    $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.organizationName);
+                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.organizationName);
 
-                    $inputbody = "{'contributionIds':['ms.vss-features.my-organizations-data-provider'],'dataProviderContext':{'properties':{'sourcePage':{'url':'https://dev.azure.com/$($this.organizationName)','routeId':'ms.vss-tfs-web.suite-me-page-route','routeValues':{'view':'projects','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-                    $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
-                    $organizationId = ($responseObj[0].dataProviders."ms.vss-features.my-organizations-data-provider".organizations | Where-Object {$_.name -eq $this.organizationName}).id
-                    $inputbody = $null;
-                    Remove-Variable inputbody;
-                }
+                $inputbody = "{'contributionIds':['ms.vss-features.my-organizations-data-provider'],'dataProviderContext':{'properties':{'sourcePage':{'url':'https://dev.azure.com/$($this.organizationName)','routeId':'ms.vss-tfs-web.suite-me-page-route','routeValues':{'view':'projects','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
+                $organizationId = ($responseObj[0].dataProviders."ms.vss-features.my-organizations-data-provider".organizations | Where-Object {$_.name -eq $this.organizationName}).id
+                $inputbody = $null;
+                Remove-Variable inputbody;
             }
         }
         catch {
