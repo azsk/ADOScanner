@@ -9,6 +9,7 @@ class CAAutomation : ADOSVTCommandBase
     hidden [string] $IdentityId
     hidden [string] $TimeStamp #Use for new CA creation only.
     hidden [string] $StorageName
+	hidden [string] $CommonDataSA
     hidden [string] $AppServicePlanName = "ADOScannerFAPlan"
 	hidden [string] $FuncAppDefaultName = "ADOScannerFA"
     hidden [string] $KVDefaultName = "ADOScannerKV"
@@ -92,7 +93,8 @@ class CAAutomation : ADOSVTCommandBase
 		$this.ProjectNames = $Proj
 		$this.ExtendedCommand = $ExtCmd
 		$this.TimeStamp = (Get-Date -format "yyMMddHHmmss")
-		$this.StorageName = "adoscannersa"+$this.TimeStamp 
+		$this.StorageName = "adoscannersa"+$this.TimeStamp
+		$this.CommonDataSA = "commondatasa"+$this.TimeStamp
 		$this.FuncAppName = $this.FuncAppDefaultName + $this.TimeStamp 
 		$this.KeyVaultName = $this.KVDefaultName+$this.TimeStamp 
 		$this.AppInsightsName = $this.FuncAppName
@@ -468,6 +470,19 @@ class CAAutomation : ADOSVTCommandBase
 
             }
 
+			#Step 3: Create a common storage storage account for bug logging
+            $StorageAccountToCommonData = New-AzStorageAccount -ResourceGroupName $this.RGname -Name $this.CommonDataSA -Type $this.StorageType -Location $this.Location -Kind $this.StorageKind -EnableHttpsTrafficOnly $true -ErrorAction Stop
+            if($null -eq $StorageAccountToCommonData) 
+            {
+                $this.PublishCustomMessage("Storage account [$($this.CommonDataSA)] creation failed", [MessageType]::Error);
+            }
+            else
+            {
+                $this.PublishCustomMessage("Storage [$($this.CommonDataSA)] created", [MessageType]::Update);
+                $this.CreatedResources += $StorageAccountToCommonData.Id
+
+            }
+
             #Step 4: Create LAW if applicable
             if ($this.CreateLAWS -eq $true)
             {
@@ -706,6 +721,7 @@ class CAAutomation : ADOSVTCommandBase
 								"ProjectNames" = $this.ProjectNames;
 								"ExtendedCommand" = $this.ExtendedCommand;
 								"StorageName" = $this.StorageName;
+								"CommonDataSA" = $this.CommonDataSA;
 								"AzSKADOModuleEnv" = $this.ModuleEnv;
 								"AzSKADOVersion" = "";
 							}
@@ -926,6 +942,7 @@ class CAAutomation : ADOSVTCommandBase
 								"ProjectNames" = $this.ProjectNames;
 								"ExtendedCommand" = $this.ExtendedCommand;
 								"StorageName" = $this.StorageName;
+								"CommonDataSA" = $this.CommonDataSA
 								"AzSKADOModuleEnv" = $this.ModuleEnv;
                                 "AzSKADOVersion" = "";
                                 "ClientId" = $identitySecretUri;
@@ -1151,6 +1168,7 @@ class CAAutomation : ADOSVTCommandBase
                                     "ProjectNames" = $this.ProjectNames;
                                     "ExtendedCommand" = $this.ExtendedCommand;
                                     "StorageName" = $this.StorageName;
+									"CommonDataSA" = $this.CommonDataSA;
                                     "KeyVaultName" = $this.KeyVaultName;
                                     "AzSKADOModuleEnv" = $this.ModuleEnv;
                                     "AzSKADOVersion" = "";
