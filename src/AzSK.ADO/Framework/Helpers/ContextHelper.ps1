@@ -335,7 +335,7 @@ class ContextHelper {
             $replyUri = [Constants]::DefaultReplyUri; 
             $adoResourceId = "https://help.kusto.windows.net";                                         
             if ([ContextHelper]::PSVersion -gt 5) {
-                $result = [ContextHelper]::GetGraphAccess()
+                $result = [ContextHelper]::GetGraphAccessForDataExplorer()
             }
             else {
                 [AuthenticationContext] $ctx = [AuthenticationContext]::new("https://login.windows.net/common");
@@ -440,6 +440,61 @@ class ContextHelper {
             $taskAuthenticationResult=$null
             $AquireTokenParameters = $null;
             [string[]] $Scopes = "https://graph.microsoft.com/.default";
+
+            $AquireTokenParameters = [ContextHelper]::appObj.AcquireTokenSilent($Scopes, [ContextHelper]::Account)
+            try {
+                $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
+                if ( [Helpers]::CheckMember($taskAuthenticationResult, "exception.message") -and ($taskAuthenticationResult.exception.message -like "*errors occurred*")) {
+                    $AquireTokenParameters = $appGrapth.AcquireTokenInteractive($Scopes)
+                    $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
+                }
+            }
+            catch {
+                $AquireTokenParameters = $appGrapth.AcquireTokenInteractive($Scopes)
+                $taskAuthenticationResult = $AquireTokenParameters.ExecuteAsync($tokenSource.Token)
+            }
+        }
+        
+        return $taskAuthenticationResult.result;
+    }
+
+    hidden static [PSobject] GetGraphAccessForDataExplorer()
+    {
+        $rootConfigPath = [Constants]::AzSKAppFolderPath;
+        $azskSettings = (Get-Content -Raw -Path (Join-Path $rootConfigPath "AzSKSettings.json")) | ConvertFrom-Json
+        if ([ContextHelper]::IsPATUsed -and $azskSettings -and $azskSettings.LASource -ne "CICD") {
+            $Context = @(Get-AzContext -ErrorAction SilentlyContinue)
+            if ($null -eq $Context -or $Context.count -eq 0) {
+                Connect-AzAccount -ErrorAction Stop
+                $Context = @(Get-AzContext -ErrorAction SilentlyContinue)
+            }
+            if ($null -eq $Context) {
+                throw 
+            }
+            else {
+                $graphUri = "https://help.kusto.windows.net"
+                $authResult = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate(
+                $Context.Account,
+                $Context.Environment,
+                $Context.Tenant.Id,
+                [System.Security.SecureString] $null,
+                "Never",
+                $null,
+                $graphUri);
+
+                return $authResult;
+            }
+        }
+        else {
+            $ClientId = [Constants]::DefaultClientId
+            [Microsoft.Identity.Client.IPublicClientApplication] $appGrapth = [Microsoft.Identity.Client.PublicClientApplicationBuilder]::Create($ClientId).Build();
+            if (![ContextHelper]::Account) {
+                [ContextHelper]::Account = $appGrapth.GetAccountsAsync().GetAwaiter().GetResult() | Select-Object -First 1
+            }
+            $tokenSource = New-Object System.Threading.CancellationTokenSource
+            $taskAuthenticationResult=$null
+            $AquireTokenParameters = $null;
+            [string[]] $Scopes = "https://help.kusto.windows.net";
 
             $AquireTokenParameters = [ContextHelper]::appObj.AcquireTokenSilent($Scopes, [ContextHelper]::Account)
             try {

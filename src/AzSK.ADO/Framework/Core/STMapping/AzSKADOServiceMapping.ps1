@@ -12,6 +12,7 @@ class AzSKADOServiceMapping: CommandBase
     [string] $MappingType
     [string] $OutputFolderPath
     [string] $Auto = $false
+    [switch] $UseCache
     [string] $StorageAccount; # Storage account name
     [string] $StorageRG;# Storage resource group name
     [string] $Container;# Storage Container to store ST mapping files    
@@ -20,14 +21,17 @@ class AzSKADOServiceMapping: CommandBase
     [string] $ReportStorageAccount;# Storage account name for Dashboard 
     [string] $ReportStorageRG;# Storage resource group name for Dashboard 
     [string] $ReportContainer;#Storage Container to store ST mapping files use by Power Bi  resports    
-    [object] $ReportStorageAccountCtx;     
+    [object] $ReportStorageAccountCtx; 
+    [object] $Stopwatch;#Create a Stopwatch    
     [string] $AzSKTempStatePath = [Constants]::AzSKTempFolderPath
+    [ServiceMappingCacheHelper] $ServiceMappingCacheHelperObj;
     $BuildSTDetails = @();
     $ReleaseSTDetails =@();
     $RepositorySTDetails =@();
+    $lastDuration =0 #track prevoic scan duration
 
 
-	AzSKADOServiceMapping([string] $organizationName, [string] $projectName, [string] $buildFileLocation, [string] $releaseFileLocation, [string] $repositoryFileLocation,[string] $mappingType,[string] $auto,[InvocationInfo] $invocationContext): 
+	AzSKADOServiceMapping([string] $organizationName, [string] $projectName, [string] $buildFileLocation, [string] $releaseFileLocation, [string] $repositoryFileLocation,[string] $mappingType,[string] $auto,[switch] $useCache, [InvocationInfo] $invocationContext): 
         Base($organizationName, $invocationContext) 
     { 
         $this.OrgName = $organizationName
@@ -36,14 +40,21 @@ class AzSKADOServiceMapping: CommandBase
         $this.ReleaseMappingsFilePath = $releaseFileLocation
         $this.RepositoryMappingsFilePath = $repositoryFileLocation
         $this.MappingType = $MappingType
-        $this.Auto = $auto.ToLower();        
+        $this.Auto = $auto.ToLower();      
+        $this.UseCache =  $useCache 
         $this.StorageAccount = $env:StorageName;
         $this.StorageRG = $env:StorageRG;
         $this.Container = $env:Container;
         # Power BI Report Storage settings
         $this.ReportStorageAccount = $env:ReportStorageName;
         $this.ReportStorageRG = $env:ReportStorageRG;
-        $this.ReportContainer = $env:ReportContainer;                
+        $this.ReportContainer = $env:ReportContainer;            
+        #get ServiceMapping cache helper instance   
+        $this.ServiceMappingCacheHelperObj = [ServiceMappingCacheHelper]::ServiceMappingCacheHelperInstance
+        if (!$this.ServiceMappingCacheHelperObj) {
+            $this.ServiceMappingCacheHelperObj = [ServiceMappingCacheHelper]::GetInstance($this.OrgName);
+        }            
+       
         #get storage details
         if($this.Auto -eq 'true'){
             if ($this.StorageRG -and $this.StorageAccount) {
@@ -72,38 +83,52 @@ class AzSKADOServiceMapping: CommandBase
                 }
                              
             }
-        }
+        }     
 	}
 	
 	[MessageData[]] GetSTmapping()
-	{
-        if(![string]::IsNullOrWhiteSpace($this.RepositoryMappingsFilePath)) {            
+	{       
+        $this.Stopwatch =  [system.diagnostics.stopwatch]::StartNew() 
+        $this.Stopwatch.Start();        
+        if(![string]::IsNullOrWhiteSpace($this.RepositoryMappingsFilePath)) {
+            $this.SaveScanDuration("Repository scan started", $false)            
             $this.GetRepositoryMapping();
+            $this.SaveScanDuration("Repository scan ended",$true)
         }
 
         if(![string]::IsNullOrWhiteSpace($this.BuildMappingsFilePath) -and ![string]::IsNullOrWhiteSpace($this.ReleaseMappingsFilePath)){
             if(((Test-Path $this.BuildMappingsFilePath) -and (Test-Path $this.ReleaseMappingsFilePath)) -or $this.Auto -eq 'true')
-            {
+            {                
                 $this.GetBuildReleaseMapping();              
                 if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "ServiceConnection")
                 {
+                    $this.SaveScanDuration("Service Connections scan started", $false)
                     $this.FetchSvcConnMapping();
+                    $this.SaveScanDuration("Service Connections scan ended",$true)
                 }
                 if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "AgentPool")
                 {
+                    $this.SaveScanDuration("Agent Pool scan started", $false)
                     $this.FetchAgentPoolMapping();
+                    $this.SaveScanDuration("Agent Pool scan ended",$true)
                 }
                 if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "Environment")
                 {
+                    $this.SaveScanDuration("Environment scan started", $false)
                     $this.FetchEnvironmentMapping();
+                    $this.SaveScanDuration("Environment scan ended",$true)
                 }
                 if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup" -or $this.MappingType -eq "SecureFile")
                 {
+                    $this.SaveScanDuration("VariableGroup/SecureFile scan started", $false)
                     $this.FetchVarGrpSecureFileMapping();
+                    $this.SaveScanDuration("VariableGroup/SecureFile scan ended",$true)
                 }
                 if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "Feed")
                 {
+                    $this.SaveScanDuration("Feed scan started", $false)
                     $this.FetchFeedMapping();
+                    $this.SaveScanDuration("Feed scan ended",$true)
                 }
             }
         }
@@ -130,7 +155,7 @@ class AzSKADOServiceMapping: CommandBase
         }   
 
         # Get Build-Repo mappings
-        try {            
+        <#try {            
             $buildObjectListURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +'&$top=10000') -f $($this.orgName), $this.projectName;       
             $buildObjectList = $this.GetBuildReleaseObjects($buildObjectListURL,'Build');
             $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}            
@@ -152,7 +177,7 @@ class AzSKADOServiceMapping: CommandBase
             }        
         }
         catch {           
-        }
+        }#>
         $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
         $this.ExportObjToJsonFileUploadToBlob($this.BuildSTDetails, 'BuildSTData.json');
         
@@ -174,7 +199,7 @@ class AzSKADOServiceMapping: CommandBase
         }       
 
         # Get Release-Repo mappings
-        try {                         
+        <#try {                         
             $releaseObjectListURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.orgName), $this.projectName;    
             $releaseObjectList = $this.GetBuildReleaseObjects($ReleaseObjectListURL,'Release');
             $releaseObjectList = $releaseObjectList | Where-Object {$_.id -notin $this.ReleaseSTDetails.data.releaseDefinitionID}                     
@@ -212,7 +237,7 @@ class AzSKADOServiceMapping: CommandBase
         }
         catch {
            
-        }
+        }#>
 
         $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
         $this.ExportObjToJsonFileUploadToBlob($this.ReleaseSTDetails, 'ReleaseSTData.json');
@@ -465,6 +490,11 @@ class AzSKADOServiceMapping: CommandBase
     hidden [bool] FetchVarGrpSecureFileMapping() {  
       
         $topNQueryString = '&$top=10000'
+        $varGrps = @();
+        $secureFiles = @();
+        $secureFileDetails = @();
+        #generate access token with datastudio api audience
+        $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
         $variableGroupSTMapping = @{
             data = @();
         };
@@ -475,7 +505,7 @@ class AzSKADOServiceMapping: CommandBase
 
         try {                    
             $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrgName), $this.ProjectName;
-            $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);                      
+            $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);                                
         
             if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
                 
@@ -483,21 +513,25 @@ class AzSKADOServiceMapping: CommandBase
                 $this.PublishCustomMessage("Generating service mappings of variable group/secure file using release for project [$($this.ProjectName)]...")
                 $this.PublishCustomMessage("Total mappings to be evaluated:  $(($releaseDefnsObj | Measure-Object).Count)")
                 $counter = 0
-                
-                #generate access token with datastudio api audience
-                $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
-                
+
                 #This variable is used to store details returned from secure file api(fetching all the secure file details in one call)
                 $secureFileDetails = @();
-                foreach ($relDef in $releaseDefnsObj) {
 
+                if (($secureFileDetails | Measure-Object).count -eq 0) {
+                    $secureFilesURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/securefiles?api-version=6.1-preview.1" -f $this.OrgName, $this.projectId;
+                    $secureFileDetails = [WebRequestHelper]::InvokeGetWebRequest($secureFilesURL);
+                }
+
+                foreach ($relDef in $releaseDefnsObj) 
+                {                   
                     $counter++
-                    Write-Progress -Activity 'Variable group/secure file mappings via release...' -CurrentOperation $relDef.Name -PercentComplete (($counter / $releaseDefnsObj.count) * 100)
-
+                    Write-Progress -Activity 'Variable group/secure file mappings via release...' -CurrentOperation $relDef.Name -PercentComplete (($counter / $releaseDefnsObj.count) * 100)   
+                    #Get Release LastModified date from Cache(Azure Table)                                        
+                    #$cachLastModifiedDate = $this.GetPipelineModifiedDate($relDef.id,"Release")      
+                    #$relDef.modifiedOn -le $cachLastModifiedDate                                                                      
                     try
                     {
                         $releaseObj = [WebRequestHelper]::InvokeGetWebRequest($relDef.url);
-                        $varGrps = @();
                         
                         #add var groups scoped at release scope.
                         if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
@@ -507,8 +541,7 @@ class AzSKADOServiceMapping: CommandBase
                             }
                         }
 
-                        #get var grps from each env of release pipeline
-                        $secureFiles = @();
+                        #get var grps from each env of release pipeline                        
                         foreach ($env in $releaseObj[0].environments) {
                             if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
                                 if((($env.variableGroups) | Measure-Object).Count -gt 0)
@@ -535,116 +568,31 @@ class AzSKADOServiceMapping: CommandBase
                                             $secureFiles += $item.inputs.secureFile;
                                         }
                                     }
-                                }
+                                }                                   
                             }
                             catch {
                                 #eat exception
-                            }  
-                        }
-
-                        if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
-                            if(($varGrps | Measure-Object).Count -gt 0)
+                            } 
+                            if($this.UseCache)
                             {
-                                $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName;
-                                $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
-
-                                $varGrps | ForEach-Object {
-                                    try {                                                                            
-                                        $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;                                                                     
-                                        $header = [WebRequestHelper]::GetAuthHeaderFromUri($varGrpURL)                                                                     
-                                        $varGrpObj  = Invoke-WebRequest -Uri $varGrpURL -Headers $header                                        
-
-                                        if($varGrpObj.Content -ne 'null')
-                                        {
-                                            $varGrpObj = $varGrpObj.Content | ConvertFrom-Json
-                                            $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $releaseObj[0].id) };
-                                            if($releaseSTData)
-                                            {
-                                                $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
-                                            }
-                                            else {
-                                                if ($varGrpObj.Type -eq 'AzureKeyVault') { 
-                                                    try {
-                                                        # get associated service connection id for variable group                 
-                                                        $servConnID =  $varGrpObj[0].providerData.serviceEndpointId;  
-
-                                                        # get azure subscription id from service connection                                          
-                                                        $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($servConnID)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-                                                        $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
-                    
-                                                        if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") 
-                                                        {
-                                                            $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
-                                                            if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
-                                                            {
-                                                                try {
-                                                                    $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId,$accessToken)                               
-                                                                    if($responseObj)
-                                                                    {
-                                                                            $serviceId = $responseObj[2].Rows[0][4];
-                                                                            $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $serviceId; projectName = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.name; projectID = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )
-                                                                    } 
-                                                                }
-                                                                catch {
-                                                                    
-                                                                }                                          
-                    
-                                                            }  
-                                                        }
-                                                        
-                                                    }
-                                                    catch {
-                                                        
-                                                    }                                         
-                                                }                                         
-                                            } 
-                                       }
-                                                                       
-                                    }
-                                    catch {
-                                        
-                                    }                                                                                                          
-                                }
+                                # Find Service tree id for variable groups & secure files 
+                                $this.FindSTWithReleaseForVGSecFileCache($relDef, $varGrps, $secureFiles,$accessToken,$secureFileDetails,$variableGroupSTMapping, $secureFileSTMapping)
                             }
-                        }
-
-                        if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
-                            try {
-                                if(($secureFiles | Measure-Object).Count -gt 0)
-                                {
-                                    $secureFiles | ForEach-Object {
-                                    if (($secureFileDetails | Measure-Object).count -eq 0) {
-                                        $secureFilesURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/securefiles?api-version=6.1-preview.1" -f $this.OrgName, $this.projectId;
-                                        $secureFileDetails = [WebRequestHelper]::InvokeGetWebRequest($secureFilesURL);
-                                    }
-                                    $secureFile = $_;
-                                    $secureFilesObj = $secureFileDetails | Where {$_.Name -eq $secureFile -or $_.Id -eq $secureFile}
-
-                                    if ($secureFilesObj) {
-                                        $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $relDef.id) };
-                                        if($releaseSTData){
-                                            $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $secureFilesObj.name; secureFileID = $secureFilesObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
-                                        }
-                                    }
-                                    }
-                                }
-                            }
-                            catch {
-                                #eat exception
+                            else {
+                                $this.FindSTWithReleaseForVGSecFile($relDef, $varGrps, $secureFiles,$accessToken,$secureFileDetails,$variableGroupSTMapping, $secureFileSTMapping)
                             }
                         }
                     }
                     Catch{
                         #$this.PublishCustomMessage($_.Exception.Message)
-                    }
-                }
+                    }                      
+                }               
                 $releaseDefnsObj = $null;
             }
         }
         catch{
             #eat exception
         }
-
 
         try {
             $buildDefnURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" + $topNQueryString) -f $($this.OrgName), $this.ProjectName;
@@ -686,97 +634,14 @@ class AzSKADOServiceMapping: CommandBase
                     catch {
                         #eat exception
                     }
-                    
-                    #Variable to store current build STDAT
-                    $buildSTData = $null;
-
-                    if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
-                        if([Helpers]::CheckMember($buildObj[0],"variableGroups"))
-                        {
-                            $varGrps = @($buildObj[0].variableGroups)
-
-                            $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
-                            $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
-
-                            $varGrps | ForEach-Object {
-                                try {
-                                    $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $buildObj[0].id) -and ($_.projectName -eq $this.ProjectName) };
-                                    if($buildSTData)
-                                    {
-                                        $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.name; variableGroupID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
-                                    }
-                                    else  {
-                                        if ($varGrps.Type -eq 'AzureKeyVault')
-                                        {   
-                                            try {
-                                                # get associated service connection id for variable group                 
-                                                $servConnID =  $varGrps[0].providerData.serviceEndpointId;  
-                                                
-                                                # get azure subscription id from service connection                                      
-                                                $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($servConnID)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-                                                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
-            
-                                                if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") 
-                                                {
-                                                    $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
-                                                    if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
-                                                    {
-                                                        try {
-                                                            $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId,$accessToken)                                
-                                                            if($responseObj)
-                                                            {
-                                                                    $serviceId = $responseObj[2].Rows[0][4];                                                    
-                                                                    $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.name; variableGroupID = $_.id; serviceID = $serviceId; projectName = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.name; projectID = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.id; orgName = $this.OrgName } )
-                                                            }
-                                                        }
-                                                        catch {
-                                                            
-                                                        }                                           
-                                                    }  
-                                                }
-                                                
-                                            }
-                                            catch {
-                                                
-                                            }                                            
-                                        }
-                                    }                                                                  
-                                }
-                                catch {
-                                    
-                                }
-                                                             
-                            }
-                        }
+                    if($this.UseCache)
+                    {
+                        # Find Service tree id for variable groups & secure files 
+                        $this.FindSTWithBuildForVGSecFileCache($buildObj, $secureFiles, $accessToken, $secureFileDetails, $variableGroupSTMapping, $secureFileSTMapping)
                     }
-                    if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
-                        try {
-                            if(($secureFiles | Measure-Object).Count -gt 0)
-                            {
-                            $secureFiles | ForEach-Object{
-                                if (($secureFileDetails | Measure-Object).count -eq 0) {
-                                    $secureFilesURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/securefiles?api-version=6.1-preview.1" -f $this.OrgName, $this.projectId;
-                                    $secureFileDetails = [WebRequestHelper]::InvokeGetWebRequest($secureFilesURL);
-                                }
-                                $secureFile = $_;
-                                $secureFilesObj = $secureFileDetails | Where {$_.Name -eq $secureFile -or $_.Id -eq $secureFile}
-
-                                if ($secureFilesObj) {
-                                    if (!$buildSTData) {
-                                        $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $buildObj[0].id) -and ($_.projectName -eq $this.ProjectName) };
-                                    }
-                                    if($buildSTData){
-                                        $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $secureFilesObj.name; secureFileID = $secureFilesObj.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
-                                    }
-                                }
-                            }
-                            }
-                        }
-                        catch {
-                            #eat exception
-                        }
-                        
-                    }
+                    else {
+                        $this.FindSTWithBuildForVGSecFile($buildObj, $secureFiles, $accessToken, $secureFileDetails, $variableGroupSTMapping, $secureFileSTMapping)
+                    }                                                                                           
                 }
                 $buildDefnsObj = $null;
             }
@@ -1056,5 +921,302 @@ class AzSKADOServiceMapping: CommandBase
         Remove-Variable resourceDefnsObj;        
         return $applicableDefnsObj;
     }
+
+    #adding new mapping info
+    hidden [void] AddMappinginfoInCache( [string]  $orgName, [string]  $projectID, [string]  $pipelineID, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceName,[string]  $resourceType,[string]  $pipelineType,[string]  $mappingExpiration) 
+    {
+        $this.ServiceMappingCacheHelperObj.InsertMappingInfoInTable($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified,$resourceID,$resourceType,$resourceName,$pipelineType, $mappingExpiration)
+    }
     
+    hidden [object] GetResourceDataFromCache($pipelineType,$pipelineID,$resourceType, $resourceID )
+    {               
+        return  $this.ServiceMappingCacheHelperObj.GetWorkItemByHashAzureTable($resourceType, $pipelineType, $pipelineID, $resourceID, $this.ProjectId);            
+    }
+
+    hidden [void] FindSTWithBuildForVGSecFile($buildObj, $secureFiles, $accessToken, $secureFileDetails, $variableGroupSTMapping, $secureFileSTMapping)
+    {    
+         #Variable to store current build STDATA
+         $buildSTData = $null;
+
+        if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
+            if([Helpers]::CheckMember($buildObj[0],"variableGroups"))
+            {
+                $varGrps = @($buildObj[0].variableGroups)
+
+                $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
+                $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
+
+                $varGrps | ForEach-Object {
+                    try {
+                        $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $buildObj[0].id) -and ($_.projectName -eq $this.ProjectName) };
+                        if($buildSTData)
+                        {
+                            $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.name; variableGroupID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
+                            $this.AddMappinginfoInCache($buildSTData.orgName,$buildSTData.projectID,$buildObj.id, $buildSTData.serviceID,$buildObj.modifiedOn,$_.id,"VariableGroup","Build",(Get-date).AddDays(30)); 
+                        }
+                        else  {
+                            if ($varGrps.Type -eq 'AzureKeyVault')
+                            {   
+                                try {
+                                    # get associated service connection id for variable group                 
+                                    $servConnID =  $varGrps[0].providerData.serviceEndpointId;  
+                                    
+                                    # get azure subscription id from service connection                                      
+                                    $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($servConnID)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                                    $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
+
+                                    if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") 
+                                    {
+                                        $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
+                                        if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
+                                        {
+                                            try {
+                                                $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId,$accessToken)                                
+                                                if($responseObj)
+                                                {
+                                                        $serviceId = $responseObj[2].Rows[0][4];  
+                                                        $projectID = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.id;                                                  
+                                                        $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.name; variableGroupID = $_.id; serviceID = $serviceId; projectName = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.name; projectID = $projectID; orgName = $this.OrgName } )
+                                                        $this.AddMappinginfoInCache($this.OrgName,$projectID,$buildObj.id, $serviceId,$buildObj.modifiedOn,$_.id,$_.name,"VariableGroup","Build",(Get-date).AddDays(30)); 
+                                                }
+                                            }
+                                            catch {
+                                                
+                                            }                                           
+                                        }  
+                                    }
+                                    
+                                }
+                                catch {
+                                    
+                                }                                            
+                            }
+                        }                                                                  
+                    }
+                    catch {
+                        
+                    }
+                                                    
+                }
+            }
+        }
+        if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
+            try {
+                if(($secureFiles | Measure-Object).Count -gt 0)
+                {
+                $secureFiles | ForEach-Object{                  
+                    $secureFile = $_;
+                    $secureFilesObj = $secureFileDetails | Where-Object {$_.Name -eq $secureFile -or $_.Id -eq $secureFile}
+                    if ($secureFilesObj) {
+                        if (!$buildSTData) {
+                            $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $buildObj[0].id) -and ($_.projectName -eq $this.ProjectName) };
+                        }
+                        if($buildSTData){
+                            $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $secureFilesObj.name; secureFileID = $secureFilesObj.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
+                        }
+                    }
+                }
+                }
+            }
+            catch {
+                #eat exception
+            }
+            
+        }
+    }
+
+    hidden [void] FindSTWithBuildForVGSecFileCache($buildObj, $secureFiles, $accessToken, $secureFileDetails, $variableGroupSTMapping, $secureFileSTMapping)
+    {    
+         #Variable to store current build STDATA
+         $buildSTData = $null;
+
+        if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
+            if([Helpers]::CheckMember($buildObj[0],"variableGroups"))
+            {
+                $varGrps = @($buildObj[0].variableGroups)                                       
+                $varGrps | ForEach-Object {
+                    try {
+                        $varGroupExistinST = $variableGroupSTMapping.data | Where-Object -Property variableGroupID -eq $_
+                        if(!$varGroupExistinST)
+                        {                           
+                            $cachedVGItem = $this.GetResourceDataFromCache("Build",$relDef.id, "VariableGroup", $_)                                                                                                                          
+                            $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $cachedVGItem.ResourceName; variableGroupID = $cachedVGItem.ResourceID; serviceID = $cachedVGItem.ServiceTreeID; projectName = $this.ProjectName; projectID = $cachedVGItem.ProjectID; orgName = $cachedVGItem.OrgName } )                                                                                                                           
+                        }
+                    }
+                    catch {
+                        
+                    }
+                                                    
+                }
+                
+            }
+        }
+        if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
+            try {
+                if(($secureFiles | Measure-Object).Count -gt 0)
+                {
+                $secureFiles | ForEach-Object{
+                    $secureFilesObj = $secureFileSTMapping.data | Where-Object -Property secureFileID -eq $_
+                    if ($secureFilesObj) {                    
+                            $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $secureFilesObj.name; secureFileID = $secureFilesObj.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
+                        }                    
+                    }
+                }
+            }
+            catch {
+                #eat exception
+            }
+            
+        }
+    }
+
+    hidden [void] FindSTWithReleaseForVGSecFile($relDef, $varGrps,$secureFiles,$accessToken, $secureFileDetails , $variableGroupSTMapping, $secureFileSTMapping)
+    {
+        if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
+            if(($varGrps | Measure-Object).Count)
+            {
+                $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName;
+                $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
+
+                $varGrps | ForEach-Object {
+                    try {                                                                            
+                        $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;   
+                        $varGroupExistinSt = $variableGroupSTMapping.data | Where-Object -Property variableGroupID -eq $_
+                        if(!$varGroupExistinSt)
+                        { 
+                            $header = [WebRequestHelper]::GetAuthHeaderFromUri($varGrpURL)                                                                     
+                            $varGrpObj  = Invoke-WebRequest -Uri $varGrpURL -Headers $header                                        
+
+                            if($varGrpObj.Content -ne 'null')
+                            {
+                                    $varGrpObj = $varGrpObj.Content | ConvertFrom-Json
+                                    $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $releaseObj[0].id) };
+                                    if($releaseSTData)
+                                    {
+                                        $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
+                                        $this.AddMappinginfoInCache($releaseSTData.orgName,$releaseSTData.projectID,$relDef.id, $releaseSTData.serviceID,$relDef.modifiedOn,$varGrpObj.id,$varGrpObj.name,"VariableGroup","Release",(Get-date).AddDays(30)); 
+                                    }
+                                    else {
+                                        if ($varGrpObj.Type -eq 'AzureKeyVault') { 
+                                            try {
+                                                # get associated service connection id for variable group                 
+                                                $servConnID =  $varGrpObj[0].providerData.serviceEndpointId;  
+
+                                                # get azure subscription id from service connection                                          
+                                                $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($servConnID)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
+                                                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody); 
+            
+                                                if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") 
+                                                {
+                                                    $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
+                                                    if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm")
+                                                    {
+                                                        try {
+                                                            $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId,$accessToken)                               
+                                                            if($responseObj)
+                                                            {
+                                                                    $serviceId = $responseObj[2].Rows[0][4];
+                                                                    $projectID = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.id;
+                                                                    $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $serviceId; projectName = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.name; projectID = $projectID; orgName = $this.OrgName } )
+                                                                    $this.AddMappinginfoInCache($this.OrgName,$projectID ,$relDef.id, $serviceId,$relDef.modifiedOn,$varGrpObj.id,$varGrpObj.name,"VariableGroup","Release",(Get-date).AddDays(30)); 
+                                                            } 
+                                                        }
+                                                        catch {
+                                                            
+                                                        }                                          
+            
+                                                    }  
+                                                }
+                                                
+                                            }
+                                            catch {
+                                                
+                                            }                                         
+                                        }                                         
+                                    } 
+                            }
+                        }
+                                                    
+                    }
+                    catch {
+                        
+                    }                                                                                                          
+                }
+            }
+        }
+
+        if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
+            try {
+                if(($secureFiles | Measure-Object).Count -gt 0)
+                {
+                    $secureFiles | ForEach-Object {                    
+                    $secureFile = $_;
+                    $secureFilesObj = $secureFileDetails | Where-Object {$_.Name -eq $secureFile -or $_.Id -eq $secureFile}
+                    if ($secureFilesObj) {
+                        $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $relDef.id) };
+                        if($releaseSTData){
+                            $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $secureFilesObj.name; secureFileID = $secureFilesObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
+                            $this.AddMappinginfoInCache($releaseSTData.orgName,$releaseSTData.projectID,$relDef.id, $releaseSTData.serviceID,$relDef.modifiedOn,$secureFilesObj.id,$secureFilesObj.name,"SecureFile","Release",(Get-date).AddDays(30)); 
+                        }
+                    }
+                    }
+                }
+            }
+            catch {
+                #eat exception
+            }
+        }  
+    }
+
+    hidden [void] FindSTWithReleaseForVGSecFileCache($relDef, $varGrps,$secureFiles,$accessToken, $secureFileDetails, $variableGroupSTMapping, $secureFileSTMapping)
+    {
+        if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
+            if(($varGrps | Measure-Object).Count)
+            {               
+                $varGrps | ForEach-Object {
+                    try {                                                                                                                            
+                        $varGroupExistinST = $variableGroupSTMapping.data | Where-Object -Property variableGroupID -eq $_
+                        if(!$varGroupExistinST)
+                        {                           
+                            $cachedVGItem = $this.GetResourceDataFromCache("Release",$relDef.id, "VariableGroup", $_)                                                                                                                          
+                            $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $cachedVGItem.ResourceName; variableGroupID = $cachedVGItem.ResourceID; serviceID = $cachedVGItem.ServiceTreeID; projectName = $this.ProjectName; projectID = $cachedVGItem.ProjectID; orgName = $cachedVGItem.OrgName } )                                                                                                                           
+                        }
+                                                    
+                    }
+                    catch {
+                        
+                    }                                                                                                          
+                }
+            }
+        }
+
+        if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
+            try {
+                if(($secureFiles | Measure-Object).Count -gt 0)
+                {
+                    $secureFiles | ForEach-Object {                                        
+                    $secureFilesObj = $secureFileSTMapping.data | Where-Object -Property secureFileID -eq $_
+                    if (!$secureFilesObj) {                        
+                            $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $secureFilesObj.name; secureFileID = $secureFilesObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )                                                    
+                        }
+                    }
+                }
+            }
+            catch {
+                #eat exception
+            }
+        }  
+    }
+
+    hidden [void] SaveScanDuration($message,[switch]  $finished)
+    {
+        $duration = [math]::Round($this.Stopwatch.Elapsed.TotalMinutes,0)        
+        $this.PublishCustomMessage("$($message) :  $($duration)", [MessageType]::Info);
+        if($finished)
+        {
+            $this.PublishCustomMessage("Total duration to finish the resource scan :  $($duration - $this.lastDuration)", [MessageType]::Info);
+            $this.lastDuration = $duration
+        }
+    }
+                    
 }
