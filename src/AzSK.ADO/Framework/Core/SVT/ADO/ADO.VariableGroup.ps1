@@ -203,7 +203,7 @@ class VariableGroup: ADOSVTBase
                 $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId);
                 $this.variableGroupIdentities = @([WebRequestHelper]::InvokeGetWebRequest($url));
             }
-            if(($this.variableGroupIdentities| Measure-Object).Count -gt 0)
+            if($this.variableGroupIdentities.Count -gt 0)
             {
                 $roles = @();
                 $roles += ($this.variableGroupIdentities | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}}, @{Name="AccessType"; Expression = {$_.access}});
