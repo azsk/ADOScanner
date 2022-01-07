@@ -25,10 +25,12 @@ class AzSKADOServiceMapping: CommandBase
     [object] $Stopwatch;#Create a Stopwatch    
     [string] $AzSKTempStatePath = [Constants]::AzSKTempFolderPath
     [ServiceMappingCacheHelper] $ServiceMappingCacheHelperObj;
+    [int] $MappingExpirationLImit #Service id mapping expiration duration
     $BuildSTDetails = @();
     $ReleaseSTDetails =@();
     $RepositorySTDetails =@();
-    $lastDuration =0 #track prevoic scan duration
+    
+    $lastDuration =0 #track previous resource scan duration
 
 
 	AzSKADOServiceMapping([string] $organizationName, [string] $projectName, [string] $buildFileLocation, [string] $releaseFileLocation, [string] $repositoryFileLocation,[string] $mappingType,[string] $auto,[switch] $useCache, [InvocationInfo] $invocationContext): 
@@ -48,7 +50,9 @@ class AzSKADOServiceMapping: CommandBase
         # Power BI Report Storage settings
         $this.ReportStorageAccount = $env:ReportStorageName;
         $this.ReportStorageRG = $env:ReportStorageRG;
-        $this.ReportContainer = $env:ReportContainer;            
+        $this.ReportContainer = $env:ReportContainer;  
+        # Set Service id mapping expiration duration
+        $this.MappingExpirationLimit = $env:MappingExpirationLimit;         
         #get ServiceMapping cache helper instance   
         $this.ServiceMappingCacheHelperObj = [ServiceMappingCacheHelper]::ServiceMappingCacheHelperInstance
         if (!$this.ServiceMappingCacheHelperObj) {
@@ -83,7 +87,7 @@ class AzSKADOServiceMapping: CommandBase
                 }
                              
             }
-        }     
+        }
 	}
 	
 	[MessageData[]] GetSTmapping()
@@ -98,7 +102,7 @@ class AzSKADOServiceMapping: CommandBase
 
         if(![string]::IsNullOrWhiteSpace($this.BuildMappingsFilePath) -and ![string]::IsNullOrWhiteSpace($this.ReleaseMappingsFilePath)){
             if(((Test-Path $this.BuildMappingsFilePath) -and (Test-Path $this.ReleaseMappingsFilePath)) -or $this.Auto -eq 'true')
-            {                
+            {
                 $this.GetBuildReleaseMapping();              
                 if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "ServiceConnection")
                 {
@@ -140,6 +144,7 @@ class AzSKADOServiceMapping: CommandBase
     
     hidden  GetBuildReleaseMapping()
     {  
+        $this.SaveScanDuration("Build's repo scan started", $false)
         if($this.Auto -eq 'true'){
             $response = Get-AzStorageBlob -Blob 'BuildServiceMappingData.json' -Container $this.Container -Context $this.StorageAccountCtx 
             $this.BuildSTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
@@ -155,7 +160,7 @@ class AzSKADOServiceMapping: CommandBase
         }   
 
         # Get Build-Repo mappings
-        <#try {            
+        try {            
             $buildObjectListURL = ("https://dev.azure.com/{0}/{1}/_apis/build/definitions?queryOrder=lastModifiedDescending&api-version=6.0" +'&$top=10000') -f $($this.orgName), $this.projectName;       
             $buildObjectList = $this.GetBuildReleaseObjects($buildObjectListURL,'Build');
             $buildObjectList = $buildObjectList | Where-Object {$_.id -notin $this.BuildSTDetails.data.buildDefinitionID}            
@@ -177,10 +182,15 @@ class AzSKADOServiceMapping: CommandBase
             }        
         }
         catch {           
-        }#>
-        $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
-        $this.ExportObjToJsonFileUploadToBlob($this.BuildSTDetails, 'BuildSTData.json');
-        
+        }
+        if($this.UseCache)
+        {
+            $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
+            $this.ExportObjToJsonFileUploadToBlob($this.BuildSTDetails, 'BuildSTData.json');
+        }
+        $this.SaveScanDuration("Build's repo scan ended", $true)
+
+        $this.SaveScanDuration("Release's repo releases scan started", $false)
         if($this.Auto -eq 'true'){
             $response = Get-AzStorageBlob -Blob 'ReleaseServiceMappingData.json' -Container $this.Container -Context $this.StorageAccountCtx 
             $this.ReleaseSTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
@@ -199,7 +209,7 @@ class AzSKADOServiceMapping: CommandBase
         }       
 
         # Get Release-Repo mappings
-        <#try {                         
+        try {                         
             $releaseObjectListURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.orgName), $this.projectName;    
             $releaseObjectList = $this.GetBuildReleaseObjects($ReleaseObjectListURL,'Release');
             $releaseObjectList = $releaseObjectList | Where-Object {$_.id -notin $this.ReleaseSTDetails.data.releaseDefinitionID}                     
@@ -237,10 +247,13 @@ class AzSKADOServiceMapping: CommandBase
         }
         catch {
            
-        }#>
-
-        $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
-        $this.ExportObjToJsonFileUploadToBlob($this.ReleaseSTDetails, 'ReleaseSTData.json');
+        }
+        if($this.UseCache)
+        {
+            $this.ExportObjToJsonFile($this.ReleaseSTDetails, 'ReleaseSTData.json');
+            $this.ExportObjToJsonFileUploadToBlob($this.ReleaseSTDetails, 'ReleaseSTData.json');            
+        }
+        $this.SaveScanDuration("Release's repo releases scan ended", $false)
     }
 
     hidden GetRepositoryMapping() {  
@@ -258,9 +271,12 @@ class AzSKADOServiceMapping: CommandBase
             {
                 $this.ProjectId = $this.RepositorySTDetails.data[0].projectId
             }
-        }        
-        $this.ExportObjToJsonFile($this.RepositorySTDetails, 'RepositorySTData.json');
-        $this.ExportObjToJsonFileUploadToBlob($this.RepositorySTDetails, 'RepositorySTData.json');
+        }
+        if($this.UseCache)
+        {        
+            $this.ExportObjToJsonFile($this.RepositorySTDetails, 'RepositorySTData.json');
+            $this.ExportObjToJsonFileUploadToBlob($this.RepositorySTDetails, 'RepositorySTData.json');
+        }
     }
 
     hidden ExportObjToJsonFile($serviceMapping, $fileName) {   
@@ -386,8 +402,11 @@ class AzSKADOServiceMapping: CommandBase
             #eat exception
         }
         $this.PublishCustomMessage("Service mapping found:  $(($svcConnSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-        $this.ExportObjToJsonFile($svcConnSTMapping.data, 'ServiceConnectionSTData.json');
-        $this.ExportObjToJsonFileUploadToBlob($svcConnSTMapping.data, 'ServiceConnectionSTData.json');
+        if($this.UseCache)
+        {            
+            $this.ExportObjToJsonFile($svcConnSTMapping.data, 'ServiceConnectionSTData.json');
+            $this.ExportObjToJsonFileUploadToBlob($svcConnSTMapping.data, 'ServiceConnectionSTData.json');
+        }
         return $true;
     }
 
@@ -482,8 +501,11 @@ class AzSKADOServiceMapping: CommandBase
             #eat exception
         }
         $this.PublishCustomMessage("Service mapping found:  $(($agentPoolSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-        $this.ExportObjToJsonFile($agentPoolSTMapping.data, 'AgentPoolSTData.json');
-        $this.ExportObjToJsonFileUploadToBlob($agentPoolSTMapping.data, 'AgentPoolSTData.json');
+        if($this.UseCache)
+        {            
+            $this.ExportObjToJsonFile($agentPoolSTMapping.data, 'AgentPoolSTData.json');
+            $this.ExportObjToJsonFileUploadToBlob($agentPoolSTMapping.data, 'AgentPoolSTData.json');
+        }
         return $true;
     }
 
@@ -505,7 +527,7 @@ class AzSKADOServiceMapping: CommandBase
 
         try {                    
             $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrgName), $this.ProjectName;
-            $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);                                
+            $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);
         
             if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
                 
@@ -525,10 +547,7 @@ class AzSKADOServiceMapping: CommandBase
                 foreach ($relDef in $releaseDefnsObj) 
                 {                   
                     $counter++
-                    Write-Progress -Activity 'Variable group/secure file mappings via release...' -CurrentOperation $relDef.Name -PercentComplete (($counter / $releaseDefnsObj.count) * 100)   
-                    #Get Release LastModified date from Cache(Azure Table)                                        
-                    #$cachLastModifiedDate = $this.GetPipelineModifiedDate($relDef.id,"Release")      
-                    #$relDef.modifiedOn -le $cachLastModifiedDate                                                                      
+                    Write-Progress -Activity 'Variable group/secure file mappings via release...' -CurrentOperation $relDef.Name -PercentComplete (($counter / $releaseDefnsObj.count) * 100)                                                                                            
                     try
                     {
                         $releaseObj = [WebRequestHelper]::InvokeGetWebRequest($relDef.url);
@@ -568,14 +587,14 @@ class AzSKADOServiceMapping: CommandBase
                                             $secureFiles += $item.inputs.secureFile;
                                         }
                                     }
-                                }                                   
+                                }
                             }
                             catch {
                                 #eat exception
                             } 
                             if($this.UseCache)
                             {
-                                # Find Service tree id for variable groups & secure files 
+                                # Find Service tree id for variable groups from cache 
                                 $this.FindSTWithReleaseForVGSecFileCache($relDef, $varGrps, $secureFiles,$accessToken,$secureFileDetails,$variableGroupSTMapping, $secureFileSTMapping)
                             }
                             else {
@@ -585,7 +604,7 @@ class AzSKADOServiceMapping: CommandBase
                     }
                     Catch{
                         #$this.PublishCustomMessage($_.Exception.Message)
-                    }                      
+                    }
                 }               
                 $releaseDefnsObj = $null;
             }
@@ -636,10 +655,10 @@ class AzSKADOServiceMapping: CommandBase
                     }
                     if($this.UseCache)
                     {
-                        # Find Service tree id for variable groups & secure files 
+                        # Find Service tree id for variable groups from cache
                         $this.FindSTWithBuildForVGSecFileCache($buildObj, $secureFiles, $accessToken, $secureFileDetails, $variableGroupSTMapping, $secureFileSTMapping)
                     }
-                    else {
+                    else {                        
                         $this.FindSTWithBuildForVGSecFile($buildObj, $secureFiles, $accessToken, $secureFileDetails, $variableGroupSTMapping, $secureFileSTMapping)
                     }                                                                                           
                 }
@@ -649,21 +668,26 @@ class AzSKADOServiceMapping: CommandBase
         catch{
             #eat exception
         }
-
-        #Removing duplicate entries of the tuple (variableGroupId,serviceId)
-        if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
-            $variableGroupSTMapping.data = $variableGroupSTMapping.data | Sort-Object -Unique variableGroupID,serviceID
-            $this.PublishCustomMessage("Service mapping found:  $(($variableGroupSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-            $this.ExportObjToJsonFile($variableGroupSTMapping.data, 'VariableGroupSTData.json');
-            $this.ExportObjToJsonFileUploadToBlob($variableGroupSTMapping.data, 'VariableGroupSTData.json');
-        }
-        #Removing duplicate entries of the tuple (securefile,serviceId)
-        if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
-            $secureFileSTMapping.data = $secureFileSTMapping.data | Sort-Object -Unique secureFileID,serviceID
-            $this.PublishCustomMessage("Service mapping found:  $(($secureFileSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-            $this.ExportObjToJsonFile($secureFileSTMapping.data, 'SecureFileSTData.json');
-            $this.ExportObjToJsonFileUploadToBlob($secureFileSTMapping.data, 'SecureFileSTData.json');
-        }
+          #Removing duplicate entries of the tuple (variableGroupId,serviceId)
+            if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
+                $variableGroupSTMapping.data = $variableGroupSTMapping.data | Sort-Object -Unique variableGroupID,serviceID
+                $this.PublishCustomMessage("Service mapping found:  $(($variableGroupSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
+                if($this.UseCache)
+                {          
+                    $this.ExportObjToJsonFile($variableGroupSTMapping.data, 'VariableGroupSTData.json');
+                    $this.ExportObjToJsonFileUploadToBlob($variableGroupSTMapping.data, 'VariableGroupSTData.json');
+                }
+            }
+            #Removing duplicate entries of the tuple (securefile,serviceId)
+            if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
+                $secureFileSTMapping.data = $secureFileSTMapping.data | Sort-Object -Unique secureFileID,serviceID
+                $this.PublishCustomMessage("Service mapping found:  $(($secureFileSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
+                if($this.UseCache)
+                { 
+                    $this.ExportObjToJsonFile($secureFileSTMapping.data, 'SecureFileSTData.json');
+                    $this.ExportObjToJsonFileUploadToBlob($secureFileSTMapping.data, 'SecureFileSTData.json');
+                }
+            }        
         return $true;
     }
 
@@ -773,8 +797,11 @@ class AzSKADOServiceMapping: CommandBase
             #eat exception
         }
         $this.PublishCustomMessage("Service mapping found:  $(($environmentSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-        $this.ExportObjToJsonFile($environmentSTMapping.data, 'EnvironmentSTData.json');
-        $this.ExportObjToJsonFileUploadToBlob($environmentSTMapping.data, 'EnvironmentSTData.json');
+        if($this.UseCache)
+        {            
+            $this.ExportObjToJsonFile($environmentSTMapping.data, 'EnvironmentSTData.json');
+            $this.ExportObjToJsonFileUploadToBlob($environmentSTMapping.data, 'EnvironmentSTData.json');
+        }
         return $true;
     }
 
@@ -847,10 +874,12 @@ class AzSKADOServiceMapping: CommandBase
                     }                   
                 }
         }
-        
         $this.PublishCustomMessage("Service mapping found:  $(($feedSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-        $this.ExportObjToJsonFile($feedSTMapping.data, 'FeedSTData.json');
-        $this.ExportObjToJsonFileUploadToBlob($feedSTMapping.data, 'FeedSTData.json');
+        if($this.UseCache)
+        {            
+            $this.ExportObjToJsonFile($feedSTMapping.data, 'FeedSTData.json');
+            $this.ExportObjToJsonFileUploadToBlob($feedSTMapping.data, 'FeedSTData.json');
+        }
         return $true;
     }
 
@@ -925,7 +954,17 @@ class AzSKADOServiceMapping: CommandBase
     #adding new mapping info
     hidden [void] AddMappinginfoInCache( [string]  $orgName, [string]  $projectID, [string]  $pipelineID, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceName,[string]  $resourceType,[string]  $pipelineType,[string]  $mappingExpiration) 
     {
-        $this.ServiceMappingCacheHelperObj.InsertMappingInfoInTable($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified,$resourceID,$resourceType,$resourceName,$pipelineType, $mappingExpiration)
+        #Get Release LastModified date from Cache(Azure Table)                                        
+        #$cachLastModifiedDate = $this.GetPipelineModifiedDate($relDef.id,"Release")      
+        #$relDef.modifiedOn -le $cachLastModifiedDate 
+        $resourceInCache = $this.GetResourceDataFromCache($pipelineType,$pipelineID,$resourceType, $resourceID)
+        if($resourceInCache)
+        {
+            $this.ServiceMappingCacheHelperObj.UpdateTableEntity($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified, $resourceID, $resourceType, $resourceName, $pipelineType,$mappingExpiration)
+        }
+        else {
+            $this.ServiceMappingCacheHelperObj.InsertMappingInfoInTable($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified,$resourceID,$resourceType,$resourceName,$pipelineType, $mappingExpiration)   
+        }        
     }
     
     hidden [object] GetResourceDataFromCache($pipelineType,$pipelineID,$resourceType, $resourceID )
@@ -952,7 +991,7 @@ class AzSKADOServiceMapping: CommandBase
                         if($buildSTData)
                         {
                             $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.name; variableGroupID = $_.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
-                            $this.AddMappinginfoInCache($buildSTData.orgName,$buildSTData.projectID,$buildObj.id, $buildSTData.serviceID,$buildObj.modifiedOn,$_.id,"VariableGroup","Build",(Get-date).AddDays(30)); 
+                            $this.AddMappinginfoInCache($buildSTData.orgName,$buildSTData.projectID,$buildObj.id, $buildSTData.serviceID,$buildObj.modifiedOn,$_.id,"VariableGroup","Build",(Get-date).AddDays($this.MappingExpirationLimit)); 
                         }
                         else  {
                             if ($varGrps.Type -eq 'AzureKeyVault')
@@ -977,7 +1016,7 @@ class AzSKADOServiceMapping: CommandBase
                                                         $serviceId = $responseObj[2].Rows[0][4];  
                                                         $projectID = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.id;                                                  
                                                         $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.name; variableGroupID = $_.id; serviceID = $serviceId; projectName = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.name; projectID = $projectID; orgName = $this.OrgName } )
-                                                        $this.AddMappinginfoInCache($this.OrgName,$projectID,$buildObj.id, $serviceId,$buildObj.modifiedOn,$_.id,$_.name,"VariableGroup","Build",(Get-date).AddDays(30)); 
+                                                        $this.AddMappinginfoInCache($this.OrgName,$projectID,$buildObj.id, $serviceId,$buildObj.modifiedOn,$_.id,$_.name,"VariableGroup","Build",(Get-date).AddDays($this.MappingExpirationLimit)); 
                                                 }
                                             }
                                             catch {
@@ -1094,7 +1133,7 @@ class AzSKADOServiceMapping: CommandBase
                                     if($releaseSTData)
                                     {
                                         $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
-                                        $this.AddMappinginfoInCache($releaseSTData.orgName,$releaseSTData.projectID,$relDef.id, $releaseSTData.serviceID,$relDef.modifiedOn,$varGrpObj.id,$varGrpObj.name,"VariableGroup","Release",(Get-date).AddDays(30)); 
+                                        $this.AddMappinginfoInCache($releaseSTData.orgName,$releaseSTData.projectID,$relDef.id, $releaseSTData.serviceID,$relDef.modifiedOn,$varGrpObj.id,$varGrpObj.name,"VariableGroup","Release",(Get-date).AddDays($this.MappingExpirationLimit)); 
                                     }
                                     else {
                                         if ($varGrpObj.Type -eq 'AzureKeyVault') { 
@@ -1118,7 +1157,7 @@ class AzSKADOServiceMapping: CommandBase
                                                                     $serviceId = $responseObj[2].Rows[0][4];
                                                                     $projectID = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.id;
                                                                     $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $serviceId; projectName = $serviceConnEndPointDetail.serviceEndpoint.serviceEndpointProjectReferences.projectReference.name; projectID = $projectID; orgName = $this.OrgName } )
-                                                                    $this.AddMappinginfoInCache($this.OrgName,$projectID ,$relDef.id, $serviceId,$relDef.modifiedOn,$varGrpObj.id,$varGrpObj.name,"VariableGroup","Release",(Get-date).AddDays(30)); 
+                                                                    $this.AddMappinginfoInCache($this.OrgName,$projectID ,$relDef.id, $serviceId,$relDef.modifiedOn,$varGrpObj.id,$varGrpObj.name,"VariableGroup","Release",(Get-date).AddDays($this.MappingExpirationLimit)); 
                                                             } 
                                                         }
                                                         catch {
@@ -1156,7 +1195,7 @@ class AzSKADOServiceMapping: CommandBase
                         $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $relDef.id) };
                         if($releaseSTData){
                             $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $secureFilesObj.name; secureFileID = $secureFilesObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
-                            $this.AddMappinginfoInCache($releaseSTData.orgName,$releaseSTData.projectID,$relDef.id, $releaseSTData.serviceID,$relDef.modifiedOn,$secureFilesObj.id,$secureFilesObj.name,"SecureFile","Release",(Get-date).AddDays(30)); 
+                            $this.AddMappinginfoInCache($releaseSTData.orgName,$releaseSTData.projectID,$relDef.id, $releaseSTData.serviceID,$relDef.modifiedOn,$secureFilesObj.id,$secureFilesObj.name,"SecureFile","Release",(Get-date).AddDays($this.MappingExpirationLimit)); 
                         }
                     }
                     }

@@ -5,7 +5,7 @@ class ServiceMappingCacheHelper {
     hidden [bool] $UseAzureStorageAccount;
     hidden [string] $OrganizationName;
     # Resource Caching Storage settings to cache mappings
-    hidden [string] $CacheStorageAccount;# Storage account name for Caching 
+    hidden [string] $CacheStorageName;# Storage account name for Caching 
     hidden [string] $CacheStorageRG;# Storage resource group name for Caching 
     hidden [string] $CacheTable;#Storage table to cache resource mapping
     hidden [object] $CacheStorageAccountCtx;
@@ -15,16 +15,16 @@ class ServiceMappingCacheHelper {
     ServiceMappingCacheHelper([string] $orgName) {
         $this.OrganizationName = $orgName;
         # Resources Caching Storage settings
-        $this.CacheStorageAccount = $env:CacheStorageName;
+        $this.CacheStorageName = $env:CacheStorageName;
         $this.CacheStorageRG = $env:CacheStorageRG;
         $this.CacheTable = $env:CacheTable;         
         #get storage details       
-        if ($this.CacheStorageRG -and $this.CacheStorageAccount) {
-            $keys = Get-AzStorageAccountKey -ResourceGroupName $this.CacheStorageRG -Name $this.CacheStorageAccount
+        if ($this.CacheStorageRG -and $this.CacheStorageName) {
+            $keys = Get-AzStorageAccountKey -ResourceGroupName $this.CacheStorageRG -Name $this.CacheStorageName
             if ($null -ne $keys)
             {             
                #storage context to cache resource mappings
-               $CacheStorageContext = New-AzStorageContext -StorageAccountName $this.CacheStorageAccount -StorageAccountKey $keys[0].Value -Protocol Https                                
+               $CacheStorageContext = New-AzStorageContext -StorageAccountName $this.CacheStorageName -StorageAccountKey $keys[0].Value -Protocol Https                                
                $this.CacheStorageAccountCtx = $CacheStorageContext.Context; 
                $this.SharedKey = $keys[0].Value;
                $this.hmacsha = New-Object System.Security.Cryptography.HMACSHA256
@@ -43,40 +43,34 @@ class ServiceMappingCacheHelper {
 
     #function to search for existing mapping based on hash id
     hidden [object] GetWorkItemByHashAzureTable([string] $resourceType, [string] $pipelineType, [string] $pipelineId,[string] $resourceId, [string] $projectID) 
-    {
-        #get table filter by name
-        $tableName = $this.CacheTable;
-        $cachedItem  = @{};
-
-        try {
-            #get storage table data.
-            $azTableMappingInfo = @();
-            $azTableMappingInfo += $this.GetTableEntity($projectID,$tableName,$pipelineId,$pipelineType, $resourceId,$resourceType); 
-            if ($azTableMappingInfo -and $azTableMappingInfo.count -gt 0) {
-                $cachedItem = $azTableMappingInfo[0];              
-                return $cachedItem;
+    {    
+        #get storage table data.
+        $azTableMappingInfo = @();   
+        try {            
+            $azTableMappingInfo += $this.GetTableEntity($projectID,$pipelineId,$pipelineType, $resourceId,$resourceType); 
+            if ($azTableMappingInfo -and $azTableMappingInfo.count -gt 0) {                            
+                return $azTableMappingInfo[0];
             }
         }
         catch {
             Write-Host $_
             Write-Host "Could not access storage account." -ForegroundColor Red
-        }
-
-        return $cachedItem;
+        }  
+        
+        return $azTableMappingInfo;
     }
 
     hidden [bool] InsertMappingInfoInTable( [string]  $orgName, [string]  $projectID, [string]  $pipelineID, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration) 
     {
         try 
-        {
-           $tableName = $this.CacheTable;           
+        {                   
            #Get table filterd by name.
            $storageTables = @();
            $storageTables += Get-AzStorageTable -Context $this.CacheStorageAccountCtx | Select Name;
 
            #create table if table not found.
-           if ( !$storageTables -or ($storageTables.count -eq 0) -or !($storageTables.Name -eq $tableName) ) {
-               New-AzStorageTable $tableName -Context $this.CacheStorageAccountCtx;
+           if ( !$storageTables -or ($storageTables.count -eq 0) -or !($storageTables.Name -eq $this.CacheTable) ) {
+               New-AzStorageTable $this.CacheTable -Context $this.CacheStorageAccountCtx;
            }
 
            $isDataAddedInTable = $this.AddDataInTable($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified,$resourceID,$resourceType,$resourceName,$pipelineType, $mappingExpiration)
@@ -88,7 +82,7 @@ class ServiceMappingCacheHelper {
         return $false
     }
 
-    hidden [object] GetTableEntity($projectID,$tableName,$pipelineId,$pipelineType, $resourceId,$resourceType) {
+    hidden [object] GetTableEntity($projectID,$pipelineId,$pipelineType, $resourceId,$resourceType) {
         try 
         {
             $hash = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,$resourceID,$resourceType)
@@ -99,8 +93,8 @@ class ServiceMappingCacheHelper {
                 Default  {$query = 'PartitionKey eq ''{0}''' -f $hash}                
             }            
             $resource = '$filter='+[System.Web.HttpUtility]::UrlEncode($query);
-            $table_url = "https://{0}.table.core.windows.net/{1}?{2}" -f $this.CacheStorageAccount, $tableName, $resource
-            $headers = $this.GetHeader($tableName)
+            $table_url = "https://{0}.table.core.windows.net/{1}?{2}" -f $this.CacheStorageName, $this.CacheTable, $resource
+            $headers = $this.GetHeader($this.CacheTable)
             $item = Invoke-RestMethod -Method Get -Uri $table_url -Headers $headers -ContentType "application/json"
             return $item.value;
         }
@@ -121,7 +115,7 @@ class ServiceMappingCacheHelper {
         {
             #Add data in table.            
             $entity = @{"PartitionKey" = $partitionKey; "RowKey" = $rowKey; "OrgName" = $orgName; "ProjectID" = $projectID; "PipelineID" = $pipelineID;"ServiceTreeID" = $serviceTreeID;"PipelineLastModified" = $pipelineLastModified;"ResourceID" = $resourceID;"ResourceType" = $resourceType;"ResourceName" = $resourceName;"PipelineType" = $pipelineType;  "MappingExpiration" = $MappingExpiration};
-            $table_url = "https://{0}.table.core.windows.net/{1}" -f $this.CacheStorageAccount, $this.CacheTable
+            $table_url = "https://{0}.table.core.windows.net/{1}" -f $this.CacheStorageName, $this.CacheTable
             $headers = $this.GetHeader($this.CacheTable);
             $body = $entity | ConvertTo-Json
             $item = Invoke-RestMethod -Method POST -Uri $table_url -Headers $headers -Body $body -ContentType "application/json"
@@ -142,21 +136,21 @@ class ServiceMappingCacheHelper {
         
         try {
             #Update data in table.
-           
+            $tableName = $this.CacheTable;
             $entity = @{"OrgName" = $orgName; "ProjectID" = $projectID; "PipelineID" = $pipelineID;"ServiceTreeID" = $serviceTreeID;"PipelineLastModified" = $pipelineLastModified;"ResourceID" = $resourceID;"ResourceType" = $resourceType;"ResourceName" = $resourceName;"PipelineType" = $pipelineType;  "MappingExpiration" = $MappingExpiration};
             $body = $entity | ConvertTo-Json
             $version = "2017-04-17"
             $resource = "$tableName(PartitionKey='$PartitionKey',RowKey='$Rowkey')"
-            $table_url = "https://$($this.StorageAccount).table.core.windows.net/$resource"
+            $table_url = "https://$($this.CacheStorageName).table.core.windows.net/$resource"
             $GMTTime = (Get-Date).ToUniversalTime().toString('R')
-            $stringToSign = "$GMTTime`n/$($this.StorageAccount)/$resource"
+            $stringToSign = "$GMTTime`n/$($this.CacheStorageName)/$resource"
 
             $signature = $this.hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign))
             $signature = [Convert]::ToBase64String($signature)
             $body = $entity | ConvertTo-Json
             $headers = @{
                 'x-ms-date'      = $GMTTime
-                Authorization    = "SharedKeyLite " + $this.CacheStorageAccount + ":" + $signature
+                Authorization    = "SharedKeyLite " + $this.CacheStorageName + ":" + $signature
                 "x-ms-version"   = $version
                 Accept           = "application/json;odata=minimalmetadata"
                 'If-Match'       = "*"
@@ -177,13 +171,13 @@ class ServiceMappingCacheHelper {
     {
         $version = "2017-07-29"
         $GMTTime = (Get-Date).ToUniversalTime().toString('R')
-        $stringToSign = "$GMTTime`n/$($this.CacheStorageAccount)/$tableName"
+        $stringToSign = "$GMTTime`n/$($this.CacheStorageName)/$tableName"
         
         $signature = $this.hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign))
         $signature = [Convert]::ToBase64String($signature)
         $headers = @{
             'x-ms-date'    = $GMTTime
-            Authorization  = "SharedKeyLite " + $this.CacheStorageAccount + ":" + $signature
+            Authorization  = "SharedKeyLite " + $this.CacheStorageName + ":" + $signature
             "x-ms-version" = $version
             Accept         = "application/json;odata=minimalmetadata"
         }
