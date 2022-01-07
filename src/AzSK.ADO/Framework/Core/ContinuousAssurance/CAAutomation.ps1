@@ -65,6 +65,7 @@ class CAAutomation : ADOSVTCommandBase
 	hidden [string] $messages
 	hidden [string] $ScheduleMessage
 	[PSObject] $ControlSettings;
+	hidden [bool] $CreateCommonDataStorageAccount = $false;
 	
 	CAAutomation(
 		[string] $SubId, `
@@ -83,7 +84,7 @@ class CAAutomation : ADOSVTCommandBase
 		[bool] $CreateLAWS, `
 		[System.Security.SecureString] $OAuthAppId, `
 		[System.Security.SecureString] $ClientSecret, `
-		[string] $AuthorizedScopes) : Base($OrgName, $invocationContext)
+		[string] $AuthorizedScopes, [bool] $createCommonDataStorageAccount) : Base($OrgName, $invocationContext)
     {
 		$this.SubscriptionId = $SubId
 		$this.OrganizationToScan = $OrgName
@@ -94,7 +95,7 @@ class CAAutomation : ADOSVTCommandBase
 		$this.ExtendedCommand = $ExtCmd
 		$this.TimeStamp = (Get-Date -format "yyMMddHHmmss")
 		$this.StorageName = "adoscannersa"+$this.TimeStamp
-		$this.CommonDataSA = "commondatasa"+$this.TimeStamp
+		$this.CommonDataSA = "adoscannercommondatasa"
 		$this.FuncAppName = $this.FuncAppDefaultName + $this.TimeStamp 
 		$this.KeyVaultName = $this.KVDefaultName+$this.TimeStamp 
 		$this.AppInsightsName = $this.FuncAppName
@@ -106,6 +107,7 @@ class CAAutomation : ADOSVTCommandBase
 		$this.OAuthClientSecret = $ClientSecret
 		$this.OAuthApplicationId = $OAuthAppId
 		$this.OAuthAuthorizedScopes = $AuthorizedScopes
+		$this.CreateCommonDataStorageAccount = $createCommonDataStorageAccount;
 
 		if ($null -ne $ScanIntervalInHours -and $ScanIntervalInHours -gt 0)
 		{
@@ -222,7 +224,7 @@ class CAAutomation : ADOSVTCommandBase
 			$this.ModuleEnv	= $ModuleEnv 
 			$this.UseDevTestImage = $UseDevTestImage 
 			$this.TriggerNextScanInMin = $TriggerNextScanInMin
-
+			
 			<#
 			$this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
 
@@ -471,17 +473,24 @@ class CAAutomation : ADOSVTCommandBase
             }
 
 			#Step 3: Create a common storage storage account for bug logging
-            $StorageAccountToCommonData = New-AzStorageAccount -ResourceGroupName $this.RGname -Name $this.CommonDataSA -Type $this.StorageType -Location $this.Location -Kind $this.StorageKind -EnableHttpsTrafficOnly $true -ErrorAction Stop
-            if($null -eq $StorageAccountToCommonData) 
-            {
-                $this.PublishCustomMessage("Storage account [$($this.CommonDataSA)] creation failed", [MessageType]::Error);
-            }
-            else
-            {
-                $this.PublishCustomMessage("Storage [$($this.CommonDataSA)] created", [MessageType]::Update);
-                $this.CreatedResources += $StorageAccountToCommonData.Id
-
-            }
+			if ($this.CreateCommonDataStorageAccount) {
+				if ((($commondata = Get-AzResource -ResourceGroupName $this.RGName -ResourceType 'Microsoft.Storage/storageAccounts' -Name $this.CommonDataSA) | measure-object).count -eq 0) {
+					$StorageAccountToCommonData = New-AzStorageAccount -ResourceGroupName $this.RGname -Name $this.CommonDataSA -Type $this.StorageType -Location $this.Location -Kind $this.StorageKind -EnableHttpsTrafficOnly $true -ErrorAction Stop
+           			if($null -eq $StorageAccountToCommonData) 
+           			{
+           			    $this.PublishCustomMessage("Storage account for common data [$($this.CommonDataSA)] creation failed.", [MessageType]::Error);
+           			}
+           			else
+           			{
+           			    $this.PublishCustomMessage("Storage [$($this.CommonDataSA)] created for common data store.", [MessageType]::Update);
+           			    $this.CreatedResources += $StorageAccountToCommonData.Id
+           			}
+				}
+				else 
+            	{
+            	    $this.PublishCustomMessage("Common data storage account: [$($this.CommonDataSA)] already exists. Skipping creation.", [MessageType]::Update);
+            	}
+			}
 
             #Step 4: Create LAW if applicable
             if ($this.CreateLAWS -eq $true)
@@ -721,10 +730,12 @@ class CAAutomation : ADOSVTCommandBase
 								"ProjectNames" = $this.ProjectNames;
 								"ExtendedCommand" = $this.ExtendedCommand;
 								"StorageName" = $this.StorageName;
-								"CommonDataSA" = $this.CommonDataSA;
 								"AzSKADOModuleEnv" = $this.ModuleEnv;
 								"AzSKADOVersion" = "";
 							}
+				if ($this.CreateCommonDataStorageAccount) {
+					$NewAppSettings["CommonDataSA"] = $this.CommonDataSA;
+				}
 				$AppSettings = $NewAppSettings + $AppSettingsHT 
 		
 				$updatedWebApp = Update-AzFunctionAppSetting -Name $this.FuncAppName -ResourceGroupName $this.RGname -AppSetting $AppSettings -Force
@@ -875,6 +886,18 @@ class CAAutomation : ADOSVTCommandBase
 				{
 					$this.PublishCustomMessage("MSI access to storage provided", [MessageType]::Update);
 				}
+
+				if ($this.CreateCommonDataStorageAccount) {
+					$MSIAccessToCommonDataSA = New-AzRoleAssignment -ObjectId $FuncAppIdentity  -RoleDefinitionName "Contributor" -ResourceName $this.CommonDataSA -ResourceGroupName $this.RGname -ResourceType Microsoft.Storage/storageAccounts
+					if($null -eq $MSIAccessToCommonDataSA) 
+					{
+						$this.PublishCustomMessage("MSI access to common data storage failed", [MessageType]::Error);
+					}
+					else
+					{
+						$this.PublishCustomMessage("MSI access to common data storage provided", [MessageType]::Update);
+					}	
+				}
         
                 
                 #Step 9a: Add identity Client id to key vault secret
@@ -942,11 +965,14 @@ class CAAutomation : ADOSVTCommandBase
 								"ProjectNames" = $this.ProjectNames;
 								"ExtendedCommand" = $this.ExtendedCommand;
 								"StorageName" = $this.StorageName;
-								"CommonDataSA" = $this.CommonDataSA
 								"AzSKADOModuleEnv" = $this.ModuleEnv;
                                 "AzSKADOVersion" = "";
                                 "ClientId" = $identitySecretUri;
 							}
+				if ($this.CreateCommonDataStorageAccount) {
+					$NewAppSettings["CommonDataSA"] = $this.CommonDataSA;
+				}
+
 				$AppSettings = $NewAppSettings + $AppSettingsHT 
 		
 				$updatedWebApp = Update-AzFunctionAppSetting -Name $this.FuncAppName -ResourceGroupName $this.RGname -AppSetting $AppSettings -Force
@@ -1127,7 +1153,17 @@ class CAAutomation : ADOSVTCommandBase
                         $this.PublishCustomMessage("MSI access to storage provided", [MessageType]::Update);
                     }
 
-
+					if ($this.CreateCommonDataStorageAccount) {
+						$MSIAccessToCommonDataSA = New-AzRoleAssignment -ObjectId $FuncAppIdentity  -RoleDefinitionName "Contributor" -ResourceName $this.CommonDataSA -ResourceGroupName $this.RGname -ResourceType Microsoft.Storage/storageAccounts
+						if($null -eq $MSIAccessToCommonDataSA) 
+						{
+							$this.PublishCustomMessage("MSI access to common data storage failed", [MessageType]::Error);
+						}
+						else
+						{
+							$this.PublishCustomMessage("MSI access to common data storage provided", [MessageType]::Update);
+						}	
+					}
 
                     #Step 10: Configure required env variables in function app for scan
                     $identitySecretUri = $CreatedSecret.Id
@@ -1168,13 +1204,15 @@ class CAAutomation : ADOSVTCommandBase
                                     "ProjectNames" = $this.ProjectNames;
                                     "ExtendedCommand" = $this.ExtendedCommand;
                                     "StorageName" = $this.StorageName;
-									"CommonDataSA" = $this.CommonDataSA;
                                     "KeyVaultName" = $this.KeyVaultName;
                                     "AzSKADOModuleEnv" = $this.ModuleEnv;
                                     "AzSKADOVersion" = "";
                                     "ClientSecret" = $identitySecretUri;
                                     "RefreshToken" = $tokenSecretUri;
                                 }
+					if ($this.CreateCommonDataStorageAccount) {
+						$NewAppSettings["CommonDataSA"] = $this.CommonDataSA;
+					}
                     $AppSettings = $NewAppSettings + $AppSettingsHT 
             
                     $updatedWebApp = Update-AzFunctionAppSetting -Name $this.FuncAppName -ResourceGroupName $this.RGname -AppSetting $AppSettings -Force
