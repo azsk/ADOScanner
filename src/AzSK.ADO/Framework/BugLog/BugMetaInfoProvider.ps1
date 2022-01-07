@@ -224,10 +224,7 @@ class BugMetaInfoProvider {
         $orgMapping = Get-Content "$($this.STMappingFilePath)\OrgSTData.csv" | ConvertFrom-Csv
         $orgOwnerDetails = @($orgMapping | where {$_."ADO Org Name" -eq $organizationName})
         if($orgOwnerDetails.Count -gt 0){
-            $assignee = $orgOwnerDetails[0]."OwnerAlias"            
-            if($assignee -notlike "*microsoft.com"){
-                $assignee+="@microsoft.com"
-            }
+            $assignee = $orgOwnerDetails[0]."OwnerAlias"   
             [BugMetaInfoProvider]::OrgMappingObj[$organizationName] = $assignee
         }
 

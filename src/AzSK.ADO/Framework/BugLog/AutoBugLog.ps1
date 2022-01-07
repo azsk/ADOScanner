@@ -208,7 +208,11 @@ class AutoBugLog {
                             Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID).`n Assignee could not be determined." -ForegroundColor Yellow
                             return;
                         }
-                    }                    
+                    } 
+                    #if assignee is not from org mapping, it may not have domain name, in case of assignee from CSV it will have
+                    if($AssignedTo -notlike "*microsoft.com"){
+                        $AssignedTo+="@microsoft.com"
+                    }                   
                 }
                 catch {
                     Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID).`n Assignee could not be determined." -ForegroundColor Yellow
