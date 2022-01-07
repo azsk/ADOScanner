@@ -7,6 +7,7 @@ class BugMetaInfoProvider {
     hidden [PSObject] $InvocationContext
     hidden [bool] $BugLogUsingCSV = $false;
     hidden [string] $STMappingFilePath = $null
+    hidden static $OrgMappingObj = @{}
 
     BugMetaInfoProvider() {
 
@@ -213,6 +214,24 @@ class BugMetaInfoProvider {
             }
         }
         return "";
+    }
+
+    hidden [string] GetAssigneeFromOrgMapping($organizationName){
+        $assignee = $null;
+        if([BugMetaInfoProvider]::OrgMappingObj.ContainsKey($organizationName)){
+            return [BugMetaInfoProvider]::OrgMappingObj[$organizationName]
+        }
+        $orgMapping = Get-Content "$($this.STMappingFilePath)\OrgSTData.csv" | ConvertFrom-Csv
+        $orgOwnerDetails = @($orgMapping | where {$_."ADO Org Name" -eq $organizationName})
+        if($orgOwnerDetails.Count -gt 0){
+            $assignee = $orgOwnerDetails[0]."OwnerAlias"            
+            if($assignee -notlike "*microsoft.com"){
+                $assignee+="@microsoft.com"
+            }
+            [BugMetaInfoProvider]::OrgMappingObj[$organizationName] = $assignee
+        }
+
+        return $assignee;
     }
 
 }
