@@ -306,6 +306,9 @@ class WebRequestHelper {
 				try
 				{
 					$requestResult = $null;
+
+					#before making API call, check if previous API call was throttled and if we have any retry after value. Wait before making any new API call if required
+					[RateLimitHelper]::WaitIfNeeded($validatedUri);
 			
 					if ($method -eq [Microsoft.PowerShell.Commands.WebRequestMethod]::Get) 
 					{
@@ -340,6 +343,8 @@ class WebRequestHelper {
 			
 					if ($null -ne $requestResult -and $requestResult.StatusCode -ge 200 -and $requestResult.StatusCode -le 399) {
 						if (!$success -and $null -ne $requestResult.Content) {
+							#check if this API call was throttled, store any appropriate headers for rate limiting for next API calls
+							[RateLimitHelper]::UpdateRateLimitEntity($requestResult, $validatedUri);
 							$json = ConvertFrom-Json $requestResult.Content
 							if ($null -ne $json) {
 								if (($json | Get-Member -Name "value") -and $json.value) {

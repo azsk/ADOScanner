@@ -855,6 +855,10 @@
       ]
     }
   ]     
+  },
+  "RateLimiter":{
+    "MaxAllowedDelay":300,
+    "MaxAPIThrottledBeforeSleep":10
   }  
   
 }
