@@ -42,7 +42,8 @@ class RateLimitHelper {
                         [RateLimitHelper]::APIThrottleCounter = 0;
                         return;
                     }
-                }                  
+                } 
+		#The rate limit reset from API is in the UNIX epoch format. To convert it to current UTC time, need to add this value to the UNIX epoch start date.
                 $rateLimitResetDate = (Get-Date 01.01.1970) + ([System.TimeSpan]::FromSeconds($rateLimitReset));
                 #in case retry after is null retry should be done on the basis of rate limit reset date
                 if(-not [string]::IsNullOrEmpty($retryAfter)){
