@@ -421,7 +421,8 @@ class ServiceConnection: ADOSVTBase
                 $controlResult.AddMessage("`nNote:`nThe following 'Build Service' accounts should not have access to service connection: `nProject Collection Build Service Account`n$($this.ResourceContext.ResourceGroupName) Build Service ($($this.OrganizationContext.OrganizationName))");
             }
             else{
-                $controlResult.AddMessage([VerificationResult]::Error,"Unable to fetch service endpoint group identity.");
+                $controlResult.AddMessage([VerificationResult]::Verify,"Unable to fetch service endpoint group identity.");
+                # Will occur if no user permission exists on the svc
             }
         }
         catch {

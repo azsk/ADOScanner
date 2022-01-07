@@ -1927,8 +1927,6 @@ class Release: ADOSVTBase
     {
         try
         {
-            if ([Release]::IsOAuthScan -eq $true)
-            {
                 if($this.ReleaseObj)
                 {
                     if([Helpers]::CheckMember($this.ReleaseObj ,"lastrelease"))
@@ -1968,107 +1966,6 @@ class Release: ADOSVTBase
 
                     $responseObj = $null;
                 }
-            }
-            else {
-                if($this.ReleaseObj)
-                {
-                    $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$this.ProjectId;
-                    $inputbody =  "{
-                        'contributionIds': [
-                            'ms.vss-releaseManagement-web.releases-list-data-provider'
-                        ],
-                        'dataProviderContext': {
-                            'properties': {
-                                'definitionIds': '$($this.ReleaseObj.id)',
-                                'definitionId': '$($this.ReleaseObj.id)',
-                                'fetchAllReleases': true,
-                                'sourcePage': {
-                                    'url': 'https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceGroupName)/_release?_a=releases&view=mine&definitionId=$($this.ReleaseObj.id)',
-                                    'routeId': 'ms.vss-releaseManagement-web.hub-explorer-3-default-route',
-                                    'routeValues': {
-                                        'project': '$($this.ResourceContext.ResourceGroupName)',
-                                        'viewname': 'hub-explorer-3-view',
-                                        'controller': 'ContributedPage',
-                                        'action': 'Execute'
-                                    }
-                                }
-                            }
-                        }
-                    }"  | ConvertFrom-Json
-
-                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
-
-                if([Helpers]::CheckMember($responseObj,"dataProviders") -and ($responseObj.dataProviders | Get-Member 'ms.vss-releaseManagement-web.releases-list-data-provider') -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider', 'releases'))
-                {
-
-                    $releases = @($responseObj.dataProviders.'ms.vss-releaseManagement-web.releases-list-data-provider'.releases)
-
-                    if($releases.Count -gt 0 )
-                    {
-                        try {
-                            $this.releaseActivityDetail.releaseCreationDate = [datetime]::Parse($this.ReleaseObj.createdOn); 
-                        }
-                        catch {
-                            $this.releaseActivityDetail.releaseCreationDate = $this.ReleaseObj.createdOn;
-                        }
-                        $recentReleases = @()
-                        $releases | ForEach-Object {
-                            $release =  $_;
-                            try {
-                                $createdOn = [datetime]::Parse( $release.createdOn)  
-                            }
-                            catch {
-                                $createdOn = $release.createdOn
-                            }
-                            if( $createdOn -gt (Get-Date).AddDays(-$($this.ControlSettings.Release.ReleaseHistoryPeriodInDays)))
-                            {
-                                $recentReleases+=$release
-                            }
-                        }
-
-                        if(($recentReleases | Measure-Object).Count -gt 0 )
-                        {
-                            $this.releaseActivityDetail.isReleaseActive = $true;
-                            $this.releaseActivityDetail.message = "Found recent releases triggered within $($this.ControlSettings.Release.ReleaseHistoryPeriodInDays) days";
-                        }
-                        else
-                        {
-                            $this.releaseActivityDetail.isReleaseActive = $false;
-                            $this.releaseActivityDetail.message = "No recent release history found in last $($this.ControlSettings.Release.ReleaseHistoryPeriodInDays) days";
-                        }
-                        try {
-                            $latestReleaseTriggerDate = [datetime]::Parse($releases[0].createdOn);
-                            $this.releaseActivityDetail.latestReleaseTriggerDate = $latestReleaseTriggerDate;
-                        }
-                        catch {
-                            $latestReleaseTriggerDate = $releases[0].createdOn;
-                            $this.releaseActivityDetail.latestReleaseTriggerDate = $latestReleaseTriggerDate;
-                        }
-                        
-                    }
-                    else
-                    {
-                        # no release history ever.
-                        $this.releaseActivityDetail.isReleaseActive = $false;
-                        try {
-                            $this.releaseActivityDetail.releaseCreationDate = [datetime]::Parse($this.ReleaseObj.createdOn);  
-                        }
-                        catch {
-                            $this.releaseActivityDetail.releaseCreationDate = $this.ReleaseObj.createdOn;
-                        }
-                        $this.releaseActivityDetail.message = "No release history found.";
-                    }
-
-                }
-                else
-                {
-                    $this.releaseActivityDetail.isReleaseActive = $false;
-                    $this.releaseActivityDetail.message = "No release history found. Release is inactive.";
-                }
-
-                $responseObj = $null;
-                }
-            }
         }
         catch
         {
