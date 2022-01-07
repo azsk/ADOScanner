@@ -9,7 +9,8 @@ class CAAutomation : ADOSVTCommandBase
     hidden [string] $IdentityId
     hidden [string] $TimeStamp #Use for new CA creation only.
     hidden [string] $StorageName
-	hidden [string] $CommonDataSA
+	hidden [bool] $CreateCommonDataStorageAccount = $false;
+	hidden [string] $CommonDataSA = "adoscannercommondatasa"
     hidden [string] $AppServicePlanName = "ADOScannerFAPlan"
 	hidden [string] $FuncAppDefaultName = "ADOScannerFA"
     hidden [string] $KVDefaultName = "ADOScannerKV"
@@ -65,7 +66,6 @@ class CAAutomation : ADOSVTCommandBase
 	hidden [string] $messages
 	hidden [string] $ScheduleMessage
 	[PSObject] $ControlSettings;
-	hidden [bool] $CreateCommonDataStorageAccount = $false;
 	
 	CAAutomation(
 		[string] $SubId, `
@@ -95,7 +95,6 @@ class CAAutomation : ADOSVTCommandBase
 		$this.ExtendedCommand = $ExtCmd
 		$this.TimeStamp = (Get-Date -format "yyMMddHHmmss")
 		$this.StorageName = "adoscannersa"+$this.TimeStamp
-		$this.CommonDataSA = "adoscannercommondatasa"
 		$this.FuncAppName = $this.FuncAppDefaultName + $this.TimeStamp 
 		$this.KeyVaultName = $this.KVDefaultName+$this.TimeStamp 
 		$this.AppInsightsName = $this.FuncAppName
