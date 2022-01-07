@@ -115,7 +115,7 @@ class SVTResourceResolver: AzSKRoot {
         $this.ProjectNames = $ProjectNames
         $this.ResourceTypeName = $ResourceTypeName
         $this.SetallTheParamValues($this.ProjectNames,$ResourceTypeName,$Force)
-    }
+    } 
 
     [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceIds, $IncludeAdminControls,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan, $UseIncrementalScan, $IncrementalDate) {
 
@@ -370,20 +370,23 @@ class SVTResourceResolver: AzSKRoot {
             }
             else
             {
-                $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $($this.organizationName);
-
-                $inputbody = "{'contributionIds':['ms.vss-features.my-organizations-data-provider'],'dataProviderContext':{'properties':{'sourcePage':{'url':'https://dev.azure.com/$($this.organizationName)','routeId':'ms.vss-tfs-web.suite-me-page-route','routeValues':{'view':'projects','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-                $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL, $inputbody);
-                $organizationId = ($responseObj[0].dataProviders."ms.vss-features.my-organizations-data-provider".organizations | Where-Object {$_.name -eq $this.organizationName}).id
-                $inputbody = $null;
-                Remove-Variable inputbody;
+                $apiURL = "https://dev.azure.com/{0}/_apis/connectionData" -f $this.organizationname
+                $user = ""
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user, [ContextHelper]::currentContext.AccessToken)))
+                $headers = @{
+                                "Authorization"= ("Basic " + $base64AuthInfo); 
+                                "Content-Type"="application/json"
+                            };
+                $responseObj = Invoke-RestMethod -Method Get -Uri $apiURL -Headers $headers -UseBasicParsing
+                $organizationId = $responseObj.instanceId;
+                Remove-Variable responseObj;
             }
-        }
-        catch {
-            $user = [ContextHelper]::GetCurrentSessionUser();
-            $this.PublishCustomMessage("Organization not found: Incorrect organization name or '$($user)' account does not have necessary permission to access the organization. Use -ResetCredentials parameter in command to login with another account. `n", [MessageType]::Warning);
-            throw;
-        }
+       }
+       catch {
+           $user = [ContextHelper]::GetCurrentSessionUser();
+           $this.PublishCustomMessage("Organization not found: Incorrect organization name or '$($user)' account does not have necessary permission to access the organization. Use -ResetCredentials parameter in command to login with another account. `n", [MessageType]::Warning);
+           throw [SuppressedException] "The remote server returned an error: (404) Not Found."
+       }
         if ($this.ResourceTypeName -in ([ResourceTypeName]::Organization, [ResourceTypeName]::All, [ResourceTypeName]::Org_Project_User) -and ([string]::IsNullOrEmpty($this.serviceIds)) )
         {
             if($PSCmdlet.MyInvocation.MyCommand.Name -eq "Set-AzSKADOBaselineConfigurations" -and $this.IsResourceEligibleForBaselineConfig([ResourceTypeName]::Organization,$this.organizationName) -eq $false){
@@ -904,102 +907,45 @@ class SVTResourceResolver: AzSKRoot {
                     }
 
                     if ($this.AgentPools.Count -gt 0 -and ($this.ResourceTypeName -in ([ResourceTypeName]::AgentPool, [ResourceTypeName]::All, [ResourceTypeName]::Build_Release_SvcConn_AgentPool_VarGroup_User_CommonSVTResources, [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources)) -and $this.shouldFetchResource -eq $true)
-
-
                     {
                         if ($this.ProjectNames -ne "*") {
                             $this.PublishCustomMessage("Getting agent pools configurations...");
                         }
                         # Here we are fetching all the agent pools in the project and then filtering out. But in build & release we fetch them individually unless '*' is used for fetching all of them.
-                        if (-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret))
-                        {
-                            $agentPoolsDefnURL =  "https://dev.azure.com/{0}/{1}/_apis/distributedtask/queues?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName), $projectName;
-
-                            try {
-                                $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
-
-                                if (($agentPoolsDefnsObj | Measure-Object).Count -gt 0 ) {
-                                    $nObj = $this.MaxObjectsToScan
-
-                                    $projectData["agentPools"] = ($agentPoolsDefnsObj | Measure-Object).Count
-
-                                    if ($this.AgentPools -eq "*") {
-                                        # We need to filter out legacy agent pools (Hosted, Hosted VS 2017 etc.) as they are not visible to user on the portal. As a result, they won't be able to remediate their respective controls
-                                        $taskAgentQueues = $agentPoolsDefnsObj | where-object{$_.pool.isLegacy -eq $false};
+                        $agentPoolsDefnURL =  "https://dev.azure.com/{0}/{1}/_apis/distributedtask/queues?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName), $projectName;
+                        try {
+                            $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
+                            if (($agentPoolsDefnsObj | Measure-Object).Count -gt 0 ) {
+                                $nObj = $this.MaxObjectsToScan
+                                $projectData["agentPools"] = ($agentPoolsDefnsObj | Measure-Object).Count
+                                if ($this.AgentPools -eq "*") {
+                                    # We need to filter out legacy agent pools (Hosted, Hosted VS 2017 etc.) as they are not visible to user on the portal. As a result, they won't be able to remediate their respective controls
+                                    $taskAgentQueues = $agentPoolsDefnsObj | where-object{$_.pool.isLegacy -eq $false};
+                                }
+                                else {
+                                    #If service id based scan then filter with agent pool ids
+                                    if ($this.isServiceIdBasedScan -eq $true) {
+                                        $taskAgentQueues = $agentPoolsDefnsObj | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPoolIds -contains $_.Id) }
                                     }
                                     else {
-                                        #If service id based scan then filter with agent pool ids
-                                        if ($this.isServiceIdBasedScan -eq $true) {
-                                            $taskAgentQueues = $agentPoolsDefnsObj | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPoolIds -contains $_.Id) }
-                                        }
-                                        else {
-                                            $taskAgentQueues = $agentPoolsDefnsObj | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPools -contains $_.name) }
-                                        }
+                                        $taskAgentQueues = $agentPoolsDefnsObj | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPools -contains $_.name) }
                                     }
-                                    #Filtering out "Azure Pipelines" agent pool from scan as it is created by ADO by default and some of its settings are not editable (grant access to all pipelines, auto-provisioning etc.)
-                                    $taskAgentQueues = $taskAgentQueues | where-object{$_.name -ne "Azure Pipelines"};
-
-                                    foreach ($taq in $taskAgentQueues) {
-                                        $resourceId = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/{1}_{2}" -f $($this.OrganizationContext.OrganizationName), $($taq.projectId), $taq.id
-                                        $agtpoolResourceId = "organization/$organizationId/project/$projectId/agentpool/$($taq.id)";
-                                        $link = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&view=security" -f $($this.OrganizationContext.OrganizationName), $($taq.projectId), $taq.id
-                                        $this.AddSVTResource($taq.name, $projectName, "ADO.AgentPool", $agtpoolResourceId, $null, $link);
-
-                                        if (--$nObj -eq 0) { break; }
-                                    }
-                                    $taskAgentQueues = $null;
-                                    Remove-Variable taskAgentQueues;
                                 }
-                            }
-                            catch {
-                                Write-Warning "Agent pools for the project [$($projectName)] could not be fetched.";
+                                #Filtering out "Azure Pipelines" agent pool from scan as it is created by ADO by default and some of its settings are not editable (grant access to all pipelines, auto-provisioning etc.)
+                                $taskAgentQueues = $taskAgentQueues | where-object{$_.name -ne "Azure Pipelines"};
+                                foreach ($taq in $taskAgentQueues) {
+                                    $resourceId = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/{1}_{2}" -f $($this.OrganizationContext.OrganizationName), $($taq.projectId), $taq.id
+                                    $agtpoolResourceId = "organization/$organizationId/project/$projectId/agentpool/$($taq.id)";
+                                    $link = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&view=security" -f $($this.OrganizationContext.OrganizationName), $($taq.projectId), $taq.id
+                                    $this.AddSVTResource($taq.name, $projectName, "ADO.AgentPool", $agtpoolResourceId, $null, $link);
+                                    if (--$nObj -eq 0) { break; }
+                                }
+                                $taskAgentQueues = $null;
+                                Remove-Variable taskAgentQueues;
                             }
                         }
-                        else {
-                            $agentPoolsDefnURL = ("https://dev.azure.com/{0}/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $($this.OrganizationContext.OrganizationName), $projectName;
-                            try {
-
-                                $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
-
-                                #Here the return obj for agent pool is different than prj, build, release & svc conns. Also, Azure Pipelines agent pool will always be a part of org and project. We can't delete it.
-                                if (([Helpers]::CheckMember($agentPoolsDefnsObj, "fps.dataProviders.data") ) -and (($agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider") -and $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues)) {
-                                    $nObj = $this.MaxObjectsToScan
-                                    $taskAgentQueues = $null;
-                                    if(($agentPoolsDefnsObj | Measure-Object).Count -gt 0) {
-                                        $allAgentPools = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues;
-                                        $projectData["agentPools"] = ($allAgentPools | Measure-Object).Count
-                                    }
-                                    if ($this.AgentPools -eq "*") {
-                                        # We need to filter out legacy agent pools (Hosted, Hosted VS 2017 etc.) as they are not visible to user on the portal. As a result, they won't be able to remediate their respective controls
-                                        $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | where-object{$_.pool.isLegacy -eq $false};
-                                    }
-                                    else {
-                                        #If service id based scan then filter with agent pool ids
-                                        if ($this.isServiceIdBasedScan -eq $true) {
-                                            $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPoolIds -contains $_.Id) }
-                                        }
-                                        else {
-                                            $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues | Where-Object {($_.pool.isLegacy -eq $false) -and ($this.AgentPools -contains $_.name) }
-                                        }
-                                    }
-                                    #Filtering out "Azure Pipelines" agent pool from scan as it is created by ADO by default and some of its settings are not editable (grant access to all pipelines, auto-provisioning etc.)
-                                    $taskAgentQueues = $taskAgentQueues | where-object{$_.name -ne "Azure Pipelines"};
-
-                                    foreach ($taq in $taskAgentQueues) {
-                                        $resourceId = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/{1}_{2}" -f $($this.OrganizationContext.OrganizationName), $($taq.projectId), $taq.id
-                                        $agtpoolResourceId = "organization/$organizationId/project/$projectId/agentpool/$($taq.id)";
-                                        $link = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&view=security" -f $($this.OrganizationContext.OrganizationName), $($taq.projectId), $taq.id
-                                        $this.AddSVTResource($taq.name, $projectName, "ADO.AgentPool", $agtpoolResourceId, $null, $link);
-
-                                        if (--$nObj -eq 0) { break; }
-                                    }
-                                    $taskAgentQueues = $null;
-                                    Remove-Variable taskAgentQueues;
-                                }
-                            }
-                            catch {
-                                Write-Warning "Agent pools for the project [$($projectName)] could not be fetched.";
-                            }
+                        catch {
+                            Write-Warning "Agent pools for the project [$($projectName)] could not be fetched.";
                         }
                     }
                     #check if long running scan allowed or not.
@@ -1407,12 +1353,9 @@ class SVTResourceResolver: AzSKRoot {
 
             # fetch the agent pools count
             if($projectData["agentPools"] -eq -1) {
-                $agentPoolsDefnURL = ("https://dev.azure.com/{0}/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $($this.OrganizationContext.OrganizationName), $projectName;
+                $agentPoolsDefnURL = "https://dev.azure.com/{0}/{1}/_apis/distributedtask/queues?api-version=6.0-preview.1" -f $($this.OrganizationContext.OrganizationName), $projectName;
                 $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
-                if (([Helpers]::CheckMember($agentPoolsDefnsObj, "fps.dataProviders.data") ) -and (($agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider") -and $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues)) {
-                    $taskAgentQueues = $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues;
-                    $projectData["agentPools"] = ($taskAgentQueues | Measure-Object).Count
-                }
+                $projectData["agentPools"] = ($agentPoolsDefnsObj | Measure-Object).Count
             }
 
             # fetch the variable groups count
