@@ -143,11 +143,14 @@ class VariableGroup: ADOSVTBase
 
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult)
     {
-        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId) ,$($this.VarGrpId);
         try
         {
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
-            $inheritedRoles = $responseObj | Where-Object {$_.access -eq "inherited"}
+            if ($null -eq $this.variableGroupIdentities) 
+            {
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId);
+                $this.variableGroupIdentities = @([WebRequestHelper]::InvokeGetWebRequest($url));
+            }
+            $inheritedRoles = $this.variableGroupIdentities | Where-Object {$_.access -eq "inherited"}
             if(($inheritedRoles | Measure-Object).Count -gt 0)
             {
                 $roles = @();
@@ -193,14 +196,17 @@ class VariableGroup: ADOSVTBase
           }
         #>
 
-        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId);
         try
         {
-            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($url);
-            if(($responseObj | Measure-Object).Count -gt 0)
+            if ($null -eq $this.variableGroupIdentities) 
+            {
+                $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId);
+                $this.variableGroupIdentities = @([WebRequestHelper]::InvokeGetWebRequest($url));
+            }
+            if($this.variableGroupIdentities.Count -gt 0)
             {
                 $roles = @();
-                $roles += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}}, @{Name="AccessType"; Expression = {$_.access}});
+                $roles += ($this.variableGroupIdentities | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}}, @{Name="AccessType"; Expression = {$_.access}});
                 $controlResult.AddMessage("Total number of role assignments on variable group: ", ($roles | Measure-Object).Count);
                 $controlResult.AddMessage([VerificationResult]::Verify,"Review the list of role assignments on variable group: ", $roles);
                 $controlResult.SetStateData("List of role assignments on variable group: ", $roles);
@@ -573,14 +579,18 @@ class VariableGroup: ADOSVTBase
                     #Fetch variable group RBAC
                     $roleAssignments = @();
 
-                    $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId);
-                    $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                    if($responseObj.Count -gt 0)
+                    if ($null -eq $this.variableGroupIdentities) 
+                    {
+                        $url = 'https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1' -f $($this.OrganizationContext.OrganizationName), $($this.ProjectId), $($this.VarGrpId);
+                        $this.variableGroupIdentities = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                    } 
+                    
+                    if($this.variableGroupIdentities.Count -gt 0)
                     {
                         if ($this.checkInheritedPermissionsPerVarGrp -eq $false) {
-                            $responseObj = $responseObj  | where-object { $_.access -ne "inherited" }
+                            $roleAssignments = @($this.variableGroupIdentities  | where-object { $_.access -ne "inherited" })
                         }
-                        $roleAssignments += ($responseObj  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}}, @{Name="Id"; Expression = {$_.identity.id}});
+                        $roleAssignments = @($roleAssignments  | Select-Object -Property @{Name="Name"; Expression = {$_.identity.displayName}}, @{Name="Role"; Expression = {$_.role.displayName}}, @{Name="Id"; Expression = {$_.identity.id}});
                     }
 
                     # Checking whether the broader groups have User/Admin permissions
