@@ -529,8 +529,7 @@ class AzSKADOServiceMapping: CommandBase
 
         try {                               
             $releaseDefnURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" +$topNQueryString) -f $($this.OrgName), $this.ProjectName;
-            $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);
-            $releaseDefnsObj = $releaseDefnsObj | Select-Object -First 1
+            $releaseDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($releaseDefnURL);            
                 
             if (([Helpers]::CheckMember($releaseDefnsObj, "count") -and $releaseDefnsObj[0].count -gt 0) -or (($releaseDefnsObj | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($releaseDefnsObj[0], "name"))) {
                 
