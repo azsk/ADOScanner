@@ -49,7 +49,7 @@ class ServiceMappingCacheHelper {
         try {            
             $azTableMappingInfo += $this.GetTableEntity($projectID,$pipelineId,$pipelineType, $resourceId,$resourceType); 
             if ($azTableMappingInfo -and $azTableMappingInfo.count -gt 0) {                            
-                return $azTableMappingInfo[0];
+                return $azTableMappingInfo;
             }
         }
         catch {
@@ -82,16 +82,29 @@ class ServiceMappingCacheHelper {
         return $false
     }
 
+    hidden [string] GenerateSeachQuery($projectID,$pipelineId,$pipelineType, $resourceId,$resourceType,$hash)
+    {
+        $query = 'PartitionKey eq ''{0}''' -f $hash;
+        if($resourceType -eq "All")
+        {
+           return 'OrgName eq ''{0}'' and ProjectID eq ''{1}''' -f $this.OrganizationName, $projectID; 
+        }
+        if($resourceType -eq "VariableGroup" -or $resourceType -eq "SecureFile" -and ![string]::IsNullOrEmpty($resourceId)) 
+        {
+            return 'RowKey eq ''{0}''' -f $hash;
+        }
+        if($resourceType -eq "VariableGroup" -or $resourceType -eq "SecureFile" -and [string]::IsNullOrEmpty($resourceId)) 
+        {
+            return 'OrgName eq ''{0}'' and PipelineType eq ''{1}''' -f $this.OrganizationName, $pipelineType;
+        }
+        return $query;
+    }
+
     hidden [object] GetTableEntity($projectID,$pipelineId,$pipelineType, $resourceId,$resourceType) {
         try 
         {
-            $hash = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,$resourceID,$resourceType)
-            $query ='PartitionKey eq ''{0}''' -f $hash
-            switch ($resourceType)
-            {
-                "VariableGroup" {$query = 'RowKey eq ''{0}''' -f $hash}
-                Default  {$query = 'PartitionKey eq ''{0}''' -f $hash}                
-            }            
+            $hash = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,$resourceID,$resourceType)            
+            $query =$this.GenerateSeachQuery($projectID,$pipelineId,$pipelineType, $resourceId,$resourceType,$hash)                         
             $resource = '$filter='+[System.Web.HttpUtility]::UrlEncode($query);
             $table_url = "https://{0}.table.core.windows.net/{1}?{2}" -f $this.CacheStorageName, $this.CacheTable, $resource
             $headers = $this.GetHeader($this.CacheTable)
