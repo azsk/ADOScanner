@@ -158,7 +158,8 @@ class IdentityHelpers
 				$header = @{
 					"Authorization" = "Bearer " + [IdentityHelpers]::dataExplorerAccessToken
 				}
-				$apiURL = "https://dsresip.kusto.windows.net/v2/rest/query"                                                                    
+				$apiURL = "https://dsresip.kusto.windows.net/v2/rest/query" 
+				# making a samlple api call, just to check if user has access to required SIP database.                                                                   
             	$inputbody = "{`"db`": `"AADUsersData`",`"csl`": `"UsersInfo | take 1`"}"
 				try
 				{

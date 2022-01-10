@@ -366,6 +366,7 @@ class ContextHelper {
             else 
             {
                 # generating data explorer token using default VSTS client.
+                # this will generate token for local user and generates popup for user login.
                 $clientId = [Constants]::DefaultClientId;          
                 $replyUri = [Constants]::DefaultReplyUri; 
                 $adoResourceId = "https://help.kusto.windows.net";                                         

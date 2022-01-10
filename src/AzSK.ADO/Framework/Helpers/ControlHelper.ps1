@@ -111,7 +111,7 @@ class ControlHelper: EventBase{
                     if($_.subjectKind -eq "group")
                     {
                         if ([ControlHelper]::UseSIPFeedForAADGroupExpansion -and [Helpers]::CheckMember($_,"isAadGroup") -and $_.isAadGroup -eq $true) {
-                            $members = [ControlHelper]::ResolveGroupUsingSPIData($orgName, $_)
+                            $members = [ControlHelper]::ResolveGroupUsingSIPData($orgName, $_)
                             [ControlHelper]::groupMembersResolutionObj[$descriptor] += $members
                         }
                         else 
@@ -164,7 +164,7 @@ class ControlHelper: EventBase{
         [ControlHelper]::ResolveNestedGroupMembers($descriptor, $orgName, $projName)
     }
 
-    static [PSObject] ResolveGroupUsingSPIData([string] $OrgName, $group)
+    static [PSObject] ResolveGroupUsingSIPData([string] $OrgName, $group)
     {
         $users = @()
         try 
