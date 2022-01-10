@@ -82,7 +82,7 @@ class ServiceMappingCacheHelper {
         return $false
     }
 
-    hidden [string] GenerateSeachQuery($projectID,$pipelineId,$pipelineType, $resourceId,$resourceType,$hash)
+    hidden [string] GenerateSearchQuery($projectID,$pipelineId,$pipelineType, $resourceId,$resourceType,$hash)
     {
         $query = 'PartitionKey eq ''{0}''' -f $hash;
         if($resourceType -eq "All")
@@ -104,7 +104,7 @@ class ServiceMappingCacheHelper {
         try 
         {
             $hash = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,$resourceID,$resourceType)            
-            $query =$this.GenerateSeachQuery($projectID,$pipelineId,$pipelineType, $resourceId,$resourceType,$hash)                         
+            $query =$this.GenerateSearchQuery($projectID,$pipelineId,$pipelineType, $resourceId,$resourceType,$hash)                         
             $resource = '$filter='+[System.Web.HttpUtility]::UrlEncode($query);
             $table_url = "https://{0}.table.core.windows.net/{1}?{2}" -f $this.CacheStorageName, $this.CacheTable, $resource
             $headers = $this.GetHeader($this.CacheTable)

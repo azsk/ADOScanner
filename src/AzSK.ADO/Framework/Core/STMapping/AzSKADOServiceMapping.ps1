@@ -1055,14 +1055,18 @@ class AzSKADOServiceMapping: CommandBase
                 $secureFiles | ForEach-Object{                  
                     $secureFile = $_;
                     $secureFilesObj = $secureFileDetails | Where-Object {$_.Name -eq $secureFile -or $_.Id -eq $secureFile}
-                    if ($secureFilesObj) {
-                        if (!$buildSTData) {
-                            $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $buildObj[0].id) -and ($_.projectName -eq $this.ProjectName) };
-                        }
-                        if($buildSTData){
-                            $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $secureFilesObj.name; secureFileID = $secureFilesObj.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
-                            # add secure file mapping details in cache
-                            $this.AddMappinginfoInCache($buildSTData.orgName,$buildSTData.projectID,$buildObj.id, $buildSTData.serviceID,$buildObj.createdDate,$secureFilesObj.id,$secureFilesObj.name,"SecureFile","Build",(Get-date).AddDays($this.MappingExpirationLimit)); 
+                    $secFileExistinSt = $secureFileSTMapping.data | Where-Object -Property secureFileID -eq $secureFile
+                    if(!$secFileExistinSt)
+                    {
+                        if ($secureFilesObj) {
+                            if (!$buildSTData) {
+                                $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $buildObj[0].id) -and ($_.projectName -eq $this.ProjectName) };
+                            }
+                            if($buildSTData){
+                                $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $secureFilesObj.name; secureFileID = $secureFilesObj.id; serviceID = $buildSTData.serviceID; projectName = $buildSTData.projectName; projectID = $buildSTData.projectID; orgName = $buildSTData.orgName } )
+                                # add secure file mapping details in cache
+                                $this.AddMappinginfoInCache($buildSTData.orgName,$buildSTData.projectID,$buildObj.id, $buildSTData.serviceID,$buildObj.createdDate,$secureFilesObj.id,$secureFilesObj.name,"SecureFile","Build",(Get-date).AddDays($this.MappingExpirationLimit)); 
+                            }
                         }
                     }
                 }
@@ -1077,22 +1081,19 @@ class AzSKADOServiceMapping: CommandBase
 
     # find cached mappings for variable group/ secure file linked with build
     hidden [void] FindSTWithBuildForVGSecFileCache($buildObj, $secureFiles, $accessToken, $secureFileDetails, $variableGroupSTMapping, $secureFileSTMapping)
-    {    
-         #Variable to store current build STDATA
-         $buildSTData = $null;
-
+    {           
         if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
             if([Helpers]::CheckMember($buildObj[0],"variableGroups"))
             {
                 $varGrps = @($buildObj[0].variableGroups)                                       
                 $varGrps | ForEach-Object {
                     try {
-                        $varGroupExistinST = $variableGroupSTMapping.data | Where-Object -Property variableGroupID -eq $_
-                        if(!$varGroupExistinST)
-                        {                           
-                            $cachedVGItem = $this.GetResourceDataFromCache("Build",$relDef.id,"VariableGroup", $_)    
-                            $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $cachedVGItem.ResourceName; variableGroupID = $cachedVGItem.ResourceID; serviceID = $cachedVGItem.ServiceTreeID; projectName = $this.ProjectName; projectID = $cachedVGItem.ProjectID; orgName = $cachedVGItem.OrgName } )                                                                                                                           
-                        }
+                            $varGroupExistinST = $variableGroupSTMapping.data | Where-Object -Property variableGroupID -eq $_
+                            if(!$varGroupExistinST)
+                            {                           
+                                $cachedVGItem = $this.GetResourceDataFromCache("Build",$relDef.id,"VariableGroup", $_)    
+                                $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $cachedVGItem.ResourceName; variableGroupID = $cachedVGItem.ResourceID; serviceID = $cachedVGItem.ServiceTreeID; projectName = $this.ProjectName; projectID = $cachedVGItem.ProjectID; orgName = $cachedVGItem.OrgName } )                                                                                                                           
+                            }
                     }
                     catch {
                         
@@ -1134,8 +1135,14 @@ class AzSKADOServiceMapping: CommandBase
                 $varGrps | ForEach-Object {
                     try {                                                                            
                         $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;   
-                        $varGroupExistinSt = $variableGroupSTMapping.data | Where-Object -Property variableGroupID -eq $_
-                        if(!$varGroupExistinSt)
+                        $varGroupExistinSt = $variableGroupSTMapping.data | Where-Object -Property variableGroupID -eq $_ 
+                        $cachedVGItem = $this.GetResourceDataFromCache("Release",$relDef.id,"VariableGroup", $_) 
+                        $mappingValid = $false 
+                        if($cachedVGItem)
+                        {
+                            $mappingValid= $cachedVGItem.MappingExpiration -gt (Get-Date).ToUniversalTime() -and $cachedVGItem.PipelineLastModified -gt $relDef.modifiedOn
+                        }
+                        if(!$varGroupExistinSt -or !$mappingValid)                        
                         { 
                             $header = [WebRequestHelper]::GetAuthHeaderFromUri($varGrpURL)                                                                     
                             $varGrpObj  = Invoke-WebRequest -Uri $varGrpURL -Headers $header                                        
@@ -1207,12 +1214,22 @@ class AzSKADOServiceMapping: CommandBase
                     $secureFiles | ForEach-Object {                    
                     $secureFile = $_;
                     $secureFilesObj = $secureFileDetails | Where-Object {$_.Name -eq $secureFile -or $_.Id -eq $secureFile}
-                    if ($secureFilesObj) {
-                        $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $relDef.id) };
-                        if($releaseSTData){
-                            $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $secureFilesObj.name; secureFileID = $secureFilesObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
-                            # add secure file mapping details in cache
-                            $this.AddMappinginfoInCache($releaseSTData.orgName,$releaseSTData.projectID,$relDef.id, $releaseSTData.serviceID,$relDef.modifiedOn,$secureFilesObj.id,$secureFilesObj.name,"SecureFile","Release",(Get-date).AddDays($this.MappingExpirationLimit)); 
+                    $secFileExistinSt = $secureFileSTMapping.data | Where-Object -Property secureFileID -eq $secureFile
+                    $cachedSecFileItem = $this.GetResourceDataFromCache("Release",$relDef.id,"SecureFile", $_) 
+                    $mappingValid = $false 
+                    if($cachedSecFileItem)
+                    {
+                        $mappingValid = $cachedSecFileItem.MappingExpiration -gt (Get-Date).ToUniversalTime() -and  $cachedSecFileItem.PipelineLastModified -gt $relDef.modifiedOn
+                    }
+                    if(!$secFileExistinSt -or !$mappingValid)
+                    {
+                        if ($secureFilesObj) {
+                            $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $relDef.id) };
+                            if($releaseSTData){
+                                $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $secureFilesObj.name; secureFileID = $secureFilesObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
+                                # add secure file mapping details in cache
+                                $this.AddMappinginfoInCache($releaseSTData.orgName,$releaseSTData.projectID,$relDef.id, $releaseSTData.serviceID,$relDef.modifiedOn,$secureFilesObj.id,$secureFilesObj.name,"SecureFile","Release",(Get-date).AddDays($this.MappingExpirationLimit)); 
+                            }
                         }
                     }
                     }
