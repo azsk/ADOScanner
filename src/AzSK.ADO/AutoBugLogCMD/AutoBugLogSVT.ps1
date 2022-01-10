@@ -99,7 +99,19 @@ function Start-AzSKADOBugLogging
 		[string]
 		[Parameter(Mandatory=$false, HelpMessage="KeyVault URL for PATToken")]
 		[Alias("ptu")]
-		$PATTokenURL
+		$PATTokenURL,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage="Full path of HTML Template for bug description for bug logging.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("bdfp")]
+		$BugDescriptionFilePath,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage="Full path of bug template for auto closing bugs.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("cbtfp","cbt")]
+		$ClosedBugTemplateFilePath
 
 	)
 	Begin
@@ -124,6 +136,7 @@ function Start-AzSKADOBugLogging
 			#Refresh singleton in different commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
       		[AutoBugLog]::AutoBugInstance = $null
 			[BugLogHelper]::BugLogHelperInstance = $null
+            [BugMetaInfoProvider]::OrgMappingObj = @{}
       
 			if($PromptForPAT -eq $true)
 			{
@@ -211,7 +224,14 @@ function Start-AzSKADOBugLogging
 					return;
 				}
 			}
+			if(![string]::IsNullOrWhiteSpace($BugDescriptionFilePath) -and (Test-Path $BugDescriptionFilePath)) {
+				$BugDescription = Get-Content $BugDescriptionFilePath -raw
+			}
+			if(![string]::IsNullOrWhiteSpace($ClosedBugTemplateFilePath) -and !(Test-Path $ClosedBugTemplateFilePath)) {
+				Write-Host "Closed bug template file path seems to be invalid. Please check again."
+				return;
 
+			}
 			$Organization = $OrganizationName;
 			$IsLAFile = $false;
 			if ($ScanResult.count -gt 0) {
@@ -243,7 +263,7 @@ function Start-AzSKADOBugLogging
 
 				if ($bugLogProjectAccess -or !$BugLogProjectName) {
 					if ($AutoBugLog) {
-						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $AutoBugLog, $ResourceTypeName, $ControlIds, $ScanResult,$BugTemplate, $PSCmdlet.MyInvocation, $IsLAFile, $STMappingFilePath);
+						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $AutoBugLog, $ResourceTypeName, $ControlIds, $ScanResult,$BugTemplate, $PSCmdlet.MyInvocation, $IsLAFile, $STMappingFilePath, $BugDescription);
 						return $secStatus.InvokeFunction($secStatus.StartBugLogging);	
 					}
 					elseif ($AutoCloseBugs) {

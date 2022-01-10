@@ -179,7 +179,7 @@ class AutoBugLog {
 
     }
 
-    hidden [void] LogBugInADOCSV([SVTEventContext[]] $ControlResults, $BugLogProjectName, $BugTemplate, $STMappingFilePath) {
+    hidden [void] LogBugInADOCSV([SVTEventContext[]] $ControlResults, $BugLogProjectName, $BugTemplate, $STMappingFilePath, $BugDescription) {
         $ProjectName = $this.GetProjectForBugLog($ControlResults[0], $true)
         #check if the area and iteration path are valid 
         if ([BugLogPathManager]::CheckIfPathIsValid($this.OrganizationName, $BugLogProjectName, $this.InvocationContext, $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $this.IsBugLogCustomFlow)) {
@@ -188,16 +188,31 @@ class AutoBugLog {
             $ResourceType = $ControlResults[0].ResourceContext.ResourceTypeName;
             if($ResourceType -eq 'Organization' -or $ResourceType -eq 'Project') {
                 try {
-                    if ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First 10 non-ALT admins:*") {
-                        $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("First 10 non-ALT admins:"))[-1].split(':')[1]
+                    if($ResourceType -eq 'Organization'){
+                        $AssignedTo = $metaProviderObj.GetAssigneeFromOrgMapping($ControlResults[0].ResourceContext.ResourceName)
                     }
-                    elseif ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First 10 Non_Alt_Admins*") {
-                        $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("First 10 Non_Alt_Admins:"))[-1].split(':')[1].split(';')[0]
+                    else{
+                        $AssignedTo = $metaProviderObj.GetAssigneeFromOrgMapping($ControlResults[0].ResourceContext.ResourceGroupName)
                     }
-                    else {
-                        Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID).`n Assignee could not be determined." -ForegroundColor Yellow
-                        return;
-                    }
+                    if([string]::IsNullOrEmpty($AssignedTo)){
+                        if ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First * non-ALT admins:*") {
+                            $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("non-ALT admins:"))[-1].split(':')[1]
+                        }
+                        elseif ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First * Non_Alt_Admins*") {
+                            $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("Non_Alt_Admins:"))[-1].split(':')[1].split(';')[0]
+                        }
+                        elseif($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*List of non-ALT accounts:*"){
+                            $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("List of non-ALT accounts:"))[-1].split(':')[1].split(';')[0]
+                        }
+                        else {
+                            Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID).`n Assignee could not be determined." -ForegroundColor Yellow
+                            return;
+                        }
+                    } 
+                    #if assignee is not from org mapping, it may not have domain name, in case of assignee from CSV it will have
+                    if($AssignedTo -notlike "*microsoft.com"){
+                        $AssignedTo+="@microsoft.com"
+                    }                   
                 }
                 catch {
                     Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID).`n Assignee could not be determined." -ForegroundColor Yellow
@@ -235,7 +250,13 @@ class AutoBugLog {
                         else {
                             #filling the bug template
                             $Title = $this.GetTitle($control);
-                            $Description = $this.GetDescription($control, $resourceOwner);
+                            if($null -eq $BugDescription){
+                                $Description = $this.GetDescription($control, $resourceOwner);
+                            }
+                            else{
+                                $Description = $this.GetDescriptionFromTemplate($BugDescription, $control)
+                            }
+                            
                             $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
                         
                             #function to attempt bug logging
@@ -714,6 +735,22 @@ class AutoBugLog {
         return $Description;
     }
 
+    hidden [string] GetDescriptionFromTemplate($BugDescription, $control){
+        $description = $BugDescription;
+        $description = $description.Replace("##Resource Type##", $control.ResourceContext.ResourceTypeName);
+        $description = $description.Replace("##Resource Name##","<a href = {0} target='_blank'>{1}</a>")
+        if($control.ResourceContext.ResourceTypeName -eq "Project"){
+            $description = $description -f $control.ResourceContext.ResourceDetails.ResourceLink,($control.ResourceContext.ResourceGroupName+"/"+$control.ResourceContext.ResourceName)
+        }
+        else{
+            $description = $description -f $control.ResourceContext.ResourceDetails.ResourceLink,$control.ResourceContext.ResourceName
+        }
+        $description = $description.Replace("##Additional Info##", $control.ControlResults[0].AdditionalInfoInCSV)
+        $description = $description.Replace("`"","'")
+        $description = $description.Replace("\", "\\")
+        return $description;
+    }
+
     hidden [string] GetTitle($control) {
         $Title = "[ADOScanner] Control failure - {0} for resource {1} {2}"
         $Title = $Title -f $control.ControlItem.ControlID, $control.ResourceContext.ResourceTypeName, $control.ResourceContext.ResourceName
@@ -781,7 +818,9 @@ class AutoBugLog {
             }
             else {
                 #resolved bug needs to be reactivated, hence search for new/active/resolved bugs
-                $body = '{"searchText": "{0}","$skip": 0,"$top": 2,"filters": {"System.TeamProject": ["{1}"],"System.WorkItemType": ["Bug"],"System.State": ["New","Active","Resolved"]}}'| ConvertFrom-Json
+                #sprint 2201: added new states for standalone bug logging
+                #TODO: in case we need custom system states for partner teams, fetch system states to check from org policy
+                $body = '{"searchText": "{0}","$skip": 0,"$top": 2,"filters": {"System.TeamProject": ["{1}"],"System.WorkItemType": ["Bug"],"System.State": ["New","Active","Resolved","Approved","Committed","In Progress","In Review"]}}'| ConvertFrom-Json
             }
     
             #tag to be searched

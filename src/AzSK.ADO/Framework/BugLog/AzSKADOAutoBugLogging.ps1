@@ -12,9 +12,10 @@ class AzSKADOAutoBugLogging : CommandBase
     $ResourceControlJson = @();
     $BugTemplate = $null;
     $STMappingFilePath = $null;
+    $BugDescription = $null;
 
 
-	AzSKADOAutoBugLogging([string] $organizationName, $BugLogProject, $AutoBugLog, $ResourceTypeName, $ControlIds, $scanResultData, $BugTemplate, [InvocationInfo] $invocationContext, $isLAFile, $stMappingFilePath): 
+	AzSKADOAutoBugLogging([string] $organizationName, $BugLogProject, $AutoBugLog, $ResourceTypeName, $ControlIds, $scanResultData, $BugTemplate, [InvocationInfo] $invocationContext, $isLAFile, $stMappingFilePath, $BugDescription): 
         Base($organizationName, $invocationContext) 
     { 
         $this.OrgName = $organizationName;
@@ -22,6 +23,7 @@ class AzSKADOAutoBugLogging : CommandBase
         $this.IsLAFile = $isLAFile;
         $this.BugTemplate = $BugTemplate;
         $this.STMappingFilePath = $stMappingFilePath;
+        $this.BugDescription = $BugDescription;
 
         #Can remove later if not needed.
         $resourcetypes = @()
@@ -139,7 +141,7 @@ class AzSKADOAutoBugLogging : CommandBase
                 }
                 $resourcename = $controlResult.ResourceContext.ResourceName 
 
-		        $AutoBugLog.LogBugInADOCSV($controlResult, $this.BugLogProjectName, $this.BugTemplate, $this.STMappingFilePath) 
+		        $AutoBugLog.LogBugInADOCSV($controlResult, $this.BugLogProjectName, $this.BugTemplate, $this.STMappingFilePath, $this.BugDescription) 
             }
         }
         else {
@@ -191,8 +193,8 @@ class AzSKADOAutoBugLogging : CommandBase
                     $cids = $this.ConvertToStringArray($ControlIds);
                     $scanResultData = $scanResultData | Where { $_.ControlId_s -In $cids }
                 }
-                if ($scanResultData -and $AutoBugLog -eq $null) {
-                    $scanResultData = $scanResultData | Where {$_.ControlStatus_s -eq "Failed" -or $_.ControlStatus_s -eq "Varify"}
+                if ($scanResultData -and $AutoBugLog -ne $null) {
+                    $scanResultData = $scanResultData | Where {$_.ControlStatus_s -eq "Failed" -or $_.ControlStatus_s -eq "Verify"}
                     
                 }
                 if ($AutoCloseBug) {
