@@ -228,7 +228,7 @@ function Start-AzSKADOBugLogging
 				$BugDescription = Get-Content $BugDescriptionFilePath -raw
 			}
 			if(![string]::IsNullOrWhiteSpace($ClosedBugTemplateFilePath) -and !(Test-Path $ClosedBugTemplateFilePath)) {
-				Write-Host "Template file path seems to be invalid. Please check again."
+				Write-Host "Closed bug template file path seems to be invalid. Please check again."
 				return;
 
 			}
