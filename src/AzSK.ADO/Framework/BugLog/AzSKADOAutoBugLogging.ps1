@@ -194,7 +194,7 @@ class AzSKADOAutoBugLogging : CommandBase
                     $scanResultData = $scanResultData | Where { $_.ControlId_s -In $cids }
                 }
                 if ($scanResultData -and $AutoBugLog -ne $null) {
-                    $scanResultData = $scanResultData | Where {$_.ControlStatus_s -eq "Failed" -or $_.ControlStatus_s -eq "Varify"}
+                    $scanResultData = $scanResultData | Where {$_.ControlStatus_s -eq "Failed" -or $_.ControlStatus_s -eq "Verify"}
                     
                 }
                 if ($AutoCloseBug) {

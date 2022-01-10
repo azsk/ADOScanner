@@ -136,6 +136,7 @@ function Start-AzSKADOBugLogging
 			#Refresh singleton in different commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
       		[AutoBugLog]::AutoBugInstance = $null
 			[BugLogHelper]::BugLogHelperInstance = $null
+            [BugMetaInfoProvider]::OrgMappingObj = @{}
       
 			if($PromptForPAT -eq $true)
 			{
