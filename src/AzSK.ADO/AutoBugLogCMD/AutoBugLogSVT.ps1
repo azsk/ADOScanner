@@ -108,7 +108,7 @@ function Start-AzSKADOBugLogging
 		$BugDescriptionFilePath,
 
 		[string]
-		[Parameter(Mandatory = $false, HelpMessage="Full path for bug template for auto closing bugs.")]
+		[Parameter(Mandatory = $false, HelpMessage="Full path of bug template for auto closing bugs.")]
 		[ValidateNotNullOrEmpty()]
 		[Alias("cbtfp","cbt")]
 		$ClosedBugTemplateFilePath
