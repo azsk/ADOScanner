@@ -150,7 +150,7 @@ function Install-AzSKADOContinuousAssurance
 		$AuthorizedScopes,
 
 		[switch]
-		[Parameter(Mandatory = $false, HelpMessage = "Create an storage account to store common data(eg. bug logging etc.).")]
+		[Parameter(Mandatory = $false, HelpMessage = "Create a storage account to store common data(eg. bug logging etc.).")]
 		[Alias("cdsa")]
 		$CreateCommonDataStorageAccount
 
