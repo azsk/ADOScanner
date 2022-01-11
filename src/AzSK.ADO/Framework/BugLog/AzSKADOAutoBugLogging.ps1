@@ -154,7 +154,7 @@ class AzSKADOAutoBugLogging : CommandBase
                 }
                 #if resource alredy ran bug logging for control and servicetree info is not find, then dont run bug logging for next control.
                 if (($resourceid -ne $controlResult.ResourceContext.ResourceId -or $assignee)) {
-		            $assignee = $AutoBugLog.LogBugInADOCSV($controlResult, $this.BugLogProjectName, $this.BugTemplate, $this.STMappingFilePath, $this.BugDescription, $assignee)  
+		            $assignee = $AutoBugLog.LogBugsInADOFromCSV($controlResult, $this.BugLogProjectName, $this.BugTemplate, $this.STMappingFilePath, $this.BugDescription, $assignee)  
                 }
                 $resourceid = $controlResult.ResourceContext.ResourceId
             }

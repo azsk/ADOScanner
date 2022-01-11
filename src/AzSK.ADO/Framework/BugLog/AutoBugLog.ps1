@@ -179,7 +179,7 @@ class AutoBugLog : EventBase  {
 
     }
 
-    hidden [string] LogBugInADOCSV([SVTEventContext[]] $ControlResults, $BugLogProjectName, $BugTemplate, $STMappingFilePath, $BugDescription, $assignedTo) {
+    hidden [string] LogBugsInADOFromCSV([SVTEventContext[]] $ControlResults, $BugLogProjectName, $BugTemplate, $STMappingFilePath, $BugDescription, $assignedTo) {
         #$ProjectName = $this.GetProjectForBugLog($ControlResults[0], $true)
         $returnvalue = "";
         #check if the area and iteration path are valid 
