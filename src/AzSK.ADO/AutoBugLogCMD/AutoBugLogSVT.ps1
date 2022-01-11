@@ -89,7 +89,7 @@ function Start-AzSKADOBugLogging
 		[int]
 		[Parameter(Mandatory = $false, HelpMessage="Max # of bugs to log. Default is 0 which means run bug logging for all.")]
 		[Alias("mbl")]
-		$MaxBugLog = 0,
+		$MaxBugsToLog = 0,
 
 		[System.Security.SecureString]
 		[Parameter(HelpMessage="Token to run scan in non-interactive mode")]
@@ -269,11 +269,11 @@ function Start-AzSKADOBugLogging
 
 				if ($bugLogProjectAccess -or !$BugLogProjectName) {
 					if ($AutoBugLog) {
-						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $AutoBugLog, $ResourceTypeName, $ControlIds, $ScanResult,$BugTemplate, $PSCmdlet.MyInvocation, $IsLAFile, $STMappingFilePath, $BugDescription, $MaxBugLog);
+						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $AutoBugLog, $ResourceTypeName, $ControlIds, $ScanResult,$BugTemplate, $PSCmdlet.MyInvocation, $IsLAFile, $STMappingFilePath, $BugDescription, $MaxBugsToLog);
 						return $secStatus.InvokeFunction($secStatus.StartBugLogging);	
 					}
 					elseif ($AutoCloseBugs) {
-						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $ResourceTypeName, $ControlIds, $ScanResult, $PSCmdlet.MyInvocation, $IsLAFile, $MaxBugLog);
+						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $ResourceTypeName, $ControlIds, $ScanResult, $PSCmdlet.MyInvocation, $IsLAFile, $MaxBugsToLog);
 						return $secStatus.InvokeFunction($secStatus.ClosingLoggedBugs);	
 					}
 					

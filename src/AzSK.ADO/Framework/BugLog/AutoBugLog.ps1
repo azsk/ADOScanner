@@ -167,7 +167,7 @@ class AutoBugLog : EventBase  {
                         }
                         catch
                         {
-                            $this.PublishCustomMessage("Could not log/reactivate the bug for resource $($control.ResourceContext.ResourceName) and control $($control.ControlItem.ControlID).", [MessageType]::Warning);
+                            $this.PublishCustomMessage("Could not log/reactivate the bug for resource $($control.ResourceContext.ResourceName) and control $($control.ControlItem.ControlID).", [MessageType]::Error);
                         } 
                     }
                 }
@@ -221,7 +221,7 @@ class AutoBugLog : EventBase  {
                         }                   
                     }
                     catch {
-                        $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName). Assignee could not be determined.", [MessageType]::Warning);
+                        $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName). Assignee could not be determined.", [MessageType]::Error);
                         return $returnvalue;
                     }
                 }
@@ -276,7 +276,7 @@ class AutoBugLog : EventBase  {
                     }
                     catch
                     {
-                        $this.PublishCustomMessage("Could not log/reactivate the bug for resource $($control.ResourceContext.ResourceName)", [MessageType]::Warning);
+                        $this.PublishCustomMessage("Could not log/reactivate the bug for resource $($control.ResourceContext.ResourceName)", [MessageType]::Error);
                         return $returnvalue = $AssignedTo;
                     } 
                 }
@@ -342,7 +342,7 @@ class AutoBugLog : EventBase  {
     elseif($ControlResult.FeatureName -eq 'Project') {
             #check if user is member of PA/PCA
             if (!$this.ControlStateExt.GetControlStatePermission($ControlResult.FeatureName, $ControlResult.ResourceContext.ResourceName)) {
-                $this.PublishCustomMessage("Auto bug logging denied due to insufficient permissions. Make sure you are a project administrator. ", [MessageType]::Warning);
+                $this.PublishCustomMessage("Auto bug logging denied due to insufficient permissions. Make sure you are a project administrator. ", [MessageType]::Error);
                 return $false
             }
         }

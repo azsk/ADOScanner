@@ -141,6 +141,7 @@ class AzSKADOAutoBugLogging : CommandBase
             $assignee = "";
             #$ControlResults = $ControlResults | sort-object -property @{e={$_.ResourceContext.ResourceName}}
             foreach ($controlResult in $ControlResults) {
+                #if different resource then only display message.
                 if ($resourceid -ne $controlResult.ResourceContext.ResourceId ) {
                     $this.PublishCustomMessage([Constants]::DoubleDashLine, [MessageType]::Info);
                     $this.PublishCustomMessage("Running bug logging: [FeatureName: $($controlResult.FeatureName)] [ParentGroupName: $($controlResult.ResourceContext.ResourceGroupName)] [ResourceName: $($controlResult.ResourceContext.ResourceName)]", [MessageType]::Info);                
