@@ -281,6 +281,11 @@ class WebRequestHelper {
         return $outputValues;
 	}
 
+	#method to get the raw response in a GET method
+	static [System.Object[]] InvokeGetWebRequestRaw($url){
+		return [WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Get, $url, [WebRequestHelper]::GetAuthHeaderFromUri($url), $null, $null, $false, $true); 
+	}
+
 	static [System.Object[]] InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod] $method, [string] $uri, [Hashtable] $headers, [System.Object] $body, [string] $contentType, [bool] $isRetryRequired, [bool] $returnRawResponse) 
 	{
         $outputValues = @();

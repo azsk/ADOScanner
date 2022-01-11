@@ -1,5 +1,5 @@
 Set-StrictMode -Version Latest
-class AutoBugLog {
+class AutoBugLog : EventBase  {
     hidden static [AutoBugLog] $AutoBugInstance;
     hidden [ControlStateExtension] $ControlStateExt;
     hidden [string] $OrganizationName;
@@ -150,7 +150,7 @@ class AutoBugLog {
                                 }
                             else {
                                 if ($printLogBugMsg) {
-                                    Write-Host "Determining bugs to log..." -ForegroundColor Cyan
+                                    $this.PublishCustomMessage("Determining bugs to log...");
                                 }
                                 $printLogBugMsg = $false;
 
@@ -167,47 +167,72 @@ class AutoBugLog {
                         }
                         catch
                         {
-                            Write-Host "Could not log/reactivate the bug for resource $($control.ResourceContext.ResourceName) and control $($control.ControlItem.ControlID)." -ForegroundColor Red
+                            $this.PublishCustomMessage("Could not log/reactivate the bug for resource $($control.ResourceContext.ResourceName) and control $($control.ControlItem.ControlID).", [MessageType]::Error);
                         } 
                     }
                 }
                 else {
-                    Write-Host "Bug logging is disabled for resources that are not mapped to any service." -ForegroundColor Yellow
+                    $this.PublishCustomMessage("Bug logging is disabled for resources that are not mapped to any service.", [MessageType]::Warning);
                 }    
             }
         }
 
     }
 
-    hidden [void] LogBugInADOCSV([SVTEventContext[]] $ControlResults, $BugLogProjectName, $BugTemplate, $STMappingFilePath) {
-        $ProjectName = $this.GetProjectForBugLog($ControlResults[0], $true)
+    hidden [string] LogBugsInADOFromCSV([SVTEventContext[]] $ControlResults, $BugLogProjectName, $BugTemplate, $STMappingFilePath, $BugDescription, $assignedTo) {
+        #$ProjectName = $this.GetProjectForBugLog($ControlResults[0], $true)
+        $returnvalue = "";
         #check if the area and iteration path are valid 
-        if ([BugLogPathManager]::CheckIfPathIsValid($this.OrganizationName, $BugLogProjectName, $this.InvocationContext, $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $this.IsBugLogCustomFlow)) {
+        $checkValidaPath = [BugLogPathManager]::CheckIfPathIsValid($this.OrganizationName, $BugLogProjectName, $this.InvocationContext, $this.ControlSettings.BugLogging.BugLogAreaPath, $this.ControlSettings.BugLogging.BugLogIterationPath, $true);
+        if ($checkValidaPath) {
+            $serviceId = "";
             #Obtain the assignee for the current resource, will be same for all the control failures for this particular resource
             $metaProviderObj = [BugMetaInfoProvider]::new($true, $STMappingFilePath);   
             $ResourceType = $ControlResults[0].ResourceContext.ResourceTypeName;
-            if($ResourceType -eq 'Organization' -or $ResourceType -eq 'Project') {
-                try {
-                    if ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First 10 non-ALT admins:*") {
-                        $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("First 10 non-ALT admins:"))[-1].split(':')[1]
+
+            if (!$assignedTo)
+            {
+                if($ResourceType -eq 'Organization' -or $ResourceType -eq 'Project') {
+                    try {
+                        if($ResourceType -eq 'Organization'){
+                            $AssignedTo = $metaProviderObj.GetAssigneeFromOrgMapping($ControlResults[0].ResourceContext.ResourceName)
+                        }
+                        else{
+                            $AssignedTo = $metaProviderObj.GetAssigneeFromOrgMapping($ControlResults[0].ResourceContext.ResourceGroupName)
+                        }
+                        if([string]::IsNullOrEmpty($AssignedTo)){
+                            if ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First * non-ALT admins:*") {
+                                $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("non-ALT admins:"))[-1].split(':')[1]
+                            }
+                            elseif ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First * Non_Alt_Admins*") {
+                                $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("Non_Alt_Admins:"))[-1].split(':')[1].split(';')[0]
+                            }
+                            elseif($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*List of non-ALT accounts:*"){
+                                $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("List of non-ALT accounts:"))[-1].split(':')[1].split(';')[0]
+                            }
+                            else {
+                                $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName). Assignee could not be determined.", [MessageType]::Warning);
+                                return $returnvalue;
+                            }
+                        } 
+                        #if assignee is not from org mapping, it may not have domain name, in case of assignee from CSV it will have
+                        if($AssignedTo -notlike "*microsoft.com"){
+                            $AssignedTo += "@microsoft.com"
+                        }                   
                     }
-                    elseif ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First 10 Non_Alt_Admins*") {
-                        $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("First 10 Non_Alt_Admins:"))[-1].split(':')[1].split(';')[0]
-                    }
-                    else {
-                        Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID).`n Assignee could not be determined." -ForegroundColor Yellow
-                        return;
+                    catch {
+                        $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName). Assignee could not be determined.", [MessageType]::Error);
+                        return $returnvalue;
                     }
                 }
-                catch {
-                    Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID).`n Assignee could not be determined." -ForegroundColor Yellow
-                    return;
+                else {
+                    $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.InvocationContext);
                 }
+                $serviceId = $metaProviderObj.ServiceId
             }
             else {
-                $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.InvocationContext);
+                $serviceId = [BugMetaInfoProvider]::ServiceTreeInfo.serviceId;
             }
-            $serviceId = $metaProviderObj.ServiceId
             $resourceOwner = "";
             if($serviceId -or $ResourceType -eq 'Organization' -or $ResourceType -eq 'Project')
             {
@@ -231,27 +256,37 @@ class AutoBugLog {
                         $workItem = $this.GetWorkItemByHash($hash, [BugLogPathManager]::BugLoggingProject)
                         if ($workItem[0].results.count -gt 0) {
                             $this.ManageActiveAndResolvedBugs($BugLogProjectName, $control, $workItem, $AssignedTo, $serviceId, $resourceOwner)
+                            return $returnvalue = $AssignedTo;
                         }
                         else {
                             #filling the bug template
                             $Title = $this.GetTitle($control);
-                            $Description = $this.GetDescription($control, $resourceOwner);
+                            if($null -eq $BugDescription){
+                                $Description = $this.GetDescription($control, $resourceOwner);
+                            }
+                            else{
+                                $Description = $this.GetDescriptionFromTemplate($BugDescription, $control)
+                            }
                             $Severity = $this.GetSeverity($control.ControlItem.ControlSeverity)		
                         
                             #function to attempt bug logging
                             $this.AddWorkItem($Title, $Description, $AssignedTo, $Severity, $BugLogProjectName, $control, $hash, $serviceId, $BugTemplate);
+                            return $returnvalue = $AssignedTo;
                         }
                     }
                     catch
                     {
-                        Write-Host "Could not log/reactivate the bug for resource $($control.ResourceContext.ResourceName) and control $($control.ControlItem.ControlID)." -ForegroundColor Red
+                        $this.PublishCustomMessage("Could not log/reactivate the bug for resource $($control.ResourceContext.ResourceName)", [MessageType]::Error);
+                        return $returnvalue = $AssignedTo;
                     } 
                 }
             }
             else {
-                Write-Host "Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlID).`n Assignee could not be determined." -ForegroundColor Yellow
+                $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName). Assignee could not be determined.", [MessageType]::Warning);
+                return $returnvalue;
             }    
         }
+        return $returnvalue;
     }
 
     #function to get the security command for repro of this bug 
@@ -307,13 +342,13 @@ class AutoBugLog {
     elseif($ControlResult.FeatureName -eq 'Project') {
             #check if user is member of PA/PCA
             if (!$this.ControlStateExt.GetControlStatePermission($ControlResult.FeatureName, $ControlResult.ResourceContext.ResourceName)) {
-                Write-Host "`nAuto bug logging denied due to insufficient permissions. Make sure you are a project administrator. " -ForegroundColor Red
+                $this.PublishCustomMessage("Auto bug logging denied due to insufficient permissions. Make sure you are a project administrator. ", [MessageType]::Error);
                 return $false
             }
         }
     elseif($ControlResult.FeatureName -eq 'User') {
             #TODO: User controls dont have a project associated with them, can be rectified in future versions
-            Write-Host "`nAuto bug logging for user control failures is currently not supported." -ForegroundColor Yellow
+            $this.PublishCustomMessage("Auto bug logging for user control failures is currently not supported.", [MessageType]::Warning);
             return $false
         }
         return $true
@@ -334,7 +369,7 @@ class AutoBugLog {
             }
             #user is not a member of PCA, invalidate the bug log
             else {
-                Write-Host "Error: Could not configure host project to log bugs for organization-specific control failures.`nThis may be because you may not have correct privilege (requires 'Project Collection Administrator')." -ForegroundColor Red
+                $this.PublishCustomMessage("Error: Could not configure host project to log bugs for organization-specific control failures.`nThis may be because you may not have correct privilege (requires 'Project Collection Administrator')" , [MessageType]::Error);
                 return $null
             }
         }
@@ -342,7 +377,7 @@ class AutoBugLog {
         else {
             #check if the user is a member of PCA after validating that the host project name was not provided 
             if (!$this.ControlStateExt.GetControlStatePermission("Organization", "") ) {
-                Write-Host "Error: Auto bug logging denied.`nThis may be because you are attempting to log bugs for areas you do not have RBAC permission to." -ForegroundColor Red
+                $this.PublishCustomMessage("Error: Auto bug logging denied.`nThis may be because you are attempting to log bugs for areas you do not have RBAC permission to.", [MessageType]::Error);
                 return $null
 					  
             }
@@ -350,8 +385,8 @@ class AutoBugLog {
                 $Project = $this.ControlStateExt.GetProject()
                 #user is a PCA member but the project has not been set for org control failures
                 if (!$Project) { 
-                    Write-Host "`nNo project defined to log bugs for organization-specific controls." -ForegroundColor Red
-                    Write-Host "Use the '-AttestationHostProjectName' parameter with this command to configure the project that will host bug logging details for organization level controls.`nRun 'Get-Help -Name Get-AzSKADOSecurityStatus -Full' for more info." -ForegroundColor Yellow
+                    $this.PublishCustomMessage("No project defined to log bugs for organization-specific controls.", [MessageType]::Error);
+                    $this.PublishCustomMessage("Use the '-AttestationHostProjectName' parameter with this command to configure the project that will host bug logging details for organization level controls.`nRun 'Get-Help -Name Get-AzSKADOSecurityStatus -Full' for more info.", [MessageType]::Warning);
                     return $null
                 }
             }
@@ -629,58 +664,58 @@ class AutoBugLog {
         $areaPath = [BugLogPathManager]::AreaPath;
         if ($errorInFeature -eq "ReactivateBug") {
             if ($errorMessage -like '*Invalid Area*') {
-                Write-Host "Could not reactivate the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." -ForegroundColor Red
+                $this.PublishCustomMessage("Could not reactivate the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." , [MessageType]::Error);
             }
             elseif ($errorMessage -like '*Invalid tree name given for work item*' -and $errorMessage -like '*System.AreaPath*') {
-                Write-Host "Could not reactivate the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." -ForegroundColor Red
+                $this.PublishCustomMessage("Could not reactivate the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." , [MessageType]::Error);
             }
             elseif ($errorMessage -like '*The current user does not have permissions to save work items under the specified area path*') {
-                Write-Host "Could not reactivate the bug. You do not have permissions to save work items under the area path [$areaPath]." -ForegroundColor Red
+                $this.PublishCustomMessage("Could not reactivate the bug. You do not have permissions to save work items under the area path [$areaPath]." , [MessageType]::Error);
             }
             else {
-                Write-Host "Could not reactivate the bug." -ForegroundColor Red
+                $this.PublishCustomMessage("Could not reactivate the bug." , [MessageType]::Error);
             }
         }
         elseif ($errorInFeature -eq "UpdateServiceTreeDetails") {
             if ($errorMessage -like '*Invalid Area*') {
-                Write-Host "Could not update service tree details in the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." -ForegroundColor Red
+                $this.PublishCustomMessage("Could not update service tree details in the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." , [MessageType]::Error);
             }
             elseif ($errorMessage -like '*Invalid tree name given for work item*' -and $errorMessage -like '*System.AreaPath*') {
-                Write-Host "Could not update service tree details in the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." -ForegroundColor Red
+                $this.PublishCustomMessage("Could not update service tree details in the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." , [MessageType]::Error);
             }
             elseif ($errorMessage -like '*The current user does not have permissions to save work items under the specified area path*') {
-                Write-Host "Could not update service tree details in the bug. You do not have permissions to save work items under the area path [$areaPath]." -ForegroundColor Red
+                $this.PublishCustomMessage("Could not update service tree details in the bug. You do not have permissions to save work items under the area path [$areaPath]." , [MessageType]::Error);
             }
             else {
-                Write-Host "Could not update service tree details in the bug."
+                $this.PublishCustomMessage("Could not update service tree details in the bug.")
             }
         }
         elseif ($errorInFeature -eq "PatchBug") {
             if ($errorMessage -like '*Invalid Area*') {
-                Write-Host "Could not update the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." -ForegroundColor Red
+                $this.PublishCustomMessage("Could not update the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." , [MessageType]::Error);
             }
             elseif ($errorMessage -like '*Invalid tree name given for work item*' -and $errorMessage -like '*System.AreaPath*') {
-                Write-Host "Could not update the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." -ForegroundColor Red
+                $this.PublishCustomMessage("Could not update the bug. Please verify the area path [$areaPath]. Area path should belong under the same project area." , [MessageType]::Error);
             }
             elseif ($errorMessage -like '*The current user does not have permissions to save work items under the specified area path*') {
-                Write-Host "Could not update the bug. You do not have permissions to save work items under the area path [$areaPath]." -ForegroundColor Red
+                $this.PublishCustomMessage("Could not update the bug. You do not have permissions to save work items under the area path [$areaPath]." , [MessageType]::Error);
             }
             else {
-                Write-Host "Could not update the bug."
+                $this.PublishCustomMessage("Could not update the bug.", [MessageType]::Error)
             }
         }
         else {
             if ($errorMessage -like '*Invalid Area/Iteration id*') {
-                Write-Host "Please verify the area and iteration path. They should belong under the same project area." -ForegroundColor Red
+                $this.PublishCustomMessage("Please verify the area and iteration path. They should belong under the same project area." , [MessageType]::Error);
             }
             elseif ($errorMessage -like '*Invalid tree name given for work item*' -and $errorMessage -like '*System.AreaPath*') {
-                Write-Host "Please verify the area and iteration path are valid." -ForegroundColor Red
+                $this.PublishCustomMessage("Please verify the area and iteration path are valid." , [MessageType]::Error);
             }
             elseif ($errorMessage -like '*The current user does not have permissions to save work items under the specified area path*') {
-                Write-Host "Could not log the bug. You do not have permissions to save work items under the area path [$($areaPath)]." -ForegroundColor Red
+                $this.PublishCustomMessage("Could not log the bug. You do not have permissions to save work items under the area path [$($areaPath)]." , [MessageType]::Error);
             }
             else {
-                Write-Host "Could not log the bug." -ForegroundColor Red
+                $this.PublishCustomMessage("Could not log the bug.", [MessageType]::Error)
             }
         }
     }
@@ -712,6 +747,22 @@ class AutoBugLog {
         $Description = $Description.Replace("`"", "'")
 
         return $Description;
+    }
+
+    hidden [string] GetDescriptionFromTemplate($BugDescription, $control){
+        $description = $BugDescription;
+        $description = $description.Replace("##Resource Type##", $control.ResourceContext.ResourceTypeName);
+        $description = $description.Replace("##Resource Name##","<a href = {0} target='_blank'>{1}</a>")
+        if($control.ResourceContext.ResourceTypeName -eq "Project"){
+            $description = $description -f $control.ResourceContext.ResourceDetails.ResourceLink,($control.ResourceContext.ResourceGroupName+"/"+$control.ResourceContext.ResourceName)
+        }
+        else{
+            $description = $description -f $control.ResourceContext.ResourceDetails.ResourceLink,$control.ResourceContext.ResourceName
+        }
+        $description = $description.Replace("##Additional Info##", $control.ControlResults[0].AdditionalInfoInCSV)
+        $description = $description.Replace("`"","'")
+        $description = $description.Replace("\", "\\")
+        return $description;
     }
 
     hidden [string] GetTitle($control) {
@@ -781,7 +832,9 @@ class AutoBugLog {
             }
             else {
                 #resolved bug needs to be reactivated, hence search for new/active/resolved bugs
-                $body = '{"searchText": "{0}","$skip": 0,"$top": 2,"filters": {"System.TeamProject": ["{1}"],"System.WorkItemType": ["Bug"],"System.State": ["New","Active","Resolved"]}}'| ConvertFrom-Json
+                #sprint 2201: added new states for standalone bug logging
+                #TODO: in case we need custom system states for partner teams, fetch system states to check from org policy
+                $body = '{"searchText": "{0}","$skip": 0,"$top": 2,"filters": {"System.TeamProject": ["{1}"],"System.WorkItemType": ["Bug"],"System.State": ["New","Active","Resolved","Approved","Committed","In Progress","In Review"]}}'| ConvertFrom-Json
             }
     
             #tag to be searched
@@ -886,7 +939,7 @@ class AutoBugLog {
             if ($_.ErrorDetails.Message -like '*System.AssignedTo*') #added second param to standalone bug logging if assignee not in the org then not logging bug.
             { 
                 if ($BugTemplateInCMD) {
-                    Write-Host "Could not log the bug. Assignee [$($AssignedTo.trim())] is not found in organization." -ForegroundColor Yellow
+                    $this.PublishCustomMessage("Could not log the bug. Assignee [$($AssignedTo.trim())] is not found in organization.", [MessageType]::Warning)
                 }
                 else {
                     $BugTemplate = $BugTemplate | ConvertFrom-Json
@@ -901,7 +954,7 @@ class AutoBugLog {
                         }
                     }
                     catch {
-                        Write-Host "Could not log the bug" -ForegroundColor Red
+                        $this.PublishCustomMessage("Could not log the bug", [MessageType]::Error)
                     }
                 }
             }

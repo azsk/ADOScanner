@@ -337,20 +337,28 @@ class ContextHelper {
             if ([ContextHelper]::PSVersion -gt 5) {
                 $result = [ContextHelper]::GetGraphAccessForDataExplorer()
             }
-            else {
-                [AuthenticationContext] $ctx = [AuthenticationContext]::new("https://login.windows.net/common");
-                [AuthenticationResult] $result = $null;
-                $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
-                $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
-                $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+            else 
+            {
+                # generating data explorer token using default VSTS client.
+                # this will generate token for local user and generates popup for user login.
+                $clientId = [Constants]::DefaultClientId;          
+                $replyUri = [Constants]::DefaultReplyUri; 
+                $adoResourceId = "https://help.kusto.windows.net";                                         
+                if ([ContextHelper]::PSVersion -gt 5) {
+                    $result = [ContextHelper]::GetGraphAccess()
+                }
+                else {
+                    [AuthenticationContext] $ctx = [AuthenticationContext]::new("https://login.windows.net/common");
+                    [AuthenticationResult] $result = $null;
+                    $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
+                    $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
+                    $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+                }
+                $accessToken = $result.AccessToken
             }
-            $accessToken = $result.AccessToken            
-            Write-Host "Successfully acquired graph access token." -ForegroundColor Cyan
         }
         catch
         {
-            Write-Host "Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate." -ForegroundColor Red
-            Write-Host "Continuing without graph access." -ForegroundColor Yellow
             return $null
         }
 
@@ -621,31 +629,36 @@ class ContextHelper {
         #$contextObj.AccessToken =  ConvertTo-SecureString -String $context.AccessToken -asplaintext -Force
         [ContextHelper]::currentContext = $contextObj
 
+        try {
+            $apiURL = "https://dev.azure.com/{0}/_apis/connectionData" -f [ContextHelper]::orgName
+            #Note: cannot use this WRH method below due to ordering constraints during load in Framework.ps1
+            #$header = [WebRequestHelper]::GetAuthHeaderFromUri($apiURL);
+            $user = ""
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user, $contextObj.AccessToken)))
+            $headers = @{
+                            "Authorization"= ("Basic " + $base64AuthInfo); 
+                            "Content-Type"="application/json"
+                        };
+            $responseObj = Invoke-RestMethod -Method Get -Uri $apiURL -Headers $headers -UseBasicParsing
 
-        $apiURL = "https://dev.azure.com/{0}/_apis/connectionData" -f [ContextHelper]::orgName
-        #Note: cannot use this WRH method below due to ordering constraints during load in Framework.ps1
-        #$header = [WebRequestHelper]::GetAuthHeaderFromUri($apiURL);
-        $user = ""
-        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user, $contextObj.AccessToken)))
-        $headers = @{
-                        "Authorization"= ("Basic " + $base64AuthInfo); 
-                        "Content-Type"="application/json"
-                    };
-        $responseObj = Invoke-RestMethod -Method Get -Uri $apiURL -Headers $headers -UseBasicParsing
-
-        #If the token is valid, we get: "descriptor"="Microsoft.IdentityModel.Claims.ClaimsIdentity;72f988bf-86f1-41af-91ab-2d7cd011db47\xyz@microsoft.com"
-        #Note that even for guest users, we get the host tenant (and not their native tenantId). E.g., "descriptor...;72f...47\pqr@live.com"
-        #If the token is invalid, we get a diff object: "descriptor":"System:PublicAccess;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-        $authNUserInfo = @(($responseObj.authenticatedUser.descriptor -split ';') -split '\\')
-    
-        #Check if the above split resulted in 3 elements (valid token case)
-        if ($authNUserInfo.Count -eq 3)
-        {
-            $contextObj.Tenant.Id = $authNUserInfo[1]
-            $contextObj.Account.Id = $authNUserInfo[2]
+            #If the token is valid, we get: "descriptor"="Microsoft.IdentityModel.Claims.ClaimsIdentity;72f988bf-86f1-41af-91ab-2d7cd011db47\xyz@microsoft.com"
+            #Note that even for guest users, we get the host tenant (and not their native tenantId). E.g., "descriptor...;72f...47\pqr@live.com"
+            #If the token is invalid, we get a diff object: "descriptor":"System:PublicAccess;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+            $authNUserInfo = @(($responseObj.authenticatedUser.descriptor -split ';') -split '\\')
+                    
+            #Check if the above split resulted in 3 elements (valid token case)
+            if ($authNUserInfo.Count -eq 3)
+            {
+                $contextObj.Tenant.Id = $authNUserInfo[1]
+                $contextObj.Account.Id = $authNUserInfo[2]
+            }
+            elseif ([Helpers]::CheckMember($responseObj.authenticatedUser,"customDisplayName")) {
+                $contextObj.Account.Id = $responseObj.authenticatedUser.customDisplayName;
+            }
         }
-        elseif ([Helpers]::CheckMember($responseObj.authenticatedUser,"customDisplayName")) {
-            $contextObj.Account.Id = $responseObj.authenticatedUser.customDisplayName;
+        catch {
+            Write-Host "Organization not found: Incorrect organization name or account does not have necessary permission to access the organization. Use -ResetCredentials parameter in command to login with another account." -ForegroundColor Yellow
+            throw [SuppressedException] "The remote server returned an error: (404) Not Found.";
         }
     }
 
