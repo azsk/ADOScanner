@@ -147,7 +147,12 @@ function Install-AzSKADOContinuousAssurance
 		[Parameter(Mandatory = $true, ParameterSetName = "OAuthBasedCA")]
 		[Alias("ausc")]
 		[string]
-		$AuthorizedScopes
+		$AuthorizedScopes,
+
+		[switch]
+		[Parameter(Mandatory = $false, HelpMessage = "Create a storage account to store common data(eg. bug logging etc.).")]
+		[Alias("cdsa")]
+		$CreateCommonDataStorageAccount
 
     )
 	Begin
@@ -170,7 +175,7 @@ function Install-AzSKADOContinuousAssurance
                                             $OrganizationName, $PATToken, $PATTokenURL, $ResourceGroupName, $LAWSId,`
                                             $LAWSSharedKey, $ProjectName, $IdentityResourceId,`
                                             $ExtendedCommand,  $ScanIntervalInHours, $PSCmdlet.MyInvocation, $CreateLAWorkspace,`
-                                            $OAuthAppId, $ClientSecret, $AuthorizedScopes);
+                                            $OAuthAppId, $ClientSecret, $AuthorizedScopes, $CreateCommonDataStorageAccount);
 
             if ($PSCmdlet.ParameterSetName -eq 'Default') {
                 $caAccount.InvokeFunction($caAccount.InstallAzSKADOContinuousAssurance)
