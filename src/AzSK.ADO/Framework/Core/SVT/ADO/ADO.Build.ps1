@@ -2167,25 +2167,48 @@ class Build: ADOSVTBase
                                 $currentBranch = $_    
                                 $refobj = "" | Select-Object branch,fileName
                                 $refobj.branch = $currentBranch
-                                try{
-                                    $url = 'https://dev.azure.com/{0}/{1}/_apps/hub/ms.vss-build-web.ci-designer-hub?pipelineId={2}&branch={3}&__rt=fps&__ver=2' -f $orgName, $projectId , $buildId, $currentBranch;
-                                    $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                                    if([Helpers]::CheckMember($responseObj,"fps.dataProviders.data") -and $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider' -and [Helpers]::CheckMember($responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider',"content") -and  $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'.content)
-                                    {
-                                        $dataprovider = $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'
-                                        $yamlFileContent = $dataprovider.content
+                                #in case pipeline repo is azure repo, get file contents from the repo, else use the portal API
+                                if ($this.BuildObj[0].repository.type -eq 'TfsGit'){
+                                    try{
+                                        $yamlFile = ($this.BuildObj[0].process.yamlFilename).Replace("/","%2F");
+                                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/Items?path=%2F{3}&recursionLevel=0&includeContentMetadata=true&versionDescriptor.version={4}&versionDescriptor.versionOptions=0&versionDescriptor.versionType=0&includeContent=true&resolveLfs=true&api-version=6.0" -f $orgName, $projectName, ($this.BuildObj[0].repository.name), $yamlFile, $currentBranch
+                                        #need to get the raw response as file contents are returned in bytes
+                                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequestRaw($url));
+                                        #convert byte response to string
+                                        $yamlFileContent = [System.Text.Encoding]::ASCII.GetString($responseObj.Content)
                                         if($yamlFileContent -match $regex)
                                         {
-                                            $refobj.fileName = $dataprovider.definition.process.yamlFilename
+                                            $refobj.fileName = $this.BuildObj[0].process.yamlFilename
                                             $resultObj += $refobj
                                         }
                                     }
+                                    catch{
+                                        $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch YAML file for the branch: $($currentBranch)");
+                                        $controlResult.LogException($_)
+                                    }
                                 }
-                                catch
-                                {
-                                    $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch YAML file for the branch: $($currentBranch)");
-                                    $controlResult.LogException($_)
-                                }                        
+                                else{
+                                    try{
+                                        $url = 'https://dev.azure.com/{0}/{1}/_apps/hub/ms.vss-build-web.ci-designer-hub?pipelineId={2}&branch={3}&__rt=fps&__ver=2' -f $orgName, $projectId , $buildId, $currentBranch;
+                                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                                        if([Helpers]::CheckMember($responseObj,"fps.dataProviders.data") -and $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider' -and [Helpers]::CheckMember($responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider',"content") -and  $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'.content)
+                                        {
+                                            $dataprovider = $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'
+                                            $yamlFileContent = $dataprovider.content
+                                            if($yamlFileContent -match $regex)
+                                            {
+                                                $refobj.fileName = $dataprovider.definition.process.yamlFilename
+                                                $resultObj += $refobj
+                                            }
+                                        }
+                                    }
+                                    catch
+                                    {
+                                        $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch YAML file for the branch: $($currentBranch)");
+                                        $controlResult.LogException($_)
+                                    }
+                                }
+                                                        
                             }
                             if($resultObj.Count -gt 0)
                             {

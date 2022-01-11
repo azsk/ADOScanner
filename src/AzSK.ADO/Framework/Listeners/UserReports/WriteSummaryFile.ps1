@@ -48,6 +48,10 @@ class WriteSummaryFile: FileOutputBase
 			if(($Event.SourceArgs.ControlResults|Where-Object{$_.VerificationResult -ne[VerificationResult]::NotScanned}|Measure-Object).Count -gt 0)
 			{
 				$currentInstance.SetFilePath($Event.SourceArgs[0].OrganizationContext, ("SecurityReport-" + $currentInstance.RunIdentifier + ".csv"));
+				#in case check owner access has been used with normal GADS and not control fix, generate a list of non scanned resources
+				if($currentInstance.InvocationContext.BoundParameters["CheckOwnerAccess"] -and $null -ne $env:nonScannedResources){
+					$currentInstance.WriteNonScannedResourcesInfo();
+				}
 			}
 			#in case of control fix, csv will have been already generated due to upc, need to generate list of non scanned resources
             elseif($currentInstance.InvocationContext.BoundParameters["CheckOwnerAccess"] -and $currentInstance.InvocationContext.BoundParameters["PrepareForControlFix"] -and $null -ne $env:nonScannedResources){

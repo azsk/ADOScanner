@@ -171,7 +171,7 @@ class CommonSVTResourceResolver {
                 if($this.IsAutomatedFixUndoCmd){
                     $feedDefnURL = 'https://feeds.dev.azure.com/{0}/_apis/Packaging/FeedRecycleBin?api-version=6.0-preview.1&includeUrls=false' -f $this.organizationName
                 }
-                elseif($PSCmdlet.MyInvocation.BoundParameters["CheckOwnerAccess"] -and $PSCmdlet.MyInvocation.BoundParameters["PrepareForControlFix"]){
+                elseif($PSCmdlet.MyInvocation.BoundParameters["CheckOwnerAccess"]){
                     $feedDefnURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds?feedRole=administrator&api-version=6.0-preview.1&includeUrls=false' -f $this.organizationName
                 }
                 else{
@@ -199,7 +199,7 @@ class CommonSVTResourceResolver {
                 }
             }
             #Following piece of code is to get a list of all feeds that wont be scanned due to insufficient privileges, will be used only for control fix
-            if($PSCmdlet.MyInvocation.BoundParameters["CheckOwnerAccess"] -and $PSCmdlet.MyInvocation.BoundParameters["PrepareForControlFix"]){
+            if($PSCmdlet.MyInvocation.BoundParameters["CheckOwnerAccess"]){
                 $totalFeedsURL = 'https://feeds.dev.azure.com/{0}/_apis/packaging/feeds?api-version=6.0-preview.1&includeUrls=false' -f $this.organizationName
                 $totalFeedsObj = [WebRequestHelper]::InvokeGetWebRequest($totalFeedsURL);
                 $totalFeeds=@();
@@ -213,9 +213,24 @@ class CommonSVTResourceResolver {
                     $_ =  "https://dev.azure.com/{0}/{1}/_packaging?_a=feed&feed={2}" -f $this.organizationName, $projectName, $_;
                     $_;
                 }
-                #saving this in an env variable as we have to access it while saving a list of these resources in logs.
-                $env:nonScannedResources +=$nonScannedResources
-                Write-Host "Found $($totalFeeds.Count) feeds. Current user has owner access on $($feedsList.Count) feeds. $($totalFeeds.Count - $feedsList.Count) feeds will not be scanned and hence backup not be generated for control fix due to insufficient permissions." -ForegroundColor Yellow
+                try{
+                    #saving this in an env variable as we have to access it while saving a list of these resources in logs.
+                    $env:nonScannedResources +=$nonScannedResources
+                }
+                catch{
+                    #TODO: in case of higher number of feeds, this env variable may not be stored
+                    #in such cases the scan should work properly with owner access feeds even if nonscannedresources.json cannot be formed
+                    if($_ -like "Environment variable name or value is too long"){
+                        $env:nonScannedResources = $null;
+                    }
+                }
+                if([Helpers]::CheckMember($feedsList[0],"id")){
+                    $feedCntWithOwnerAccess = $feedsList.Count
+                }
+                else{
+                    $feedCntWithOwnerAccess=0 
+                }
+                Write-Host "Found $($totalFeeds.Count) feeds. Current user has owner access on $($feedCntWithOwnerAccess) feeds. $($totalFeeds.Count - $feedCntWithOwnerAccess) feeds will not be scanned due to insufficient permissions." -ForegroundColor Yellow
             }
             return $feedsList
         }
