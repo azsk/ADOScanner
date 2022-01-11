@@ -269,7 +269,8 @@
     "Low": "Low"
   },
   "GroupResolution": {
-    "GroupResolutionLevel": -1
+    "GroupResolutionLevel": -1,
+    "UseSIPFeedForAADGroupExpansion": false
   },
   "Build": {
     "BuildHistoryPeriodInDays": 180,
