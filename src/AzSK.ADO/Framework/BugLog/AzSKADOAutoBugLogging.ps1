@@ -89,7 +89,7 @@ class AzSKADOAutoBugLogging : CommandBase
         [ResourceContext] $ResourceContext = $null;
         [SVTEventContext[]] $ResourceContextControlResult = $null;
 
-        $resourcesToLogBugs = $this.ScanResult | Group-Object -Property ResourceId;
+        $resourcesToLogBugs = @($this.ScanResult | Group-Object -Property ResourceId);
         if ($isCloseBug) {
             $this.PublishCustomMessage("`nNumber of resources for which bug clossing will be evaluated: $($resourcesToLogBugs.count)",[MessageType]::Info);
         }
@@ -194,7 +194,7 @@ class AzSKADOAutoBugLogging : CommandBase
                     $scanResultData = $scanResultData | Where {$_.Status -eq "Passed"} 
                 }
 
-                if ($this.MaxBugsToLog) {
+                if ($scanResultData -and $this.MaxBugsToLog -and ($scanResultData.count -gt $this.MaxBugsToLog)) {
                     $scanResultData = $scanResultData[0..($this.MaxBugsToLog - 1)];
                 }
 
@@ -219,7 +219,7 @@ class AzSKADOAutoBugLogging : CommandBase
                 if ($AutoCloseBug) {
                     $scanResultData = $scanResultData | Where {$_.ControlStatus_s -eq "Passed"}
                 }
-                if ($this.MaxBugsToLog) {
+                if ($scanResultData -and $this.MaxBugsToLog -and ($scanResultData.count -gt $this.MaxBugsToLog)) {
                     $scanResultData = $scanResultData[0..($this.MaxBugsToLog - 1)];
                 }
                 $this.ScanResult += $scanResultData;
