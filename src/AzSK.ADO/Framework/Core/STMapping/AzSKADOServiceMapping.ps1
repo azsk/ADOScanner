@@ -58,7 +58,7 @@ class AzSKADOServiceMapping: CommandBase
         if (!$this.ServiceMappingCacheHelperObj) {
             $this.ServiceMappingCacheHelperObj = [ServiceMappingCacheHelper]::GetInstance($this.OrgName);
         }            
-       
+        [ServiceMappingCacheHelper]::TelemetryLogging("scan started",$null);
         #get storage details
         if($this.Auto -eq 'true'){
             if ($this.StorageRG -and $this.StorageAccount) {
@@ -99,13 +99,13 @@ class AzSKADOServiceMapping: CommandBase
             $this.GetRepositoryMapping();
             $this.SaveScanDuration("Repository scan ended",$true)
         }
-
+        [ServiceMappingCacheHelper]::TelemetryLogging("GetSTmapping",$null);
         if(![string]::IsNullOrWhiteSpace($this.BuildMappingsFilePath) -and ![string]::IsNullOrWhiteSpace($this.ReleaseMappingsFilePath)){
             if(((Test-Path $this.BuildMappingsFilePath) -and (Test-Path $this.ReleaseMappingsFilePath)) -or $this.Auto -eq 'true')
             {
                 $this.GetBuildReleaseMapping();              
                 if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "ServiceConnection")
-                {
+                {                    
                     $this.SaveScanDuration("Service Connections scan started", $false)
                     $this.FetchSvcConnMapping();
                     $this.SaveScanDuration("Service Connections scan ended",$true)
@@ -118,7 +118,7 @@ class AzSKADOServiceMapping: CommandBase
                 }
                 if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "Environment")
                 {
-                    $this.SaveScanDuration("Environment scan started", $false)
+                    $this.SaveScanDuration("Environment scan started", $false)                    
                     $this.FetchEnvironmentMapping();
                     $this.SaveScanDuration("Environment scan ended",$true)
                 }
@@ -126,7 +126,9 @@ class AzSKADOServiceMapping: CommandBase
                 {
                     $this.SaveScanDuration("VariableGroup/SecureFile scan started", $false)
                     # fetch all the cached mappings from cache and add to in-memory collection
+                    [ServiceMappingCacheHelper]::TelemetryLogging("GetSTmapping",$null);
                     $this.storageCachedData = $this.ServiceMappingCacheHelperObj.GetWorkItemByHashAzureTable("All", "","","", $this.projectId)
+                    [ServiceMappingCacheHelper]::TelemetryLogging("FetchVarGrpSecureFileMapping",$null);
                     $this.FetchVarGrpSecureFileMapping();
                     $this.SaveScanDuration("VariableGroup/SecureFile scan ended",$true)
                 }
@@ -146,6 +148,7 @@ class AzSKADOServiceMapping: CommandBase
     
     hidden  GetBuildReleaseMapping()
     {  
+        [ServiceMappingCacheHelper]::TelemetryLogging("GetBuildReleaseMapping",$null);
         $this.SaveScanDuration("Build's repo scan started", $false)
         if($this.Auto -eq 'true'){
             $response = Get-AzStorageBlob -Blob 'BuildServiceMappingData.json' -Container $this.Container -Context $this.StorageAccountCtx 
@@ -181,7 +184,8 @@ class AzSKADOServiceMapping: CommandBase
                 catch{
 
                 }                
-            }        
+            }   
+            [ServiceMappingCacheHelper]::TelemetryLogging("GetBuildReleaseMapping completed",$null);     
         }
         catch {           
         }
@@ -209,7 +213,7 @@ class AzSKADOServiceMapping: CommandBase
                 $this.ProjectId = $this.ReleaseSTDetails.data[0].projectId
             }
         }       
-
+        [ServiceMappingCacheHelper]::TelemetryLogging("GetBuildReleaseMapping - release",$null);   
         # Get Release-Repo mappings
         try {                         
             $releaseObjectListURL = ("https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions?api-version=6.0" ) -f $($this.orgName), $this.projectName;    
@@ -247,6 +251,7 @@ class AzSKADOServiceMapping: CommandBase
                 }                
             }                                
         }
+          
         catch {
            
         }
@@ -256,9 +261,11 @@ class AzSKADOServiceMapping: CommandBase
             $this.ExportObjToJsonFileUploadToBlob($this.ReleaseSTDetails, 'ReleaseSTData.json');            
         }
         $this.SaveScanDuration("Release's repo releases scan ended", $false)
+        [ServiceMappingCacheHelper]::TelemetryLogging("GetBuildReleaseMapping - completed",$null);
     }
 
     hidden GetRepositoryMapping() {  
+        [ServiceMappingCacheHelper]::TelemetryLogging("GetRepositoryMapping - started",$null);
         if($this.Auto -eq 'true'){
             $response = Get-AzStorageBlob -Blob 'RepoServiceMappingData.json' -Container $this.Container -Context $this.StorageAccountCtx 
             $this.RepositorySTDetails = $response.ICloudBlob.DownloadText() | ConvertFrom-Json         
@@ -279,6 +286,7 @@ class AzSKADOServiceMapping: CommandBase
             $this.ExportObjToJsonFile($this.RepositorySTDetails, 'RepositorySTData.json');
             $this.ExportObjToJsonFileUploadToBlob($this.RepositorySTDetails, 'RepositorySTData.json');
         }
+        [ServiceMappingCacheHelper]::TelemetryLogging("GetRepositoryMapping - completed",$null);
     }
 
     hidden ExportObjToJsonFile($serviceMapping, $fileName) {   
@@ -513,6 +521,7 @@ class AzSKADOServiceMapping: CommandBase
 
     hidden [bool] FetchVarGrpSecureFileMapping() {  
       
+        [ServiceMappingCacheHelper]::TelemetryLogging("FetchVarGrpSecureFileMapping - started",$null);
         $topNQueryString = '&$top=10000'
         $varGrps = @();
         $secureFiles = @();
@@ -547,7 +556,7 @@ class AzSKADOServiceMapping: CommandBase
                 }
 
                 foreach ($relDef in $releaseDefnsObj) 
-                {                   
+                {                                  
                     $counter++
                     Write-Progress -Activity 'Variable group/secure file mappings via release...' -CurrentOperation $relDef.Name -PercentComplete (($counter / $releaseDefnsObj.count) * 100)                                                                                            
                     try
@@ -987,6 +996,7 @@ class AzSKADOServiceMapping: CommandBase
     # attribution of variable group/ secure file linked with build
     hidden [void] FindSTWithBuildForVGSecFile($buildObj, $secureFiles, $accessToken, $secureFileDetails, $variableGroupSTMapping, $secureFileSTMapping)
     {    
+        [ServiceMappingCacheHelper]::TelemetryLogging("FetchVarGrpSecureFileMapping - getting mappings for build",$null);   
          #Variable to store current build STDATA
          $buildSTData = $null;
 
@@ -1000,6 +1010,7 @@ class AzSKADOServiceMapping: CommandBase
 
                 $varGrps | ForEach-Object {
                     try {
+                        [ServiceMappingCacheHelper]::TelemetryLogging("FetchVarGrpSecureFileMapping - getting mappings for variable group",$null);   
                         $buildSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $buildObj[0].id) -and ($_.projectName -eq $this.ProjectName) };
                         if($buildSTData)
                         {
@@ -1055,6 +1066,7 @@ class AzSKADOServiceMapping: CommandBase
             }
         }
         if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
+            [ServiceMappingCacheHelper]::TelemetryLogging("FetchVarGrpSecureFileMapping - getting mappings for SecureFile",$null);   
             try {
                 if(($secureFiles | Measure-Object).Count -gt 0)
                 {
@@ -1087,7 +1099,8 @@ class AzSKADOServiceMapping: CommandBase
 
     # find cached mappings for variable group/ secure file linked with build
     hidden [void] FindSTWithBuildForVGSecFileCache($buildObj, $secureFiles, $accessToken, $secureFileDetails, $variableGroupSTMapping, $secureFileSTMapping)
-    {           
+    {       
+        [ServiceMappingCacheHelper]::TelemetryLogging("FetchVarGrpSecureFileMapping - getting mappings from cache",$null);       
         if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
             if([Helpers]::CheckMember($buildObj[0],"variableGroups"))
             {
@@ -1132,14 +1145,16 @@ class AzSKADOServiceMapping: CommandBase
     # attribution of variable group/ secure file linked with release
     hidden [void] FindSTWithReleaseForVGSecFile($relDef, $varGrps,$secureFiles,$accessToken, $secureFileDetails , $variableGroupSTMapping, $secureFileSTMapping)
     {
+        [ServiceMappingCacheHelper]::TelemetryLogging("FetchVarGrpSecureFileMapping - getting mappings for release",$null);       
         if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
             if(($varGrps | Measure-Object).Count)
-            {
+            {                
                 $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName;
                 $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
 
                 $varGrps | ForEach-Object {
-                    try {                                                                            
+                    try {     
+                        [ServiceMappingCacheHelper]::TelemetryLogging("FetchVarGrpSecureFileMapping - getting mappings for release - variable group",$null);                                                                              
                         $varGrpURL = ("https://{0}.visualstudio.com/{1}/_apis/distributedtask/variablegroups/{2}?api-version=6.1-preview.2") -f $this.OrgName, $this.projectId, $_;   
                         $varGroupExistinSt = $variableGroupSTMapping.data | Where-Object -Property variableGroupID -eq $_ 
                         $cachedVGItem = $this.GetResourceDataFromCache("Release",$relDef.id,"VariableGroup", $_) 
@@ -1249,12 +1264,13 @@ class AzSKADOServiceMapping: CommandBase
 
     # find cached mappings for variable group/ secure file linked with release
     hidden [void] FindSTWithReleaseForVGSecFileCache($relDef, $varGrps,$secureFiles,$accessToken, $secureFileDetails, $variableGroupSTMapping, $secureFileSTMapping)
-    {
+    {        
         if ($this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup") {
             if(($varGrps | Measure-Object).Count)
             {               
                 $varGrps | ForEach-Object {
-                    try {                                                                                                                            
+                    try {   
+                        [ServiceMappingCacheHelper]::TelemetryLogging("FetchVarGrpSecureFileMapping - getting mappings from cache - variable group",$null);                                                                                                                                
                         $varGroupExistinST = $variableGroupSTMapping.data | Where-Object -Property variableGroupID -eq $_
                         if(!$varGroupExistinST)
                         {                           
@@ -1271,6 +1287,7 @@ class AzSKADOServiceMapping: CommandBase
         }
 
         if ($this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile") {
+            [ServiceMappingCacheHelper]::TelemetryLogging("FetchVarGrpSecureFileMapping - getting mappings from cache - securefile",$null);   
             try {
                 if(($secureFiles | Measure-Object).Count -gt 0)
                 {
@@ -1297,6 +1314,7 @@ class AzSKADOServiceMapping: CommandBase
         if($finished)
         {
             $this.PublishCustomMessage("Total duration to finish the resource scan :  $($duration - $this.lastDuration)", [MessageType]::Info);
+            [ServiceMappingCacheHelper]::TelemetryLogging("Total duration to finish the resource scan :  $($duration - $this.lastDuration)",$null);   
             $this.lastDuration = $duration
         }
     }

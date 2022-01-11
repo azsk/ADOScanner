@@ -210,4 +210,26 @@ class ServiceMappingCacheHelper {
     hidden [string] ComputeHashX([string] $dataToHash) {
         return [Helpers]::ComputeHashShort($dataToHash, [Constants]::AutoBugLogTagLen)
     }
+    
+    static TelemetryLogging($eventName, $eventProps){
+        $telemetryClient = [Microsoft.ApplicationInsights.TelemetryClient]::new();
+        $telemetryClient.InstrumentationKey = $env:APPINSIGHTS_INSTRUMENTATIONKEY;       
+        $event = [Microsoft.ApplicationInsights.DataContracts.EventTelemetry]::new()
+        $event.Name = $eventName
+        if($null -ne $eventProps){
+            
+            $eventProps.PSObject.Properties | ForEach-Object {
+                try {
+                    $event.Properties[$_.Name] = $_.Value.ToString();
+                }
+                catch
+				{
+                    $_
+					# Eat the current exception which typically happens when the property already exist in the object and try to add the same property again
+					# No need to break execution
+				}
+            }
+        }
+        $telemetryClient.TrackEvent($event);
+    }
 }
