@@ -213,7 +213,7 @@ function Start-AzSKADOBugLogging
 
 			if(![string]::IsNullOrWhiteSpace($ScanResultFilePath) -and(Test-Path $ScanResultFilePath)) {
 				Write-Host 'Loading scan result file data.....' -ForegroundColor Cyan
-				$ScanResult = Get-content $ScanResultFilePath | ConvertFrom-Csv
+				$ScanResult = @(Get-content $ScanResultFilePath | ConvertFrom-Csv);
 			}
 			else {
 				Write-Host "Scan result file is not found. Please supply correct full path of scan result file." -ForegroundColor Red
@@ -270,11 +270,24 @@ function Start-AzSKADOBugLogging
 				if ($bugLogProjectAccess -or !$BugLogProjectName) {
 					if ($AutoBugLog) {
 						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $AutoBugLog, $ResourceTypeName, $ControlIds, $ScanResult,$BugTemplate, $PSCmdlet.MyInvocation, $IsLAFile, $STMappingFilePath, $BugDescription, $MaxBugsToLog);
-						return $secStatus.InvokeFunction($secStatus.StartBugLogging);	
+						
+						if($secStatus.ScanResult){
+							return $secStatus.InvokeFunction($secStatus.StartBugLogging);
+						}
+						else{
+							Write-Host "No failed control found to run bug logging." -ForegroundColor Cyan;
+							return;
+						}	
 					}
 					elseif ($AutoCloseBugs) {
 						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $ResourceTypeName, $ControlIds, $ScanResult, $PSCmdlet.MyInvocation, $IsLAFile, $MaxBugsToLog);
-						return $secStatus.InvokeFunction($secStatus.ClosingLoggedBugs);	
+						if($secStatus.ScanResult) {
+							return $secStatus.InvokeFunction($secStatus.ClosingLoggedBugs);	
+						}
+						else{
+							Write-Host "No passed control found to run bug logging." -ForegroundColor Cyan;
+							return;
+						}
 					}
 					
 				}
