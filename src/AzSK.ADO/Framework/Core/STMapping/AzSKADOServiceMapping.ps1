@@ -956,13 +956,19 @@ class AzSKADOServiceMapping: CommandBase
     #adding new mapping info
     hidden [void] AddMappinginfoInCache( [string]  $orgName, [string]  $projectID, [string]  $pipelineID, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceName,[string]  $resourceType,[string]  $pipelineType,[string]  $mappingExpiration) 
     {     
+        $hash = $this.ServiceMappingCacheHelperObj.GetHashedTag($this.projectId, $pipelineID, $pipelineType,$resourceID,$resourceType) 
         $resourceInCache = $this.GetResourceDataFromCache($pipelineType,$pipelineID,$resourceType, $resourceID)
         if($resourceInCache)
         {
             $this.ServiceMappingCacheHelperObj.UpdateTableEntity($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified, $resourceID, $resourceType, $resourceName, $pipelineType,$mappingExpiration)
+            #update mapping expiration date as per new scan           
+            $rowIndex = [array]::IndexOf($this.storageCachedData.RowKey,$hash)
+            $this.storageCachedData[$rowIndex].MappingExpiration = $mappingExpiration            
         }
         else {
-            $this.ServiceMappingCacheHelperObj.InsertMappingInfoInTable($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified,$resourceID,$resourceType,$resourceName,$pipelineType, $mappingExpiration)   
+            $this.ServiceMappingCacheHelperObj.InsertMappingInfoInTable($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified,$resourceID,$resourceType,$resourceName,$pipelineType, $mappingExpiration)
+            #update in-memory cache with new record             
+            $this.storageCachedData+=  @([PSCustomObject] @{"RowKey" =$hash; "OrgName" = $orgName; "ProjectID" = $projectID; "PipelineID" = $pipelineID;"ServiceTreeID" = $serviceTreeID;"PipelineLastModified" = $pipelineLastModified;"ResourceID" = $resourceID;"ResourceType" = $resourceType;"ResourceName" = $resourceName;"PipelineType" = $pipelineType;  "MappingExpiration" = $MappingExpiration}; ) 
         }        
     }
     
@@ -970,7 +976,7 @@ class AzSKADOServiceMapping: CommandBase
     hidden [object] GetResourceDataFromCache($pipelineType,$pipelineID,$resourceType, $resourceID)
     {  
         $resourceItem =@()         
-        $hash = $this.ServiceMappingCacheHelperObj.GetHashedTag($this.projectId, $pipelineID, $pipelineType,$resourceID,$resourceType)   
+        $hash = $this.ServiceMappingCacheHelperObj.GetHashedTag($this.projectId, $pipelineID, $pipelineType,$resourceID,$resourceType)         
         $item = $this.storageCachedData | Where-Object -Property RowKey -eq $hash 
         if($item){
             return $item
@@ -1140,9 +1146,9 @@ class AzSKADOServiceMapping: CommandBase
                         $mappingValid = $false 
                         if($cachedVGItem)
                         {
-                            $mappingValid= $cachedVGItem.MappingExpiration -gt (Get-Date).ToUniversalTime() -and $cachedVGItem.PipelineLastModified -gt $relDef.modifiedOn
+                            $mappingValid= $cachedVGItem.MappingExpiration -ge (Get-Date).ToUniversalTime().ToString('dd/MM/yyyy HH:mm:ss') -and $cachedVGItem.PipelineLastModified -ge $relDef.modifiedOn
                         }
-                        if(!$varGroupExistinSt -or !$mappingValid)                        
+                        if(!$varGroupExistinSt -and !$mappingValid)                        
                         { 
                             $header = [WebRequestHelper]::GetAuthHeaderFromUri($varGrpURL)                                                                     
                             $varGrpObj  = Invoke-WebRequest -Uri $varGrpURL -Headers $header                                        
@@ -1155,7 +1161,7 @@ class AzSKADOServiceMapping: CommandBase
                                     {
                                         $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $varGrpObj.name; variableGroupID = $varGrpObj.id; serviceID = $releaseSTData.serviceID; projectName = $releaseSTData.projectName; projectID = $releaseSTData.projectID; orgName = $releaseSTData.orgName } )
                                         # add variable group mapping details in cache
-                                        $this.AddMappinginfoInCache($releaseSTData.orgName,$releaseSTData.projectID,$relDef.id, $releaseSTData.serviceID,$relDef.modifiedOn,$varGrpObj.id,$varGrpObj.name,"VariableGroup","Release",(Get-date).AddDays($this.MappingExpirationLimit)); 
+                                        $this.AddMappinginfoInCache($releaseSTData.orgName,$releaseSTData.projectID,$relDef.id, $releaseSTData.serviceID,$relDef.modifiedOn,$varGrpObj.id,$varGrpObj.name,"VariableGroup","Release",(Get-date).AddDays($this.MappingExpirationLimit));                                        
                                     }
                                     else {
                                         if ($varGrpObj.Type -eq 'AzureKeyVault') { 
@@ -1219,9 +1225,9 @@ class AzSKADOServiceMapping: CommandBase
                     $mappingValid = $false 
                     if($cachedSecFileItem)
                     {
-                        $mappingValid = $cachedSecFileItem.MappingExpiration -gt (Get-Date).ToUniversalTime() -and  $cachedSecFileItem.PipelineLastModified -gt $relDef.modifiedOn
+                        $mappingValid = $cachedSecFileItem.MappingExpiration -ge (Get-Date).ToUniversalTime().ToString('dd/MM/yyyy HH:mm:ss') -and  $cachedSecFileItem.PipelineLastModified -ge $relDef.modifiedOn
                     }
-                    if(!$secFileExistinSt -or !$mappingValid)
+                    if(!$secFileExistinSt -and !$mappingValid)
                     {
                         if ($secureFilesObj) {
                             $releaseSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $relDef.id) };
