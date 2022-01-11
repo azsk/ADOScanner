@@ -372,7 +372,7 @@ class AutoCloseBugManager {
             else{
                 foreach ($id in $ids) {
                     $closeBugTemplate += [PSCustomObject] @{ method = 'PATCH'; uri = "/_apis/wit/workitems/$($id)?api-version=4.1"; headers = @{"Content-Type" = 'application/json-patch+json'};
-                    body = @(@{op = "add"; "path"= "/fields/System.State"; "value"= "Closed"}; @{op = "add"; "path"= "/fields/Microsoft.VSTS.Common.ResolvedReason"; "value"= ""})
+                    body = @(@{op = "add"; "path"= "/fields/System.State"; "value"= "Closed"}; @{op = "add"; "path"= "/fields/Microsoft.VSTS.Common.ResolvedReason"; "value"= ""};@{op = "add"; "path"= "/fields/System.History"; "value"= "<div><span style=\\'display:inline !important;\\'>The control has been evaluated to be passing in the most recent scans. Hence the bug has been closed.</span><br> </div>"})
                     }
                 }
             }
