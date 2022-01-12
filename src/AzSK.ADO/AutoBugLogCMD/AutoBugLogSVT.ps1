@@ -223,6 +223,7 @@ function Start-AzSKADOBugLogging
 			$isValidBugTemplate = $false;
 			if($AutoBugLog -and [string]::IsNullOrWhiteSpace($BugTemplateFilePath)){
 				Write-Host 'Bug template file path is mandatory with AutoBugLog. Please provide correct value in [BugTemplateFilePath] command parameter.' -ForegroundColor Red;
+				return;
 			}
 			if(![string]::IsNullOrWhiteSpace($BugTemplateFilePath) -and (Test-Path $BugTemplateFilePath)) {
 				Write-Host 'Validating bug template.....' -ForegroundColor Cyan
