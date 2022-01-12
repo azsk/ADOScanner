@@ -69,7 +69,13 @@ function Get-AzSKADOServiceMapping
         [string]
         [Parameter(Mandatory=$false, HelpMessage="Flag to Run on Azure")]
         [Alias("at")]
-        $Auto
+        $Auto,
+
+        [switch]        
+        [Parameter(Mandatory=$false, HelpMessage="Flag to Use Cache for Attribution")]
+        [Alias("ch")]
+        $UseCache
+
     )
     Begin
     {
@@ -138,7 +144,7 @@ function Get-AzSKADOServiceMapping
             }
 
             $resolver = [Resolver]::new($OrganizationName, $PATToken)
-            $mapping = [AzSKADOServiceMapping]::new($OrganizationName, $ProjectName, $BuildMappingsFilePath, $ReleaseMappingsFilePath, $ReposMappingsFilePath, $MappingType,$Auto, $PSCmdlet.MyInvocation);
+            $mapping = [AzSKADOServiceMapping]::new($OrganizationName, $ProjectName, $BuildMappingsFilePath, $ReleaseMappingsFilePath, $ReposMappingsFilePath, $MappingType,$Auto,$UseCache, $PSCmdlet.MyInvocation);
 
             return $mapping.InvokeFunction($mapping.GetSTmapping);
         }
