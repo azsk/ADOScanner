@@ -2183,8 +2183,7 @@ class Build: ADOSVTBase
                                         }
                                     }
                                     catch{
-                                        $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch YAML file for the branch: $($currentBranch)");
-                                        $controlResult.LogException($_)
+                                        #eat exception as yml file not found in branch being scanned
                                     }
                                 }
                                 else{
