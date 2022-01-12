@@ -232,7 +232,9 @@ class AutoBugLog : EventBase  {
             }
             else {
                 if($ResourceType -ne 'Organization' -and $ResourceType -ne 'Project'){
-                    $serviceId = [BugMetaInfoProvider]::ServiceTreeInfo.serviceId;
+                    if([BugMetaInfoProvider]::ServiceTreeInfo){
+                        $serviceId = [BugMetaInfoProvider]::ServiceTreeInfo.serviceId;
+                    }                    
                 }                
             }
             $resourceOwner = "";
