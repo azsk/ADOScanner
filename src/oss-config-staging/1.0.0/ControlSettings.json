@@ -536,7 +536,6 @@
     "RestrictedBroaderGroupsForFeeds" : {
       "Contributors":[
         "Administrator",
-        "Collaborator",
         "Contributor"
       ],
       "Readers":[
@@ -546,21 +545,19 @@
       ],
       "Project Collection Valid Users":[
         "Administrator",
-        "Collaborator",
         "Contributor"
       ],
       "Project Valid Users":[
         "Administrator",
-        "Collaborator",
         "Contributor"
       ]
     },
     "RestrictedRolesForBuildSvcAccountsInFeed" : [
         "Administrator",
-        "Collaborator",
         "Contributor"
     ],
-    "CheckForInheritedPermissions": false
+    "CheckForInheritedPermissions": false,
+    "RoleToChangeInFix":"Collaborator"
   },
   "SecureFile":{
     "RestrictedBroaderGroupsForSecureFile" : {
