@@ -602,6 +602,12 @@ class CommonSVTControls: ADOSVTBase {
                 foreach ($identity in $RawDataObjForControlFix) 
                 {
                     $roleId = [int][FeedPermissions] "$role"
+                    if($env:AzSKADO_FeedChangeReaderToCollaborator -ne $true){
+                        if($identity.displayName -match "\\Reader"){
+                            $roleId = [int][FeedPermissions] "Reader"
+                        }
+                    }
+                    
                     if ($body.length -gt 1) {$body += ","}
                     $body += @"
                         {
@@ -614,6 +620,9 @@ class CommonSVTControls: ADOSVTBase {
 "@;
                 }
                 $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue $role
+                if($env:AzSKADO_FeedChangeReaderToCollaborator -ne $true){
+                    $RawDataObjForControlFix | foreach{if($_.displayName -match "\\Reader"){$_.NewRole = "Reader"}}
+                }                
                 $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
             }
             else {
@@ -632,6 +641,9 @@ class CommonSVTControls: ADOSVTBase {
 "@;
                 }
                 $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue $role
+                if($env:AzSKADO_FeedChangeReaderToCollaborator -ne $true){
+                    $RawDataObjForControlFix | foreach{if($_.displayName -match "\\Reader"){$_.OldRole = "Reader"}}
+                }                
                 $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
             }
 
