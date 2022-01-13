@@ -180,11 +180,12 @@ class AzSKADOServiceMapping: CommandBase
                 }
                 catch{
 
-                }                
-            }        
+                }           
+            }   
+            [ServiceMappingCacheHelper]::TelemetryLogging("GetBuildReleaseMapping completed",$null);     
         }
         catch {           
-        }
+        }    
         if($this.UseCache)
         {
             $this.ExportObjToJsonFile($this.BuildSTDetails, 'BuildSTData.json');
@@ -1278,7 +1279,7 @@ class AzSKADOServiceMapping: CommandBase
                     $secureFilesObj = $secureFileSTMapping.data | Where-Object -Property secureFileID -eq $_
                     if (!$secureFilesObj) {   
                             $cachedSecFileItem = $this.GetResourceDataFromCache("Release",$relDef.id,"SecureFile", $_)                       
-                            $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $secureFilesObj.name; secureFileID = $secureFilesObj.id; serviceID = $cachedSecFileItem.serviceID; projectName = $cachedSecFileItem.projectName; projectID = $cachedSecFileItem.projectID; orgName = $cachedSecFileItem.orgName } )                                                    
+                            $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $cachedSecFileItem.ResourceName; secureFileID = $cachedSecFileItem.ResourceID; serviceID = $cachedSecFileItem.ServiceTreeID; projectName = $this.ProjectName; projectID = $cachedSecFileItem.projectID; orgName = $cachedSecFileItem.orgName } )
                         }
                     }
                 }
