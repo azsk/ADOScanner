@@ -551,7 +551,7 @@ class CommonSVTControls: ADOSVTBase {
 
                 if ($feedWithBroaderGroupCount -gt 0)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have administrator/contributor/ access to feed: $($feedWithBroaderGroupCount)")
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have administrator/contributor access to feed: $($feedWithBroaderGroupCount)")
 
                     $display = ($feedWithBroaderGroup |  FT Name, Role -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
