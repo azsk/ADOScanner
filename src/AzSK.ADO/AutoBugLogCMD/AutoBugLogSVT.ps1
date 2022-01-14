@@ -86,6 +86,11 @@ function Start-AzSKADOBugLogging
 		[AllowEmptyString()]
 		$ControlIds,
 
+		[int]
+		[Parameter(Mandatory = $false, HelpMessage="Max # of bugs to log. Default is 0 which means run bug logging for all.")]
+		[Alias("mbl")]
+		$MaxBugsToLog = 0,
+
 		[System.Security.SecureString]
 		[Parameter(HelpMessage="Token to run scan in non-interactive mode")]
 		[Alias("tk")]
@@ -99,7 +104,19 @@ function Start-AzSKADOBugLogging
 		[string]
 		[Parameter(Mandatory=$false, HelpMessage="KeyVault URL for PATToken")]
 		[Alias("ptu")]
-		$PATTokenURL
+		$PATTokenURL,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage="Full path of HTML Template for bug description for bug logging.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("bdfp")]
+		$BugDescriptionFilePath,
+
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage="Full path of bug template for auto closing bugs.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("cbtfp","cbt")]
+		$ClosedBugTemplateFilePath
 
 	)
 	Begin
@@ -124,6 +141,7 @@ function Start-AzSKADOBugLogging
 			#Refresh singleton in different commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
       		[AutoBugLog]::AutoBugInstance = $null
 			[BugLogHelper]::BugLogHelperInstance = $null
+            [BugMetaInfoProvider]::OrgMappingObj = @{}
       
 			if($PromptForPAT -eq $true)
 			{
@@ -195,7 +213,7 @@ function Start-AzSKADOBugLogging
 
 			if(![string]::IsNullOrWhiteSpace($ScanResultFilePath) -and(Test-Path $ScanResultFilePath)) {
 				Write-Host 'Loading scan result file data.....' -ForegroundColor Cyan
-				$ScanResult = Get-content $ScanResultFilePath | ConvertFrom-Csv
+				$ScanResult = @(Get-content $ScanResultFilePath | ConvertFrom-Csv);
 			}
 			else {
 				Write-Host "Scan result file is not found. Please supply correct full path of scan result file." -ForegroundColor Red
@@ -203,6 +221,10 @@ function Start-AzSKADOBugLogging
 			}
 
 			$isValidBugTemplate = $false;
+			if($AutoBugLog -and [string]::IsNullOrWhiteSpace($BugTemplateFilePath)){
+				Write-Host 'Bug template file path is mandatory with AutoBugLog. Please provide correct value in [BugTemplateFilePath] command parameter.' -ForegroundColor Red;
+				return;
+			}
 			if(![string]::IsNullOrWhiteSpace($BugTemplateFilePath) -and (Test-Path $BugTemplateFilePath)) {
 				Write-Host 'Validating bug template.....' -ForegroundColor Cyan
 				$BugTemplate = Get-content $BugTemplateFilePath | ConvertFrom-Json;
@@ -211,7 +233,15 @@ function Start-AzSKADOBugLogging
 					return;
 				}
 			}
+			$BugDescription = $null;
+			if(![string]::IsNullOrWhiteSpace($BugDescriptionFilePath) -and (Test-Path $BugDescriptionFilePath)) {
+				$BugDescription = Get-Content $BugDescriptionFilePath -raw
+			}
+			if(![string]::IsNullOrWhiteSpace($ClosedBugTemplateFilePath) -and !(Test-Path $ClosedBugTemplateFilePath)) {
+				Write-Host "Closed bug template file path seems to be invalid. Please check again."
+				return;
 
+			}
 			$Organization = $OrganizationName;
 			$IsLAFile = $false;
 			if ($ScanResult.count -gt 0) {
@@ -243,12 +273,25 @@ function Start-AzSKADOBugLogging
 
 				if ($bugLogProjectAccess -or !$BugLogProjectName) {
 					if ($AutoBugLog) {
-						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $AutoBugLog, $ResourceTypeName, $ControlIds, $ScanResult,$BugTemplate, $PSCmdlet.MyInvocation, $IsLAFile, $STMappingFilePath);
-						return $secStatus.InvokeFunction($secStatus.StartBugLogging);	
+						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $AutoBugLog, $ResourceTypeName, $ControlIds, $ScanResult,$BugTemplate, $PSCmdlet.MyInvocation, $IsLAFile, $STMappingFilePath, $BugDescription, $MaxBugsToLog);
+						
+						if($secStatus.ScanResult){
+							return $secStatus.InvokeFunction($secStatus.StartBugLogging);
+						}
+						else{
+							Write-Host "No failed control found to run bug logging." -ForegroundColor Cyan;
+							return;
+						}	
 					}
 					elseif ($AutoCloseBugs) {
-						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $ResourceTypeName, $ControlIds, $ScanResult, $PSCmdlet.MyInvocation, $IsLAFile);
-						return $secStatus.InvokeFunction($secStatus.ClosingLoggedBugs);	
+						$secStatus = [AzSKADOAutoBugLogging]::new($Organization, $BugLogProjectName, $ResourceTypeName, $ControlIds, $ScanResult, $PSCmdlet.MyInvocation, $IsLAFile, $MaxBugsToLog);
+						if($secStatus.ScanResult) {
+							return $secStatus.InvokeFunction($secStatus.ClosingLoggedBugs);	
+						}
+						else{
+							Write-Host "No passed control found to run bug logging." -ForegroundColor Cyan;
+							return;
+						}
 					}
 					
 				}

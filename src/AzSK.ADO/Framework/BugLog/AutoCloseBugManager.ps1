@@ -6,6 +6,7 @@ class AutoCloseBugManager {
     hidden [bool] $UseAzureStorageAccount = $false;
     hidden [BugLogHelper] $BugLogHelperObj;
     static [SVTEventContext []] $ClosedBugs=$null;
+    hidden $ClosedBugTemplate= $null;
 
     AutoCloseBugManager([string] $orgName) {
         $this.OrganizationName = $orgName;
@@ -360,9 +361,19 @@ class AutoCloseBugManager {
     {
         try {
             $closeBugTemplate = @();
-            foreach ($id in $ids) {
-                $closeBugTemplate += [PSCustomObject] @{ method = 'PATCH'; uri = "/_apis/wit/workitems/$($id)?api-version=4.1"; headers = @{"Content-Type" = 'application/json-patch+json'};
-                body = @(@{op = "add"; "path"= "/fields/System.State"; "value"= "Closed"}; @{op = "add"; "path"= "/fields/Microsoft.VSTS.Common.ResolvedReason"; "value"= ""})
+            if($PSCmdlet.MyInvocation.BoundParameters["ClosedBugTemplateFilePath"]){
+                $this.ClosedBugTemplate = Get-Content $PSCmdlet.MyInvocation.BoundParameters["ClosedBugTemplateFilePath"] | ConvertFrom-Json
+                foreach ($id in $ids) {
+                    $closeBugTemplate += [PSCustomObject] @{ method = 'PATCH'; uri = "/_apis/wit/workitems/$($id)?api-version=4.1"; headers = @{"Content-Type" = 'application/json-patch+json'};
+                    body =@($this.ClosedBugTemplate)
+                    }
+                }
+            }
+            else{
+                foreach ($id in $ids) {
+                    $closeBugTemplate += [PSCustomObject] @{ method = 'PATCH'; uri = "/_apis/wit/workitems/$($id)?api-version=4.1"; headers = @{"Content-Type" = 'application/json-patch+json'};
+                    body = @(@{op = "add"; "path"= "/fields/System.State"; "value"= "Closed"}; @{op = "add"; "path"= "/fields/Microsoft.VSTS.Common.ResolvedReason"; "value"= ""};@{op = "add"; "path"= "/fields/System.History"; "value"= "<div><span style=\\'display:inline !important;\\'>The control has been evaluated to be passing in the most recent scans. Hence the bug has been closed.</span><br> </div>"})
+                    }
                 }
             }
             if ($closeBugTemplate.count -gt 0) {
@@ -402,10 +413,17 @@ class AutoCloseBugManager {
             }
             #Fetch hash for regular scan
             else{
-                $controlHashValue=$bug.fields.'System.Tags'
+                $controlHashValue=$bug.fields.'System.Tags'   
+                #in case the bug has multiple tags, even if bug is closed, CSV will not be generated if we dont find the tag explicit to scan id
+                $controlHashValue = $controlHashValue.Split(";") | where {$_.Trim() -like "ADOScanID: *"}
+                $controlHashValue = $controlHashValue.Trim();
+            }
+            $bugState = 'Closed'
+            if($null -ne $this.ClosedBugTemplate){
+                $bugState = ($this.ClosedBugTemplate | where {$_.path -eq "/fields/System.State"}).value
             }
             
-            if ($hashToControlIDMap.ContainsKey($controlHashValue) -and $bug.fields.'System.State' -eq 'Closed')
+            if ($hashToControlIDMap.ContainsKey($controlHashValue) -and $bug.fields.'System.State' -eq $bugState)
             {
                 $id=$bug.id
                 $project=$bug.fields.'System.TeamProject'
@@ -427,7 +445,9 @@ class AutoCloseBugManager {
         $url = "https://almsearch.dev.azure.com/{0}/_apis/search/workitemsearchresults?api-version=6.0-preview.1" -f $this.OrganizationName
         #take results have been doubled, as their might be chances for a bug to be logged more than once, if the tag id is copied.
         #in this case we want all the instances of this bug to be closed
-        $body = '{"searchText": "{0}","$skip": 0,"$top": 60,"filters": {"System.TeamProject": [],"System.WorkItemType": ["Bug"],"System.State": ["New","Active","Resolved"]}}'| ConvertFrom-Json
+        #sprint 2201: added new states for standalone bug logging
+        #TODO: in case we need custom system states for partner teams, fetch system states to check from org policy
+        $body = '{"searchText": "{0}","$skip": 0,"$top": 60,"filters": {"System.TeamProject": [],"System.WorkItemType": ["Bug"],"System.State": ["New","Active","Resolved","Approved","Committed","In Progress","In Review"]}}'| ConvertFrom-Json
         $body.searchText = $hash
         $response = [WebRequestHelper]:: InvokePostWebRequest($url, $body)
         return  $response

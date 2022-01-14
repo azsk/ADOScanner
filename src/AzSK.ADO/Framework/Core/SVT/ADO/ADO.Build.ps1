@@ -2086,17 +2086,15 @@ class Build: ADOSVTBase
     {
         try
         {
-            if ([Build]::IsOAuthScan -eq $true)
-            {
                 if($this.BuildObj)
                 {
                     $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
 
-                    $this.buildActivityDetail.buildCreationDate = ([datetime] $this.BuildObj.createdDate).ToString("d MMM yyyy")
+                    $this.buildActivityDetail.buildCreationDate = ([datetime] $this.BuildObj.createdDate)
 
                     if([Helpers]::CheckMember($this.BuildObj[0],"latestBuild") -and $null -ne $this.BuildObj[0].latestBuild)
                     {
-                        [datetime] $queueTime = ([datetime] $this.BuildObj[0].latestBuild.queueTime).ToString("d MMM yyyy")
+                        [datetime] $queueTime = ([datetime] $this.BuildObj[0].latestBuild.queueTime)
                         if ($queueTime -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays)))
                         {
                             $this.buildActivityDetail.isBuildActive = $true;
@@ -2110,7 +2108,7 @@ class Build: ADOSVTBase
 
                         if([Helpers]::CheckMember($this.BuildObj[0].latestBuild,"finishTime"))
                         {
-                            $this.buildActivityDetail.buildLastRunDate = ([datetime] $this.BuildObj[0].latestBuild.finishTime).ToString("d MMM yyyy")
+                            $this.buildActivityDetail.buildLastRunDate = ([datetime] $this.BuildObj[0].latestBuild.finishTime)
                         }
                     }
                     else
@@ -2122,98 +2120,6 @@ class Build: ADOSVTBase
 
                     $responseObj = $null;
                 }
-            }
-            else
-            {
-                if($this.BuildObj)
-                {
-                    $apiURL = "https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery/project/{1}?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.BuildObj.project.id);
-                    $orgURL='https://dev.azure.com/{0}/{1}/_build?view=folders' -f $($this.OrganizationContext.OrganizationName),$($this.BuildObj.project.name)
-                    $inputbody="{'contributionIds':['ms.vss-build-web.pipelines-data-provider'],'dataProviderContext':{'properties':{'definitionIds':'$($this.BuildObj.id)','sourcePage':{'url':'$orgURL','routeId':'ms.vss-build-web.pipelines-hub-route','routeValues':{'project':'$($this.BuildObj.project.name)','viewname':'pipelines','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
-
-                    $sw = [System.Diagnostics.Stopwatch]::StartNew();
-                    $responseObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
-                    $sw.Stop()
-
-                    #Below code added to send perf telemtry
-                    if ($this.IsAIEnabled)
-                    {
-                        $properties =  @{
-                            TimeTakenInMs = $sw.ElapsedMilliseconds;
-                            ApiUrl = $apiURL;
-                            Resourcename = $this.ResourceContext.ResourceName;
-                            ResourceType = $this.ResourceContext.ResourceType;
-                            PartialScanIdentifier = $this.PartialScanIdentifier;
-                            CalledBy = "CheckForInactiveBuilds";
-                        }
-                        [AIOrgTelemetryHelper]::PublishEvent( "Api Call Trace",$properties, @{})
-                    }
-
-                    if([Helpers]::CheckMember($responseObj,"dataProviders") -and $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider' -and [Helpers]::CheckMember($responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider',"pipelines") -and  $responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines)
-                    {
-
-                        $builds = @($responseObj.dataProviders.'ms.vss-build-web.pipelines-data-provider'.pipelines)
-
-                        if($builds.Count -gt 0 )
-                        {
-                            $inactiveLimit = $this.ControlSettings.Build.BuildHistoryPeriodInDays
-                            if([ContextHelper]::PSVersion -gt 5) {
-                                $this.buildActivityDetail.buildCreationDate = $this.BuildObj.createdDate;
-                            }
-                            else {
-                                $this.buildActivityDetail.buildCreationDate = [datetime]::Parse($this.BuildObj.createdDate);
-                            }
-                            if([Helpers]::CheckMember($builds[0],"latestRun") -and $null -ne $builds[0].latestRun)
-                            {
-                                if([ContextHelper]::PSVersion -gt 5) {
-                                    $latestRunQueueTime = $builds[0].latestRun.queueTime;
-                                }
-                                else {
-                                    $latestRunQueueTime = [datetime]::Parse($builds[0].latestRun.queueTime);
-                                }
-                                if ( $latestRunQueueTime -gt (Get-Date).AddDays( - $($this.ControlSettings.Build.BuildHistoryPeriodInDays)))
-                                {
-                                    $this.buildActivityDetail.isBuildActive = $true;
-                                    $this.buildActivityDetail.message = "Found recent builds triggered within $($this.ControlSettings.Build.BuildHistoryPeriodInDays) days";
-                                }
-                                else
-                                {
-                                    $this.buildActivityDetail.isBuildActive = $false;
-                                    $this.buildActivityDetail.message = "No recent build history found in last $inactiveLimit days.";
-                                }
-
-                                if([Helpers]::CheckMember($builds[0].latestRun,"finishTime"))
-                                {
-                                    if([ContextHelper]::PSVersion -gt 5) {
-                                        $this.buildActivityDetail.buildLastRunDate = $builds[0].latestRun.finishTime;
-                                    }
-                                    else {
-                                        $this.buildActivityDetail.buildLastRunDate = [datetime]::Parse($builds[0].latestRun.finishTime);
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                #no build history ever.
-                                $this.buildActivityDetail.isBuildActive = $false;
-                                $this.buildActivityDetail.message = "No build history found.";
-                            }
-                        }
-                        else
-                        {
-                            $this.buildActivityDetail.isBuildActive = $false;
-                            $this.buildActivityDetail.message = "No build history found.";
-                        }
-                        $builds = $null;
-                        $responseObj = $null;
-                    }
-                    else
-                    {
-                        $this.buildActivityDetail.isBuildActive = $false;
-                        $this.buildActivityDetail.message = "No build history found. Build is inactive.";
-                    }
-                }
-            }
 
         }
         catch
@@ -2261,25 +2167,47 @@ class Build: ADOSVTBase
                                 $currentBranch = $_    
                                 $refobj = "" | Select-Object branch,fileName
                                 $refobj.branch = $currentBranch
-                                try{
-                                    $url = 'https://dev.azure.com/{0}/{1}/_apps/hub/ms.vss-build-web.ci-designer-hub?pipelineId={2}&branch={3}&__rt=fps&__ver=2' -f $orgName, $projectId , $buildId, $currentBranch;
-                                    $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-                                    if([Helpers]::CheckMember($responseObj,"fps.dataProviders.data") -and $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider' -and [Helpers]::CheckMember($responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider',"content") -and  $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'.content)
-                                    {
-                                        $dataprovider = $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'
-                                        $yamlFileContent = $dataprovider.content
+                                #in case pipeline repo is azure repo, get file contents from the repo, else use the portal API
+                                if ($this.BuildObj[0].repository.type -eq 'TfsGit'){
+                                    try{
+                                        $yamlFile = ($this.BuildObj[0].process.yamlFilename).Replace("/","%2F");
+                                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/Items?path=%2F{3}&recursionLevel=0&includeContentMetadata=true&versionDescriptor.version={4}&versionDescriptor.versionOptions=0&versionDescriptor.versionType=0&includeContent=true&resolveLfs=true&api-version=6.0" -f $orgName, $projectName, ($this.BuildObj[0].repository.name), $yamlFile, $currentBranch
+                                        #need to get the raw response as file contents are returned in bytes
+                                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequestRaw($url));
+                                        #convert byte response to string
+                                        $yamlFileContent = [System.Text.Encoding]::ASCII.GetString($responseObj.Content)
                                         if($yamlFileContent -match $regex)
                                         {
-                                            $refobj.fileName = $dataprovider.definition.process.yamlFilename
+                                            $refobj.fileName = $this.BuildObj[0].process.yamlFilename
                                             $resultObj += $refobj
                                         }
                                     }
+                                    catch{
+                                        #eat exception as yml file not found in branch being scanned
+                                    }
                                 }
-                                catch
-                                {
-                                    $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch YAML file for the branch: $($currentBranch)");
-                                    $controlResult.LogException($_)
-                                }                        
+                                else{
+                                    try{
+                                        $url = 'https://dev.azure.com/{0}/{1}/_apps/hub/ms.vss-build-web.ci-designer-hub?pipelineId={2}&branch={3}&__rt=fps&__ver=2' -f $orgName, $projectId , $buildId, $currentBranch;
+                                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+                                        if([Helpers]::CheckMember($responseObj,"fps.dataProviders.data") -and $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider' -and [Helpers]::CheckMember($responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider',"content") -and  $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'.content)
+                                        {
+                                            $dataprovider = $responseObj.fps.dataProviders.data.'ms.vss-build-web.pipeline-editor-data-provider'
+                                            $yamlFileContent = $dataprovider.content
+                                            if($yamlFileContent -match $regex)
+                                            {
+                                                $refobj.fileName = $dataprovider.definition.process.yamlFilename
+                                                $resultObj += $refobj
+                                            }
+                                        }
+                                    }
+                                    catch
+                                    {
+                                        $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch YAML file for the branch: $($currentBranch)");
+                                        $controlResult.LogException($_)
+                                    }
+                                }
+                                                        
                             }
                             if($resultObj.Count -gt 0)
                             {
@@ -2300,7 +2228,8 @@ class Build: ADOSVTBase
                     }
                     catch
                     {
-                        $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch branches associated with build.");
+                        $controlResult.AddMessage([VerificationResult]::Verify,"Not able to fetch branches associated with build."); 
+                        #This could occour in case pipeline's YAML is hosted on bitbucket etc, or if referenced repo no longer exists
                         $controlResult.LogException($_)
                     }  
                 }

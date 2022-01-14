@@ -551,7 +551,7 @@ class CommonSVTControls: ADOSVTBase {
 
                 if ($feedWithBroaderGroupCount -gt 0)
                 {
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have administrator/contributor/collaborator access to feed: $($feedWithBroaderGroupCount)")
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Count of broader groups that have administrator/contributor access to feed: $($feedWithBroaderGroupCount)")
 
                     $display = ($feedWithBroaderGroup |  FT Name, Role -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
@@ -570,7 +570,7 @@ class CommonSVTControls: ADOSVTBase {
                 }
                 else
                 {
-                    $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with administrator/contributor/collaborator permission to broad groups.");
+                    $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with administrator/contributor permission to broad groups.");
                     $controlResult.AdditionalInfoInCSV = "NA";
                 }
                 $displayObj = $restrictedBroaderGroups.Keys | Select-Object @{Name = "Broader Group"; Expression = {$_}}, @{Name = "Excessive Permissions"; Expression = {$restrictedBroaderGroups[$_] -join ', '}}
@@ -594,14 +594,20 @@ class CommonSVTControls: ADOSVTBase {
             $RawDataObjForControlFix = @();
             $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
             $scope = $RawDataObjForControlFix[0].Scope
-
+            $role = $this.ControlSettings.Feed.RoleToChangeInFix
             $body = "["
 
             if (-not $this.UndoFix)
             {
                 foreach ($identity in $RawDataObjForControlFix) 
                 {
-                    $roleId = [int][FeedPermissions] "Reader"
+                    $roleId = [int][FeedPermissions] "$role"
+                    if($env:AzSKADO_FeedChangeReaderToCollaborator -ne $true){
+                        if($identity.displayName -match "\\Reader"){
+                            $roleId = [int][FeedPermissions] "Reader"
+                        }
+                    }
+                    
                     if ($body.length -gt 1) {$body += ","}
                     $body += @"
                         {
@@ -613,7 +619,10 @@ class CommonSVTControls: ADOSVTBase {
                         }
 "@;
                 }
-                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue $role
+                if($env:AzSKADO_FeedChangeReaderToCollaborator -ne $true){
+                    $RawDataObjForControlFix | foreach{if($_.displayName -match "\\Reader"){$_.NewRole = "Reader"}}
+                }                
                 $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
             }
             else {
@@ -631,7 +640,10 @@ class CommonSVTControls: ADOSVTBase {
                         }
 "@;
                 }
-                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue $role
+                if($env:AzSKADO_FeedChangeReaderToCollaborator -ne $true){
+                    $RawDataObjForControlFix | foreach{if($_.displayName -match "\\Reader"){$_.OldRole = "Reader"}}
+                }                
                 $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
             }
 
@@ -1197,7 +1209,7 @@ class CommonSVTControls: ADOSVTBase {
 
             if ($feedWithBuildSvcAccCount -gt 0)
             {
-                $controlResult.AddMessage([VerificationResult]::Failed, "Count of build service accounts that have administrator/contributor/collaborator access to feed: $($feedWithBuildSvcAccCount)")
+                $controlResult.AddMessage([VerificationResult]::Failed, "Count of build service accounts that have administrator/contributor access to feed: $($feedWithBuildSvcAccCount)")
 
                 $display = ($feedWithBuildSvcAcc |  FT Role, DisplayName -AutoSize | Out-String -Width 512)
                 $controlResult.AddMessage("`nList of groups: ", $display)
@@ -1207,13 +1219,23 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.AdditionalInfoInCSV = "$($groups -join ' ; ')"
 
                 #Fetching identity used to publish last 10 packages
+                $maxPackagesToCheck = 10
+                try{
+                    if(-not [string]::IsNullOrEmpty($env:AzSKADO_FeedsMaxPackagesToCheck)){
+                        $maxPackagesToCheck = [int] $env:AzSKADO_FeedsMaxPackagesToCheck
+                    }
+                }
+                catch{
+                    #eat exception
+                }
+                
                 $accUsedToPublishPackage = $this.ValidateBuildSvcAccInPackage($scope, $true);
                 if ($accUsedToPublishPackage.packagesInfo.count -gt 0)
                 {
-                    $controlResult.AddMessage("`nList of last 10 published packages and identity used to publish: ", ($accUsedToPublishPackage.packagesInfo | FT | Out-String -Width 512))
+                    $controlResult.AddMessage("`nList of last $($maxPackagesToCheck) published packages and identity used to publish: ", ($accUsedToPublishPackage.packagesInfo | FT | Out-String -Width 512))
                     $uniqueIdentities = $accUsedToPublishPackage.packagesInfo | select-object -Property IdentityName -Unique
-                    $controlResult.AdditionalInfo += "List of identities used to publish last 10 packages: $($uniqueIdentities.IdentityName -join ', ')";
-                    $controlResult.AdditionalInfoInCSV += "; Last 10 publishers: $($uniqueIdentities.IdentityName -join ', ')";
+                    $controlResult.AdditionalInfo += "List of identities used to publish last $($maxPackagesToCheck) packages: $($uniqueIdentities.IdentityName -join ', ')";
+                    $controlResult.AdditionalInfoInCSV += "; Last $($maxPackagesToCheck) publishers: $($uniqueIdentities.IdentityName -join ', ')";
                 }
                 else
                 {
@@ -1232,7 +1254,7 @@ class CommonSVTControls: ADOSVTBase {
             }
             else
             {
-                $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with administrator/contributor/collaborator permission to build service accounts.");
+                $controlResult.AddMessage([VerificationResult]::Passed,  "Feed is not granted with administrator/contributor permission to build service accounts.");
                 $controlResult.AdditionalInfoInCSV = "NA";
             }            
         }
@@ -1251,7 +1273,7 @@ class CommonSVTControls: ADOSVTBase {
             $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
             $scope = $RawDataObjForControlFix[0].Scope
             $isBuildSVcAccUsedToPublishPackage = $false
-
+            $role = $this.ControlSettings.Feed.RoleToChangeInFix
             $body = "["
 
             if (-not $this.UndoFix)
@@ -1266,7 +1288,8 @@ class CommonSVTControls: ADOSVTBase {
                 {
                     foreach ($identity in $RawDataObjForControlFix) 
                     {
-                        $roleId = [int][FeedPermissions] "Reader"
+                        
+                        $roleId = [int][FeedPermissions] "$role"
                         if ($body.length -gt 1) {$body += ","}
                         $body += @"
                             {
@@ -1278,7 +1301,7 @@ class CommonSVTControls: ADOSVTBase {
                             }
 "@;
                     }
-                    $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue "Reader"
+                    $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue $role
                     $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
                 }
                 else {
@@ -1302,7 +1325,7 @@ class CommonSVTControls: ADOSVTBase {
                         }
 "@;
                 }
-                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue "Reader"
+                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue $role
                 $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
             }
             
@@ -1349,7 +1372,17 @@ class CommonSVTControls: ADOSVTBase {
             if ( $packageList.Count -gt 0 -and [Helpers]::CheckMember($packageList[0],"Id"))
             {
                 #Get top 10 published packages 
-                $recentPackages = $packageList | Sort-Object -Property @{Expression={$_.versions.publishdate}; Descending = $true } | Select-Object -First 10
+                $maxPackagesToCheck = 10
+                try{
+                    if(-not [string]::IsNullOrEmpty($env:AzSKADO_FeedsMaxPackagesToCheck)){
+                        $maxPackagesToCheck = [int] $env:AzSKADO_FeedsMaxPackagesToCheck
+                    }
+                }
+                catch{
+                    #eat exception
+                }
+                
+                $recentPackages = $packageList | Sort-Object -Property @{Expression={$_.versions.publishdate}; Descending = $true } | Select-Object -First $maxPackagesToCheck
                 foreach ($package in $recentPackages)
                 {
                     if ($scope -eq "Organization")
@@ -1672,6 +1705,14 @@ class CommonSVTControls: ADOSVTBase {
             $packagesList = @([WebRequestHelper]::InvokeGetWebRequest($url));
 
             $inactiveLimit = $this.ControlSettings.FeedsAndPackages.ThreshHoldDaysForFeedsAndPackagesInactivity;
+            try{
+                if(-not [string]::IsNullOrEmpty($env:AzSKADO_FeedsInactivityPeriod)){
+                    $inactiveLimit = [int] $env:AzSKADO_FeedsInactivityPeriod
+                }
+            }
+            catch{
+                #eat exception
+            }
 
             if ($packagesList.Count -gt 0 -and [Helpers]::CheckMember($packagesList[0],"id"))
             {
@@ -1697,6 +1738,7 @@ class CommonSVTControls: ADOSVTBase {
                     $response = @(Invoke-RestMethod -Uri $packageUrl -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
                     if(-not[Helpers]::CheckMember($response[0].value,"lastDownloaded")){
                         $controlResult.AddMessage([VerificationResult]::Failed,  "Feed package has never been downloaded.");
+                        $controlResult.AdditionalInfoInCSV += "Feed package has never been downloaded.";
                     }
                     else{
                         $lastDownloadedPackage = $response.value | sort-object lastDownloaded -descending | Select-Object -first 1
@@ -1705,10 +1747,12 @@ class CommonSVTControls: ADOSVTBase {
                         if ((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days) -gt $inactiveLimit)
                         {
                             $controlResult.AddMessage([VerificationResult]::Failed,  "Feed was inactive from last $((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days)) days.");
+                            $controlResult.AdditionalInfoInCSV += "Feed was inactive from last $((((Get-Date) - [datetime]::Parse($lastDownloadedDate)).Days)) days."
                         }
                         else
                         {
                             $controlResult.AddMessage([VerificationResult]::Passed,  "Feed package was last downloaded on $(([datetime] $lastDownloadedDate).ToString("d MMM yyyy")).");
+                            $controlResult.AdditionalInfoInCSV += "NA"
                         }
                         $lastDownloadedPackage = ($lastDownloadedPackage | FT -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage("`nLatest downloaded package in the feed: ", $lastDownloadedPackage);
@@ -1718,6 +1762,7 @@ class CommonSVTControls: ADOSVTBase {
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,  "Feed package was last published on $(([datetime] $lastPublishDate).ToString("d MMM yyyy")).");
+                    $controlResult.AdditionalInfoInCSV += "NA"
                 }
                 $latestPackage = ($latestPackage | FT -AutoSize | Out-String -Width 512)
                 $controlResult.AddMessage("`nLatest published package in the feed: ", $latestPackage);
@@ -1725,6 +1770,7 @@ class CommonSVTControls: ADOSVTBase {
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed,  "Feed does not contain any packages.");
+                $controlResult.AdditionalInfoInCSV += "Feed does not contain any packages"
             }         
         }
         catch
@@ -1734,7 +1780,7 @@ class CommonSVTControls: ADOSVTBase {
         }
         if($controlResult.VerificationResult -eq [VerificationResult]::Failed -and $this.ControlFixBackupRequired){
             $controlResult.BackupControlState = [PSCustomObject]@{
-                "Feed" = $this.ResourceContext.ResourceDetails.Id
+                "Feed" = $this.ResourceContext.ResourceDetails.name
             }
         }
         return $controlResult

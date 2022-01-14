@@ -18,6 +18,15 @@ class BugLogHelper {
         
         $this.StorageAccount = $env:StorageName;
         $this.StorageRG = $env:StorageRG;
+        #Common storage account to fetch/store bug details.
+        try {
+            if ($env:CommonDataSA) {
+                $this.StorageAccount = $env:CommonDataSA;
+            }
+        }
+        catch {
+            Write-Host "Could not find storage account. Storing bug details in default storage account [$($this.StorageAccount)]." -ForegroundColor Yellow
+        }
         #get storage details
         if ($this.StorageRG -and $this.StorageAccount) {
             $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount

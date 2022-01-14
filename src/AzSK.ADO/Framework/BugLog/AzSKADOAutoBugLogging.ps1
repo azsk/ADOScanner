@@ -12,9 +12,11 @@ class AzSKADOAutoBugLogging : CommandBase
     $ResourceControlJson = @();
     $BugTemplate = $null;
     $STMappingFilePath = $null;
+    $BugDescription = $null;
+    [int] $MaxBugsToLog;
 
 
-	AzSKADOAutoBugLogging([string] $organizationName, $BugLogProject, $AutoBugLog, $ResourceTypeName, $ControlIds, $scanResultData, $BugTemplate, [InvocationInfo] $invocationContext, $isLAFile, $stMappingFilePath): 
+	AzSKADOAutoBugLogging([string] $organizationName, $BugLogProject, $AutoBugLog, $ResourceTypeName, $ControlIds, $scanResultData, $BugTemplate, [InvocationInfo] $invocationContext, $isLAFile, $stMappingFilePath, $BugDescription, $MaxBugLog): 
         Base($organizationName, $invocationContext) 
     { 
         $this.OrgName = $organizationName;
@@ -22,6 +24,8 @@ class AzSKADOAutoBugLogging : CommandBase
         $this.IsLAFile = $isLAFile;
         $this.BugTemplate = $BugTemplate;
         $this.STMappingFilePath = $stMappingFilePath;
+        $this.BugDescription = $BugDescription;
+        $this.MaxBugsToLog = $MaxBugLog
 
         #Can remove later if not needed.
         $resourcetypes = @()
@@ -43,12 +47,13 @@ class AzSKADOAutoBugLogging : CommandBase
 
 	}
 
-    AzSKADOAutoBugLogging([string] $organizationName, $BugLogProject, $ResourceTypeName, $ControlIds, $scanResultData, [InvocationInfo] $invocationContext, $isLAFile): 
+    AzSKADOAutoBugLogging([string] $organizationName, $BugLogProject, $ResourceTypeName, $ControlIds, $scanResultData, [InvocationInfo] $invocationContext, $isLAFile, $MaxBugLog): 
         Base($organizationName, $invocationContext) 
     { 
         $this.OrgName = $organizationName;
         $this.BugLogProjectName = $BugLogProject;
         $this.IsLAFile = $isLAFile;
+        $this.MaxBugsToLog = $MaxBugLog
 
         #Can remove later if not needed.
         $resourcetypes = @()
@@ -84,7 +89,7 @@ class AzSKADOAutoBugLogging : CommandBase
         [ResourceContext] $ResourceContext = $null;
         [SVTEventContext[]] $ResourceContextControlResult = $null;
 
-        $resourcesToLogBugs = $this.ScanResult | Group-Object -Property ResourceId;
+        $resourcesToLogBugs = @($this.ScanResult | Group-Object -Property ResourceId);
         if ($isCloseBug) {
             $this.PublishCustomMessage("`nNumber of resources for which bug clossing will be evaluated: $($resourcesToLogBugs.count)",[MessageType]::Info);
         }
@@ -132,14 +137,26 @@ class AzSKADOAutoBugLogging : CommandBase
 		    	$AutoBugLog = [AutoBugLog]::GetInstance($this.OrgName, $this.InvocationContext, $null, $BugLogParameterValue);
 		    }
             $resourcename = "";
+            $resourceid = "";
+            $assignee = "";
+            #$ControlResults = $ControlResults | sort-object -property @{e={$_.ResourceContext.ResourceName}}
             foreach ($controlResult in $ControlResults) {
-                if ($resourcename -ne $controlResult.ResourceContext.ResourceName ) {
+                #if different resource then only display message.
+                if ($resourceid -ne $controlResult.ResourceContext.ResourceId ) {
                     $this.PublishCustomMessage([Constants]::DoubleDashLine, [MessageType]::Info);
                     $this.PublishCustomMessage("Running bug logging: [FeatureName: $($controlResult.FeatureName)] [ParentGroupName: $($controlResult.ResourceContext.ResourceGroupName)] [ResourceName: $($controlResult.ResourceContext.ResourceName)]", [MessageType]::Info);                
                 }
-                $resourcename = $controlResult.ResourceContext.ResourceName 
+                $resourcename = $controlResult.ResourceContext.ResourceName
 
-		        $AutoBugLog.LogBugInADOCSV($controlResult, $this.BugLogProjectName, $this.BugTemplate, $this.STMappingFilePath) 
+                #if different resource then black assignee as for different resource assigneed need to evaluate again.
+                if($resourceid -ne $controlResult.ResourceContext.ResourceId){
+                    $assignee = "";
+                }
+                #if resource alredy ran bug logging for control and servicetree info is not find, then dont run bug logging for next control.
+                if (($resourceid -ne $controlResult.ResourceContext.ResourceId -or $assignee)) {
+		            $assignee = $AutoBugLog.LogBugsInADOFromCSV($controlResult, $this.BugLogProjectName, $this.BugTemplate, $this.STMappingFilePath, $this.BugDescription, $assignee)  
+                }
+                $resourceid = $controlResult.ResourceContext.ResourceId
             }
         }
         else {
@@ -177,6 +194,10 @@ class AzSKADOAutoBugLogging : CommandBase
                     $scanResultData = $scanResultData | Where {$_.Status -eq "Passed"} 
                 }
 
+                if ($scanResultData -and $this.MaxBugsToLog -and ($scanResultData.count -gt $this.MaxBugsToLog)) {
+                    $scanResultData = $scanResultData[0..($this.MaxBugsToLog - 1)];
+                }
+
                 $this.ScanResult += $scanResultData;   
             }
             else {
@@ -191,13 +212,15 @@ class AzSKADOAutoBugLogging : CommandBase
                     $cids = $this.ConvertToStringArray($ControlIds);
                     $scanResultData = $scanResultData | Where { $_.ControlId_s -In $cids }
                 }
-                if ($scanResultData -and $AutoBugLog -eq $null) {
-                    $scanResultData = $scanResultData | Where {$_.ControlStatus_s -eq "Failed" -or $_.ControlStatus_s -eq "Varify"}
+                if ($scanResultData -and $AutoBugLog -ne $null) {
+                    $scanResultData = $scanResultData | Where {$_.ControlStatus_s -eq "Failed" -or $_.ControlStatus_s -eq "Verify"}
                     
                 }
                 if ($AutoCloseBug) {
                     $scanResultData = $scanResultData | Where {$_.ControlStatus_s -eq "Passed"}
-                    
+                }
+                if ($scanResultData -and $this.MaxBugsToLog -and ($scanResultData.count -gt $this.MaxBugsToLog)) {
+                    $scanResultData = $scanResultData[0..($this.MaxBugsToLog - 1)];
                 }
                 $this.ScanResult += $scanResultData;
             }
