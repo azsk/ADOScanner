@@ -264,6 +264,7 @@ class ServiceConnection: ADOSVTBase
                     $controlResult.AddMessage("Global groups that have access to service connection.",$restrictedGroups)
                     $controlResult.SetStateData("Global groups that have access to service connection",$restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of global groups that have access to service connection: " + @($restrictedGroups).Count;
+                    $controlResult.AdditionalInfoInCSV ="global groups that have access to service connection."
                 }
                 else{
                     $controlResult.AddMessage([VerificationResult]::Passed,"No global groups have access to service connection.");
