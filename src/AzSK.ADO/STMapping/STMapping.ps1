@@ -74,7 +74,12 @@ function Get-AzSKADOServiceMapping
         [switch]        
         [Parameter(Mandatory=$false, HelpMessage="Flag to Use Cache for Attribution")]
         [Alias("ch")]
-        $UseCache
+        $UseCache,
+
+        [switch]
+        [Parameter(Mandatory=$false, HelpMessage="Use incremental scan from Cloudmine data to generate mappings")]
+        [Alias("inc")]
+        $IncrementalScan
 
     )
     Begin
@@ -144,7 +149,7 @@ function Get-AzSKADOServiceMapping
             }
 
             $resolver = [Resolver]::new($OrganizationName, $PATToken)
-            $mapping = [AzSKADOServiceMapping]::new($OrganizationName, $ProjectName, $BuildMappingsFilePath, $ReleaseMappingsFilePath, $ReposMappingsFilePath, $MappingType,$Auto,$UseCache, $PSCmdlet.MyInvocation);
+            $mapping = [AzSKADOServiceMapping]::new($OrganizationName, $ProjectName, $BuildMappingsFilePath, $ReleaseMappingsFilePath, $ReposMappingsFilePath, $MappingType,$Auto,$UseCache,$IncrementalScan, $PSCmdlet.MyInvocation);
 
             return $mapping.InvokeFunction($mapping.GetSTmapping);
         }

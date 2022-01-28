@@ -60,7 +60,7 @@ class ServiceMappingCacheHelper {
         return $azTableMappingInfo;
     }
 
-    hidden [bool] InsertMappingInfoInTable( [string]  $orgName, [string]  $projectID, [string]  $pipelineID, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration) 
+    hidden [bool] InsertMappingInfoInTable( [string]  $orgName, [string]  $projectID, [string]  $pipelineID, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration, [bool] $isIncrementalScan) 
     {
         try 
         {                   
@@ -73,7 +73,7 @@ class ServiceMappingCacheHelper {
                New-AzStorageTable $this.CacheTable -Context $this.CacheStorageAccountCtx;
            }
 
-           $isDataAddedInTable = $this.AddDataInTable($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified,$resourceID,$resourceType,$resourceName,$pipelineType, $mappingExpiration)
+           $isDataAddedInTable = $this.AddDataInTable($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified,$resourceID,$resourceType,$resourceName,$pipelineType, $mappingExpiration, $isIncrementalScan)
            return $isDataAddedInTable;           
         }
         catch {
@@ -119,10 +119,19 @@ class ServiceMappingCacheHelper {
         }
     }
 
-    hidden [bool] AddDataInTable([string]  $orgName, [string]  $projectID, [string]  $pipelineID, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration) 
-    {        
-        $partitionKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,"","");
-        $rowKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,$resourceID,$resourceType)
+    hidden [bool] AddDataInTable([string]  $orgName, [string]  $projectID, [string]  $pipelineID, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration,[bool] $isIncrementalScan) 
+    {    
+        $partitionKey = $null;
+        $rowKey = $null;
+        if($isIncrementalScan){
+            $partitionKey = $this.GetHashedTag($projectID, "", "","","");
+            $rowKey = $this.GetHashedTag($projectID, "", "",$resourceID,$resourceType)
+        }   
+        else{
+            $partitionKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,"","");
+            $rowKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,$resourceID,$resourceType)
+        }        
+        
            
         try 
         {
@@ -142,10 +151,19 @@ class ServiceMappingCacheHelper {
         }
     }
 
-    hidden [bool] UpdateTableEntity([string]  $orgName, [string]  $projectID, [string]  $pipelineID, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration) 
+    hidden [bool] UpdateTableEntity([string]  $orgName, [string]  $projectID, [string]  $pipelineID, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration,[bool] $isIncrementalScan) 
     {
-        $partitionKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,"","");
-        $rowKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,$resourceID,$resourceType)
+        $partitionKey = $null;
+        $rowKey = $null;
+        if($isIncrementalScan){
+            $partitionKey = $this.GetHashedTag($projectID, "", "","","");
+            $rowKey = $this.GetHashedTag($projectID, "", "",$resourceID,$resourceType)
+        }   
+        else{
+            $partitionKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,"","");
+            $rowKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,$resourceID,$resourceType)
+        }        
+        
         
         try {
             #Update data in table.
