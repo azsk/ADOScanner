@@ -95,7 +95,7 @@ class ServiceMappingCacheHelper {
         }
         if($resourceType -eq "VariableGroup" -or $resourceType -eq "SecureFile" -and [string]::IsNullOrEmpty($resourceId)) 
         {
-            return 'OrgName eq ''{0}'' and PipelineType eq ''{1}''' -f $this.OrganizationName, $pipelineType;
+            return 'OrgName eq ''{0}'' and ProjectID eq ''{1}'' and ResourceType eq ''{2}'' and ServiceTreeID ne ''UNMAPPED''' -f $this.OrganizationName, $projectID, $resourceType;
         }
         return $query;
     }
@@ -196,6 +196,34 @@ class ServiceMappingCacheHelper {
             Write-Host "Could not update entry in the table for row key [$RowKey]";
             return $false;
         }
+    }
+
+    hidden [bool] DeleteDataInTable($projectID, $resourceID,$resourceType){
+        $partitionKey = $this.GetHashedTag($projectID, "", "","","");
+        $rowKey = $this.GetHashedTag($projectID, "", "",$resourceID,$resourceType);
+        try{
+            $tableName = $this.CacheTable;
+            $version = "2017-04-17"
+            $resource = "$tableName(PartitionKey='$PartitionKey',RowKey='$Rowkey')"
+            $table_url = "https://$($this.CacheStorageName).table.core.windows.net/$resource"
+            $GMTTime = (Get-Date).ToUniversalTime().toString('R')
+            $stringToSign = "$GMTTime`n/$($this.CacheStorageName)/$resource"
+
+            $signature = $this.hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign))
+            $signature = [Convert]::ToBase64String($signature)
+            $headers = @{
+                'x-ms-date'      = $GMTTime
+                Authorization    = "SharedKeyLite " + $this.CacheStorageName + ":" + $signature
+                "x-ms-version"   = $version
+                'If-Match'       = "*"
+                Accept         = "application/json;odata=minimalmetadata"
+            }
+            Invoke-RestMethod -Method Delete -Uri $table_url -Headers $headers -ContentType "application/http"
+        }
+        catch{
+            return $false;
+        }
+        return $true;
     }
 
     hidden [object] GetHeader($tableName)

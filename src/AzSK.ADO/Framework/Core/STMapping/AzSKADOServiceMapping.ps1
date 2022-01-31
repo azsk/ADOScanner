@@ -115,7 +115,6 @@ class AzSKADOServiceMapping: CommandBase
                 if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "AgentPool")
                 {
                     $this.SaveScanDuration("Agent Pool scan started", $false)
-                    $this.storageCachedData = $this.ServiceMappingCacheHelperObj.GetWorkItemByHashAzureTable("All", "","","", $this.projectId)
                     $this.FetchAgentPoolMapping();
                     $this.SaveScanDuration("Agent Pool scan ended",$true)
                 }
@@ -135,7 +134,7 @@ class AzSKADOServiceMapping: CommandBase
                             $this.FindSTForVGWithIncremental();
             
                         }
-                        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup"){
+                        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile"){
                             $this.FindSTForSecureFileWithIncremental();
                         }
                     }
@@ -986,14 +985,18 @@ class AzSKADOServiceMapping: CommandBase
         if($resourceInCache)
         {
             $this.ServiceMappingCacheHelperObj.UpdateTableEntity($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified, $resourceID, $resourceType, $resourceName, $pipelineType,$mappingExpiration, $this.IncrementalScan)
-            #update mapping expiration date as per new scan           
-            $rowIndex = [array]::IndexOf($this.storageCachedData.RowKey,$hash)
-            $this.storageCachedData[$rowIndex].MappingExpiration = $mappingExpiration            
+            if($serviceTreeID -ne "UNMMAPPED"){
+                #update mapping expiration date as per new scan           
+                $rowIndex = [array]::IndexOf($this.storageCachedData.RowKey,$hash)
+                $this.storageCachedData[$rowIndex].MappingExpiration = $mappingExpiration 
+            }                       
         }
         else {
             $this.ServiceMappingCacheHelperObj.InsertMappingInfoInTable($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified,$resourceID,$resourceType,$resourceName,$pipelineType, $mappingExpiration, $this.IncrementalScan)
-            #update in-memory cache with new record             
-            $this.storageCachedData+=  @([PSCustomObject] @{"RowKey" =$hash; "OrgName" = $orgName; "ProjectID" = $projectID; "PipelineID" = $pipelineID;"ServiceTreeID" = $serviceTreeID;"PipelineLastModified" = $pipelineLastModified;"ResourceID" = $resourceID;"ResourceType" = $resourceType;"ResourceName" = $resourceName;"PipelineType" = $pipelineType;  "MappingExpiration" = $MappingExpiration}; ) 
+            if($serviceTreeID -ne "UNMMAPPED"){
+                #update in-memory cache with new record             
+                $this.storageCachedData+=  @([PSCustomObject] @{"RowKey" =$hash; "OrgName" = $orgName; "ProjectID" = $projectID; "PipelineID" = $pipelineID;"ServiceTreeID" = $serviceTreeID;"PipelineLastModified" = $pipelineLastModified;"ResourceID" = $resourceID;"ResourceType" = $resourceType;"ResourceName" = $resourceName;"PipelineType" = $pipelineType;  "MappingExpiration" = $MappingExpiration}; ) 
+            }
         }        
     }
     
@@ -1474,18 +1477,34 @@ class AzSKADOServiceMapping: CommandBase
                 }  
                 
             }
-
+            $storageData = $this.ServiceMappingCacheHelperObj.GetWorkItemByHashAzureTable("SecureFile", "", "", "", $this.projectId)
             #Create the ST mapping file from the storage table
-            $this.storageCachedData | foreach {
+            $storageData | foreach {
                 $dateDiff = New-TimeSpan -Start ([datetime]$_.Timestamp) -End ([datetime]::UtcNow)
-                #if the mapping has been added in the table recently, we need to find the mapping again as it has been already done above
+                #if the mapping has been added in the table recently, we need not find the mapping again as it has been already done above
                 #if data is not added today, pipeline mapping might have been changed, hence get the mapping again
+                $resourceObj = $_;
                 if ($dateDiff.Days -gt 1) {
-                    if ($_.Pipelinetype -eq "Build") {
-                        $pipelineSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $_.PipelineID) }     
+                    if ($resourceObj.Pipelinetype -eq "Build") {
+                        $pipelineSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $resourceObj.PipelineID) }     
                     }
                     else {
-                        $pipelineSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $_.PipelineID) }    
+                        $pipelineSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $resourceObj.PipelineID) }    
+                    }
+                    #if we have reached mapping expiration check if the secure file still exists or if the pipeline ST data exists
+                    if($resourceObj.MappingExpiration -ge (Get-Date).ToUniversalTime().ToString('dd/MM/yyyy HH:mm:ss')){
+                            $secureFileObj = $secureFileDetails | Where-Object { $_.Id -eq $resourceObj.ResourceID }
+                            if (!$secureFileObj) {
+                                $this.ServiceMappingCacheHelperObj.DeleteDataFromTable($resourceObj.ProjectID, $resourceObj.ResourceID, $resourceObj.ResourceType)
+                                return;
+                            }
+                            else {
+                            #TODO add it in archive
+                                if(!$pipelineSTData){
+                                    $this.AddMappinginfoInCache($pipelineSTData.orgName, $pipelineSTData.projectID, $_.PipelineID, "UNMAPPED", $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "SecureFile", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                                    return;
+                            }
+                        }
                     }
                     if ($pipelineSTData) {               
                         $this.AddMappinginfoInCache($pipelineSTData.orgName, $pipelineSTData.projectID, $_.PipelineID, $pipelineSTData.serviceID, $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "SecureFile", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
@@ -1607,7 +1626,7 @@ class AzSKADOServiceMapping: CommandBase
                     $this.AddMappinginfoInCache($pipelineSTData.orgName, $pipelineSTData.projectID, $pipelineId, $pipelineSTData.serviceID, $pipelineProcessDate, $variableGroupId, $variableGroupName, "VariableGroup", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
                                       
                 }  
-                #if pipeline ST data not found, attempt to get service id from AZ key vault
+                #if pipeline ST data not found, attempt to get service id from Az key vault
                 else {
                     if ($variableGroupObj.Type -eq 'AzureKeyVault') { 
                         $apiURL = "https://{0}.visualstudio.com/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1" -f $this.OrgName
@@ -1643,37 +1662,46 @@ class AzSKADOServiceMapping: CommandBase
                     } 
                 }
                 
-            }
-
+            }            
             #after getting all mappings, create the ST mapping file
-            $this.storageCachedData = $this.ServiceMappingCacheHelperObj.GetWorkItemByHashAzureTable("All", "", "", "", $this.projectId)
-            $this.storageCachedData | foreach {
+            $storageData = $this.ServiceMappingCacheHelperObj.GetWorkItemByHashAzureTable("VariableGroup", "", "", "", $this.projectId)
+            $storageData | foreach {
                 $dateDiff = New-TimeSpan -Start ([datetime]$_.Timestamp) -End ([datetime]::UtcNow)
+                $resourceObj = $_;
+                #if the mapping has been added in the table recently, we need not find the mapping again as it has been already done above
                 if ($dateDiff.Days -gt 1) {
-                    if ($_.MappingExpiration -ge (Get-Date).ToUniversalTime().ToString('dd/MM/yyyy HH:mm:ss') {
-                            $varGrpObj = $variableGroupDetails | Where-Object { $_.Id -eq $_.ResourceID }
-                            if (!$varGrpObj) {
-                                #TODO delete the entry
-                            }
-                            else {
-                                #check if pipeline exists according to pipeline type and add it in archive
-                            }
-                        } 
-                        if ($_.Pipelinetype -eq "Build") {
-                            $pipelineSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $_.PipelineID) }     
-                        }
-                        else {
-                            $pipelineSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $_.PipelineID) }    
-                        }
-                        if ($pipelineSTData) {               
-                            $this.AddMappinginfoInCache($pipelineSTData.orgName, $pipelineSTData.projectID, $_.PipelineID, $pipelineSTData.serviceID, $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "VariableGroup", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
-                            $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.ResourceName; variableGroupID = $_.ResourceID; serviceID = $pipelineSTData.serviceID; projectName = $this.ProjectName; projectID = $_.projectID; orgName = $_.orgName } )                    
-                        }
+                    if ($resourceObj.Pipelinetype -eq "Build") {
+                        $pipelineSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $resourceObj.PipelineID) }     
                     }
                     else {
-                        $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.ResourceName; variableGroupID = $_.ResourceID; serviceID = $_.ServiceTreeID; projectName = $this.ProjectName; projectID = $_.projectID; orgName = $_.orgName } )
+                        $pipelineSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $resourceObj.PipelineID) }    
+                    }
+                    #if we have reached mapping expiration check if the variable group still exists or if the pipeline ST data exists
+                    if($resourceObj.MappingExpiration -ge (Get-Date).ToUniversalTime().ToString('dd/MM/yyyy HH:mm:ss')){
+                            $varGrpObj = $variableGroupDetails | Where-Object { $_.Id -eq $resourceObj.ResourceID }
+                            #if variable group no longer exists remove it
+                            if (!$varGrpObj) {
+                                $this.ServiceMappingCacheHelperObj.DeleteDataFromTable($resourceObj.ProjectID, $resourceObj.ResourceID, $resourceObj.ResourceType)
+                                return;
+                            }
+                            else {
+                                #TODO add it in archive, for now updating record as unmapped
+                                if(!$pipelineSTData){
+                                    $this.AddMappinginfoInCache($pipelineSTData.orgName, $pipelineSTData.projectID, $_.PipelineID, "UNMAPPED", $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "VariableGroup", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                                    return;
+                                }
+                            }
+                        } 
+                        
+                    if ($pipelineSTData) {               
+                        $this.AddMappinginfoInCache($pipelineSTData.orgName, $pipelineSTData.projectID, $_.PipelineID, $pipelineSTData.serviceID, $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "VariableGroup", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                        $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.ResourceName; variableGroupID = $_.ResourceID; serviceID = $pipelineSTData.serviceID; projectName = $this.ProjectName; projectID = $_.projectID; orgName = $_.orgName } )                    
                     }
                 }
+                else {
+                    $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.ResourceName; variableGroupID = $_.ResourceID; serviceID = $_.ServiceTreeID; projectName = $this.ProjectName; projectID = $_.projectID; orgName = $_.orgName } )
+                }
+            }
                 $this.PublishCustomMessage("Service mapping found:  $(($variableGroupSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
                 if ($this.UseCache) {          
                     $this.ExportObjToJsonFile($variableGroupSTMapping.data, 'VariableGroupSTData.json');
