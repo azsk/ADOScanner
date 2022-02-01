@@ -559,7 +559,7 @@ class CommonSVTControls: ADOSVTBase {
                     $groups = $feedWithBroaderGroup | ForEach-Object { $_.Name + ': ' + $_.Role } 
                     $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator/contributor access to feed: $($feedWithBroaderGroupCount)";
-                    $controlResult.AdditionalInfo += "List of Broader groups" + $groups ;
+                    $controlResult.AdditionalInfo += "List of Broader groups:" + $groups ;
 
                     if ($this.ControlFixBackupRequired)
                     {
@@ -685,7 +685,7 @@ class CommonSVTControls: ADOSVTBase {
                 if ($this.ControlFixBackupRequired){
                     $controlResult.BackupControlState = $secureFilePipelinePermObj;
                 }
-                $controlResult.AdditionalInfoInCSV = "Secure file is accesible to all YAML pipelines";
+                $controlResult.AdditionalInfoInCSV = "NA";
             }
             else {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accesible to all YAML pipelines.");
@@ -793,7 +793,8 @@ class CommonSVTControls: ADOSVTBase {
                     }
 
                     $groups = $secureFileWithBroaderGroup | ForEach-Object { $_.Name + ': ' + $_.Role } 
-                    $controlResult.AdditionalInfo = "Count of broader groups that have user/administrator access to secure file: $($secureFileWithBroaderGroupCount)"
+                    $controlResult.AdditionalInfo += "Count of broader groups that have user/administrator access to secure file: $($secureFileWithBroaderGroupCount)"
+                    $controlResult.AdditionalInfo += "List of Broader groups:" + $groups ;
                     $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                 }
                 else
