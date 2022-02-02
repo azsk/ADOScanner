@@ -1402,7 +1402,7 @@ class AzSKADOServiceMapping: CommandBase
             $progressCount = 1;
             $response[2].Rows | foreach {
                 if ($sw.Elapsed.TotalMilliseconds -ge 10000) {
-                    Write-Progress -Activity "Processing variable groups... " -Status "Progress: " -PercentComplete ($progressCount / $response[2].Rows.Count * 100)
+                    Write-Progress -Activity "Processing secure files... " -Status "Progress: " -PercentComplete ($progressCount / $response[2].Rows.Count * 100)
                     $sw.Reset(); $sw.Start()
                 }
                 $secureFileId = $_[0].ToString();
@@ -1517,8 +1517,8 @@ class AzSKADOServiceMapping: CommandBase
             }
             $this.PublishCustomMessage("Service mapping found:  $(($secureFileSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
             if ($this.UseCache) { 
-                $this.ExportObjToJsonFile($secureFileSTMapping.data, 'SecureFileSTData.json');
-                $this.ExportObjToJsonFileUploadToBlob($secureFileSTMapping.data, 'SecureFileSTData.json');
+                $this.ExportObjToJsonFile($secureFileSTMapping, 'SecureFileSTData.json');
+                $this.ExportObjToJsonFileUploadToBlob($secureFileSTMapping, 'SecureFileSTData.json');
             }
             
         }
@@ -1704,8 +1704,8 @@ class AzSKADOServiceMapping: CommandBase
             }
                 $this.PublishCustomMessage("Service mapping found:  $(($variableGroupSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
                 if ($this.UseCache) {          
-                    $this.ExportObjToJsonFile($variableGroupSTMapping.data, 'VariableGroupSTData.json');
-                    $this.ExportObjToJsonFileUploadToBlob($variableGroupSTMapping.data, 'VariableGroupSTData.json');
+                    $this.ExportObjToJsonFile($variableGroupSTMapping, 'VariableGroupSTData.json');
+                    $this.ExportObjToJsonFileUploadToBlob($variableGroupSTMapping, 'VariableGroupSTData.json');
                 }
             }
             catch {
