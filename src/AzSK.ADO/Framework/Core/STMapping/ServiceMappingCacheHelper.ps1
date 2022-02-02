@@ -85,6 +85,9 @@ class ServiceMappingCacheHelper {
     hidden [string] GenerateSearchQuery($projectID,$pipelineId,$pipelineType, $resourceId,$resourceType,$hash)
     {
         $query = 'PartitionKey eq ''{0}''' -f $hash;
+        if($PSCmdlet.MyInvocation.BoundParameters["IncrementalScan"]){
+            return 'OrgName eq ''{0}'' and ProjectID eq ''{1}'' and ResourceType eq ''{2}''' -f $this.OrganizationName, $projectID, $resourceType;
+        }
         if($resourceType -eq "All")
         {
            return 'OrgName eq ''{0}'' and ProjectID eq ''{1}''' -f $this.OrganizationName, $projectID; 
@@ -95,7 +98,7 @@ class ServiceMappingCacheHelper {
         }
         if($resourceType -eq "VariableGroup" -or $resourceType -eq "SecureFile" -and [string]::IsNullOrEmpty($resourceId)) 
         {
-            return 'OrgName eq ''{0}'' and ProjectID eq ''{1}'' and ResourceType eq ''{2}'' and ServiceTreeID ne ''UNMAPPED''' -f $this.OrganizationName, $projectID, $resourceType;
+            return 'OrgName eq ''{0}'' and PipelineType eq ''{1}''' -f $this.OrganizationName, $pipelineType;
         }
         return $query;
     }

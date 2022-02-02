@@ -159,11 +159,6 @@ class AzSKADOServiceMapping: CommandBase
     
     hidden  GetBuildReleaseMapping()
     {  
-        if($env:BuildSTData){
-            $this.BuildSTDetails = Get-content $env:BuildSTData | ConvertFrom-Json 
-            $this.ReleaseSTDetails = Get-content $env:ReleaseSTData | ConvertFrom-Json 
-            return;
-        }
         $this.SaveScanDuration("Build's repo scan started", $false)
         if($this.Auto -eq 'true'){
             $response = Get-AzStorageBlob -Blob 'BuildServiceMappingData.json' -Container $this.Container -Context $this.StorageAccountCtx 
@@ -985,20 +980,16 @@ class AzSKADOServiceMapping: CommandBase
         if($resourceInCache)
         {
             $this.ServiceMappingCacheHelperObj.UpdateTableEntity($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified, $resourceID, $resourceType, $resourceName, $pipelineType,$mappingExpiration, $this.IncrementalScan)
-            if($serviceTreeID -ne "UNMMAPPED"){
                 #update mapping expiration date as per new scan           
                 $rowIndex = [array]::IndexOf($this.storageCachedData.RowKey,$hash)
                 $this.storageCachedData[$rowIndex].MappingExpiration = $mappingExpiration 
             }                       
-        }
         else {
             $this.ServiceMappingCacheHelperObj.InsertMappingInfoInTable($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified,$resourceID,$resourceType,$resourceName,$pipelineType, $mappingExpiration, $this.IncrementalScan)
-            if($serviceTreeID -ne "UNMMAPPED"){
                 #update in-memory cache with new record             
                 $this.storageCachedData+=  @([PSCustomObject] @{"RowKey" =$hash; "OrgName" = $orgName; "ProjectID" = $projectID; "PipelineID" = $pipelineID;"ServiceTreeID" = $serviceTreeID;"PipelineLastModified" = $pipelineLastModified;"ResourceID" = $resourceID;"ResourceType" = $resourceType;"ResourceName" = $resourceName;"PipelineType" = $pipelineType;  "MappingExpiration" = $MappingExpiration}; ) 
             }
         }        
-    }
     
     #fetch resource mapping details from in-memory collection
     hidden [object] GetResourceDataFromCache($pipelineType,$pipelineID,$resourceType, $resourceID)
@@ -1426,7 +1417,7 @@ class AzSKADOServiceMapping: CommandBase
                 }
                          
                 if ($pipelineSTData) {               
-                    $this.AddMappinginfoInCache($pipelineSTData.orgName, $pipelineSTData.projectID, $pipelineId, $pipelineSTData.serviceID, $pipelineProcessDate, $secureFileId, $secureFileName, "SecureFile", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                    $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $pipelineId, $pipelineSTData.serviceID, $pipelineProcessDate, $secureFileId, $secureFileName, "SecureFile", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
                                       
                 }  
                 
@@ -1472,7 +1463,7 @@ class AzSKADOServiceMapping: CommandBase
                 }             
                                      
                 if ($pipelineSTData) {               
-                    $this.AddMappinginfoInCache($pipelineSTData.orgName, $pipelineSTData.projectID, $pipelineId, $pipelineSTData.serviceID, $pipelineProcessDate, $secureFileId, $secureFileName, "SecureFile", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                    $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $pipelineId, $pipelineSTData.serviceID, $pipelineProcessDate, $secureFileId, $secureFileName, "SecureFile", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
                                       
                 }  
                 
@@ -1498,16 +1489,9 @@ class AzSKADOServiceMapping: CommandBase
                                 $this.ServiceMappingCacheHelperObj.DeleteDataFromTable($resourceObj.ProjectID, $resourceObj.ResourceID, $resourceObj.ResourceType)
                                 return;
                             }
-                            else {
-                            #TODO add it in archive
-                                if(!$pipelineSTData){
-                                    $this.AddMappinginfoInCache($pipelineSTData.orgName, $pipelineSTData.projectID, $_.PipelineID, "UNMAPPED", $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "SecureFile", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
-                                    return;
-                            }
-                        }
                     }
                     if ($pipelineSTData) {               
-                        $this.AddMappinginfoInCache($pipelineSTData.orgName, $pipelineSTData.projectID, $_.PipelineID, $pipelineSTData.serviceID, $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "SecureFile", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                        $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $_.PipelineID, $pipelineSTData.serviceID, $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "SecureFile", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
                         $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $_.ResourceName; secureFileID = $_.ResourceID; serviceID = $pipelineSTData.serviceID; projectName = $this.ProjectName; projectID = $_.projectID; orgName = $_.orgName } )                    
                     }
                 }
@@ -1623,7 +1607,7 @@ class AzSKADOServiceMapping: CommandBase
                 }
                          
                 if ($pipelineSTData) {            
-                    $this.AddMappinginfoInCache($pipelineSTData.orgName, $pipelineSTData.projectID, $pipelineId, $pipelineSTData.serviceID, $pipelineProcessDate, $variableGroupId, $variableGroupName, "VariableGroup", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                    $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $pipelineId, $pipelineSTData.serviceID, $pipelineProcessDate, $variableGroupId, $variableGroupName, "VariableGroup", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
                                       
                 }  
                 #if pipeline ST data not found, attempt to get service id from Az key vault
@@ -1645,7 +1629,7 @@ class AzSKADOServiceMapping: CommandBase
                                         $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId, $accessToken)                               
                                         if ($responseObj) {
                                             $serviceId = $responseObj[2].Rows[0][4];
-                                            $this.AddMappinginfoInCache($this.OrgName, $this.projectId, $pipelineId, $serviceID, $pipelineProcessDate, $variableGroupId, $variableGroupName, "VariableGroup", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                                            $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $this.projectId, $pipelineId, $serviceID, $pipelineProcessDate, $variableGroupId, $variableGroupName, "VariableGroup", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
                                         } 
                                     }
                                     catch {
@@ -1684,17 +1668,10 @@ class AzSKADOServiceMapping: CommandBase
                                 $this.ServiceMappingCacheHelperObj.DeleteDataFromTable($resourceObj.ProjectID, $resourceObj.ResourceID, $resourceObj.ResourceType)
                                 return;
                             }
-                            else {
-                                #TODO add it in archive, for now updating record as unmapped
-                                if(!$pipelineSTData){
-                                    $this.AddMappinginfoInCache($pipelineSTData.orgName, $pipelineSTData.projectID, $_.PipelineID, "UNMAPPED", $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "VariableGroup", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
-                                    return;
-                                }
-                            }
                         } 
                         
                     if ($pipelineSTData) {               
-                        $this.AddMappinginfoInCache($pipelineSTData.orgName, $pipelineSTData.projectID, $_.PipelineID, $pipelineSTData.serviceID, $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "VariableGroup", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                        $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $_.PipelineID, $pipelineSTData.serviceID, $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "VariableGroup", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
                         $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.ResourceName; variableGroupID = $_.ResourceID; serviceID = $pipelineSTData.serviceID; projectName = $this.ProjectName; projectID = $_.projectID; orgName = $_.orgName } )                    
                     }
                 }
