@@ -60,7 +60,7 @@ class ServiceMappingCacheHelper {
         return $azTableMappingInfo;
     }
 
-    hidden [bool] InsertMappingInfoInTable( [string]  $orgName, [string]  $projectID, [string]  $pipelineID, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration) 
+    hidden [bool] InsertMappingInfoInTable( [string]  $orgName, [string]  $projectID, [string]  $pipelineID,[string]  $pipelineName, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration) 
     {
         try 
         {                   
@@ -73,7 +73,7 @@ class ServiceMappingCacheHelper {
                New-AzStorageTable $this.CacheTable -Context $this.CacheStorageAccountCtx;
            }
 
-           $isDataAddedInTable = $this.AddDataInTable($orgName,$projectID,$pipelineID,$serviceTreeID,$pipelineLastModified,$resourceID,$resourceType,$resourceName,$pipelineType, $mappingExpiration)
+           $isDataAddedInTable = $this.AddDataInTable($orgName,$projectID,$pipelineID,$pipelineName,$serviceTreeID,$pipelineLastModified,$resourceID,$resourceType,$resourceName,$pipelineType, $mappingExpiration)
            return $isDataAddedInTable;           
         }
         catch {
@@ -119,7 +119,7 @@ class ServiceMappingCacheHelper {
         }
     }
 
-    hidden [bool] AddDataInTable([string]  $orgName, [string]  $projectID, [string]  $pipelineID, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration) 
+    hidden [bool] AddDataInTable([string]  $orgName, [string]  $projectID, [string]  $pipelineID,[string]  $pipelineName, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration) 
     {        
         $partitionKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,"","");
         $rowKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,$resourceID,$resourceType)
@@ -127,7 +127,7 @@ class ServiceMappingCacheHelper {
         try 
         {
             #Add data in table.            
-            $entity = @{"PartitionKey" = $partitionKey; "RowKey" = $rowKey; "OrgName" = $orgName; "ProjectID" = $projectID; "PipelineID" = $pipelineID;"ServiceTreeID" = $serviceTreeID;"PipelineLastModified" = $pipelineLastModified;"ResourceID" = $resourceID;"ResourceType" = $resourceType;"ResourceName" = $resourceName;"PipelineType" = $pipelineType;  "MappingExpiration" = $MappingExpiration};
+            $entity = @{"PartitionKey" = $partitionKey; "RowKey" = $rowKey; "OrgName" = $orgName; "ProjectID" = $projectID; "PipelineID" = $pipelineID;"PipelineName" = $pipelineName;"ServiceTreeID" = $serviceTreeID;"PipelineLastModified" = $pipelineLastModified;"ResourceID" = $resourceID;"ResourceType" = $resourceType;"ResourceName" = $resourceName;"PipelineType" = $pipelineType;  "MappingExpiration" = $MappingExpiration};
             $table_url = "https://{0}.table.core.windows.net/{1}" -f $this.CacheStorageName, $this.CacheTable
             $headers = $this.GetHeader($this.CacheTable);
             $body = $entity | ConvertTo-Json
@@ -142,7 +142,7 @@ class ServiceMappingCacheHelper {
         }
     }
 
-    hidden [bool] UpdateTableEntity([string]  $orgName, [string]  $projectID, [string]  $pipelineID, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration) 
+    hidden [bool] UpdateTableEntity([string]  $orgName, [string]  $projectID, [string]  $pipelineID,[string]  $pipelineName,  [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration) 
     {
         $partitionKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,"","");
         $rowKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,$resourceID,$resourceType)
@@ -150,7 +150,7 @@ class ServiceMappingCacheHelper {
         try {
             #Update data in table.
             $tableName = $this.CacheTable;
-            $entity = @{"OrgName" = $orgName; "ProjectID" = $projectID; "PipelineID" = $pipelineID;"ServiceTreeID" = $serviceTreeID;"PipelineLastModified" = $pipelineLastModified;"ResourceID" = $resourceID;"ResourceType" = $resourceType;"ResourceName" = $resourceName;"PipelineType" = $pipelineType;  "MappingExpiration" = $MappingExpiration};
+            $entity = @{"OrgName" = $orgName; "ProjectID" = $projectID; "PipelineID" = $pipelineID;"PipelineName" = $pipelineName;"ServiceTreeID" = $serviceTreeID;"PipelineLastModified" = $pipelineLastModified;"ResourceID" = $resourceID;"ResourceType" = $resourceType;"ResourceName" = $resourceName;"PipelineType" = $pipelineType;  "MappingExpiration" = $MappingExpiration};
             $body = $entity | ConvertTo-Json
             $version = "2017-04-17"
             $resource = "$tableName(PartitionKey='$PartitionKey',RowKey='$Rowkey')"
