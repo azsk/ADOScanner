@@ -327,7 +327,7 @@ class WebRequestHelper {
                             $success = $true
                             $uri = [string]::Empty
 						}
-						elseif($uri.Contains("mspim") -or $uri.Contains("datastudiostreaming") -or $uri.Contains("loganalytics.io"))
+						elseif($uri.Contains("mspim") -or $uri.Contains("genevareference") -or $uri.Contains("loganalytics.io"))
 						{
 							$requestResult = Invoke-WebRequest -Method $method -Uri $validatedUri -Headers $headers -Body $body -ContentType $contentType -UseBasicParsing
                         }

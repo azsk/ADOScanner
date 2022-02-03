@@ -928,7 +928,7 @@ class AzSKADOServiceMapping: CommandBase
         $response = $null
         try {                     
             # call data studio to fetch azure subscription id and servce id mapping
-            $apiURL = "https://datastudiostreaming.kusto.windows.net/v2/rest/query"                                                                    
+            $apiURL = "https://genevareference.westcentralus.kusto.windows.net/v2/rest/query"                                                                    
             $inputbody = '{"db": "Shared","csl": "DataStudio_ServiceTree_AzureSubscription_Snapshot | where SubscriptionId contains ''{0}''", "properties": {"Options": {"query_language": "csl","servertimeout": "00:04:00","queryconsistency": "strongconsistency","request_readonly": false,"request_readonly_hardline": false}}}'                                            
             $inputbody = $inputbody.Replace("{0}", $subscriptionID)                                                                                        
             $header = @{
