@@ -721,7 +721,8 @@
         "User"
       ]
     },
-    "CheckForInheritedPermissions": false
+    "CheckForInheritedPermissions": false,
+    "CheckForBranchProtection":true
   },
   "Patterns": [
     {

@@ -169,6 +169,25 @@
       "Enabled": true
     },
     {
+      "ControlID": "ADO_SecureFile_Enable_Branch_Control",
+      "Description": "Do not allow secure file to have excessive permissions for a broad group of users.",
+      "Id": "SecureFile120",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBranchControlOnSecureFile",
+      "Rationale": "If a broad group of users (e.g. Contributors) have excessive permissions on a secure file, A malicious user may gain access of stored secret/certificate which may open the door to malicious attack (e.g. SSH for accessing machine/server using these secret/certifcate).",
+      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. Select your secure file from the list --> 6. Click 'Security' --> 7. Review users/groups which have administrator and user roles. Ensure broader groups have read-only access. Refer to detailed scan log (SecureFile.LOG) for broader group list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "MSW",
+        "AutomatedFix"
+      ],
+      "Enabled": true
+    },
+    {
       "ControlID": "ADO_Environment_AuthZ_Dont_Grant_All_Pipelines_Access",
       "Description": "Do not make environment accessible to all (YAML) pipelines.",
       "Id": "Environment100",

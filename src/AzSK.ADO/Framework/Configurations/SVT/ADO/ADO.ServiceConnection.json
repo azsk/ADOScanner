@@ -251,6 +251,22 @@
         "Automated"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_ServiceConnection_Enable_Branch_Control",
+      "Description": "Azure service connections to certain environments are not permitted from this org.",
+      "Id": "ServiceConnection260",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBranchControl",
+      "Rationale": "Service connection should not connect to restricted cloud environments to align with data sovereignty requirements and ensure their data and workloads stays in allowed cloud environments.",
+      "Recommendation": "(1) Review the environment of your service connection: Go to Project Settings --> Pipelines --> Service connections --> Select your service connection --> Click Edit (2) Remove the service connection if it is to disallowed environments (per details available in detailed control scan logs).",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated"
+      ],
+      "Enabled": true
     }
   ]
 }

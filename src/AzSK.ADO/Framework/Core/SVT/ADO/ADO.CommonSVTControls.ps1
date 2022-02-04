@@ -1873,4 +1873,101 @@ class CommonSVTControls: ADOSVTBase {
         }
         return $controlResult
     }
+
+    hidden [ControlResult] CheckBranchControlOnSecureFile ([ControlResult] $controlResult) {
+        try{
+            #check if resources is accessible even to a single pipeline
+            $isRsrcAccessibleToAnyPipeline = $false;
+            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/securefile/{2}" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            $pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            #resource is accessible to all pipelines
+            if([Helpers]::CheckMember($pipelinePermission,"allPipelines") -and $pipelinePermission.allPipelines.authorized){
+                $isRsrcAccessibleToAnyPipeline = $true;
+            }
+            #resource is accessible to certain YAML pipelines
+            if([Helpers]::CheckMember($pipelinePermission[0],"pipelines") -and $pipelinePermission[0].pipelines.Count -gt 0){
+                $isRsrcAccessibleToAnyPipeline = $true;
+            }
+            #if resource is not accessible to any YAML pipeline, there is no need to add any branch control, hence passing the control
+            if($isRsrcAccessibleToAnyPipeline -eq $false){
+                $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accessible to any YAML pipelines. Hence, branch control is not required.");
+                return $controlResult;
+            }
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'securefile'}]"
+            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the secure file.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
+                $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the secure file."
+            }
+            else{
+                $branchControl = @()
+                $approvalControl = @()
+                try{
+                    $approvalAndChecks = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
+                    $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
+                }
+                catch{
+                    $branchControl = @()
+                }
+                if($branchControl.Count -eq 0){
+                    if($approvalControl.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Branch control has not been defined for the secure file. However, manual approvals have been added to the secure file.");
+                        $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                        $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                        $controlResult.AdditionalInfo += "List of approvers on secure file  $($approvers).";
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Branch control has not been defined for the secure file.");
+                        $controlResult.AdditionalInfo = "Branch control has not been defined for the secure file."
+                    }                    
+                }
+                else{
+                    $branches = ($branchControl.inputs.allowedBranches).Split(",");
+                    $branchesWithNoProtectionCheck = @($branchControl.inputs | where-object {$_.ensureProtectionOfBranch -eq $false})
+                    if("*" -in $branches){
+                        $controlResult.AddMessage([VerificationResult]::Failed, "All branches have been given access to the secure file.");
+                        $controlResult.AdditionalInfo = "All branches have been given access to the secure file."
+                    }
+                    elseif ($branchesWithNoProtectionCheck.Count -gt 0) {
+                        #check if branch protection is enabled on all the found branches depending upon the org policy
+                        if($this.ControlSettings.ServiceConnection.CheckForBranchProtection){
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Access to the secure file has not been granted to all branches. However, verification of branch protection has not been enabled for some branches.");
+                            $branchesWithNoProtectionCheck = @(($branchesWithNoProtectionCheck.allowedBranches).Split(","));
+                            $controlResult.AddMessage("List of branches granted access to the secure file without verification of branch protection: ")
+                            $controlResult.AddMessage("$($branchesWithNoProtectionCheck)")
+                            $branchesWithProtection = @($branches | where {$branchesWithNoProtectionCheck -notcontains $_})
+                            if($branchesWithProtection.Count -gt 0){
+                                $controlResult.AddMessage("List of branches granted access to the secure file with verification of branch protection: ");
+                                $controlResult.AddMessage("$($branchesWithProtection)");
+                            }
+                            $controlResult.AdditionalInfo = "List of branches granted access to the secure file without verification of branch protection: $($branchesWithNoProtectionCheck)"
+                        }
+                        else{
+                            $controlResult.AddMessage([VerificationResult]::Passed, "Access to the secure file has not been granted to all branches.");
+                            $controlResult.AddMessage("List of branches granted access to the secure file: ");
+                            $controlResult.AddMessage("$($branches)");
+                        }
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Access to the secure file has not been granted to all branches. Verification of branch protection has been enabled for all allowed branches.");
+                        $controlResult.AddMessage("List of branches granted access to the secure file: ");
+                        $controlResult.AddMessage("$($branches)");
+                    }
+                }
+            }
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch secure file details.");
+        }
+
+        return $controlResult;
+    }
 }

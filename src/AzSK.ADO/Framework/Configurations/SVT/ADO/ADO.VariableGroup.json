@@ -111,6 +111,25 @@
               "AutomatedFix"
             ],
             "Enabled": true
+          },
+          {
+            "ControlID": "ADO_VariableGroup_Enable_Branch_Control",
+            "Description": "Broader groups (contributors, project valid users, etc.) should not have user/administrator privileges on variable group which contains secrets.",
+            "Id": "VariableGroup170",
+            "ControlSeverity": "High",
+            "Automated": "Yes",
+            "MethodName": "CheckBranchControlOnVariableGroup",
+            "Rationale": "If a broad group of users (e.g., Contributors) have excessive permissions on variable group, a malicious user can abuse these permissions to compromise security of the variable group as well as the assets involving the secret variables.",
+            "Recommendation": "1. Navigate to the variable group. --> 2. Select Security. --> 3. Ensure broader groups have read-only access. Refer to detailed scan log (VariableGroup.LOG) for broader group list.",
+            "Tags": [
+              "SDL",
+              "TCP",
+              "Automated",
+              "AuthZ",
+              "MSW",
+              "AutomatedFix"
+            ],
+            "Enabled": true
           }
     ]
 }
