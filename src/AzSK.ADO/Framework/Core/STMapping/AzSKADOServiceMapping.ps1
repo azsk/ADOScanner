@@ -189,7 +189,7 @@ class AzSKADOServiceMapping: CommandBase
                         $buildDefnObj = [WebRequestHelper]::InvokeGetWebRequest($build.url);
                         $repositoryName = $buildDefnObj.repository.name;
                         $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};                    
-                        if($repoSTData){
+                        if($repoSTData -and $repoSTData.id -ne ""){
                             $this.BuildSTDetails.data+=@([PSCustomObject] @{ buildDefinitionName = $build.name; buildDefinitionID = $build.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )                            
                             #Save repo mappings in azure table
                             $this.AddMappinginfoInCache( $this.OrgName,$this.projectId,$build.id,$build.name, $repoSTData.serviceID,$build.createdDate,$repoSTData.repoID,$repositoryName,"Repo","Build",(Get-date).AddDays($this.MappingExpirationLimit));                         
@@ -258,7 +258,7 @@ class AzSKADOServiceMapping: CommandBase
                                         {($_ -eq "GitHubRelease") -or ($_ -eq "Git")}{
                                             $repositoryName =$releaseDefnObj[0].artifacts.definitionReference.definition.name;
                                             $repoSTData = $this.RepositorySTDetails.Data | Where-Object { ($_.repoName -eq $repositoryName)};
-                                            if($repoSTData){
+                                            if($repoSTData -and $repoSTData.id -ne ""){
                                                 $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $release.name; releaseDefinitionID = $release.id; serviceID = $repoSTData.serviceID; projectName = $repoSTData.projectName; projectID = $repoSTData.projectID; orgName = $repoSTData.orgName } )                            
                                                 #Save repo mappings in azure table
                                                 $this.AddMappinginfoInCache( $this.OrgName,$this.projectId,$release.id,$release.name, $repoSTData.serviceID,$release.modifiedOn,$repoSTData.repoID,$repositoryName,"Repo","Release",(Get-date).AddDays($this.MappingExpirationLimit));                         
@@ -1360,7 +1360,7 @@ class AzSKADOServiceMapping: CommandBase
         $hash = $this.ServiceMappingCacheHelperObj.GetHashedTag($this.projectId, $pipelineID, $pipelineType,$resourceID,$resourceType)         
         $item = $this.storageCachedData | Where-Object -Property RowKey -eq $hash 
         #Check resource id present in cache without mapped with pipeline id
-        if(!$item){
+        if((!$item) -and ($resourceType -ne "Repo")){
             $item =  $this.storageCachedData | Where-Object {($_.ResourceID -eq $resourceID) -and ($_.ResourceType -eq $resourceType) -and ($_.ProjectID -eq $this.projectId) -and ($_.OrgName -eq $this.OrgName)}
             $this.resourceInCacheWithoutPipeline = $true
         }
