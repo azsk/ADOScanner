@@ -269,7 +269,8 @@
     "Low": "Low"
   },
   "GroupResolution": {
-    "GroupResolutionLevel": -1
+    "GroupResolutionLevel": -1,
+    "UseSIPFeedForAADGroupExpansion": false
   },
   "Build": {
     "BuildHistoryPeriodInDays": 180,
@@ -535,7 +536,6 @@
     "RestrictedBroaderGroupsForFeeds" : {
       "Contributors":[
         "Administrator",
-        "Collaborator",
         "Contributor"
       ],
       "Readers":[
@@ -545,21 +545,19 @@
       ],
       "Project Collection Valid Users":[
         "Administrator",
-        "Collaborator",
         "Contributor"
       ],
       "Project Valid Users":[
         "Administrator",
-        "Collaborator",
         "Contributor"
       ]
     },
     "RestrictedRolesForBuildSvcAccountsInFeed" : [
         "Administrator",
-        "Collaborator",
         "Contributor"
     ],
-    "CheckForInheritedPermissions": false
+    "CheckForInheritedPermissions": false,
+    "RoleToChangeInFix":"Collaborator"
   },
   "SecureFile":{
     "RestrictedBroaderGroupsForSecureFile" : {
@@ -855,6 +853,10 @@
       ]
     }
   ]     
+  },
+  "RateLimiter":{
+    "MaxAllowedDelay":300,
+    "MaxAPIThrottledBeforeSleep":10
   }  
   
 }

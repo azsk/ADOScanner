@@ -227,11 +227,15 @@ class AutoBugLog : EventBase  {
                 }
                 else {
                     $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.InvocationContext);
-                }
-                $serviceId = $metaProviderObj.ServiceId
+                    $serviceId = $metaProviderObj.ServiceId;
+                }                
             }
             else {
-                $serviceId = [BugMetaInfoProvider]::ServiceTreeInfo.serviceId;
+                if($ResourceType -ne 'Organization' -and $ResourceType -ne 'Project'){
+                    if([BugMetaInfoProvider]::ServiceTreeInfo){
+                        $serviceId = [BugMetaInfoProvider]::ServiceTreeInfo.serviceId;
+                    }                    
+                }                
             }
             $resourceOwner = "";
             if($serviceId -or $ResourceType -eq 'Organization' -or $ResourceType -eq 'Project')
