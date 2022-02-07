@@ -121,7 +121,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "DP"
+        "DP",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -138,7 +139,8 @@
         "SDL",
         "TCP",
         "Automated",
-        "DP"
+        "DP",
+        "AutomatedFix"
       ],
       "Enabled": true
     },
