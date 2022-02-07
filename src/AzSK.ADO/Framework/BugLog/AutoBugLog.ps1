@@ -211,7 +211,7 @@ class AutoBugLog : EventBase  {
                                 $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("List of non-ALT accounts:"))[-1].split(':')[1].split(';')[0]
                             }
                             else {
-                                $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName). Assignee could not be determined.", [MessageType]::Warning);
+                                $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlId). Assignee could not be determined.", [MessageType]::Warning);
                                 return $returnvalue;
                             }
                         } 
