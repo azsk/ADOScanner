@@ -440,7 +440,8 @@
       "Administrator",
       "User"
     ],
-    "CheckForInheritedPermissions": false
+    "CheckForInheritedPermissions": false,
+    "CheckForBranchProtection":true
   },  
   "WorkItems":{
     "ThreshHoldDaysForWorkItemInactivity":180
@@ -578,7 +579,8 @@
         "User"
       ]
     },
-    "CheckForInheritedPermissions": false
+    "CheckForInheritedPermissions": false,
+    "CheckForBranchProtection":true
   },
   "Environment":{
     "RestrictedBroaderGroupsForEnvironment" : {

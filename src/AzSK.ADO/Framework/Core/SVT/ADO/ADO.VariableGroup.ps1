@@ -772,28 +772,28 @@ class VariableGroup: ADOSVTBase
                     }
                     elseif ($branchesWithNoProtectionCheck.Count -gt 0) {
                         #check if branch protection is enabled on all the found branches depending upon the org policy
-                        if($this.ControlSettings.ServiceConnection.CheckForBranchProtection){
+                        if($this.ControlSettings.VariableGroup.CheckForBranchProtection){
                             $controlResult.AddMessage([VerificationResult]::Failed, "Access to the variable group has not been granted to all branches. However, verification of branch protection has not been enabled for some branches.");
                             $branchesWithNoProtectionCheck = @(($branchesWithNoProtectionCheck.allowedBranches).Split(","));
                             $controlResult.AddMessage("List of branches granted access to the variable group without verification of branch protection: ")
-                            $controlResult.AddMessage("$($branchesWithNoProtectionCheck)")
+                            $controlResult.AddMessage("$($branchesWithNoProtectionCheck | FT | Out-String)")
                             $branchesWithProtection = @($branches | where {$branchesWithNoProtectionCheck -notcontains $_})
                             if($branchesWithProtection.Count -gt 0){
                                 $controlResult.AddMessage("List of branches granted access to the variable group with verification of branch protection: ");
-                                $controlResult.AddMessage("$($branchesWithProtection)");
+                                $controlResult.AddMessage("$($branchesWithProtection | FT | Out-String)");
                             }
                             $controlResult.AdditionalInfo = "List of branches granted access to the variable group without verification of branch protection: $($branchesWithNoProtectionCheck)"
                         }
                         else{
                             $controlResult.AddMessage([VerificationResult]::Passed, "Access to the variable group has not been granted to all branches.");
                             $controlResult.AddMessage("List of branches granted access to the variable group: ");
-                            $controlResult.AddMessage("$($branches)");
+                            $controlResult.AddMessage("$($branches | FT | Out-String)");
                         }
                     }
                     else{
                         $controlResult.AddMessage([VerificationResult]::Passed, "Access to the variable group has not been granted to all branches. Verification of branch protection has been enabled for all allowed branches.");
                         $controlResult.AddMessage("List of branches granted access to the variable group: ");
-                        $controlResult.AddMessage("$($branches)");
+                        $controlResult.AddMessage("$($branches | FT | Out-String)");
                     }
                 }
             }

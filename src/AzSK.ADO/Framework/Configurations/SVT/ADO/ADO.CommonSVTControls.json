@@ -169,21 +169,19 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_SecureFile_Enable_Branch_Control",
-      "Description": "Do not allow secure file to have excessive permissions for a broad group of users.",
+      "ControlID": "ADO_SecureFile_AuthZ_Enable_Branch_Control",
+      "Description": "Ensure that secure file is accessible only from authorized branches.",
       "Id": "SecureFile120",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBranchControlOnSecureFile",
-      "Rationale": "If a broad group of users (e.g. Contributors) have excessive permissions on a secure file, A malicious user may gain access of stored secret/certificate which may open the door to malicious attack (e.g. SSH for accessing machine/server using these secret/certifcate).",
-      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Library --> 4. Secure Files --> 5. Select your secure file from the list --> 6. Click 'Security' --> 7. Review users/groups which have administrator and user roles. Ensure broader groups have read-only access. Refer to detailed scan log (SecureFile.LOG) for broader group list.",
+      "Rationale": "Once a secure file is made accessible to a YAML pipeline, any malicious user with contribute/create branch permissions on the repository will be able to access the secure file by queueing the pipeline from the corrupted branch even if they do not have access to it. To prevent this ensure that the secure file can be accessed only from authorized branches.",
+      "Recommendation": "1. Navigate to the secure file --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the secure file to be accessed from. Select on 'Verify branch protection' for additional protection.",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ",
-        "MSW",
-        "AutomatedFix"
+        "AuthZ"
       ],
       "Enabled": true
     },

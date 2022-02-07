@@ -1938,28 +1938,28 @@ class CommonSVTControls: ADOSVTBase {
                     }
                     elseif ($branchesWithNoProtectionCheck.Count -gt 0) {
                         #check if branch protection is enabled on all the found branches depending upon the org policy
-                        if($this.ControlSettings.ServiceConnection.CheckForBranchProtection){
+                        if($this.ControlSettings.SecureFile.CheckForBranchProtection){
                             $controlResult.AddMessage([VerificationResult]::Failed, "Access to the secure file has not been granted to all branches. However, verification of branch protection has not been enabled for some branches.");
                             $branchesWithNoProtectionCheck = @(($branchesWithNoProtectionCheck.allowedBranches).Split(","));
                             $controlResult.AddMessage("List of branches granted access to the secure file without verification of branch protection: ")
-                            $controlResult.AddMessage("$($branchesWithNoProtectionCheck)")
+                            $controlResult.AddMessage("$($branchesWithNoProtectionCheck | FT | Out-String)")
                             $branchesWithProtection = @($branches | where {$branchesWithNoProtectionCheck -notcontains $_})
                             if($branchesWithProtection.Count -gt 0){
                                 $controlResult.AddMessage("List of branches granted access to the secure file with verification of branch protection: ");
-                                $controlResult.AddMessage("$($branchesWithProtection)");
+                                $controlResult.AddMessage("$($branchesWithProtection | FT | Out-String)");
                             }
                             $controlResult.AdditionalInfo = "List of branches granted access to the secure file without verification of branch protection: $($branchesWithNoProtectionCheck)"
                         }
                         else{
                             $controlResult.AddMessage([VerificationResult]::Passed, "Access to the secure file has not been granted to all branches.");
                             $controlResult.AddMessage("List of branches granted access to the secure file: ");
-                            $controlResult.AddMessage("$($branches)");
+                            $controlResult.AddMessage("$($branches | FT | Out-String)");
                         }
                     }
                     else{
                         $controlResult.AddMessage([VerificationResult]::Passed, "Access to the secure file has not been granted to all branches. Verification of branch protection has been enabled for all allowed branches.");
                         $controlResult.AddMessage("List of branches granted access to the secure file: ");
-                        $controlResult.AddMessage("$($branches)");
+                        $controlResult.AddMessage("$($branches | FT | Out-String)");
                     }
                 }
             }
