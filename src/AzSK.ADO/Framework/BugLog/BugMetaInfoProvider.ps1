@@ -8,13 +8,13 @@ class BugMetaInfoProvider {
     hidden [bool] $BugLogUsingCSV = $false;
     hidden [string] $STMappingFilePath = $null
     hidden static $OrgMappingObj = @{}
-    hidden [PSObject] $emailRegEx
+    hidden static [PSObject] $emailRegEx
     hidden static $AssigneeForUnmappedResources = @{}
 
     BugMetaInfoProvider() {
-        if ($null -eq $this.emailRegEx) {
+        if ($null -eq [BugMetaInfoProvider]::emailRegEx) {
             $ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
-            $this.emailRegEx = $ControlSettings.Patterns | where {$_.RegexCode -eq "Email"} | Select-Object -Property RegexList;
+            [BugMetaInfoProvider]::emailRegEx = $ControlSettings.Patterns | where {$_.RegexCode -eq "Email"} | Select-Object -Property RegexList;
         }
     }
 
@@ -118,7 +118,7 @@ class BugMetaInfoProvider {
             'ServiceConnection' {
                 $assignee = $ControlResult.ResourceContext.ResourceDetails.createdBy.uniqueName
 
-                if (($assignee -inotmatch $this.emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                 {
                     $apiURL = "https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/{2}/executionhistory?top=1&api-version=6.0-preview.1" -f $organizationName, $($ControlResult.ResourceContext.ResourceGroupName), $($ControlResult.ResourceContext.ResourceDetails.id);
                     $executionHistory = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
@@ -149,6 +149,8 @@ class BugMetaInfoProvider {
                             }
                         }
                         catch {
+                            $assignee = ""
+                            $this.PublishCustomMessage("Assignee Could not be determind.");
                         }
                     }
                 }
@@ -162,7 +164,7 @@ class BugMetaInfoProvider {
                     $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                     $assignee = $response.createdBy.uniqueName
                     # if assignee is service account, then fetch assignee from jobs/permissions
-                    if (($assignee -inotmatch $this.emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                     {
                         $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2 " -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                         $agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
@@ -192,6 +194,8 @@ class BugMetaInfoProvider {
                                 }
                             }
                             catch {
+                                $assignee = ""
+                                $this.PublishCustomMessage("Assignee Could not be determind.");
                             }
                         }
                     }
@@ -206,14 +210,14 @@ class BugMetaInfoProvider {
             'VariableGroup' {
                 $assignee = $ControlResult.ResourceContext.ResourceDetails.createdBy.uniqueName
 
-                if (($assignee -inotmatch $this.emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                 {
                     if ([Helpers]::CheckMember($ControlResult.ResourceContext.ResourceDetails, "modifiedBy")) {
                         $assignee = $ControlResult.ResourceContext.ResourceDetails.modifiedBy.uniqueName
                     }
                 }
 
-                if (($assignee -inotmatch $this.emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                 {
                     try {
                         $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
@@ -226,6 +230,8 @@ class BugMetaInfoProvider {
                         }
                     }
                     catch {  
+                        $assignee = ""
+                        $this.PublishCustomMessage("Assignee Could not be determind.");
                     }
                 }
                 [BugMetaInfoProvider]::AssigneeForUnmappedResources[$ControlResult.ResourceContext.ResourceId] = $assignee
@@ -267,7 +273,7 @@ class BugMetaInfoProvider {
                     }
 
                     #getting assignee from the repository permissions
-                    if (($assignee -inotmatch $this.emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                     {
                         try{
                             $accessList = @()
@@ -302,6 +308,8 @@ class BugMetaInfoProvider {
                             }
                         }
                         catch {
+                            $assignee = ""
+                            $this.PublishCustomMessage("Assignee Could not be determind.");
                         }
                     }
                 }
@@ -314,7 +322,7 @@ class BugMetaInfoProvider {
             'SecureFile' {
                 $assignee = $ControlResult.ResourceContext.ResourceDetails.createdBy.uniqueName
 
-                if (($assignee -inotmatch $this.emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                 {
                     if ([Helpers]::CheckMember($ControlResult.ResourceContext.ResourceDetails, "modifiedBy")) {
                         $assignee = $ControlResult.ResourceContext.ResourceDetails.modifiedBy.uniqueName
@@ -322,7 +330,7 @@ class BugMetaInfoProvider {
                 }
 
                 # if assignee is service account, then fetch assignee from jobs/permissions
-                if (($assignee -inotmatch $this.emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                 {
                     try {
                         $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
@@ -335,6 +343,8 @@ class BugMetaInfoProvider {
                         }
                     }
                     catch {
+                        $assignee = ""
+                        $this.PublishCustomMessage("Assignee Could not be determind.");
                     }
                 }
                 [BugMetaInfoProvider]::AssigneeForUnmappedResources[$ControlResult.ResourceContext.ResourceId] = $assignee
@@ -353,7 +363,7 @@ class BugMetaInfoProvider {
                     if ($feedPermissionList.count -gt 0 -and [Helpers]::CheckMember($feedPermissionList[0],"identityDescriptor")) {
                         $roles = $feedPermissionList | Where {$_.role -eq 'Administrator'}
                         if ($roles.count -ge 1) {
-                            $resourceOwners = @($roles.identityDescriptor.Split('\') | Where {$_ -match $this.emailRegEx.RegexList[0]})
+                            $resourceOwners = @($roles.identityDescriptor.Split('\') | Where {$_ -match [BugMetaInfoProvider]::emailRegEx.RegexList[0]})
                             if ($resourceOwners.count -ge 1) {
                                 $allAssignee = $resourceOwners | Select-Object @{l="mailaddress";e={$_}}, @{l="subjectKind";e={"User"}}
                                 $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($allAssignee, $organizationName)
@@ -373,7 +383,7 @@ class BugMetaInfoProvider {
             'Environment' {
                 $assignee = $ControlResult.ResourceContext.ResourceDetails.createdBy.uniqueName
 
-                if (($assignee -inotmatch $this.emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                 {
                     if ([Helpers]::CheckMember($ControlResult.ResourceContext.ResourceDetails, "lastModifiedBy")) {
                         $assignee = $ControlResult.ResourceContext.ResourceDetails.lastModifiedBy.uniqueName
@@ -381,7 +391,7 @@ class BugMetaInfoProvider {
                 }
                 
                 # if assignee is service account, then fetch assignee from jobs/permissions
-                if (($assignee -inotmatch $this.emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                 {
                     #$agentPoolsURL = "https://microsoftit.visualstudio.com/OneITVSO/_environments/385?view=resources&__rt=fps&__ver=2" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                     $url = "https://dev.azure.com/{0}/{1}/_environments/{2}?view=resources&__rt=fps&__ver=2" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
@@ -412,7 +422,8 @@ class BugMetaInfoProvider {
                             }
                         }
                         catch {
-                            
+                            $assignee = ""
+                            $this.PublishCustomMessage("Assignee Could not be determind."); 
                         }
                     }
                 }
@@ -457,7 +468,7 @@ class BugMetaInfoProvider {
             #check for recent trigger
             if ([Helpers]::CheckMember($response, "requestedBy")) {
                 $assignee = $response[0].requestedBy.uniqueName
-                if ($assignee -inotmatch $this.emailRegEx.RegexList[0] -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) {
+                if ($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) {
                     $assignee = $response[0].lastChangedBy.uniqueName
                 }
             }
@@ -469,11 +480,11 @@ class BugMetaInfoProvider {
             }
 
             # if assignee is service account, get assignee from the the build update history
-            if ($assignee -inotmatch $this.emailRegEx.RegexList[0] -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) {
+            if ($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) {
                 $url = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}/revisions" -f $organizationName, $projectName, $definitionId;
                 $response = [WebRequestHelper]::InvokeGetWebRequest($url)
                 if ([Helpers]::CheckMember($response, "changedBy")) {
-                    $response = @($response | Where-Object {$_.changedBy.uniqueName -imatch $this.emailRegEx.RegexList[0] }| Sort-Object -Property changedDate -descending)
+                    $response = @($response | Where-Object {$_.changedBy.uniqueName -imatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] }| Sort-Object -Property changedDate -descending)
                     if ($response.count -gt 0) {
                         $allAssignee = @()
                         $response | ForEach-Object {$allAssignee += @( [PSCustomObject] @{ mailAddress = $_.changedBy.uniqueName; subjectKind = 'User' } )} | Select-Object -Unique
@@ -511,11 +522,11 @@ class BugMetaInfoProvider {
             }
 
             # if assignee is service account, get assignee from the the release update history
-            if ($assignee -inotmatch $this.emailRegEx.RegexList[0] -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) {
+            if ($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) {
                 $url = "https://{0}.vsrm.visualstudio.com/{1}/_apis/Release/definitions/{2}/revisions" -f $organizationName, $projectName, $definitionId;
                 $response = [WebRequestHelper]::InvokeGetWebRequest($url)
                 if ([Helpers]::CheckMember($response, "changedBy")) {
-                    $response = @($response | Where-Object {$_.changedBy.uniqueName -imatch $this.emailRegEx.RegexList[0] }| Sort-Object -Property changedDate -descending)
+                    $response = @($response | Where-Object {$_.changedBy.uniqueName -imatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] }| Sort-Object -Property changedDate -descending)
                     if ($response.count -gt 0) {
                         $allAssignee = @()
                         $response | ForEach-Object {$allAssignee += @( [PSCustomObject] @{ mailAddress = $_.changedBy.uniqueName; subjectKind = 'User' } )} | Select-Object -Unique
