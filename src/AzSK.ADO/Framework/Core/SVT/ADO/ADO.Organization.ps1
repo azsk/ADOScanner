@@ -3685,9 +3685,9 @@ class Organization: ADOSVTBase
                 $restrictedGroups = @($roleAssignments | Where-Object {"Project Collection Valid Users" -contains $_.split('\')[-1] })
                 $restrictedGroupsCount = $restrictedGroups.Count
                 if ($this.ControlFixBackupRequired)
-                {                    
-                    #Data object that will be required to fixs the control
-                    $controlResult.BackupControlState = $groups.results.identities | Select @{l = 'Group'; e = { $_.displayname} }
+                {           
+                    $backup = @{"Descriptor"= $responseObj.identityDescriptor;"Id"=$responseObj.identityId};             
+                    $controlResult.BackupControlState = $backup
                 }
 
                 # fail the control if everyone in the organization has create permission on feed
@@ -3712,76 +3712,39 @@ class Organization: ADOSVTBase
 
     hidden [ControlResult] CheckCreatePermissionsForFeedAutomatedFix([ControlResult] $controlResult) {
 
-        try{
-            $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            #$scope = $RawDataObjForControlFix[0].Scope
-            #$role = $this.ControlSettings.Feed.RoleToChangeInFix
+        try{            
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject   
+            # roleid : 1 (remove broader group permisson to Create Feed) , roleid : 2 (add broader group permisson to Create Feed)                    
             $body = "["
 
             if (-not $this.UndoFix)
-            {
-                foreach ($identity in $RawDataObjForControlFix) 
-                {
-                    $roleId = [int][FeedPermissions] "$role"
-                    if($env:AzSKADO_FeedChangeReaderToCollaborator -ne $true){
-                        if($identity.displayName -match "\\Reader"){
-                            $roleId = [int][FeedPermissions] "Reader"
-                        }
-                    }
-                    
+            {                                 
                     if ($body.length -gt 1) {$body += ","}
                     $body += @"
-                        {
-                            "displayName": "$($($identity.displayName).Replace('\','\\'))",
-                            "identityId": "$($identity.identityId)",
-                            "role": $roleId,
-                            "identityDescriptor": "$($($identity.identityDescriptor).Replace('\','\\'))",
-                            "isInheritedRole": false
+                        {                            
+                            "identityId": "$($RawDataObjForControlFix.Id)",
+                            "role": 1,
+                            "identityDescriptor": "$($($RawDataObjForControlFix.Descriptor).Replace('\','\\'))"                        
                         }
-"@;
-                }
-                $RawDataObjForControlFix | Add-Member -NotePropertyName NewRole -NotePropertyValue $role
-                if($env:AzSKADO_FeedChangeReaderToCollaborator -ne $true){
-                    $RawDataObjForControlFix | foreach{if($_.displayName -match "\\Reader"){$_.NewRole = "Reader"}}
-                }                
-                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.Role}},@{Name="NewRole"; Expression={$_.NewRole}})
+"@;                                
             }
-            else {
-                foreach ($identity in $RawDataObjForControlFix) 
-                {
-                    $roleId = [int][FeedPermissions] "$($identity.role)"
+            else {                                 
                     if ($body.length -gt 1) {$body += ","}
                     $body += @"
-                        {
-                            "displayName": "$($($identity.displayName).Replace('\','\\'))",
-                            "identityId": "$($identity.identityId)",
-                            "role": $roleId,
-                            "identityDescriptor": "$($($identity.identityDescriptor).Replace('\','\\'))",
-                            "isInheritedRole": false
+                        {                            
+                            "identityId": "$($RawDataObjForControlFix.Id)",
+                            "role": 2, 
+                            "identityDescriptor": "$($($RawDataObjForControlFix.Descriptor).Replace('\','\\'))"                            
                         }
-"@;
-                }
-                $RawDataObjForControlFix | Add-Member -NotePropertyName OldRole -NotePropertyValue $role
-                if($env:AzSKADO_FeedChangeReaderToCollaborator -ne $true){
-                    $RawDataObjForControlFix | foreach{if($_.displayName -match "\\Reader"){$_.OldRole = "Reader"}}
-                }                
-                $RawDataObjForControlFix = @($RawDataObjForControlFix  | Select-Object @{Name="DisplayName"; Expression={$_.DisplayName}}, @{Name="OldRole"; Expression={$_.OldRole}},@{Name="NewRole"; Expression={$_.Role}})
+"@;                                        
             }
 
             #Patch request
-            $body += "]"
-            if ($scope -eq "Organization")
-            {
-                $url = "https://feeds.dev.azure.com/{0}/_apis/packaging/Feeds/{1}/permissions?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceDetails.Id;
-            }
-            else {
-                $url = "https://feeds.dev.azure.com/{0}/{1}/_apis/packaging/Feeds/{2}/permissions?api-version=6.1-preview.1"  -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
-            }
+            $body += "]"           
+            $url = "https://feeds.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Packaging/GlobalPermissions?includeIds=true&api-version=5.1-preview.1"                      
             $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
-            Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body
-
-            $controlResult.AddMessage([VerificationResult]::Fixed,  "Permission for broader groups have been changed as below: ");
+            Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body            
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Feeds create permission have been changed as below: ");
             $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
 
             $controlResult.AddMessage("`n$display");
