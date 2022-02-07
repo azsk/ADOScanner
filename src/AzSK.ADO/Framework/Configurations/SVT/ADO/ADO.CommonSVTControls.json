@@ -324,6 +324,23 @@
         "Best Practice"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Repository_AuthZ_Enable_Branch_Control",
+      "Description": "Ensure that repository is accessible only from authorized branches.",
+      "Id": "Repository160",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBranchControlOnRepository",
+      "Rationale": "Once a repository is made accessible to a YAML pipeline, any malicious user with contribute/create branch permissions on the repository will be able to access the repository by queueing the pipeline from the corrupted branch even if they do not have access to it. To prevent this ensure that the repository can be accessed only from authorized branches.",
+      "Recommendation": "1. Navigate to the repository --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the repository to be accessed from. Select on 'Verify branch protection' for additional protection.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
     }
   ]
 }

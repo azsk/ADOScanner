@@ -681,7 +681,8 @@
       "Remove others' locks",
       "Rename repository"
     ],
-    "CheckForInheritedPermissions": false
+    "CheckForInheritedPermissions": false,
+    "CheckForBranchProtection":true
   },
   "ServiceConnection": {
     "ServiceConnectionHistoryPeriodInDays": 180,
