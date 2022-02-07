@@ -1360,7 +1360,7 @@ class AzSKADOServiceMapping: CommandBase
         $hash = $this.ServiceMappingCacheHelperObj.GetHashedTag($this.projectId, $pipelineID, $pipelineType,$resourceID,$resourceType)         
         $item = $this.storageCachedData | Where-Object -Property RowKey -eq $hash 
         #Check resource id present in cache without mapped with pipeline id
-        if((!$item) -and ($resourceType -ne "Repo")){
+        if((!$item) -and  ($resourceType -notin ("Repo","ArtifactBuild"))){
             $item =  $this.storageCachedData | Where-Object {($_.ResourceID -eq $resourceID) -and ($_.ResourceType -eq $resourceType) -and ($_.ProjectID -eq $this.projectId) -and ($_.OrgName -eq $this.OrgName)}
             $this.resourceInCacheWithoutPipeline = $true
         }
