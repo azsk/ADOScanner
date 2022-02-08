@@ -942,8 +942,46 @@ class AutoBugLog : EventBase  {
             #handle assignee users who are not part of org any more
             if ($_.ErrorDetails.Message -like '*System.AssignedTo*') #added second param to standalone bug logging if assignee not in the org then not logging bug.
             { 
+                #if this has been called from standalonebuglog, check for identities with the format: a.b@microsoft.com. This is the email ID from TF scope AAD grps
+                #We need to find the correct sign in ID for such identities
                 if ($BugTemplateInCMD) {
-                    $this.PublishCustomMessage("Could not log the bug. Assignee [$($AssignedTo.trim())] is not found in organization.", [MessageType]::Warning)
+                    $AssignedTo = $AssignedTo.trim();
+                    if($AssignedTo -like "*.*@microsoft.com"){
+                        #check for the correct identitity corresponding to this email
+                        $url="https://dev.azure.com/{0}/_apis/IdentityPicker/Identities?api-version=7.1-preview.1" -f $this.OrganizationName
+                        $body = '{"query":"{0}","identityTypes":["user"],"operationScopes":["ims","source"],"properties":["DisplayName","IsMru","ScopeName","SamAccountName","Active","SubjectDescriptor","Department","JobTitle","Mail","MailNickname","PhysicalDeliveryOfficeName","SignInAddress","Surname","Guest","TelephoneNumber","Description"],"filterByEntityIds":[],"options":{"MinResults":40,"MaxResults":40}}' | ConvertFrom-Json
+                        $body.query = $AssignedTo
+                        $body = $body | ConvertTo-Json
+                        try{
+                            $responseObj = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers $header -Body $body
+                            #if any user has been found, assign this bug to the sign in address of the user
+                            if($responseObj.results[0].identities.count -gt 0){
+                                $AssignedTo = $responseObj.results[0].identities[0].signInAddress
+                                $BugTemplate = $BugTemplate | ConvertFrom-Json
+                                $BugTemplate[6].value = $AssignedTo;
+                                $BugTemplate = $BugTemplate | ConvertTo-Json
+                                $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
+                                $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $this.OrganizationName, $responseObj.id
+                                $control.ControlResults.AddMessage("New Bug", $bugUrl)
+                            }
+                            #no user with the given alternate email ID has been found in the org
+                            else{                                
+                                $this.PublishCustomMessage("Could not log the bug. Assignee [$($AssignedTo)] is not found in organization.", [MessageType]::Warning)
+                            }
+                        }
+                        catch{
+                            if ($_.ErrorDetails.Message -like '*System.AssignedTo*'){
+                                $this.PublishCustomMessage("Could not log the bug. Assignee [$($AssignedTo)] is not found in organization.", [MessageType]::Warning)
+                            }
+                            else{
+                                $this.PublishCustomMessage("Could not log the bug", [MessageType]::Error)
+                            }
+                        }
+                    }
+                    else{
+                        $this.PublishCustomMessage("Could not log the bug. Assignee [$($AssignedTo)] is not found in organization.", [MessageType]::Warning)
+                    }
+                    
                 }
                 else {
                     $BugTemplate = $BugTemplate | ConvertFrom-Json
