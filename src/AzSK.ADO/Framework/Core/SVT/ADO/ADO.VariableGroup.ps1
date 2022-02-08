@@ -54,6 +54,7 @@ class VariableGroup: ADOSVTBase
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Variable group contains secrets accessible to all YAML pipelines.");
                     $controlResult.AdditionalInfoInCSV = "SecretVarsList: $($secretVarList -join '; ')";
+                    $controlResult.AdditionalInfo += "SecretVarsList: $($secretVarList -join '; ')";
 
                     if ($this.ControlFixBackupRequired) {
                         #Data object that will be required to fix the control
@@ -343,6 +344,7 @@ class VariableGroup: ADOSVTBase
                             $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in variable group.`nList of variables: ", $varList );
                             $controlResult.SetStateData("List of variable name containing secret: ", $varList);
                             $controlResult.AdditionalInfo += "Count of variable(s) containing secret: " + $varList.Count;
+                            $controlResult.AdditionalInfoInCSV += "List of variable name containing secret:" + $varList ;
                         }
                         else
                         {
