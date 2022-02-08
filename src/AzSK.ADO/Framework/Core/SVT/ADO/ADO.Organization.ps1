@@ -3678,18 +3678,14 @@ class Organization: ADOSVTBase
                 $body = '{"query":"'+ $ids +'","identityTypes":["group"],"operationScopes":["ims"],"queryTypeHint":"uid","properties":["DisplayName","ScopeName"]}'
                 $response = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} -Body $body -UseBasicParsing
             
-                $groups = $response.Content | Convertfrom-json
-                $roleAssignments = $groups.results.identities.displayname
-                foreach ($role in $roleAssignments) {
-                    
-                }
+                $groups = $response.Content | Convertfrom-json                               
                 # Checking if everyone in the organization has create permission on feed
-                $restrictedGroups = @($roleAssignments | Where-Object {"Project Collection Valid Users" -contains $_.split('\')[-1] })
+                $restrictedGroups = @($groups.results.identities | Where-Object {$_.displayName -match "Project Collection Valid Users"})
                 $restrictedGroupsCount = $restrictedGroups.Count
-                if ($this.ControlFixBackupRequired)
-                {           
-                    $backup = @{"Descriptor"= $responseObj.identityDescriptor;"Id"=$responseObj.identityId};             
-                    $controlResult.BackupControlState = $backup
+                if ($this.ControlFixBackupRequired -and $restrictedGroupsCount -gt 0)
+                {     
+                    $backupObj =  $responseObj | Where-Object {$_.identityId -eq $restrictedGroups.originId}                               
+                    $controlResult.BackupControlState = @{"Descriptor"= $backupObj.identityDescriptor;"Id"=$backupObj.identityId}
                 }
 
                 # fail the control if everyone in the organization has create permission on feed
@@ -3700,7 +3696,7 @@ class Organization: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Passed, "Feeds create permission has not been granted to everyone in the organization.");
                 }
             }
-            else
+            else    
             {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Feeds create permission has not been granted to everyone in the organization.");
             }
@@ -3724,8 +3720,7 @@ class Organization: ADOSVTBase
                 }
                 else{
                     $roleId =2;                    
-                }
-                if ($body.length -gt 1) {$body += ","}
+                }                
                 $body += @"
                     {                            
                         "identityId": "$($RawDataObjForControlFix.Id)",
