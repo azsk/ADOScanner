@@ -943,24 +943,36 @@ class AutoBugLog : EventBase  {
             if ($_.ErrorDetails.Message -like '*System.AssignedTo*') #added second param to standalone bug logging if assignee not in the org then not logging bug.
             { 
                 if ($BugTemplateInCMD) {
-                    $this.PublishCustomMessage("Could not log the bug. Assignee [$($AssignedTo.trim())] is not found in organization.", [MessageType]::Warning)
+                    #if this is from standalone bug logging, check for sign in IDs of TFS scoped mail addresses
+                    $metaProviderObj = [BugMetaInfoProvider]::new();   
+                    $AssigneeSignInID = $metaProviderObj.GetAssigneeFromTFScopedIdentity($AssignedTo.trim(),$this.OrganizationName);
+                    #if no real sign in ID is found, or the assignee is not in the org, do not log bug
+                    if(-not [string]::IsNullOrEmpty($AssigneeSignInID)){
+                        $BugTemplate = $BugTemplate | ConvertFrom-Json
+                        $BugTemplate[6].value = $AssigneeSignInID;                        
+                    }
+                    else{
+                        $this.PublishCustomMessage("Could not log the bug. Assignee [$($AssignedTo.trim())] is not found in organization.", [MessageType]::Warning)
+                        return;
+                    }
                 }
                 else {
                     $BugTemplate = $BugTemplate | ConvertFrom-Json
-                    $BugTemplate[6].value = "";
-                    $BugTemplate = $BugTemplate | ConvertTo-Json
-                    try {
-                        $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
-                        $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $this.OrganizationName, $responseObj.id
-                        $control.ControlResults.AddMessage("New Bug", $bugUrl)
-                        if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") {
-                            $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
-                        }
-                    }
-                    catch {
-                        $this.PublishCustomMessage("Could not log the bug", [MessageType]::Error)
+                    $BugTemplate[6].value = "";                    
+                }
+                $BugTemplate = $BugTemplate | ConvertTo-Json
+                try {
+                    $responseObj = Invoke-RestMethod -Uri $apiurl -Method Post -ContentType "application/json-patch+json ; charset=utf-8" -Headers $header -Body $BugTemplate
+                    $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $this.OrganizationName, $responseObj.id
+                    $control.ControlResults.AddMessage("New Bug", $bugUrl)
+                    if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") {
+                        $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
                     }
                 }
+                catch {
+                    $this.PublishCustomMessage("Could not log the bug", [MessageType]::Error)
+                }
+
             }
             #handle the case wherein due to global search area/ iteration paths from different projects passed the checkvalidpath function
             else {
