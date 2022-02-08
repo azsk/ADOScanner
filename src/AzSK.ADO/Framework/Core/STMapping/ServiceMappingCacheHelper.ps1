@@ -60,7 +60,7 @@ class ServiceMappingCacheHelper {
         return $azTableMappingInfo;
     }
 
-    hidden [bool] InsertMappingInfoInTable( [string]  $orgName, [string]  $projectID, [string]  $pipelineID,[string]  $pipelineName, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration) 
+    hidden [bool] InsertMappingInfoInTable( [string]  $orgName, [string]  $projectID, [string]  $pipelineID,[string]  $pipelineName, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration, [bool] $isIncrementalScan) 
     {
         try 
         {                   
@@ -73,7 +73,7 @@ class ServiceMappingCacheHelper {
                New-AzStorageTable $this.CacheTable -Context $this.CacheStorageAccountCtx;
            }
 
-           $isDataAddedInTable = $this.AddDataInTable($orgName,$projectID,$pipelineID,$pipelineName,$serviceTreeID,$pipelineLastModified,$resourceID,$resourceType,$resourceName,$pipelineType, $mappingExpiration)
+           $isDataAddedInTable = $this.AddDataInTable($orgName,$projectID,$pipelineID,$pipelineName,$serviceTreeID,$pipelineLastModified,$resourceID,$resourceType,$resourceName,$pipelineType, $mappingExpiration, $isIncrementalScan)
            return $isDataAddedInTable;           
         }
         catch {
@@ -85,6 +85,9 @@ class ServiceMappingCacheHelper {
     hidden [string] GenerateSearchQuery($projectID,$pipelineId,$pipelineType, $resourceId,$resourceType,$hash)
     {
         $query = 'PartitionKey eq ''{0}''' -f $hash;
+        if($PSCmdlet.MyInvocation.BoundParameters["IncrementalScan"]){
+            return 'OrgName eq ''{0}'' and ProjectID eq ''{1}'' and ResourceType eq ''{2}''' -f $this.OrganizationName, $projectID, $resourceType;
+        }
         if($resourceType -eq "All")
         {
            return 'OrgName eq ''{0}'' and ProjectID eq ''{1}''' -f $this.OrganizationName, $projectID; 
@@ -119,10 +122,19 @@ class ServiceMappingCacheHelper {
         }
     }
 
-    hidden [bool] AddDataInTable([string]  $orgName, [string]  $projectID, [string]  $pipelineID,[string]  $pipelineName, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration) 
-    {        
-        $partitionKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,"","");
-        $rowKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,$resourceID,$resourceType)
+    hidden [bool] AddDataInTable([string]  $orgName, [string]  $projectID, [string]  $pipelineID,[string]  $pipelineName, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration,[bool] $isIncrementalScan) 
+    {    
+        $partitionKey = $null;
+        $rowKey = $null;
+        if($isIncrementalScan){
+            $partitionKey = $this.GetHashedTag($projectID, "", "","","");
+            $rowKey = $this.GetHashedTag($projectID, "", "",$resourceID,$resourceType)
+        }   
+        else{
+            $partitionKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,"","");
+            $rowKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,$resourceID,$resourceType)
+        }        
+        
            
         try 
         {
@@ -142,10 +154,19 @@ class ServiceMappingCacheHelper {
         }
     }
 
-    hidden [bool] UpdateTableEntity([string]  $orgName, [string]  $projectID, [string]  $pipelineID,[string]  $pipelineName,  [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration) 
+    hidden [bool] UpdateTableEntity([string]  $orgName, [string]  $projectID, [string]  $pipelineID,[string]  $pipelineName, [string]  $serviceTreeID,[string]  $pipelineLastModified,[string]  $resourceID,[string]  $resourceType,[string]  $resourceName,[string]  $pipelineType,[string]  $mappingExpiration,[bool] $isIncrementalScan) 
     {
-        $partitionKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,"","");
-        $rowKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,$resourceID,$resourceType)
+        $partitionKey = $null;
+        $rowKey = $null;
+        if($isIncrementalScan){
+            $partitionKey = $this.GetHashedTag($projectID, "", "","","");
+            $rowKey = $this.GetHashedTag($projectID, "", "",$resourceID,$resourceType)
+        }   
+        else{
+            $partitionKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,"","");
+            $rowKey = $this.GetHashedTag($projectID, $pipelineID, $pipelineType,$resourceID,$resourceType)
+        }        
+        
         
         try {
             #Update data in table.
@@ -178,6 +199,34 @@ class ServiceMappingCacheHelper {
             Write-Host "Could not update entry in the table for row key [$RowKey]";
             return $false;
         }
+    }
+
+    hidden [bool] DeleteDataInTable($projectID, $resourceID,$resourceType){
+        $partitionKey = $this.GetHashedTag($projectID, "", "","","");
+        $rowKey = $this.GetHashedTag($projectID, "", "",$resourceID,$resourceType);
+        try{
+            $tableName = $this.CacheTable;
+            $version = "2017-04-17"
+            $resource = "$tableName(PartitionKey='$PartitionKey',RowKey='$Rowkey')"
+            $table_url = "https://$($this.CacheStorageName).table.core.windows.net/$resource"
+            $GMTTime = (Get-Date).ToUniversalTime().toString('R')
+            $stringToSign = "$GMTTime`n/$($this.CacheStorageName)/$resource"
+
+            $signature = $this.hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign))
+            $signature = [Convert]::ToBase64String($signature)
+            $headers = @{
+                'x-ms-date'      = $GMTTime
+                Authorization    = "SharedKeyLite " + $this.CacheStorageName + ":" + $signature
+                "x-ms-version"   = $version
+                'If-Match'       = "*"
+                Accept         = "application/json;odata=minimalmetadata"
+            }
+            Invoke-RestMethod -Method Delete -Uri $table_url -Headers $headers -ContentType "application/http"
+        }
+        catch{
+            return $false;
+        }
+        return $true;
     }
 
     hidden [object] GetHeader($tableName)
