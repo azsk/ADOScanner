@@ -3680,7 +3680,9 @@ class Organization: ADOSVTBase
             
                 $groups = $response.Content | Convertfrom-json
                 $roleAssignments = $groups.results.identities.displayname
-
+                foreach ($role in $roleAssignments) {
+                    
+                }
                 # Checking if everyone in the organization has create permission on feed
                 $restrictedGroups = @($roleAssignments | Where-Object {"Project Collection Valid Users" -contains $_.split('\')[-1] })
                 $restrictedGroupsCount = $restrictedGroups.Count
@@ -3716,29 +3718,21 @@ class Organization: ADOSVTBase
             $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject   
             # roleid : 1 (remove broader group permisson to Create Feed) , roleid : 2 (add broader group permisson to Create Feed)                    
             $body = "["
-
-            if (-not $this.UndoFix)
-            {                                 
-                    if ($body.length -gt 1) {$body += ","}
-                    $body += @"
-                        {                            
-                            "identityId": "$($RawDataObjForControlFix.Id)",
-                            "role": 1,
-                            "identityDescriptor": "$($($RawDataObjForControlFix.Descriptor).Replace('\','\\'))"                        
-                        }
-"@;                                
-            }
-            else {                                 
-                    if ($body.length -gt 1) {$body += ","}
-                    $body += @"
-                        {                            
-                            "identityId": "$($RawDataObjForControlFix.Id)",
-                            "role": 2, 
-                            "identityDescriptor": "$($($RawDataObjForControlFix.Descriptor).Replace('\','\\'))"                            
-                        }
-"@;                                        
-            }
-
+            $roleId = @()
+                if (-not $this.UndoFix){
+                    $roleId =1;
+                }
+                else{
+                    $roleId =2;                    
+                }
+                if ($body.length -gt 1) {$body += ","}
+                $body += @"
+                    {                            
+                        "identityId": "$($RawDataObjForControlFix.Id)",
+                        "role": "$($roleId)",
+                        "identityDescriptor": "$($($RawDataObjForControlFix.Descriptor).Replace('\','\\'))"                        
+                    }
+"@;
             #Patch request
             $body += "]"           
             $url = "https://feeds.dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/Packaging/GlobalPermissions?includeIds=true&api-version=5.1-preview.1"                      
@@ -3746,15 +3740,14 @@ class Organization: ADOSVTBase
             Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body            
             $controlResult.AddMessage([VerificationResult]::Fixed,  "Feeds create permission have been changed as below: ");
             $display = ($RawDataObjForControlFix |  FT -AutoSize | Out-String -Width 512)
-
             $controlResult.AddMessage("`n$display");
         }
         catch{
             $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
             $controlResult.LogException($_)
         }
-        return $controlResult
-        
+
+        return $controlResult        
     } 
 
     hidden [ControlResult] CheckExtPkgProtectionPolicy([ControlResult] $controlResult)
