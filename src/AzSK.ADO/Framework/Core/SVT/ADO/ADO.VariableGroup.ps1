@@ -740,6 +740,7 @@ class VariableGroup: ADOSVTBase
                 $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the variable group."
             }
             else{
+                #we need to check only for two kinds of approvals and checks: manual approvals and branch controls, hence filtering these two out from the list
                 $branchControl = @()
                 $approvalControl = @()
                 try{
@@ -750,6 +751,7 @@ class VariableGroup: ADOSVTBase
                 catch{
                     $branchControl = @()
                 }
+                #if branch control is not enabled, but manual approvers are added pass this control
                 if($branchControl.Count -eq 0){
                     if($approvalControl.Count -gt 0){
                         $controlResult.AddMessage([VerificationResult]::Passed, "Branch control has not been defined for the variable group. However, manual approvals have been added to the variable group.");

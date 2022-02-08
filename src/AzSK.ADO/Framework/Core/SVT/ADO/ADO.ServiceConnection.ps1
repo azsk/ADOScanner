@@ -990,6 +990,7 @@ class ServiceConnection: ADOSVTBase
                 $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the service connection."
             }
             else{
+                #we need to check only for two kinds of approvals and checks: manual approvals and branch controls, hence filtering these two out from the list
                 $branchControl = @()
                 $approvalControl = @()
                 try{
@@ -1001,6 +1002,7 @@ class ServiceConnection: ADOSVTBase
                     $branchControl = @()
                 }
                 if($branchControl.Count -eq 0){
+                    #if branch control is not enabled, but manual approvers are added pass this control
                     if($approvalControl.Count -gt 0){
                         $controlResult.AddMessage([VerificationResult]::Passed, "Branch control has not been defined for the service connection. However, manual approvals have been added to the service connection.");
                         $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}

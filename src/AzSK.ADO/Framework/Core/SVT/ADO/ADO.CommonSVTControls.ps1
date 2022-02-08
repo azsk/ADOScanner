@@ -1906,6 +1906,7 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the secure file."
             }
             else{
+                #we need to check only for two kinds of approvals and checks: manual approvals and branch controls, hence filtering these two out from the list
                 $branchControl = @()
                 $approvalControl = @()
                 try{
@@ -1917,6 +1918,7 @@ class CommonSVTControls: ADOSVTBase {
                     $branchControl = @()
                 }
                 if($branchControl.Count -eq 0){
+                    #if branch control is not enabled, but manual approvers are added pass this control
                     if($approvalControl.Count -gt 0){
                         $controlResult.AddMessage([VerificationResult]::Passed, "Branch control has not been defined for the secure file. However, manual approvals have been added to the secure file.");
                         $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
@@ -2003,6 +2005,7 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the repository."
             }
             else{
+                #we need to check only for two kinds of approvals and checks: manual approvals and branch controls, hence filtering these two out from the list
                 $branchControl = @()
                 $approvalControl = @()
                 try{
@@ -2013,6 +2016,7 @@ class CommonSVTControls: ADOSVTBase {
                 catch{
                     $branchControl = @()
                 }
+                #if branch control is not enabled, but manual approvers are added pass this control
                 if($branchControl.Count -eq 0){
                     if($approvalControl.Count -gt 0){
                         $controlResult.AddMessage([VerificationResult]::Passed, "Branch control has not been defined for the repository. However, manual approvals have been added to the repository.");
