@@ -238,7 +238,7 @@ class BugMetaInfoProvider {
         if($identity -like "*.*@microsoft.com"){
             #check for the correct identitity corresponding to this email
             $url="https://dev.azure.com/{0}/_apis/IdentityPicker/Identities?api-version=7.1-preview.1" -f $organizationName
-            $body = "{'query':'{0}','identityTypes':['user'],'operationScopes':['ims','source'],'properties':['DisplayName','IsMru','ScopeName','SamAccountName','Active','SubjectDescriptor','Department','JobTitle','Mail','MailNickname','PhysicalDeliveryOfficeName','SignInAddress','Surname','Guest','TelephoneNumber','Description'],'filterByEntityIds':[],'options':{'MinResults':40,'MaxResults':40}}" | ConvertFrom-Json
+            $body = "{'query':'{0}','identityTypes':['user'],'operationScopes':['ims','source'],'properties':['DisplayName','Active','SignInAddress'],'filterByEntityIds':[],'options':{'MinResults':40,'MaxResults':40}}" | ConvertFrom-Json
             $body.query = $identity
             try{
                 $responseObj = [WebRequestHelper]::InvokePostWebRequest($url,$body)
