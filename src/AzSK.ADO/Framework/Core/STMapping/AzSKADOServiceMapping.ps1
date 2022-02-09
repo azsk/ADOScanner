@@ -1479,13 +1479,19 @@ class AzSKADOServiceMapping: CommandBase
                 #get ST mapping details depending on the pipeline
                 if ($pipelineType -eq "Build") {
                     $pipelineSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $pipelineId) }     
+                    if($pipelineSTData){
+                        $pipelineName = $pipelineSTData.buildDefinitionName
+                    }   
                 }
                 else {
                     $pipelineSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $pipelineId) }    
+                    if($pipelineSTData){
+                        $pipelineName = $pipelineSTData.releaseDefinitionName
+                    }
                 }
                          
                 if ($pipelineSTData) {               
-                    $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $pipelineId, $pipelineSTData.serviceID, $pipelineProcessDate, $secureFileId, $secureFileName, "SecureFile", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                    $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $pipelineId, $pipelineName, $pipelineSTData.serviceID, $pipelineProcessDate, $secureFileId, $secureFileName, "SecureFile", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
                                       
                 }  
                 
@@ -1531,7 +1537,7 @@ class AzSKADOServiceMapping: CommandBase
                 }             
                                      
                 if ($pipelineSTData) {               
-                    $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $pipelineId, $pipelineSTData.serviceID, $pipelineProcessDate, $secureFileId, $secureFileName, "SecureFile", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                    $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $pipelineId, $pipelineSTData.buildDefinitionName, $pipelineSTData.serviceID, $pipelineProcessDate, $secureFileId, $secureFileName, "SecureFile", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
                                       
                 }  
                 
@@ -1544,11 +1550,17 @@ class AzSKADOServiceMapping: CommandBase
                 #if data is not added today, pipeline mapping might have been changed, hence get the mapping again
                 $resourceObj = $_;
                 if ($dateDiff.Days -gt 1) {
-                    if ($resourceObj.Pipelinetype -eq "Build") {
-                        $pipelineSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $resourceObj.PipelineID) }     
+                    if ($pipelineType -eq "Build") {
+                        $pipelineSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $pipelineId) }  
+                        if($pipelineSTData){
+                            $pipelineName = $pipelineSTData.buildDefinitionName
+                        }   
                     }
                     else {
-                        $pipelineSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $resourceObj.PipelineID) }    
+                        $pipelineSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $pipelineId) }    
+                        if($pipelineSTData){
+                            $pipelineName = $pipelineSTData.releaseDefinitionName
+                        }
                     }
                     #if we have reached mapping expiration check if the secure file still exists or if the pipeline ST data exists
                     if($resourceObj.MappingExpiration -ge (Get-Date).ToUniversalTime().ToString('dd/MM/yyyy HH:mm:ss')){
@@ -1559,7 +1571,7 @@ class AzSKADOServiceMapping: CommandBase
                             }
                     }
                     if ($pipelineSTData) {               
-                        $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $_.PipelineID, $pipelineSTData.serviceID, $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "SecureFile", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                        $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $_.PipelineID,$pipelineName, $pipelineSTData.serviceID, $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "SecureFile", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
                         $secureFileSTMapping.data += @([PSCustomObject] @{ secureFileName = $_.ResourceName; secureFileID = $_.ResourceID; serviceID = $pipelineSTData.serviceID; projectName = $this.ProjectName; projectID = $_.projectID; orgName = $_.orgName } )                    
                     }
                 }
@@ -1568,10 +1580,10 @@ class AzSKADOServiceMapping: CommandBase
                 }
             }
             $this.PublishCustomMessage("Service mapping found:  $(($secureFileSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-            if ($this.UseCache) { 
+
                 $this.ExportObjToJsonFile($secureFileSTMapping, 'SecureFileSTData.json');
                 $this.ExportObjToJsonFileUploadToBlob($secureFileSTMapping, 'SecureFileSTData.json');
-            }
+            
             
         }
         catch {
@@ -1638,7 +1650,7 @@ class AzSKADOServiceMapping: CommandBase
             | summarize arg_max(EtlProcessDate, *) by tostring(varid)
         
         #>                                                                
-        $inputbody = '{"db":"AzureDevOps","csl":"set notruncation;\nBuildDefinition\n| where OrganizationName =~ ''{0}''\n| where EtlProcessDate > ago({2}d)\n| where ProjectId ==''{1}''\n| extend vargrp = parse_json(Data).variableGroups\n| mv-apply vargrp on (project vargrp.id)\n| where isnotnull( vargrp_id)\n| summarize arg_max(EtlProcessDate, *) by tostring(vargrp_id)\n| project varid = vargrp_id, PipelineId = tostring(BuildDefinitionId), EtlProcessDate, PipelineType = \"Build\"\n| union(\nRelease\n| where OrganizationName =~ ''{0}''\n| where EtlProcessDate > ago({2}d)\n| where ProjectId ==''{1}''\n| extend varsdetails =  todynamic(Data).variableGroups\n| mv-apply varsdetails on (project varsdetails.id)\n| summarize arg_max(EtlProcessDate, *) by tostring(varsdetails_id)\n| project varid = varsdetails_id, PipelineId = tostring(ReleaseDefinitionId), EtlProcessDate, PipelineType = \"Release\"\n| union (\nReleaseEnvironment\n| where OrganizationName =~ ''{0}''\n| where EtlProcessDate > ago({2}d)\n| where ProjectId ==''{1}''\n| extend varsdetails = todynamic(Data).variableGroups\n| mv-apply varsdetails on (project varsdetails.id)\n| summarize arg_max(EtlProcessDate, *) by tostring(varsdetails_id)\n| project varid = varsdetails_id, PipelineId = tostring(ReleaseDefinitionId), EtlProcessDate, PipelineType = \"Release\"\n)\n)\n| summarize arg_max(EtlProcessDate, *) by tostring(varid)","properties":{"Options":{"servertimeout":"00:04:00","queryconsistency":"strongconsistency","query_language":"csl","request_readonly":false,"request_readonly_hardline":false}}}'  
+        $inputbody = '{"db":"AzureDevOps","csl":"set notruncation;\nBuildDefinition\n| where OrganizationName =~ ''{0}''\n| where EtlProcessDate > ago({2}d)\n| where ProjectId ==''{1}''\n| extend vargrp = parse_json(Data).variableGroups\n| mv-apply vargrp on (project vargrp.id)\n| where isnotnull( vargrp_id)\n| summarize arg_max(EtlProcessDate, *) by tostring(vargrp_id)\n| project varid = vargrp_id, PipelineId = tostring(BuildDefinitionId), EtlProcessDate, PipelineType = \"Build\", PipelineName = tostring(BuildDefinitionName)\n| union(\nRelease\n| where OrganizationName =~ ''{0}''\n| where EtlProcessDate > ago({2}d)\n| where ProjectId ==''{1}''\n| extend varsdetails =  todynamic(Data).variableGroups\n| mv-apply varsdetails on (project varsdetails.id)\n| summarize arg_max(EtlProcessDate, *) by tostring(varsdetails_id)\n| project varid = varsdetails_id, PipelineId = tostring(ReleaseDefinitionId), EtlProcessDate, PipelineType = \"Release\", PipelineName = tostring(ReleaseDefinitionName)\n| union (\nReleaseEnvironment\n| where OrganizationName =~ ''{0}''\n| where EtlProcessDate > ago({2}d)\n| where ProjectId ==''{1}''\n| extend varsdetails = todynamic(Data).variableGroups\n| mv-apply varsdetails on (project varsdetails.id)\n| summarize arg_max(EtlProcessDate, *) by tostring(varsdetails_id)\n| project varid = varsdetails_id, PipelineId = tostring(ReleaseDefinitionId), EtlProcessDate, PipelineType = \"Release\", PipelineName = tostring(ReleaseDefinitionName)\n)\n)\n| summarize arg_max(EtlProcessDate, *) by tostring(varid)","properties":{"Options":{"servertimeout":"00:04:00","queryconsistency":"strongconsistency","query_language":"csl","request_readonly":false,"request_readonly_hardline":false}}}'  
         $inputbody = $inputbody.Replace("{0}", $this.OrgName)  
         $inputbody = $inputbody.Replace("{1}", $this.projectId)       
         $inputbody = $inputbody.Replace("{2}", $dataDuration)                                                                                             
@@ -1657,6 +1669,7 @@ class AzSKADOServiceMapping: CommandBase
                 $progressCount++;
                 $variableGroupId = $_[0].ToString();                
                 $pipelineId = $_[2].ToString();
+                $pipelineName = $_[4].ToString();
                 $pipelineProcessDate = $_[1].ToString();
                 $variableGroupObj = $variableGroupDetails | Where-Object { $_.Id -eq $variableGroupId }
                 #check if variable group exists currently or is the data from a deleted variable group
@@ -1669,13 +1682,19 @@ class AzSKADOServiceMapping: CommandBase
                 $pipelineType = $_[3].ToString();  
                 if ($pipelineType -eq "Build") {
                     $pipelineSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $pipelineId) }     
+                    if($pipelineSTData){
+                        $pipelineName = $pipelineSTData.buildDefinitionName
+                    }   
                 }
                 else {
                     $pipelineSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $pipelineId) }    
+                    if($pipelineSTData){
+                        $pipelineName = $pipelineSTData.releaseDefinitionName
+                    }
                 }
                          
                 if ($pipelineSTData) {            
-                    $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $pipelineId, $pipelineSTData.serviceID, $pipelineProcessDate, $variableGroupId, $variableGroupName, "VariableGroup", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                    $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $pipelineId, $pipelineName, $pipelineSTData.serviceID, $pipelineProcessDate, $variableGroupId, $variableGroupName, "VariableGroup", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
                                       
                 }  
                 #if pipeline ST data not found, attempt to get service id from Az key vault
@@ -1692,16 +1711,16 @@ class AzSKADOServiceMapping: CommandBase
 
                             if ([Helpers]::CheckMember($responseObj, "dataProviders") -and $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider") {
                                 $serviceConnEndPointDetail = $responseObj.dataProviders."ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider"
-                                if ($serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm") {
+                                if ([Helpers]::CheckMember($serviceConnEndPointDetail.serviceEndpoint, "type")  -and $serviceConnEndPointDetail.serviceEndpoint.type -eq "azurerm") {
                                     try {
                                         $responseObj = $this.GetServiceIdWithSubscrId($serviceConnEndPointDetail.serviceEndpoint.data.subscriptionId, $accessToken)                               
                                         if ($responseObj) {
                                             $serviceId = $responseObj[2].Rows[0][4];
-                                            $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $this.projectId, $pipelineId, $serviceID, $pipelineProcessDate, $variableGroupId, $variableGroupName, "VariableGroup", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                                            $this.AddMappinginfoInCache(($this.OrgName).ToLower(), $this.projectId, $pipelineId,$pipelineName, $serviceID, $pipelineProcessDate, $variableGroupId, $variableGroupName, "VariableGroup", $pipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
                                         } 
                                     }
                                     catch {
-                                        
+                                        $_
                                     }                                          
 
                                 }  
@@ -1709,7 +1728,7 @@ class AzSKADOServiceMapping: CommandBase
                             
                         }
                         catch {
-                            
+                            $_
                         }                                         
                     } 
                 }
@@ -1722,11 +1741,17 @@ class AzSKADOServiceMapping: CommandBase
                 $resourceObj = $_;
                 #if the mapping has been added in the table recently, we need not find the mapping again as it has been already done above
                 if ($dateDiff.Days -gt 1) {
-                    if ($resourceObj.Pipelinetype -eq "Build") {
-                        $pipelineSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $resourceObj.PipelineID) }     
+                    if ($pipelineType -eq "Build") {
+                        $pipelineSTData = $this.BuildSTDetails.Data | Where-Object { ($_.buildDefinitionID -eq $pipelineId) }  
+                        if($pipelineSTData){
+                            $pipelineName = $pipelineSTData.buildDefinitionName
+                        }   
                     }
                     else {
-                        $pipelineSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $resourceObj.PipelineID) }    
+                        $pipelineSTData = $this.ReleaseSTDetails.Data | Where-Object { ($_.releaseDefinitionID -eq $pipelineId) }    
+                        if($pipelineSTData){
+                            $pipelineName = $pipelineSTData.releaseDefinitionName
+                        }
                     }
                     #if we have reached mapping expiration check if the variable group still exists or if the pipeline ST data exists
                     if($resourceObj.MappingExpiration -ge (Get-Date).ToUniversalTime().ToString('dd/MM/yyyy HH:mm:ss')){
@@ -1739,7 +1764,7 @@ class AzSKADOServiceMapping: CommandBase
                         } 
                         
                     if ($pipelineSTData) {               
-                        $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $_.PipelineID, $pipelineSTData.serviceID, $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "VariableGroup", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
+                        $this.AddMappinginfoInCache(($pipelineSTData.orgName).ToLower(), $pipelineSTData.projectID, $_.PipelineID,$pipelineName, $pipelineSTData.serviceID, $_.PipelineLastModified, $_.ResourceID, $_.ResourceName, "VariableGroup", $_.PipelineType, (Get-date).AddDays($this.MappingExpirationLimit)); 
                         $variableGroupSTMapping.data += @([PSCustomObject] @{ variableGroupName = $_.ResourceName; variableGroupID = $_.ResourceID; serviceID = $pipelineSTData.serviceID; projectName = $this.ProjectName; projectID = $_.projectID; orgName = $_.orgName } )                    
                     }
                 }
@@ -1748,10 +1773,10 @@ class AzSKADOServiceMapping: CommandBase
                 }
             }
                 $this.PublishCustomMessage("Service mapping found:  $(($variableGroupSTMapping.data | Measure-Object).Count)", [MessageType]::Info)
-                if ($this.UseCache) {          
+                        
                     $this.ExportObjToJsonFile($variableGroupSTMapping, 'VariableGroupSTData.json');
                     $this.ExportObjToJsonFileUploadToBlob($variableGroupSTMapping, 'VariableGroupSTData.json');
-                }
+                
             }
             catch {
                 $_
