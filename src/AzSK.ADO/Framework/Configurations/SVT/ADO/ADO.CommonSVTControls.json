@@ -169,6 +169,23 @@
       "Enabled": true
     },
     {
+      "ControlID": "ADO_SecureFile_AuthZ_Enable_Branch_Control",
+      "Description": "Ensure that secure file is accessible only from authorized branches.",
+      "Id": "SecureFile120",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBranchControlOnSecureFile",
+      "Rationale": "Once a secure file is made accessible to a YAML pipeline, any malicious user with contribute/create branch permissions on the repository will be able to access the secure file by queueing the pipeline from the corrupted branch even if they do not have access to it. To prevent this ensure that the secure file can be accessed only from authorized branches.",
+      "Recommendation": "1. Navigate to the secure file --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the secure file to be accessed from. Select on 'Verify branch protection' for additional protection.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
       "ControlID": "ADO_Environment_AuthZ_Dont_Grant_All_Pipelines_Access",
       "Description": "Do not make environment accessible to all (YAML) pipelines.",
       "Id": "Environment100",
@@ -305,6 +322,23 @@
         "TCP",
         "Automated",
         "Best Practice"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Repository_AuthZ_Enable_Branch_Control",
+      "Description": "Ensure that repository is accessible only from authorized branches.",
+      "Id": "Repository160",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBranchControlOnRepository",
+      "Rationale": "Once a repository is made accessible to a YAML pipeline, any malicious user with contribute/create branch permissions on the repository will be able to access the repository by queueing the pipeline from the corrupted branch even if they do not have access to it. To prevent this ensure that the repository can be accessed only from authorized branches.",
+      "Recommendation": "1. Navigate to the repository --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the repository to be accessed from. Select on 'Verify branch protection' for additional protection.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
       ],
       "Enabled": true
     }
