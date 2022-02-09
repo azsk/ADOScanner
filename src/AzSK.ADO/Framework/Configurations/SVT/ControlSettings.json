@@ -769,6 +769,7 @@
   "BugLogging": {
     "BugLogAreaPath": "RootDefaultProject",
     "BugLogIterationPath": "RootDefaultProject",
+    "DefaultServiceId": "",
     "ResolvedBugLogBehaviour": "ReactiveOldBug",
     "MaxKeyWordsToQueryForBugClose": 30,
     "AutoCloseProjectBug": true,
