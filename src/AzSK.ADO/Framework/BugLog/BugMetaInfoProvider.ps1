@@ -113,6 +113,7 @@ class BugMetaInfoProvider {
         $ResourceType = $ControlResult.ResourceContext.ResourceTypeName
         $ResourceName = $ControlResult.ResourceContext.ResourceName
         $organizationName = $ControlResult.OrganizationContext.OrganizationName;
+        $eventBaseObj = [EventBase]::new()
         switch -regex ($ResourceType) {
             #assign to the creator of service connection
             'ServiceConnection' {
@@ -150,7 +151,7 @@ class BugMetaInfoProvider {
                         }
                         catch {
                             $assignee = ""
-                            $this.PublishCustomMessage("Assignee Could not be determind.");
+                            $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.")
                         }
                     }
                 }
@@ -195,7 +196,7 @@ class BugMetaInfoProvider {
                             }
                             catch {
                                 $assignee = ""
-                                $this.PublishCustomMessage("Assignee Could not be determind.");
+                                $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.")
                             }
                         }
                     }
@@ -231,7 +232,7 @@ class BugMetaInfoProvider {
                     }
                     catch {  
                         $assignee = ""
-                        $this.PublishCustomMessage("Assignee Could not be determind.");
+                        $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.")
                     }
                 }
                 [BugMetaInfoProvider]::AssigneeForUnmappedResources[$ControlResult.ResourceContext.ResourceId] = $assignee
@@ -309,7 +310,7 @@ class BugMetaInfoProvider {
                         }
                         catch {
                             $assignee = ""
-                            $this.PublishCustomMessage("Assignee Could not be determind.");
+                            $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.")
                         }
                     }
                 }
@@ -344,7 +345,7 @@ class BugMetaInfoProvider {
                     }
                     catch {
                         $assignee = ""
-                        $this.PublishCustomMessage("Assignee Could not be determind.");
+                        $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.")
                     }
                 }
                 [BugMetaInfoProvider]::AssigneeForUnmappedResources[$ControlResult.ResourceContext.ResourceId] = $assignee
@@ -393,7 +394,6 @@ class BugMetaInfoProvider {
                 # if assignee is service account, then fetch assignee from jobs/permissions
                 if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                 {
-                    #$agentPoolsURL = "https://microsoftit.visualstudio.com/OneITVSO/_environments/385?view=resources&__rt=fps&__ver=2" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                     $url = "https://dev.azure.com/{0}/{1}/_environments/{2}?view=resources&__rt=fps&__ver=2" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                     $envDetails = [WebRequestHelper]::InvokeGetWebRequest($url);
                     # get assignee from the the build/release jobs history
@@ -423,7 +423,7 @@ class BugMetaInfoProvider {
                         }
                         catch {
                             $assignee = ""
-                            $this.PublishCustomMessage("Assignee Could not be determind."); 
+                            $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.") 
                         }
                     }
                 }
