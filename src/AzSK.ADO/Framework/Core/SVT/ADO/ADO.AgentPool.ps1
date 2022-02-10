@@ -532,12 +532,12 @@ class AgentPool: ADOSVTBase
                 if (-not $this.UndoFix)
                 {                 
                     $body =  $FixObjTable | ConvertTo-Json   
-                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following user-defined capabilities for agent pool have been Removed:");      
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following user-defined capabilities for agent pool have been removed:");      
                 }
                 else 
                 {
                     $body = $UndoFixObjTable  | ConvertTo-Json
-                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following user-defined capabilities for agent pool have been Added:");
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following user-defined capabilities for agent pool have been added:");
                 }  
                 $url = "https://dev.azure.com/{0}/_apis/distributedtask/pools/{1}/agents/{2}/usercapabilities?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName,$CurrentAgent.PoolId, $CurrentAgent.AgentId;          
                 $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
