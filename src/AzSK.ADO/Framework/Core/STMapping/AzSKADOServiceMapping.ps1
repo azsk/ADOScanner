@@ -380,6 +380,7 @@ class AzSKADOServiceMapping: CommandBase
             $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
 
             $Connections | ForEach-Object {
+
                 $counter++            
                 Write-Progress -Activity 'Service connection mappings...' -CurrentOperation $_.Name -PercentComplete (($counter / $Connections.count) * 100)                            
                 $inputbody = "{'contributionIds':['ms.vss-serviceEndpoints-web.service-endpoints-details-data-provider'],'dataProviderContext':{'properties':{'serviceEndpointId':'$($_.id)','projectId':'$($this.projectId)','sourcePage':{'url':'$($sourcePageUrl)','routeId':'ms.vss-admin-web.project-admin-hub-route','routeValues':{'project':'$($this.ProjectName)','adminPivot':'adminservices','controller':'ContributedPage','action':'Execute'}}}}}" | ConvertFrom-Json
@@ -443,7 +444,8 @@ class AzSKADOServiceMapping: CommandBase
                 }
                 catch {
                      #eat exception
-                }               
+                }   
+                 
             }
         }
         catch

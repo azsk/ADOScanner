@@ -111,8 +111,8 @@ class ServiceMappingCacheHelper {
             $resource = '$filter='+[System.Web.HttpUtility]::UrlEncode($query);
             $table_url = "https://{0}.table.core.windows.net/{1}?{2}" -f $this.CacheStorageName, $this.CacheTable, $resource
             $headers = $this.GetHeader($this.CacheTable)
-            $item = Invoke-RestMethod -Method Get -Uri $table_url -Headers $headers -ContentType "application/json"
-            return $item.value;
+            $item = [WebRequestHelper]::InvokeWebRequest([Microsoft.PowerShell.Commands.WebRequestMethod]::Get,$table_url,$headers,"application/json; charset=UTF-8"); 
+            return $item;
         }
         catch
         {
