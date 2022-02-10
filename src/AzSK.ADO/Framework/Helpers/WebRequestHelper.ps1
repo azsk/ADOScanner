@@ -365,7 +365,12 @@ class WebRequestHelper {
 								elseif($requestResult.Headers.ContainsKey('x-ms-continuation-NextPartitionKey'))
 								{
 									$nPKey = $requestResult.Headers["x-ms-continuation-NextPartitionKey"]
-									$uri= $orginalUri + "&NextPartitionKey=$nPKey"
+									$uri= $orginalUri + "&NextPartitionKey=$nPKey"									
+									if($requestResult.Headers.ContainsKey('x-ms-continuation-NextRowKey'))
+									{										
+										$nxtPKey = $requestResult.Headers["x-ms-continuation-NextRowKey"]
+										$uri+="&NextRowKey=$nxtPKey"									
+									}									
 								}
 								elseif($requestResult.Headers.ContainsKey('x-ms-continuationtoken'))
 								{
