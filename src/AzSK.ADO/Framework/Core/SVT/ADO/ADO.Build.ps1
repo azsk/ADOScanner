@@ -141,6 +141,11 @@ class Build: ADOSVTBase
         {
             $result = $controls | Where-Object { $_.Tags -notcontains "SkipYAML" };
 		}
+        # exclude controls meant only for YAML pipelines incase this pipeline is a classic one
+        if(-not [Helpers]::CheckMember($this.BuildObj[0].process,"yamlFilename"))
+        {
+            $result = $controls | Where-Object { $_.Tags -notcontains "SkipClassic" };
+		}
 		return $result;
 	}
 
@@ -2283,6 +2288,63 @@ class Build: ADOSVTBase
         else {
             $controlResult.AddMessage([VerificationResult]::Error,"Not able to fetch build details.");
         }
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckYAMLCITrigger([ControlResult] $controlResult){
+        $branchesToCheckForCI = $this.ControlSettings.Build.BranchesToCheckForYAMLScript
+        try{
+            if([Helpers]::CheckMember($this.BuildObj[0],"triggers"))
+            {
+                $CITrigger = $this.BuildObj[0].triggers | Where-Object {$_.triggerType -eq "continuousIntegration"}
+                if($CITrigger){
+                    #for YAML CI settingsSourceType property has a value of 2, fail the control in case of YAML CI
+                    if([Helpers]::CheckMember($CITrigger,"settingsSourceType") -and $CITrigger.settingsSourceType -eq 2){
+                        $controlResult.AddMessage([VerificationResult]::Failed,"YAML CI trigger is enabled for the build pipeline.");
+                    }
+                    else{
+                        <#branches can have naming conventions as following:
+                            +refs/heads/.. -> include this branch
+                            -refs/heads/.. -> exclude this branch
+                        We need to filter out only those branches that are being included in CI
+                        #>
+                        $branchFilters = $CITrigger.branchFilters | where {$_ -like "+refs/heads/*"};
+                        #extract the branch name
+                        $branchFilters = $branchFilters | foreach {($_ -split "\+refs/heads/")[1]};
+                        $nonPermissibleBranchesFound = $false;
+                        $nonPermissibleBranches = @();
+                        foreach ($branch in $branchFilters){
+                            if ($branch -notin $branchesToCheckForCI) {
+                                $nonPermissibleBranchesFound = $true;
+                                $nonPermissibleBranches+=$branch
+                            }
+                        }
+                        if($nonPermissibleBranchesFound){
+                            $controlResult.AddMessage([VerificationResult]::Failed,"YAML CI trigger is disabled for the build pipeline. However, CI is enabled on non permissible branches.");
+                            $controlResult.AddMessage("CI has been enabled on the following non-permissible branches: ");
+                            $controlResult.AddMessage($($nonPermissibleBranches| FT | Out-String));
+                        }
+                        else{
+                            $controlResult.AddMessage([VerificationResult]::Passed,"YAML CI trigger is disabled for the build pipeline. CI is enabled only on allowed branches.");
+                        }
+                        
+                    }
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No CI triggers are enabled for the build pipeline.");
+                }
+                
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Passed,"No triggers are enabled for the build pipeline.");
+            }
+            $controlResult.AddMessage("`nNote:`nFollowing branches are considered permissible branches for CI trigger: ");
+            $controlResult.AddMessage("$($branchesToCheckForCI | FT | Out-String)")
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch build pipeline details.");
+        }
+        
         return $controlResult;
     }
 }

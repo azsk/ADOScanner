@@ -251,6 +251,23 @@
         "Automated"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_ServiceConnection_AuthZ_Enable_Branch_Control",
+      "Description": "Ensure that service connection is accessible only from authorized branches.",
+      "Id": "ServiceConnection260",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBranchControlForSvcConn",
+      "Rationale": "Once a service connection is made accessible to a YAML pipeline, any malicious user with create branch permissions on the repository will be able to access the service connection by queueing the pipeline from the corrupted branch even if they do not have access to it. To prevent this ensure that the service connection can be accessed only from authorized branches.",
+      "Recommendation": "1. Navigate to the service connection --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the service connection to be accessed from. Select on 'Verify branch protection' for additional protection.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
     }
   ]
 }

@@ -127,6 +127,8 @@ class AgentPool: ADOSVTBase
             {
                 if ($this.AgentPoolOrgObj.autoProvision -eq $true) {
                     $controlResult.AddMessage([VerificationResult]::Failed,"Auto-provisioning is enabled for the $($this.AgentPoolOrgObj.name) agent pool.");
+                    $controlResult.AdditionalInfo = "Auto-provisioning is enabled for [$($this.AgentPoolOrgObj.name)] agent pool.";
+                    $controlResult.AdditionalInfoInCSV += "NA";
                     if ($this.ControlFixBackupRequired) {
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $this.AgentPoolOrgObj;
@@ -134,6 +136,7 @@ class AgentPool: ADOSVTBase
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Auto-provisioning is not enabled for the agent pool.");
+                    $controlResult.AdditionalInfoInCSV += "NA";
                 }
             }
             else
@@ -208,6 +211,7 @@ class AgentPool: ADOSVTBase
                 if($this.AgentPoolOrgObj.autoUpdate -eq $true)
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Auto-update of agents is enabled for [$($this.AgentPoolOrgObj.name)] agent pool.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
                 else
                 {
@@ -216,6 +220,8 @@ class AgentPool: ADOSVTBase
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $this.AgentPoolOrgObj.id;
                     }
+                    $controlResult.AdditionalInfo = "Auto-update of agents is disabled for [$($this.AgentPoolOrgObj.name)] agent pool.";
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
 
             }
