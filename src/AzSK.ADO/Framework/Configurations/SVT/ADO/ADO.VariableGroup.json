@@ -114,13 +114,13 @@
           },
           {
             "ControlID": "ADO_VariableGroup_AuthZ_Enable_Branch_Control",
-            "Description": "Ensure that variable group is accessible only from authorized branches.",
+            "Description": "Allow variable groups to be accessed only by select branches.",
             "Id": "VariableGroup180",
-            "ControlSeverity": "High",
+            "ControlSeverity": "Medium",
             "Automated": "Yes",
             "MethodName": "CheckBranchControlOnVariableGroup",
-            "Rationale": "Once a variable group is made accessible to a YAML pipeline, any malicious user with create branch permissions on the repository will be able to access the variable group by queueing the pipeline from the corrupted branch even if they do not have access to it. To prevent this ensure that the variable group can be accessed only from authorized branches.",
-            "Recommendation": "1. Navigate to the variable group --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the variable group to be accessed from. Select on 'Verify branch protection' for additional protection.",
+            "Rationale": "Once a variable group is made accessible to a YAML pipeline, malicious users with 'create branch' permissions on the repository will be able to access the variable group by queueing the pipeline from the branch they select even if they do not have access to the variable group. To prevent this ensure that the variable group can be accessed only from select branches (eg. 'main').",
+            "Recommendation": "1. Navigate to the variable group --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the variable group to be accessed from. For additional protection, enable 'Verify branch protection'.",
             "Tags": [
               "SDL",
               "TCP",
