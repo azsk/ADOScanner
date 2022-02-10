@@ -231,4 +231,31 @@ class BugMetaInfoProvider {
         return $assignee;
     }
 
+    #method to obtain sign in ID of TF scoped identities
+    hidden [string] GetAssigneeFromTFScopedIdentity($identity,$organizationName){
+        $assignee = $null;
+        #TF scoped identities with alternate email address will be in the format: a.b@microsoft.com
+        if($identity -like "*.*@microsoft.com"){
+            #check for the correct identitity corresponding to this email
+            $url="https://dev.azure.com/{0}/_apis/IdentityPicker/Identities?api-version=7.1-preview.1" -f $organizationName
+            $body = "{'query':'{0}','identityTypes':['user'],'operationScopes':['ims','source'],'properties':['DisplayName','Active','SignInAddress'],'filterByEntityIds':[],'options':{'MinResults':40,'MaxResults':40}}" | ConvertFrom-Json
+            $body.query = $identity
+            try{
+                $responseObj = [WebRequestHelper]::InvokePostWebRequest($url,$body)
+                #if any user has been found, assign this bug to the sign in address of the user
+                if($responseObj.results[0].identities.count -gt 0){
+                    $assignee = $responseObj.results[0].identities[0].signInAddress
+                }
+            }
+            catch{
+                return $assignee;
+            }                    
+        }
+        else{
+            return $assignee;
+        }
+
+        return $assignee;
+    }
+
 }
