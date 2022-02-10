@@ -535,6 +535,7 @@ class Release: ADOSVTBase
             if($responseObj.inheritPermissions -eq $true)
             {
                 $controlResult.AddMessage([VerificationResult]::Failed,"Inherited permissions are enabled on release pipeline.");
+                $controlResult.AdditionalInfoInCSV = "NA";
             }
             else
             {
@@ -1805,7 +1806,7 @@ class Release: ADOSVTBase
                                 $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                                 $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
                                 $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions }
-                                $controlResult.AdditionalInfoInCSV = $groups -join ';'
+                                 $controlResult.AdditionalInfoInCSV = $groups -join ';'
                                 
                                 if ($this.ControlFixBackupRequired)
                                 {
