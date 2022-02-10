@@ -242,7 +242,6 @@ class AgentPool: ADOSVTBase
             $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
 
             $body = ""
-
             if (-not $this.UndoFix)
             {                 
                 $body += @"
@@ -253,19 +252,19 @@ class AgentPool: ADOSVTBase
 "@;
             }
             else 
-            {
-                $body += @"
+           {
+               $body += @"
                 {
                     "id":$($RawDataObjForControlFix),
                     "autoUpdate":false
                 }
 "@;
 
-            }  
+            }
             $url = " https://dev.azure.com/{0}/_apis/distributedtask/pools/{1}?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$($RawDataObjForControlFix);          
 			$header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
             $webRequestResult = Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body							    
-            $controlResult.AddMessage([VerificationResult]::Fixed,  "Auto-Update setting for agent pool have been changed.");
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Auto-Update setting for agent pool has been changed.");
         }
         catch{
             $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
@@ -533,12 +532,12 @@ class AgentPool: ADOSVTBase
                 if (-not $this.UndoFix)
                 {                 
                     $body =  $FixObjTable | ConvertTo-Json   
-                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following User-defined capabilities for agent pool has been Removed.");      
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following user-defined capabilities for agent pool have been Removed:");      
                 }
                 else 
                 {
                     $body = $UndoFixObjTable  | ConvertTo-Json
-                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following User-defined capabilities for agent pool has been Added.");
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following user-defined capabilities for agent pool have been Added:");
                 }  
                 $url = "https://dev.azure.com/{0}/_apis/distributedtask/pools/{1}/agents/{2}/usercapabilities?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName,$CurrentAgent.PoolId, $CurrentAgent.AgentId;          
                 $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
