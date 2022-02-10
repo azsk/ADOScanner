@@ -138,7 +138,7 @@ class Organization: ADOSVTBase
                     $controlResult.AddMessage("Count of Project Collection Service Accounts: $($memberCount)");
                     $controlResult.AdditionalInfo += "Count of Project Collection Service Accounts: " + $memberCount;
                     $controlResult.SetStateData("Members of the Project Collection Service Accounts group: ", $stateData);
-
+                    $controlResult.AdditionalInfoInCSV = "NumPCSA: $($memberCount); First 10 PCSA: $(($stateData.mailAddress | Select -First 10) -join '; ')"
 
                     $display = $stateData |FT -AutoSize | Out-String -Width 512
                     $controlResult.AddMessage([VerificationResult]::Verify, "Review the members of the group Project Collection Service Accounts: ");
