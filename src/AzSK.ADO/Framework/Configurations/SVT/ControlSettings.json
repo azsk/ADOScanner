@@ -770,6 +770,7 @@
     "BugLogAreaPath": "RootDefaultProject",
     "BugLogIterationPath": "RootDefaultProject",
     "DefaultServiceId": "",
+    "GetAssigneeUsingFallbackMethod": true,
     "ResolvedBugLogBehaviour": "ReactiveOldBug",
     "MaxKeyWordsToQueryForBugClose": 30,
     "AutoCloseProjectBug": true,

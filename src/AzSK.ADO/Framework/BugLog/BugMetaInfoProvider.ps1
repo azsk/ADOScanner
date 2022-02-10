@@ -10,11 +10,13 @@ class BugMetaInfoProvider {
     hidden static $OrgMappingObj = @{}
     hidden static [PSObject] $emailRegEx
     hidden static $AssigneeForUnmappedResources = @{}
+    hidden static [string] $GetAssigneeUsingFallbackMethod = $false
 
     BugMetaInfoProvider() {
         if ($null -eq [BugMetaInfoProvider]::emailRegEx) {
             $ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
             [BugMetaInfoProvider]::emailRegEx = $ControlSettings.Patterns | where {$_.RegexCode -eq "Email"} | Select-Object -Property RegexList;
+            [BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod = $ControlSettings.BugLogging.GetAssigneeUsingFallbackMethod
         }
     }
 
@@ -119,61 +121,18 @@ class BugMetaInfoProvider {
             'ServiceConnection' {
                 $assignee = $ControlResult.ResourceContext.ResourceDetails.createdBy.uniqueName
 
-                if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                if ([BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod) 
                 {
-                    $apiURL = "https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/{2}/executionhistory?top=1&api-version=6.0-preview.1" -f $organizationName, $($ControlResult.ResourceContext.ResourceGroupName), $($ControlResult.ResourceContext.ResourceDetails.id);
-                    $executionHistory = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-
-                    # get assignee from the the build/release jobs history
-                    if (([Helpers]::CheckMember($executionHistory, "data") ) -and (($executionHistory.data | Measure-Object).Count -gt 0) )
-                    {
-                        $pipelineType = $executionHistory.data[0].planType
-                        $pipelineId = $executionHistory.data[0].definition.id
-                        if ($pipelineType -eq 'Release') {
-                            $assignee = $this.FetchAssigneeFromRelease($organizationName, $ControlResult.ResourceContext.ResourceGroupName, $pipelineId)
-                        }
-                        else {
-                            $assignee = $this.FetchAssigneeFromBuild($organizationName, $ControlResult.ResourceContext.ResourceGroupName, $pipelineId)
-                        }
-                    }
-                    # if no build/release jobs associated with service connection, then fecth assignee from permissions
-                    else 
-                    {
-                        try {
-                            $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-                            $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
-                            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-                            $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
-                            if ($roles.Count -gt 0) {
-                                $userId = $roles[0].identity.id
-                                $assignee = $this.getUserFromUserId($organizationName, $userId)
-                            }
-                        }
-                        catch {
-                            $assignee = ""
-                            $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.")
-                        }
-                    }
-                }
-                [BugMetaInfoProvider]::AssigneeForUnmappedResources[$ControlResult.ResourceContext.ResourceId] = $assignee
-                return $assignee
-            }
-            #assign to the creator of agent pool
-            'AgentPool' {
-                $apiurl = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $organizationName, $ResourceName
-                try {
-                    $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
-                    $assignee = $response.createdBy.uniqueName
-                    # if assignee is service account, then fetch assignee from jobs/permissions
                     if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                     {
-                        $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2 " -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
-                        $agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
+                        $apiURL = "https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/{2}/executionhistory?top=1&api-version=6.0-preview.1" -f $organizationName, $($ControlResult.ResourceContext.ResourceGroupName), $($ControlResult.ResourceContext.ResourceDetails.id);
+                        $executionHistory = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+
                         # get assignee from the the build/release jobs history
-                        if (([Helpers]::CheckMember($agentPool[0], "fps.dataProviders.data") ) -and ([Helpers]::CheckMember($agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider", "jobs")) )
+                        if (([Helpers]::CheckMember($executionHistory, "data") ) -and (($executionHistory.data | Measure-Object).Count -gt 0) )
                         {
-                            $pipelineType = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs[0].planType
-                            $pipelineId = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs[0].definition.id
+                            $pipelineType = $executionHistory.data[0].planType
+                            $pipelineId = $executionHistory.data[0].definition.id
                             if ($pipelineType -eq 'Release') {
                                 $assignee = $this.FetchAssigneeFromRelease($organizationName, $ControlResult.ResourceContext.ResourceGroupName, $pipelineId)
                             }
@@ -181,13 +140,13 @@ class BugMetaInfoProvider {
                                 $assignee = $this.FetchAssigneeFromBuild($organizationName, $ControlResult.ResourceContext.ResourceGroupName, $pipelineId)
                             }
                         }
-                        # if no build/release jobs associated with agentpool, then fecth assignee from permissions
+                        # if no build/release jobs associated with service connection, then fecth assignee from permissions
                         else 
                         {
                             try {
                                 $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-                                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/{1}_{2}" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
-                                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
+                                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
+                                $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
                                 $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
                                 if ($roles.Count -gt 0) {
                                     $userId = $roles[0].identity.id
@@ -199,7 +158,57 @@ class BugMetaInfoProvider {
                                 $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.")
                             }
                         }
-                    }
+                    }  
+                }
+                [BugMetaInfoProvider]::AssigneeForUnmappedResources[$ControlResult.ResourceContext.ResourceId] = $assignee
+                return $assignee
+            }
+            #assign to the creator of agent pool
+            'AgentPool' {
+                $apiurl = "https://dev.azure.com/{0}/_apis/distributedtask/pools?poolName={1}&api-version=6.0" -f $organizationName, $ResourceName
+                try {
+                    $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
+                    $assignee = $response.createdBy.uniqueName
+
+                    if ([BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod) 
+                    {
+                        # if assignee is service account, then fetch assignee from jobs/permissions
+                        if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                        {
+                            $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2 " -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
+                            $agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
+                            # get assignee from the the build/release jobs history
+                            if (([Helpers]::CheckMember($agentPool[0], "fps.dataProviders.data") ) -and ([Helpers]::CheckMember($agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider", "jobs")) )
+                            {
+                                $pipelineType = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs[0].planType
+                                $pipelineId = $agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-jobs-data-provider".jobs[0].definition.id
+                                if ($pipelineType -eq 'Release') {
+                                    $assignee = $this.FetchAssigneeFromRelease($organizationName, $ControlResult.ResourceContext.ResourceGroupName, $pipelineId)
+                                }
+                                else {
+                                    $assignee = $this.FetchAssigneeFromBuild($organizationName, $ControlResult.ResourceContext.ResourceGroupName, $pipelineId)
+                                }
+                            }
+                            # if no build/release jobs associated with agentpool, then fecth assignee from permissions
+                            else 
+                            {
+                                try {
+                                    $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                                    $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/{1}_{2}" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
+                                    $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
+                                    $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
+                                    if ($roles.Count -gt 0) {
+                                        $userId = $roles[0].identity.id
+                                        $assignee = $this.getUserFromUserId($organizationName, $userId)
+                                    }
+                                }
+                                catch {
+                                    $assignee = ""
+                                    $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.")
+                                }
+                            }
+                        }
+                    }    
                 }
                 catch {
                     $assignee = "";
@@ -211,28 +220,31 @@ class BugMetaInfoProvider {
             'VariableGroup' {
                 $assignee = $ControlResult.ResourceContext.ResourceDetails.createdBy.uniqueName
 
-                if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                if ([BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod) 
                 {
-                    if ([Helpers]::CheckMember($ControlResult.ResourceContext.ResourceDetails, "modifiedBy")) {
-                        $assignee = $ControlResult.ResourceContext.ResourceDetails.modifiedBy.uniqueName
-                    }
-                }
-
-                if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
-                {
-                    try {
-                        $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-                        $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
-                        $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-                        $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
-                        if ($roles.Count -gt 0) {
-                            $userId = $roles[0].identity.id
-                            $assignee = $this.getUserFromUserId($organizationName, $userId)
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                    {
+                        if ([Helpers]::CheckMember($ControlResult.ResourceContext.ResourceDetails, "modifiedBy")) {
+                            $assignee = $ControlResult.ResourceContext.ResourceDetails.modifiedBy.uniqueName
                         }
                     }
-                    catch {  
-                        $assignee = ""
-                        $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.")
+
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                    {
+                        try {
+                            $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                            $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
+                            $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+                            $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
+                            if ($roles.Count -gt 0) {
+                                $userId = $roles[0].identity.id
+                                $assignee = $this.getUserFromUserId($organizationName, $userId)
+                            }
+                        }
+                        catch {  
+                            $assignee = ""
+                            $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.")
+                        }
                     }
                 }
                 [BugMetaInfoProvider]::AssigneeForUnmappedResources[$ControlResult.ResourceContext.ResourceId] = $assignee
@@ -273,46 +285,49 @@ class BugMetaInfoProvider {
                         $assignee = $repoLatestCommit[0].author.email;
                     }
 
-                    #getting assignee from the repository permissions
-                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                    if ([BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod) 
                     {
-                        try{
-                            $accessList = @()
-                            $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $organizationName;
-                            $refererUrl = "https://dev.azure.com/{0}/{1}/_settings/repositories?repo={2}&_a=permissionsMid" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceDetails.Id
-                            $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
-                            $inputbody.dataProviderContext.properties.sourcePage.url = $refererUrl
-                            $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $ControlResult.ResourceContext.ResourceGroupName;
-                            $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($ControlResult.ResourceContext.ResourceDetails.Project.id)/$($ControlResult.ResourceContext.ResourceDetails.id)"
-                            $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
-                            
-                            # Iterate through each user/group to fetch detailed permissions list
-                            if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
-                            {
-                                $body = '{"contributionIds":["ms.vss-admin-web.security-view-permissions-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","accountName":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
-                                $body.dataProviderContext.properties.sourcePage.url = $refererUrl
-                                $body.dataProviderContext.properties.sourcePage.routeValues.Project = $ControlResult.ResourceContext.ResourceGroupName;
-                                $body.dataProviderContext.properties.permissionSetToken = "repoV2/$($ControlResult.ResourceContext.ResourceDetails.Project.id)/$($ControlResult.ResourceContext.ResourceDetails.id)"
-                                $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { ($_.subjectKind -eq "user") -and (-not [string]::IsNullOrEmpty($_.mailAddress))} | ForEach-Object {
-                                    $identity = $_
-                                    $body.dataProviderContext.properties.subjectDescriptor = $_.descriptor
-                                    $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body);
-                                    $configuredPermissions = @($identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions | Where-Object {$_.permissionDisplayString -ne 'Not set'})
-                                    if ($configuredPermissions.Count -ge 12) {
-                                        return $identity
+                        #getting assignee from the repository permissions
+                        if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                        {
+                            try{
+                                $accessList = @()
+                                $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $organizationName;
+                                $refererUrl = "https://dev.azure.com/{0}/{1}/_settings/repositories?repo={2}&_a=permissionsMid" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceDetails.Id
+                                $inputbody = '{"contributionIds":["ms.vss-admin-web.security-view-members-data-provider"],"dataProviderContext":{"properties":{"permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                                $inputbody.dataProviderContext.properties.sourcePage.url = $refererUrl
+                                $inputbody.dataProviderContext.properties.sourcePage.routeValues.Project = $ControlResult.ResourceContext.ResourceGroupName;
+                                $inputbody.dataProviderContext.properties.permissionSetToken = "repoV2/$($ControlResult.ResourceContext.ResourceDetails.Project.id)/$($ControlResult.ResourceContext.ResourceDetails.id)"
+                                $responseObj = [WebRequestHelper]::InvokePostWebRequest($url, $inputbody);
+                                
+                                # Iterate through each user/group to fetch detailed permissions list
+                                if([Helpers]::CheckMember($responseObj[0],"dataProviders") -and ($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider') -and ([Helpers]::CheckMember($responseObj[0].dataProviders.'ms.vss-admin-web.security-view-members-data-provider',"identities")))
+                                {
+                                    $body = '{"contributionIds":["ms.vss-admin-web.security-view-permissions-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","permissionSetId": "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87","permissionSetToken":"","accountName":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"repositories","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+                                    $body.dataProviderContext.properties.sourcePage.url = $refererUrl
+                                    $body.dataProviderContext.properties.sourcePage.routeValues.Project = $ControlResult.ResourceContext.ResourceGroupName;
+                                    $body.dataProviderContext.properties.permissionSetToken = "repoV2/$($ControlResult.ResourceContext.ResourceDetails.Project.id)/$($ControlResult.ResourceContext.ResourceDetails.id)"
+                                    $accessList += $responseObj.dataProviders."ms.vss-admin-web.security-view-members-data-provider".identities | Where-Object { ($_.subjectKind -eq "user") -and (-not [string]::IsNullOrEmpty($_.mailAddress))} | ForEach-Object {
+                                        $identity = $_
+                                        $body.dataProviderContext.properties.subjectDescriptor = $_.descriptor
+                                        $identityPermissions = [WebRequestHelper]::InvokePostWebRequest($url, $body);
+                                        $configuredPermissions = @($identityPermissions.dataproviders."ms.vss-admin-web.security-view-permissions-data-provider".subjectPermissions | Where-Object {$_.permissionDisplayString -ne 'Not set'})
+                                        if ($configuredPermissions.Count -ge 12) {
+                                            return $identity
+                                        }
+                                    }
+
+                                    if ($accessList.Count -gt 0) {
+                                        $assignee = $accessList[0].mailAddress
                                     }
                                 }
-
-                                if ($accessList.Count -gt 0) {
-                                    $assignee = $accessList[0].mailAddress
-                                }
+                            }
+                            catch {
+                                $assignee = ""
+                                $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.")
                             }
                         }
-                        catch {
-                            $assignee = ""
-                            $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.")
-                        }
-                    }
+                    } 
                 }
                 catch {
                     $assignee = "";
@@ -323,31 +338,35 @@ class BugMetaInfoProvider {
             'SecureFile' {
                 $assignee = $ControlResult.ResourceContext.ResourceDetails.createdBy.uniqueName
 
-                if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                if ([BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod) 
                 {
-                    if ([Helpers]::CheckMember($ControlResult.ResourceContext.ResourceDetails, "modifiedBy")) {
-                        $assignee = $ControlResult.ResourceContext.ResourceDetails.modifiedBy.uniqueName
-                    }
-                }
-
-                # if assignee is service account, then fetch assignee from jobs/permissions
-                if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
-                {
-                    try {
-                        $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-                        $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.securefile/roleassignments/resources/{1}%24{2}" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
-                        $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
-                        $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
-                        if ($roles.Count -gt 0) {
-                            $userId = $roles[0].identity.id
-                            $assignee = $this.getUserFromUserId($organizationName, $userId)
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                    {
+                        if ([Helpers]::CheckMember($ControlResult.ResourceContext.ResourceDetails, "modifiedBy")) {
+                            $assignee = $ControlResult.ResourceContext.ResourceDetails.modifiedBy.uniqueName
                         }
                     }
-                    catch {
-                        $assignee = ""
-                        $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.")
+
+                    # if assignee is service account, then fetch assignee from jobs/permissions
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                    {
+                        try {
+                            $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                            $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.securefile/roleassignments/resources/{1}%24{2}" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
+                            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
+                            $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
+                            if ($roles.Count -gt 0) {
+                                $userId = $roles[0].identity.id
+                                $assignee = $this.getUserFromUserId($organizationName, $userId)
+                            }
+                        }
+                        catch {
+                            $assignee = ""
+                            $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.")
+                        }
                     }
                 }
+                    
                 [BugMetaInfoProvider]::AssigneeForUnmappedResources[$ControlResult.ResourceContext.ResourceId] = $assignee
                 return $assignee
             }
@@ -384,49 +403,53 @@ class BugMetaInfoProvider {
             'Environment' {
                 $assignee = $ControlResult.ResourceContext.ResourceDetails.createdBy.uniqueName
 
-                if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                if ([BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod) 
                 {
-                    if ([Helpers]::CheckMember($ControlResult.ResourceContext.ResourceDetails, "lastModifiedBy")) {
-                        $assignee = $ControlResult.ResourceContext.ResourceDetails.lastModifiedBy.uniqueName
-                    }
-                }
-                
-                # if assignee is service account, then fetch assignee from jobs/permissions
-                if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
-                {
-                    $url = "https://dev.azure.com/{0}/{1}/_environments/{2}?view=resources&__rt=fps&__ver=2" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
-                    $envDetails = [WebRequestHelper]::InvokeGetWebRequest($url);
-                    # get assignee from the the build/release jobs history
-                    if (([Helpers]::CheckMember($envDetails[0], "fps.dataProviders.data") ) -and ([Helpers]::CheckMember($envDetails[0].fps.dataProviders.data."ms.vss-environments-web.environment-deployment-history-data-provider", "deploymentExecutionRecords")) )
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                     {
-                        $pipelineType = $envDetails[0].fps.dataProviders.data."ms.vss-environments-web.environment-deployment-history-data-provider".deploymentExecutionRecords[0].planType
-                        $pipelineId = $envDetails[0].fps.dataProviders.data."ms.vss-environments-web.environment-deployment-history-data-provider".deploymentExecutionRecords[0].definition.id
-                        if ($pipelineType -eq 'Release') {
-                            $assignee = $this.FetchAssigneeFromRelease($organizationName, $ControlResult.ResourceContext.ResourceGroupName, $pipelineId)
-                        }
-                        else {
-                            $assignee = $this.FetchAssigneeFromBuild($organizationName, $ControlResult.ResourceContext.ResourceGroupName, $pipelineId)
+                        if ([Helpers]::CheckMember($ControlResult.ResourceContext.ResourceDetails, "lastModifiedBy")) {
+                            $assignee = $ControlResult.ResourceContext.ResourceDetails.lastModifiedBy.uniqueName
                         }
                     }
-                    # if no build/release jobs associated with agentpool, then fecth assignee from permissions
-                    else 
+                    
+                    # if assignee is service account, then fetch assignee from jobs/permissions
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                     {
-                        try {
-                            $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-                            $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.environmentreferencerole/roleassignments/resources/{1}_{2}?api-version=5.0-preview.1" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
-                            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
-                            $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
-                            if ($roles.Count -gt 0) {
-                                $userId = $roles[0].identity.id
-                                $assignee = $this.getUserFromUserId($organizationName, $userId)
+                        $url = "https://dev.azure.com/{0}/{1}/_environments/{2}?view=resources&__rt=fps&__ver=2" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
+                        $envDetails = [WebRequestHelper]::InvokeGetWebRequest($url);
+                        # get assignee from the the build/release jobs history
+                        if (([Helpers]::CheckMember($envDetails[0], "fps.dataProviders.data") ) -and ([Helpers]::CheckMember($envDetails[0].fps.dataProviders.data."ms.vss-environments-web.environment-deployment-history-data-provider", "deploymentExecutionRecords")) )
+                        {
+                            $pipelineType = $envDetails[0].fps.dataProviders.data."ms.vss-environments-web.environment-deployment-history-data-provider".deploymentExecutionRecords[0].planType
+                            $pipelineId = $envDetails[0].fps.dataProviders.data."ms.vss-environments-web.environment-deployment-history-data-provider".deploymentExecutionRecords[0].definition.id
+                            if ($pipelineType -eq 'Release') {
+                                $assignee = $this.FetchAssigneeFromRelease($organizationName, $ControlResult.ResourceContext.ResourceGroupName, $pipelineId)
+                            }
+                            else {
+                                $assignee = $this.FetchAssigneeFromBuild($organizationName, $ControlResult.ResourceContext.ResourceGroupName, $pipelineId)
                             }
                         }
-                        catch {
-                            $assignee = ""
-                            $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.") 
+                        # if no build/release jobs associated with agentpool, then fecth assignee from permissions
+                        else 
+                        {
+                            try {
+                                $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                                $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.environmentreferencerole/roleassignments/resources/{1}_{2}?api-version=5.0-preview.1" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
+                                $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
+                                $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
+                                if ($roles.Count -gt 0) {
+                                    $userId = $roles[0].identity.id
+                                    $assignee = $this.getUserFromUserId($organizationName, $userId)
+                                }
+                            }
+                            catch {
+                                $assignee = ""
+                                $eventBaseObj.PublishCustomMessage("Assignee Could not be determind.") 
+                            }
                         }
                     }
                 }
+                    
                 [BugMetaInfoProvider]::AssigneeForUnmappedResources[$ControlResult.ResourceContext.ResourceId] = $assignee
                 return $assignee
             }  
@@ -478,20 +501,23 @@ class BugMetaInfoProvider {
                 $response = [WebRequestHelper]::InvokeGetWebRequest($apiurl)
                 $assignee = $response.authoredBy.uniqueName
             }
-
-            # if assignee is service account, get assignee from the the build update history
-            if ($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) {
-                $url = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}/revisions" -f $organizationName, $projectName, $definitionId;
-                $response = [WebRequestHelper]::InvokeGetWebRequest($url)
-                if ([Helpers]::CheckMember($response, "changedBy")) {
-                    $response = @($response | Where-Object {$_.changedBy.uniqueName -imatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] }| Sort-Object -Property changedDate -descending)
-                    if ($response.count -gt 0) {
-                        $allAssignee = @()
-                        $response | ForEach-Object {$allAssignee += @( [PSCustomObject] @{ mailAddress = $_.changedBy.uniqueName; subjectKind = 'User' } )} | Select-Object -Unique
-                        $allAssignee = $allAssignee | Select-Object mailaddress, subjectKind -unique
-                        $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($allAssignee, $organizationName)
-                        if ($SvcAndHumanAccounts.humanAccount.Count -gt 0) {
-                            $assignee = $SvcAndHumanAccounts.humanAccount[0].mailAddress
+            
+            if ([BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod) 
+            {
+                # if assignee is service account, get assignee from the the build update history
+                if ($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) {
+                    $url = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}/revisions" -f $organizationName, $projectName, $definitionId;
+                    $response = [WebRequestHelper]::InvokeGetWebRequest($url)
+                    if ([Helpers]::CheckMember($response, "changedBy")) {
+                        $response = @($response | Where-Object {$_.changedBy.uniqueName -imatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] }| Sort-Object -Property changedDate -descending)
+                        if ($response.count -gt 0) {
+                            $allAssignee = @()
+                            $response | ForEach-Object {$allAssignee += @( [PSCustomObject] @{ mailAddress = $_.changedBy.uniqueName; subjectKind = 'User' } )} | Select-Object -Unique
+                            $allAssignee = $allAssignee | Select-Object mailaddress, subjectKind -unique
+                            $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($allAssignee, $organizationName)
+                            if ($SvcAndHumanAccounts.humanAccount.Count -gt 0) {
+                                $assignee = $SvcAndHumanAccounts.humanAccount[0].mailAddress
+                            }
                         }
                     }
                 }
@@ -521,19 +547,22 @@ class BugMetaInfoProvider {
                 $assignee = $response.createdBy.uniqueName
             }
 
-            # if assignee is service account, get assignee from the the release update history
-            if ($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) {
-                $url = "https://{0}.vsrm.visualstudio.com/{1}/_apis/Release/definitions/{2}/revisions" -f $organizationName, $projectName, $definitionId;
-                $response = [WebRequestHelper]::InvokeGetWebRequest($url)
-                if ([Helpers]::CheckMember($response, "changedBy")) {
-                    $response = @($response | Where-Object {$_.changedBy.uniqueName -imatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] }| Sort-Object -Property changedDate -descending)
-                    if ($response.count -gt 0) {
-                        $allAssignee = @()
-                        $response | ForEach-Object {$allAssignee += @( [PSCustomObject] @{ mailAddress = $_.changedBy.uniqueName; subjectKind = 'User' } )} | Select-Object -Unique
-                        $allAssignee = $allAssignee | Select-Object mailaddress, subjectKind -unique
-                        $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($allAssignee, $organizationName)
-                        if ($SvcAndHumanAccounts.humanAccount.Count -gt 0) {
-                            $assignee = $SvcAndHumanAccounts.humanAccount[0].mailAddress
+            if ([BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod) 
+            {
+                # if assignee is service account, get assignee from the the release update history
+                if ($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) {
+                    $url = "https://{0}.vsrm.visualstudio.com/{1}/_apis/Release/definitions/{2}/revisions" -f $organizationName, $projectName, $definitionId;
+                    $response = [WebRequestHelper]::InvokeGetWebRequest($url)
+                    if ([Helpers]::CheckMember($response, "changedBy")) {
+                        $response = @($response | Where-Object {$_.changedBy.uniqueName -imatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] }| Sort-Object -Property changedDate -descending)
+                        if ($response.count -gt 0) {
+                            $allAssignee = @()
+                            $response | ForEach-Object {$allAssignee += @( [PSCustomObject] @{ mailAddress = $_.changedBy.uniqueName; subjectKind = 'User' } )} | Select-Object -Unique
+                            $allAssignee = $allAssignee | Select-Object mailaddress, subjectKind -unique
+                            $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($allAssignee, $organizationName)
+                            if ($SvcAndHumanAccounts.humanAccount.Count -gt 0) {
+                                $assignee = $SvcAndHumanAccounts.humanAccount[0].mailAddress
+                            }
                         }
                     }
                 }
