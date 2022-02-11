@@ -589,7 +589,8 @@ class BugMetaInfoProvider {
         catch {
             return ""
         }
-
+    }
+    
     #method to obtain sign in ID of TF scoped identities
     hidden [string] GetAssigneeFromTFScopedIdentity($identity,$organizationName){
         $assignee = $null;
