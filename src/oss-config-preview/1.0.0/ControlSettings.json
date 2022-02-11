@@ -440,7 +440,8 @@
       "Administrator",
       "User"
     ],
-    "CheckForInheritedPermissions": false
+    "CheckForInheritedPermissions": false,
+    "CheckForBranchProtection":true
   },  
   "WorkItems":{
     "ThreshHoldDaysForWorkItemInactivity":180
@@ -578,7 +579,8 @@
         "User"
       ]
     },
-    "CheckForInheritedPermissions": false
+    "CheckForInheritedPermissions": false,
+    "CheckForBranchProtection":true
   },
   "Environment":{
     "RestrictedBroaderGroupsForEnvironment" : {
@@ -679,7 +681,8 @@
       "Remove others' locks",
       "Rename repository"
     ],
-    "CheckForInheritedPermissions": false
+    "CheckForInheritedPermissions": false,
+    "CheckForBranchProtection":true
   },
   "ServiceConnection": {
     "ServiceConnectionHistoryPeriodInDays": 180,
@@ -721,7 +724,8 @@
         "User"
       ]
     },
-    "CheckForInheritedPermissions": false
+    "CheckForInheritedPermissions": false,
+    "CheckForBranchProtection":true
   },
   "Patterns": [
     {
@@ -769,6 +773,8 @@
   "BugLogging": {
     "BugLogAreaPath": "RootDefaultProject",
     "BugLogIterationPath": "RootDefaultProject",
+    "DefaultServiceId": "",
+    "GetAssigneeUsingFallbackMethod": false,
     "ResolvedBugLogBehaviour": "ReactiveOldBug",
     "MaxKeyWordsToQueryForBugClose": 30,
     "AutoCloseProjectBug": true,
