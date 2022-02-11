@@ -520,31 +520,43 @@ class AgentPool: ADOSVTBase
         {     
             $RawDataObjForControlFix = @();
             $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            $FixObjTable = @{}
-            $UndoFixObjTable = @{}
-
-            $RawDataObjForControlFix.UndoFixObj.PSObject.properties | ForEach-Object {  
-                $secureVariableValue = $_.Value | ConvertTo-SecureString
-                $UndoFixObjTable[$_.Name] = [Helpers]::ConvertToPlainText($secureVariableValue);
-            }
-            $RawDataObjForControlFix.FixObj.PSObject.properties | ForEach-Object { $FixObjTable[$_.Name] = $_.Value}
-
-            $display = ($UndoFixObjTable.Keys |  FT -AutoSize | Out-String -Width 512);
-            #The api requires both secret and non secret capabilities in order to update on the agent
-            $UndoFixObjTable += $FixObjTable 
 
             $RawDataObjForControlFix | ForEach-Object {
                 $CurrentAgent= $_
+                $undofixObj = $CurrentAgent.UndoFixObj | Get-Member -MemberType NoteProperty | foreach {
+                    @{($_.Name) = ([Helpers]::ConvertToPlainText((($CurrentAgent.UndoFixObj.($_.Name))| ConvertTo-SecureString))) }
+                    }
+                if($undofixObj){
+                    $display = $undofixObj.Keys |  FT -AutoSize | Out-String -Width 512
+                }
+                else{
+                    return;
+                }
                 if (-not $this.UndoFix)
                 {                 
-                    $body =  $FixObjTable | ConvertTo-Json   
-                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following user-defined capabilities for agent pool have been removed:");      
+                    $body =  $CurrentAgent.FixObj   |ConvertTo-Json                    
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following user-defined capabilities for agent ID $($CurrentAgent.AgentId) have been removed:");      
                 }
                 else 
                 {
-                    $body = $UndoFixObjTable  | ConvertTo-Json
-                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following user-defined capabilities for agent pool have been added:");
+                    
+                    $undofixObj+=$CurrentAgent.FixObj | Get-Member -MemberType NoteProperty | foreach {
+                        @{($_.Name) = $CurrentAgent.FixObj.($_.Name)}
+                        }
+                    $body = "{"
+                    $i=0;
+                    $undofixObj.Keys | foreach{
+                        if($body.Length -gt 1){
+                            $body+=","
+                        }
+                        $agentpool = '"{0}":"{1}"' -f $_,$undofixObj[$i][$_]
+                        $body+=$agentPool
+                        $i++;
+                    }
+                    $body+="}"
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following user-defined capabilities for agent ID $($CurrentAgent.AgentId) have been added:");
                 }  
+                
                 $url = "https://dev.azure.com/{0}/_apis/distributedtask/pools/{1}/agents/{2}/usercapabilities?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName,$CurrentAgent.PoolId, $CurrentAgent.AgentId;          
                 $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
                 $webRequestResult = Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers $header -Body $body	              
