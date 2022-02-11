@@ -538,18 +538,39 @@ class AgentPool: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Fixed,  "Following user-defined capabilities for agent ID $($CurrentAgent.AgentId) have been removed:");      
                 }
                 else 
-                {
-                    
-                    $undofixObj+=$CurrentAgent.FixObj | Get-Member -MemberType NoteProperty | foreach {
-                        @{($_.Name) = $CurrentAgent.FixObj.($_.Name)}
-                        }
+                {             
                     $body = "{"
                     $i=0;
                     $undofixObj.Keys | foreach{
                         if($body.Length -gt 1){
                             $body+=","
                         }
-                        $agentpool = '"{0}":"{1}"' -f $_,$undofixObj[$i][$_]
+                        if ($undofixObj.Keys.Count -eq 1)
+                        {
+                            $agentpool = '"{0}":"{1}"' -f $_,$undofixObj[$_]
+                        }
+                        else {
+                            $agentpool = '"{0}":"{1}"' -f $_,$undofixObj[$i][$_]
+                        }
+                        $body+=$agentPool
+                        $i++;
+                    }
+
+                    $i=0;
+                    $fixObj = $CurrentAgent.FixObj | Get-Member -MemberType NoteProperty | foreach {
+                        @{($_.Name) = $CurrentAgent.FixObj.($_.Name)}
+                        }
+                    $fixObj.Keys | foreach{
+                        if($body.Length -gt 1){
+                            $body+=","
+                        }
+                        if ($fixObj.Keys.Count -eq 1)
+                        {
+                            $agentpool = '"{0}":"{1}"' -f $_,$fixObj[$_]
+                        }
+                        else {
+                            $agentpool = '"{0}":"{1}"' -f $_,$fixObj[$i][$_]
+                        }
                         $body+=$agentPool
                         $i++;
                     }
