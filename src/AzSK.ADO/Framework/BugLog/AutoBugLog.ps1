@@ -93,6 +93,10 @@ class AutoBugLog : EventBase  {
                 $metaProviderObj = [BugMetaInfoProvider]::new();   
                 $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.ControlSettings.BugLogging, $this.IsBugLogCustomFlow, $this.ServiceIdPassedInCMD, $this.InvocationContext);
                 $serviceId = $metaProviderObj.ServiceId
+                if([string]::IsNullOrWhiteSpace($serviceId) -and $this.LogBugsForUnmappedResource -and [Helpers]::CheckMember($this.ControlSettings.BugLogging, "DefaultServiceId"))
+                {
+                    $serviceId = $this.ControlSettings.BugLogging.DefaultServiceId
+                }
                 $resourceOwner = "";
                 #If serviceid has value then get resourceowner as last triggerd by or created by, else it laready has same in $AssignedTo
                 if ($serviceId) {
