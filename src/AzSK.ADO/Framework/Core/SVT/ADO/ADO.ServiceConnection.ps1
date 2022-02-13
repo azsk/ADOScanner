@@ -959,4 +959,104 @@ class ServiceConnection: ADOSVTBase
         }
         return $controlResult;
     }
+
+    hidden [ControlResult] CheckBranchControlForSvcConn ([ControlResult] $controlResult) {
+        try{
+            #check if resources is accessible even to a single pipeline
+            $isRsrcAccessibleToAnyPipeline = $false;
+            if ($null -eq $this.pipelinePermission) {
+                $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/endpoint/{2}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.ServiceEndpointsObj.id) ;
+                $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            }
+            if([Helpers]::CheckMember($this.pipelinePermission,"allPipelines") -and $this.pipelinePermission.allPipelines.authorized){
+                $isRsrcAccessibleToAnyPipeline = $true;
+            }
+            if([Helpers]::CheckMember($this.pipelinePermission[0],"pipelines") -and $this.pipelinePermission[0].pipelines.Count -gt 0){
+                $isRsrcAccessibleToAnyPipeline = $true;
+            }
+            #if resource is not accessible to any YAML pipeline, there is no need to add any branch control, hence passing the control
+            if($isRsrcAccessibleToAnyPipeline -eq $false){
+                $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not accessible to any YAML pipelines. Hence, branch control is not required.");
+                return $controlResult;
+            }
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'endpoint'}]"
+            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the service connection.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the service connection."
+                $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the service connection."
+            }
+            else{
+                #we need to check only for two kinds of approvals and checks: manual approvals and branch controls, hence filtering these two out from the list
+                $branchControl = @()
+                $approvalControl = @()
+                try{
+                    $approvalAndChecks = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
+                    $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
+                }
+                catch{
+                    $branchControl = @()
+                }
+                if($branchControl.Count -eq 0){
+                    #if branch control is not enabled, but manual approvers are added pass this control
+                    if($approvalControl.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Branch control has not been defined for the service connection. However, manual approvals have been added to the service connection.");
+                        $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                        $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                        $controlResult.AdditionalInfo += "List of approvers on service connection  $($approvers).";
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Branch control has not been defined for the service connection.");
+                        $controlResult.AdditionalInfo = "Branch control has not been defined for the service connection."
+                    }                    
+                }
+                else{
+                    $branches = ($branchControl.inputs.allowedBranches).Split(",");
+                    $branchesWithNoProtectionCheck = @($branchControl.inputs | where-object {$_.ensureProtectionOfBranch -eq $false})
+                    if("*" -in $branches){
+                        $controlResult.AddMessage([VerificationResult]::Failed, "All branches have been given access to the service connection.");
+                        $controlResult.AdditionalInfo = "All branches have been given access to the service connection."
+                        $controlResult.AdditionalInfoInCsv = "All branches have been given access to the service connection."
+                    }
+                    elseif ($branchesWithNoProtectionCheck.Count -gt 0) {
+                        #check if branch protection is enabled on all the found branches depending upon the org policy
+                        if($this.ControlSettings.ServiceConnection.CheckForBranchProtection){
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Access to the service connection has not been granted to all branches. However, verification of branch protection has not been enabled for some branches.");
+                            $branchesWithNoProtectionCheck = @(($branchesWithNoProtectionCheck.allowedBranches).Split(","));
+                            $controlResult.AddMessage("List of branches granted access to the service connection without verification of branch protection: ")
+                            $controlResult.AddMessage("$($branchesWithNoProtectionCheck | FT | Out-String)")
+                            $branchesWithProtection = @($branches | where {$branchesWithNoProtectionCheck -notcontains $_})
+                            if($branchesWithProtection.Count -gt 0){
+                                $controlResult.AddMessage("List of branches granted access to the service connection with verification of branch protection: ");
+                                $controlResult.AddMessage("$($branchesWithProtection | FT | Out-String)");
+                            }
+                            $controlResult.AdditionalInfo = "List of branches granted access to the service connection without verification of branch protection: $($branchesWithNoProtectionCheck)"
+                        }
+                        else{
+                            $controlResult.AddMessage([VerificationResult]::Passed, "Access to the service connection has not been granted to all branches.");
+                            $controlResult.AddMessage("List of branches granted access to the service connection: ");
+                            $controlResult.AddMessage("$($branches | FT | Out-String)");
+                        }
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Access to the service connection has not been granted to all branches. Verification of branch protection has been enabled for all allowed branches.");
+                        $controlResult.AddMessage("List of branches granted access to the service connection: ");
+                        $controlResult.AddMessage("$($branches | FT | Out-String)");
+                    }
+                }
+            }
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch service connection details.");
+        }
+
+        return $controlResult;
+    }
 }

@@ -287,6 +287,24 @@
         "DP"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Build_DP_Configure_YAML_CI_Triggers",
+      "Description": "Use CI triggers to allow YAML CI only from select branches.",
+      "Id": "Build280",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckYAMLCITrigger",
+      "Rationale": "If YAML CI is enabled, malicious users having contribute/'create branch' access to the repository belonging to YAML file of the pipline, will be able to push malicious code and trigger the pipeline from the corrupted branch even if they do not have the permission to queue the pipeline. This will enable them to bypass user permissions to access all protected resources this pipeline has access to. To avoid exposure to the risk, one should enable CI only on select branches.",
+      "Recommendation": "1. Navigate to the build pipeline --> 2. Go to 'Edit' --> 3. Click on 'Triggers' from the three dots on upper right corner --> 4. Click on 'Override the YAML continuous integration trigger from here'. Add only protected branches in the branch filter.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP",
+        "SkipClassic"
+      ],
+      "Enabled": true
     }
   ]
 }
