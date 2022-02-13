@@ -377,7 +377,7 @@ class AzSKADOServiceMapping: CommandBase
             $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
 
             #generate access token with datastudio api audience
-            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($true)
 
             $Connections | ForEach-Object {
 
@@ -470,7 +470,7 @@ class AzSKADOServiceMapping: CommandBase
             $agentPoolsDefnURL = ("https://{0}.visualstudio.com/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $this.OrgName, $this.ProjectName;
             $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
             #generate access token with datastudio api audience
-            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($true)
             $taskAgentQueues = $null;           
 
             if (([Helpers]::CheckMember($agentPoolsDefnsObj, "fps.dataProviders.data") ) -and (($agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider") -and $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues)) {
@@ -571,7 +571,7 @@ class AzSKADOServiceMapping: CommandBase
         #This variable is used to store details returned from secure file api(fetching all the secure file details in one call)
         [System.Collections.Generic.List[psobject]]$secureFileDetails = @();
         #generate access token with datastudio api audience
-        $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+        $accessToken = [ContextHelper]::GetDataExplorerAccessToken($true)
         $variableGroupSTMapping = @{
             data = @();
         };
@@ -753,7 +753,7 @@ class AzSKADOServiceMapping: CommandBase
             $environmentURL = 'https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?$top=10000&api-version=6.0-preview.1' -f $this.OrgName, $this.ProjectName;
             $environmentsObjList = @([WebRequestHelper]::InvokeGetWebRequest($environmentURL));
             #generate access token with datastudio api audience
-            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($true)
             $unmappedEnv = $true;   
 
             if ($environmentsObjList.count -gt 0 ) {
@@ -1411,7 +1411,7 @@ class AzSKADOServiceMapping: CommandBase
             $accessToken = $env:AccessToken
         }
         else {
-            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($true)
         }
         if ($env:DataDuration) {
             $dataDuration = $env:DataDuration
@@ -1620,7 +1620,7 @@ class AzSKADOServiceMapping: CommandBase
             $accessToken = $env:AccessToken
         }
         else {
-            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($true)
         }
         if ($env:DataDuration) {
             $dataDuration = $env:DataDuration
