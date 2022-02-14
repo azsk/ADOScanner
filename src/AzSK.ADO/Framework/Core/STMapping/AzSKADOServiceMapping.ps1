@@ -96,64 +96,75 @@ class AzSKADOServiceMapping: CommandBase
 	[MessageData[]] GetSTmapping()
 	{       
         $this.Stopwatch =  [system.diagnostics.stopwatch]::StartNew() 
-        $this.Stopwatch.Start();        
-        if(![string]::IsNullOrWhiteSpace($this.RepositoryMappingsFilePath)) {
-            $this.SaveScanDuration("Repository scan started", $false)            
-            $this.GetRepositoryMapping();
-            $this.SaveScanDuration("Repository scan ended",$true)
+        $this.Stopwatch.Start();   
+        
+        if(!$this.Auto -eq 'true')
+        {
+            if([string]::IsNullOrWhiteSpace($this.RepositoryMappingsFilePath) -or [string]::IsNullOrWhiteSpace($this.BuildMappingsFilePath) -or [string]::IsNullOrWhiteSpace($this.ReleaseMappingsFilePath))
+            {
+                return "File Path not valid.";
+            }
+            if(![string]::IsNullOrWhiteSpace($this.BuildMappingsFilePath) -and ![string]::IsNullOrWhiteSpace($this.ReleaseMappingsFilePath))
+            {
+                if(!(Test-Path $this.BuildMappingsFilePath) -or !(Test-Path $this.ReleaseMappingsFilePath))
+                {   
+                    return "File Path not valid.";
+                }           
+            }
         }
+        $this.SaveScanDuration("Repository scan started", $false)            
+        $this.GetRepositoryMapping();
+        $this.SaveScanDuration("Repository scan ended",$true)
+        
         #fetch all the cached mappings from cache and add to in-memory collection
         $this.storageCachedData = $this.ServiceMappingCacheHelperObj.GetWorkItemByHashAzureTable("All", "","","", $this.projectId)
 
-        [ServiceMappingCacheHelper]::TelemetryLogging("GetSTmapping",$null);
-        if(![string]::IsNullOrWhiteSpace($this.BuildMappingsFilePath) -and ![string]::IsNullOrWhiteSpace($this.ReleaseMappingsFilePath)){
-            if(((Test-Path $this.BuildMappingsFilePath) -and (Test-Path $this.ReleaseMappingsFilePath)) -or $this.Auto -eq 'true')
-            {
-                $this.GetBuildReleaseMapping();              
-                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "ServiceConnection")
-                {
-                    $this.SaveScanDuration("Service Connections scan started", $false)
-                    $this.FetchSvcConnMapping();
-                    $this.SaveScanDuration("Service Connections scan ended",$true)
+        [ServiceMappingCacheHelper]::TelemetryLogging("GetSTmapping",$null);        
+       
+        $this.GetBuildReleaseMapping();              
+        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "ServiceConnection")
+        {
+            $this.SaveScanDuration("Service Connections scan started", $false)
+            $this.FetchSvcConnMapping();
+            $this.SaveScanDuration("Service Connections scan ended",$true)
+        }
+        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "AgentPool")
+        {
+            $this.SaveScanDuration("Agent Pool scan started", $false)
+            $this.FetchAgentPoolMapping();
+            $this.SaveScanDuration("Agent Pool scan ended",$true)
+        }
+        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "Environment")
+        {
+            $this.SaveScanDuration("Environment scan started", $false)
+            $this.FetchEnvironmentMapping();
+            $this.SaveScanDuration("Environment scan ended",$true)
+        }
+        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup" -or $this.MappingType -eq "SecureFile")
+        {
+            $this.SaveScanDuration("VariableGroup/SecureFile scan started", $false)                    
+            [ServiceMappingCacheHelper]::TelemetryLogging("GetSTmapping",$null);                   
+            if($this.IncrementalScan){
+                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup"){
+                    $this.FindSTForVGWithIncremental();
+    
                 }
-                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "AgentPool")
-                {
-                    $this.SaveScanDuration("Agent Pool scan started", $false)
-                    $this.FetchAgentPoolMapping();
-                    $this.SaveScanDuration("Agent Pool scan ended",$true)
-                }
-                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "Environment")
-                {
-                    $this.SaveScanDuration("Environment scan started", $false)
-                    $this.FetchEnvironmentMapping();
-                    $this.SaveScanDuration("Environment scan ended",$true)
-                }
-                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup" -or $this.MappingType -eq "SecureFile")
-                {
-                    $this.SaveScanDuration("VariableGroup/SecureFile scan started", $false)                    
-                    [ServiceMappingCacheHelper]::TelemetryLogging("GetSTmapping",$null);                   
-                    if($this.IncrementalScan){
-                        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup"){
-                            $this.FindSTForVGWithIncremental();
-            
-                        }
-                        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile"){
-                            $this.FindSTForSecureFileWithIncremental();
-                        }
-                    }
-                    else{
-                        $this.FetchVarGrpSecureFileMapping();
-                    }
-                    $this.SaveScanDuration("VariableGroup/SecureFile scan ended",$true)
-                }
-                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "Feed")
-                {
-                    $this.SaveScanDuration("Feed scan started", $false)
-                    $this.FetchFeedMapping();
-                    $this.SaveScanDuration("Feed scan ended",$true)
+                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile"){
+                    $this.FindSTForSecureFileWithIncremental();
                 }
             }
+            else{
+                $this.FetchVarGrpSecureFileMapping();
+            }
+            $this.SaveScanDuration("VariableGroup/SecureFile scan ended",$true)
         }
+        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "Feed")
+        {
+            $this.SaveScanDuration("Feed scan started", $false)
+            $this.FetchFeedMapping();
+            $this.SaveScanDuration("Feed scan ended",$true)
+        }
+    
         
 		[MessageData[]] $returnMsgs = @();
 		$returnMsgs += [MessageData]::new("Returning service mappings.");
@@ -377,7 +388,7 @@ class AzSKADOServiceMapping: CommandBase
             $sourcePageUrl = "https://{0}.visualstudio.com/{1}/_settings/adminservices" -f $this.OrgName, $this.ProjectName;
 
             #generate access token with datastudio api audience
-            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($true)
 
             $Connections | ForEach-Object {
 
@@ -470,7 +481,7 @@ class AzSKADOServiceMapping: CommandBase
             $agentPoolsDefnURL = ("https://{0}.visualstudio.com/{1}/_settings/agentqueues?__rt=fps&__ver=2") -f $this.OrgName, $this.ProjectName;
             $agentPoolsDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsDefnURL);
             #generate access token with datastudio api audience
-            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($true)
             $taskAgentQueues = $null;           
 
             if (([Helpers]::CheckMember($agentPoolsDefnsObj, "fps.dataProviders.data") ) -and (($agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider") -and $agentPoolsDefnsObj.fps.dataProviders.data."ms.vss-build-web.agent-queues-data-provider".taskAgentQueues)) {
@@ -571,7 +582,7 @@ class AzSKADOServiceMapping: CommandBase
         #This variable is used to store details returned from secure file api(fetching all the secure file details in one call)
         [System.Collections.Generic.List[psobject]]$secureFileDetails = @();
         #generate access token with datastudio api audience
-        $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+        $accessToken = [ContextHelper]::GetDataExplorerAccessToken($true)
         $variableGroupSTMapping = @{
             data = @();
         };
@@ -753,7 +764,7 @@ class AzSKADOServiceMapping: CommandBase
             $environmentURL = 'https://dev.azure.com/{0}/{1}/_apis/distributedtask/environments?$top=10000&api-version=6.0-preview.1' -f $this.OrgName, $this.ProjectName;
             $environmentsObjList = @([WebRequestHelper]::InvokeGetWebRequest($environmentURL));
             #generate access token with datastudio api audience
-            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($true)
             $unmappedEnv = $true;   
 
             if ($environmentsObjList.count -gt 0 ) {
@@ -1411,7 +1422,7 @@ class AzSKADOServiceMapping: CommandBase
             $accessToken = $env:AccessToken
         }
         else {
-            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($true)
         }
         if ($env:DataDuration) {
             $dataDuration = $env:DataDuration
@@ -1620,7 +1631,7 @@ class AzSKADOServiceMapping: CommandBase
             $accessToken = $env:AccessToken
         }
         else {
-            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($false)
+            $accessToken = [ContextHelper]::GetDataExplorerAccessToken($true)
         }
         if ($env:DataDuration) {
             $dataDuration = $env:DataDuration
