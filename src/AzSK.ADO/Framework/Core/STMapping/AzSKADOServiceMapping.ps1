@@ -96,64 +96,75 @@ class AzSKADOServiceMapping: CommandBase
 	[MessageData[]] GetSTmapping()
 	{       
         $this.Stopwatch =  [system.diagnostics.stopwatch]::StartNew() 
-        $this.Stopwatch.Start();        
-        if(![string]::IsNullOrWhiteSpace($this.RepositoryMappingsFilePath)) {
-            $this.SaveScanDuration("Repository scan started", $false)            
-            $this.GetRepositoryMapping();
-            $this.SaveScanDuration("Repository scan ended",$true)
+        $this.Stopwatch.Start();   
+        
+        if(!$this.Auto -eq 'true')
+        {
+            if([string]::IsNullOrWhiteSpace($this.RepositoryMappingsFilePath) -or [string]::IsNullOrWhiteSpace($this.BuildMappingsFilePath) -or [string]::IsNullOrWhiteSpace($this.ReleaseMappingsFilePath))
+            {
+                return "File Path not valid.";
+            }
+            if(![string]::IsNullOrWhiteSpace($this.BuildMappingsFilePath) -and ![string]::IsNullOrWhiteSpace($this.ReleaseMappingsFilePath))
+            {
+                if(!((Test-Path $this.BuildMappingsFilePath) -and (Test-Path $this.ReleaseMappingsFilePath)))
+                {   
+                    return "File Path not valid.";
+                }           
+            }
         }
+        $this.SaveScanDuration("Repository scan started", $false)            
+        $this.GetRepositoryMapping();
+        $this.SaveScanDuration("Repository scan ended",$true)
+        
         #fetch all the cached mappings from cache and add to in-memory collection
         $this.storageCachedData = $this.ServiceMappingCacheHelperObj.GetWorkItemByHashAzureTable("All", "","","", $this.projectId)
 
-        [ServiceMappingCacheHelper]::TelemetryLogging("GetSTmapping",$null);
-        if(![string]::IsNullOrWhiteSpace($this.BuildMappingsFilePath) -and ![string]::IsNullOrWhiteSpace($this.ReleaseMappingsFilePath)){
-            if(((Test-Path $this.BuildMappingsFilePath) -and (Test-Path $this.ReleaseMappingsFilePath)) -or $this.Auto -eq 'true')
-            {
-                $this.GetBuildReleaseMapping();              
-                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "ServiceConnection")
-                {
-                    $this.SaveScanDuration("Service Connections scan started", $false)
-                    $this.FetchSvcConnMapping();
-                    $this.SaveScanDuration("Service Connections scan ended",$true)
+        [ServiceMappingCacheHelper]::TelemetryLogging("GetSTmapping",$null);        
+       
+        $this.GetBuildReleaseMapping();              
+        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "ServiceConnection")
+        {
+            $this.SaveScanDuration("Service Connections scan started", $false)
+            $this.FetchSvcConnMapping();
+            $this.SaveScanDuration("Service Connections scan ended",$true)
+        }
+        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "AgentPool")
+        {
+            $this.SaveScanDuration("Agent Pool scan started", $false)
+            $this.FetchAgentPoolMapping();
+            $this.SaveScanDuration("Agent Pool scan ended",$true)
+        }
+        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "Environment")
+        {
+            $this.SaveScanDuration("Environment scan started", $false)
+            $this.FetchEnvironmentMapping();
+            $this.SaveScanDuration("Environment scan ended",$true)
+        }
+        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup" -or $this.MappingType -eq "SecureFile")
+        {
+            $this.SaveScanDuration("VariableGroup/SecureFile scan started", $false)                    
+            [ServiceMappingCacheHelper]::TelemetryLogging("GetSTmapping",$null);                   
+            if($this.IncrementalScan){
+                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup"){
+                    $this.FindSTForVGWithIncremental();
+    
                 }
-                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "AgentPool")
-                {
-                    $this.SaveScanDuration("Agent Pool scan started", $false)
-                    $this.FetchAgentPoolMapping();
-                    $this.SaveScanDuration("Agent Pool scan ended",$true)
-                }
-                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "Environment")
-                {
-                    $this.SaveScanDuration("Environment scan started", $false)
-                    $this.FetchEnvironmentMapping();
-                    $this.SaveScanDuration("Environment scan ended",$true)
-                }
-                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup" -or $this.MappingType -eq "SecureFile")
-                {
-                    $this.SaveScanDuration("VariableGroup/SecureFile scan started", $false)                    
-                    [ServiceMappingCacheHelper]::TelemetryLogging("GetSTmapping",$null);                   
-                    if($this.IncrementalScan){
-                        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "VariableGroup"){
-                            $this.FindSTForVGWithIncremental();
-            
-                        }
-                        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile"){
-                            $this.FindSTForSecureFileWithIncremental();
-                        }
-                    }
-                    else{
-                        $this.FetchVarGrpSecureFileMapping();
-                    }
-                    $this.SaveScanDuration("VariableGroup/SecureFile scan ended",$true)
-                }
-                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "Feed")
-                {
-                    $this.SaveScanDuration("Feed scan started", $false)
-                    $this.FetchFeedMapping();
-                    $this.SaveScanDuration("Feed scan ended",$true)
+                if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "SecureFile"){
+                    $this.FindSTForSecureFileWithIncremental();
                 }
             }
+            else{
+                $this.FetchVarGrpSecureFileMapping();
+            }
+            $this.SaveScanDuration("VariableGroup/SecureFile scan ended",$true)
         }
+        if ([string]::IsNullOrWhiteSpace($this.MappingType) -or $this.MappingType -eq "All" -or $this.MappingType -eq "Feed")
+        {
+            $this.SaveScanDuration("Feed scan started", $false)
+            $this.FetchFeedMapping();
+            $this.SaveScanDuration("Feed scan ended",$true)
+        }
+    
         
 		[MessageData[]] $returnMsgs = @();
 		$returnMsgs += [MessageData]::new("Returning service mappings.");
