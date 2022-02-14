@@ -106,7 +106,7 @@ class AzSKADOServiceMapping: CommandBase
             }
             if(![string]::IsNullOrWhiteSpace($this.BuildMappingsFilePath) -and ![string]::IsNullOrWhiteSpace($this.ReleaseMappingsFilePath))
             {
-                if(!((Test-Path $this.BuildMappingsFilePath) -and (Test-Path $this.ReleaseMappingsFilePath)))
+                if(!(Test-Path $this.BuildMappingsFilePath) -or !(Test-Path $this.ReleaseMappingsFilePath))
                 {   
                     return "File Path not valid.";
                 }           
