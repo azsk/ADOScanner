@@ -127,6 +127,8 @@ class AgentPool: ADOSVTBase
             {
                 if ($this.AgentPoolOrgObj.autoProvision -eq $true) {
                     $controlResult.AddMessage([VerificationResult]::Failed,"Auto-provisioning is enabled for the $($this.AgentPoolOrgObj.name) agent pool.");
+                    $controlResult.AdditionalInfo = "Auto-provisioning is enabled for [$($this.AgentPoolOrgObj.name)] agent pool.";
+                    $controlResult.AdditionalInfoInCSV += "NA";
                     if ($this.ControlFixBackupRequired) {
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $this.AgentPoolOrgObj;
@@ -134,6 +136,7 @@ class AgentPool: ADOSVTBase
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Auto-provisioning is not enabled for the agent pool.");
+                    $controlResult.AdditionalInfoInCSV += "NA";
                 }
             }
             else
@@ -208,10 +211,17 @@ class AgentPool: ADOSVTBase
                 if($this.AgentPoolOrgObj.autoUpdate -eq $true)
                 {
                     $controlResult.AddMessage([VerificationResult]::Passed,"Auto-update of agents is enabled for [$($this.AgentPoolOrgObj.name)] agent pool.");
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed,"Auto-update of agents is disabled for [$($this.AgentPoolOrgObj.name)] agent pool.");
+                    if ($this.ControlFixBackupRequired) {
+                        #Data object that will be required to fix the control
+                        $controlResult.BackupControlState = $this.AgentPoolOrgObj.id;
+                    }
+                    $controlResult.AdditionalInfo = "Auto-update of agents is disabled for [$($this.AgentPoolOrgObj.name)] agent pool.";
+                    $controlResult.AdditionalInfoInCSV = "NA";
                 }
 
             }
@@ -226,6 +236,46 @@ class AgentPool: ADOSVTBase
             $controlResult.LogException($_)
         }
 
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckAutoUpdateAutomatedFix([ControlResult] $controlResult)
+    {
+        try 
+        {
+            #Backup data object is not required in this scenario.
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $body = ""
+            if (-not $this.UndoFix)
+            {                 
+                $body += @"
+                {
+                    "id":$($RawDataObjForControlFix),
+                    "autoUpdate":true
+                }
+"@;
+            }
+            else 
+           {
+               $body += @"
+                {
+                    "id":$($RawDataObjForControlFix),
+                    "autoUpdate":false
+                }
+"@;
+
+            }
+            $url = " https://dev.azure.com/{0}/_apis/distributedtask/pools/{1}?api-version=5.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$($RawDataObjForControlFix);          
+			$header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            $webRequestResult = Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body							    
+            $controlResult.AddMessage([VerificationResult]::Fixed,  "Auto-Update setting for agent pool has been changed.");
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
         return $controlResult
     }
 
@@ -383,15 +433,20 @@ class AgentPool: ADOSVTBase
                 if (([Helpers]::CheckMember($this.agentPool[0],"fps.dataproviders.data") ) -and ($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider") -and [Helpers]::CheckMember($this.agentPool[0].fps.dataProviders.data."ms.vss-build-web.agent-pool-data-provider","agents") )
                 {
                     $agents = $this.agentpool.fps.dataproviders.data."ms.vss-build-web.agent-pool-data-provider".agents
+                    $agentDetails = @{}
+                    $poolId = ($this.agentpool.fps.dataproviders.data.'ms.vss-build-web.agent-pool-data-provider'.selectedAgentPool.id).ToString()
                     $agents | ForEach-Object {
                         $currentAgent = "" | Select-Object "AgentName","Capabilities"
                         $currentAgent.AgentName = $_.name
+                        $agentId = $_.id
                         $envVariablesContainingSecret=@()
                         $secretsFoundInCurrentAgent = $false
                         if([Helpers]::CheckMember($_,"userCapabilities"))
                         {
                             $userCapabilities=$_.userCapabilities
                             $secretsHashTable=@{}
+                            $capabilitiesTable=@{}
+                            $secretsCapabilitiesTable=@{}
                             $userCapabilities.PSObject.properties | ForEach-Object { $secretsHashTable[$_.Name] = $_.Value }
                             $secretsHashTable.Keys | ForEach-Object {
                                 for ($i = 0; $i -lt $patterns.RegexList.Count; $i++)
@@ -401,17 +456,22 @@ class AgentPool: ADOSVTBase
                                         $noOfCredFound += 1
                                         $secretsFoundInCurrentAgent = $true
                                         $envVariablesContainingSecret += $_
-                                        break;
+                                        $secretsCapabilitiesTable.add($_, ($secretsHashTable.Item($_)| ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString))
+                                        break
                                     }
+                                }
+                                if ($envVariablesContainingSecret -notcontains $_) {
+                                    $capabilitiesTable.add($_, $secretsHashTable.Item($_))
                                 }
                             }
                         }
+                        $agentDetails.add($agentId,$($secretsCapabilitiesTable,$capabilitiesTable))
                         $currentAgent.Capabilities = $envVariablesContainingSecret
                         if ($secretsFoundInCurrentAgent -eq $true) {
                             $agentsWithSecretsInEnv += $currentAgent
                         }
                     }
-
+                    
                     if($noOfCredFound -eq 0)
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed, "No secrets found in user-defined capabilities of agents.");
@@ -425,6 +485,15 @@ class AgentPool: ADOSVTBase
                         $display=($agentsWithSecretsInEnv | FT AgentName,Capabilities -AutoSize | Out-String -Width 512)
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("Agent-wise list of user-defined capabilities with secrets: ", $agentsWithSecretsInEnv );
+                        $backupDataObject= @()
+                        @($agentDetails.Keys) | ForEach-Object {
+                            $key = $_
+                             $obj = '' | Select @{l="PoolId";e={$poolId}}, @{l="AgentId";e={$key}},@{l="UndoFixObj";e={($agentDetails.item($key))[0]}}, @{l="FixObj";e={($agentDetails.item($key))[1]}}
+                            $backupDataObject += $obj
+                        }
+                        if ($this.ControlFixBackupRequired) {
+                            $controlResult.BackupControlState = $backupDataObject;
+                        }
                     }
                 }
                 else
@@ -440,6 +509,83 @@ class AgentPool: ADOSVTBase
         catch
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch details of user-defined capabilities of agents.");
+            $controlResult.LogException($_)
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckCredInEnvironmentVariablesAutomatedFix([ControlResult] $controlResult)
+    {
+        try 
+        {     
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $RawDataObjForControlFix | ForEach-Object {
+                $CurrentAgent= $_
+                $undofixObj = $CurrentAgent.UndoFixObj | Get-Member -MemberType NoteProperty | foreach {
+                    @{($_.Name) = ([Helpers]::ConvertToPlainText((($CurrentAgent.UndoFixObj.($_.Name))| ConvertTo-SecureString))) }
+                    }
+                if($undofixObj){
+                    $display = $undofixObj.Keys |  FT -AutoSize | Out-String -Width 512
+                }
+                else{
+                    return;
+                }
+                if (-not $this.UndoFix)
+                {                 
+                    $body =  $CurrentAgent.FixObj   |ConvertTo-Json                    
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following user-defined capabilities for agent ID $($CurrentAgent.AgentId) have been removed:");      
+                }
+                else 
+                {             
+                    $body = "{"
+                    $i=0;
+                    $undofixObj.Keys | foreach{
+                        if($body.Length -gt 1){
+                            $body+=","
+                        }
+                        if ($undofixObj.Keys.Count -eq 1)
+                        {
+                            $agentpool = '"{0}":"{1}"' -f $_,$undofixObj[$_]
+                        }
+                        else {
+                            $agentpool = '"{0}":"{1}"' -f $_,$undofixObj[$i][$_]
+                        }
+                        $body+=$agentPool
+                        $i++;
+                    }
+
+                    $i=0;
+                    $fixObj = $CurrentAgent.FixObj | Get-Member -MemberType NoteProperty | foreach {
+                        @{($_.Name) = $CurrentAgent.FixObj.($_.Name)}
+                        }
+                    $fixObj.Keys | foreach{
+                        if($body.Length -gt 1){
+                            $body+=","
+                        }
+                        if ($fixObj.Keys.Count -eq 1)
+                        {
+                            $agentpool = '"{0}":"{1}"' -f $_,$fixObj[$_]
+                        }
+                        else {
+                            $agentpool = '"{0}":"{1}"' -f $_,$fixObj[$i][$_]
+                        }
+                        $body+=$agentPool
+                        $i++;
+                    }
+                    $body+="}"
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Following user-defined capabilities for agent ID $($CurrentAgent.AgentId) have been added:");
+                }  
+                
+                $url = "https://dev.azure.com/{0}/_apis/distributedtask/pools/{1}/agents/{2}/usercapabilities?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName,$CurrentAgent.PoolId, $CurrentAgent.AgentId;          
+                $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+                $webRequestResult = Invoke-RestMethod -Uri $url -Method Put -ContentType "application/json" -Headers $header -Body $body	              
+                $controlResult.AddMessage("`n$display");
+            }  						
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
             $controlResult.LogException($_)
         }
         return $controlResult

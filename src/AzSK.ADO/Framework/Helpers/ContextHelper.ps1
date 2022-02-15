@@ -326,35 +326,73 @@ class ContextHelper {
 
     static [string] GetDataExplorerAccessToken($useAzContext)
 	{
-        $accessToken = ''
+        $accessToken = ''        
         try
         {   
             Write-Host "Graph access is required to evaluate some controls. Attempting to acquire graph token." -ForegroundColor Cyan
             # generating graph access token using default VSTS client.
-            $clientId = [Constants]::DefaultClientId;          
-            $replyUri = [Constants]::DefaultReplyUri; 
-            $adoResourceId = "https://help.kusto.windows.net";                                         
-            if ([ContextHelper]::PSVersion -gt 5) {
-                $result = [ContextHelper]::GetGraphAccessForDataExplorer()
-            }
-            else 
+            if ($useAzContext)
             {
-                # generating data explorer token using default VSTS client.
-                # this will generate token for local user and generates popup for user login.
+                #getting azure context because graph access token requires azure environment details.
+                $Context = @(Get-AzContext -ErrorAction SilentlyContinue )
+                if ($Context.count -eq 0)  
+                {                    
+                    Connect-AzAccount -ErrorAction Stop
+                    $Context = @(Get-AzContext -ErrorAction SilentlyContinue)
+                }
+
+                if ($null -eq $Context)  
+                {
+                    throw "Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate."
+                }
+                else
+                {
+                    $graphUri = "https://help.kusto.windows.net"
+                    $authResult = [Microsoft.Azure.Commands.Common.Authentication.AzureSession]::Instance.AuthenticationFactory.Authenticate(
+                    $Context.Account,
+                    $Context.Environment,
+                    $Context.Tenant.Id,
+                    [System.Security.SecureString] $null,
+                    "Never",
+                    $null,
+                    $graphUri);
+
+                    if (-not ($authResult -and (-not [string]::IsNullOrWhiteSpace($authResult.AccessToken))))
+                    {
+                        throw ([SuppressedException]::new(("Unable to acquire Graph token. The signed-in account may not have Graph permission. Control results for controls that depend on AAD group expansion may not be accurate."), [SuppressedExceptionType]::Generic))
+                    }
+
+                    $accessToken = $authResult.AccessToken;
+                }
+            }
+            else{
                 $clientId = [Constants]::DefaultClientId;          
                 $replyUri = [Constants]::DefaultReplyUri; 
                 $adoResourceId = "https://help.kusto.windows.net";                                         
                 if ([ContextHelper]::PSVersion -gt 5) {
-                    $result = [ContextHelper]::GetGraphAccess()
+                    $result = [ContextHelper]::GetGraphAccessForDataExplorer()
+                    $accessToken = $result.AccessToken
                 }
-                else {
-                    [AuthenticationContext] $ctx = [AuthenticationContext]::new("https://login.windows.net/common");
-                    [AuthenticationResult] $result = $null;
-                    $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto
-                    $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
-                    $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+                else 
+                {
+                    # generating data explorer token using default VSTS client.
+                    # this will generate token for local user and generates popup for user login.
+                    $clientId = [Constants]::DefaultClientId;          
+                    $replyUri = [Constants]::DefaultReplyUri; 
+                    $adoResourceId = "https://help.kusto.windows.net";                                         
+                    if ([ContextHelper]::PSVersion -gt 5) {
+                        $result = [ContextHelper]::GetGraphAccess()
+                    }
+                    else {
+                        [AuthenticationContext] $ctx = [AuthenticationContext]::new("https://login.windows.net/common");
+                        [AuthenticationResult] $result = $null;
+                        $PromptBehavior = [Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Always
+                        $PlatformParameters = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters -ArgumentList $PromptBehavior
+                        $result = $ctx.AcquireTokenAsync($adoResourceId, $clientId, [Uri]::new($replyUri),$PlatformParameters).Result;
+                        [ContextHelper]::PromptForLogin = $false
+                    }
+                    $accessToken = $result.AccessToken
                 }
-                $accessToken = $result.AccessToken
             }
         }
         catch

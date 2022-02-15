@@ -54,6 +54,7 @@ class VariableGroup: ADOSVTBase
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Variable group contains secrets accessible to all YAML pipelines.");
                     $controlResult.AdditionalInfoInCSV = "SecretVarsList: $($secretVarList -join '; ')";
+                    $controlResult.AdditionalInfo += "SecretVarsList: $($secretVarList -join '; ')";
 
                     if ($this.ControlFixBackupRequired) {
                         #Data object that will be required to fix the control
@@ -343,6 +344,7 @@ class VariableGroup: ADOSVTBase
                             $controlResult.AddMessage([VerificationResult]::Failed, "Found secrets in variable group.`nList of variables: ", $varList );
                             $controlResult.SetStateData("List of variable name containing secret: ", $varList);
                             $controlResult.AdditionalInfo += "Count of variable(s) containing secret: " + $varList.Count;
+                            $controlResult.AdditionalInfoInCSV += "List of variable name containing secret:" + $varList ;
                         }
                         else
                         {
@@ -707,6 +709,103 @@ class VariableGroup: ADOSVTBase
             $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
             $controlResult.LogException($_)
         }        
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBranchControlOnVariableGroup ([ControlResult] $controlResult) {
+        try{
+            #check if resources is accessible even to a single pipeline
+            $isRsrcAccessibleToAnyPipeline = $false;
+            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/variablegroup/{2}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.VarGrpId)
+            $pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            if([Helpers]::CheckMember($pipelinePermission,"allPipelines") -and $pipelinePermission.allPipelines.authorized){
+                $isRsrcAccessibleToAnyPipeline = $true;
+            }
+            if([Helpers]::CheckMember($pipelinePermission[0],"pipelines") -and $pipelinePermission[0].pipelines.Count -gt 0){
+                $isRsrcAccessibleToAnyPipeline = $true;
+            }
+            #if resource is not accessible to any YAML pipeline, there is no need to add any branch control, hence passing the control
+            if($isRsrcAccessibleToAnyPipeline -eq $false){
+                $controlResult.AddMessage([VerificationResult]::Passed, "Variable group is not accessible to any YAML pipelines. Hence, branch control is not required.");
+                return $controlResult;
+            }
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+            $rmContext = [ContextHelper]::GetCurrentContext();
+            $user = "";
+            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'variablegroup'}]"
+            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the variable group.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the variable group."
+                $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the variable group."
+            }
+            else{
+                #we need to check only for two kinds of approvals and checks: manual approvals and branch controls, hence filtering these two out from the list
+                $branchControl = @()
+                $approvalControl = @()
+                try{
+                    $approvalAndChecks = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
+                    $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
+                }
+                catch{
+                    $branchControl = @()
+                }
+                #if branch control is not enabled, but manual approvers are added pass this control
+                if($branchControl.Count -eq 0){
+                    if($approvalControl.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Branch control has not been defined for the variable group. However, manual approvals have been added to the variable group.");
+                        $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                        $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                        $controlResult.AdditionalInfo += "List of approvers on variable group  $($approvers).";
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Branch control has not been defined for the variable group.");
+                        $controlResult.AdditionalInfo = "Branch control has not been defined for the variable group."
+                    }                    
+                }
+                else{
+                    $branches = ($branchControl.inputs.allowedBranches).Split(",");
+                    $branchesWithNoProtectionCheck = @($branchControl.inputs | where-object {$_.ensureProtectionOfBranch -eq $false})
+                    if("*" -in $branches){
+                        $controlResult.AddMessage([VerificationResult]::Failed, "All branches have been given access to the variable group.");
+                        $controlResult.AdditionalInfo = "All branches have been given access to the variable group."
+                    }
+                    elseif ($branchesWithNoProtectionCheck.Count -gt 0) {
+                        #check if branch protection is enabled on all the found branches depending upon the org policy
+                        if($this.ControlSettings.VariableGroup.CheckForBranchProtection){
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Access to the variable group has not been granted to all branches. However, verification of branch protection has not been enabled for some branches.");
+                            $branchesWithNoProtectionCheck = @(($branchesWithNoProtectionCheck.allowedBranches).Split(","));
+                            $controlResult.AddMessage("List of branches granted access to the variable group without verification of branch protection: ")
+                            $controlResult.AddMessage("$($branchesWithNoProtectionCheck | FT | Out-String)")
+                            $branchesWithProtection = @($branches | where {$branchesWithNoProtectionCheck -notcontains $_})
+                            if($branchesWithProtection.Count -gt 0){
+                                $controlResult.AddMessage("List of branches granted access to the variable group with verification of branch protection: ");
+                                $controlResult.AddMessage("$($branchesWithProtection | FT | Out-String)");
+                            }
+                            $controlResult.AdditionalInfo = "List of branches granted access to the variable group without verification of branch protection: $($branchesWithNoProtectionCheck)"
+                        }
+                        else{
+                            $controlResult.AddMessage([VerificationResult]::Passed, "Access to the variable group has not been granted to all branches.");
+                            $controlResult.AddMessage("List of branches granted access to the variable group: ");
+                            $controlResult.AddMessage("$($branches | FT | Out-String)");
+                        }
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Access to the variable group has not been granted to all branches. Verification of branch protection has been enabled for all allowed branches.");
+                        $controlResult.AddMessage("List of branches granted access to the variable group: ");
+                        $controlResult.AddMessage("$($branches | FT | Out-String)");
+                    }
+                }
+            }
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch variable group details.");
+        }
+
         return $controlResult;
     }
 }
