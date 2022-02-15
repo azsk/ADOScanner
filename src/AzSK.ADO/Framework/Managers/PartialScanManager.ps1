@@ -168,13 +168,11 @@ class PartialScanManager
 					else 
 					{
 						Write-Host "Could not find/create partial scan container in storage." -ForegroundColor Yellow
-						throw [SuppressedException] "Cannot find/create partial scan container.";
 					}
 				}
 			}
 			catch {
 				Write-Host "Exception when trying to find/create partial scan container: $_." -ForegroundColor Yellow
-				throw [SuppressedException] "Cannot find/create partial scan container.";
 				#Eat exception
 			}
 
