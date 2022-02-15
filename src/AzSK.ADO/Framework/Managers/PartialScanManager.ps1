@@ -167,12 +167,12 @@ class PartialScanManager
 					}
 					else 
 					{
-						$this.PublishCustomMessage("Could not find/create partial scan container in storage.", [MessageType]::Warning);
+						Write-Host "Could not find/create partial scan container in storage." -ForegroundColor Yellow
 					}
 				}
 			}
 			catch {
-				$this.PublishCustomMessage("Exception when trying to find/create partial scan container: $_.", [MessageType]::Warning);
+				Write-Host "Exception when trying to find/create partial scan container: $_." -ForegroundColor Yellow
 				#Eat exception
 			}
 
