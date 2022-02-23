@@ -1377,7 +1377,7 @@ class Organization: ADOSVTBase
                 if($OAuthObj.policy.effectiveValue -eq $true )
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Third-party application access via OAuth is enabled.");
-                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                    if ($this.ControlFixBackupRequired)
                     {
                         #Data object that will be required to fix the control                                    
                         $controlResult.BackupControlState = [PSCustomObject]@{
@@ -3753,7 +3753,7 @@ class Organization: ADOSVTBase
                 if($extPkgProtectionObj.policy.effectiveValue -eq $false )
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed,"Additional protection when using public package registries is disabled for the organization.");
-                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                    if ($this.ControlFixBackupRequired)
                     {
                         #Data object that will be required to fix the control                                    
                         $controlResult.BackupControlState = [PSCustomObject]@{
