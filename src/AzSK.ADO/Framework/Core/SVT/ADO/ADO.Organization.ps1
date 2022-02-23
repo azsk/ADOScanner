@@ -1377,12 +1377,48 @@ class Organization: ADOSVTBase
                 if($OAuthObj.policy.effectiveValue -eq $true )
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Third-party application access via OAuth is enabled.");
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                    {
+                        #Data object that will be required to fix the control                                    
+                        $controlResult.BackupControlState = [PSCustomObject]@{
+                            "Policy.DisallowOAuthAuthentication" = $true
+                        };
+                    }
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "Third-party application access via OAuth is disabled.");
                 }
             }
        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckOAuthAppAccessAutomatedFix([ControlResult] $controlResult)
+    {
+       try 
+        {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $body = ""
+
+            if (-not $this.UndoFix){
+                $body = '[{"from":"","op":2,"path":"/Value","value":"true"}]'
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Third-party application via OAuth have been disabled in the organization.");
+            }
+            else{
+                $body = '[{"from":"","op":2,"path":"/Value","value":"false"}]' 
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Third-party application via OAuth have been enabled in the organization.");
+            }
+
+            $url = "https://dev.azure.com/{0}/_apis/OrganizationPolicy/Policies/Policy.DisallowOAuthAuthentication?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json-patch+json" -Headers $header -Body $body
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
+        }
         return $controlResult
     }
 
@@ -3717,6 +3753,13 @@ class Organization: ADOSVTBase
                 if($extPkgProtectionObj.policy.effectiveValue -eq $false )
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed,"Additional protection when using public package registries is disabled for the organization.");
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                    {
+                        #Data object that will be required to fix the control                                    
+                        $controlResult.BackupControlState = [PSCustomObject]@{
+                            "Policy.ArtifactsExternalPackageProtectionToken" = $true
+                        };
+                    }
                 }
                 else
                 {
@@ -3731,6 +3774,35 @@ class Organization: ADOSVTBase
         else
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch security policy details of the organization.");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckExtPkgProtectionPolicyAutomatedFix([ControlResult] $controlResult)
+    {
+        try 
+        {
+            $RawDataObjForControlFix = @();
+            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+
+            $body = ""
+
+            if (-not $this.UndoFix){
+                $body = '[{"from":"","op":2,"path":"/Value","value":"true"}]'
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Additional protections when using public package registries have been enabled in the organization.");
+            }
+            else{
+                $body = '[{"from":"","op":2,"path":"/Value","value":"false"}]' 
+                $controlResult.AddMessage([VerificationResult]::Fixed, "Additional protections when using public package registries have been disabled in the organization.");
+            }
+
+            $url = "https://dev.azure.com/{0}/_apis/OrganizationPolicy/Policies/Policy.ArtifactsExternalPackageProtectionToken?api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName
+            $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
+            Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json-patch+json" -Headers $header -Body $body
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+            $controlResult.LogException($_)
         }
         return $controlResult
     }

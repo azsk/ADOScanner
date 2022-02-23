@@ -504,7 +504,8 @@
           "SDL",
           "TCP",
           "Automated",
-          "AuthZ"
+          "AuthZ",
+          "AutomatedFix"
       ],
       "Enabled": true
     },
@@ -666,7 +667,8 @@
         "TCP",
         "Automated",
         "AuthZ",
-        "MSW"
+        "MSW",
+        "AutomatedFix"
       ],
       "Enabled": true
   }
