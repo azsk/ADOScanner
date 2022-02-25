@@ -271,11 +271,11 @@
     },
     {
       "ControlID": "ADO_ServiceConnection_Dont_Grant_Broader_Group_Access_As_Approvers",
-      "Description": "Broader groups (contributors, project valid users, etc.) should not have excessive permissions on service connection.",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not be added as approvers on service connection.",
       "Id": "ServiceConnection270",
       "ControlSeverity": "High",
       "Automated": "Yes",
-      "MethodName": "CheckBroderGroupAccessForSvcConn",
+      "MethodName": "CheckBroaderGroupApproversOnSvcConn",
       "Rationale": " Any user/ group can be added as an approver to the service connection, which gives users the permission to approve any run of pipelines accessing the resource even if they do not have access to the service connection. To prevent illegitimate consumption and approval of the resource, ensure that broader groups are not added as approvers.",
       "Recommendation": "1. Navigate to the service connection --> 2. Click on 'Approvals and Checks' --> Remove Broader groups from Approvals. Refer to detailed scan log (ServiceConnection.LOG) for broader group list.",
       "Tags": [

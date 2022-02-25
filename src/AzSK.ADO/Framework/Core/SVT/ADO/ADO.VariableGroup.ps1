@@ -812,7 +812,7 @@ class VariableGroup: ADOSVTBase
         return $controlResult;
     }
 
-    hidden [ControlResult] CheckBroderGroupAccessForVariableGroup ([ControlResult] $controlResult) {
+    hidden [ControlResult] CheckBroaderGroupApproversOnVarGrp ([ControlResult] $controlResult) {
         try{
             $controlResult.VerificationResult = [VerificationResult]::Failed
             if ($null -eq $this.approvalsAndChecksObj) 
@@ -844,42 +844,39 @@ class VariableGroup: ADOSVTBase
                     $approvalControl = @()
                 }
 
-                 $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
-                 $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
-
                  if($approvalControl.Count -gt 0)
                  {
-                    # match all the identities added on VariableGroup with defined restricted list
+                    $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                    # match all the identities added on variable group with defined restricted list
                      $restrictedGroups = $approvalControl.settings.approvers | Where-Object { $restrictedBroaderGroupsForVarGrp -contains $_.displayName.split('\')[-1] } | select displayName
                      
-                    # fail the control if restricted group found on VariableGroup
+                    # fail the control if restricted group found on variable group
                     if($restrictedGroups)
                     {
-                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to VariableGroup: ", @($restrictedGroups).Count)
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant broader groups that have been added as approvers to VariableGroup.");
-                        $controlResult.AddMessage("Broader groups that have been added as approvers to VariableGroup.",$restrictedGroups)
-                        $controlResult.SetStateData("Broader groups that have been added as approvers to VariableGroup",$restrictedGroups)
-                        $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to VariableGroup: " + @($restrictedGroups).Count;
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to variable group: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on variable group.");
+                        $controlResult.AddMessage("Broader groups have been added as approvers to variable group.",$restrictedGroups)
+                        $controlResult.SetStateData("Broader groups have been added as approvers to variable group",$restrictedGroups)
+                        $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to variable group: " + @($restrictedGroups).Count;
                     }
                     else{
-                        $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups that have been added as approvers to VariableGroup.");
+                        $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to variable group.");
                         $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
-                        $controlResult.AdditionalInfo += "List of approvers on VariableGroup  $($approvers).";
+                        $controlResult.AdditionalInfo += "List of approvers on variable group  $($approvers).";
                     }
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups that have been added as approvers to VariableGroup.");
-                    $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
-                    $controlResult.AdditionalInfo += "List of approvers on VariableGroup  $($approvers).";
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to variable group.");
                 }   
              }  
              $displayObj = $restrictedBroaderGroupsForVarGrp | Select-Object @{Name = "Broader Group"; Expression = {$_}}
-             $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have excessive permissions: `n$($displayObj | FT | out-string -width 512)`n");                  
+             $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broader' groups which should not be added as approvers: `n$($displayObj | FT | out-string -width 512)`n");                  
              $restrictedGroups = $null;
              $restrictedBroaderGroupsForVarGrp = $null;  
         }
         catch{
-            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch VariableGroup details.");
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch variable group details.");
         }
         return $controlResult;
     }

@@ -131,11 +131,11 @@
           },
           {
             "ControlID": "ADO_VariableGroup_Dont_Grant_Broader_Group_Access_As_Approvers",
-            "Description": "Broader groups (contributors, project valid users, etc.) should not have excessive permissions on variableGroup.",
+            "Description": "Broader groups (contributors, project valid users, etc.) should not be added as approvers on variable group.",
             "Id": "VariableGroup190",
             "ControlSeverity": "High",
             "Automated": "Yes",
-            "MethodName": "CheckBroderGroupAccessForVariableGroup",
+            "MethodName": "CheckBroaderGroupApproversOnVarGrp",
             "Rationale": " Any user/ group can be added as an approver to the variableGroup, which gives users the permission to approve any run of pipelines accessing the resource even if they do not have access to the variableGroup. To prevent illegitimate consumption and approval of the resource, ensure that broader groups are not added as approvers.",
             "Recommendation": "1. Navigate to the variableGroup --> 2. Click on 'Approvals and Checks' --> Remove Broader groups from Approvals. Refer to detailed scan log (VariableGroup.LOG) for broader group list.",
             "Tags": [

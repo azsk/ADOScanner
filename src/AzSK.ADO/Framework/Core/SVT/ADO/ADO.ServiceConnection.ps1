@@ -1063,7 +1063,7 @@ class ServiceConnection: ADOSVTBase
         return $controlResult;
     }
 
-    hidden [ControlResult] CheckBroderGroupAccessForSvcConn ([ControlResult] $controlResult) {
+    hidden [ControlResult] CheckBroaderGroupApproversOnSvcConn ([ControlResult] $controlResult) {
         try{
             $controlResult.VerificationResult = [VerificationResult]::Failed
             if ($null -eq $this.approvalsAndChecksObj) 
@@ -1094,12 +1094,11 @@ class ServiceConnection: ADOSVTBase
                 catch{
                     $approvalControl = @()
                 }
-
-                 $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
-                 $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
                  
                  if($approvalControl.Count -gt 0)
                  {
+                    $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
                     # match all the identities added on service connection with defined restricted list
                      $restrictedGroups = $approvalControl.settings.approvers | Where-Object { $restrictedBroaderGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
                      
@@ -1107,25 +1106,23 @@ class ServiceConnection: ADOSVTBase
                     if($restrictedGroups)
                     {
                         $controlResult.AddMessage("Count of broader groups that have been added as approvers to service connection: ", @($restrictedGroups).Count)
-                        $controlResult.AddMessage([VerificationResult]::Failed,"Do not grant broader groups that have been added as approvers to service connections. Granting elevated permissions to these groups can risk exposure of service connections to unwarranted individuals.");
-                        $controlResult.AddMessage("Broader groups that have been added as approvers to service connection.",$restrictedGroups)
-                        $controlResult.SetStateData("Broader groups that have been added as approvers to service connection",$restrictedGroups)
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on service connection.");
+                        $controlResult.AddMessage("Broader groups have been added as approvers to service connection.",$restrictedGroups)
+                        $controlResult.SetStateData("Broader groups have been added as approvers to service connection",$restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to service connection: " + @($restrictedGroups).Count;
                     }
                     else{
-                        $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups that have been added as approvers to service connection.");
+                        $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to service connection.");
                         $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
                         $controlResult.AdditionalInfo += "List of approvers on service connection  $($approvers).";
                     }
                 }
                 else {
-                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups that have been added as approvers to service connection.");
-                    $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
-                    $controlResult.AdditionalInfo += "List of approvers on service connection  $($approvers).";
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to service connection.");
                 }   
             }  
             $displayObj = $restrictedBroaderGroupsForSerConn | Select-Object @{Name = "Broader Group"; Expression = {$_}}
-            $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broad' which should not have excessive permissions: `n$($displayObj | FT | out-string -width 512)`n");                  
+            $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broader' groups which should not be added as approvers: `n$($displayObj | FT | out-string -width 512)`n");                  
             $restrictedGroups = $null;
             $restrictedBroaderGroupsForSerConn = $null;  
         }
