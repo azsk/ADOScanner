@@ -440,6 +440,12 @@
       "Administrator",
       "User"
     ],
+    "RestrictedBroaderGroupsForApprovers": [
+      "Project Collection Valid Users",
+      "Project Valid Users",
+      "Contributors",
+      "Readers"
+    ],
     "CheckForInheritedPermissions": false,
     "CheckForBranchProtection":true
   },  
@@ -724,6 +730,12 @@
         "User"
       ]
     },
+    "RestrictedBroaderGroupsForApprovers": [
+      "Project Collection Valid Users",
+      "Project Valid Users",
+      "Contributors",
+      "Readers"
+    ],
     "CheckForInheritedPermissions": false,
     "CheckForBranchProtection":true
   },
