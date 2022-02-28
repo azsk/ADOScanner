@@ -1110,6 +1110,7 @@ class ServiceConnection: ADOSVTBase
                         $controlResult.AddMessage("Broader groups have been added as approvers to service connection.",$restrictedGroups)
                         $controlResult.SetStateData("Broader groups have been added as approvers to service connection",$restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to service connection: " + @($restrictedGroups).Count;
+                        $controlResult.AdditionalInfo += "List of broader groups added as approvers"+ @($restrictedGroups)
                     }
                     else{
                         $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to service connection.");
