@@ -341,6 +341,57 @@
         "AuthZ"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Repository_Dont_Grant_Broader_Group_Access_As_Approvers",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not be added as approvers on repository.",
+      "Id": "Repository170",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupApproversOnRepository",
+      "Rationale": " Any user/ group can be added as an approver to the Repository, which gives users the permission to approve any run of pipelines accessing the resource even if they do not have access to the Repository. To prevent illegitimate consumption and approval of the resource, ensure that broader groups are not added as approvers.",
+      "Recommendation": "1. Navigate to the Repository --> 2. Click on 'Approvals and Checks' --> Remove Broader groups from Approvals. Refer to detailed scan log (Repository.LOG) for broader group list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Environment_Dont_Grant_Broader_Group_Access_As_Approvers",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not be added as approvers on environment.",
+      "Id": "Environment150",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupApproversOnEnv",
+      "Rationale": "Any user/ group can be added as an approver to the environment, which gives users the permission to approve any run of pipelines accessing the resource even if they do not have access to the Environment. To prevent illegitimate consumption and approval of the resource, ensure that broader groups are not added as approvers.",
+      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Environments --> 4. Select your environment from the list --> 5. Click on the three dots in upper right corner --> 6. Select 'Approvals and checks' --> 7.  Remove Broader groups from Approvals. Refer to detailed scan log (Environment.LOG) for broader group list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_SecureFile_Dont_Grant_Broader_Group_Access_As_Approvers",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not be added as approvers on secure file.",
+      "Id": "SecureFile130",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupApproversOnSecureFile",
+      "Rationale": "Any user/ group can be added as an approver to the secure file, which gives users the permission to approve any run of pipelines accessing the resource even if they do not have access to the secure file. To prevent illegitimate consumption and approval of the resource, ensure that broader groups are not added as approvers.",
+      "Recommendation": "1. Navigate to the secure file --> 2. Select 'Approvals and checks' --> 7.  Remove Broader groups from Approvals. Refer to detailed scan log (SecureFile.LOG) for broader group list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
     }
   ]
 }

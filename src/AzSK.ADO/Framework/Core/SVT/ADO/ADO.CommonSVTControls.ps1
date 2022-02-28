@@ -10,6 +10,7 @@ class CommonSVTControls: ADOSVTBase {
     hidden [object] $repoInheritePermissions = @{};
     hidden [PSObject] $excessivePermissionBitsForRepo = @(1)
     hidden [PSObject] $excessivePermissionsForRepoBranch = $null;
+    hidden [PSObject] $approvalsAndChecksObj = $null;
     hidden [string] $repoPermissionSetId = "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87";
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
@@ -2074,6 +2075,217 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository details.");
         }
 
+        return $controlResult;
+    }
+    hidden [ControlResult] CheckBroaderGroupApproversOnRepository ([ControlResult] $controlResult) {
+        try{
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            if ($null -eq $this.approvalsAndChecksObj) 
+            {
+                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+                $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($projectId+"."+$this.ResourceContext.ResourceDetails.Id)','type':  'repository'}]"
+                $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            }
+
+            $restrictedGroups = @();
+            $restrictedBroaderGroupsForSerConn = $this.ControlSettings.Repo.RestrictedBroaderGroupsForApproversForRepo;
+
+            if([Helpers]::CheckMember($this.approvalsAndChecksObj, "count") -and  $this.approvalsAndChecksObj[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the repository.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the repository."
+             }
+             else
+             {
+             #we need to check for manual approvals and checks
+                $approvalControl = @()
+                try{
+                    $approvalAndChecks = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
+                }
+                catch{
+                    $approvalControl = @()
+                }
+                 
+                 if($approvalControl.Count -gt 0)
+                 {
+                    $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                    # match all the identities added on repository with defined restricted list
+                     $restrictedGroups = $approvalControl.settings.approvers | Where-Object { $restrictedBroaderGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
+                     
+                    # fail the control if restricted group found on repository
+                    if($restrictedGroups)
+                    {
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to repository: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on repository.");
+                        $controlResult.AddMessage("Broader groups have been added as approvers to repository.",$restrictedGroups)
+                        $controlResult.SetStateData("Broader groups have been added as approvers to repository",$restrictedGroups)
+                        $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to repository: " + @($restrictedGroups).Count;
+                        $controlResult.AdditionalInfo += "List of broader groups added as approvers to repository:"+ @($restrictedGroups)
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to repository.");
+                        $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                        $controlResult.AdditionalInfo += "List of approvers on repository  $($approvers).";
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to repository.");
+                }   
+            }  
+            $displayObj = $restrictedBroaderGroupsForSerConn | Select-Object @{Name = "Broader Group"; Expression = {$_}}
+            $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broader' groups which should not be added as approvers: `n$($displayObj | FT | out-string -width 512)`n");                  
+            $restrictedGroups = $null;
+            $restrictedBroaderGroupsForSerConn = $null;  
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository details.");
+        }
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupApproversOnEnv ([ControlResult] $controlResult) {
+        try{
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            if ($null -eq $this.approvalsAndChecksObj) 
+            {
+                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+                $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'environment'}]"
+                $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            }
+            $restrictedGroups = @();
+            $restrictedBroaderGroupsForSerConn = $this.ControlSettings.Environment.RestrictedBroaderGroupsForApproversForEnv;
+
+            if([Helpers]::CheckMember($this.approvalsAndChecksObj, "count") -and  $this.approvalsAndChecksObj[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the environment.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the environment."
+             }
+             else
+             {
+             #we need to check for manual approvals and checks
+                $approvalControl = @()
+                try{
+                    $approvalAndChecks = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
+                }
+                catch{
+                    $approvalControl = @()
+                }
+                 
+                 if($approvalControl.Count -gt 0)
+                 {
+                    $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                    # match all the identities added on environment with defined restricted list
+                     $restrictedGroups = $approvalControl.settings.approvers | Where-Object { $restrictedBroaderGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
+                     
+                    # fail the control if restricted group found on environment
+                    if($restrictedGroups)
+                    {
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to environment: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on environment.");
+                        $controlResult.AddMessage("Broader groups have been added as approvers to environment.",$restrictedGroups)
+                        $controlResult.SetStateData("Broader groups have been added as approvers to environment",$restrictedGroups)
+                        $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to environment: " + @($restrictedGroups).Count;
+                        $controlResult.AdditionalInfo += "List of broader groups added as approvers to environment:"+ @($restrictedGroups)
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to environment.");
+                        $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                        $controlResult.AdditionalInfo += "List of approvers on environment  $($approvers).";
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to environment.");
+                }   
+            }  
+            $displayObj = $restrictedBroaderGroupsForSerConn | Select-Object @{Name = "Broader Group"; Expression = {$_}}
+            $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broader' groups which should not be added as approvers: `n$($displayObj | FT | out-string -width 512)`n");                  
+            $restrictedGroups = $null;
+            $restrictedBroaderGroupsForSerConn = $null;  
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch environment details.");
+        }
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupApproversOnSecureFile ([ControlResult] $controlResult) {
+        try{
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            if ($null -eq $this.approvalsAndChecksObj) 
+            {
+                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+                $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'securefile'}]"
+                $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            }
+            $restrictedGroups = @();
+            $restrictedBroaderGroupsForSerConn = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForApproversForSecureFile;
+
+            if([Helpers]::CheckMember($this.approvalsAndChecksObj, "count") -and  $this.approvalsAndChecksObj[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the secure file.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
+             }
+             else
+             {
+             #we need to check for manual approvals and checks
+                $approvalControl = @()
+                try{
+                    $approvalAndChecks = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
+                }
+                catch{
+                    $approvalControl = @()
+                }
+                 
+                 if($approvalControl.Count -gt 0)
+                 {
+                    $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                    # match all the identities added on secure file with defined restricted list
+                     $restrictedGroups = $approvalControl.settings.approvers | Where-Object { $restrictedBroaderGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
+                     
+                    # fail the control if restricted group found on secure file
+                    if($restrictedGroups)
+                    {
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to secure file: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on secure file.");
+                        $controlResult.AddMessage("Broader groups have been added as approvers to secure file.",$restrictedGroups)
+                        $controlResult.SetStateData("Broader groups have been added as approvers to secure file",$restrictedGroups)
+                        $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to secure file: " + @($restrictedGroups).Count;
+                        $controlResult.AdditionalInfo += "List of broader groups added as approvers to secure file:"+ @($restrictedGroups)
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to secure file.");
+                        $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                        $controlResult.AdditionalInfo += "List of approvers on secure file  $($approvers).";
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to secure file.");
+                }   
+            }  
+            $displayObj = $restrictedBroaderGroupsForSerConn | Select-Object @{Name = "Broader Group"; Expression = {$_}}
+            $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broader' groups which should not be added as approvers: `n$($displayObj | FT | out-string -width 512)`n");                  
+            $restrictedGroups = $null;
+            $restrictedBroaderGroupsForSerConn = $null;  
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch secure file details.");
+        }
         return $controlResult;
     }
 }
