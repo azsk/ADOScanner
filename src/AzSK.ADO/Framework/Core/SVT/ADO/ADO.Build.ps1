@@ -2351,6 +2351,7 @@ class Build: ADOSVTBase
         try{
             $defaultBranch = $this.buildObj[0].repository.defaultBranch; 
             $controlResult.AddMessage("The default branch for the YAML pipeline is: "+$defaultBranch);
+            $controlResult.AdditionalInfo+="The default branch for the YAML pipeline is: "+$defaultBranch
             #if YAML file is in external source, branch protection cannot be determined, needs to be checked manually
             if( ($this.BuildObj[0].repository.type -ne 'TfsGit') -and ($this.BuildObj[0].repository.type -ne 'TfsVersionControl')){
                 $controlResult.AddMessage([VerificationResult]::Manual,"Pipeline is build on an external source. Branch protection cannot be verified.");
