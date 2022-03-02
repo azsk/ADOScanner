@@ -10,7 +10,6 @@ class CommonSVTControls: ADOSVTBase {
     hidden [object] $repoInheritePermissions = @{};
     hidden [PSObject] $excessivePermissionBitsForRepo = @(1)
     hidden [PSObject] $excessivePermissionsForRepoBranch = $null;
-    hidden [PSObject] $approvalsAndChecksObj = $null;
     hidden [string] $repoPermissionSetId = "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87";
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
@@ -2077,25 +2076,35 @@ class CommonSVTControls: ADOSVTBase {
 
         return $controlResult;
     }
+
+    hidden [PSObject] GetApprovalsAndChecksObj($projectId)
+    {
+        $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+        #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+        $rmContext = [ContextHelper]::GetCurrentContext();
+        $user = "";
+        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+        if ($this.ResourceContext.ResourceTypeName -eq "Repository")
+        {
+          #separate condition for repo because we are passing project id
+          $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($projectId+"."+$this.ResourceContext.ResourceDetails.Id)','type':  'repository'}]"
+        }
+         else{
+            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':'$($this.ResourceContext.ResourceTypeName)'}]"
+         }
+        $approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+        return $approvalsAndChecksObj 
+    }
+
     hidden [ControlResult] CheckBroaderGroupApproversOnRepository ([ControlResult] $controlResult) {
         try{
             $controlResult.VerificationResult = [VerificationResult]::Failed
             $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-            if ($null -eq $this.approvalsAndChecksObj) 
-            {
-                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-                $rmContext = [ContextHelper]::GetCurrentContext();
-                $user = "";
-                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-                $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($projectId+"."+$this.ResourceContext.ResourceDetails.Id)','type':  'repository'}]"
-                $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            }
-
+            $approvalsAndChecksObj = $this.GetApprovalsAndChecksObj($projectId)
             $restrictedGroups = @();
             $restrictedBroaderGroupsForSerConn = $this.ControlSettings.Repo.RestrictedBroaderGroupsForApproversForRepo;
 
-            if([Helpers]::CheckMember($this.approvalsAndChecksObj, "count") -and  $this.approvalsAndChecksObj[0].count -eq 0){
+            if([Helpers]::CheckMember($approvalsAndChecksObj, "count") -and  $approvalsAndChecksObj[0].count -eq 0){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the repository.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the repository."
              }
@@ -2104,7 +2113,7 @@ class CommonSVTControls: ADOSVTBase {
              #we need to check for manual approvals and checks
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
                 catch{
@@ -2152,20 +2161,11 @@ class CommonSVTControls: ADOSVTBase {
     hidden [ControlResult] CheckBroaderGroupApproversOnEnv ([ControlResult] $controlResult) {
         try{
             $controlResult.VerificationResult = [VerificationResult]::Failed
-            if ($null -eq $this.approvalsAndChecksObj) 
-            {
-                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-                $rmContext = [ContextHelper]::GetCurrentContext();
-                $user = "";
-                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-                $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'environment'}]"
-                $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            }
+            $approvalsAndChecksObj = $this.GetApprovalsAndChecksObj($null)
             $restrictedGroups = @();
             $restrictedBroaderGroupsForSerConn = $this.ControlSettings.Environment.RestrictedBroaderGroupsForApproversForEnv;
 
-            if([Helpers]::CheckMember($this.approvalsAndChecksObj, "count") -and  $this.approvalsAndChecksObj[0].count -eq 0){
+            if([Helpers]::CheckMember($approvalsAndChecksObj, "count") -and  $approvalsAndChecksObj[0].count -eq 0){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the environment.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the environment."
              }
@@ -2174,7 +2174,7 @@ class CommonSVTControls: ADOSVTBase {
              #we need to check for manual approvals and checks
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
                 catch{
@@ -2222,20 +2222,11 @@ class CommonSVTControls: ADOSVTBase {
     hidden [ControlResult] CheckBroaderGroupApproversOnSecureFile ([ControlResult] $controlResult) {
         try{
             $controlResult.VerificationResult = [VerificationResult]::Failed
-            if ($null -eq $this.approvalsAndChecksObj) 
-            {
-                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-                $rmContext = [ContextHelper]::GetCurrentContext();
-                $user = "";
-                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-                $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'securefile'}]"
-                $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            }
+            $approvalsAndChecksObj = $this.GetApprovalsAndChecksObj($null)
             $restrictedGroups = @();
             $restrictedBroaderGroupsForSerConn = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForApproversForSecureFile;
 
-            if([Helpers]::CheckMember($this.approvalsAndChecksObj, "count") -and  $this.approvalsAndChecksObj[0].count -eq 0){
+            if([Helpers]::CheckMember($approvalsAndChecksObj, "count") -and  $approvalsAndChecksObj[0].count -eq 0){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the secure file.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
              }
@@ -2244,7 +2235,7 @@ class CommonSVTControls: ADOSVTBase {
              #we need to check for manual approvals and checks
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
                 catch{
