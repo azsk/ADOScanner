@@ -268,6 +268,23 @@
         "AuthZ"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_ServiceConnection_DP_Use_Template_From_Protected_Branch",
+      "Description": "Allow service connections to be accessed by templates only from protected branches.",
+      "Id": "ServiceConnection270",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckTemplateBranchForSvcConn",
+      "Rationale": "If malicious users have 'contribute' permissions to the repository containing the template required to access the service connection, they can tamper the template itself and misuse the service connection. To prevent this, enable branch protection policies on the branch which contains the template required to access this resource.",
+      "Recommendation": "1. Navigate to the service connection --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the service connection to be accessed from. For additional protection, enable 'Verify branch protection'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
     }
   ]
 }
