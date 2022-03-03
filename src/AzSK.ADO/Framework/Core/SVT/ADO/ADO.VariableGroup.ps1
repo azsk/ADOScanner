@@ -833,15 +833,17 @@ class VariableGroup: ADOSVTBase
                 }
                 if($yamlTemplateControl.Count -gt 0){
                     $yamlChecks = $yamlTemplateControl.extendsChecks
-                    $unProtectedBranches = @()
-                    $protectedBranches = @()
-                    $unknownBranches = @()
+                    $unProtectedBranches = @() #for branches with no branch policy
+                    $protectedBranches = @() #for branches with branch policy
+                    $unknownBranches = @() #for branches from external sources
                     $yamlChecks | foreach {
                         $yamlCheck = $_
+                        #skip for any external source repo objects
                         if($yamlCheck.repositoryType -ne 'git'){
                             $unknownBranches += (@{branch = ($yamlCheck.repositoryRef);repository = ($yamlCheck.repositoryName)})
                             return;
                         }
+                        #repository name can be in two formats: "project/repo" OR for current project just "repo"
                         if($yamlCheck.repositoryName -like "*/*"){
                             $project = ($yamlCheck.repositoryName -split "/")[0]
                             $repository = ($yamlCheck.repositoryName -split "/")[1]
@@ -880,7 +882,8 @@ class VariableGroup: ADOSVTBase
                         else{
                             $unProtectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
                         }
-                    }   
+                    } 
+                    #if branches with no branch policy is found, fail the control  
                     if($unProtectedBranches.Count -gt 0){
                         $controlResult.AddMessage([VerificationResult]::Failed, "Required template on the variable group extends from unprotected branches.");
                         $unProtectedBranches =$unProtectedBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
@@ -888,13 +891,15 @@ class VariableGroup: ADOSVTBase
                         $controlResult.AddMessage("`nList of unprotected branches: ", $formattedGroupsTable)
                         $controlResult.SetStateData("List of unprotected branches: ", $formattedGroupsTable)
                     }
+                    #if branches from external sources are found, control needs to be evaluated manually
                     elseif($unknownBranches.Count -gt 0){
                         $controlResult.AddMessage([VerificationResult]::Manual, "Required template on the variable group extends from external sources.");
                         $unknownBranches =$unknownBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
                         $formattedGroupsTable = ($unknownBranches | FT -AutoSize | Out-String -width 512)
-                        $controlResult.AddMessage("`nList of unknown branches: ", $formattedGroupsTable)
-                        $controlResult.SetStateData("List of unknown branches: ", $formattedGroupsTable)
+                        $controlResult.AddMessage("`nList of branches from external sources: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of branches from external sources: ", $formattedGroupsTable)
                     }
+                    #if all branches are protected, pass the control
                     elseif($protectedBranches.Count -gt 0){
                         $controlResult.AddMessage([VerificationResult]::Passed, "Required template on the variable group extends from protected branches.");
                     }  
