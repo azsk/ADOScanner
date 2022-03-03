@@ -808,4 +808,54 @@ class VariableGroup: ADOSVTBase
 
         return $controlResult;
     }
+
+    hidden [ControlResult] CheckInactiveVarGrp([ControlResult] $controlResult){
+        $cloudmineResourceData = [ControlHelper]::GetInactiveControlDataFromCloudMine($this.OrganizationContext.OrganizationName,$this.ProjectId,$this.ResourceContext.ResourceDetails.Id,"VariableGroup")
+        if($cloudmineResourceData.Count -gt 0 -and -not([string]::IsNullOrEmpty($cloudmineResourceData.PipelineLastModified))){
+            $lastActivity = $cloudmineResourceData.PipelineLastModified
+            $inActivityDays = ((Get-Date) - [datetime] $lastActivity).Days
+            if ($inActivityDays -gt 180){
+                if($this.CheckIfResourceAccessibleToPipeline()){
+                    $controlResult.AddMessage([VerificationResult]::Manual, "Variable group is accessible to one or more pipelines. Inactivity cannot be determined");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Variable groups has not been used since $($inActivityDays) days.");                                      
+                }
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Passed, "Variable groups has been used within last 180 days.");
+            }
+            $formattedDate = ([datetime] $lastActivity).ToString("d MMM yyyy")
+            $controlResult.AddMessage("Variable group was last used on $($formattedDate)");
+            $controlResult.AddMessage("The variable group was last used by the pipeline: ")
+            $pipelineDetails = $cloudmineResourceData | Select @{l="Pipeline ID"; e={$_.PipelineID}},@{l="Pipeline type";e={$_.PipelineType}},@{l="Pipeline name";e={$_.PipelineName}}
+            $controlResult.AddMessage($pipelineDetails)
+            $controlResult.AdditionalInfo+="Variable group was last used on $($formattedDate)"
+            $controlResult.AdditionalInfo+="The variable group was last used by the pipeline: $($pipelineDetails)"
+        }
+        else{            
+            if($this.CheckIfResourceAccessibleToPipeline()){
+                $controlResult.AddMessage([VerificationResult]::Manual, "Variable group is accessible to one or more pipelines. Inactivity cannot be determined.");
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Failed, "Variable groups has not been used within last 1500 days.");
+                $controlResult.AddMessage("Details of pipelines using the variable group is not available.")                
+            }
+        }
+        return $controlResult;
+    }
+
+    hidden [bool] CheckIfResourceAccessibleToPipeline(){
+        $isRsrcAccessibleToAnyPipeline = $false;
+        $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/variablegroup/{2}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.VarGrpId)
+        $pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+        if([Helpers]::CheckMember($pipelinePermission,"allPipelines") -and $pipelinePermission.allPipelines.authorized){
+            $isRsrcAccessibleToAnyPipeline = $true;
+        }
+        if([Helpers]::CheckMember($pipelinePermission[0],"pipelines") -and $pipelinePermission[0].pipelines.Count -gt 0){
+            $isRsrcAccessibleToAnyPipeline = $true;
+        }
+        return $isRsrcAccessibleToAnyPipeline
+    }
+
 }

@@ -2076,4 +2076,33 @@ class CommonSVTControls: ADOSVTBase {
 
         return $controlResult;
     }
+
+    hidden [ControlResult] CheckInactiveSecureFile([ControlResult] $controlResult){
+        $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+        $cloudmineResourceData = [ControlHelper]::GetInactiveControlDataFromCloudMine($this.OrganizationContext.OrganizationName,$projectId,$this.ResourceContext.ResourceDetails.Id,"SecureFile")
+        if($cloudmineResourceData.Count -gt 0 -and -not([string]::IsNullOrEmpty($cloudmineResourceData.PipelineLastModified))){
+            $lastActivity = $cloudmineResourceData.PipelineLastModified
+            $inActivityDays = ((Get-Date) - [datetime] $lastActivity).Days
+            if ($inActivityDays -gt 180){
+                
+                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file has not been used since $($inActivityDays) days.");                                      
+                
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Passed, "Secure file has been used within last 180 days.");
+            }
+            $formattedDate = ([datetime] $lastActivity).ToString("d MMM yyyy")
+            $controlResult.AddMessage("Secure file was last used on $($formattedDate)");
+            $controlResult.AddMessage("The secure file was last used by the pipeline: ")
+            $pipelineDetails = $cloudmineResourceData | Select @{l="Pipeline ID"; e={$_.PipelineID}},@{l="Pipeline type";e={$_.PipelineType}},@{l="Pipeline name";e={$_.PipelineName}}
+            $controlResult.AddMessage($pipelineDetails)
+            $controlResult.AdditionalInfo+="Secure file was last used on $($formattedDate)"
+            $controlResult.AdditionalInfo+="The secure file was last used by the pipeline: $($pipelineDetails)"
+        }
+        else{ 
+            $controlResult.AddMessage([VerificationResult]::Manual, "Secure file has not been used in past 1500 days. Inactivity cannot be determined.");
+            
+        }
+        return $controlResult;
+    }
 }

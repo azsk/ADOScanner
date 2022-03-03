@@ -15,6 +15,8 @@ class ControlHelper: EventBase{
     static $GroupResolutionLevel = 1 # used to define the level of group expansion. Negative value indicates all level.
     static $UseSIPFeedForAADGroupExpansion = $false
     static $AADGroupsObjFromPolicy = $null
+    static [CloudmineDataHelper] $CloudmineDataHelperObj;
+    static $InactiveResources = @()
 
     #Checks if the severities passed by user are valid and filter out invalid ones
    hidden static [string []] CheckValidSeverities([string []] $ParamSeverities)
@@ -411,4 +413,17 @@ class ControlHelper: EventBase{
         }
         return $broaderGroupsWithExcessiveMembers
     } 
+
+    static [PSObject] GetInactiveControlDataFromCloudMine($organizationName,$projectId,$resourceId,$resourceType){
+        $resourceDetails = @()
+        [ControlHelper]::CloudmineDataHelperObj = [CloudmineDataHelper]::CloudmineDataHelperInstance
+        if (![ControlHelper]::CloudmineDataHelperObj) {
+            [ControlHelper]::CloudmineDataHelperObj = [CloudmineDataHelper]::GetInstance($organizationName);
+            [ControlHelper]::InactiveResources = [ControlHelper]::CloudmineDataHelperObj.GetCloudMineData($projectId)
+        }
+        $resourceDetails = @([ControlHelper]::InactiveResources | where {$_.ResourceType -eq $resourceType -and $_.ResourceID -eq $resourceId})
+        return $resourceDetails
+        
+    }
+
 }
