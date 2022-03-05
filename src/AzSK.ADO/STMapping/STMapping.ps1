@@ -32,17 +32,17 @@ function Get-AzSKADOServiceMapping
         $ProjectName,
 
         [string]
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [Alias("bfp")]
         $BuildMappingsFilePath,
 
         [string]
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [Alias("rfp")]
         $ReleaseMappingsFilePath,
 
         [string]
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [Alias("rpfp")]
         $ReposMappingsFilePath,
 
@@ -79,7 +79,12 @@ function Get-AzSKADOServiceMapping
         [switch]
         [Parameter(Mandatory=$false, HelpMessage="Use incremental scan from Cloudmine data to generate mappings")]
         [Alias("inc")]
-        $IncrementalScan
+        $IncrementalScan,
+
+        [switch]
+        [Parameter(Mandatory=$false, HelpMessage="Use incremental scan from Cloudmine data to generate mappings")]
+        [Alias("gird")]
+        $GenerateInactiveResourceDetails
 
     )
     Begin
@@ -149,6 +154,10 @@ function Get-AzSKADOServiceMapping
             }
 
             $resolver = [Resolver]::new($OrganizationName, $PATToken)
+            if($GenerateInactiveResourceDetails){
+                $mapping = [AzSKADOServiceMapping]::new($OrganizationName, $ProjectName, $MappingType, $PSCmdlet.MyInvocation)
+                return $mapping.InvokeFunction($mapping.GetInactiveResourceDetails);
+            }
             $mapping = [AzSKADOServiceMapping]::new($OrganizationName, $ProjectName, $BuildMappingsFilePath, $ReleaseMappingsFilePath, $ReposMappingsFilePath, $MappingType,$Auto,$UseCache,$IncrementalScan, $PSCmdlet.MyInvocation);
 
             return $mapping.InvokeFunction($mapping.GetSTmapping);
