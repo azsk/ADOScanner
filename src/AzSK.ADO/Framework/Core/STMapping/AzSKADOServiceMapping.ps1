@@ -33,7 +33,6 @@ class AzSKADOServiceMapping: CommandBase
     $storageCachedData = @();#inmemory cached mapping data    
     $lastDuration =0 #track previous resource scan duration
     $IncrementalScan = $false;
-    $buildObject = @()
 
 
 	AzSKADOServiceMapping([string] $organizationName, [string] $projectName, [string] $buildFileLocation, [string] $releaseFileLocation, [string] $repositoryFileLocation,[string] $mappingType,[string] $auto,[switch] $useCache, [switch] $IncrementalScan, [InvocationInfo] $invocationContext): 
@@ -229,11 +228,11 @@ class AzSKADOServiceMapping: CommandBase
         }   
         if($this.UseCache)
         {
-            #$buildRepoList = $this.storageCachedData | Where-Object {($_.ResourceType -eq 'Repo') -and ($_.PipelineType -eq 'Build')}            
-            #foreach($buildRepo in $buildRepoList)
-            #{
-            #    $this.BuildSTDetails.data+=@([PSCustomObject] @{ buildDefinitionName = $buildRepo.PipelineName; buildDefinitionID = $buildRepo.PipelineID; serviceID = $buildRepo.ServiceTreeID; projectName = $this.ProjectName; projectID = $buildRepo.ProjectID; orgName = $buildRepo.OrgName } )                            
-            #}
+            $buildRepoList = $this.storageCachedData | Where-Object {($_.ResourceType -eq 'Repo') -and ($_.PipelineType -eq 'Build')}            
+            foreach($buildRepo in $buildRepoList)
+            {
+                $this.BuildSTDetails.data+=@([PSCustomObject] @{ buildDefinitionName = $buildRepo.PipelineName; buildDefinitionID = $buildRepo.PipelineID; serviceID = $buildRepo.ServiceTreeID; projectName = $this.ProjectName; projectID = $buildRepo.ProjectID; orgName = $buildRepo.OrgName } )                            
+            }
         }
         else {
                    
@@ -293,11 +292,11 @@ class AzSKADOServiceMapping: CommandBase
         
         if($this.UseCache)
         {
-            #$releaseRepoList = $this.storageCachedData | Where-Object {($_.ResourceType -in ('Repo','ArtifactBuild')) -and ($_.PipelineType -eq 'Release')}
-            #foreach($releaseRepo in $releaseRepoList)
-            #{   
-            #    $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $releaseRepo.PipelineName; releaseDefinitionID = $releaseRepo.PipelineID; serviceID = $releaseRepo.ServiceTreeID; projectName = $this.ProjectName; projectID = $releaseRepo.ProjectID; orgName = $releaseRepo.OrgName } )                                                                                                                                                                                          
-            #}
+            $releaseRepoList = $this.storageCachedData | Where-Object {($_.ResourceType -in ('Repo','ArtifactBuild')) -and ($_.PipelineType -eq 'Release')}
+            foreach($releaseRepo in $releaseRepoList)
+            {   
+                $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $releaseRepo.PipelineName; releaseDefinitionID = $releaseRepo.PipelineID; serviceID = $releaseRepo.ServiceTreeID; projectName = $this.ProjectName; projectID = $releaseRepo.ProjectID; orgName = $releaseRepo.OrgName } )                                                                                                                                                                                          
+            }
         }
         else {       
             # Get Release-Repo mappings
@@ -1088,8 +1087,7 @@ class AzSKADOServiceMapping: CommandBase
          }
          else{
              $hash = $this.ServiceMappingCacheHelperObj.GetHashedTag($this.projectId, $pipelineID, $pipelineType,$resourceID,$resourceType) 
-         } 
-         #if(!$this.storageCachedData[0].value){return $resourceItem}        
+         }        
          $item = $this.storageCachedData | Where-Object -Property RowKey -eq $hash 
          #Check resource id present in cache without mapped with pipeline id
          if((!$item) -and  ($resourceType -notin ("Repo","ArtifactBuild"))){
@@ -1840,7 +1838,7 @@ class AzSKADOServiceMapping: CommandBase
                                         }
                                     }
                                     catch {
-                                        Write-Host $_
+                                        
                                     }                                          
 
                                 }  
@@ -1848,7 +1846,7 @@ class AzSKADOServiceMapping: CommandBase
                             
                         }
                         catch {
-                            Write-Host $_
+                            
                         }                                         
                     } 
                 }
