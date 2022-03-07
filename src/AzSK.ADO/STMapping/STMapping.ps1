@@ -96,7 +96,15 @@ function Get-AzSKADOServiceMapping
     Process
     {
         try 
-        {
+        {   
+
+            if(!$GenerateInactiveResourceDetails){
+                if(!$BuildMappingsFilePath -or !$ReposMappingsFilePath -or !$ReleaseMappingsFilePath){
+                    Write-Host "One or more mapping file path parameters is missing. Make sure to provide build, release and repo mapping file paths." -ForegroundColor Red
+                    return;
+                }
+            }
+
             if($PromptForPAT -eq $true)
             {
                 if($null -ne $PATToken)
