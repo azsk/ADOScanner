@@ -130,19 +130,20 @@
             "Enabled": true
           },
           {
-            "ControlID": "ADO_VariableGroup_Inactive",
-            "Description": "Allow variable groups to be accessed only by select branches.",
+            "ControlID": "ADO_VariableGroup_DP_Review_Inactive_VariableGroup",
+            "Description": "Inactive variable groups must be removed if no more required.",
             "Id": "VariableGroup190",
             "ControlSeverity": "Medium",
             "Automated": "Yes",
             "MethodName": "CheckInactiveVarGrp",
-            "Rationale": "Once a variable group is made accessible to a YAML pipeline, malicious users with 'create branch' permissions on the repository will be able to access the variable group by queueing the pipeline from the branch they select even if they do not have access to the variable group. To prevent this ensure that the variable group can be accessed only from select branches (eg. 'main').",
-            "Recommendation": "1. Navigate to the variable group --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the variable group to be accessed from. For additional protection, enable 'Verify branch protection'.",
+            "Rationale": "Variable groups may contain sensitive information such as secret variables or secrets from a key vault. Thus each inactive variable group can increase the exposure of such important information to a malicious user. To minimize this risk ensure that inactive variable groups are proactively deleted.",
+            "Recommendation": "1. Navigate to library --> 2. In the variable groups tab identify the inactive variable group --> 3. Click on the three dots --> 4. Select 'Delete'",
             "Tags": [
               "SDL",
               "TCP",
               "Automated",
-              "AuthZ"
+              "DP",
+              "AutomatedFromCloudmine"
             ],
             "Enabled": true
           }

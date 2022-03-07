@@ -36,6 +36,17 @@ class CommonSVTControls: ADOSVTBase {
 
     }
 
+    [ControlItem[]] ApplyServiceFilters([ControlItem[]] $controls)
+	{
+        $result = $controls;
+        # Applying filter to exclude certain controls based on Tag
+        if($this.OrganizationContext.OrganizationName -notin [Constants]::OrgsSupportingCMControls)
+        {
+            $result = $controls | Where-Object { $_.Tags -notcontains "AutomatedFromCloudmine" };
+		}
+		return $result;
+	}
+
     hidden [ControlResult] CheckInactiveRepo([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -2078,31 +2089,39 @@ class CommonSVTControls: ADOSVTBase {
     }
 
     hidden [ControlResult] CheckInactiveSecureFile([ControlResult] $controlResult){
-        $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-        $cloudmineResourceData = [ControlHelper]::GetInactiveControlDataFromCloudMine($this.OrganizationContext.OrganizationName,$projectId,$this.ResourceContext.ResourceDetails.Id,"SecureFile")
-        if($cloudmineResourceData.Count -gt 0 -and -not([string]::IsNullOrEmpty($cloudmineResourceData.PipelineLastModified))){
-            $lastActivity = $cloudmineResourceData.PipelineLastModified
-            $inActivityDays = ((Get-Date) - [datetime] $lastActivity).Days
-            if ($inActivityDays -gt 180){
-                
-                $controlResult.AddMessage([VerificationResult]::Failed, "Secure file has not been used since $($inActivityDays) days.");                                      
+        try{
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $cloudmineResourceData = [ControlHelper]::GetInactiveControlDataFromCloudMine($this.OrganizationContext.OrganizationName,$projectId,$this.ResourceContext.ResourceDetails.Id,"SecureFile")
+            if($cloudmineResourceData.Count -gt 0 -and -not([string]::IsNullOrEmpty($cloudmineResourceData.PipelineLastModified))){
+                $lastActivity = $cloudmineResourceData.PipelineLastModified
+                $inActivityDays = ((Get-Date) - [datetime] $lastActivity).Days
+                $inactiveLimit = $this.ControlSettings.SecureFile.SecureFileHistoryPeriodInDays
+                if ($inActivityDays -gt $inactiveLimit){
+                    
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Secure file has not been used since $($inActivityDays) days.");                                      
+                    
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Secure file has been used within last $($inactiveLimit) days.");
+                }
+                $formattedDate = ([datetime] $lastActivity).ToString("d MMM yyyy")
+                $controlResult.AddMessage("Secure file was last used on $($formattedDate)");
+                $controlResult.AddMessage("The secure file was last used by the pipeline: ")
+                $pipelineDetails = $cloudmineResourceData | Select @{l="Pipeline ID"; e={$_.PipelineID}},@{l="Pipeline type";e={$_.PipelineType}}
+                $controlResult.AddMessage($pipelineDetails)
+                $controlResult.AdditionalInfo+="Secure file was last used on $($formattedDate)"
+                $controlResult.AdditionalInfo+="The secure file was last used by the pipeline: $($pipelineDetails)"
+            }
+            else{ 
+                $controlResult.AddMessage([VerificationResult]::Manual, "Secure file has not been used in past 1500 days. Inactivity cannot be determined.");
                 
             }
-            else{
-                $controlResult.AddMessage([VerificationResult]::Passed, "Secure file has been used within last 180 days.");
-            }
-            $formattedDate = ([datetime] $lastActivity).ToString("d MMM yyyy")
-            $controlResult.AddMessage("Secure file was last used on $($formattedDate)");
-            $controlResult.AddMessage("The secure file was last used by the pipeline: ")
-            $pipelineDetails = $cloudmineResourceData | Select @{l="Pipeline ID"; e={$_.PipelineID}},@{l="Pipeline type";e={$_.PipelineType}},@{l="Pipeline name";e={$_.PipelineName}}
-            $controlResult.AddMessage($pipelineDetails)
-            $controlResult.AdditionalInfo+="Secure file was last used on $($formattedDate)"
-            $controlResult.AdditionalInfo+="The secure file was last used by the pipeline: $($pipelineDetails)"
         }
-        else{ 
-            $controlResult.AddMessage([VerificationResult]::Manual, "Secure file has not been used in past 1500 days. Inactivity cannot be determined.");
-            
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch secure file details.");
+            $controlResult.LogException($_);
         }
+        
         return $controlResult;
     }
 }

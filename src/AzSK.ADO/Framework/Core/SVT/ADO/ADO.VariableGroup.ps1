@@ -7,6 +7,7 @@ class VariableGroup: ADOSVTBase
     hidden [PSObject] $VarGrpId;
     hidden [string] $checkInheritedPermissionsPerVarGrp = $false
     hidden [PSObject] $variableGroupIdentities = $null;
+    hidden $pipelinePermission = $null;
     VariableGroup([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0];
@@ -18,6 +19,18 @@ class VariableGroup: ADOSVTBase
             $this.checkInheritedPermissionsPerVarGrp = $true
         }
     }
+
+    [ControlItem[]] ApplyServiceFilters([ControlItem[]] $controls)
+	{
+        $result = $controls;
+        # Applying filter to exclude certain controls based on Tag
+        if($this.OrganizationContext.OrganizationName -notin [Constants]::OrgsSupportingCMControls)
+        {
+            $result = $controls | Where-Object { $_.Tags -notcontains "AutomatedFromCloudmine" };
+		}
+		return $result;
+	}
+
     hidden [ControlResult] CheckPipelineAccess([ControlResult] $controlResult)
     {
         try
@@ -714,18 +727,8 @@ class VariableGroup: ADOSVTBase
 
     hidden [ControlResult] CheckBranchControlOnVariableGroup ([ControlResult] $controlResult) {
         try{
-            #check if resources is accessible even to a single pipeline
-            $isRsrcAccessibleToAnyPipeline = $false;
-            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/variablegroup/{2}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.VarGrpId)
-            $pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-            if([Helpers]::CheckMember($pipelinePermission,"allPipelines") -and $pipelinePermission.allPipelines.authorized){
-                $isRsrcAccessibleToAnyPipeline = $true;
-            }
-            if([Helpers]::CheckMember($pipelinePermission[0],"pipelines") -and $pipelinePermission[0].pipelines.Count -gt 0){
-                $isRsrcAccessibleToAnyPipeline = $true;
-            }
             #if resource is not accessible to any YAML pipeline, there is no need to add any branch control, hence passing the control
-            if($isRsrcAccessibleToAnyPipeline -eq $false){
+            if(!$this.CheckIfResourceAccessibleToPipeline()){
                 $controlResult.AddMessage([VerificationResult]::Passed, "Variable group is not accessible to any YAML pipelines. Hence, branch control is not required.");
                 return $controlResult;
             }
@@ -810,49 +813,59 @@ class VariableGroup: ADOSVTBase
     }
 
     hidden [ControlResult] CheckInactiveVarGrp([ControlResult] $controlResult){
-        $cloudmineResourceData = [ControlHelper]::GetInactiveControlDataFromCloudMine($this.OrganizationContext.OrganizationName,$this.ProjectId,$this.ResourceContext.ResourceDetails.Id,"VariableGroup")
-        if($cloudmineResourceData.Count -gt 0 -and -not([string]::IsNullOrEmpty($cloudmineResourceData.PipelineLastModified))){
-            $lastActivity = $cloudmineResourceData.PipelineLastModified
-            $inActivityDays = ((Get-Date) - [datetime] $lastActivity).Days
-            if ($inActivityDays -gt 180){
-                if($this.CheckIfResourceAccessibleToPipeline()){
-                    $controlResult.AddMessage([VerificationResult]::Manual, "Variable group is accessible to one or more pipelines. Inactivity cannot be determined");
+        try{
+            $cloudmineResourceData = [ControlHelper]::GetInactiveControlDataFromCloudMine($this.OrganizationContext.OrganizationName,$this.ProjectId,$this.ResourceContext.ResourceDetails.Id,"VariableGroup")
+            if($cloudmineResourceData.Count -gt 0 -and -not([string]::IsNullOrEmpty($cloudmineResourceData.PipelineLastModified))){
+                $lastActivity = $cloudmineResourceData.PipelineLastModified
+                $inActivityDays = ((Get-Date) - [datetime] $lastActivity).Days
+                $inactiveLimit = $this.ControlSettings.VariableGroup.VariableGroupHistoryPeriodInDays
+                if ($inActivityDays -gt $inactiveLimit){
+                    if($this.CheckIfResourceAccessibleToPipeline()){
+                        $controlResult.AddMessage([VerificationResult]::Manual, "Variable group is accessible to one or more pipelines. Inactivity cannot be determined");
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Variable group has not been used since $($inActivityDays) days.");                                      
+                    }
                 }
                 else{
-                    $controlResult.AddMessage([VerificationResult]::Failed, "Variable groups has not been used since $($inActivityDays) days.");                                      
+                    $controlResult.AddMessage([VerificationResult]::Passed, "Variable group has been used within last $($inactiveLimit) days.");
+                }
+                $formattedDate = ([datetime] $lastActivity).ToString("d MMM yyyy")
+                $controlResult.AddMessage("Variable group was last used on $($formattedDate)");
+                $controlResult.AddMessage("The variable group was last used by the pipeline: ")
+                $pipelineDetails = $cloudmineResourceData | Select @{l="Pipeline ID"; e={$_.PipelineID}},@{l="Pipeline type";e={$_.PipelineType}}
+                $controlResult.AddMessage($pipelineDetails)
+                $controlResult.AdditionalInfo+="Variable group was last used on $($formattedDate)"
+                $controlResult.AdditionalInfo+="The variable group was last used by the pipeline: $($pipelineDetails)"
+            }
+            else{            
+                if($this.CheckIfResourceAccessibleToPipeline()){
+                    $controlResult.AddMessage([VerificationResult]::Manual, "Variable group is accessible to one or more pipelines. Inactivity cannot be determined.");
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Failed, "Variable group has not been used within last 1500 days.");
+                    $controlResult.AddMessage("Details of pipelines using the variable group is not available.")                
                 }
             }
-            else{
-                $controlResult.AddMessage([VerificationResult]::Passed, "Variable groups has been used within last 180 days.");
-            }
-            $formattedDate = ([datetime] $lastActivity).ToString("d MMM yyyy")
-            $controlResult.AddMessage("Variable group was last used on $($formattedDate)");
-            $controlResult.AddMessage("The variable group was last used by the pipeline: ")
-            $pipelineDetails = $cloudmineResourceData | Select @{l="Pipeline ID"; e={$_.PipelineID}},@{l="Pipeline type";e={$_.PipelineType}},@{l="Pipeline name";e={$_.PipelineName}}
-            $controlResult.AddMessage($pipelineDetails)
-            $controlResult.AdditionalInfo+="Variable group was last used on $($formattedDate)"
-            $controlResult.AdditionalInfo+="The variable group was last used by the pipeline: $($pipelineDetails)"
         }
-        else{            
-            if($this.CheckIfResourceAccessibleToPipeline()){
-                $controlResult.AddMessage([VerificationResult]::Manual, "Variable group is accessible to one or more pipelines. Inactivity cannot be determined.");
-            }
-            else{
-                $controlResult.AddMessage([VerificationResult]::Failed, "Variable groups has not been used within last 1500 days.");
-                $controlResult.AddMessage("Details of pipelines using the variable group is not available.")                
-            }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch variable group details.");
+            $controlResult.LogException($_);
         }
+
         return $controlResult;
     }
 
     hidden [bool] CheckIfResourceAccessibleToPipeline(){
         $isRsrcAccessibleToAnyPipeline = $false;
-        $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/variablegroup/{2}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.VarGrpId)
-        $pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-        if([Helpers]::CheckMember($pipelinePermission,"allPipelines") -and $pipelinePermission.allPipelines.authorized){
+        if($null -eq $this.pipelinePermission){
+            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/variablegroup/{2}?api-version=6.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.VarGrpId)
+            $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+        }
+        if([Helpers]::CheckMember($this.pipelinePermission,"allPipelines") -and $this.pipelinePermission.allPipelines.authorized){
             $isRsrcAccessibleToAnyPipeline = $true;
         }
-        if([Helpers]::CheckMember($pipelinePermission[0],"pipelines") -and $pipelinePermission[0].pipelines.Count -gt 0){
+        if([Helpers]::CheckMember($this.pipelinePermission[0],"pipelines") -and $this.pipelinePermission[0].pipelines.Count -gt 0){
             $isRsrcAccessibleToAnyPipeline = $true;
         }
         return $isRsrcAccessibleToAnyPipeline

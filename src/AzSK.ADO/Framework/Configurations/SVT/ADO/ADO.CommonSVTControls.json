@@ -186,19 +186,20 @@
       "Enabled": true
     },
     {
-      "ControlID": "ADO_SecureFile_Inactive",
-      "Description": "Allow secure files to be accessed only by select branches.",
+      "ControlID": "ADO_SecureFile_DP_Review_Inactive_SecureFile",
+      "Description": "Inactive secure files must be removed if no more required.",
       "Id": "SecureFile130",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckInactiveSecureFile",
-      "Rationale": "Once a secure file is made accessible to a YAML pipeline, malicious users with contribute/'create branch' permissions on the repository will be able to access the secure file by queueing the pipeline from the branch they select even if they do not have access to the secure file. To prevent this ensure that the secure file can be accessed only from select branches (eg. 'main').",
-      "Recommendation": "1. Navigate to the secure file --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the secure file to be accessed from. For additional protection, enable 'Verify branch protection'.",
+      "Rationale": "Secure files can be used to store sensitive files such as SSH keys and signing certificates. Thus each inactive secure file can increase the exposure of such important information to a malicious user. To minimize this risk ensure that inactive secure files are proactively deleted.",
+      "Recommendation": "1. Navigate to library --> 2. In the secure files tab identify the inactive secure file --> 3. Click on the three dots --> 4. Select 'Delete'",
       "Tags": [
         "SDL",
         "TCP",
         "Automated",
-        "AuthZ"
+        "DP",
+        "AutomatedFromCloudmine"
       ],
       "Enabled": true
     },

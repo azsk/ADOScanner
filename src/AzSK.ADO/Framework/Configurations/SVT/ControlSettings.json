@@ -418,6 +418,7 @@
     "CheckForInheritedPermissions": false
   },
   "VariableGroup": {
+    "VariableGroupHistoryPeriodInDays": 180,
     "RestrictedBroaderGroupsForVariableGroup" : {
       "Contributors":[
         "Administrator",
@@ -561,6 +562,7 @@
     "RoleToChangeInFix":"Collaborator"
   },
   "SecureFile":{
+    "SecureFileHistoryPeriodInDays": 180,
     "RestrictedBroaderGroupsForSecureFile" : {
       "Contributors":[
         "Administrator",

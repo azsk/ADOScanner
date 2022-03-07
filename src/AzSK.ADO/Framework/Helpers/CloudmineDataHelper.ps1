@@ -10,7 +10,7 @@ class CloudmineDataHelper
     hidden [bool] $errorMsgDisplayed = $false
     hidden [string] $SharedKey
     hidden [object] $hmacsha
-    hidden [string] $Table = "variablegroups"
+    hidden [string] $Table = [Constants]::ResourceActivityDetailsTable
 
     CloudmineDataHelper([string] $orgName) {
         $this.OrganizationName = $orgName;
@@ -61,8 +61,6 @@ class CloudmineDataHelper
             }
         }
         catch {
-            Write-Host $_
-            Write-Host "Could not access storage account." -ForegroundColor Red
         }  
         
         return $azTableMappingInfo;
@@ -70,8 +68,7 @@ class CloudmineDataHelper
 
     hidden [object] GetDataFromTable($projectID){
         try 
-        {
-            #$hash = $this.GetHashedTag($projectID)            
+        {          
             $query = 'OrgName eq ''{0}'' and ProjectID eq ''{1}'''  -f $this.OrganizationName, $projectID                       
             $resource = '$filter='+[System.Web.HttpUtility]::UrlEncode($query);
             $table_url = "https://{0}.table.core.windows.net/{1}?{2}" -f $this.StorageAccount, $this.Table, $resource
@@ -81,8 +78,6 @@ class CloudmineDataHelper
         }
         catch
         {
-            #Write-Host $_
-            Write-Host "Could not fetch the entry for partition key from table storage or the table was not found.";
             return $null
         }
     }

@@ -228,10 +228,12 @@ class AzSKADOServiceMapping: CommandBase
         }   
         if($this.UseCache)
         {
-            $buildRepoList = $this.storageCachedData | Where-Object {($_.ResourceType -eq 'Repo') -and ($_.PipelineType -eq 'Build')}            
-            foreach($buildRepo in $buildRepoList)
-            {
-                $this.BuildSTDetails.data+=@([PSCustomObject] @{ buildDefinitionName = $buildRepo.PipelineName; buildDefinitionID = $buildRepo.PipelineID; serviceID = $buildRepo.ServiceTreeID; projectName = $this.ProjectName; projectID = $buildRepo.ProjectID; orgName = $buildRepo.OrgName } )                            
+            if([Helpers]::CheckMember($this.storageCachedData[0],"ResourceID")){
+                $buildRepoList = $this.storageCachedData | Where-Object {($_.ResourceType -eq 'Repo') -and ($_.PipelineType -eq 'Build')}            
+                foreach($buildRepo in $buildRepoList)
+                {
+                    $this.BuildSTDetails.data+=@([PSCustomObject] @{ buildDefinitionName = $buildRepo.PipelineName; buildDefinitionID = $buildRepo.PipelineID; serviceID = $buildRepo.ServiceTreeID; projectName = $this.ProjectName; projectID = $buildRepo.ProjectID; orgName = $buildRepo.OrgName } )                            
+                }
             }
         }
         else {
@@ -292,11 +294,14 @@ class AzSKADOServiceMapping: CommandBase
         
         if($this.UseCache)
         {
-            $releaseRepoList = $this.storageCachedData | Where-Object {($_.ResourceType -in ('Repo','ArtifactBuild')) -and ($_.PipelineType -eq 'Release')}
-            foreach($releaseRepo in $releaseRepoList)
-            {   
-                $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $releaseRepo.PipelineName; releaseDefinitionID = $releaseRepo.PipelineID; serviceID = $releaseRepo.ServiceTreeID; projectName = $this.ProjectName; projectID = $releaseRepo.ProjectID; orgName = $releaseRepo.OrgName } )                                                                                                                                                                                          
+            if([Helpers]::CheckMember($this.storageCachedData[0],"ResourceID")){
+                $releaseRepoList = $this.storageCachedData | Where-Object {($_.ResourceType -in ('Repo','ArtifactBuild')) -and ($_.PipelineType -eq 'Release')}
+                foreach($releaseRepo in $releaseRepoList)
+                {   
+                    $this.ReleaseSTDetails.data+=@([PSCustomObject] @{ releaseDefinitionName = $releaseRepo.PipelineName; releaseDefinitionID = $releaseRepo.PipelineID; serviceID = $releaseRepo.ServiceTreeID; projectName = $this.ProjectName; projectID = $releaseRepo.ProjectID; orgName = $releaseRepo.OrgName } )                                                                                                                                                                                          
+                }
             }
+
         }
         else {       
             # Get Release-Repo mappings
@@ -1081,6 +1086,9 @@ class AzSKADOServiceMapping: CommandBase
      #fetch resource mapping details from in-memory collection
      hidden [object] GetResourceDataFromCache($pipelineType,$pipelineID,$resourceType, $resourceID)
      {  
+         if(-not [Helpers]::CheckMember($this.storageCachedData[0],"ResourceID")){
+            return $null;
+         }
          $resourceItem =@()         
          if($this.IncrementalScan){
              $hash = $this.ServiceMappingCacheHelperObj.GetHashedTag($this.projectId, "", "",$resourceID,$resourceType) 
