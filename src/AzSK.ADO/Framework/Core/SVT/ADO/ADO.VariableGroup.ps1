@@ -818,7 +818,7 @@ class VariableGroup: ADOSVTBase
             $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
             $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'variablegroup'}]"
             $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+            if($response[0].count -eq 0){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the variable group.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the variable group."
             }
