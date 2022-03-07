@@ -341,6 +341,59 @@
         "AuthZ"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_SecureFile_DP_Use_Template_From_Protected_Branch",
+      "Description": "Allow secure file to be accessed by templates only from protected branches.",
+      "Id": "SecureFile130",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckTemplateBranchForSecureFile",
+      "Rationale": "If malicious users have 'contribute' permissions to the repository containing the template required to access the secure file, they can tamper the template itself and misuse the secure file. To prevent this, enable branch protection policies on the branch which contains the template required to access this resource.",
+      "Recommendation": "1. Navigate to the secure file --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the secure file to be accessed from. For additional protection, enable 'Verify branch protection'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Environment_DP_Use_Template_From_Protected_Branch",
+      "Description": "Allow environment to be accessed by templates only from protected branches.",
+      "Id": "Environment150",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckTemplateBranchForEnvironment",
+      "Rationale": "If malicious users have 'contribute' permissions to the repository containing the template required to access the environments, they can tamper the template itself and misuse the environments. To prevent this, enable branch protection policies on the branch which contains the template required to access this resource.",
+      "Recommendation": "1. Navigate to the environments --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the environments to be accessed from. For additional protection, enable 'Verify branch protection'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Repository_DP_Use_Template_From_Protected_Branch",
+      "Description": "Allow repositoris to be accessed by templates only from protected branches.",
+      "Id": "Repository170",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckTemplateBranchForRepository",
+      "Rationale": "If malicious users have 'contribute' permissions to the repository containing the template required to access the repositories, they can tamper the template itself and misuse the repositorie. To prevent this, enable branch protection policies on the branch which contains the template required to access this resource.",
+      "Recommendation": "1. Navigate to the repositories --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the repositorie to be accessed from. For additional protection, enable 'Verify branch protection'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
     }
+
+
   ]
 }
