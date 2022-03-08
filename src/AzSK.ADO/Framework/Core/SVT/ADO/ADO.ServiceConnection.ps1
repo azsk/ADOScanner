@@ -1135,21 +1135,24 @@ class ServiceConnection: ADOSVTBase
 
     hidden [ControlResult] CheckTemplateBranchForSvcConn ([ControlResult] $controlResult) {
         try{            
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'endpoint'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if($response[0].count -eq 0){
+            if ($null -eq $this.approvalsAndChecksObj) 
+            {
+                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+                $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'endpoint'}]"
+                $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            }
+            if($this.approvalsAndChecksObj[0].count -eq 0){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the service connection.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the service connection."
             }
             else{                
                 $yamlTemplateControl = @()
                 try{
-                    $yamlTemplateControl = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
                 }
                 catch{
@@ -1181,9 +1184,6 @@ class ServiceConnection: ADOSVTBase
                         $branch = $yamlCheck.repositoryRef                        
                         #policy API accepts only repo ID. Need to extract repo ID beforehand.
                         $url = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}?api-version=6.0" -f $this.OrganizationContext.OrganizationName,$project,$repository
-                        $response = @([WebRequestHelper]::InvokeGetWebRequest($url))
-                        $repoId = $response.id
-                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/policy/configurations?repositoryId={2}&refName={3}&api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName,$project,$repoId,$branch
                         $repoId = $null;
                         try{
                             $response = @([WebRequestHelper]::InvokeGetWebRequest($url))
@@ -1192,6 +1192,7 @@ class ServiceConnection: ADOSVTBase
                         catch{
                             return;
                         }
+                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/policy/configurations?repositoryId={2}&refName={3}&api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName,$project,$repoId,$branch
                         $policyConfigResponse = @([WebRequestHelper]::InvokeGetWebRequest($url))
                         if([Helpers]::CheckMember($policyConfigResponse[0],"id")){
                             $branchPolicy = @($policyConfigResponse | Where-Object {$_.isEnabled -and $_.isBlocking})
