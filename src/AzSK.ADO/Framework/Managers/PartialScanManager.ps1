@@ -1,6 +1,6 @@
 ﻿Set-StrictMode -Version Latest
 
-class PartialScanManager : EventBase
+class PartialScanManager
 {
 	hidden [string] $OrgName = $null;
 	hidden [string] $ProjectName = $null;
@@ -71,7 +71,7 @@ class PartialScanManager : EventBase
 		   {
 				$this.ResourceScanTrackerFileName = Join-Path $OrganizationName $([Constants]::ResourceScanTrackerBlobName)
 		   }
-        }		
+        }
 		$this.GetResourceScanTrackerObject();
 	}
 
@@ -166,13 +166,13 @@ class PartialScanManager : EventBase
 						$this.IsDurableStorageFound = $true
 					}
 					else 
-					{						
-						$this.PublishCustomMessage("Could not find/create partial scan container in storage.", [MessageType]::Warning)
+					{
+						Write-Host "Could not find/create partial scan container in storage." -ForegroundColor Yellow
 					}
 				}
 			}
-			catch {				
-				$this.PublishCustomMessage("Exception when trying to find/create partial scan container: $_.", [MessageType]::Warning)
+			catch {
+				Write-Host "Exception when trying to find/create partial scan container: $_." -ForegroundColor Yellow
 				#Eat exception
 			}
 
@@ -430,10 +430,10 @@ class PartialScanManager : EventBase
 					{
 						New-Item -ItemType Directory -Path "$this.AzSKTempStatePath" -ErrorAction Stop | Out-Null
 					}
-				}				
-				$this.PublishCustomMessage("Updating resource tracker file", [MessageType]::Warning)
-				[JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.MasterFilePath -Force				
-				$this.PublishCustomMessage("Resource tracker file updated", [MessageType]::Warning)
+				}
+				Write-Host "Updating resource tracker file" -ForegroundColor Yellow
+				[JsonHelper]::ConvertToJsonCustom($this.ResourceScanTrackerObj) | Out-File $this.MasterFilePath -Force
+				Write-Host "Resource tracker file updated" -ForegroundColor Yellow
 				
 			}
         }
@@ -481,8 +481,8 @@ class PartialScanManager : EventBase
                         $this.IsRTFAlreadyAvailable = $true;
 					}
 					catch
-					{						
-						$this.PublishCustomMessage("Could not update resource tracker file.", [MessageType]::Warning);
+					{
+						write-host "Could not update resource tracker file."
 					}		
 			    }
 			}
@@ -569,7 +569,7 @@ class PartialScanManager : EventBase
         catch{
             $this.ResourceScanTrackerObj = $null
             $this.ScanPendingForResources = $null
-			$this.PublishCustomMessage("RTF not found", [MessageType]::Warning);            
+            Write-Host "RTF not found"
         }
 	}
 
