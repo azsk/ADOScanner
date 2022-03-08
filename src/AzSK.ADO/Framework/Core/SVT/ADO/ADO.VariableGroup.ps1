@@ -6,7 +6,7 @@ class VariableGroup: ADOSVTBase
     hidden [PSObject] $ProjectId;
     hidden [PSObject] $VarGrpId;
     hidden [string] $checkInheritedPermissionsPerVarGrp = $false
-    hidden [PSObject] $variableGroupIdentities = $null;
+    hidden [PSObject] $variableGroupIdentities = $null;    
     VariableGroup([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0];
@@ -713,6 +713,8 @@ class VariableGroup: ADOSVTBase
     }
 
     hidden [ControlResult] CheckBranchControlOnVariableGroup ([ControlResult] $controlResult) {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $checkObj = $this.GetResourceApprovalCheck()
         try{
             #check if resources is accessible even to a single pipeline
             $isRsrcAccessibleToAnyPipeline = $false;
@@ -729,14 +731,7 @@ class VariableGroup: ADOSVTBase
                 $controlResult.AddMessage([VerificationResult]::Passed, "Variable group is not accessible to any YAML pipelines. Hence, branch control is not required.");
                 return $controlResult;
             }
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'variablegroup'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the variable group.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the variable group."
                 $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the variable group."
@@ -746,7 +741,7 @@ class VariableGroup: ADOSVTBase
                 $branchControl = @()
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($this.checkObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
@@ -805,7 +800,66 @@ class VariableGroup: ADOSVTBase
         catch{
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch variable group details.");
         }
+        return $controlResult;
+    }
 
+    hidden [ControlResult] CheckBroaderGroupApproversOnVarGrp ([ControlResult] $controlResult) {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $checkObj = $this.GetResourceApprovalCheck()        
+        try{              
+            $restrictedGroups = @();
+            $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForApprovers;
+
+            if(!$checkObj.ApprovalCheckObj){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the VariableGroup.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the VariableGroup."
+             }
+             else
+             {
+                $approvalControl = @()
+                try{
+                    $approvalAndChecks = @($this.checkObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
+                }
+                catch{
+                    $approvalControl = @()
+                }
+
+                 if($approvalControl.Count -gt 0)
+                 {
+                    $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                    # match all the identities added on variable group with defined restricted list
+                     $restrictedGroups = $approvalControl.settings.approvers | Where-Object { $restrictedBroaderGroupsForVarGrp -contains $_.displayName.split('\')[-1] } | select displayName
+                     
+                    # fail the control if restricted group found on variable group
+                    if($restrictedGroups)
+                    {
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to variable group: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on variable group.");
+                        $controlResult.AddMessage("Broader groups have been added as approvers to variable group.",$restrictedGroups)
+                        $controlResult.SetStateData("Broader groups have been added as approvers to variable group",$restrictedGroups)
+                        $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to variable group: " + @($restrictedGroups).Count;
+                        $controlResult.AdditionalInfo += "List of broader groups added as approvers"+ @($restrictedGroups)
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to variable group.");
+                        $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                        $controlResult.AdditionalInfo += "List of approvers on variable group  $($approvers).";
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to variable group.");
+                }   
+             }  
+             $displayObj = $restrictedBroaderGroupsForVarGrp | Select-Object @{Name = "Broader Group"; Expression = {$_}}
+             $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broader' groups which should not be added as approvers: `n$($displayObj | FT | out-string -width 512)`n");                  
+             $restrictedGroups = $null;
+             $restrictedBroaderGroupsForVarGrp = $null;  
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch variable group details.");
+        }
         return $controlResult;
     }
 }

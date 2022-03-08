@@ -754,16 +754,16 @@ class CommonSVTControls: ADOSVTBase {
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
         
-        $checkObj = $this.GetResourceApprovalCheck($this.ResourceContext.ResourceDetails.Name, $this.ResourceContext.ResourceGroupName, 'securefile', $this.ResourceContext.ResourceDetails.Id)
+        $checkObj = $this.GetResourceApprovalCheck()
         try{                       
-            if(!$checkObj.YAMLTemplateControl){
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the secure file.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
             }
             else{                
                 $yamlTemplateControl = @()
                 try{
-                    $yamlTemplateControl = @($checkObj.YAMLTemplateControl | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
                 }
                 catch{
@@ -1062,16 +1062,16 @@ class CommonSVTControls: ADOSVTBase {
     hidden [ControlResult] CheckTemplateBranchForEnvironment([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        $checkObj = $this.GetResourceApprovalCheck($this.ResourceContext.ResourceDetails.Name, $this.ResourceContext.ResourceGroupName, 'environment', $this.ResourceContext.ResourceDetails.Id)
+        $checkObj = $this.GetResourceApprovalCheck()
         try{            
-            if(!$checkObj.YAMLTemplateControl){
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the secure file.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
             }
             else{                
                 $yamlTemplateControl = @()
                 try{
-                    $yamlTemplateControl = @($checkObj.YAMLTemplateControl | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
                 }
                 catch{
@@ -1200,13 +1200,13 @@ class CommonSVTControls: ADOSVTBase {
 
     hidden [ControlResult] CheckPreDeploymentApproversOnEnv([ControlResult] $controlResult){
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        $checkObj = $this.GetResourceApprovalCheck($this.ResourceContext.ResourceDetails.Name, $this.ResourceContext.ResourceGroupName, 'environment', $this.ResourceContext.ResourceDetails.Id)
+        $checkObj = $this.GetResourceApprovalCheck()
         try{            
-            if(!$checkObj.YAMLTemplateControl){
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
             }
             else{
-                $approvals = @($checkObj.YAMLTemplateControl | Where-Object{$_.type.name -eq "Approval"})
+                $approvals = @($checkObj.ApprovalCheckObj | Where-Object{$_.type.name -eq "Approval"})
                 if($approvals.Count -eq 0){
                     $controlResult.AddMessage([VerificationResult]::Failed, "No approvals have been defined for the environment.");
                 }
@@ -1347,15 +1347,15 @@ class CommonSVTControls: ADOSVTBase {
 
     hidden [ControlResult] CheckBranchHygieneOnEnv([ControlResult] $controlResult){
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        $checkObj = $this.GetResourceApprovalCheck($this.ResourceContext.ResourceDetails.Name, $this.ResourceContext.ResourceGroupName, 'environment', $this.ResourceContext.ResourceDetails.Id)
+        $checkObj = $this.GetResourceApprovalCheck()
         try{           
-            if(!$checkObj.YAMLTemplateControl){
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
             }
             else{
                 $branchControl = @()
                 try{
-                    $branchControl = @($checkObj.YAMLTemplateControl | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $branchControl = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $branchControl = @($branchControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                 }
                 catch{
@@ -1909,16 +1909,16 @@ class CommonSVTControls: ADOSVTBase {
     hidden [ControlResult] CheckTemplateBranchForRepository([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        $checkObj = $this.GetResourceApprovalCheck($this.ResourceContext.ResourceDetails.Name, $this.ResourceContext.ResourceGroupName, 'repository', $this.ResourceContext.ResourceDetails.Id)
+        $checkObj = $this.GetResourceApprovalCheck()
         try{               
-            if(!$checkObj.YAMLTemplateControl){
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the secure file.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
             }
             else{                
                 $yamlTemplateControl = @()
                 try{
-                    $yamlTemplateControl = @($checkObj.YAMLTemplateControl | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
                 }
                 catch{
@@ -2215,7 +2215,7 @@ class CommonSVTControls: ADOSVTBase {
 
     hidden [ControlResult] CheckBranchControlOnSecureFile ([ControlResult] $controlResult) {
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        $checkObj = $this.GetResourceApprovalCheck($this.ResourceContext.ResourceDetails.Name, $this.ResourceContext.ResourceGroupName, 'securefile', $this.ResourceContext.ResourceDetails.Id)
+        $checkObj = $this.GetResourceApprovalCheck()
         try{
             #check if resources is accessible even to a single pipeline
             $isRsrcAccessibleToAnyPipeline = $false;
@@ -2234,7 +2234,7 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accessible to any YAML pipelines. Hence, branch control is not required.");
                 return $controlResult;
             }
-            if(!$checkObj.YAMLTemplateControl){
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the secure file.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
                 $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the secure file."
@@ -2244,7 +2244,7 @@ class CommonSVTControls: ADOSVTBase {
                 $branchControl = @()
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($checkObj.YAMLTemplateControl | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
@@ -2308,7 +2308,7 @@ class CommonSVTControls: ADOSVTBase {
     }
     hidden [ControlResult] CheckBranchControlOnRepository ([ControlResult] $controlResult) {
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        $checkObj = $this.GetResourceApprovalCheck($this.ResourceContext.ResourceDetails.Name, $this.ResourceContext.ResourceGroupName, 'repository', $this.ResourceContext.ResourceDetails.Id)
+        $checkObj = $this.GetResourceApprovalCheck()
         try{
             #check if resources is accessible even to a single pipeline
             $isRsrcAccessibleToAnyPipeline = $false;
@@ -2328,7 +2328,7 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Repository is not accessible to any YAML pipelines. Hence, branch control is not required.");
                 return $controlResult;
             }
-            if(!$checkObj.YAMLTemplateControl){
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the repository.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the repository."
                 $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the repository."
@@ -2338,7 +2338,7 @@ class CommonSVTControls: ADOSVTBase {
                 $branchControl = @()
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($checkObj.YAMLTemplateControl | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
@@ -2401,46 +2401,187 @@ class CommonSVTControls: ADOSVTBase {
         return $controlResult;
     }
 
-    [psobject]GetResourceApprovalCheck([string] $name, [string] $resourceGroupName, [string] $resourceType, [string] $resourceId)
-    { 
-            $approvalChecks = $this.ResourceApprovalChecks | Where-Object {($_.ResourceId -eq $($resourceId)) -and ($_.ResourceType -eq $($resourceType))}   
-            if(!$approvalChecks){    
-                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $resourceGroupName;
-                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-                $rmContext = [ContextHelper]::GetCurrentContext();
-                $user = "";
-                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken))) 
-                $body = "[{'name':  '$($name)','id':  '$($resourceId)','type':  '$($resourceType)'}]" 
-                if($resourceType -eq 'repository'){
-                    $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-                    $body = "[{'name':  '$($name)','id':  '$($projectId +"."+$resourceId)','type':  'repository'}]"
-                }                                       
-                $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-                $yamlTemplateControl = @()
-                if([Helpers]::CheckMember($response, "count") -and $response[0].count -gt 0){                                                         
-                    try{
-                        $yamlTemplateControl = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
-                    } catch{
-                        $yamlTemplateControl = @()
+    hidden [ControlResult] CheckBroaderGroupApproversOnRepository ([ControlResult] $controlResult) {
+        try{
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+            $approvalsAndChecksObj = $this.GetResourceApprovalCheck()
+            $restrictedGroups = @();
+            $restrictedBroaderGroupsForSerConn = $this.ControlSettings.Repo.RestrictedBroaderGroupsForApproversForRepo;
+
+            if($approvalsAndChecksObj[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the repository.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the repository."
+             }
+             else
+             {
+             #we need to check for manual approvals and checks
+                $approvalControl = @()
+                try{
+                    $approvalAndChecks = @($approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
+                }
+                catch{
+                    $approvalControl = @()
+                }
+                 
+                 if($approvalControl.Count -gt 0)
+                 {
+                    $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                    # match all the identities added on repository with defined restricted list
+                     $restrictedGroups = $approvalControl.settings.approvers | Where-Object { $restrictedBroaderGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
+                     
+                    # fail the control if restricted group found on repository
+                    if($restrictedGroups)
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on repository.");
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to repository: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage("List of broader groups that have been added as approvers to repository: ",$restrictedGroups)
+                        $controlResult.SetStateData("List of broader groups that have been added as approvers to repository: ",$restrictedGroups)
+                        $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to repository: " + @($restrictedGroups).Count;
+                        $controlResult.AdditionalInfo += "List of broader groups added as approvers to repository:"+ @($restrictedGroups)
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to repository.");
+                        $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                        $controlResult.AdditionalInfo += "List of approvers on repository  $($approvers).";
                     }
                 }
-                $svtResourceApprovalCheck = [ResourceApprovalCheck]::new();
-                $svtResourceApprovalCheck.ResourceType = $resourceType;
-                $svtResourceApprovalCheck.ResourceId = $resourceId;
-                $svtResourceApprovalCheck.YAMLTemplateControl = $yamlTemplateControl;
-                $this.ResourceApprovalChecks.add($svtResourceApprovalCheck);  
-            }     
-            
-            $approvalChecks = $this.ResourceApprovalChecks | Where-Object {($_.ResourceId -eq $($resourceId)) -and ($_.ResourceType -eq $($resourceType))} 
-            return $approvalChecks;
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to repository.");
+                }   
+            }  
+            $displayObj = $restrictedBroaderGroupsForSerConn | Select-Object @{Name = "Broader Group"; Expression = {$_}}
+            $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broader' groups which should not be added as approvers: `n$($displayObj | FT | out-string -width 512)`n");                  
+            $restrictedGroups = $null;
+            $restrictedBroaderGroupsForSerConn = $null;  
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository details.");
+        }
+        return $controlResult;
     }
-}
 
-#Class used to create Resource Approval Check list inside resolver
-class ResourceApprovalCheck
-{
-	[string] $ResourceId = "";	
-    [string] $ResourceName = ""; 
-    [string] $ResourceType = "";    
-    [PSObject] $YAMLTemplateControl;        
+    hidden [ControlResult] CheckBroaderGroupApproversOnEnv ([ControlResult] $controlResult) {
+        try{
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            $approvalsAndChecksObj = $this.GetResourceApprovalCheck()
+            $restrictedGroups = @();
+            $restrictedBroaderGroupsForSerConn = $this.ControlSettings.Environment.RestrictedBroaderGroupsForApproversForEnv;
+
+            if($approvalsAndChecksObj[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the environment.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the environment."
+             }
+             else
+             {
+             #we need to check for manual approvals and checks
+                $approvalControl = @()
+                try{
+                    $approvalAndChecks = @($approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
+                }
+                catch{
+                    $approvalControl = @()
+                }
+                 
+                 if($approvalControl.Count -gt 0)
+                 {
+                    $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                    # match all the identities added on environment with defined restricted list
+                     $restrictedGroups = $approvalControl.settings.approvers | Where-Object { $restrictedBroaderGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
+                     
+                    # fail the control if restricted group found on environment
+                    if($restrictedGroups)
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on environment.");
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to environment: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage("List of broader groups that have been added as approvers to environment: ",$restrictedGroups)
+                        $controlResult.SetStateData("List of broader groups that have been added as approvers to environment: ",$restrictedGroups)
+                        $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to environment: " + @($restrictedGroups).Count;
+                        $controlResult.AdditionalInfo += "List of broader groups added as approvers to environment:"+ @($restrictedGroups)
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to environment.");
+                        $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                        $controlResult.AdditionalInfo += "List of approvers on environment  $($approvers).";
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to environment.");
+                }   
+            }  
+            $displayObj = $restrictedBroaderGroupsForSerConn | Select-Object @{Name = "Broader Group"; Expression = {$_}}
+            $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broader' groups which should not be added as approvers: `n$($displayObj | FT | out-string -width 512)`n");                  
+            $restrictedGroups = $null;
+            $restrictedBroaderGroupsForSerConn = $null;  
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch environment details.");
+        }
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupApproversOnSecureFile ([ControlResult] $controlResult) {
+        try{
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            $approvalsAndChecksObj = $this.GetResourceApprovalCheck()
+            $restrictedGroups = @();
+            $restrictedBroaderGroupsForSerConn = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForApproversForSecureFile;
+
+            if($approvalsAndChecksObj[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the secure file.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
+             }
+             else
+             {
+             #we need to check for manual approvals and checks
+                $approvalControl = @()
+                try{
+                    $approvalAndChecks = @($approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
+                }
+                catch{
+                    $approvalControl = @()
+                }
+                 
+                 if($approvalControl.Count -gt 0)
+                 {
+                    $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                    # match all the identities added on secure file with defined restricted list
+                     $restrictedGroups = $approvalControl.settings.approvers | Where-Object { $restrictedBroaderGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
+                     
+                    # fail the control if restricted group found on secure file
+                    if($restrictedGroups)
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on secure file.");
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to secure file: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage("List of broader groups that have been added as approvers to secure file: ",$restrictedGroups)
+                        $controlResult.SetStateData("List of broader groups that have been added as approvers to secure file: ",$restrictedGroups)
+                        $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to secure file: " + @($restrictedGroups).Count;
+                        $controlResult.AdditionalInfo += "List of broader groups added as approvers to secure file:"+ @($restrictedGroups)
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to secure file.");
+                        $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                        $controlResult.AdditionalInfo += "List of approvers on secure file  $($approvers).";
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to secure file.");
+                }   
+            }  
+            $displayObj = $restrictedBroaderGroupsForSerConn | Select-Object @{Name = "Broader Group"; Expression = {$_}}
+            $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broader' groups which should not be added as approvers: `n$($displayObj | FT | out-string -width 512)`n");                  
+            $restrictedGroups = $null;
+            $restrictedBroaderGroupsForSerConn = $null;  
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch secure file details.");
+        }
+        return $controlResult;
+    }
 }
