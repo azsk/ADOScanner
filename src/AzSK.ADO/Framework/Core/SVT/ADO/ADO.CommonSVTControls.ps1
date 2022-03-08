@@ -10,7 +10,8 @@ class CommonSVTControls: ADOSVTBase {
     hidden [object] $repoInheritePermissions = @{};
     hidden [PSObject] $excessivePermissionBitsForRepo = @(1)
     hidden [PSObject] $excessivePermissionsForRepoBranch = $null;
-    hidden [string] $repoPermissionSetId = "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87";
+    hidden [string] $repoPermissionSetId = "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87";    
+    [System.Collections.Generic.List[ResourceApprovalCheck]] $ResourceApprovalChecks = @();    
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
@@ -32,7 +33,7 @@ class CommonSVTControls: ADOSVTBase {
             $this.checkInheritedPermissionsFeed = $true
         }
 
-        $this.excessivePermissionsForRepoBranch = $this.ControlSettings.Repo.ExcessivePermissionsForBranch        
+        $this.excessivePermissionsForRepoBranch = $this.ControlSettings.Repo.ExcessivePermissionsForBranch          
 
     }
 
@@ -752,22 +753,17 @@ class CommonSVTControls: ADOSVTBase {
     hidden [ControlResult] CheckTemplateBranchForSecureFile([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        try{            
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'securefile'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+        
+        $checkObj = $this.GetResourceApprovalCheck($this.ResourceContext.ResourceDetails.Name, $this.ResourceContext.ResourceGroupName, 'securefile', $this.ResourceContext.ResourceDetails.Id)
+        try{                       
+            if(!$checkObj.YAMLTemplateControl){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the secure file.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
             }
             else{                
                 $yamlTemplateControl = @()
                 try{
-                    $yamlTemplateControl = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($checkObj.YAMLTemplateControl | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
                 }
                 catch{
@@ -1066,22 +1062,16 @@ class CommonSVTControls: ADOSVTBase {
     hidden [ControlResult] CheckTemplateBranchForEnvironment([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
+        $checkObj = $this.GetResourceApprovalCheck($this.ResourceContext.ResourceDetails.Name, $this.ResourceContext.ResourceGroupName, 'environment', $this.ResourceContext.ResourceDetails.Id)
         try{            
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'environment'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+            if(!$checkObj.YAMLTemplateControl){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the secure file.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
             }
             else{                
                 $yamlTemplateControl = @()
                 try{
-                    $yamlTemplateControl = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($checkObj.YAMLTemplateControl | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
                 }
                 catch{
@@ -1930,24 +1920,16 @@ class CommonSVTControls: ADOSVTBase {
     hidden [ControlResult] CheckTemplateBranchForRepository([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        try{   
-            $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($projectId +"."+$this.ResourceContext.ResourceDetails.Id)','type':  'repository'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+        $checkObj = $this.GetResourceApprovalCheck($this.ResourceContext.ResourceDetails.Name, $this.ResourceContext.ResourceGroupName, 'repository', $this.ResourceContext.ResourceDetails.Id)
+        try{               
+            if(!$checkObj.YAMLTemplateControl){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the secure file.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
             }
             else{                
                 $yamlTemplateControl = @()
                 try{
-                    $yamlTemplateControl = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($checkObj.YAMLTemplateControl | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
                 }
                 catch{
@@ -2439,4 +2421,47 @@ class CommonSVTControls: ADOSVTBase {
 
         return $controlResult;
     }
+
+    [psobject]GetResourceApprovalCheck([string] $name, [string] $resourceGroupName, [string] $resourceType, [string] $resourceId)
+    { 
+            $approvalChecks = $this.ResourceApprovalChecks | Where-Object {($_.ResourceId -eq $($resourceId)) -and ($_.ResourceType -eq $($resourceType))}   
+            if(!$approvalChecks){    
+                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $resourceGroupName;
+                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken))) 
+                $body = "[{'name':  '$($name)','id':  '$($resourceId)','type':  '$($resourceType)'}]" 
+                if($resourceType -eq 'repository'){
+                    $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                    $body = "[{'name':  '$($name)','id':  '$($projectId +"."+$resourceId)','type':  'repository'}]"
+                }                                       
+                $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+                $yamlTemplateControl = @()
+                if([Helpers]::CheckMember($response, "count") -and $response[0].count -gt 0){                                                         
+                    try{
+                        $yamlTemplateControl = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    } catch{
+                        $yamlTemplateControl = @()
+                    }
+                }
+                $svtResourceApprovalCheck = [ResourceApprovalCheck]::new();
+                $svtResourceApprovalCheck.ResourceType = $resourceType;
+                $svtResourceApprovalCheck.ResourceId = $resourceId;
+                $svtResourceApprovalCheck.YAMLTemplateControl = $yamlTemplateControl;
+                $this.ResourceApprovalChecks.add($svtResourceApprovalCheck);  
+            }     
+            
+            $approvalChecks = $this.ResourceApprovalChecks | Where-Object {($_.ResourceId -eq $($resourceId)) -and ($_.ResourceType -eq $($resourceType))} 
+            return $approvalChecks;
+    }
+}
+
+#Class used to create Resource Approval Check list inside resolver
+class ResourceApprovalCheck
+{
+	[string] $ResourceId = "";	
+    [string] $ResourceName = ""; 
+    [string] $ResourceType = "";    
+    [PSObject] $YAMLTemplateControl;        
 }
