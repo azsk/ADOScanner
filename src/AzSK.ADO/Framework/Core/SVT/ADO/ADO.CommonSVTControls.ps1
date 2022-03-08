@@ -2104,7 +2104,7 @@ class CommonSVTControls: ADOSVTBase {
             $restrictedGroups = @();
             $restrictedBroaderGroupsForSerConn = $this.ControlSettings.Repo.RestrictedBroaderGroupsForApproversForRepo;
 
-            if([Helpers]::CheckMember($approvalsAndChecksObj, "count") -and  $approvalsAndChecksObj[0].count -eq 0){
+            if($approvalsAndChecksObj[0].count -eq 0){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the repository.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the repository."
              }
@@ -2130,10 +2130,10 @@ class CommonSVTControls: ADOSVTBase {
                     # fail the control if restricted group found on repository
                     if($restrictedGroups)
                     {
-                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to repository: ", @($restrictedGroups).Count)
                         $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on repository.");
-                        $controlResult.AddMessage("Broader groups have been added as approvers to repository.",$restrictedGroups)
-                        $controlResult.SetStateData("Broader groups have been added as approvers to repository",$restrictedGroups)
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to repository: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage("List of broader groups that have been added as approvers to repository: ",$restrictedGroups)
+                        $controlResult.SetStateData("List of broader groups that have been added as approvers to repository: ",$restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to repository: " + @($restrictedGroups).Count;
                         $controlResult.AdditionalInfo += "List of broader groups added as approvers to repository:"+ @($restrictedGroups)
                     }
@@ -2165,7 +2165,7 @@ class CommonSVTControls: ADOSVTBase {
             $restrictedGroups = @();
             $restrictedBroaderGroupsForSerConn = $this.ControlSettings.Environment.RestrictedBroaderGroupsForApproversForEnv;
 
-            if([Helpers]::CheckMember($approvalsAndChecksObj, "count") -and  $approvalsAndChecksObj[0].count -eq 0){
+            if($approvalsAndChecksObj[0].count -eq 0){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the environment.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the environment."
              }
@@ -2191,10 +2191,10 @@ class CommonSVTControls: ADOSVTBase {
                     # fail the control if restricted group found on environment
                     if($restrictedGroups)
                     {
-                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to environment: ", @($restrictedGroups).Count)
                         $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on environment.");
-                        $controlResult.AddMessage("Broader groups have been added as approvers to environment.",$restrictedGroups)
-                        $controlResult.SetStateData("Broader groups have been added as approvers to environment",$restrictedGroups)
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to environment: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage("List of broader groups that have been added as approvers to environment: ",$restrictedGroups)
+                        $controlResult.SetStateData("List of broader groups that have been added as approvers to environment: ",$restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to environment: " + @($restrictedGroups).Count;
                         $controlResult.AdditionalInfo += "List of broader groups added as approvers to environment:"+ @($restrictedGroups)
                     }
@@ -2226,7 +2226,7 @@ class CommonSVTControls: ADOSVTBase {
             $restrictedGroups = @();
             $restrictedBroaderGroupsForSerConn = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForApproversForSecureFile;
 
-            if([Helpers]::CheckMember($approvalsAndChecksObj, "count") -and  $approvalsAndChecksObj[0].count -eq 0){
+            if($approvalsAndChecksObj[0].count -eq 0){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the secure file.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
              }
@@ -2252,10 +2252,10 @@ class CommonSVTControls: ADOSVTBase {
                     # fail the control if restricted group found on secure file
                     if($restrictedGroups)
                     {
-                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to secure file: ", @($restrictedGroups).Count)
                         $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on secure file.");
-                        $controlResult.AddMessage("Broader groups have been added as approvers to secure file.",$restrictedGroups)
-                        $controlResult.SetStateData("Broader groups have been added as approvers to secure file",$restrictedGroups)
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to secure file: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage("List of broader groups that have been added as approvers to secure file: ",$restrictedGroups)
+                        $controlResult.SetStateData("List of broader groups that have been added as approvers to secure file: ",$restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to secure file: " + @($restrictedGroups).Count;
                         $controlResult.AdditionalInfo += "List of broader groups added as approvers to secure file:"+ @($restrictedGroups)
                     }
