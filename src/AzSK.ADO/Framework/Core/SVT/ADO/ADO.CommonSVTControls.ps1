@@ -1200,19 +1200,13 @@ class CommonSVTControls: ADOSVTBase {
 
     hidden [ControlResult] CheckPreDeploymentApproversOnEnv([ControlResult] $controlResult){
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        try{
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'environment'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+        $checkObj = $this.GetResourceApprovalCheck($this.ResourceContext.ResourceDetails.Name, $this.ResourceContext.ResourceGroupName, 'environment', $this.ResourceContext.ResourceDetails.Id)
+        try{            
+            if(!$checkObj.YAMLTemplateControl){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
             }
             else{
-                $approvals = @($response.value | Where-Object{$_.type.name -eq "Approval"})
+                $approvals = @($checkObj.YAMLTemplateControl | Where-Object{$_.type.name -eq "Approval"})
                 if($approvals.Count -eq 0){
                     $controlResult.AddMessage([VerificationResult]::Failed, "No approvals have been defined for the environment.");
                 }
@@ -1352,21 +1346,16 @@ class CommonSVTControls: ADOSVTBase {
 
 
     hidden [ControlResult] CheckBranchHygieneOnEnv([ControlResult] $controlResult){
-        try{
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'environment'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $checkObj = $this.GetResourceApprovalCheck($this.ResourceContext.ResourceDetails.Name, $this.ResourceContext.ResourceGroupName, 'environment', $this.ResourceContext.ResourceDetails.Id)
+        try{           
+            if(!$checkObj.YAMLTemplateControl){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
             }
             else{
                 $branchControl = @()
                 try{
-                    $branchControl = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $branchControl = @($checkObj.YAMLTemplateControl | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $branchControl = @($branchControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                 }
                 catch{
@@ -2225,6 +2214,8 @@ class CommonSVTControls: ADOSVTBase {
     }
 
     hidden [ControlResult] CheckBranchControlOnSecureFile ([ControlResult] $controlResult) {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $checkObj = $this.GetResourceApprovalCheck($this.ResourceContext.ResourceDetails.Name, $this.ResourceContext.ResourceGroupName, 'securefile', $this.ResourceContext.ResourceDetails.Id)
         try{
             #check if resources is accessible even to a single pipeline
             $isRsrcAccessibleToAnyPipeline = $false;
@@ -2243,14 +2234,7 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accessible to any YAML pipelines. Hence, branch control is not required.");
                 return $controlResult;
             }
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'securefile'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+            if(!$checkObj.YAMLTemplateControl){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the secure file.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
                 $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the secure file."
@@ -2260,7 +2244,7 @@ class CommonSVTControls: ADOSVTBase {
                 $branchControl = @()
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($checkObj.YAMLTemplateControl | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
@@ -2323,6 +2307,8 @@ class CommonSVTControls: ADOSVTBase {
         return $controlResult;
     }
     hidden [ControlResult] CheckBranchControlOnRepository ([ControlResult] $controlResult) {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $checkObj = $this.GetResourceApprovalCheck($this.ResourceContext.ResourceDetails.Name, $this.ResourceContext.ResourceGroupName, 'repository', $this.ResourceContext.ResourceDetails.Id)
         try{
             #check if resources is accessible even to a single pipeline
             $isRsrcAccessibleToAnyPipeline = $false;
@@ -2342,14 +2328,7 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Repository is not accessible to any YAML pipelines. Hence, branch control is not required.");
                 return $controlResult;
             }
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($projectId+"."+$this.ResourceContext.ResourceDetails.Id)','type':  'repository'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+            if(!$checkObj.YAMLTemplateControl){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the repository.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the repository."
                 $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the repository."
@@ -2359,7 +2338,7 @@ class CommonSVTControls: ADOSVTBase {
                 $branchControl = @()
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($checkObj.YAMLTemplateControl | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
