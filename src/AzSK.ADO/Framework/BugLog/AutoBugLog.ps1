@@ -211,7 +211,7 @@ class AutoBugLog : EventBase  {
                             elseif ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First * Non_Alt_Admins*") {
                                 $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("Non_Alt_Admins:"))[-1].split(':')[1].split(';')[0]
                             }
-                            elseif($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*List of non-ALT accounts:*"){
+                            elseif($ControlResults[0].ControlResults.AdditionalInfoInCSV -like ("*"+$this.ControlSettings.Buglogging.AdditionalInfoRegex+"*")){
                                 $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("List of non-ALT accounts:"))[-1].split(':')[1].split(';')[0]
                             }
                             else {
