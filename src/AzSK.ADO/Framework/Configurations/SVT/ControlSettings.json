@@ -440,6 +440,12 @@
       "Administrator",
       "User"
     ],
+    "RestrictedBroaderGroupsForApprovers": [
+      "Project Collection Valid Users",
+      "Project Valid Users",
+      "Contributors",
+      "Readers"
+    ],
     "CheckForInheritedPermissions": false,
     "CheckForBranchProtection":true
   },  
@@ -579,6 +585,12 @@
         "User"
       ]
     },
+    "RestrictedBroaderGroupsForApproversForSecureFile": [
+      "Project Collection Valid Users",
+      "Project Valid Users",
+      "Contributors",
+      "Readers"
+    ],
     "CheckForInheritedPermissions": false,
     "CheckForBranchProtection":true
   },
@@ -601,6 +613,12 @@
         "User"
       ]
     },
+    "RestrictedBroaderGroupsForApproversForEnv": [
+      "Project Collection Valid Users",
+      "Project Valid Users",
+      "Contributors",
+      "Readers"
+    ],
     "CheckForInheritedPermissions": false
   },
   "Repo": {
@@ -653,6 +671,12 @@
         "Rename repository"
       ]
     },
+    "RestrictedBroaderGroupsForApproversForRepo": [
+      "Project Collection Valid Users",
+      "Project Valid Users",
+      "Contributors",
+      "Readers"
+    ],
     "BranchesToCheckForExcessivePermissions":[
       "main",
       "master",
@@ -724,6 +748,12 @@
         "User"
       ]
     },
+    "RestrictedBroaderGroupsForApprovers": [
+      "Project Collection Valid Users",
+      "Project Valid Users",
+      "Contributors",
+      "Readers"
+    ],
     "CheckForInheritedPermissions": false,
     "CheckForBranchProtection":true
   },
