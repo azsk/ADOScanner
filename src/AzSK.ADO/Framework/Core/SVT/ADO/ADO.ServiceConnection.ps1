@@ -10,6 +10,7 @@ class ServiceConnection: ADOSVTBase
     hidden [PSObject] $SvcConnActivityDetail = @{isSvcConnActive = $true; svcConnLastRunDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden static $IsOAuthScan = $false;
     hidden [string] $checkInheritedPermissionsPerSvcConn = $false
+    hidden [PSObject] $approvalsAndChecksObj = $null;
     ServiceConnection([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         if(-not [string]::IsNullOrWhiteSpace($env:RefreshToken) -and -not [string]::IsNullOrWhiteSpace($env:ClientSecret))  # this if block will be executed for OAuth based scan
@@ -979,14 +980,17 @@ class ServiceConnection: ADOSVTBase
                 $controlResult.AddMessage([VerificationResult]::Passed, "Service connection is not accessible to any YAML pipelines. Hence, branch control is not required.");
                 return $controlResult;
             }
+            if ($null -eq $this.approvalsAndChecksObj) 
+            {
             $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
             #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
             $rmContext = [ContextHelper]::GetCurrentContext();
             $user = "";
             $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
             $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'endpoint'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+            $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            }
+            if([Helpers]::CheckMember($this.approvalsAndChecksObj, "count") -and $this.approvalsAndChecksObj[0].count -eq 0){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the service connection.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the service connection."
                 $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the service connection."
@@ -996,7 +1000,7 @@ class ServiceConnection: ADOSVTBase
                 $branchControl = @()
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
@@ -1056,7 +1060,76 @@ class ServiceConnection: ADOSVTBase
         catch{
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch service connection details.");
         }
+        return $controlResult;
+    }
 
+    hidden [ControlResult] CheckBroaderGroupApproversOnSvcConn ([ControlResult] $controlResult) {
+        try{
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            if ($null -eq $this.approvalsAndChecksObj) 
+            {
+                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+                $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'endpoint'}]"
+                $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            }
+            $restrictedGroups = @();
+            $restrictedBroaderGroupsForSerConn = $this.ControlSettings.ServiceConnection.RestrictedBroaderGroupsForApprovers;
+
+            if([Helpers]::CheckMember($this.approvalsAndChecksObj, "count") -and  $this.approvalsAndChecksObj[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the service connection.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the service connection."
+             }
+             else
+             {
+             #we need to check for manual approvals and checks
+                $approvalControl = @()
+                try{
+                    $approvalAndChecks = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
+                }
+                catch{
+                    $approvalControl = @()
+                }
+                 
+                 if($approvalControl.Count -gt 0)
+                 {
+                    $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                    # match all the identities added on service connection with defined restricted list
+                     $restrictedGroups = $approvalControl.settings.approvers | Where-Object { $restrictedBroaderGroupsForSerConn -contains $_.displayName.split('\')[-1] } | select displayName
+                     
+                    # fail the control if restricted group found on service connection
+                    if($restrictedGroups)
+                    {
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to service connection: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on service connection.");
+                        $controlResult.AddMessage("Broader groups have been added as approvers to service connection.",$restrictedGroups)
+                        $controlResult.SetStateData("Broader groups have been added as approvers to service connection",$restrictedGroups)
+                        $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to service connection: " + @($restrictedGroups).Count;
+                        $controlResult.AdditionalInfo += "List of broader groups added as approvers"+ @($restrictedGroups)
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to service connection.");
+                        $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                        $controlResult.AdditionalInfo += "List of approvers on service connection  $($approvers).";
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to service connection.");
+                }   
+            }  
+            $displayObj = $restrictedBroaderGroupsForSerConn | Select-Object @{Name = "Broader Group"; Expression = {$_}}
+            $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broader' groups which should not be added as approvers: `n$($displayObj | FT | out-string -width 512)`n");                  
+            $restrictedGroups = $null;
+            $restrictedBroaderGroupsForSerConn = $null;  
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch service connection details.");
+        }
         return $controlResult;
     }
 }
