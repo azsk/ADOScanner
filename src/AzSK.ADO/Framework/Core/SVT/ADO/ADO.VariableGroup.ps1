@@ -27,7 +27,9 @@ class VariableGroup: ADOSVTBase
         # Applying filter to exclude certain controls based on Tag
         if($this.OrganizationContext.OrganizationName -notin [Constants]::OrgsSupportingCMControls)
         {
-            $result = $controls | Where-Object { $_.Tags -notcontains "AutomatedFromCloudmine" };
+            if($null -eq $env:OrgsSupportingCM -or $this.OrganizationContext.OrganizationName -ne $env:OrgsSupportingCM){
+                $result = $controls | Where-Object { $_.Tags -notcontains "AutomatedFromCloudmine" };
+            }
 		}
 		return $result;
 	}

@@ -42,7 +42,9 @@ class CommonSVTControls: ADOSVTBase {
         # Applying filter to exclude certain controls based on Tag
         if($this.OrganizationContext.OrganizationName -notin [Constants]::OrgsSupportingCMControls)
         {
-            $result = $controls | Where-Object { $_.Tags -notcontains "AutomatedFromCloudmine" };
+            if($null -eq $env:OrgsSupportingCM -or $this.OrganizationContext.OrganizationName -ne $env:OrgsSupportingCM){
+                $result = $controls | Where-Object { $_.Tags -notcontains "AutomatedFromCloudmine" };
+            }
 		}
 		return $result;
 	}
@@ -2084,11 +2086,9 @@ class CommonSVTControls: ADOSVTBase {
         catch{
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch repository details.");
         }
-
         return $controlResult;
     }
 
-<<<<<<< 2203/users/juhi/cloudmine
     hidden [ControlResult] CheckInactiveSecureFile([ControlResult] $controlResult){
         try{
             $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
@@ -2122,8 +2122,8 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch secure file details.");
             $controlResult.LogException($_);
         }
+    }
         
-=======
     hidden [PSObject] GetApprovalsAndChecksObj($projectId)
     {
         $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
@@ -2324,7 +2324,6 @@ class CommonSVTControls: ADOSVTBase {
         catch{
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch secure file details.");
         }
->>>>>>> develop
         return $controlResult;
     }
 }
