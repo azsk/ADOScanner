@@ -130,7 +130,6 @@
             "Enabled": true
           },
           {
-<<<<<<< 2203/users/juhi/cloudmine
             "ControlID": "ADO_VariableGroup_DP_Review_Inactive_VariableGroup",
             "Description": "Inactive variable groups must be removed if no more required.",
             "Id": "VariableGroup190",
@@ -139,7 +138,16 @@
             "MethodName": "CheckInactiveVarGrp",
             "Rationale": "Variable groups may contain sensitive information such as secret variables or secrets from a key vault. Thus each inactive variable group can increase the exposure of such important information to a malicious user. To minimize this risk ensure that inactive variable groups are proactively deleted.",
             "Recommendation": "1. Navigate to library --> 2. In the variable groups tab identify the inactive variable group --> 3. Click on the three dots --> 4. Select 'Delete'",
-=======
+            "Tags": [
+              "SDL",
+              "TCP",
+              "Automated",
+              "DP",
+              "AutomatedFromCloudmine"
+            ],
+            "Enabled": true
+          },
+          {
             "ControlID": "ADO_VariableGroup_DP_Use_Template_From_Protected_Branch",
             "Description": "Allow variable groups to be accessed by templates only from protected branches.",
             "Id": "VariableGroup190",
@@ -165,17 +173,11 @@
             "MethodName": "CheckBroaderGroupApproversOnVarGrp",
             "Rationale": " Any user/ group can be added as an approver to the variableGroup, which gives users the permission to approve any run of pipelines accessing the resource even if they do not have access to the variableGroup. To prevent illegitimate consumption and approval of the resource, ensure that broader groups are not added as approvers.",
             "Recommendation": "1. Navigate to the variableGroup --> 2. Click on 'Approvals and Checks' --> Remove Broader groups from Approvals. Refer to detailed scan log (VariableGroup.LOG) for broader group list.",
->>>>>>> develop
             "Tags": [
               "SDL",
               "TCP",
               "Automated",
-<<<<<<< 2203/users/juhi/cloudmine
-              "DP",
-              "AutomatedFromCloudmine"
-=======
               "AuthZ"
->>>>>>> develop
             ],
             "Enabled": true
           }

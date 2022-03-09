@@ -123,11 +123,13 @@ class AzSKADOServiceMapping: CommandBase
     }
 
     hidden GetInactiveVariableGroups(){
+        #call the common ST mapping function with parameter false to ensure service trees are not fetched
         $this.FindSTForVGWithIncremental($false)       
         
     }
 
-    hidden GetInactiveSecureFiles(){        
+    hidden GetInactiveSecureFiles(){     
+        #call the common ST mapping function with parameter false to ensure service trees are not fetched   
         $this.FindSTForSecureFileWithIncremental($false)
     }
 
