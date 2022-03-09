@@ -991,7 +991,7 @@ class ServiceConnection: ADOSVTBase
                 $branchControl = @()
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($this.checkObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($checkObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
@@ -1070,7 +1070,7 @@ class ServiceConnection: ADOSVTBase
              #we need to check for manual approvals and checks
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($this.checkObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($checkObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
                 catch{
