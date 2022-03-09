@@ -441,12 +441,13 @@ class AgentPool: ADOSVTBase
                         $agentId = $_.id
                         $envVariablesContainingSecret=@()
                         $secretsFoundInCurrentAgent = $false
+                        $capabilitiesTable=@{}
+                        $secretsCapabilitiesTable=@{}
                         if([Helpers]::CheckMember($_,"userCapabilities"))
                         {
                             $userCapabilities=$_.userCapabilities
                             $secretsHashTable=@{}
-                            $capabilitiesTable=@{}
-                            $secretsCapabilitiesTable=@{}
+                            
                             $userCapabilities.PSObject.properties | ForEach-Object { $secretsHashTable[$_.Name] = $_.Value }
                             $secretsHashTable.Keys | ForEach-Object {
                                 for ($i = 0; $i -lt $patterns.RegexList.Count; $i++)
@@ -465,7 +466,9 @@ class AgentPool: ADOSVTBase
                                 }
                             }
                         }
-                        $agentDetails.add($agentId,$($secretsCapabilitiesTable,$capabilitiesTable))
+                        if ($secretsCapabilitiesTable.count -gt 0 -or $capabilitiesTable.count -gt 0) {
+                            $agentDetails.add($agentId,$($secretsCapabilitiesTable,$capabilitiesTable));
+                        }
                         $currentAgent.Capabilities = $envVariablesContainingSecret
                         if ($secretsFoundInCurrentAgent -eq $true) {
                             $agentsWithSecretsInEnv += $currentAgent

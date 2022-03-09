@@ -8,6 +8,7 @@ class VariableGroup: ADOSVTBase
     hidden [string] $checkInheritedPermissionsPerVarGrp = $false
     hidden [PSObject] $variableGroupIdentities = $null;
     hidden $pipelinePermission = $null;
+    hidden [PSObject] $approvalsAndChecksObj = $null;
     VariableGroup([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0];
@@ -732,14 +733,17 @@ class VariableGroup: ADOSVTBase
                 $controlResult.AddMessage([VerificationResult]::Passed, "Variable group is not accessible to any YAML pipelines. Hence, branch control is not required.");
                 return $controlResult;
             }
+            if ($null -eq $this.approvalsAndChecksObj) 
+            {
             $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
             #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
             $rmContext = [ContextHelper]::GetCurrentContext();
             $user = "";
             $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
             $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'variablegroup'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+            $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            }
+            if([Helpers]::CheckMember($this.approvalsAndChecksObj, "count") -and $this.approvalsAndChecksObj[0].count -eq 0){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the variable group.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the variable group."
                 $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the variable group."
@@ -749,7 +753,7 @@ class VariableGroup: ADOSVTBase
                 $branchControl = @()
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
@@ -802,6 +806,197 @@ class VariableGroup: ADOSVTBase
                         $controlResult.AddMessage("List of branches granted access to the variable group: ");
                         $controlResult.AddMessage("$($branches | FT | Out-String)");
                     }
+                }
+            }
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch variable group details.");
+        }
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckBroaderGroupApproversOnVarGrp ([ControlResult] $controlResult) {
+        try{
+            $controlResult.VerificationResult = [VerificationResult]::Failed
+            if ($null -eq $this.approvalsAndChecksObj) 
+            {
+                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+                $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'variablegroup'}]"
+                $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+                $rmContext = [ContextHelper]::GetCurrentContext();
+            }
+            $restrictedGroups = @();
+            $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForApprovers;
+
+            if([Helpers]::CheckMember($this.approvalsAndChecksObj, "count") -and  $this.approvalsAndChecksObj[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the VariableGroup.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the VariableGroup."
+             }
+             else
+             {
+                $approvalControl = @()
+                try{
+                    $approvalAndChecks = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
+                }
+                catch{
+                    $approvalControl = @()
+                }
+
+                 if($approvalControl.Count -gt 0)
+                 {
+                    $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                    # match all the identities added on variable group with defined restricted list
+                     $restrictedGroups = $approvalControl.settings.approvers | Where-Object { $restrictedBroaderGroupsForVarGrp -contains $_.displayName.split('\')[-1] } | select displayName
+                     
+                    # fail the control if restricted group found on variable group
+                    if($restrictedGroups)
+                    {
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to variable group: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on variable group.");
+                        $controlResult.AddMessage("Broader groups have been added as approvers to variable group.",$restrictedGroups)
+                        $controlResult.SetStateData("Broader groups have been added as approvers to variable group",$restrictedGroups)
+                        $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to variable group: " + @($restrictedGroups).Count;
+                        $controlResult.AdditionalInfo += "List of broader groups added as approvers"+ @($restrictedGroups)
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to variable group.");
+                        $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                        $controlResult.AdditionalInfo += "List of approvers on variable group  $($approvers).";
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to variable group.");
+                }   
+             }  
+             $displayObj = $restrictedBroaderGroupsForVarGrp | Select-Object @{Name = "Broader Group"; Expression = {$_}}
+             $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broader' groups which should not be added as approvers: `n$($displayObj | FT | out-string -width 512)`n");                  
+             $restrictedGroups = $null;
+             $restrictedBroaderGroupsForVarGrp = $null;  
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch variable group details.");
+        }
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckTemplateBranchForVarGrp ([ControlResult] $controlResult) {
+        try{            
+            if ($null -eq $this.approvalsAndChecksObj) 
+            {
+                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
+                $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'variablegroup'}]"
+                $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+            }
+            if($this.approvalsAndChecksObj[0].count -eq 0){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the variable group.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the variable group."
+            }
+            else{                
+                $yamlTemplateControl = @()
+                try{
+                    $yamlTemplateControl = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
+                }
+                catch{
+                    $yamlTemplateControl = @()
+                }
+                if($yamlTemplateControl.Count -gt 0){
+                    $yamlChecks = $yamlTemplateControl.extendsChecks
+                    $unProtectedBranches = @() #for branches with no branch policy
+                    $protectedBranches = @() #for branches with branch policy
+                    $unknownBranches = @() #for branches from external sources
+                    $yamlChecks | foreach {
+                        $yamlCheck = $_
+                        #skip for any external source repo objects
+                        if($yamlCheck.repositoryType -ne 'git'){
+                            $unknownBranches += (@{branch = ($yamlCheck.repositoryRef);repository = ($yamlCheck.repositoryName)})
+                            return;
+                        }
+                        #repository name can be in two formats: "project/repo" OR for current project just "repo"
+                        if($yamlCheck.repositoryName -like "*/*"){
+                            $project = ($yamlCheck.repositoryName -split "/")[0]
+                            $repository = ($yamlCheck.repositoryName -split "/")[1]
+                        }
+                        else{
+                            $project = $this.ResourceContext.ResourceGroupName
+                            $repository = $yamlCheck.repositoryName
+                        }
+                        
+                        $branch = $yamlCheck.repositoryRef
+                        #policy API accepts only repo ID. Need to extract repo ID beforehand.
+                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}?api-version=6.0" -f $this.OrganizationContext.OrganizationName,$project,$repository
+                        $repoId = $null;
+                        try{
+                            $response = @([WebRequestHelper]::InvokeGetWebRequest($url))
+                            $repoId = $response.id
+                        }
+                        catch{
+                            return;
+                        }
+                        
+                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/policy/configurations?repositoryId={2}&refName={3}&api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName,$project,$repoId,$branch
+                        $policyConfigResponse = @([WebRequestHelper]::InvokeGetWebRequest($url))
+                        if([Helpers]::CheckMember($policyConfigResponse[0],"id")){
+                            $branchPolicy = @($policyConfigResponse | Where-Object {$_.isEnabled -and $_.isBlocking})
+                            #policyConfigResponse also contains repository policies, we need to filter out just branch policies
+                            $branchPolicy = @($branchPolicy | Where-Object {[Helpers]::CheckMember($_.settings.scope[0],"refName")})
+                            if($branchPolicy.Count -gt 0)
+                            {
+                                $protectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                            }
+                            else{
+                                $unProtectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                            }
+                        }
+                        else{
+                            $unProtectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                        }
+                    } 
+                    #if branches with no branch policy is found, fail the control  
+                    if($unProtectedBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Required template on the variable group extends from unprotected branches.");
+                        $unProtectedBranches =$unProtectedBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($unProtectedBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of unprotected branches: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of unprotected branches: ", $formattedGroupsTable)
+                    }
+                    #if branches from external sources are found, control needs to be evaluated manually
+                    elseif($unknownBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Manual, "Required template on the variable group extends from external sources.");
+                        $unknownBranches =$unknownBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($unknownBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of branches from external sources: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of branches from external sources: ", $formattedGroupsTable)
+                    }
+                    #if all branches are protected, pass the control
+                    elseif($protectedBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Required template on the variable group extends from protected branches.");
+                    }  
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Manual, "Branch policies on required template on the variable group could not be determined.");
+
+                    }
+                    if($protectedBranches.Count -gt 0){
+                        $protectedBranches =$protectedBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($protectedBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of protected branches: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of protected branches: ", $formattedGroupsTable)
+
+                    }                                                      
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No required template has been defined for the variable group.");
+
                 }
             }
         }
