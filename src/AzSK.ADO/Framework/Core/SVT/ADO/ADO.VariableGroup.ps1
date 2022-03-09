@@ -1012,6 +1012,12 @@ class VariableGroup: ADOSVTBase
     hidden [ControlResult] CheckInactiveVarGrp([ControlResult] $controlResult){
         try{
             $cloudmineResourceData = [ControlHelper]::GetInactiveControlDataFromCloudMine($this.OrganizationContext.OrganizationName,$this.ProjectId,$this.ResourceContext.ResourceDetails.Id,"VariableGroup")
+            #if storage does not contain any data for the given org and project
+            if($cloudmineResourceData.Count -gt 0 -and -not [Helpers]::CheckMember($cloudmineResourceData[0],"ResourceID") -and $cloudmineResourceData[0] -eq [Constants]::CMErrorMessage){
+                $controlResult.AddMessage([VerificationResult]::Manual, "Variable group details are not found in the storage. Inactivity cannot be determined.");
+                return $controlResult
+            }
+            
             if($cloudmineResourceData.Count -gt 0 -and -not([string]::IsNullOrEmpty($cloudmineResourceData.PipelineLastModified))){
                 $lastActivity = $cloudmineResourceData.PipelineLastModified
                 $inActivityDays = ((Get-Date) - [datetime] $lastActivity).Days

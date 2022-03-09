@@ -2093,6 +2093,12 @@ class CommonSVTControls: ADOSVTBase {
         try{
             $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
             $cloudmineResourceData = [ControlHelper]::GetInactiveControlDataFromCloudMine($this.OrganizationContext.OrganizationName,$projectId,$this.ResourceContext.ResourceDetails.Id,"SecureFile")
+            #if storage does not contain any data for the given org and project
+            if($cloudmineResourceData.Count -gt 0 -and -not [Helpers]::CheckMember($cloudmineResourceData[0],"ResourceID") -and $cloudmineResourceData[0] -eq [Constants]::CMErrorMessage){
+                $controlResult.AddMessage([VerificationResult]::Manual, "Secure file details are not found in the storage. Inactivity cannot be determined.");
+                return $controlResult
+            }
+            
             if($cloudmineResourceData.Count -gt 0 -and -not([string]::IsNullOrEmpty($cloudmineResourceData.PipelineLastModified))){
                 $lastActivity = $cloudmineResourceData.PipelineLastModified
                 $inActivityDays = ((Get-Date) - [datetime] $lastActivity).Days

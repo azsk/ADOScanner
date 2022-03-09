@@ -150,7 +150,7 @@
           {
             "ControlID": "ADO_VariableGroup_DP_Use_Template_From_Protected_Branch",
             "Description": "Allow variable groups to be accessed by templates only from protected branches.",
-            "Id": "VariableGroup190",
+            "Id": "VariableGroup200",
             "ControlSeverity": "Medium",
             "Automated": "Yes",
             "MethodName": "CheckTemplateBranchForVarGrp",
@@ -167,7 +167,7 @@
           {
             "ControlID": "ADO_VariableGroup_Dont_Grant_Broader_Group_Access_As_Approvers",
             "Description": "Broader groups (contributors, project valid users, etc.) should not be added as approvers on variable group.",
-            "Id": "VariableGroup200",
+            "Id": "VariableGroup210",
             "ControlSeverity": "High",
             "Automated": "Yes",
             "MethodName": "CheckBroaderGroupApproversOnVarGrp",

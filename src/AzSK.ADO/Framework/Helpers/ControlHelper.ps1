@@ -421,6 +421,9 @@ class ControlHelper: EventBase{
             [ControlHelper]::CloudmineDataHelperObj = [CloudmineDataHelper]::GetInstance($organizationName);
             [ControlHelper]::InactiveResources = [ControlHelper]::CloudmineDataHelperObj.GetCloudMineData($projectId)
         }
+        if(-not [Helpers]::CheckMember([ControlHelper]::InactiveResources[0],"ResourceID")){
+            return @([Constants]::CMErrorMessage);
+        }
         $resourceDetails = @([ControlHelper]::InactiveResources | where {$_.ResourceType -eq $resourceType -and $_.ResourceID -eq $resourceId -and $_.ProjectID -eq $projectId})
         return $resourceDetails
         

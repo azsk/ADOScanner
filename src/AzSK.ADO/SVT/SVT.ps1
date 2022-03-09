@@ -401,6 +401,8 @@ function Get-AzSKADOSecurityStatus
 			[AzSKConfig]::Instance = $null
 			[ConfigurationHelper]::ServerConfigMetadata = $null
 			[ControlHelper]::IsGroupDetailsFetchedFromPolicy = $false
+			[ControlHelper]::CloudmineDataHelperObj=$null
+			[CloudmineDataHelper]::CloudmineDataHelperInstance = $null
 			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
       
       		[AutoBugLog]::AutoBugInstance = $null

@@ -233,4 +233,5 @@ class Constants
 	#constants for cloudmine (CM) controls
 	static [object] $OrgsSupportingCMControls = @("MicrosoftIT")
 	static [string] $ResourceActivityDetailsTable = "ResourceActivity"
+	static [string] $CMErrorMessage = "Data for the given organization and project does not exist in the storage."
 }
