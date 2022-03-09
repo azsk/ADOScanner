@@ -2122,6 +2122,7 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch secure file details.");
             $controlResult.LogException($_);
         }
+        return $controlResult
     }
         
     hidden [PSObject] GetApprovalsAndChecksObj($projectId)
