@@ -10,8 +10,7 @@ class CommonSVTControls: ADOSVTBase {
     hidden [object] $repoInheritePermissions = @{};
     hidden [PSObject] $excessivePermissionBitsForRepo = @(1)
     hidden [PSObject] $excessivePermissionsForRepoBranch = $null;
-    hidden [string] $repoPermissionSetId = "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87";    
-    [System.Collections.Generic.List[ResourceApprovalCheck]] $ResourceApprovalChecks = @();    
+    hidden [string] $repoPermissionSetId = "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87";     
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
