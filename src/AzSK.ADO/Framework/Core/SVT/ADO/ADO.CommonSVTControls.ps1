@@ -10,7 +10,7 @@ class CommonSVTControls: ADOSVTBase {
     hidden [object] $repoInheritePermissions = @{};
     hidden [PSObject] $excessivePermissionBitsForRepo = @(1)
     hidden [PSObject] $excessivePermissionsForRepoBranch = $null;
-    hidden [string] $repoPermissionSetId = "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87";
+    hidden [string] $repoPermissionSetId = "2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87";     
 
     CommonSVTControls([string] $organizationName, [SVTResource] $svtResource): Base($organizationName, $svtResource) {
 
@@ -32,7 +32,7 @@ class CommonSVTControls: ADOSVTBase {
             $this.checkInheritedPermissionsFeed = $true
         }
 
-        $this.excessivePermissionsForRepoBranch = $this.ControlSettings.Repo.ExcessivePermissionsForBranch        
+        $this.excessivePermissionsForRepoBranch = $this.ControlSettings.Repo.ExcessivePermissionsForBranch          
 
     }
 
@@ -762,6 +762,122 @@ class CommonSVTControls: ADOSVTBase {
         return $controlResult
     }
 
+    hidden [ControlResult] CheckTemplateBranchForSecureFile([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        
+        $checkObj = $this.GetResourceApprovalCheck()
+        try{                       
+            if(!$checkObj.ApprovalCheckObj){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the secure file.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
+            }
+            else{                
+                $yamlTemplateControl = @()
+                try{
+                    $yamlTemplateControl = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
+                }
+                catch{
+                    $yamlTemplateControl = @()
+                }
+                if($yamlTemplateControl.Count -gt 0){
+                    $yamlChecks = $yamlTemplateControl.extendsChecks
+                    $unProtectedBranches = @() #for branches with no branch policy
+                    $protectedBranches = @() #for branches with branch policy
+                    $unknownBranches = @() #for branches from external sources
+                    $yamlChecks | foreach {
+                        $yamlCheck = $_
+                        #skip for any external source repo objects
+                        if($yamlCheck.repositoryType -ne 'git'){
+                            $unknownBranches += (@{branch = ($yamlCheck.repositoryRef);repository = ($yamlCheck.repositoryName)})
+                            return;
+                        }
+                        #repository name can be in two formats: "project/repo" OR for current project just "repo"
+                        if($yamlCheck.repositoryName -like "*/*"){
+                            $project = ($yamlCheck.repositoryName -split "/")[0]
+                            $repository = ($yamlCheck.repositoryName -split "/")[1]
+                        }
+                        else{
+                            $project = $this.ResourceContext.ResourceGroupName
+                            $repository = $yamlCheck.repositoryName
+                        }
+
+                        $branch = $yamlCheck.repositoryRef
+                        #policy API accepts only repo ID. Need to extract repo ID beforehand.
+                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}?api-version=6.0" -f $this.OrganizationContext.OrganizationName,$project,$repository
+                        $repoId = $null;
+                        try{
+                            $response = @([WebRequestHelper]::InvokeGetWebRequest($url))
+                            $repoId = $response.id
+                        }
+                        catch{
+                            return;
+                        }
+
+                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/policy/configurations?repositoryId={2}&refName={3}&api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName,$project,$repoId,$branch
+                        $policyConfigResponse = @([WebRequestHelper]::InvokeGetWebRequest($url))
+                        if([Helpers]::CheckMember($policyConfigResponse[0],"id")){
+                            $branchPolicy = @($policyConfigResponse | Where-Object {$_.isEnabled -and $_.isBlocking})
+                            #policyConfigResponse also contains repository policies, we need to filter out just branch policies
+                            $branchPolicy = @($branchPolicy | Where-Object {[Helpers]::CheckMember($_.settings.scope[0],"refName")})
+                            if($branchPolicy.Count -gt 0)
+                            {
+                                $protectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                            }
+                            else{
+                                $unProtectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                            }
+                        }
+                        else{
+                            $unProtectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                        }
+                    } 
+                    #if branches with no branch policy is found, fail the control  
+                    if($unProtectedBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Required template on the secure file extends from unprotected branches.");
+                        $unProtectedBranches =$unProtectedBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($unProtectedBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of unprotected branches: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of unprotected branches: ", $formattedGroupsTable)
+                    }
+                    #if branches from external sources are found, control needs to be evaluated manually
+                    elseif($unknownBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Manual, "Required template on the secure file extends from external sources.");
+                        $unknownBranches =$unknownBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($unknownBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of branches from external sources: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of branches from external sources: ", $formattedGroupsTable)
+                    }
+                    #if all branches are protected, pass the control
+                    elseif($protectedBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Required template on the secure file extends from protected branches.");
+                    }  
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Manual, "Branch policies on required template on the secure file could not be determined.");
+
+                    }
+                    if($protectedBranches.Count -gt 0){
+                        $protectedBranches =$protectedBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($protectedBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of protected branches: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of protected branches: ", $formattedGroupsTable)
+
+                    }                                                      
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No required template has been defined for the secure file.");
+
+                }
+            }
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch secure file details.");
+        }
+        
+        return $controlResult
+    }
+
     hidden [ControlResult] CheckBroaderGroupAccessOnSecureFile([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -955,6 +1071,120 @@ class CommonSVTControls: ADOSVTBase {
         return $controlResult
     }
 
+    hidden [ControlResult] CheckTemplateBranchForEnvironment([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $checkObj = $this.GetResourceApprovalCheck()
+        try{            
+            if(!$checkObj.ApprovalCheckObj){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the secure file.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
+            }
+            else{                
+                $yamlTemplateControl = @()
+                try{
+                    $yamlTemplateControl = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
+                }
+                catch{
+                    $yamlTemplateControl = @()
+                }
+                if($yamlTemplateControl.Count -gt 0){
+                    $yamlChecks = $yamlTemplateControl.extendsChecks
+                    $unProtectedBranches = @() #for branches with no branch policy
+                    $protectedBranches = @() #for branches with branch policy
+                    $unknownBranches = @() #for branches from external sources
+                    $yamlChecks | foreach {
+                        $yamlCheck = $_
+                        #skip for any external source repo objects
+                        if($yamlCheck.repositoryType -ne 'git'){
+                            $unknownBranches += (@{branch = ($yamlCheck.repositoryRef);repository = ($yamlCheck.repositoryName)})
+                            return;
+                        }
+                        #repository name can be in two formats: "project/repo" OR for current project just "repo"
+                        if($yamlCheck.repositoryName -like "*/*"){
+                            $project = ($yamlCheck.repositoryName -split "/")[0]
+                            $repository = ($yamlCheck.repositoryName -split "/")[1]
+                        }
+                        else{
+                            $project = $this.ResourceContext.ResourceGroupName
+                            $repository = $yamlCheck.repositoryName
+                        }
+
+                        $branch = $yamlCheck.repositoryRef
+                        #policy API accepts only repo ID. Need to extract repo ID beforehand.
+                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}?api-version=6.0" -f $this.OrganizationContext.OrganizationName,$project,$repository
+                        $repoId = $null;
+                        try{
+                            $response = @([WebRequestHelper]::InvokeGetWebRequest($url))
+                            $repoId = $response.id
+                        }
+                        catch{
+                            return;
+                        }
+
+                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/policy/configurations?repositoryId={2}&refName={3}&api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName,$project,$repoId,$branch
+                        $policyConfigResponse = @([WebRequestHelper]::InvokeGetWebRequest($url))
+                        if([Helpers]::CheckMember($policyConfigResponse[0],"id")){
+                            $branchPolicy = @($policyConfigResponse | Where-Object {$_.isEnabled -and $_.isBlocking})
+                            #policyConfigResponse also contains repository policies, we need to filter out just branch policies
+                            $branchPolicy = @($branchPolicy | Where-Object {[Helpers]::CheckMember($_.settings.scope[0],"refName")})
+                            if($branchPolicy.Count -gt 0)
+                            {
+                                $protectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                            }
+                            else{
+                                $unProtectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                            }
+                        }
+                        else{
+                            $unProtectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                        }
+                    } 
+                    #if branches with no branch policy is found, fail the control  
+                    if($unProtectedBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Required template on the secure file extends from unprotected branches.");
+                        $unProtectedBranches =$unProtectedBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($unProtectedBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of unprotected branches: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of unprotected branches: ", $formattedGroupsTable)
+                    }
+                    #if branches from external sources are found, control needs to be evaluated manually
+                    elseif($unknownBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Manual, "Required template on the secure file extends from external sources.");
+                        $unknownBranches =$unknownBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($unknownBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of branches from external sources: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of branches from external sources: ", $formattedGroupsTable)
+                    }
+                    #if all branches are protected, pass the control
+                    elseif($protectedBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Required template on the secure file extends from protected branches.");
+                    }  
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Manual, "Branch policies on required template on the secure file could not be determined.");
+
+                    }
+                    if($protectedBranches.Count -gt 0){
+                        $protectedBranches =$protectedBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($protectedBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of protected branches: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of protected branches: ", $formattedGroupsTable)
+
+                    }                                                      
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No required template has been defined for the secure file.");
+
+                }
+            }
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch secure file details.");
+        }
+       return $controlResult
+    }
+
     hidden [ControlResult] CheckPreDeploymentApprovalOnEnv([ControlResult] $controlResult){
         $controlResult.VerificationResult = [VerificationResult]::Failed
         try{
@@ -982,19 +1212,13 @@ class CommonSVTControls: ADOSVTBase {
 
     hidden [ControlResult] CheckPreDeploymentApproversOnEnv([ControlResult] $controlResult){
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        try{
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'environment'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+        $checkObj = $this.GetResourceApprovalCheck()
+        try{            
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
             }
             else{
-                $approvals = @($response.value | Where-Object{$_.type.name -eq "Approval"})
+                $approvals = @($checkObj.ApprovalCheckObj | Where-Object{$_.type.name -eq "Approval"})
                 if($approvals.Count -eq 0){
                     $controlResult.AddMessage([VerificationResult]::Failed, "No approvals have been defined for the environment.");
                 }
@@ -1049,6 +1273,8 @@ class CommonSVTControls: ADOSVTBase {
                     $backupDataObject = $environmentWithBroaderGroup | Select @{l = 'Name'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id} }, @{l = 'Role'; e = { $_.Role } }
                     $display = ($environmentWithBroaderGroup |  FT Name, Role -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
+                    $groups = $environmentWithBroaderGroup | ForEach-Object { $_.name + ': ' + $_.role } 
+                    $controlResult.AdditionalInfo += "List of broader groups that have user/administrator access to environment: $($groups  -join ' ; ')";
                     
                     if ($this.ControlFixBackupRequired) {
                         #Data object that will be required to fix the control
@@ -1134,21 +1360,16 @@ class CommonSVTControls: ADOSVTBase {
 
 
     hidden [ControlResult] CheckBranchHygieneOnEnv([ControlResult] $controlResult){
-        try{
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'environment'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $checkObj = $this.GetResourceApprovalCheck()
+        try{           
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the environment.");
             }
             else{
                 $branchControl = @()
                 try{
-                    $branchControl = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $branchControl = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $branchControl = @($branchControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                 }
                 catch{
@@ -1699,6 +1920,120 @@ class CommonSVTControls: ADOSVTBase {
         return $controlResult
     }
 
+    hidden [ControlResult] CheckTemplateBranchForRepository([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $checkObj = $this.GetResourceApprovalCheck()
+        try{               
+            if(!$checkObj.ApprovalCheckObj){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the secure file.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
+            }
+            else{                
+                $yamlTemplateControl = @()
+                try{
+                    $yamlTemplateControl = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
+                }
+                catch{
+                    $yamlTemplateControl = @()
+                }
+                if($yamlTemplateControl.Count -gt 0){
+                    $yamlChecks = $yamlTemplateControl.extendsChecks
+                    $unProtectedBranches = @() #for branches with no branch policy
+                    $protectedBranches = @() #for branches with branch policy
+                    $unknownBranches = @() #for branches from external sources
+                    $yamlChecks | foreach {
+                        $yamlCheck = $_
+                        #skip for any external source repo objects
+                        if($yamlCheck.repositoryType -ne 'git'){
+                            $unknownBranches += (@{branch = ($yamlCheck.repositoryRef);repository = ($yamlCheck.repositoryName)})
+                            return;
+                        }
+                        #repository name can be in two formats: "project/repo" OR for current project just "repo"
+                        if($yamlCheck.repositoryName -like "*/*"){
+                            $project = ($yamlCheck.repositoryName -split "/")[0]
+                            $repository = ($yamlCheck.repositoryName -split "/")[1]
+                        }
+                        else{
+                            $project = $this.ResourceContext.ResourceGroupName
+                            $repository = $yamlCheck.repositoryName
+                        }
+
+                        $branch = $yamlCheck.repositoryRef
+                        #policy API accepts only repo ID. Need to extract repo ID beforehand.
+                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}?api-version=6.0" -f $this.OrganizationContext.OrganizationName,$project,$repository
+                        $repoId = $null;
+                        try{
+                            $response = @([WebRequestHelper]::InvokeGetWebRequest($url))
+                            $repoId = $response.id
+                        }
+                        catch{
+                            return;
+                        }
+
+                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/policy/configurations?repositoryId={2}&refName={3}&api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName,$project,$repoId,$branch
+                        $policyConfigResponse = @([WebRequestHelper]::InvokeGetWebRequest($url))
+                        if([Helpers]::CheckMember($policyConfigResponse[0],"id")){
+                            $branchPolicy = @($policyConfigResponse | Where-Object {$_.isEnabled -and $_.isBlocking})
+                            #policyConfigResponse also contains repository policies, we need to filter out just branch policies
+                            $branchPolicy = @($branchPolicy | Where-Object {[Helpers]::CheckMember($_.settings.scope[0],"refName")})
+                            if($branchPolicy.Count -gt 0)
+                            {
+                                $protectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                            }
+                            else{
+                                $unProtectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                            }
+                        }
+                        else{
+                            $unProtectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                        }
+                    } 
+                    #if branches with no branch policy is found, fail the control  
+                    if($unProtectedBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Required template on the secure file extends from unprotected branches.");
+                        $unProtectedBranches =$unProtectedBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($unProtectedBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of unprotected branches: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of unprotected branches: ", $formattedGroupsTable)
+                    }
+                    #if branches from external sources are found, control needs to be evaluated manually
+                    elseif($unknownBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Manual, "Required template on the secure file extends from external sources.");
+                        $unknownBranches =$unknownBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($unknownBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of branches from external sources: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of branches from external sources: ", $formattedGroupsTable)
+                    }
+                    #if all branches are protected, pass the control
+                    elseif($protectedBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Required template on the secure file extends from protected branches.");
+                    }  
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Manual, "Branch policies on required template on the secure file could not be determined.");
+
+                    }
+                    if($protectedBranches.Count -gt 0){
+                        $protectedBranches =$protectedBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($protectedBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of protected branches: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of protected branches: ", $formattedGroupsTable)
+
+                    }                                                      
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No required template has been defined for the secure file.");
+
+                }
+            }
+        }
+        catch{
+                ;
+        }
+        return $controlResult
+    }
+
     hidden [ControlResult] CheckForInactiveFeeds([ControlResult] $controlResult)
     {
         $controlResult.VerificationResult = [VerificationResult]::Failed
@@ -1893,6 +2228,8 @@ class CommonSVTControls: ADOSVTBase {
     }
 
     hidden [ControlResult] CheckBranchControlOnSecureFile ([ControlResult] $controlResult) {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $checkObj = $this.GetResourceApprovalCheck()
         try{
             #check if resources is accessible even to a single pipeline
             $isRsrcAccessibleToAnyPipeline = $false;
@@ -1911,14 +2248,7 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Secure file is not accessible to any YAML pipelines. Hence, branch control is not required.");
                 return $controlResult;
             }
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'securefile'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the secure file.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
                 $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the secure file."
@@ -1928,7 +2258,7 @@ class CommonSVTControls: ADOSVTBase {
                 $branchControl = @()
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
@@ -1991,6 +2321,8 @@ class CommonSVTControls: ADOSVTBase {
         return $controlResult;
     }
     hidden [ControlResult] CheckBranchControlOnRepository ([ControlResult] $controlResult) {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $checkObj = $this.GetResourceApprovalCheck()
         try{
             #check if resources is accessible even to a single pipeline
             $isRsrcAccessibleToAnyPipeline = $false;
@@ -2010,14 +2342,7 @@ class CommonSVTControls: ADOSVTBase {
                 $controlResult.AddMessage([VerificationResult]::Passed, "Repository is not accessible to any YAML pipelines. Hence, branch control is not required.");
                 return $controlResult;
             }
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($projectId+"."+$this.ResourceContext.ResourceDetails.Id)','type':  'repository'}]"
-            $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            if([Helpers]::CheckMember($response, "count") -and $response[0].count -eq 0){
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the repository.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the repository."
                 $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the repository."
@@ -2027,7 +2352,7 @@ class CommonSVTControls: ADOSVTBase {
                 $branchControl = @()
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
@@ -2150,11 +2475,12 @@ class CommonSVTControls: ADOSVTBase {
         return $approvalsAndChecksObj 
     }
 
+
     hidden [ControlResult] CheckBroaderGroupApproversOnRepository ([ControlResult] $controlResult) {
         try{
             $controlResult.VerificationResult = [VerificationResult]::Failed
             $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
-            $approvalsAndChecksObj = $this.GetApprovalsAndChecksObj($projectId)
+            $approvalsAndChecksObj = $this.GetResourceApprovalCheck()
             $restrictedGroups = @();
             $restrictedBroaderGroupsForSerConn = $this.ControlSettings.Repo.RestrictedBroaderGroupsForApproversForRepo;
 
@@ -2215,7 +2541,7 @@ class CommonSVTControls: ADOSVTBase {
     hidden [ControlResult] CheckBroaderGroupApproversOnEnv ([ControlResult] $controlResult) {
         try{
             $controlResult.VerificationResult = [VerificationResult]::Failed
-            $approvalsAndChecksObj = $this.GetApprovalsAndChecksObj($null)
+            $approvalsAndChecksObj = $this.GetResourceApprovalCheck()
             $restrictedGroups = @();
             $restrictedBroaderGroupsForSerConn = $this.ControlSettings.Environment.RestrictedBroaderGroupsForApproversForEnv;
 
@@ -2276,7 +2602,7 @@ class CommonSVTControls: ADOSVTBase {
     hidden [ControlResult] CheckBroaderGroupApproversOnSecureFile ([ControlResult] $controlResult) {
         try{
             $controlResult.VerificationResult = [VerificationResult]::Failed
-            $approvalsAndChecksObj = $this.GetApprovalsAndChecksObj($null)
+            $approvalsAndChecksObj = $this.GetResourceApprovalCheck()
             $restrictedGroups = @();
             $restrictedBroaderGroupsForSerConn = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForApproversForSecureFile;
 

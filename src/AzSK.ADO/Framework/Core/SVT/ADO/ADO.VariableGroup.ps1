@@ -6,9 +6,9 @@ class VariableGroup: ADOSVTBase
     hidden [PSObject] $ProjectId;
     hidden [PSObject] $VarGrpId;
     hidden [string] $checkInheritedPermissionsPerVarGrp = $false
-    hidden [PSObject] $variableGroupIdentities = $null;
-    hidden $pipelinePermission = $null;
-    hidden [PSObject] $approvalsAndChecksObj = $null;
+    hidden $pipelinePermission = $null
+    hidden [PSObject] $variableGroupIdentities = $null    
+
     VariableGroup([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         $this.ProjectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0];
@@ -480,6 +480,7 @@ class VariableGroup: ADOSVTBase
                     }
                     $formatedRestrictedGroups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role }
                     $controlResult.AdditionalInfoInCSV = ($formatedRestrictedGroups -join '; ' )
+                    $controlResult.AdditionalInfo += "List of groups: ", $($formatedRestrictedGroups -join '; ' )
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have excessive permissions on variable group.");
@@ -628,6 +629,8 @@ class VariableGroup: ADOSVTBase
                         $controlResult.AddMessage([VerificationResult]::Failed, "Broader groups have excessive permissions on the variable group.");
                         $controlResult.AddMessage("`nCount of broader groups that have excessive permissions on the variable group:  $($restrictedGroupsCount)")
                         $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions on the variable group:  $($restrictedGroupsCount)";
+                        $groups = $restrictedGroups | ForEach-Object { $_.name + ': ' + $_.role } 
+                        $controlResult.AdditionalInfo += "List of broader groups: , $($groups -join ' ; ')"
                         $controlResult.AddMessage("`nList of broader groups: ",$($restrictedGroups | FT | Out-String))
                         $controlResult.AddMessage("`nList of variables with secret: ",$secretVarList)
                         $controlResult.SetStateData("List of broader groups: ", $restrictedGroups)
@@ -729,23 +732,15 @@ class VariableGroup: ADOSVTBase
     }
 
     hidden [ControlResult] CheckBranchControlOnVariableGroup ([ControlResult] $controlResult) {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $checkObj = $this.GetResourceApprovalCheck()
         try{
             #if resource is not accessible to any YAML pipeline, there is no need to add any branch control, hence passing the control
             if(!$this.CheckIfResourceAccessibleToPipeline()){
                 $controlResult.AddMessage([VerificationResult]::Passed, "Variable group is not accessible to any YAML pipelines. Hence, branch control is not required.");
                 return $controlResult;
             }
-            if ($null -eq $this.approvalsAndChecksObj) 
-            {
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-            #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-            $rmContext = [ContextHelper]::GetCurrentContext();
-            $user = "";
-            $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'variablegroup'}]"
-            $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            }
-            if([Helpers]::CheckMember($this.approvalsAndChecksObj, "count") -and $this.approvalsAndChecksObj[0].count -eq 0){
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the variable group.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the variable group."
                 $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the variable group."
@@ -755,7 +750,7 @@ class VariableGroup: ADOSVTBase
                 $branchControl = @()
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($checkObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
@@ -818,23 +813,13 @@ class VariableGroup: ADOSVTBase
     }
 
     hidden [ControlResult] CheckBroaderGroupApproversOnVarGrp ([ControlResult] $controlResult) {
-        try{
-            $controlResult.VerificationResult = [VerificationResult]::Failed
-            if ($null -eq $this.approvalsAndChecksObj) 
-            {
-                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-                $rmContext = [ContextHelper]::GetCurrentContext();
-                $user = "";
-                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-                $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'variablegroup'}]"
-                $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-                $rmContext = [ContextHelper]::GetCurrentContext();
-            }
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $checkObj = $this.GetResourceApprovalCheck()        
+        try{              
             $restrictedGroups = @();
             $restrictedBroaderGroupsForVarGrp = $this.ControlSettings.VariableGroup.RestrictedBroaderGroupsForApprovers;
 
-            if([Helpers]::CheckMember($this.approvalsAndChecksObj, "count") -and  $this.approvalsAndChecksObj[0].count -eq 0){
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the VariableGroup.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the VariableGroup."
              }
@@ -842,7 +827,7 @@ class VariableGroup: ADOSVTBase
              {
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($checkObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
                 catch{
@@ -889,24 +874,15 @@ class VariableGroup: ADOSVTBase
 
     hidden [ControlResult] CheckTemplateBranchForVarGrp ([ControlResult] $controlResult) {
         try{            
-            if ($null -eq $this.approvalsAndChecksObj) 
-            {
-                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-                $rmContext = [ContextHelper]::GetCurrentContext();
-                $user = "";
-                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-                $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':  'variablegroup'}]"
-                $this.approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-            }
-            if($this.approvalsAndChecksObj[0].count -eq 0){
+            $checkObj = $this.GetResourceApprovalCheck()
+            if(!$checkObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the variable group.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the variable group."
             }
             else{                
                 $yamlTemplateControl = @()
                 try{
-                    $yamlTemplateControl = @($this.approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($checkObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
                 }
                 catch{
