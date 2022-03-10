@@ -265,7 +265,13 @@ class AzSKSettings {
 		# If $branch variable valus is null or empty, then set its default value as 'master' (production policy branch)
 		if(!$branch)
 		{
-			$branch = [Constants]::OrgPolicyDefaultBranch;
+			if($env:OrgPolicyBranchName)
+			{
+				$branch = $env:OrgPolicyBranchName
+			}
+			else {
+				$branch = [Constants]::OrgPolicyDefaultBranch;
+			}
 		}
 		$branch = [System.Web.HttpUtility]::UrlEncode($branch)
 
