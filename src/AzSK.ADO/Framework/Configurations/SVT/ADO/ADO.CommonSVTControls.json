@@ -363,7 +363,7 @@
     {
       "ControlID": "ADO_SecureFile_DP_Use_Template_From_Protected_Branch",
       "Description": "Allow secure file to be accessed by templates only from protected branches.",
-      "Id": "SecureFile130",
+      "Id": "SecureFile140",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckTemplateBranchForSecureFile",
@@ -448,7 +448,7 @@
     {
       "ControlID": "ADO_SecureFile_Dont_Grant_Broader_Group_Access_As_Approvers",
       "Description": "Broader groups (contributors, project valid users, etc.) should not be added as approvers on secure file.",
-      "Id": "SecureFile140",
+      "Id": "SecureFile150",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupApproversOnSecureFile",
