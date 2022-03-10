@@ -1265,7 +1265,7 @@ class Build: ADOSVTBase
                         else
                         {
                             $controlResult.AdditionalInfoInCSV = "NA"
-                            $controlResult.AdditionalInfo += "NA"
+                            $controlResult.AdditionalInfo += "Contributors do not have edit permissions on any task groups used in build definition."
                             $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in build definition.");
                         }
                         if($taskGroups.Count -ne $editableTaskGroups.Count)
@@ -1298,7 +1298,7 @@ class Build: ADOSVTBase
                 else
                 {
                     $controlResult.AdditionalInfoInCSV += "NA"
-                    $controlResult.AdditionalInfo += "NA";
+                    $controlResult.AdditionalInfo += "No task groups found in build definition.";
                     $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in build definition.");
                 }
         }

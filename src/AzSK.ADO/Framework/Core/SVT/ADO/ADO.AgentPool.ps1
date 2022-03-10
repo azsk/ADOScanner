@@ -695,7 +695,8 @@ class AgentPool: ADOSVTBase
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions on agent pool: $($restrictedGroupsCount)";
                     $groups = $restrictedGroups | ForEach-Object { $_.name + ': ' + $_.role } 
-                        $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+                    $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
+                    $controlResult.AdditionalInfo += "List of broader groups: $($groups -join ' ; ')"
 
                     if ($this.ControlFixBackupRequired) {
                         #Data object that will be required to fix the control

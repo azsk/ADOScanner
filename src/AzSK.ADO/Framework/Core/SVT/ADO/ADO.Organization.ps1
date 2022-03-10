@@ -137,6 +137,7 @@ class Organization: ADOSVTBase
                     $memberCount = $stateData.Count
                     $controlResult.AddMessage("Count of Project Collection Service Accounts: $($memberCount)");
                     $controlResult.AdditionalInfo += "Count of Project Collection Service Accounts: " + $memberCount;
+                    $controlResult.AdditionalInfo += "First 10 PCSA: $(($stateData.mailAddress | Select -First 10) -join '; ')"
                     $controlResult.SetStateData("Members of the Project Collection Service Accounts group: ", $stateData);
                     $controlResult.AdditionalInfoInCSV = "NumPCSA: $($memberCount); First 10 PCSA: $(($stateData.mailAddress | Select -First 10) -join '; ')"
 
@@ -300,7 +301,7 @@ class Organization: ADOSVTBase
                                         $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));
                                         $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                         $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
-                                        $formatedSCMembers = $nonSCMembers | ForEach-Object { $_.name + ': '+ $_.mailAddress + ': ' + $_.groupName }
+                                        $formatedSCMembers = $nonSCMembers | ForEach-Object { $_.name + ': '+ $_.mailAddress } 
                                         $controlResult.AdditionalInfoInCSV = "NumAdmins: $($totalAdminCount); NumNonALTAdmins: $($nonSCCount); First 10 non-ALT admins: $(($formatedSCMembers | Select -First 10) -join '; ')"
                                         $controlResult.AdditionalInfo += "First 10 non-ALT admins: $($formatedSCMembers -join '; ')"
                                     }
@@ -361,7 +362,7 @@ class Organization: ADOSVTBase
                                             $controlResult.AddMessage("List of non-ALT accounts: ", $($stateData | Format-Table -AutoSize | Out-String));  
                                             $controlResult.SetStateData("List of non-ALT accounts: ", $stateData);
                                             $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
-                                            $formatedSCMembers = $nonSCMembers | ForEach-Object { $_.name + ': '+ $_.mailAddress + ': ' + $_.groupName }
+                                            $formatedSCMembers = $nonSCMembers | ForEach-Object { $_.name + ': '+ $_.mailAddress } 
                                             $controlResult.AdditionalInfoInCSV = "NumAdmins: $($totalAdminCount); NumNonALTAdmins: $($nonSCCount); First 10 non-ALT admins: $(($formatedSCMembers | Select -First 10) -join '; ')"                                            
                                             $controlResult.AdditionalInfo += "First 10 non-ALT admins: $($formatedSCMembers -join '; ')"
                                         }

@@ -1036,6 +1036,8 @@ class CommonSVTControls: ADOSVTBase {
                     $backupDataObject = $environmentWithBroaderGroup | Select @{l = 'Name'; e = { $_.Name} },@{l = 'Id'; e = { $_.Id} }, @{l = 'Role'; e = { $_.Role } }
                     $display = ($environmentWithBroaderGroup |  FT Name, Role -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
+                    $groups = $environmentWithBroaderGroup | ForEach-Object { $_.name + ': ' + $_.role } 
+                    $controlResult.AdditionalInfo += "List of broader groups that have user/administrator access to environment: $($groups  -join ' ; ')";
                     
                     if ($this.ControlFixBackupRequired) {
                         #Data object that will be required to fix the control

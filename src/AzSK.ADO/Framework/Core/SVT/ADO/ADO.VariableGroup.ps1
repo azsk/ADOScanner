@@ -465,6 +465,7 @@ class VariableGroup: ADOSVTBase
                     }
                     $formatedRestrictedGroups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role }
                     $controlResult.AdditionalInfoInCSV = ($formatedRestrictedGroups -join '; ' )
+                    $controlResult.AdditionalInfo += "List of groups: ", $($formatedRestrictedGroups -join '; ' )
                 }
                 else {
                     $controlResult.AddMessage([VerificationResult]::Passed, "No broader groups have excessive permissions on variable group.");
@@ -613,6 +614,8 @@ class VariableGroup: ADOSVTBase
                         $controlResult.AddMessage([VerificationResult]::Failed, "Broader groups have excessive permissions on the variable group.");
                         $controlResult.AddMessage("`nCount of broader groups that have excessive permissions on the variable group:  $($restrictedGroupsCount)")
                         $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions on the variable group:  $($restrictedGroupsCount)";
+                        $groups = $restrictedGroups | ForEach-Object { $_.name + ': ' + $_.role } 
+                        $controlResult.AdditionalInfo += "List of broader groups: , $($groups -join ' ; ')"
                         $controlResult.AddMessage("`nList of broader groups: ",$($restrictedGroups | FT | Out-String))
                         $controlResult.AddMessage("`nList of variables with secret: ",$secretVarList)
                         $controlResult.SetStateData("List of broader groups: ", $restrictedGroups)
