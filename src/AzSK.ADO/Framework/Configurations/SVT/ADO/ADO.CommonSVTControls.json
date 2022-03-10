@@ -186,6 +186,24 @@
       "Enabled": true
     },
     {
+      "ControlID": "ADO_SecureFile_DP_Review_Inactive_SecureFile",
+      "Description": "Inactive secure files must be removed if no more required.",
+      "Id": "SecureFile130",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckInactiveSecureFile",
+      "Rationale": "Secure files can be used to store sensitive files such as SSH keys and signing certificates. Thus each inactive secure file can increase the exposure of such important information to a malicious user. To minimize this risk ensure that inactive secure files are proactively deleted.",
+      "Recommendation": "1. Navigate to library --> 2. In the secure files tab identify the inactive secure file --> 3. Click on the three dots --> 4. Select 'Delete'",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP",
+        "AutomatedFromCloudmine"
+      ],
+      "Enabled": true
+    },
+    {
       "ControlID": "ADO_Environment_AuthZ_Dont_Grant_All_Pipelines_Access",
       "Description": "Do not make environment accessible to all (YAML) pipelines.",
       "Id": "Environment100",
@@ -345,7 +363,7 @@
     {
       "ControlID": "ADO_SecureFile_DP_Use_Template_From_Protected_Branch",
       "Description": "Allow secure file to be accessed by templates only from protected branches.",
-      "Id": "SecureFile130",
+      "Id": "SecureFile140",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckTemplateBranchForSecureFile",
@@ -430,7 +448,7 @@
     {
       "ControlID": "ADO_SecureFile_Dont_Grant_Broader_Group_Access_As_Approvers",
       "Description": "Broader groups (contributors, project valid users, etc.) should not be added as approvers on secure file.",
-      "Id": "SecureFile130",
+      "Id": "SecureFile150",
       "ControlSeverity": "High",
       "Automated": "Yes",
       "MethodName": "CheckBroaderGroupApproversOnSecureFile",
