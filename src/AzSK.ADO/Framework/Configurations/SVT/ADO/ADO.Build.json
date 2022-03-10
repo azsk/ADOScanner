@@ -305,6 +305,24 @@
         "SkipClassic"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Build_DP_Verify_Default_Branch",
+      "Description": "Default branch in YAML pipeline should always be protected",
+      "Id": "Build290",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckYAMLDefaultBranch",
+      "Rationale": "The YAML pipeline content in the default branch is used to determine the pipeline definition in case of scheduled runs and repository trigger runs. If the default branch is not protected, malicious users can push changes to this branch, edit the pipeline and access all resources the pipeline has access to. To prevent this, ensure that the default branch has branch protection policies enabled.",
+      "Recommendation": "1. Navigate to project settings --> 2. Select 'Repositories' under 'Repos' --> 3. Select the repository which has YAML file --> 4. From the 'Policies' tab select the branch which is the default branch in the pipeline from 'Branch Policies' --> 5. Enable any branch policy suitable according to your use case.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP",
+        "SkipClassic"
+      ],
+      "Enabled": true
     }
   ]
 }

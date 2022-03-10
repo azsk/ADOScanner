@@ -21,7 +21,7 @@ class Build: ADOSVTBase
     hidden static [bool] $IsPathValidated = $false;
     hidden static $TaskGroupSecurityNamespace = $null
     hidden static $broadlyEditableVG = @{}
-
+    hidden static $YamlBranchPolicies = @()
     Build([string] $organizationName, [SVTResource] $svtResource): Base($organizationName,$svtResource)
     {
         [system.gc]::Collect();
@@ -2343,6 +2343,63 @@ class Build: ADOSVTBase
         }
         catch{
             $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch build pipeline details.");
+        }
+        
+        return $controlResult;
+    }
+    hidden [ControlResult] CheckYAMLDefaultBranch([ControlResult] $controlResult){
+        try{
+            $defaultBranch = $this.buildObj[0].repository.defaultBranch; 
+            $controlResult.AddMessage("The default branch for the YAML pipeline is: "+$defaultBranch);
+            $controlResult.AdditionalInfo+="The default branch for the YAML pipeline is: "+$defaultBranch
+            #if YAML file is in external source, branch protection cannot be determined, needs to be checked manually
+            if( ($this.BuildObj[0].repository.type -ne 'TfsGit') -and ($this.BuildObj[0].repository.type -ne 'TfsVersionControl')){
+                $controlResult.AddMessage([VerificationResult]::Manual,"Pipeline is build on an external source. Branch protection cannot be verified.");
+                return $controlResult;
+            }
+            $repoId = $this.buildObj[0].repository.id;
+            #the API may have inconsistent naming structure where branches may not be preceded with refs/heads. In such cases branch protection results may be incorrect
+            #add this prefix in such cases
+            if($defaultBranch -notlike "refs/*"){
+                $defaultBranch = "refs/heads/{0}" -f $defaultBranch
+            }
+            #multiple pipelines may use the same repo and branch, cache the result in these cases
+            $cachedBranchPolicy = [Build]::YamlBranchPolicies | Where-Object {$_.repo -eq $repoId -and $_.branch -eq $defaultBranch}
+            if($cachedBranchPolicy -ne $null)
+            {
+                if($cachedBranchPolicy.isProtected){
+                    $controlResult.AddMessage([VerificationResult]::Passed,$cachedBranchPolicy.controlMessage);
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Failed,$cachedBranchPolicy.controlMessage);
+                }
+                return $controlResult;
+            }
+            $url = "https://dev.azure.com/{0}/{1}/_apis/git/policy/configurations?repositoryId={2}&refName={3}&api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName,$this.ResourceContext.ResourceGroupName,$repoId,$defaultBranch
+            $policyConfigResponse = @([WebRequestHelper]::InvokeGetWebRequest($url))
+            if([Helpers]::CheckMember($policyConfigResponse[0],"id")){
+                $branchPolicy = @($policyConfigResponse | Where-Object {$_.isEnabled -and $_.isBlocking})
+                #policyConfigResponse also contains repository policies, we need to filter out just branch policies
+                $branchPolicy = @($branchPolicy | Where-Object {[Helpers]::CheckMember($_.settings.scope[0],"refName")})
+                if($branchPolicy.Count -gt 0)
+                {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"Branch policies have been enabled on the default branch.");
+                    [Build]::YamlBranchPolicies += (@{repo = $repoId;branch = $defaultBranch; isProtected = $true;controlMessage = "Branch policies have been enabled on the default branch."})
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Failed,"No active branch policies have been enabled on the default branch.");
+                    [Build]::YamlBranchPolicies += (@{repo = $repoId;branch = $defaultBranch; isProtected = $false;controlMessage ="No active branch policies have been enabled on the default branch." })
+                }
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Failed,"No branch policies have been enabled on the default branch.");
+                [Build]::YamlBranchPolicies += (@{repo = $repoId;branch = $defaultBranch; isProtected = $false;controlMessage = "No branch policies have been enabled on the default branch."})
+
+            }
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error,"Could not fetch build pipeline details.");
+            
         }
         
         return $controlResult;
