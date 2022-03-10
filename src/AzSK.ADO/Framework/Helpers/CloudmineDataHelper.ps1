@@ -16,7 +16,10 @@ class CloudmineDataHelper
         $this.OrganizationName = $orgName;
         # Resources Caching Storage settings
         $this.StorageAccount = $env:StorageName;
-        $this.StorageRG = $env:StorageRG;         
+        $this.StorageRG = $env:StorageRG;     
+        if($env:StorageTable){
+            $this.Table = $env:StorageTable
+        }    
         #get storage details       
         if ($this.StorageRG -and $this.StorageAccount) {
             $keys = Get-AzStorageAccountKey -ResourceGroupName $this.StorageRG -Name $this.StorageAccount
