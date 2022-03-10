@@ -125,6 +125,7 @@ class BugMetaInfoProvider {
                 {
                     if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                     {
+                        $assignee = "";
                         $apiURL = "https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/{2}/executionhistory?top=1&api-version=6.0-preview.1" -f $organizationName, $($ControlResult.ResourceContext.ResourceGroupName), $($ControlResult.ResourceContext.ResourceDetails.id);
                         $executionHistory = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
@@ -175,6 +176,7 @@ class BugMetaInfoProvider {
                         # if assignee is service account, then fetch assignee from jobs/permissions
                         if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                         {
+                            $assignee = "";
                             $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2 " -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                             $agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
                             # get assignee from the the build/release jobs history
@@ -231,6 +233,8 @@ class BugMetaInfoProvider {
 
                     if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                     {
+                        $assignee = "";
+                        # if no createdby/modifiedby found then fecth assignee from permissions
                         try {
                             $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                             $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
@@ -290,6 +294,7 @@ class BugMetaInfoProvider {
                         #getting assignee from the repository permissions
                         if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                         {
+                            $assignee = "";
                             try{
                                 $accessList = @()
                                 $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $organizationName;
@@ -350,6 +355,7 @@ class BugMetaInfoProvider {
                     # if assignee is service account, then fetch assignee from jobs/permissions
                     if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                     {
+                        $assignee = "";
                         try {
                             $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                             $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.securefile/roleassignments/resources/{1}%24{2}" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
@@ -415,6 +421,7 @@ class BugMetaInfoProvider {
                     # if assignee is service account, then fetch assignee from jobs/permissions
                     if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                     {
+                        $assignee = "";
                         $url = "https://dev.azure.com/{0}/{1}/_environments/{2}?view=resources&__rt=fps&__ver=2" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                         $envDetails = [WebRequestHelper]::InvokeGetWebRequest($url);
                         # get assignee from the the build/release jobs history
