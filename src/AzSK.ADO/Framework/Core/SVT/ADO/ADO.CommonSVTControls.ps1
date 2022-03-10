@@ -2454,27 +2454,7 @@ class CommonSVTControls: ADOSVTBase {
             $controlResult.LogException($_);
         }
         return $controlResult
-    }
-        
-    hidden [PSObject] GetApprovalsAndChecksObj($projectId)
-    {
-        $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
-        #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
-        $rmContext = [ContextHelper]::GetCurrentContext();
-        $user = "";
-        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))  
-        if ($this.ResourceContext.ResourceTypeName -eq "Repository")
-        {
-          #separate condition for repo because we are passing project id
-          $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($projectId+"."+$this.ResourceContext.ResourceDetails.Id)','type':  'repository'}]"
-        }
-         else{
-            $body = "[{'name':  '$($this.ResourceContext.ResourceDetails.Name)','id':  '$($this.ResourceContext.ResourceDetails.Id)','type':'$($this.ResourceContext.ResourceTypeName)'}]"
-         }
-        $approvalsAndChecksObj = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
-        return $approvalsAndChecksObj 
-    }
-
+    }      
 
     hidden [ControlResult] CheckBroaderGroupApproversOnRepository ([ControlResult] $controlResult) {
         try{
