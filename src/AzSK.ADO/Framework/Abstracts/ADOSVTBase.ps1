@@ -1,11 +1,13 @@
 class ADOSVTBase: SVTBase {
 
 	hidden [ControlStateExtension] $ControlStateExt;
-	hidden [AzSKSettings] $AzSKSettings;
+	hidden [AzSKSettings] $AzSKSettings;	
 	# below variable will be used by SVT's and overriden for each individual resource.
 	hidden [bool] $isResourceActive = $true;
 	# below variable will contains the inactivity period for resources in days.
 	hidden [int] $InactiveFromDays = -1;
+	# below variable will contain resources approval & checks settings data.
+	static [System.Collections.Generic.List[ResourceApprovalCheck]] $ResourceApprovalChecks = @();
 	ADOSVTBase() {
 
 	}
@@ -610,9 +612,12 @@ class ADOSVTBase: SVTBase {
 	hidden [psobject]GetResourceApprovalCheck()
     {            
             $name = $this.ResourceContext.ResourceDetails.Name;
-            $resourceId = $this.ResourceContext.ResourceDetails.Id;
+            $resourceId = $this.ResourceContext.ResourceDetails.Id;			
             $resourceType = $this.ResourceContext.ResourceTypeName;
-			$approvalChecks = $this.ResourceApprovalChecks | Where-Object {($_.ResourceId -eq $($resourceId)) -and ($_.ResourceType -eq $($resourceType))}  
+			if($resourceType -eq 'ServiceConnection'){
+				$resourceType = 'endpoint'
+			}			
+			$approvalChecks = [ADOSVTBase]::ResourceApprovalChecks | Where-Object {($_.ResourceId -eq $($resourceId)) -and ($_.ResourceType -eq $($resourceType))}  
             
             if(!$approvalChecks){    
                 $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
@@ -638,10 +643,10 @@ class ADOSVTBase: SVTBase {
                 $svtResourceApprovalCheck.ResourceType = $resourceType;
                 $svtResourceApprovalCheck.ResourceId = $resourceId;
                 $svtResourceApprovalCheck.ApprovalCheckObj = $yamlTemplateControl;
-                $this.ResourceApprovalChecks.add($svtResourceApprovalCheck);  
+                [ADOSVTBase]::ResourceApprovalChecks.add($svtResourceApprovalCheck);  
             }     
             
-            $approvalChecks = $this.ResourceApprovalChecks | Where-Object {($_.ResourceId -eq $($resourceId)) -and ($_.ResourceType -eq $($resourceType))} 
+            $approvalChecks = [ADOSVTBase]::ResourceApprovalChecks | Where-Object {($_.ResourceId -eq $($resourceId)) -and ($_.ResourceType -eq $($resourceType))} 
             return $approvalChecks;
     }
 
