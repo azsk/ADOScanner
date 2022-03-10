@@ -142,13 +142,14 @@ class BugMetaInfoProvider {
                             }
                         }
                         # if no build/release jobs associated with service connection, then fecth assignee from permissions
-                        else 
+                        # asignee not found from build/release
+                        elseif (!$assignee) 
                         {
                             try {
                                 $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                                 $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                                 $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-                                $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
+                                $roles =   @(($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))} )
                                 if ($roles.Count -gt 0) {
                                     $userId = $roles[0].identity.id
                                     $assignee = $this.getUserFromUserId($organizationName, $userId)
@@ -161,7 +162,8 @@ class BugMetaInfoProvider {
                         }
                     }  
                 }
-                [BugMetaInfoProvider]::AssigneeForUnmappedResources[$ControlResult.ResourceContext.ResourceId] = $assignee
+
+                [BugMetaInfoProvider]::AssigneeForUnmappedResources[$ControlResult.ResourceContext.ResourceId] = $assignee; 
                 return $assignee
             }
             #assign to the creator of agent pool
@@ -192,13 +194,13 @@ class BugMetaInfoProvider {
                                 }
                             }
                             # if no build/release jobs associated with agentpool, then fecth assignee from permissions
-                            else 
+                            elseif(!$assignee) 
                             {
                                 try {
                                     $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                                     $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/{1}_{2}" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                                     $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
-                                    $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
+                                    $roles =   @( ($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))} )
                                     if ($roles.Count -gt 0) {
                                         $userId = $roles[0].identity.id
                                         $assignee = $this.getUserFromUserId($organizationName, $userId)
@@ -226,6 +228,7 @@ class BugMetaInfoProvider {
                 {
                     if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
                     {
+                        $assignee = "";
                         if ([Helpers]::CheckMember($ControlResult.ResourceContext.ResourceDetails, "modifiedBy")) {
                             $assignee = $ControlResult.ResourceContext.ResourceDetails.modifiedBy.uniqueName
                         }
@@ -239,7 +242,7 @@ class BugMetaInfoProvider {
                             $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                             $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-                            $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
+                            $roles =   @( ($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))} )
                             if ($roles.Count -gt 0) {
                                 $userId = $roles[0].identity.id
                                 $assignee = $this.getUserFromUserId($organizationName, $userId)
@@ -360,7 +363,7 @@ class BugMetaInfoProvider {
                             $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                             $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.securefile/roleassignments/resources/{1}%24{2}" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                             $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
-                            $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
+                            $roles =   @( ($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))} )
                             if ($roles.Count -gt 0) {
                                 $userId = $roles[0].identity.id
                                 $assignee = $this.getUserFromUserId($organizationName, $userId)
@@ -437,13 +440,13 @@ class BugMetaInfoProvider {
                             }
                         }
                         # if no build/release jobs associated with agentpool, then fecth assignee from permissions
-                        else 
+                        elseif(!$assignee) 
                         {
                             try {
                                 $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                                 $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.environmentreferencerole/roleassignments/resources/{1}_{2}?api-version=5.0-preview.1" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                                 $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
-                                $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
+                                $roles =   @( ($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))} )
                                 if ($roles.Count -gt 0) {
                                     $userId = $roles[0].identity.id
                                     $assignee = $this.getUserFromUserId($organizationName, $userId)
@@ -558,6 +561,7 @@ class BugMetaInfoProvider {
             {
                 # if assignee is service account, get assignee from the the release update history
                 if ($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) {
+                    $assignee = "";
                     $url = "https://{0}.vsrm.visualstudio.com/{1}/_apis/Release/definitions/{2}/revisions" -f $organizationName, $projectName, $definitionId;
                     $response = [WebRequestHelper]::InvokeGetWebRequest($url)
                     if ([Helpers]::CheckMember($response, "changedBy")) {
@@ -576,6 +580,7 @@ class BugMetaInfoProvider {
             }
         }
         catch {
+            Write-Host("Pipeline not found");
         }
 
         return $assignee;	
