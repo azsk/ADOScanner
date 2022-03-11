@@ -404,6 +404,7 @@ function Get-AzSKADOSecurityStatus
 			[ControlHelper]::CloudmineDataHelperObj=$null
 			[CloudmineDataHelper]::CloudmineDataHelperInstance = $null
 			[Build]::YamlBranchPolicies=@()
+			[ADOSVTBase]::ResourceApprovalChecks = @()
 			#Refresh singlton in different gads commands. (Powershell session keep cach object of the class, so need to make it null befor command run)
       
       		[AutoBugLog]::AutoBugInstance = $null

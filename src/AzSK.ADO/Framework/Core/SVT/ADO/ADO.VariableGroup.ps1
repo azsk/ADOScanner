@@ -827,7 +827,7 @@ class VariableGroup: ADOSVTBase
              {
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($checkObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
                 catch{
@@ -882,7 +882,7 @@ class VariableGroup: ADOSVTBase
             else{                
                 $yamlTemplateControl = @()
                 try{
-                    $yamlTemplateControl = @($checkObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
                 }
                 catch{
