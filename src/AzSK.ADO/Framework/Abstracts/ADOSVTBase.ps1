@@ -1,11 +1,13 @@
 class ADOSVTBase: SVTBase {
 
 	hidden [ControlStateExtension] $ControlStateExt;
-	hidden [AzSKSettings] $AzSKSettings;
+	hidden [AzSKSettings] $AzSKSettings;	
 	# below variable will be used by SVT's and overriden for each individual resource.
 	hidden [bool] $isResourceActive = $true;
 	# below variable will contains the inactivity period for resources in days.
 	hidden [int] $InactiveFromDays = -1;
+	# below variable will contain resources approval & checks settings data.
+	static [System.Collections.Generic.List[ResourceApprovalCheck]] $ResourceApprovalChecks = @();
 	ADOSVTBase() {
 
 	}
@@ -606,5 +608,54 @@ class ADOSVTBase: SVTBase {
 		$AutoBugLog.LogBugInADO($ControlResults)
 	}
 
+	#function to Get Approval & Check details of resource
+	hidden [psobject]GetResourceApprovalCheck()
+    {            
+            $name = $this.ResourceContext.ResourceDetails.Name;
+            $resourceId = $this.ResourceContext.ResourceDetails.Id;			
+            $resourceType = $this.ResourceContext.ResourceTypeName;
+			if($resourceType -eq 'ServiceConnection'){
+				$resourceType = 'endpoint'
+			}			
+			$approvalChecks = [ADOSVTBase]::ResourceApprovalChecks | Where-Object {($_.ResourceId -eq $($resourceId)) -and ($_.ResourceType -eq $($resourceType))}  
+            
+            if(!$approvalChecks){    
+                $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/checks/queryconfigurations?`$expand=settings&api-version=6.1-preview.1" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName;
+                #using ps invoke web request instead of helper method, as post body (json array) not supported in helper method
+                $rmContext = [ContextHelper]::GetCurrentContext();
+                $user = "";
+                $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken))) 
+                $body = "[{'name':  '$($name)','id':  '$($resourceId)','type':  '$($resourceType)'}]" 
+                if($resourceType -eq 'Repository'){
+                    $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+                    $body = "[{'name':  '$($name)','id':  '$($projectId +"."+$resourceId)','type':  'repository'}]"
+                }                                       
+                $response = @(Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $body)
+                $yamlTemplateControl = @()
+                if([Helpers]::CheckMember($response, "count") -and $response[0].count -gt 0){                                                         
+                    try{
+                        $yamlTemplateControl = @($response.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    } catch{
+                        $yamlTemplateControl = @()
+                    }
+                }
+                $svtResourceApprovalCheck = [ResourceApprovalCheck]::new();
+                $svtResourceApprovalCheck.ResourceType = $resourceType;
+                $svtResourceApprovalCheck.ResourceId = $resourceId;
+                $svtResourceApprovalCheck.ApprovalCheckObj = $yamlTemplateControl;
+                [ADOSVTBase]::ResourceApprovalChecks.add($svtResourceApprovalCheck);  
+            }     
+            
+            $approvalChecks = [ADOSVTBase]::ResourceApprovalChecks | Where-Object {($_.ResourceId -eq $($resourceId)) -and ($_.ResourceType -eq $($resourceType))} 
+            return $approvalChecks;
+    }
 
+
+}
+#Class used to create Resource Approval Check list inside resolver
+class ResourceApprovalCheck
+{
+	[string] $ResourceId = "";	    
+    [string] $ResourceType = "";    
+    [PSObject] $ApprovalCheckObj;        
 }

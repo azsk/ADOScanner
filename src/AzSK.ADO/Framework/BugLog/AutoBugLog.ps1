@@ -105,9 +105,12 @@ class AutoBugLog : EventBase  {
                 else {
                     $resourceOwner = $AssignedTo;
                 }
+
+                #check for user is active or not
+                $isUserActive = $metaProviderObj.isUserActive($this.OrganizationName, $AssignedTo);
                 #Log bug only if LogBugForUnmappedResource is enabled (default value is true) or resource is mapped to serviceid
                 #Restrict bug logging, if resource is not mapped to serviceid and LogBugForUnmappedResource is not enabled.
-                if($this.LogBugsForUnmappedResource -or $serviceId)
+                if(($this.LogBugsForUnmappedResource -or $serviceId) -and $AssignedTo -and $isUserActive)
                 {
                     #Set ShowBugsInS360 if customebuglog is enabled and sericeid not null and ShowBugsInS360 enabled in policy
                     if ($this.IsBugLogCustomFlow -and (-not [string]::IsNullOrEmpty($serviceId)) -and ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "ShowBugsInS360") -and $this.ControlSettings.BugLogging.ShowBugsInS360) ) {

@@ -15,6 +15,7 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Models\Common\Context.ps1
 #Constants
 . $PSScriptRoot\Helpers\Constants.ps1
+. $PSScriptRoot\Helpers\KustoQueries.ps1
 
 
 #Models
@@ -59,10 +60,12 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Helpers\WebRequestHelper.ps1
 . $PSScriptRoot\Helpers\SVTMapping.ps1
 . $FrameworkPath\Helpers\IdentityHelpers.ps1
+. $FrameworkPath\Helpers\CloudmineDataHelper.ps1
 . $FrameworkPath\Helpers\ControlHelper.ps1
 . $FrameworkPath\Helpers\ConfigOverride.ps1
 . $PSScriptRoot\Helpers\AdministratorHelper.ps1
 . $FrameworkPath\Models\Common\ResourceInventory.ps1
+
 
 
 #Managers
