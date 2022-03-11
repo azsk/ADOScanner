@@ -2464,7 +2464,7 @@ class CommonSVTControls: ADOSVTBase {
             $restrictedGroups = @();
             $restrictedBroaderGroupsForSerConn = $this.ControlSettings.Repo.RestrictedBroaderGroupsForApproversForRepo;
 
-            if($approvalsAndChecksObj[0].count -eq 0){
+            if(!$approvalsAndChecksObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the repository.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the repository."
              }
@@ -2473,7 +2473,7 @@ class CommonSVTControls: ADOSVTBase {
              #we need to check for manual approvals and checks
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($approvalsAndChecksObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
                 catch{
@@ -2525,7 +2525,7 @@ class CommonSVTControls: ADOSVTBase {
             $restrictedGroups = @();
             $restrictedBroaderGroupsForSerConn = $this.ControlSettings.Environment.RestrictedBroaderGroupsForApproversForEnv;
 
-            if($approvalsAndChecksObj[0].count -eq 0){
+            if(!$approvalsAndChecksObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the environment.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the environment."
              }
@@ -2534,7 +2534,7 @@ class CommonSVTControls: ADOSVTBase {
              #we need to check for manual approvals and checks
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($approvalsAndChecksObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
                 catch{
@@ -2586,7 +2586,7 @@ class CommonSVTControls: ADOSVTBase {
             $restrictedGroups = @();
             $restrictedBroaderGroupsForSerConn = $this.ControlSettings.SecureFile.RestrictedBroaderGroupsForApproversForSecureFile;
 
-            if($approvalsAndChecksObj[0].count -eq 0){
+            if(!$approvalsAndChecksObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the secure file.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the secure file."
              }
@@ -2595,7 +2595,7 @@ class CommonSVTControls: ADOSVTBase {
              #we need to check for manual approvals and checks
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($approvalsAndChecksObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($approvalsAndChecksObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
                 catch{
