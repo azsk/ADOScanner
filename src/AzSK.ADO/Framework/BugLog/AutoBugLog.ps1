@@ -209,13 +209,13 @@ class AutoBugLog : EventBase  {
                         }
                         if([string]::IsNullOrEmpty($AssignedTo)){
                             if ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First * non-ALT admins:*") {
-                                $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("non-ALT admins:"))[-1].split(':')[1]
+                                $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("non-ALT admins:"))[-1].split(':')[1].split(";")[0]
                             }
                             elseif ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First * Non_Alt_Admins*") {
                                 $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("Non_Alt_Admins:"))[-1].split(':')[1].split(';')[0]
                             }
-                            elseif($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*List of non-ALT accounts:*"){
-                                $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("List of non-ALT accounts:"))[-1].split(':')[1].split(';')[0]
+                            elseif($ControlResults[0].ControlResults.AdditionalInfoInCSV -like ("*"+$this.ControlSettings.Buglogging.AdditionalInfoRegex+"*")){
+                                $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split(":"))[-1].split(';')[0]
                             }
                             else {
                                 $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlId). Assignee could not be determined.", [MessageType]::Warning);
