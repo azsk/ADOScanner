@@ -1087,12 +1087,12 @@ class ServiceConnection: ADOSVTBase
                     # fail the control if restricted group found on service connection
                     if($restrictedGroups)
                     {
-                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to service connection: ", @($restrictedGroups).Count)
                         $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on service connection.");
-                        $controlResult.AddMessage("Broader groups have been added as approvers to service connection.",$restrictedGroups)
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to service connection: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage("List of broader groups that have been added as approvers to service connection: ",$restrictedGroups)
                         $controlResult.SetStateData("Broader groups have been added as approvers to service connection",$restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to service connection: " + @($restrictedGroups).Count;
-                        $controlResult.AdditionalInfo += "List of broader groups added as approvers"+ @($restrictedGroups)
+                        $controlResult.AdditionalInfo += "List of broader groups added as approvers: "+ @($restrictedGroups)
                     }
                     else{
                         $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to service connection.");
@@ -1125,7 +1125,7 @@ class ServiceConnection: ADOSVTBase
             else{                
                 $yamlTemplateControl = @()
                 try{
-                    $yamlTemplateControl = @($checkObj.value | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
                 }
                 catch{
