@@ -844,12 +844,12 @@ class VariableGroup: ADOSVTBase
                     # fail the control if restricted group found on variable group
                     if($restrictedGroups)
                     {
-                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to variable group: ", @($restrictedGroups).Count)
                         $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on variable group.");
-                        $controlResult.AddMessage("Broader groups have been added as approvers to variable group.",$restrictedGroups)
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to variable group: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage("List of broader groups that have been added as approvers to variable group: ",$restrictedGroups)
                         $controlResult.SetStateData("Broader groups have been added as approvers to variable group",$restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to variable group: " + @($restrictedGroups).Count;
-                        $controlResult.AdditionalInfo += "List of broader groups added as approvers"+ @($restrictedGroups)
+                        $controlResult.AdditionalInfo += "List of broader groups added as approvers: "+ @($restrictedGroups)
                     }
                     else{
                         $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to variable group.");
