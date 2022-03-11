@@ -1152,8 +1152,6 @@ class ServiceConnection: ADOSVTBase
                             $project = $this.ResourceContext.ResourceGroupName
                             $repository = $yamlCheck.repositoryName
                         }
-                        $project = ($yamlCheck.repositoryName -split "/")[0]
-                        $repository = ($yamlCheck.repositoryName -split "/")[1]
                         $branch = $yamlCheck.repositoryRef                        
                         #policy API accepts only repo ID. Need to extract repo ID beforehand.
                         $url = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}?api-version=6.0" -f $this.OrganizationContext.OrganizationName,$project,$repository
