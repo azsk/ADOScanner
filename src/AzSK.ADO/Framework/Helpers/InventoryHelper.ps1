@@ -18,11 +18,13 @@ class InventoryHelper {
             catch {}
             # fetching the testPlan count of a project
             try {
-                $resourceURL = "https://dev.azure.com/$($organizationName)/$($projectName)/_apis/testplan/plans?api-version=6.0-preview.1"
-                $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
-                if (([Helpers]::CheckMember($responseList, "count") -and $responseList[0].count -gt 0) -or (($responseList | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($responseList[0], "name"))) {
-                    $projectData['TestPlans'] = ($responseList | Measure-Object).Count
-                }
+                if($env:FetchTestPlans){
+                    $resourceURL = "https://dev.azure.com/$($organizationName)/$($projectName)/_apis/testplan/plans?api-version=6.0-preview.1"
+                    $responseList = [WebRequestHelper]::InvokeGetWebRequest($resourceURL) ;
+                    if (([Helpers]::CheckMember($responseList, "count") -and $responseList[0].count -gt 0) -or (($responseList | Measure-Object).Count -gt 0 -and [Helpers]::CheckMember($responseList[0], "name"))) {
+                        $projectData['TestPlans'] = ($responseList | Measure-Object).Count
+                    }
+                }                
             }
             catch {}
 
