@@ -1152,8 +1152,8 @@ class Release: ADOSVTBase
                     else
                     {
                         $controlResult.AddMessage([VerificationResult]::Passed,"Contributors do not have edit permissions on any task groups used in release definition.");
-                        $controlResult.AdditionalInfoInCSV = "NA"
-                        $controlResult.AdditionalInfo = "NA"
+                        $controlResult.AdditionalInfoInCSV = "Contributors do not have edit permissions on any task groups used in release definition."
+                        $controlResult.AdditionalInfo = "Contributors do not have edit permissions on any task groups used in release definition."
                     }
                 }
                 catch
@@ -1166,7 +1166,8 @@ class Release: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Passed,"No task groups found in release definition.");
-                $controlResult.AdditionalInfoInCSV += "NA";
+                $controlResult.AdditionalInfoInCSV += "No task groups found in release definition.";
+                $controlResult.AdditionalInfo = "No task groups found in release definition."
             }
         }
         else
@@ -1806,7 +1807,7 @@ class Release: ADOSVTBase
                                 $controlResult.AddMessage("`nList of groups : `n$formattedBroaderGrpTable");
                                 $controlResult.AdditionalInfo += "List of excessive permissions on which broader groups have access:  $($groupsWithExcessivePermissionsList.Group).";
                                 $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions }
-                                 $controlResult.AdditionalInfoInCSV = $groups -join ';'
+                                $controlResult.AdditionalInfoInCSV = $groups -join ';'
                                 
                                 if ($this.ControlFixBackupRequired)
                                 {

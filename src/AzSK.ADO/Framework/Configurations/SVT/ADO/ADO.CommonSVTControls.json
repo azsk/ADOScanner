@@ -186,6 +186,24 @@
       "Enabled": true
     },
     {
+      "ControlID": "ADO_SecureFile_DP_Review_Inactive_SecureFile",
+      "Description": "Inactive secure files must be removed if no more required.",
+      "Id": "SecureFile130",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckInactiveSecureFile",
+      "Rationale": "Secure files can be used to store sensitive files such as SSH keys and signing certificates. Thus each inactive secure file can increase the exposure of such important information to a malicious user. To minimize this risk ensure that inactive secure files are proactively deleted.",
+      "Recommendation": "1. Navigate to library --> 2. In the secure files tab identify the inactive secure file --> 3. Click on the three dots --> 4. Select 'Delete'",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP",
+        "AutomatedFromCloudmine"
+      ],
+      "Enabled": true
+    },
+    {
       "ControlID": "ADO_Environment_AuthZ_Dont_Grant_All_Pipelines_Access",
       "Description": "Do not make environment accessible to all (YAML) pipelines.",
       "Id": "Environment100",
@@ -341,6 +359,110 @@
         "AuthZ"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_SecureFile_DP_Use_Template_From_Protected_Branch",
+      "Description": "Allow secure file to be accessed by templates only from protected branches.",
+      "Id": "SecureFile140",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckTemplateBranchForSecureFile",
+      "Rationale": "If malicious users have 'contribute' permissions to the repository containing the template required to access the secure file, they can tamper the template itself and misuse the secure file. To prevent this, enable branch protection policies on the branch which contains the template required to access this resource.",
+      "Recommendation": "1. Navigate to the secure file --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the secure file to be accessed from. For additional protection, enable 'Verify branch protection'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Environment_DP_Use_Template_From_Protected_Branch",
+      "Description": "Allow environment to be accessed by templates only from protected branches.",
+      "Id": "Environment150",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckTemplateBranchForEnvironment",
+      "Rationale": "If malicious users have 'contribute' permissions to the repository containing the template required to access the environments, they can tamper the template itself and misuse the environments. To prevent this, enable branch protection policies on the branch which contains the template required to access this resource.",
+      "Recommendation": "1. Navigate to the environments --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the environments to be accessed from. For additional protection, enable 'Verify branch protection'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Repository_DP_Use_Template_From_Protected_Branch",
+      "Description": "Allow repositoris to be accessed by templates only from protected branches.",
+      "Id": "Repository170",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckTemplateBranchForRepository",
+      "Rationale": "If malicious users have 'contribute' permissions to the repository containing the template required to access the repositories, they can tamper the template itself and misuse the repositorie. To prevent this, enable branch protection policies on the branch which contains the template required to access this resource.",
+      "Recommendation": "1. Navigate to the repositories --> 2. Click on 'Approvals and Checks' --> Create a branch control --> Provide the branches from which you would like the repositorie to be accessed from. For additional protection, enable 'Verify branch protection'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Repository_Dont_Grant_Broader_Group_Access_As_Approvers",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not be added as approvers on repository.",
+      "Id": "Repository170",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupApproversOnRepository",
+      "Rationale": " Any user/ group can be added as an approver to the Repository, which gives users the permission to approve any run of pipelines accessing the resource even if they do not have access to the Repository. To prevent illegitimate consumption and approval of the resource, ensure that broader groups are not added as approvers.",
+      "Recommendation": "1. Navigate to the Repository --> 2. Click on 'Approvals and Checks' --> Remove Broader groups from Approvals. Refer to detailed scan log (Repository.LOG) for broader group list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Environment_Dont_Grant_Broader_Group_Access_As_Approvers",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not be added as approvers on environment.",
+      "Id": "Environment150",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupApproversOnEnv",
+      "Rationale": "Any user/ group can be added as an approver to the environment, which gives users the permission to approve any run of pipelines accessing the resource even if they do not have access to the Environment. To prevent illegitimate consumption and approval of the resource, ensure that broader groups are not added as approvers.",
+      "Recommendation": "1. Go to Project --> 2. Pipelines --> 3. Environments --> 4. Select your environment from the list --> 5. Click on the three dots in upper right corner --> 6. Select 'Approvals and checks' --> 7.  Remove Broader groups from Approvals. Refer to detailed scan log (Environment.LOG) for broader group list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_SecureFile_Dont_Grant_Broader_Group_Access_As_Approvers",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not be added as approvers on secure file.",
+      "Id": "SecureFile150",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupApproversOnSecureFile",
+      "Rationale": "Any user/ group can be added as an approver to the secure file, which gives users the permission to approve any run of pipelines accessing the resource even if they do not have access to the secure file. To prevent illegitimate consumption and approval of the resource, ensure that broader groups are not added as approvers.",
+      "Recommendation": "1. Navigate to the secure file --> 2. Select 'Approvals and checks' --> 7.  Remove Broader groups from Approvals. Refer to detailed scan log (SecureFile.LOG) for broader group list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
     }
+
+
   ]
 }

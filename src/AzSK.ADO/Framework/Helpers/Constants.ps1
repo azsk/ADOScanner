@@ -229,4 +229,9 @@ class Constants
 	static [string] $LogAnalyticsGenericView = "AZSK.AM.LogAnalytics.GenericView.V6.lawsview"
 	static [string] $LogAnalyticsGenericViewWorkbook = "ADOScannerLAWorkbook.json"
 	static [string] $WorkbookData = "WorkbookSerializedData.json"
+
+	#constants for cloudmine (CM) controls
+	static [object] $OrgsSupportingCMControls = @("MicrosoftIT")
+	static [string] $ResourceActivityDetailsTable = "ResourceActivity"
+	static [string] $CMErrorMessage = "Data for the given organization and project does not exist in the storage."
 }

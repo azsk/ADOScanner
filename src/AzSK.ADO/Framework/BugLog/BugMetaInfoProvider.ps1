@@ -11,12 +11,20 @@ class BugMetaInfoProvider {
     hidden static [PSObject] $emailRegEx
     hidden static $AssigneeForUnmappedResources = @{}
     hidden static [string] $GetAssigneeUsingFallbackMethod = $false
+    hidden static $UserInactivityLimit;
+    hidden static $UserActivityCache = @();
+    hidden static $CheckForUserInactivity;
 
     BugMetaInfoProvider() {
         if ($null -eq [BugMetaInfoProvider]::emailRegEx) {
             $ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
             [BugMetaInfoProvider]::emailRegEx = $ControlSettings.Patterns | where {$_.RegexCode -eq "Email"} | Select-Object -Property RegexList;
             [BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod = $ControlSettings.BugLogging.GetAssigneeUsingFallbackMethod
+
+            if ([Helpers]::CheckMember($ControlSettings.BugLogging, "CheckForUserInactivity")) {
+                [BugMetaInfoProvider]::UserInactivityLimit = $ControlSettings.BugLogging.UserInactivityLimit;
+                [BugMetaInfoProvider]::CheckForUserInactivity = $ControlSettings.BugLogging.CheckForUserInactivity;
+            }
         }
     }
 
@@ -123,8 +131,9 @@ class BugMetaInfoProvider {
 
                 if ([BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod) 
                 {
-                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken)) -or !$this.isUserActive($organizationName,$assignee)) 
                     {
+                        $assignee = "";
                         $apiURL = "https://dev.azure.com/{0}/{1}/_apis/serviceendpoint/{2}/executionhistory?top=1&api-version=6.0-preview.1" -f $organizationName, $($ControlResult.ResourceContext.ResourceGroupName), $($ControlResult.ResourceContext.ResourceDetails.id);
                         $executionHistory = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
 
@@ -141,13 +150,14 @@ class BugMetaInfoProvider {
                             }
                         }
                         # if no build/release jobs associated with service connection, then fecth assignee from permissions
-                        else 
+                        # asignee not found from build/release
+                        elseif (!$assignee) 
                         {
                             try {
                                 $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                                 $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.serviceendpointrole/roleassignments/resources/{1}_{2}" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                                 $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-                                $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
+                                $roles =   @(($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))} )
                                 if ($roles.Count -gt 0) {
                                     $userId = $roles[0].identity.id
                                     $assignee = $this.getUserFromUserId($organizationName, $userId)
@@ -160,7 +170,8 @@ class BugMetaInfoProvider {
                         }
                     }  
                 }
-                [BugMetaInfoProvider]::AssigneeForUnmappedResources[$ControlResult.ResourceContext.ResourceId] = $assignee
+
+                [BugMetaInfoProvider]::AssigneeForUnmappedResources[$ControlResult.ResourceContext.ResourceId] = $assignee; 
                 return $assignee
             }
             #assign to the creator of agent pool
@@ -173,8 +184,9 @@ class BugMetaInfoProvider {
                     if ([BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod) 
                     {
                         # if assignee is service account, then fetch assignee from jobs/permissions
-                        if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                        if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken)) -or !$this.isUserActive($organizationName,$assignee)) 
                         {
+                            $assignee = "";
                             $agentPoolsURL = "https://dev.azure.com/{0}/{1}/_settings/agentqueues?queueId={2}&__rt=fps&__ver=2 " -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                             $agentPool = [WebRequestHelper]::InvokeGetWebRequest($agentPoolsURL);
                             # get assignee from the the build/release jobs history
@@ -190,13 +202,13 @@ class BugMetaInfoProvider {
                                 }
                             }
                             # if no build/release jobs associated with agentpool, then fecth assignee from permissions
-                            else 
+                            elseif(!$assignee) 
                             {
                                 try {
                                     $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                                     $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.agentqueuerole/roleassignments/resources/{1}_{2}" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                                     $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
-                                    $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
+                                    $roles =   @( ($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))} )
                                     if ($roles.Count -gt 0) {
                                         $userId = $roles[0].identity.id
                                         $assignee = $this.getUserFromUserId($organizationName, $userId)
@@ -222,20 +234,23 @@ class BugMetaInfoProvider {
 
                 if ([BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod) 
                 {
-                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken)) -or !$this.isUserActive($organizationName,$assignee)) 
                     {
+                        $assignee = "";
                         if ([Helpers]::CheckMember($ControlResult.ResourceContext.ResourceDetails, "modifiedBy")) {
                             $assignee = $ControlResult.ResourceContext.ResourceDetails.modifiedBy.uniqueName
                         }
                     }
 
-                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken)) -or !$this.isUserActive($organizationName,$assignee)) 
                     {
+                        $assignee = "";
+                        # if no createdby/modifiedby found then fecth assignee from permissions
                         try {
                             $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                             $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.variablegroup/roleassignments/resources/{1}%24{2}?api-version=6.1-preview.1" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                             $responseObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
-                            $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
+                            $roles =   @( ($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))} )
                             if ($roles.Count -gt 0) {
                                 $userId = $roles[0].identity.id
                                 $assignee = $this.getUserFromUserId($organizationName, $userId)
@@ -288,8 +303,9 @@ class BugMetaInfoProvider {
                     if ([BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod) 
                     {
                         #getting assignee from the repository permissions
-                        if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                        if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken)) -or !$this.isUserActive($organizationName,$assignee)) 
                         {
+                            $assignee = "";
                             try{
                                 $accessList = @()
                                 $url = 'https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.0-preview.1' -f $organizationName;
@@ -340,21 +356,23 @@ class BugMetaInfoProvider {
 
                 if ([BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod) 
                 {
-                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken)) -or !$this.isUserActive($organizationName,$assignee)) 
                     {
+                        $assignee = "";
                         if ([Helpers]::CheckMember($ControlResult.ResourceContext.ResourceDetails, "modifiedBy")) {
                             $assignee = $ControlResult.ResourceContext.ResourceDetails.modifiedBy.uniqueName
                         }
                     }
 
                     # if assignee is service account, then fetch assignee from jobs/permissions
-                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken)) -or !$this.isUserActive($organizationName,$assignee)) 
                     {
+                        $assignee = "";
                         try {
                             $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                             $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.securefile/roleassignments/resources/{1}%24{2}" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                             $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
-                            $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
+                            $roles =   @( ($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))} )
                             if ($roles.Count -gt 0) {
                                 $userId = $roles[0].identity.id
                                 $assignee = $this.getUserFromUserId($organizationName, $userId)
@@ -405,16 +423,18 @@ class BugMetaInfoProvider {
 
                 if ([BugMetaInfoProvider]::GetAssigneeUsingFallbackMethod) 
                 {
-                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken)) -or !$this.isUserActive($organizationName,$assignee)) 
                     {
+                        $assignee = "";
                         if ([Helpers]::CheckMember($ControlResult.ResourceContext.ResourceDetails, "lastModifiedBy")) {
                             $assignee = $ControlResult.ResourceContext.ResourceDetails.lastModifiedBy.uniqueName
                         }
                     }
                     
                     # if assignee is service account, then fetch assignee from jobs/permissions
-                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) 
+                    if (($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0]) -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken)) -or !$this.isUserActive($organizationName,$assignee)) 
                     {
+                        $assignee = "";
                         $url = "https://dev.azure.com/{0}/{1}/_environments/{2}?view=resources&__rt=fps&__ver=2" -f $organizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                         $envDetails = [WebRequestHelper]::InvokeGetWebRequest($url);
                         # get assignee from the the build/release jobs history
@@ -430,13 +450,13 @@ class BugMetaInfoProvider {
                             }
                         }
                         # if no build/release jobs associated with agentpool, then fecth assignee from permissions
-                        else 
+                        elseif(!$assignee) 
                         {
                             try {
                                 $projectId = ($ControlResult.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
                                 $apiURL = "https://dev.azure.com/{0}/_apis/securityroles/scopes/distributedtask.environmentreferencerole/roleassignments/resources/{1}_{2}?api-version=5.0-preview.1" -f $organizationName, $projectId, $ControlResult.ResourceContext.ResourceId.split('/')[-1]
                                 $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($apiURL));
-                                $roles =   @($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))}
+                                $roles =   @( ($responseObj | where {$_.role.displayname -eq 'Administrator'} |select identity) | where {(-not ($_.identity.displayname).Contains("\")) -and ($_.identity.displayname -notin @("GitHub", "Microsoft.VisualStudio.Services.TFS"))} )
                                 if ($roles.Count -gt 0) {
                                     $userId = $roles[0].identity.id
                                     $assignee = $this.getUserFromUserId($organizationName, $userId)
@@ -551,6 +571,7 @@ class BugMetaInfoProvider {
             {
                 # if assignee is service account, get assignee from the the release update history
                 if ($assignee -inotmatch [BugMetaInfoProvider]::emailRegEx.RegexList[0] -or ([IdentityHelpers]::IsServiceAccount($assignee, 'User', [IdentityHelpers]::graphAccessToken))) {
+                    $assignee = "";
                     $url = "https://{0}.vsrm.visualstudio.com/{1}/_apis/Release/definitions/{2}/revisions" -f $organizationName, $projectName, $definitionId;
                     $response = [WebRequestHelper]::InvokeGetWebRequest($url)
                     if ([Helpers]::CheckMember($response, "changedBy")) {
@@ -569,6 +590,7 @@ class BugMetaInfoProvider {
             }
         }
         catch {
+            Write-Host("Pipeline not found");
         }
 
         return $assignee;	
@@ -589,6 +611,38 @@ class BugMetaInfoProvider {
         catch {
             return ""
         }
+    }
+
+    hidden [bool] isUserActive($organizationName,$mailAddress){
+        $isUserActive = $true
+        if(![BugMetaInfoProvider]::CheckForUserInactivity){
+            return $true
+        }
+        try{
+            $userActivity = [BugMetaInfoProvider]::UserActivityCache | where {$_.id -eq $mailAddress}
+            if($userActivity){
+                return $userActivity.isActive
+            }
+            else {
+                $url = "https://vsaex.dev.azure.com/{0}/_apis/userentitlements?api-version=6.0-preview.3&`$filter=name eq '{1}'" -f $organizationName, $mailAddress
+                $response = [WebRequestHelper]::InvokeGetWebRequest($url);
+                if($response[0].members.count -gt 0){
+                    [datetime] $lastAccessedDate = $response[0].members[0].lastAccessedDate
+                    if(((Get-Date)-$lastAccessedDate).Days -gt [BugMetaInfoProvider]::UserInactivityLimit){
+                        $isUserActive= $false;
+                    }
+                }
+                else{
+                    $isUserActive= $false
+                }
+            }
+
+        }
+        catch{
+            $isUserActive= $false
+        }
+        [BugMetaInfoProvider]::UserActivityCache += (@{id = $mailAddress;isActive = $isUserActive})
+        return $isUserActive
     }
     
     #method to obtain sign in ID of TF scoped identities

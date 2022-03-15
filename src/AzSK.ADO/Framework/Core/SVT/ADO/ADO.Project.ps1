@@ -933,6 +933,7 @@ class Project: ADOSVTBase
                                             $controlResult.AdditionalInfo += "Count of non-ALT accounts with admin privileges: " + $nonSCCount;
                                             $nonSCaccounts = $nonSCMembers | ForEach-Object { $_.name + ': ' + $_.mailAddress + ';' } | select-object -Unique -First 10
                                             $controlResult.AdditionalInfoInCSV += "First 10 Non_Alt_Admins: " + $nonSCaccounts -join ' ; '
+                                            $controlResult.AdditionalInfo += "First 10 Non_Alt_Admins: $($nonSCaccounts -join '; ')"
                                         }
                                         else
                                         {

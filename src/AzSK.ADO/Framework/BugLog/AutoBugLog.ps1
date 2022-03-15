@@ -105,9 +105,12 @@ class AutoBugLog : EventBase  {
                 else {
                     $resourceOwner = $AssignedTo;
                 }
+
+                #check for user is active or not
+                $isUserActive = $metaProviderObj.isUserActive($this.OrganizationName, $AssignedTo);
                 #Log bug only if LogBugForUnmappedResource is enabled (default value is true) or resource is mapped to serviceid
                 #Restrict bug logging, if resource is not mapped to serviceid and LogBugForUnmappedResource is not enabled.
-                if($this.LogBugsForUnmappedResource -or $serviceId)
+                if(($this.LogBugsForUnmappedResource -or $serviceId) -and $AssignedTo -and $isUserActive)
                 {
                     #Set ShowBugsInS360 if customebuglog is enabled and sericeid not null and ShowBugsInS360 enabled in policy
                     if ($this.IsBugLogCustomFlow -and (-not [string]::IsNullOrEmpty($serviceId)) -and ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "ShowBugsInS360") -and $this.ControlSettings.BugLogging.ShowBugsInS360) ) {
@@ -206,13 +209,13 @@ class AutoBugLog : EventBase  {
                         }
                         if([string]::IsNullOrEmpty($AssignedTo)){
                             if ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First * non-ALT admins:*") {
-                                $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("non-ALT admins:"))[-1].split(':')[1]
+                                $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("non-ALT admins:"))[-1].split(':')[1].split(";")[0]
                             }
                             elseif ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First * Non_Alt_Admins*") {
                                 $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("Non_Alt_Admins:"))[-1].split(':')[1].split(';')[0]
                             }
-                            elseif($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*List of non-ALT accounts:*"){
-                                $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("List of non-ALT accounts:"))[-1].split(':')[1].split(';')[0]
+                            elseif($ControlResults[0].ControlResults.AdditionalInfoInCSV -like ("*"+$this.ControlSettings.Buglogging.AdditionalInfoRegex+"*")){
+                                $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split(":"))[-1].split(';')[0]
                             }
                             else {
                                 $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlId). Assignee could not be determined.", [MessageType]::Warning);
