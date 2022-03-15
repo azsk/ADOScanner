@@ -441,12 +441,12 @@
       "Administrator",
       "User"
     ],
-    "RestrictedBroaderGroupsForApprovers": [
-      "Project Collection Valid Users",
-      "Project Valid Users",
-      "Contributors",
-      "Readers"
-    ],
+      "RestrictedBroaderGroupsForApprovers": [
+        "Project Collection Valid Users",
+        "Project Valid Users",
+        "Contributors",
+        "Readers"
+      ],
     "CheckForInheritedPermissions": false,
     "CheckForBranchProtection":true
   },  
@@ -827,6 +827,7 @@
     "LogBugsForUnmappedResource": true,
     "Description":"Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a> </br></br> <b> Resource Owner/Last Modified By: </b> {10} {11} </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Note: </b> In case the resource has been deleted or you decide to delete it as a bug fix, ADO scanner does not close bugs for deleted resources. You need to close the bug manually. </br> </br> <b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>",
     "UpdateBug": [],
+    "AdditionalInfoRegex":"List of non-ALT accounts",
     "UserInactivityLimit": 60,
     "CheckForUserInactivity": true
   },
