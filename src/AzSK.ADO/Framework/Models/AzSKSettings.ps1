@@ -273,6 +273,10 @@ class AzSKSettings {
 				$branch = [Constants]::OrgPolicyDefaultBranch;
 			}
 		}
+		if($env:OrgPolicyBranchName)
+		{
+			$branch = $env:OrgPolicyBranchName
+		}
 		$branch = [System.Web.HttpUtility]::UrlEncode($branch)
 
 		$repoName = [Constants]::OrgPolicyRepo;
