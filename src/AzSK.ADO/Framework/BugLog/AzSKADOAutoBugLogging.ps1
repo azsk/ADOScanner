@@ -104,6 +104,7 @@ class AzSKADOAutoBugLogging : CommandBase
                     ResourceName = $controlResult.Group[0].ResourceName_s;
                     ResourceType = "ADO."+$controlResult.Group[0].FeatureName_s;
                     ResourceTypeName = $controlResult.Group[0].FeatureName_s;
+                    ResourceOwner = $controlResult.Group[0].ResourceOwner;
                     ResourceId = $controlResult.Group[0].ResourceId
                     ResourceDetails = @{ResourceLink = $controlResult.Group[0].ResourceLink_s}
                 };    
@@ -114,6 +115,7 @@ class AzSKADOAutoBugLogging : CommandBase
                     ResourceName = $controlResult.Group[0].ResourceName;
                     ResourceType = "ADO."+$controlResult.Group[0].FeatureName;
                     ResourceTypeName = $controlResult.Group[0].FeatureName;
+                    ResourceOwner = $controlResult.Group[0].ResourceOwner;
                     ResourceId = $controlResult.Group[0].ResourceId
                     ResourceDetails = @{ResourceLink = $controlResult.Group[0].ResourceLink}
                 };

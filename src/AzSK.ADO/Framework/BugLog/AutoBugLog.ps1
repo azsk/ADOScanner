@@ -233,8 +233,7 @@ class AutoBugLog : EventBase  {
                     }
                 }
                 else {
-                    $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.InvocationContext);
-                    $serviceId = $metaProviderObj.ServiceId;
+                    $AssignedTo = $ControlResults[0].ResourceContext.ResourceOwner
                 }                
             }
             else {
@@ -960,6 +959,7 @@ class AutoBugLog : EventBase  {
                     }
                     else{
                         $this.PublishCustomMessage("Could not log the bug. Assignee [$($AssignedTo.trim())] is not found in organization.", [MessageType]::Warning)
+                        $control.ControlResults.AddMessage("Error");
                         return;
                     }
                 }

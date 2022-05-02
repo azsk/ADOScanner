@@ -166,7 +166,10 @@ Class LogAnalyticsHelper{
 						$out.bugStatus=$_.Message
 						$out.bugUrl=$_.DataObject
 					}
-
+					else
+					{
+						$out.bugStatus=$_.Message
+					}
 				}
 			}
 			if($ControlResult.VerificationResult -eq "Passed"){
