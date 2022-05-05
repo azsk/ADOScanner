@@ -286,6 +286,11 @@ class CommandBase: AzSKRoot {
 				[PublishToJSONAndCSV]::new($methodResult,$folderPath,$bugsClosed)
 			}
 		}
+		if($this.InvocationContext.BoundParameters["ScanResultFilePath"])
+		{
+			$laInstance= [LogAnalyticsOutput]::Instance
+			$laInstance.WriteControlResult($methodResult)
+		}
 		#condition publishes only closed bugs. $null is passed instead of $methodResult to avoid performance slow down in PublishToJSONAndCSV
 		else{
 			if($bugsClosed){

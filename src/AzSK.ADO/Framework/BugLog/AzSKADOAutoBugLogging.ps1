@@ -106,7 +106,12 @@ class AzSKADOAutoBugLogging : CommandBase
                     ResourceTypeName = $controlResult.Group[0].FeatureName_s;
                     ResourceId = $controlResult.Group[0].ResourceId
                     ResourceDetails = @{ResourceLink = $controlResult.Group[0].ResourceLink_s}
-                };    
+                };
+                try {
+                    $ResourceContext.ResourceOwner = $controlResult.Group[0].ResourceOwner;
+                }
+                catch {
+                }    
             }
             else {
                 $ResourceContext = [ResourceContext]@{
@@ -114,9 +119,15 @@ class AzSKADOAutoBugLogging : CommandBase
                     ResourceName = $controlResult.Group[0].ResourceName;
                     ResourceType = "ADO."+$controlResult.Group[0].FeatureName;
                     ResourceTypeName = $controlResult.Group[0].FeatureName;
+                    # ResourceOwner = $controlResult.Group[0].ResourceOwner;
                     ResourceId = $controlResult.Group[0].ResourceId
                     ResourceDetails = @{ResourceLink = $controlResult.Group[0].ResourceLink}
                 };
+                try {
+                    $ResourceContext.ResourceOwner = $controlResult.Group[0].ResourceOwner;
+                }
+                catch {
+                } 
             }
             
             $ResourceContextControlResult += $this.CreateResultContextObject($ResourceContext, $controlResult.Group);

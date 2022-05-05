@@ -38,6 +38,7 @@ class ResourceContext
 	[hashtable] $ResourceGroupTags = @{}
 	[PSObject] $ResourceDetails
 	[psobject] $ResourceGroupDetails
+	[string] $ResourceOwner = ""
 }
 
 class ControlResult
