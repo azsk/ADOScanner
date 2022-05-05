@@ -206,11 +206,6 @@ function Start-AzSKADOBugLogging
 				return;
 			}
 
-			if($AutoBugLog -and ([string]::IsNullOrWhiteSpace($STMappingFilePath) -or !(Test-Path $STMappingFilePath))) {
-				Write-Host "STMapping file path is not correct. Please provide correct value in [STMappingFilePath] command parameter." -ForegroundColor Red
-				return;
-			}
-
 			if(![string]::IsNullOrWhiteSpace($ScanResultFilePath) -and(Test-Path $ScanResultFilePath)) {
 				Write-Host 'Loading scan result file data.....' -ForegroundColor Cyan
 				$ScanResult = @(Get-content $ScanResultFilePath | ConvertFrom-Csv);

@@ -491,13 +491,16 @@ class BugMetaInfoProvider {
         if([BugMetaInfoProvider]::OrgMappingObj.ContainsKey($organizationName)){
             return [BugMetaInfoProvider]::OrgMappingObj[$organizationName]
         }
-        $orgMapping = Get-Content "$($this.STMappingFilePath)\OrgSTData.csv" | ConvertFrom-Csv
-        $orgOwnerDetails = @($orgMapping | where {$_."ADO Org Name" -eq $organizationName})
-        if($orgOwnerDetails.Count -gt 0){
-            $assignee = $orgOwnerDetails[0]."OwnerAlias"   
-            [BugMetaInfoProvider]::OrgMappingObj[$organizationName] = $assignee
+        if (![string]::IsNullOrWhiteSpace($this.STMappingFilePath))
+        {
+            # $orgMapping = Get-Content "$([string]::IsNullOrWhiteSpace($this.STMappingFilePath))\OrgSTData.csv" | ConvertFrom-Csv 
+            $orgMapping = Get-Content "$($this.STMappingFilePath)\OrgSTData.csv" | ConvertFrom-Csv
+            $orgOwnerDetails = @($orgMapping | where {$_."ADO Org Name" -eq $organizationName})
+            if($orgOwnerDetails.Count -gt 0){
+                $assignee = $orgOwnerDetails[0]."OwnerAlias"   
+                [BugMetaInfoProvider]::OrgMappingObj[$organizationName] = $assignee
+            }
         }
-
         return $assignee;
     }
 

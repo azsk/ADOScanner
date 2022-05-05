@@ -218,7 +218,7 @@ class AutoBugLog : EventBase  {
                                 $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split(":"))[-1].split(';')[0]
                             }
                             else {
-                                $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlId). Assignee could not be determined.", [MessageType]::Warning);
+                                $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlId). Assignee could not be determined and make sure you have provided STMappingFilePath", [MessageType]::Warning);
                                 return $returnvalue;
                             }
                         } 
@@ -236,18 +236,11 @@ class AutoBugLog : EventBase  {
                     $AssignedTo = $ControlResults[0].ResourceContext.ResourceOwner
                 }                
             }
-            else {
-                if($ResourceType -ne 'Organization' -and $ResourceType -ne 'Project'){
-                    if([BugMetaInfoProvider]::ServiceTreeInfo){
-                        $serviceId = [BugMetaInfoProvider]::ServiceTreeInfo.serviceId;
-                    }                    
-                }                
-            }
             $resourceOwner = "";
-            if($serviceId -or $ResourceType -eq 'Organization' -or $ResourceType -eq 'Project')
+            if($AssignedTo)
             {
                 #Set ShowBugsInS360 if customebuglog is enabled and sericeid not null and ShowBugsInS360 enabled in policy
-                if ($this.IsBugLogCustomFlow -and (-not [string]::IsNullOrEmpty($serviceId)) -and ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "ShowBugsInS360") -and $this.ControlSettings.BugLogging.ShowBugsInS360) ) {
+                if ($this.IsBugLogCustomFlow -and ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "ShowBugsInS360") -and $this.ControlSettings.BugLogging.ShowBugsInS360) ) {
                     $this.ShowBugsInS360 = $true;
                 }
                 else {
