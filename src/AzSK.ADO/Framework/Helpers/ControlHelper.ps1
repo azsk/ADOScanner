@@ -87,14 +87,14 @@ class ControlHelper: EventBase{
         $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($orgName);
         if ([string]::IsNullOrEmpty($projName)){
             $postbody=@'
-            {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/_settings/groups?subjectDescriptor={1}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
+            {"contributionIds":["ms.vss-admin-web.org-admin-group-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/_settings/groups?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
 '@
             $postbody=$postbody.Replace("{0}",$descriptor)
             $postbody=$postbody.Replace("{1}",$orgName)
         }
         else {
             $postbody=@'
-            {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{1}/{2}/_settings/permissions?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
+            {"contributionIds":["ms.vss-admin-web.org-admin-group-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{1}/{2}/_settings/permissions?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
 '@
             $postbody=$postbody.Replace("{0}",$descriptor)
             $postbody=$postbody.Replace("{1}",$orgName)
@@ -106,9 +106,9 @@ class ControlHelper: EventBase{
         try
         {
             $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
-            if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
+            if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-group-members-data-provider', "identities"))
             {
-                $data=$response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
+                $data=$response.dataProviders.'ms.vss-admin-web.org-admin-group-members-data-provider'.identities
                 $data | ForEach-Object{
                     if($_.subjectKind -eq "group")
                     {
@@ -248,15 +248,15 @@ class ControlHelper: EventBase{
                     $descriptor = $groupObj.descriptor
                     $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($orgName);
                     $postbody=@'
-                    {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{1}/{2}/_settings/permissions?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
+                    {"contributionIds":["ms.vss-admin-web.org-admin-group-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{1}/{2}/_settings/permissions?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
 '@
                     $postbody=$postbody.Replace("{0}",$descriptor)
                     $postbody=$postbody.Replace("{1}",$orgName)
                     $postbody=$postbody.Replace("{2}",$projName)
                     $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
-                    if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
+                    if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-group-members-data-provider', "identities"))
                     {
-                        $memberslist = @($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities)
+                        $memberslist = @($response.dataProviders.'ms.vss-admin-web.org-admin-group-members-data-provider'.identities)
                     }
                     $members += [ControlHelper]::NestedGroupResolverHelper($memberslist)
                 }

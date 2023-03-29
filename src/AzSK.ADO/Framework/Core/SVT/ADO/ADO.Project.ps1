@@ -552,7 +552,7 @@ class Project: ADOSVTBase
         Foreach ($group in $groups){
             $groupmember = @();
          $descriptor = $group.descriptor;
-         $inputbody =  '{"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+         $inputbody =  '{"contributionIds":["ms.vss-admin-web.org-admin-group-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.project-admin-hub-route","routeValues":{"project":"","adminPivot":"permissions","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
 
          $inputbody.dataProviderContext.properties.subjectDescriptor = $descriptor;
          $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$($this.ResourceContext.ResourceName)/_settings/permissions?subjectDescriptor=$($descriptor)";
@@ -560,8 +560,8 @@ class Project: ADOSVTBase
 
          $usersObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
 
-         if([Helpers]::CheckMember($usersObj.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities")) {
-            $usersObj.dataProviders."ms.vss-admin-web.org-admin-members-data-provider".identities  | ForEach-Object {
+         if([Helpers]::CheckMember($usersObj.dataProviders.'ms.vss-admin-web.org-admin-group-members-data-provider', "identities")) {
+            $usersObj.dataProviders."ms.vss-admin-web.org-admin-group-members-data-provider".identities  | ForEach-Object {
                 $groupmember += $_;
             }
         }
@@ -4147,7 +4147,7 @@ class Project: ADOSVTBase
                                 $groupFoundWithExcessivePermissions = $false
                                 $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($this.OrganizationContext.OrganizationName);                                
                                 $postbody=@'
-                                {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/_settings/groups?subjectDescriptor={1}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
+                                {"contributionIds":["ms.vss-admin-web.org-admin-group-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/_settings/groups?subjectDescriptor={1}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
 '@
                                 $postbody=$postbody.Replace("{0}",$identity.descriptor )
                                 $postbody=$postbody.Replace("{1}",$this.OrganizationContext.OrganizationName)
@@ -4156,9 +4156,9 @@ class Project: ADOSVTBase
                                 $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))   
                                 try {
                                     $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
-                                    if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
+                                    if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-group-members-data-provider', "identities"))
                                     {
-                                        $buildServiceAccountIdentities = $response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities
+                                        $buildServiceAccountIdentities = $response.dataProviders.'ms.vss-admin-web.org-admin-group-members-data-provider'.identities
                                         foreach ($eachIdentity in $buildServiceAccountIdentities) {
                                           if ($eachIdentity.displayName -like "*Project Collection Build Service ($($this.OrganizationContext.OrganizationName))" -or $eachIdentity.displayName -like "*Build Service ($($this.OrganizationContext.OrganizationName))") {
 
