@@ -395,7 +395,7 @@
       "Automated": "Yes",
       "MethodName": "CheckAuthZRepoScope",
       "Rationale": "If the authorization scope of pipelines is not limited to referenced repos, an attacker can create a pipeline that can access sensitive repos within the project. This is in keeping with the principle of least privilege.",
-      "Recommendation": "1. Go to Organization Settings --> 2. Pipeline Settings --> 3. Enable 'Limit job authorization scope to referenced Azure DevOps repositories'.",
+      "Recommendation": "1. Go to Organization Settings --> 2. Pipeline Settings --> 3. Enable 'Protect access to repositories in YAML pipelines'.",
       "Tags": [
         "SDL",
         "TCP",
