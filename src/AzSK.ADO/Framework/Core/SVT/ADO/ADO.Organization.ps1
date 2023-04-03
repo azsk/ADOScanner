@@ -1338,14 +1338,14 @@ class Organization: ADOSVTBase
         Foreach ($group in $groupsObj){
          $groupmember = @();
          $descriptor = $group.descriptor;
-         $inputbody =  '{"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
+         $inputbody =  '{"contributionIds":["ms.vss-admin-web.org-admin-group-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"","sourcePage":{"url":"","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}' | ConvertFrom-Json
 
          $inputbody.dataProviderContext.properties.subjectDescriptor = $descriptor;
          $inputbody.dataProviderContext.properties.sourcePage.url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_settings/groups?subjectDescriptor=$($descriptor)";
          $usersObj = [WebRequestHelper]::InvokePostWebRequest($apiURL,$inputbody);
 
-         if([Helpers]::CheckMember($usersObj.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities")) {
-            $usersObj.dataProviders."ms.vss-admin-web.org-admin-members-data-provider".identities  | ForEach-Object {
+         if([Helpers]::CheckMember($usersObj.dataProviders.'ms.vss-admin-web.org-admin-group-members-data-provider', "identities")) {
+            $usersObj.dataProviders."ms.vss-admin-web.org-admin-group-members-data-provider".identities  | ForEach-Object {
                 $groupmember += $_;
             }
         }

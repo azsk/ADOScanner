@@ -117,7 +117,7 @@ class Constants
 	static [string] $AttestationRepo = "ADOScannerAttestation";
 	static [string] $AttestationDefaultBranch = "master"; 
 	static [string] $OrgPolicyRepo = "ADOScannerPolicy";
-	static [string] $OrgPolicyDefaultBranch = "master"; 
+	static [string] $OrgPolicyDefaultBranch = "main"; 
 	static [string] $OrgPolicyRepoCSEO = "RM-ESP-EEE-ADOScannerPolicy";
 	static [string] $CSEOOrg = "MicrosoftIT";
 	static [string] $OrgAttPrjExtFile = "Org_Config";

@@ -91,7 +91,7 @@ class AADGroupsInfo: CommandBase
 
             $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($this.OrganizationName);
             $postbody=@'
-            {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/_settings/groups?subjectDescriptor={1}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
+            {"contributionIds":["ms.vss-admin-web.org-admin-group-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/_settings/groups?subjectDescriptor={1}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
 '@
             $postbody=$postbody.Replace("{0}",$descriptor)
             $postbody=$postbody.Replace("{1}",$this.OrganizationName)
@@ -100,9 +100,9 @@ class AADGroupsInfo: CommandBase
             $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
             try {
                 $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
-                if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities"))
+                if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-group-members-data-provider', "identities"))
                 {
-                    $data = $response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities 
+                    $data = $response.dataProviders.'ms.vss-admin-web.org-admin-group-members-data-provider'.identities 
                     $data | ForEach-Object{
                         if($_.subjectKind -eq "group"){
                             if([Helpers]::CheckMember($_,"isAadGroup") -and $_.isAadGroup -eq $true){
@@ -161,7 +161,7 @@ class AADGroupsInfo: CommandBase
             $descriptor = $grp.descriptor
             $url="https://dev.azure.com/{0}/_apis/Contribution/HierarchyQuery?api-version=5.1-preview" -f $($this.organizationName);
             $postbody=@'
-            {"contributionIds":["ms.vss-admin-web.org-admin-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/{1}/_settings/permissions?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
+            {"contributionIds":["ms.vss-admin-web.org-admin-group-members-data-provider"],"dataProviderContext":{"properties":{"subjectDescriptor":"{0}","sourcePage":{"url":"https://dev.azure.com/{2}/{1}/_settings/permissions?subjectDescriptor={0}","routeId":"ms.vss-admin-web.collection-admin-hub-route","routeValues":{"adminPivot":"groups","controller":"ContributedPage","action":"Execute"}}}}}
 '@
             $postbody=$postbody.Replace("{0}",$descriptor)
             $postbody=$postbody.Replace("{2}",$this.organizationName)
@@ -173,8 +173,8 @@ class AADGroupsInfo: CommandBase
             try{
                 $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -Body $postbody
 
-                if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider', "identities")){
-                    $data = $response.dataProviders.'ms.vss-admin-web.org-admin-members-data-provider'.identities 
+                if([Helpers]::CheckMember($response.dataProviders.'ms.vss-admin-web.org-admin-group-members-data-provider', "identities")){
+                    $data = $response.dataProviders.'ms.vss-admin-web.org-admin-group-members-data-provider'.identities 
                     $data | ForEach-Object{
                         if($_.subjectKind -eq "group"){
                             if([Helpers]::CheckMember($_,"isAadGroup") -and $_.isAadGroup -eq $true){
