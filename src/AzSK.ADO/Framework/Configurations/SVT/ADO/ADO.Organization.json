@@ -672,25 +672,25 @@
         "AutomatedFix"
       ],
       "Enabled": true
-  },
-  {
-    "ControlID": "ADO_Organisation_DP_Disable_Creation_Of_Classic_Pipeline",
-    "Description": "Disable the creation of classic build and classic release pipelines.",
-    "Id": "Organization500",
-    "ControlSeverity": "Medium",
-    "Automated": "Yes",
-    "MethodName": "CheckDisableCreationOfClassicPipelines",
-    "Rationale": "Classic pipelines have been deprecated. YAML pipelines provide better pipeline security with their ability to allow developers to review pipeline code, better resource access management through approvals and checks and support for runtime parameters to avoid multiple security issues. Disabling creation of classic pipelines ensure that developers get to work with most secure options in the environment without worrying about security of their classic pipelines.",
-    "Recommendation": "1.Go to Organization Settings --> 2.Pipelines --> 3.Settings --> 4.Enable 'Disable creation of classic build and classic release pipelines.",
-    "Tags": [
-      "SDL",
-      "TCP",
-      "Automated",
-      "AuthZ",
-      "Baseline",
-      "DP"
-    ],
-    "Enabled": true
-  }
+    },
+    {
+      "ControlID": "ADO_Organization_DP_Disable_Creation_Of_Classic_Pipeline",
+      "Description": "Disable the creation of classic build and classic release pipelines.",
+      "Id": "Organization500",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckDisableCreationOfClassicPipelines",
+      "Rationale": "Classic pipelines have been deprecated. YAML pipelines provide better pipeline security with their ability to allow developers to review pipeline code, better resource access management through approvals and checks and support for runtime parameters to avoid multiple security issues. Disabling creation of classic pipelines ensure that developers get to work with most secure options in the environment without worrying about security of their classic pipelines.",
+      "Recommendation": "1.Go to Organization Settings --> 2.Pipelines --> 3.Settings --> 4.Enable 'Disable creation of classic build and classic release pipelines.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ",
+        "Baseline",
+        "DP"
+      ],
+      "Enabled": true
+    }
   ]
 }
