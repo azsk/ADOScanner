@@ -3847,4 +3847,37 @@ class Organization: ADOSVTBase
         }
         return $controlResult
     }
+    hidden [ControlResult] CheckDisableCreationOfClassicPipelines([ControlResult] $controlResult)
+    {
+       $controlResult.VerificationResult = [VerificationResult]::Failed
+       if($this.PipelineSettingsObj)
+       {
+            $orgLevelScope = $this.PipelineSettingsObj.disableClassicPipelineCreation #the name of the getter setter
+
+            if($orgLevelScope -eq $true )
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "Creation of classic build and classic release pipelines is disabled.");
+            }
+            else{
+                $controlResult.AddMessage([VerificationResult]::Failed, "Creation of classic build and classic release pipelines is not disabled.");
+                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
+                {
+                    #Data object that will be required to fix the control                                    
+                    $controlResult.BackupControlState = [PSCustomObject]@{
+                        "disableClassicPipelineCreation" = $false
+                    };
+                }
+                if($this.BaselineConfigurationRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    
+                    
+                }
+            }
+            $controlResult.AdditionalInfoInCSV = "NA";
+       }
+       else{
+             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch the organization pipeline settings.");
+       }
+        return $controlResult
+    }
 }
