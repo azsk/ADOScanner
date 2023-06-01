@@ -4207,4 +4207,38 @@ class Project: ADOSVTBase
         }
         return $controlResult;
     }
+
+    hidden [ControlResult] CheckDisabledCreationOfClassicPipeline([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        if($this.PipelineSettingsObj)
+        {
+            $orgLevelScope = $this.PipelineSettingsObj.disableClassicPipelineCreation.orgEnabled;
+            $prjLevelScope = $this.PipelineSettingsObj.disableClassicPipelineCreation.enabled;
+            $controlResult.AdditionalInfoInCSV ="NA"
+
+            if($prjLevelScope -eq $true )
+            {
+                $controlResult.AddMessage([VerificationResult]::Passed, "Creation of classic build and classic release pipelines is disabled.");
+            }
+            else
+            {
+                $controlResult.AddMessage([VerificationResult]::Failed, "Creation of classic build and classic release pipelines is not disabled.");
+            }
+
+            if($orgLevelScope -eq $true )
+            {
+                $controlResult.AddMessage("This setting is enabled (limited to current project) at organization level.");
+            }
+            else
+            {
+                $controlResult.AddMessage("This setting is disabled (set to project collection) at organization level.");                
+            }
+        }
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch project pipeline settings.");
+        }
+        return $controlResult
+    }
 }
