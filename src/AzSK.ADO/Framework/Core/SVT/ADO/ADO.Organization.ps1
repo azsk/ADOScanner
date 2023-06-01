@@ -3860,18 +3860,6 @@ class Organization: ADOSVTBase
             }
             else{
                 $controlResult.AddMessage([VerificationResult]::Failed, "Creation of classic build and classic release pipelines is not disabled.");
-                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
-                {
-                    #Data object that will be required to fix the control                                    
-                    $controlResult.BackupControlState = [PSCustomObject]@{
-                        "disableClassicPipelineCreation" = $false
-                    };
-                }
-                if($this.BaselineConfigurationRequired){
-                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
-                    
-                    
-                }
             }
             $controlResult.AdditionalInfoInCSV = "NA";
        }
