@@ -4228,11 +4228,11 @@ class Project: ADOSVTBase
 
             if($orgLevelScope -eq $true )
             {
-                $controlResult.AddMessage("This setting is enabled (limited to current project) at organization level.");
+                $controlResult.AddMessage("This setting is enabled (disabled the creation of classic pipeline) at organization level.");
             }
             else
             {
-                $controlResult.AddMessage("This setting is disabled (set to project collection) at organization level.");                
+                $controlResult.AddMessage("This setting is disabled (not disabled the creation of classic pipeline) at organization level.");                
             }
         }
         else
