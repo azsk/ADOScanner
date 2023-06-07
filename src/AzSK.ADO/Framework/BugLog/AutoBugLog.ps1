@@ -17,6 +17,7 @@ class AutoBugLog : EventBase  {
     hidden [string] $ScanSource;
     hidden [bool] $LogBugsForUnmappedResource = $true;
     hidden [string] $BugLogProjectName = $null;
+    hidden [bool] $RunBugLogWithAttributionFeature = $false;          
 
     #IsUpdateBugEnabled is used to store whether update bug is enabled in org-policy. 
     hidden [bool] $IsUpdateBugEnabled = $false;
@@ -27,14 +28,15 @@ class AutoBugLog : EventBase  {
         $this.ControlSettings = [ConfigurationManager]::LoadServerConfigFile("ControlSettings.json");
         $this.ControlStateExt = $controlStateExt    
         $this.BugLogParameterValue = $bugLogParameterValue  
-        
+        $this.RunBugLogWithAttributionFeature = $env:RunBugLogWithAttributionFeature;
+
         #flag to check if pluggable bug logging interface (service tree)
         if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "BugAssigneeAndPathCustomFlow", $null)) {
             $this.IsBugLogCustomFlow = $this.ControlSettings.BugLogging.BugAssigneeAndPathCustomFlow;
             $this.ServiceIdPassedInCMD = $InvocationContext.BoundParameters["ServiceId"];
         }
         $this.ScanSource = [AzSKSettings]::GetInstance().GetScanSource();
-        
+        $this.ScanSource = "CA"
         #If UseAzureStorageAccount is true then initialize the BugLogHelperObj singleton class object.
         if ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "UseAzureStorageAccount")) {
             $this.UseAzureStorageAccount = $this.ControlSettings.BugLogging.UseAzureStorageAccount;
@@ -199,43 +201,49 @@ class AutoBugLog : EventBase  {
 
             if (!$assignedTo)
             {
-                if($ResourceType -eq 'Organization' -or $ResourceType -eq 'Project') {
-                    try {
-                        if($ResourceType -eq 'Organization'){
-                            $AssignedTo = $metaProviderObj.GetAssigneeFromOrgMapping($ControlResults[0].ResourceContext.ResourceName)
-                        }
-                        else{
-                            $AssignedTo = $metaProviderObj.GetAssigneeFromOrgMapping($ControlResults[0].ResourceContext.ResourceGroupName)
-                        }
-                        if([string]::IsNullOrEmpty($AssignedTo)){
-                            if ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First * non-ALT admins:*") {
-                                $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("non-ALT admins:"))[-1].split(':')[1].split(";")[0]
-                            }
-                            elseif ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First * Non_Alt_Admins*") {
-                                $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("Non_Alt_Admins:"))[-1].split(':')[1].split(';')[0]
-                            }
-                            elseif($ControlResults[0].ControlResults.AdditionalInfoInCSV -like ("*"+$this.ControlSettings.Buglogging.AdditionalInfoRegex+"*")){
-                                $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split(":"))[-1].split(';')[0]
-                            }
-                            else {
-                                $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlId). Assignee could not be determined.", [MessageType]::Warning);
-                                return $returnvalue;
-                            }
-                        } 
-                        #if assignee is not from org mapping, it may not have domain name, in case of assignee from CSV it will have
-                        if($AssignedTo -notlike "*microsoft.com"){
-                            $AssignedTo += "@microsoft.com"
-                        }                   
-                    }
-                    catch {
-                        $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName). Assignee could not be determined.", [MessageType]::Error);
-                        return $returnvalue;
-                    }
+                if($this.RunBugLogWithAttributionFeature -eq $true)
+                {
+                    $AssignedTo = $metaProviderObj.GetAssigneeFromResourceMapping($ControlResults[0]);
                 }
                 else {
-                    $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.InvocationContext);
-                    $serviceId = $metaProviderObj.ServiceId;
-                }                
+                    if($ResourceType -eq 'Organization' -or $ResourceType -eq 'Project') {
+                        try {
+                            if($ResourceType -eq 'Organization'){
+                                $AssignedTo = $metaProviderObj.GetAssigneeFromOrgMapping($ControlResults[0].ResourceContext.ResourceName)
+                            }
+                            else{
+                                $AssignedTo = $metaProviderObj.GetAssigneeFromOrgMapping($ControlResults[0].ResourceContext.ResourceGroupName)
+                            }
+                            if([string]::IsNullOrEmpty($AssignedTo)){
+                                if ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First * non-ALT admins:*") {
+                                    $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("non-ALT admins:"))[-1].split(':')[1].split(";")[0]
+                                }
+                                elseif ($ControlResults[0].ControlResults.AdditionalInfoInCSV -like "*First * Non_Alt_Admins*") {
+                                    $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split("Non_Alt_Admins:"))[-1].split(':')[1].split(';')[0]
+                                }
+                                elseif($ControlResults[0].ControlResults.AdditionalInfoInCSV -like ("*"+$this.ControlSettings.Buglogging.AdditionalInfoRegex+"*")){
+                                    $AssignedTo = ($ControlResults[0].ControlResults.AdditionalInfoInCSV -split(":"))[-1].split(';')[0]
+                                }
+                                else {
+                                    $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName) and control $($ControlResults[0].ControlItem.ControlId). Assignee could not be determined.", [MessageType]::Warning);
+                                    return $returnvalue;
+                                }
+                            } 
+                            #if assignee is not from org mapping, it may not have domain name, in case of assignee from CSV it will have
+                            if($AssignedTo -notlike "*microsoft.com"){
+                                $AssignedTo += "@microsoft.com"
+                            }                   
+                        }
+                        catch {
+                            $this.PublishCustomMessage("Could not log bug for resource $($ControlResults[0].ResourceContext.ResourceName). Assignee could not be determined.", [MessageType]::Error);
+                            return $returnvalue;
+                        }
+                    }
+                    else {
+                        $AssignedTo = $metaProviderObj.GetAssignee($ControlResults[0], $this.InvocationContext);
+                        $serviceId = $metaProviderObj.ServiceId;
+                    } 
+                }
             }
             else {
                 if($ResourceType -ne 'Organization' -and $ResourceType -ne 'Project'){
@@ -245,7 +253,7 @@ class AutoBugLog : EventBase  {
                 }                
             }
             $resourceOwner = "";
-            if($serviceId -or $ResourceType -eq 'Organization' -or $ResourceType -eq 'Project')
+            if($serviceId -or $ResourceType -eq 'Organization' -or $ResourceType -eq 'Project' -or $this.RunBugLogWithAttributionFeature -eq $true)
             {
                 #Set ShowBugsInS360 if customebuglog is enabled and sericeid not null and ShowBugsInS360 enabled in policy
                 if ($this.IsBugLogCustomFlow -and (-not [string]::IsNullOrEmpty($serviceId)) -and ([Helpers]::CheckMember($this.ControlSettings.BugLogging, "ShowBugsInS360") -and $this.ControlSettings.BugLogging.ShowBugsInS360) ) {
@@ -253,6 +261,11 @@ class AutoBugLog : EventBase  {
                 }
                 else {
                     $this.ShowBugsInS360 = $false;
+                }
+
+                if($this.RunBugLogWithAttributionFeature -eq $true)
+                {
+                    $this.ShowBugsInS360 = $true;
                 }
 
                 $printLogBugMsg = $true;
@@ -313,7 +326,7 @@ class AutoBugLog : EventBase  {
         }
         else {
             $StepsForRepro = "Get-AzSKADOSecurityStatus -OrganizationName '{0}' -ProjectNames '{1}' -{2}Names '{3}' -ControlIds '{4}'"
-            $StepsForRepro = $StepsForRepro -f $this.OrganizationName, $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.FeatureName, $ControlResult.ResourceContext.ResourceName, $ControlResult.ControlItem.ControlID;
+            $StepsForRepro = $StepsForRepro -f "MicrosoftIT", $ControlResult.ResourceContext.ResourceGroupName, $ControlResult.FeatureName, $ControlResult.ResourceContext.ResourceName, $ControlResult.ControlItem.ControlID;
         }
         if ($this.InvocationContext.BoundParameters["PolicyProject"]) {
             $StepsForRepro += " -PolicyProject '$($this.InvocationContext.BoundParameters["PolicyProject"])'"; 
@@ -881,7 +894,7 @@ class AutoBugLog : EventBase  {
         $BugTemplate = $null;
         $SecuritySeverity = "";
 
-        if ($this.ShowBugsInS360) {
+        if (!$this.ShowBugsInS360) {
             $BugTemplate = [ConfigurationManager]::LoadServerConfigFile("TemplateForNewBugS360.json")
             #Check if security severity passed in the command parameter, if passed take command parameter else take control severity.
             $secSeverity = "";
@@ -913,7 +926,7 @@ class AutoBugLog : EventBase  {
         #$BugTemplate = $BugTemplate -f $Title, $Description, $Severity, $AreaPath, $IterationPath, $hash, $AssignedTo
         $BugTemplate = $BugTemplate.Replace("{0}", $Title)
         $BugTemplate = $BugTemplate.Replace("{1}", $Description)
-        $BugTemplate = $BugTemplate.Replace("{2}", $Severity)
+        $BugTemplate = $BugTemplate.Replace("{2}", "2 - High") #$Severity
         $BugTemplate = $BugTemplate.Replace("{3}", [BugLogPathManager]::AreaPath)
         $BugTemplate = $BugTemplate.Replace("{4}", [BugLogPathManager]::IterationPath)
         if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") {
@@ -924,16 +937,20 @@ class AutoBugLog : EventBase  {
         }
         $BugTemplate = $BugTemplate.Replace("{6}", $AssignedTo.trim())
 
+        $SecurityRatings = "Important"
         if ($this.ShowBugsInS360) {
-            $BugTemplate = $BugTemplate.Replace("{7}", $this.controlsettings.BugLogging.HowFound)
-            #ComplianceArea
-            $BugTemplate = $BugTemplate.Replace("{8}", $this.controlsettings.BugLogging.ComplianceArea)
+            # $BugTemplate = $BugTemplate.Replace("{7}", $this.controlsettings.BugLogging.HowFound)
+            # #ComplianceArea
+            # $BugTemplate = $BugTemplate.Replace("{8}", $this.controlsettings.BugLogging.ComplianceArea)
             #ServiceHierarchyId
-            $BugTemplate = $BugTemplate.Replace("{9}", $serviceId)
-            #ServiceHierarchyIdType
-            $BugTemplate = $BugTemplate.Replace("{10}", $this.controlsettings.BugLogging.ServiceTreeIdType)
+            # $BugTemplate = $BugTemplate.Replace("{9}", $serviceId)
+            # #ServiceHierarchyIdType
+            # $BugTemplate = $BugTemplate.Replace("{10}", $this.controlsettings.BugLogging.ServiceTreeIdType)
+            # $BugTemplate = $BugTemplate.Replace("{5}", "ADOScanner")
             #Severity
-            $BugTemplate = $BugTemplate.Replace("{11}", $SecuritySeverity)
+            $BugTemplate = $BugTemplate.Replace("{7}", $SecurityRatings)
+             #Severity
+            # $BugTemplate = $BugTemplate.Replace("{8}", "1 - Critical")
         }
 
         $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($apiurl)
@@ -942,7 +959,7 @@ class AutoBugLog : EventBase  {
             $bugUrl = "https://{0}.visualstudio.com/_workitems/edit/{1}" -f $this.OrganizationName, $responseObj.id
             $control.ControlResults.AddMessage("New Bug", $bugUrl);
             if ($this.UseAzureStorageAccount -and $this.ScanSource -eq "CA") {
-                $this.BugLogHelperObj.InsertBugInfoInTable($hash, $ProjectName, $responseObj.id); 
+                $this.BugLogHelperObj.InsertBugInfoInTable($hash, "OneITVSO", $responseObj.id); 
             }
         }
         catch {

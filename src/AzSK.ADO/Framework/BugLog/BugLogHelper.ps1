@@ -300,7 +300,7 @@ class BugLogHelper {
     hidden [string] GetTableName()
     {
         #return ($resourceNameToMakeTableName + "ADOBugInfo") -replace "[^a-zA-Z0-9]"
-        return ($this.OrganizationName + "ADOBugInfo") -replace "[^a-zA-Z0-9]"
+        return ("microsoftitADOBugInfo") -replace "[^a-zA-Z0-9]" #return ($this.OrganizationName + "ADOBugInfo") -replace "[^a-zA-Z0-9]"
     }
 
     #function to close an active bug

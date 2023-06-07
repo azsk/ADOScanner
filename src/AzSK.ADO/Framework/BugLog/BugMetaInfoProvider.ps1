@@ -501,6 +501,16 @@ class BugMetaInfoProvider {
         return $assignee;
     }
 
+    hidden [string] GetAssigneeFromResourceMapping([SVTEventContext[]] $ControlResult){
+        $assignee = $null;
+        $buildMapping = Get-Content "$($this.STMappingFilePath)\$($ControlResult.ResourceContext.ResourceTypeName)STData.csv" | ConvertFrom-Csv
+        $buildOwnerDetails = @($buildMapping | Where-Object {$_."ResourceId" -eq $ControlResult.ResourceContext.ResourceId -and $_."ControlId_s" -eq $ControlResult.ControlItem.ControlID})
+        if($buildOwnerDetails.Count -gt 0){
+            $assignee = $buildOwnerDetails[0].FirstResourceOwner   #BestResourceOwner
+        }
+        return $assignee;
+    }
+
     hidden [string] FetchAssigneeFromBuild($organizationName, $projectName, $definitionId) 
     {
         $assignee = "";

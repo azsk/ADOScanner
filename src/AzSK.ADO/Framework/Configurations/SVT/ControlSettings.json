@@ -21,15 +21,13 @@
           "ADO_Organization_BCDR_Min_Admin_Count",
           "ADO_Organization_AuthZ_Limit_Admin_Count",
           "ADO_Organization_AuthN_Use_ALT_Accounts_For_Admin",
-          "ADO_Organization_AuthZ_Disable_OAuth_App_Access",
-          "ADO_Organization_AuthN_Disable_SSH_Access",
           "ADO_Organization_AuthZ_Revoke_Admin_Access_for_Inactive_Users",
           "ADO_Organization_AuthZ_Revoke_Admin_Access_for_Guest_Users",
           "ADO_Organization_AuthZ_Remove_Inactive_Guest_Users",
           "ADO_Organization_AuthZ_Remove_Disconnected_Accounts",
-          "ADO_Organization_AuthZ_Restrict_Broader_Group_Access_on_Feed",
+		  "ADO_Organization_AuthZ_Restrict_Broader_Group_Access_on_Feed",
           "ADO_Organization_AuthZ_Restrict_Feed_Create_Permission",
-          "ADO_Organization_SI_Protect_Private_Feeds_Impersonation"
+		  "ADO_Organization_SI_Protect_Private_Feeds_Impersonation"          
         ]
       },
       {
@@ -66,11 +64,11 @@
           "ADO_ServiceConnection_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
           "ADO_ServiceConnection_AuthZ_Restrict_Broader_Group_Access"
         ]
+
       },
       {
         "ResourceType": "Build",
         "ControlIds": [
-          "ADO_Build_DP_No_PlainText_Secrets_In_Definition",
           "ADO_Build_SI_Review_URL_Variables_Settable_At_Queue_Time",
           "ADO_Build_SI_Dont_Use_Broadly_Editable_Task_Group",
           "ADO_Build_SI_Dont_Use_Broadly_Editable_Variable_Group",
@@ -83,7 +81,6 @@
       {
         "ResourceType": "Release",
         "ControlIds": [
-          "ADO_Release_DP_No_PlainText_Secrets_In_Definition",
           "ADO_Release_SI_Review_URL_Variables_Settable_At_Release_Time",
           "ADO_Release_SI_Dont_Use_Broadly_Editable_Task_Group",
           "ADO_Release_SI_Dont_Use_Broadly_Editable_Variable_Group",
@@ -97,8 +94,6 @@
           "ADO_AgentPool_AuthZ_Dont_Grant_All_Pipelines_Access",
           "ADO_AgentPool_AuthZ_Dont_Enable_Auto_Provisioning",
           "ADO_AgentPool_DP_Review_Inactive_Pool",
-          "ADO_AgentPool_DP_Enable_Auto_Update",
-          "ADO_AgentPool_DP_No_Secrets_In_Capabilities",
           "ADO_AgentPool_AuthZ_Restrict_Broader_Group_Access"
         ]
       },
@@ -154,16 +149,16 @@
     "BatchTrackerValidForDays":10,
     "BatchTrackerUpdateFrequency":5000
   },
-  "IncrementalScan":{
+   "IncrementalScan":{
     "IncrementalScanValidForDays":7
   },
   "DockerImage":{
     "ImageName" : "azskado/adosecurityscan"
   },
-  "ADOInfoAPI":{
-    "Enabled" : false,
-    "Endpoint" : "",
-    "Code" : ""
+  "ADOInfoAPI": {
+    "Enabled":true,
+    "Endpoint":"https://cseoadoinfofa.azurewebsites.net",
+    "Code":"7zBvg6J8AcCgxyKctCxjmZ5EnzPTj0lqyh3PGRKR9TF5S5pdPVai9Q=="
   },
   "AllowAdminControlScanForGroups": [
     {
@@ -224,17 +219,29 @@
       ]
     }
   ],
-  "AttestationRepo": "",
-  "AttestationBranch": "",
-  "EnableMultiProjectAttestation": false,
-  "ProjectToStoreAttestation": "",
-  "EnforceApprovedException": false,
+  "AttestationRepo": "RM-ESP-EEE-ADOScannerAttestInfo",
+  "AttestationBranch": "users/ADOTeam/devtest",
+  "EnableMultiProjectAttestation": true,
+  "ProjectToStoreAttestation":"OneITVSO",
+  "EnforceApprovedException": true,
   "ApprovedExceptionSettings": {
-    "ControlsList": [],
-    "InvalidatePreviousAttestations": false,
-    "ApprovedExceptionPromptMessage": "",
-    "ByDesignExceptionPromptMessage": "",
-    "DefaultPromptMessage": "Refer the docs https://github.com/azsk/ADOScanner-docs to fetch the exception id."
+  "ControlsList": [      
+    "ADO_Build_SI_Limit_Task_Group_Edit_Permission",
+    "ADO_Build_DP_Dont_Make_Secrets_Available_To_Forked_Builds",
+    "ADO_Build_SI_Restrict_Variable_Group_Edit_Permission",
+    "ADO_Release_SI_Limit_Task_Group_Edit_Permission",
+    "ADO_Release_SI_Restrict_Variable_Group_Edit_Permission",
+    "ADO_ServiceConnection_AuthZ_Dont_Grant_All_Pipelines_Access",
+    "ADO_ServiceConnection_AuthZ_Dont_Use_Classic_Connections",
+    "ADO_ServiceConnection_DP_Review_Inactive_Connection",
+    "ADO_ServiceConnection_SI_Dont_Share_Across_Projects",
+    "ADO_AgentPool_AuthZ_Dont_Grant_All_Pipelines_Access",
+    "ADO_AgentPool_DP_Review_Inactive_Pool"
+    ],
+    "InvalidatePreviousAttestations": true,
+    "ApprovedExceptionPromptMessage": "Please create an ADO entry using the template https://aka.ms/adoscanner/msd/exception and enter the task id as approved exception id below.",
+    "ByDesignExceptionPromptMessage": "Please create an ADO entry using the template at https://aka.ms/adoscanner/msd/bydesign and enter the task id as attestation id below.",
+    "DefaultPromptMessage": "Refer the docs https://github.com/azsk/ADOScanner-docs."
   },
   "IsAllowLongRunningScan": true,
   "LongRunningScanCheckPoint": 1000,
@@ -264,8 +271,8 @@
   },
   "ControlSeverity": {
     "Critical": "Critical",
-    "High": "High",
-    "Medium": "Medium",
+    "High": "Important",
+    "Medium": "Moderate",
     "Low": "Low"
   },
   "GroupResolution": {
@@ -474,7 +481,7 @@
   "AlernateAccountRegularExpressionForOrg": "^sc-\\w+@(?:\\w+\\.)*microsoft\\.com$|^\\w+.*@gme\\.gbl$",
   "ALTControlEvaluationMethod": "GraphThenRegEx",
   "Organization": {
-    "DisallowedEnvironments" : [],
+    "DisallowedEnvironments" : ["AzureUSGovernment"],
     "InactiveUserActivityLogsPeriodInDays": 90,
     "GuestUserInactivePeriodInDays": 90,
     "TopInactiveUserCount": 100,
@@ -673,12 +680,6 @@
         "Rename repository"
       ]
     },
-    "RestrictedBroaderGroupsForApproversForRepo": [
-      "Project Collection Valid Users",
-      "Project Valid Users",
-      "Contributors",
-      "Readers"
-    ],
     "BranchesToCheckForExcessivePermissions":[
       "main",
       "master",
@@ -707,6 +708,12 @@
       "Remove others' locks",
       "Rename repository"
     ],
+    "RestrictedBroaderGroupsForApproversForRepo": [
+      "Project Collection Valid Users",
+      "Project Valid Users",
+      "Contributors",
+      "Readers"
+    ],
     "CheckForInheritedPermissions": false,
     "CheckForBranchProtection":true
   },
@@ -730,7 +737,8 @@
       "CSEOPipelineContributors",
       "Endpoint Creators",
       "Contributors",
-      "Readers"
+      "Readers",
+      "Project Valid Users"
     ],
     "RestrictedBroaderGroupsForSvcConn" : {
       "Contributors":[
@@ -811,25 +819,25 @@
     "MaxKeyWordsToQueryForBugClose": 30,
     "AutoCloseProjectBug": true,
     "AutoCloseOrgBug": true,
-    "BugAssigneeAndPathCustomFlow": false,
+    "BugAssigneeAndPathCustomFlow": true,
     "BuildSTData": "BuildSTData.json",
     "ReleaseSTData": "ReleaseSTData.json",
     "ServiceTreeData": "ServiceTreeData.json",
     "DomainName": "microsoft.com",
     "BugDescriptionField" : "",
-    "ShowBugsInS360" : false,
+    "ShowBugsInS360" : true,
     "HowFound": "ADO Scanner",
     "ComplianceArea": "Security",
     "ServiceTreeIdType": "Service",
-    "UseAzureStorageAccount": false,
+    "UseAzureStorageAccount": true,
     "LogBugsForInactiveResources": true,
     "CustomControlList": [],
     "LogBugsForUnmappedResource": true,
-    "Description":"Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a> </br></br> <b> Resource Owner/Last Modified By: </b> {10} {11} </br></br> <b>Scan command (you can use to verify fix):</b></br>{9} </br></br><b>Note: </b> In case the resource has been deleted or you decide to delete it as a bug fix, ADO scanner does not close bugs for deleted resources. You need to close the bug manually. </br> </br> <b>Reference: </b> <a href='https://github.com/azsk/ADOScanner-docs' target='_blank'>ADO Scanner Documentation</a> </br>",
+    "Description":"Control failure - {0} for resource {1} {2} </br></br> <b>Control Description: </b> {3} </br></br> <b> Control Result: </b> {4} </br> </br> <b> Rationale:</b> {5} </br></br> <b> Recommendation:</b> {6} </br></br> <b> Resource Link: </b> <a href='{7}' target='_blank'>{8}</a> </br></br> <b> Resource Owner/Last Modified By: </b> {10} {11} </br></br> <b>Scan command (you can use to verify fix):</b></br>To scan command, first install ADO scanner. You can see the detailed docs <a href='https://microsoftit.visualstudio.com/OneITVSO/_wiki/wikis/OneITVSO.wiki/15868/ADO-Security-Scanner-for-MS-Digital?anchor=installing-and-scanning-locally' target='_blank'>here</a> for installation steps.</br> {9} </br></br><b>Note: </b> In case the resource has been deleted or you decide to delete it as a bug fix, ADO scanner does not close bugs for deleted resources. You need to close the bug manually. </br> </br> <b>Reference: </b> <a href='https://microsoftit.visualstudio.com/OneITVSO/_wiki/wikis/OneITVSO.wiki/15868/ADO-Security-Scanner-for-CSEO' target='_blank'>CSEO ADO Scanner Wiki</a> </br><b>FAQ: </b> <a href='https://microsoftit.visualstudio.com/OneITVSO/_wiki/wikis/OneITVSO.wiki/15868/ADO-Security-Scanner-for-CSEO?anchor=faq' target='_blank'>CSEO ADO Scanner FAQ</a> </br><b>Support: </b> <a href='mailto:DSREAzSKADOSup@microsoft.com' target='_blank'>ADO Scanner Support DL</a> </br>",
     "UpdateBug": [],
     "AdditionalInfoRegex":"List of non-ALT accounts",
     "UserInactivityLimit": 60,
-    "CheckForUserInactivity": true
+    "CheckForUserInactivity": false
   },
   "GenerateSecurityEvaluationJsonFile" : false,
   "ResourceProviders": [
@@ -899,5 +907,5 @@
     "MaxAllowedDelay":300,
     "MaxAPIThrottledBeforeSleep":10
   }  
-  
+
 }
