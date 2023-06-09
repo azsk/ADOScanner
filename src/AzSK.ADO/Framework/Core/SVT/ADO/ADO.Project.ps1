@@ -4213,7 +4213,6 @@ class Project: ADOSVTBase
         $controlResult.VerificationResult = [VerificationResult]::Failed
         if($this.PipelineSettingsObj)
         {
-            $orgLevelScope = $this.PipelineSettingsObj.disableClassicPipelineCreation.orgEnabled;
             $prjLevelScope = $this.PipelineSettingsObj.disableClassicPipelineCreation.enabled;
             $controlResult.AdditionalInfoInCSV ="NA"
 
@@ -4224,15 +4223,6 @@ class Project: ADOSVTBase
             else
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Creation of classic build and classic release pipelines is not disabled.");
-            }
-
-            if($orgLevelScope -eq $true )
-            {
-                $controlResult.AddMessage("This setting is enabled (disabled the creation of classic pipeline) at organization level.");
-            }
-            else
-            {
-                $controlResult.AddMessage("This setting is disabled (not disabled the creation of classic pipeline) at organization level.");                
             }
         }
         else
