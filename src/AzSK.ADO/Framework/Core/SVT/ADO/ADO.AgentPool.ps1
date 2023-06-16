@@ -8,8 +8,7 @@ class AgentPool: ADOSVTBase
     hidden [PSObject] $agentPool; # This is used to fetch agent details in pool
     hidden [PSObject] $agentPoolActivityDetail = @{isAgentPoolActive = $true; agentPoolLastRunDate = $null; agentPoolCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [string] $checkInheritedPermissionsPerAgentPool = $false
-    hidden [PSObject] $pipelinePermission;
-
+    
     hidden static [PSObject] $regexListForSecrets;
 
     hidden [PSObject] $AgentPoolOrgObj; #This will contain org level agent pool details
@@ -782,12 +781,13 @@ class AgentPool: ADOSVTBase
     
     hidden [ControlResult] CheckBroaderGroupApproversOnAgentPool ([ControlResult] $controlResult) {
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        $checkObj = $this.GetResourceApprovalCheck()
+        $resourceApprovalObj = $this.GetResourceApprovalCheck()
+
         try{            
             $restrictedGroups = @();
             $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForApprovers;
 
-            if(!$checkObj.ApprovalCheckObj){
+            if(!$resourceApprovalObj.ApprovalCheckObj){
                 $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the agent pool.");
                 $controlResult.AdditionalInfo = "No approvals and checks have been defined for the agent pool."
             }
@@ -796,7 +796,7 @@ class AgentPool: ADOSVTBase
              #we need to check for manual approvals and checks
                 $approvalControl = @()
                 try{
-                    $approvalAndChecks = @($checkObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalAndChecks = @($resourceApprovalObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
                     $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
                 }
                 catch{
@@ -817,12 +817,11 @@ class AgentPool: ADOSVTBase
                         $controlResult.AddMessage("List of broader groups that have been added as approvers to agent pool: ",$restrictedGroups)
                         $controlResult.SetStateData("Broader groups have been added as approvers to agent pool",$restrictedGroups)
                         $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to agent pool: " + @($restrictedGroups).Count;
-                        $controlResult.AdditionalInfo += "List of broader groups added as approvers: "+ @($restrictedGroups)
+                        $groups = $restrictedGroups.displayname -join ' ; '
+                        $controlResult.AdditionalInfoInCSV = "List of broader groups added as approvers: $($groups)" 
                     }
                     else{
                         $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to agent pool.");
-                        $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
-                        $controlResult.AdditionalInfo += "List of approvers on agent pool  $($approvers).";
                     }
                 }
                 else {
