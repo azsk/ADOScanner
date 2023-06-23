@@ -7,6 +7,7 @@ class AgentPool: ADOSVTBase
     hidden [PSObject] $AgentPoolId;
     hidden [PSObject] $agentPool; # This is used to fetch agent details in pool
     hidden [PSObject] $agentPoolActivityDetail = @{isAgentPoolActive = $true; agentPoolLastRunDate = $null; agentPoolCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
+    hidden [PSObject] $pipelinePermission = $null;
     hidden [string] $checkInheritedPermissionsPerAgentPool = $false
 
     hidden static [PSObject] $regexListForSecrets;
@@ -777,5 +778,213 @@ class AgentPool: ADOSVTBase
             $controlResult.LogException($_)
         }
         return $controlResult  
+    }
+
+    hidden [ControlResult] CheckBranchControlForAgentPool ([ControlResult] $controlResult) {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $resourceApprovalObj = $this.GetResourceApprovalCheck()
+        
+        try{
+            #check if resources is accessible even to a single pipeline
+            $isRsrcAccessibleToAnyPipeline = $false;
+            
+            $apiURL = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinepermissions/queue/{2}?api-version=7.0-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId),$($this.AgentPoolId) ;
+            $this.pipelinePermission = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            
+            if([Helpers]::CheckMember($this.pipelinePermission,"allPipelines") -and $this.pipelinePermission.allPipelines.authorized){
+                $isRsrcAccessibleToAnyPipeline = $true;
+            }
+            if([Helpers]::CheckMember($this.pipelinePermission[0],"pipelines") -and $this.pipelinePermission[0].pipelines.Count -gt 0){
+                $isRsrcAccessibleToAnyPipeline = $true;
+            }
+            #if resource is not accessible to any YAML pipeline, there is no need to add any branch control, hence passing the control
+            if($isRsrcAccessibleToAnyPipeline -eq $false){
+                $controlResult.AddMessage([VerificationResult]::Passed, "Agent pool is not accessible to any YAML pipelines. Hence, branch control is not required.");
+                return $controlResult;
+            }
+            if(!$resourceApprovalObj.ApprovalCheckObj){
+                $controlResult.AddMessage([VerificationResult]::Failed, "No approvals and checks have been defined for the agent pool.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the agent pool."
+                $controlResult.AdditionalInfoInCsv = "No approvals and checks have been defined for the agent pool."
+            }
+            else{
+                #we need to check only for two kinds of approvals and checks: manual approvals and branch controls, hence filtering these two out from the list
+                $branchControl = @()
+                $approvalControl = @()
+                try{
+                    $approvalAndChecks = @($resourceApprovalObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $branchControl = @($approvalAndChecks.settings | Where-Object {$_.PSObject.Properties.Name -contains "displayName" -and $_.displayName -eq "Branch Control"})
+                    $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
+                }
+                catch{
+                    $branchControl = @()
+                }
+                if($branchControl.Count -eq 0){
+                    #if branch control is not enabled, but manual approvers are added pass this control
+                    if($approvalControl.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Branch control has not been defined for the agent pool. However, manual approvals have been added to the agent pool.");
+                        $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                        $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of approvers : `n$formattedApproversTable");
+                        # $controlResult.AdditionalInfo += "List of approvers on agent pool  $($approvers).";
+                        $controlResult.AdditionalInfoInCsv += "List of approvers on agent pool  $($approvers).";
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Branch control has not been defined for the agent pool.");
+                        $controlResult.AdditionalInfo = "Branch control has not been defined for the agent pool."
+                    }                    
+                }
+                else{
+                    $branches = ($branchControl.inputs.allowedBranches).Split(",");
+                    $branchesWithNoProtectionCheck = @($branchControl.inputs | where-object {$_.ensureProtectionOfBranch -eq $false})
+                    if("*" -in $branches){
+                        $controlResult.AddMessage([VerificationResult]::Failed, "All branches have been given access to the agent pool.");
+                        $controlResult.AdditionalInfo = "All branches have been given access to the agent pool."
+                        $controlResult.AdditionalInfoInCsv = "All branches have been given access to the agent pool."
+                    }
+                    elseif ($branchesWithNoProtectionCheck.Count -gt 0) {
+                        #check if branch protection is enabled on all the found branches depending upon the org policy
+                        if($this.ControlSettings.AgentPool.CheckForBranchProtection){
+                            $controlResult.AddMessage([VerificationResult]::Failed, "Access to the agent pool has not been granted to all branches. However, verification of branch protection has not been enabled for some branches.");
+                            $branchesWithNoProtectionCheck = @(($branchesWithNoProtectionCheck.allowedBranches).Split(","));
+                            $controlResult.AddMessage("List of branches granted access to the agent pool without verification of branch protection: ")
+                            $controlResult.AddMessage("$($branchesWithNoProtectionCheck | FT | Out-String)")
+                            $branchesWithProtection = @($branches | where {$branchesWithNoProtectionCheck -notcontains $_})
+                            if($branchesWithProtection.Count -gt 0){
+                                $controlResult.AddMessage("List of branches granted access to the agent pool with verification of branch protection: ");
+                                $controlResult.AddMessage("$($branchesWithProtection | FT | Out-String)");
+                            }
+                            $controlResult.AdditionalInfo = "List of branches granted access to the agent pool without verification of branch protection: $($branchesWithNoProtectionCheck)"
+                        }
+                        else{
+                            $controlResult.AddMessage([VerificationResult]::Passed, "Access to the agent pool has not been granted to all branches.");
+                            $controlResult.AddMessage("List of branches granted access to the agent pool: ");
+                            $controlResult.AddMessage("$($branches | FT | Out-String)");
+                        }
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Access to the agent pool has not been granted to all branches. Verification of branch protection has been enabled for all allowed branches.");
+                        $controlResult.AddMessage("List of branches granted access to the agent pool: ");
+                        $controlResult.AddMessage("$($branches | FT | Out-String)");
+                    }
+                }
+            }
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch agent pool details.");
+        }
+        return $controlResult;
+    }
+
+    hidden [ControlResult] CheckTemplateBranchForAgentPool ([ControlResult] $controlResult) {
+        try{            
+            $resourceApprovalObj = $this.GetResourceApprovalCheck()
+            if(!$resourceApprovalObj.ApprovalCheckObj){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the variable group.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the variable group."
+            }
+            else{                
+                $yamlTemplateControl = @()
+                try{
+                    $yamlTemplateControl = @($resourceApprovalObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $yamlTemplateControl = @($yamlTemplateControl.settings | Where-Object {$_.PSObject.Properties.Name -contains "extendsChecks"})
+                }
+                catch{
+                    $yamlTemplateControl = @()
+                }
+                if($yamlTemplateControl.Count -gt 0){
+                    $yamlChecks = $yamlTemplateControl.extendsChecks
+                    $unProtectedBranches = @() #for branches with no branch policy
+                    $protectedBranches = @() #for branches with branch policy
+                    $unknownBranches = @() #for branches from external sources
+                    $yamlChecks | foreach {
+                        $yamlCheck = $_
+                        #skip for any external source repo objects
+                        if($yamlCheck.repositoryType -ne 'git'){
+                            $unknownBranches += (@{branch = ($yamlCheck.repositoryRef);repository = ($yamlCheck.repositoryName)})
+                            return;
+                        }
+                        #repository name can be in two formats: "project/repo" OR for current project just "repo"
+                        if($yamlCheck.repositoryName -like "*/*"){
+                            $project = ($yamlCheck.repositoryName -split "/")[0]
+                            $repository = ($yamlCheck.repositoryName -split "/")[1]
+                        }
+                        else{
+                            $project = $this.ResourceContext.ResourceGroupName
+                            $repository = $yamlCheck.repositoryName
+                        }
+                        $branch = $yamlCheck.repositoryRef                        
+                        #policy API accepts only repo ID. Need to extract repo ID beforehand.
+                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}?api-version=6.0" -f $this.OrganizationContext.OrganizationName,$project,$repository
+                       
+                        $repoId = $null;
+                        try{
+                            $response = @([WebRequestHelper]::InvokeGetWebRequest($url))
+                            $repoId = $response.id
+                        }
+                        catch{
+                            return;
+                        }
+                        $url = "https://dev.azure.com/{0}/{1}/_apis/git/policy/configurations?repositoryId={2}&refName={3}&api-version=5.0-preview.1" -f $this.OrganizationContext.OrganizationName,$project,$repoId,$branch
+                        $policyConfigResponse = @([WebRequestHelper]::InvokeGetWebRequest($url))
+                        if([Helpers]::CheckMember($policyConfigResponse[0],"id")){
+                            $branchPolicy = @($policyConfigResponse | Where-Object {$_.isEnabled -and $_.isBlocking})
+                            #policyConfigResponse also contains repository policies, we need to filter out just branch policies
+                            $branchPolicy = @($branchPolicy | Where-Object {[Helpers]::CheckMember($_.settings.scope[0],"refName")})
+                            if($branchPolicy.Count -gt 0)
+                            {
+                                $protectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                            }
+                            else{
+                                $unProtectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                            }
+                        }
+                        else{
+                            $unProtectedBranches += (@{branch = $branch;repository = ($project+"/"+$repository)})
+                        }
+                    }   
+                    #if branches with no branch policy is found, fail the control  
+                    if($unProtectedBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Failed, "Required template on the agent pool extends from unprotected branches.");
+                        $unProtectedBranches =$unProtectedBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($unProtectedBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of unprotected branches: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of unprotected branches: ", $formattedGroupsTable)
+                    }
+                    #if branches from external sources are found, control needs to be evaluated manually
+                    elseif($unknownBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Manual, "Required template on the agent pool extends from external sources.");
+                        $unknownBranches =$unknownBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($unknownBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of branches from external sources: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of branches from external sources: ", $formattedGroupsTable)
+                    }
+                    #if all branches are protected, pass the control
+                    elseif($protectedBranches.Count -gt 0){
+                        $controlResult.AddMessage([VerificationResult]::Passed, "Required template on the agent pool extends from protected branches.");
+                    }  
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Manual, "Branch policies on required template on the agent pool could not be determined.");
+
+                    }  
+                    if($protectedBranches.Count -gt 0){
+                        $protectedBranches =$protectedBranches | Select @{l="Repository";e={$_.repository}}, @{l="Branch";e={$_.branch}}
+                        $formattedGroupsTable = ($protectedBranches | FT -AutoSize | Out-String -width 512)
+                        $controlResult.AddMessage("`nList of protected branches: ", $formattedGroupsTable)
+                        $controlResult.SetStateData("List of protected branches: ", $formattedGroupsTable)
+
+                    }                                                      
+                }
+                else{
+                    $controlResult.AddMessage([VerificationResult]::Passed, "No required template has been defined for the agent pool.");
+
+                }
+            }
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch agent pool details.");
+        }
+
+        return $controlResult;
     }
 }
