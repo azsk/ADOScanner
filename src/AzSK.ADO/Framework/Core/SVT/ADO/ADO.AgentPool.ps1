@@ -8,7 +8,7 @@ class AgentPool: ADOSVTBase
     hidden [PSObject] $agentPool; # This is used to fetch agent details in pool
     hidden [PSObject] $agentPoolActivityDetail = @{isAgentPoolActive = $true; agentPoolLastRunDate = $null; agentPoolCreationDate = $null; message = $null; isComputed = $false; errorObject = $null};
     hidden [string] $checkInheritedPermissionsPerAgentPool = $false
-
+    
     hidden static [PSObject] $regexListForSecrets;
 
     hidden [PSObject] $AgentPoolOrgObj; #This will contain org level agent pool details
@@ -777,5 +777,65 @@ class AgentPool: ADOSVTBase
             $controlResult.LogException($_)
         }
         return $controlResult  
+    }
+    
+    hidden [ControlResult] CheckBroaderGroupApproversOnAgentPool ([ControlResult] $controlResult) {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $resourceApprovalObj = $this.GetResourceApprovalCheck()
+
+        try{            
+            $restrictedGroups = @();
+            $restrictedBroaderGroupsForAgentPool = $this.ControlSettings.AgentPool.RestrictedBroaderGroupsForApprovers;
+
+            if(!$resourceApprovalObj.ApprovalCheckObj){
+                $controlResult.AddMessage([VerificationResult]::Passed, "No approvals and checks have been defined for the agent pool.");
+                $controlResult.AdditionalInfo = "No approvals and checks have been defined for the agent pool."
+            }
+            else
+            {
+             #we need to check for manual approvals and checks
+                $approvalControl = @()
+                try{
+                    $approvalAndChecks = @($resourceApprovalObj.ApprovalCheckObj | Where-Object {$_.PSObject.Properties.Name -contains "settings"})
+                    $approvalControl = @($approvalAndChecks | Where-Object {$_.PSObject.Properties.Name -contains "type" -and $_.type.name -eq "Approval"})                    
+                }
+                catch{
+                    $approvalControl = @()
+                }
+                if($approvalControl.Count -gt 0)
+                {
+                    $approvers = $approvalControl.settings.approvers | Select @{n='Approver name';e={$_.displayName}},@{n='Approver id';e = {$_.uniqueName}}
+                    $formattedApproversTable = ($approvers| FT -AutoSize | Out-String -width 512)
+                    # match all the identities added on agent pool with defined restricted list
+                     $restrictedGroups = $approvalControl.settings.approvers | Where-Object { $restrictedBroaderGroupsForAgentPool -contains $_.displayName.split('\')[-1] } | select displayName
+                     
+                    # fail the control if restricted group found on agent pool
+                    if($restrictedGroups)
+                    {
+                        $controlResult.AddMessage([VerificationResult]::Failed,"Broader groups have been added as approvers on agent pool.");
+                        $controlResult.AddMessage("Count of broader groups that have been added as approvers to agent pool: ", @($restrictedGroups).Count)
+                        $controlResult.AddMessage("List of broader groups that have been added as approvers to agent pool: ",$restrictedGroups)
+                        $controlResult.SetStateData("Broader groups have been added as approvers to agent pool",$restrictedGroups)
+                        $controlResult.AdditionalInfo += "Count of broader groups that have been added as approvers to agent pool: " + @($restrictedGroups).Count;
+                        $groups = $restrictedGroups.displayname -join ' ; '
+                        $controlResult.AdditionalInfoInCSV = "List of broader groups added as approvers: $($groups)" 
+                    }
+                    else{
+                        $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to agent pool.");
+                    }
+                }
+                else {
+                    $controlResult.AddMessage([VerificationResult]::Passed,"No broader groups have been added as approvers to agent pool.");
+                }   
+            }  
+            $displayObj = $restrictedBroaderGroupsForAgentPool | Select-Object @{Name = "Broader Group"; Expression = {$_}}
+            $controlResult.AddMessage("`nNote:`nThe following groups are considered 'broader' groups which should not be added as approvers: `n$($displayObj | FT | out-string -width 512)`n");                  
+            $restrictedGroups = $null;
+            $restrictedBroaderGroupsForAgentPool = $null;  
+        }
+        catch{
+            $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch agent pool details.");
+        }
+        return $controlResult;
     }
 }
