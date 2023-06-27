@@ -415,7 +415,8 @@
         "User"
       ]
     },
-    "CheckForInheritedPermissions": false
+    "CheckForInheritedPermissions": false,
+    "CheckForBranchProtection":true
   },
   "VariableGroup": {
     "VariableGroupHistoryPeriodInDays": 180,

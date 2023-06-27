@@ -170,7 +170,7 @@
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckBranchControlForAgentPool",
-      "Rationale": "Once a agent pool is made accessible to a YAML pipeline, malicious users with 'create branch' permissions on the repository will be able to access the agent pool by queueing the pipeline from the branch they select even if they do not have access to the agent pool. To prevent this ensure that the agent pool can be accessed only from select branches (eg. 'main').",
+      "Rationale": "Once an agent pool is made accessible to a YAML pipeline, malicious users with 'create branch' permissions on the repository will be able to access the agent pool by queueing the pipeline from the branch they select even if they do not have access to the agent pool. To prevent this ensure that the agent pool can be accessed only from select branches (e.g., 'main').",
       "Recommendation": "1. Go to Project Settings --> 2. Pipelines --> 3. Agent pools --> 4. Select your agent pool --> 5. Select Approvals and Checks --> 6. Click on 'Branch Control' --> Create a branch control --> Provide the branches from which you would like the agent pool to be accessed from. For additional protection, enable 'Verify branch protection'.",
       "Tags": [
         "SDL",
