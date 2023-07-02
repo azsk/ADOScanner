@@ -129,9 +129,14 @@ class AgentPool: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Failed,"Auto-provisioning is enabled for the $($this.AgentPoolOrgObj.name) agent pool.");
                     $controlResult.AdditionalInfo = "Auto-provisioning is enabled for [$($this.AgentPoolOrgObj.name)] agent pool.";
                     $controlResult.AdditionalInfoInCSV += "NA";
-                    if ($this.ControlFixBackupRequired) {
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired) {
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $this.AgentPoolOrgObj;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckOrgAgtAutoProvisioningAutomatedFix($controlResult);
+                        
                     }
                 }
                 else {
@@ -157,8 +162,12 @@ class AgentPool: ADOSVTBase
         {
             #Backup data object is not required in this scenario.
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             $body = ""
 
             if (-not $this.UndoFix)
@@ -216,12 +225,17 @@ class AgentPool: ADOSVTBase
                 else
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed,"Auto-update of agents is disabled for [$($this.AgentPoolOrgObj.name)] agent pool.");
-                    if ($this.ControlFixBackupRequired) {
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired) {
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $this.AgentPoolOrgObj.id;
                     }
                     $controlResult.AdditionalInfo = "Auto-update of agents is disabled for [$($this.AgentPoolOrgObj.name)] agent pool.";
                     $controlResult.AdditionalInfoInCSV = "NA";
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckAutoUpdateAutomatedFix($controlResult);
+                        
+                    }
                 }
 
             }
@@ -245,8 +259,12 @@ class AgentPool: ADOSVTBase
         {
             #Backup data object is not required in this scenario.
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             $body = ""
             if (-not $this.UndoFix)
             {                 
@@ -289,9 +307,14 @@ class AgentPool: ADOSVTBase
             if([Helpers]::CheckMember($agentPoolsObj[0],"authorized"))
             {
                 $controlResult.AddMessage([VerificationResult]::Failed,"Agent pool is marked as accessible to all pipelines.");
-                if ($this.ControlFixBackupRequired) {
+                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired) {
                     #Data object that will be required to fix the control
                     $controlResult.BackupControlState = $agentPoolsObj;
+                }
+                if($this.BaselineConfigurationRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $this.CheckPrjAllPipelineAccessAutomatedFix($controlResult);
+                    
                 }
             }
             else {
@@ -314,8 +337,12 @@ class AgentPool: ADOSVTBase
         {
             #Backup data object is not required in this scenario.
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             $body = "["
 
             if (-not $this.UndoFix)
@@ -698,9 +725,14 @@ class AgentPool: ADOSVTBase
                     $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                     $controlResult.AdditionalInfo += "List of broader groups: $($groups -join ' ; ')"
 
-                    if ($this.ControlFixBackupRequired) {
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired) {
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $backupDataObject;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckBroaderGroupAccessAutomatedFix($controlResult);
+                        
                     }
                 }
                 else {
@@ -726,8 +758,12 @@ class AgentPool: ADOSVTBase
     hidden [ControlResult] CheckBroaderGroupAccessAutomatedFix ([ControlResult] $controlResult) {
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             $body = "["
 
             if (-not $this.UndoFix)

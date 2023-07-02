@@ -72,9 +72,14 @@ class VariableGroup: ADOSVTBase
                     $controlResult.AdditionalInfoInCSV = "SecretVarsList: $($secretVarList -join '; ')";
                     $controlResult.AdditionalInfo += "SecretVarsList: $($secretVarList -join '; ')";
 
-                    if ($this.ControlFixBackupRequired) {
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired) {
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $isSecretFound;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckPipelineAccessAutomatedFix($controlResult);
+                        
                     }
                 }
                 else
@@ -104,8 +109,12 @@ class VariableGroup: ADOSVTBase
         {
             # Backup data object is not required in this scenario.
             #$RawDataObjForControlFix = @();
-            #$RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-
+            #if($this.BaselineConfigurationRequired){
+            #    $RawDataObjForControlFix = $controlResult.BackupControlState;
+            #}
+            #else{
+            #    $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            #}
             $this.PublishCustomMessage("Note: After changing the pipeline permission, YAML pipelines that need access on variable group needs to be granted permission explicitly.`n",[MessageType]::Warning);
             $body = ""
 
@@ -342,8 +351,13 @@ class VariableGroup: ADOSVTBase
                                             $noOfCredFound +=1
                                             $varList += $varName;
                                             #if auto fix is required save the variable value after encrypting it, will be needed during undofix
-                                            if($this.ControlFixBackupRequired){
+                                            if($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired){
                                                 $variablesWithCreds[$varName] = ($varValue  | ConvertTo-SecureString -AsPlainText -Force | ConvertFrom-SecureString)
+                                            }
+                                            if($this.BaselineConfigurationRequired){
+                                                $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                                                $this.CheckCredInVarGrpAutomatedFix($controlResult);
+                                                
                                             }
                                             break
                                             }
@@ -390,7 +404,12 @@ class VariableGroup: ADOSVTBase
     hidden [ControlResult] CheckCredInVarGrpAutomatedFix([ControlResult] $controlResult){
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             $varList = @();
             if (-not $this.UndoFix) {
                 $RawDataObjForControlFix.PSObject.Properties | foreach {
@@ -474,9 +493,14 @@ class VariableGroup: ADOSVTBase
                     $controlResult.AddMessage(($restrictedGroups | FT Name,Role -AutoSize | Out-String -Width 512));
                     $controlResult.SetStateData("List of groups: ", $restrictedGroups)
                     $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions on variable group: $($restrictedGroupsCount)";
-                    if ($this.ControlFixBackupRequired) {
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired) {
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $backupDataObject;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckBroaderGroupAccessAutomatedFix($controlResult);
+                        
                     }
                     $formatedRestrictedGroups = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role }
                     $controlResult.AdditionalInfoInCSV = ($formatedRestrictedGroups -join '; ' )
@@ -504,8 +528,12 @@ class VariableGroup: ADOSVTBase
     hidden [ControlResult] CheckBroaderGroupAccessAutomatedFix ([ControlResult] $controlResult) {
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             $body = "["
 
             if (-not $this.UndoFix)
@@ -635,9 +663,14 @@ class VariableGroup: ADOSVTBase
                         $controlResult.AddMessage("`nList of variables with secret: ",$secretVarList)
                         $controlResult.SetStateData("List of broader groups: ", $restrictedGroups)
 
-                        if ($this.ControlFixBackupRequired) {
+                        if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired) {
                             #Data object that will be required to fix the control
                             $controlResult.BackupControlState = $restrictedGroups;
+                        }
+                        if($this.BaselineConfigurationRequired){
+                            $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                            $this.CheckBroaderGroupAccessForVarGrpWithSecretsAutomatedFix($controlResult);
+                            
                         }
 
 
@@ -679,8 +712,12 @@ class VariableGroup: ADOSVTBase
         try 
         {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             $body = "["
 
             if (-not $this.UndoFix)

@@ -869,10 +869,15 @@ class Build: ADOSVTBase
                     $controlResult.AddMessage([VerificationResult]::Verify, "List of variables settable at queue time and containing URL value: `n", $($settableURLVars | FT | Out-String));
                     $controlResult.AdditionalInfo += "Count of variables that are settable at queue time and contain URL value: " + $varCount;
                     $controlResult.SetStateData("List of variables settable at queue time and containing URL value: ", $settableURLVars);
-                    if ($this.ControlFixBackupRequired)
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                             {
                                 #Data object that will be required to fix the control
                                 $controlResult.BackupControlState = $settableURLbackup;
+                            }
+                            if($this.BaselineConfigurationRequired){
+                                $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                                $this.CheckSettableAtQueueTimeForURLAutomatedFix($controlResult);
+                                
                             }
                     
                 }
@@ -895,8 +900,13 @@ class Build: ADOSVTBase
     hidden [ControlResult] CheckSettableAtQueueTimeForURLAutomatedFix([ControlResult] $controlResult){
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
+
             $uri = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=5.0-preview.6" -f ($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $($this.BuildObj.id) 
             $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
             if (-not $this.UndoFix) {
@@ -1256,10 +1266,15 @@ class Build: ADOSVTBase
                             $controlResult.AdditionalInfo += $addInfo;
                             $controlResult.AdditionalInfoInCSV += $addInfo;
 
-                            if ($this.ControlFixBackupRequired)
+                            if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                             {
                                 #Data object that will be required to fix the control
                                 $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                            }
+                            if($this.BaselineConfigurationRequired){
+                                $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                                $this.CheckTaskGroupEditPermissionAutomatedFix($controlResult);
+                                
                             }
                         }
                         else
@@ -1309,8 +1324,13 @@ class Build: ADOSVTBase
     {
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
+
             if (-not $this.UndoFix)
             {
                 foreach ($identity in $RawDataObjForControlFix) 
@@ -1423,10 +1443,15 @@ class Build: ADOSVTBase
                                                 
                                                 $formattedVarGroupsData = $obj | Select @{l = 'displayName'; e = { $_.identity.displayName } }, @{l = 'userid'; e = { $_.identity.id } }, @{l = 'role'; e = { $_.role.name } }, @{l = 'vargrpid'; e = { $currentVarGrp.id } } , @{l = 'vargrpname'; e = { $currentVarGrp.name } }                                     
                                             
-                                                if ($this.ControlFixBackupRequired) {
+                                                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired) {
                                                     #Data object that will be required to fix the control                                            
                                                     $controlResult.BackupControlState += $formattedVarGroupsData;
-                                                }                                             
+                                                }     
+                                                if($this.BaselineConfigurationRequired){
+                                                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                                                    $this.CheckVariableGroupEditPermissionAutomatedFix($controlResult);
+                                                    
+                                                }                                        
                                             }
                                         }                            
                                     }
@@ -1497,7 +1522,12 @@ class Build: ADOSVTBase
         try {
             $RawDataObjForControlFix = @();
             $RawDataObjForControlFixTemp = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject 
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject 
+            }
             $RawDataObjForControlFixTemp = $RawDataObjForControlFix
             $projectId = $this.BuildObj.project.id
             $varGrpIds = $RawDataObjForControlFix | Select-Object vargrpid -Unique
@@ -1805,11 +1835,16 @@ class Build: ADOSVTBase
                                 $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions } 
                                 $controlResult.AdditionalInfoInCSV = $groups -join ' ; '
                                 
-                                if ($this.ControlFixBackupRequired)
+                                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                                 {
                                     #Data object that will be required to fix the control
                                     
                                     $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                                }
+                                if($this.BaselineConfigurationRequired){
+                                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                                    $this.CheckBroaderGroupAccessAutomatedFix($controlResult);
+                                    
                                 }
                             }
                             else {
@@ -1846,8 +1881,12 @@ class Build: ADOSVTBase
     {
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             if (-not $this.UndoFix)
             {
                 foreach ($identity in $RawDataObjForControlFix) 
@@ -1940,10 +1979,15 @@ class Build: ADOSVTBase
                     if(($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true))
                     {
                         $controlResult.AddMessage([VerificationResult]::Failed,"Pipeline secrets are marked as available to pull request validations of public repo forks.");
-                        if ($this.ControlFixBackupRequired)
+                        if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                         {
                             #Data object that will be required to fix the control
                             $controlResult.BackupControlState = $pullRequestTrigger.forks.allowSecrets;
+                        }
+                        if($this.BaselineConfigurationRequired){
+                            $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                            $this.CheckForkedBuildTriggerAutomatedFix($controlResult);
+                            
                         }
                     }
                     else
@@ -1973,8 +2017,13 @@ class Build: ADOSVTBase
     {   
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
+
             $uri = "https://dev.azure.com/{0}/{1}/_apis/build/definitions/{2}?api-version=5.0-preview.6" -f ($this.OrganizationContext.OrganizationName), $($this.BuildObj.project.id), $($this.BuildObj.id) 
             $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
             if (-not $this.UndoFix) {

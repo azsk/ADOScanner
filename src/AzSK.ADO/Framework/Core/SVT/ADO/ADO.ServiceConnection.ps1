@@ -321,9 +321,14 @@ class ServiceConnection: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to service connection: $($restrictedBuildSVCAcctCount)";
                     $formatedMembers = $buildServieAccountOnSvc | ForEach-Object { $_.identity.displayName + ': ' + $_.role.displayName }
                     $controlResult.AdditionalInfoInCSV = $(($formatedMembers) -join '; ')
-                    if ($this.ControlFixBackupRequired){
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired){
                         $buildServiceAccountId = @($buildServieAccountOnSvc | Select-Object -property @{name= "Id";expression = {$_.identity.id}}, @{name = "Group"; expression = {$_.identity.displayName}}, @{name = "Role"; expression ={$_.role.name}})
                         $controlResult.BackupControlState = $buildServiceAccountId
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckBuildServiceAccountAccessAutomatedFix($controlResult);
+                        
                     }
                 }
                 else{
@@ -353,7 +358,12 @@ class ServiceConnection: ADOSVTBase
     hidden [ControlResult] CheckBuildServiceAccountAccessAutomatedFix([ControlResult] $controlResult){
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             $body = "["
             #method name will be different in undofix
             $MethodName = "Patch"
@@ -410,8 +420,13 @@ class ServiceConnection: ADOSVTBase
                 if($this.pipelinePermission.allPipelines.authorized){
                     $controlResult.AddMessage([VerificationResult]::Failed,"Service connection is accessible to all YAML pipelines.");
 
-                    if ($this.ControlFixBackupRequired){
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired){
                         $controlResult.BackupControlState = $this.pipelinePermission;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckServiceConnectionBuildAccessAutomatedFix($controlResult);
+                        
                     }
                 }
                 else {
@@ -436,8 +451,13 @@ class ServiceConnection: ADOSVTBase
         try{
             $this.PublishCustomMessage( "`nAfter applying this fix, any YAML pipelines using this service connection will lose access. You will have to explicitly add them.", [MessageType]::Warning);
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
+            
             if (-not $this.UndoFix)
             {
                 $RawDataObjForControlFix.allPipelines.authorized = $false;
@@ -847,9 +867,14 @@ class ServiceConnection: ADOSVTBase
                     $controlResult.AddMessage("`nList of groups: ", $formattedGroupsTable)
                     $controlResult.SetStateData("List of groups: ", $formattedGroupsTable)
                     $controlResult.AdditionalInfo += "Count of broader groups that have excessive permissions on service connection:  $($restrictedGroupsCount)";
-                    if ($this.ControlFixBackupRequired) {
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired) {
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $backupDataObject;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckBroaderGroupAccessAutomatedFix($controlResult);
+                        
                     }
                     $restrictedGroupsAccess = $restrictedGroups | ForEach-Object { $_.Name + ': ' + $_.Role }
                     $controlResult.AdditionalInfoInCSV = $restrictedGroupsAccess -join '; '
@@ -878,7 +903,12 @@ class ServiceConnection: ADOSVTBase
     {        
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
 
             $body = "["
 

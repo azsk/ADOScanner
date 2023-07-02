@@ -110,11 +110,11 @@ class SVTResourceResolver: AzSKRoot {
     }
 
     #Constructor for Set-AzSKADOBaselineConfigurations
-    SVTResourceResolver($OrganizationName, $ProjectNames, $ResourceTypeName, $PATToken, $Force): Base($OrganizationName, $PATToken){
+    SVTResourceResolver($OrganizationName, $ProjectNames, $BuildNames, $ReleaseNames, $ServiceConnectionNames,$RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$AgentPoolNames, $VariableGroupNames, $ResourceTypeName, $PATToken, $Force, $IsSabc): Base($OrganizationName, $PATToken){
         $this.organizationName = $organizationName
         $this.ProjectNames = $ProjectNames
         $this.ResourceTypeName = $ResourceTypeName
-        $this.SetallTheParamValues($this.ProjectNames,$ResourceTypeName,$Force)
+        $this.SetallTheParamValues($this.ProjectNames,$BuildNames, $ReleaseNames, $ServiceConnectionNames,$RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$AgentPoolNames, $VariableGroupNames, $ResourceTypeName, $Force)
     } 
 
     [void] SetallTheParamValues([string]$organizationName, $ProjectNames, $BuildNames, $ReleaseNames, $AgentPools, $ServiceConnectionNames, $VariableGroupNames, $ScanAllResources, $PATToken, $ResourceTypeName, $AllowLongRunningScan, $ServiceIds, $IncludeAdminControls,$BuildsFolderPath,$ReleasesFolderPath,$UsePartialCommits,$DoNotRefetchResources,$BatchScan, $UseIncrementalScan, $IncrementalDate) {
@@ -245,7 +245,7 @@ class SVTResourceResolver: AzSKRoot {
     }
 
     #Called for Set-AzSKADOBaselineConfigurations
-    [void] SetallTheParamValues($ProjectNames,$ResourceTypeName,$Force){
+    [void] SetallTheParamValues($ProjectNames,$BuildNames,$ReleaseNames, $ServiceConnectionNames,$RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$AgentPoolNames, $VariableGroupNames, $ResourceTypeName,$Force){
         $this.baselineConfigurationForce = $Force
         if ($ResourceTypeName -eq [ResourceTypeName]::Project -or $ResourceTypeName -eq [ResourceTypeName]::All){
             if (-not [string]::IsNullOrEmpty($ProjectNames)) {
@@ -255,6 +255,58 @@ class SVTResourceResolver: AzSKRoot {
                     throw [SuppressedException] "The parameter 'ProjectNames' does not contain any string."
                 }
             }
+        }
+
+        if (-not [string]::IsNullOrEmpty($BuildNames)) {
+            $this.BuildNames += $this.ConvertToStringArray($BuildNames);
+            if ($this.BuildNames.Count -eq 0) {
+                throw [SuppressedException] "The parameter 'BuildNames' does not contain any string."
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::Build -or $ResourceTypeName -eq [ResourceTypeName]::Build_Release) {
+            $this.BuildNames = "*"
+        }
+
+        if (-not [string]::IsNullOrEmpty($ReleaseNames)) {
+            $this.ReleaseNames += $this.ConvertToStringArray($ReleaseNames);
+            if ($this.ReleaseNames.Count -eq 0) {
+                throw [SuppressedException] "The parameter 'ReleaseNames' does not contain any string."
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::Release -or $ResourceTypeName -eq [ResourceTypeName]::Build_Release) {
+            $this.ReleaseNames = "*"
+        }
+
+        if (-not [string]::IsNullOrEmpty($ServiceConnectionNames)) {
+            $this.ServiceConnections += $this.ConvertToStringArray($ServiceConnectionNames);
+
+            if ($this.ServiceConnections.Count -eq 0) {
+                throw [SuppressedException] "The parameter 'ServiceConnectionNames' does not contain any string."
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::ServiceConnection -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) {
+            $this.ServiceConnections = "*"
+        }
+
+        if (-not [string]::IsNullOrEmpty($AgentPoolNames)) {
+            $this.AgentPools += $this.ConvertToStringArray($AgentPoolNames);
+            if ($this.AgentPools.Count -eq 0) {
+                throw [SuppressedException] "The parameter 'AgentPools' does not contain any string."
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::AgentPool -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) {
+            $this.AgentPools = "*"
+        }
+
+        if (-not [string]::IsNullOrEmpty($VariableGroupNames)) {
+            $this.VariableGroups += $this.ConvertToStringArray($VariableGroupNames);
+
+            if ($this.VariableGroups.Count -eq 0) {
+                throw [SuppressedException] "The parameter 'VariableGroupNames' does not contain any string."
+            }
+        }
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::VariableGroup -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) {
+            $this.VariableGroups = "*"
         }
     }
 
