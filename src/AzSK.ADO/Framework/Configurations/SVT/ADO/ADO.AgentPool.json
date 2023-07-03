@@ -164,9 +164,26 @@
       "Enabled": true
     },
     {
+      "ControlID": "ADO_AgentPool_Dont_Grant_Broader_Group_Access_As_Approvers",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not be added as approvers on agent pool.",
+      "Id": "AgentPool210",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupApproversOnAgentPool",
+      "Rationale": "Any user/group can be added as an approver to the agent pool, which gives user/group the permission to approve any run of pipelines accessing the resource even if they do not have access to the agent pool. To prevent illegitimate consumption and approval of the resource, ensure that broader groups are not added as approvers.",
+      "Recommendation": "1. Go to Project Settings --> 2. Pipelines --> 3. Agent pools --> 4. Select your agent pool --> 5. Select Security --> 6. Click on 'Approvals and Checks' --> Remove Broader groups from Approvals. Refer to detailed scan log (*AgentPool.LOG*) for broader group list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
       "ControlID": "ADO_AgentPool_AuthZ_Enable_Branch_Control",
       "Description": "Allow agent pools to be accessed only by select branches.",
-      "Id": "AgentPool210",
+      "Id": "AgentPool220",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckBranchControlForAgentPool",
@@ -183,7 +200,7 @@
     {
       "ControlID": "ADO_AgentPool_DP_Use_Template_From_Protected_Branch",
       "Description": "Allow agent pools to be accessed by templates only from protected branches.",
-      "Id": "AgentPool220",
+      "Id": "AgentPool230",
       "ControlSeverity": "Medium",
       "Automated": "Yes",
       "MethodName": "CheckTemplateBranchForAgentPool",
@@ -197,6 +214,5 @@
       ],
       "Enabled": true
     }
-
   ]
 }

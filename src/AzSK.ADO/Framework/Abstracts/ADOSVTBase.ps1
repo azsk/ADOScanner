@@ -610,12 +610,21 @@ class ADOSVTBase: SVTBase {
 
 	#function to Get Approval & Check details of resource
 	hidden [psobject]GetResourceApprovalCheck()
-    {            
-            $name = $this.ResourceContext.ResourceDetails.Name;
-            $resourceId = $this.ResourceContext.ResourceDetails.Id;			
-            $resourceType = $this.ResourceContext.ResourceTypeName;
+    {        
+			$resourceType = $this.ResourceContext.ResourceTypeName;
+			if($resourceType -eq 'AgentPool'){
+				$name=$this.ResourceContext.ResourceName;
+				$resourceId = $this.AgentPoolId;
+			}
+			else{
+				$name = $this.ResourceContext.ResourceDetails.Name; 
+				$resourceId = $this.ResourceContext.ResourceDetails.Id;	
+			}		
 			if($resourceType -eq 'ServiceConnection'){
 				$resourceType = 'endpoint'
+			}
+			if($resourceType -eq 'AgentPool'){
+				$resourceType = 'queue'
 			}			
 			$approvalChecks = [ADOSVTBase]::ResourceApprovalChecks | Where-Object {($_.ResourceId -eq $($resourceId)) -and ($_.ResourceType -eq $($resourceType))}  
             
