@@ -9,6 +9,6 @@
     "BranchId":  "master",
     "EnableOrgControlAttestation":  false,
     "PolicyProject":  "",
-    "OnlineOssPolicyStoreUrl" : "https://raw.githubusercontent.com/azsk/ADOScanner/masters//oss-config/$Version/$Filename",
+    "OnlineOssPolicyStoreUrl" : "https://raw.githubusercontent.com/azsk/ADOScanner/master/src/oss-config/$Version/$Filename",
     "BatchScanModule" : "AzSK.ADO"
 }
