@@ -39,12 +39,11 @@ class VariableGroup: ADOSVTBase
         try
         {
             $controlResult.VerificationResult = [VerificationResult]::Failed
-            $url = 'https://dev.azure.com/{0}/{1}/_apis/build/authorizedresources?type=variablegroup&id={2}&api-version=6.0-preview.1' -f $($this.OrganizationContext.OrganizationName),$($this.ProjectId) ,$($this.VarGrpId);
-            $responseObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
-            #
-
-            # When var grp is shared across all pipelines - the below condition will be true.
-            if([Helpers]::CheckMember($responseObj[0],"authorized") -and $responseObj[0].authorized -eq $true )
+            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/variablegroup/{2}" -f $this.OrganizationContext.OrganizationName, $this.ResourceContext.ResourceGroupName, $this.ResourceContext.ResourceDetails.Id;
+            $variableGroupPipelinePermObj = @([WebRequestHelper]::InvokeGetWebRequest($url));
+            
+             # When var grp is shared across all pipelines - the below condition will be true.
+            if($variableGroupPipelinePermObj.Count -gt 0 -and [Helpers]::CheckMember($variableGroupPipelinePermObj,"allPipelines") -and $variableGroupPipelinePermObj.allPipelines.authorized -eq $true)
             {
                 $isSecretFound = $false
                 $secretVarList = @();
@@ -65,16 +64,28 @@ class VariableGroup: ADOSVTBase
                         }
                     }
                 }
-
                 if ($isSecretFound -eq $true)
                 {
                     $controlResult.AddMessage([VerificationResult]::Failed, "Variable group contains secrets accessible to all YAML pipelines.");
                     $controlResult.AdditionalInfoInCSV = "SecretVarsList: $($secretVarList -join '; ')";
                     $controlResult.AdditionalInfo += "SecretVarsList: $($secretVarList -join '; ')";
-
+                    try {
+                        $buildPipelineIds = @();
+                        if ($variableGroupPipelinePermObj.Count -gt 0 -and $variableGroupPipelinePermObj.pipelines.Count -gt 0) {
+                            $buildPipelineIds = $variableGroupPipelinePermObj.pipelines.id
+                            $buildDefnURL = "https://{0}.visualstudio.com/{1}/_apis/build/definitions?definitionIds={2}&api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.ResourceContext.ResourceGroupName, ($buildPipelineIds -join ",");
+                            $buildDefnsObj = [WebRequestHelper]::InvokeGetWebRequest($buildDefnURL);
+                            if (([Helpers]::CheckMember($buildDefnsObj,"name"))) {
+                                $controlResult.AdditionalInfoInCSV += "; NumYAMLPipelineWithAccess: $($buildDefnsObj.Count)"
+                                $controlResult.AdditionalInfoInCSV += "; List: " + ($buildDefnsObj.Name -join ",")
+                            }
+                        }
+                    }
+                    catch {
+                    }
                     if ($this.ControlFixBackupRequired) {
                         #Data object that will be required to fix the control
-                        $controlResult.BackupControlState = $isSecretFound;
+                        $controlResult.BackupControlState = $variableGroupPipelinePermObj;
                     }
                 }
                 else
@@ -100,62 +111,42 @@ class VariableGroup: ADOSVTBase
 
     hidden [ControlResult] CheckPipelineAccessAutomatedFix ([ControlResult] $controlResult) 
     {
-        try 
-        {
             # Backup data object is not required in this scenario.
             #$RawDataObjForControlFix = @();
-            #$RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-
-            $this.PublishCustomMessage("Note: After changing the pipeline permission, YAML pipelines that need access on variable group needs to be granted permission explicitly.`n",[MessageType]::Warning);
-            $body = ""
-
-            if (-not $this.UndoFix)
-            {                 
-                if ($body.length -gt 1) {$body += ","}
-                $body += @"
-                    {
-                        "resource": {
-                            "type": "variablegroup",
-                            "id": "$($this.VarGrpId)"
-                        },
-                        "allPipelines": {
-                            "authorized": false,
-                            "authorizedBy":null,
-                            "authorizedOn":null
-                        },
-                        "pipelines":[]                                                  
-                    }
-"@;
-            }
-            else 
+            #$RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject     
+            try
             {
-                if ($body.length -gt 1) {$body += ","}
-                $body += @"
-                    {
-                        "resource": {
-                            "type": "variablegroup",
-                            "id": "$($this.VarGrpId)"
-                        },
-                        "allPipelines": {
-                            "authorized": true,
-                            "authorizedBy":null,
-                            "authorizedOn":null
-                        },
-                        "pipelines":[]
-                    }
-"@;
-
-            }            
-            $url = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/variablegroup/{2}?api-version=5.1-preview.1" -f $($this.OrganizationContext.OrganizationName),$($this.projectId),$($this.VarGrpId);          
-			$header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($url)
-            $webRequestResult = Invoke-RestMethod -Uri $url -Method Patch -ContentType "application/json" -Headers $header -Body $body							    
-            $controlResult.AddMessage([VerificationResult]::Fixed,  "Pipeline permissions for variable group have been changed.");
-        }
-        catch{
-            $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
-            $controlResult.LogException($_)
-        }        
-        return $controlResult;
+                $this.PublishCustomMessage("Note: After changing the pipeline permission, YAML pipelines that need access on variable group needs to be granted permission explicitly.`n", [MessageType]::Warning);
+                $RawDataObjForControlFix = @();
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+    
+                if (-not $this.UndoFix)
+                {
+                    $RawDataObjForControlFix.allPipelines.authorized = $false;
+                    $RawDataObjForControlFix.allPipelines.authorizedBy = $null;
+                    $RawDataObjForControlFix.allPipelines.authorizedOn = $null;
+                    $body = $RawDataObjForControlFix | ConvertTo-Json -Depth 10;
+                    $uri = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/variablegroup/{2}?api-version=5.1-preview.1" -f ($this.OrganizationContext.OrganizationName), $($this.ProjectId), $this.ResourceContext.ResourceDetails.Id;
+                    $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                    $Result = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
+                
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Variable group is not accessible to all YAML pipelines.");
+                }
+                else {
+                    $body = $RawDataObjForControlFix | ConvertTo-Json -Depth 10;
+                    $uri = "https://dev.azure.com/{0}/{1}/_apis/pipelines/pipelinePermissions/variablegroup/{2}?api-version=5.1-preview.1" -f ($this.OrganizationContext.OrganizationName), $($this.ProjectId), $this.ResourceContext.ResourceDetails.Id;
+                    $header = [WebRequestHelper]::GetAuthHeaderFromUriPatch($uri)
+                    $Result = Invoke-RestMethod -Uri $uri -Method Patch -ContentType "application/json" -Headers $header -Body $body
+                
+                    $controlResult.AddMessage([VerificationResult]::Fixed,  "Variable group is accessible to all YAML pipelines.");
+                }  
+            }
+            catch{
+                $controlResult.AddMessage([VerificationResult]::Error,  "Could not apply fix.");
+                $controlResult.LogException($_)
+            }
+            
+            return $controlResult;
     }
 
     hidden [ControlResult] CheckInheritedPermissions([ControlResult] $controlResult)
