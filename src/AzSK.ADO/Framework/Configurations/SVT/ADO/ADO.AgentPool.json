@@ -162,7 +162,57 @@
         "AutomatedFix"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_AgentPool_Dont_Grant_Broader_Group_Access_As_Approvers",
+      "Description": "Broader groups (contributors, project valid users, etc.) should not be added as approvers on agent pool.",
+      "Id": "AgentPool210",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckBroaderGroupApproversOnAgentPool",
+      "Rationale": "Any user/group can be added as an approver to the agent pool, which gives user/group the permission to approve any run of pipelines accessing the resource even if they do not have access to the agent pool. To prevent illegitimate consumption and approval of the resource, ensure that broader groups are not added as approvers.",
+      "Recommendation": "1. Go to Project Settings --> 2. Pipelines --> 3. Agent pools --> 4. Select your agent pool --> 5. Select Security --> 6. Click on 'Approvals and Checks' --> Remove Broader groups from Approvals. Refer to detailed scan log (*AgentPool.LOG*) for broader group list.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_AgentPool_AuthZ_Enable_Branch_Control",
+      "Description": "Allow agent pools to be accessed only by select branches.",
+      "Id": "AgentPool220",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckBranchControlForAgentPool",
+      "Rationale": "Once an agent pool is made accessible to a YAML pipeline, malicious users with 'create branch' permissions on the repository will be able to access the agent pool by queueing the pipeline from the branch they select even if they do not have access to the agent pool. To prevent this ensure that the agent pool can be accessed only from select branches (e.g., 'main').",
+      "Recommendation": "1. Go to Project Settings --> 2. Pipelines --> 3. Agent pools --> 4. Select your agent pool --> 5. Select Approvals and Checks --> 6. Click on 'Branch Control' --> Create a branch control --> Provide the branches from which you would like the agent pool to be accessed from. For additional protection, enable 'Verify branch protection'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "AuthZ"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_AgentPool_DP_Use_Template_From_Protected_Branch",
+      "Description": "Allow agent pools to be accessed by templates only from protected branches.",
+      "Id": "AgentPool230",
+      "ControlSeverity": "Medium",
+      "Automated": "Yes",
+      "MethodName": "CheckTemplateBranchForAgentPool",
+      "Rationale": "If malicious users have 'contribute' permissions to the repository containing the template required to access the agent pool, they can tamper the template itself and misuse the service connection. To prevent this, enable branch protection policies on the branch which contains the template required to access this resource.",
+      "Recommendation": "1. Go to Project Settings --> 2. Pipelines --> 3. Agent pools --> 4. Select your agent pool --> 5. Select Approvals and checks --> 6. Click on 'See All' --> 7. Select Required Template --> 8. Click on 'Next' --> 9.Add required YAML template -->  Provide the repository, ref and the path to required YAML template.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP"
+      ],
+      "Enabled": true
     }
-
   ]
 }
