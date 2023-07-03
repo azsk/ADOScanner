@@ -100,6 +100,12 @@ function Set-AzSKADOBaselineConfigurations {
         [Alias("f")]
         $Force,
 
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage="Name of the project hosting organization policy with which the scan should run.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("pp")]
+		$PolicyProject,
+
         #Boolean Variable for resolving the conflict on constructor.
         [switch]
         $IsSabc = $true

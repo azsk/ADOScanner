@@ -263,7 +263,7 @@ class SVTResourceResolver: AzSKRoot {
                 throw [SuppressedException] "The parameter 'BuildNames' does not contain any string."
             }
         }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::Build -or $ResourceTypeName -eq [ResourceTypeName]::Build_Release) {
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::Build -or $ResourceTypeName -eq [ResourceTypeName]::Build_Release -or $ResourceTypeName -eq [ResourceTypeName]::All) {
             $this.BuildNames = "*"
         }
 
@@ -273,7 +273,7 @@ class SVTResourceResolver: AzSKRoot {
                 throw [SuppressedException] "The parameter 'ReleaseNames' does not contain any string."
             }
         }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::Release -or $ResourceTypeName -eq [ResourceTypeName]::Build_Release) {
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::Release -or $ResourceTypeName -eq [ResourceTypeName]::Build_Release -or $ResourceTypeName -eq [ResourceTypeName]::All) {
             $this.ReleaseNames = "*"
         }
 
@@ -284,7 +284,7 @@ class SVTResourceResolver: AzSKRoot {
                 throw [SuppressedException] "The parameter 'ServiceConnectionNames' does not contain any string."
             }
         }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::ServiceConnection -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) {
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::ServiceConnection -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources -or $ResourceTypeName -eq [ResourceTypeName]::All) {
             $this.ServiceConnections = "*"
         }
 
@@ -294,7 +294,7 @@ class SVTResourceResolver: AzSKRoot {
                 throw [SuppressedException] "The parameter 'AgentPools' does not contain any string."
             }
         }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::AgentPool -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) {
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::AgentPool -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources -or $ResourceTypeName -eq [ResourceTypeName]::All) {
             $this.AgentPools = "*"
         }
 
@@ -305,7 +305,7 @@ class SVTResourceResolver: AzSKRoot {
                 throw [SuppressedException] "The parameter 'VariableGroupNames' does not contain any string."
             }
         }
-        elseif ($ResourceTypeName -eq [ResourceTypeName]::VariableGroup -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources) {
+        elseif ($ResourceTypeName -eq [ResourceTypeName]::VariableGroup -or $ResourceTypeName -eq [ResourceTypeName]::SvcConn_AgentPool_VarGroup_CommonSVTResources -or $ResourceTypeName -eq [ResourceTypeName]::All) {
             $this.VariableGroups = "*"
         }
     }
