@@ -996,10 +996,15 @@ class Release: ADOSVTBase
                     $controlResult.AdditionalInfo += "Count of variables that are settable at release time and contain URL value: " + $varCount;
                     $controlResult.SetStateData("List of variables settable at release time and containing URL value: ", $settableURLVars);
 
-                    if ($this.ControlFixBackupRequired)
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                     {
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $settableURLbackup;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckSettableAtReleaseTimeForURLAutomatedFix($controlResult);
+                        
                     }
                 }
                 else 
@@ -1023,7 +1028,12 @@ class Release: ADOSVTBase
     hidden [ControlResult] CheckSettableAtReleaseTimeForURLAutomatedFix([ControlResult] $controlResult){
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             
             $uri = "https://vsrm.dev.azure.com/{0}/{1}/_apis/release/definitions/{2}?api-version=6.0" -f ($this.OrganizationContext.OrganizationName), $($this.projectid), $($this.ReleaseObj.id) 
             
@@ -1312,9 +1322,14 @@ class Release: ADOSVTBase
                         $display = $editableTaskGroups|FT  -AutoSize | Out-String -Width 512
                         $controlResult.AddMessage($display)
                         $controlResult.SetStateData("List of task groups used in release definition that contributors can edit: ", $editableTaskGroups);
-                        if ($this.ControlFixBackupRequired) {
+                        if ($this.ControlFixBackupRequired-or $this.BaselineConfigurationRequired) {
                             #Data object that will be required to fix the control
                             $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                        }
+                        if($this.BaselineConfigurationRequired){
+                            $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                            $this.CheckTaskGroupEditPermissionAutomatedFix($controlResult);
+                            
                         }
                     }
                     else
@@ -1364,8 +1379,13 @@ class Release: ADOSVTBase
     {
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-            
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
+
             if (-not $this.UndoFix)
             {
                 foreach ($identity in $RawDataObjForControlFix) 
@@ -1493,12 +1513,16 @@ class Release: ADOSVTBase
                                                                                 
                                         $formattedVarGroupsData = $obj | Select @{l = 'displayName'; e = { $_.identity.displayName } }, @{l = 'userid'; e = { $_.identity.id } }, @{l = 'role'; e = { $_.role.name } }, @{l = 'vargrpid'; e = { $varGrpObj.id } } , @{l = 'vargrpname'; e = { $varGrpObj.name } }                                     
                                         
-                                        if ($this.ControlFixBackupRequired)
+                                        if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                                         {
                                             #Data object that will be required to fix the control                                            
                                             $controlResult.BackupControlState += $formattedVarGroupsData;
                                         }                                                                                
-                                        
+                                        if($this.BaselineConfigurationRequired){
+                                            $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                                            $this.CheckVariableGroupEditPermissionAutomatedFix($controlResult);
+                                            
+                                        }
                                     }
                                     
                                 }
@@ -1556,7 +1580,12 @@ class Release: ADOSVTBase
         try {
             $RawDataObjForControlFix = @();
             $RawDataObjForControlFixTemp = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject 
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject 
+            }
             $RawDataObjForControlFixTemp = $RawDataObjForControlFix
             $varGrpIds = $RawDataObjForControlFix | Select-Object vargrpid -Unique
             foreach ($vgId in $varGrpIds) {
@@ -1809,11 +1838,16 @@ class Release: ADOSVTBase
                                 $groups = $formattedGroupsData | ForEach-Object { $_.Group + ': ' + $_.ExcessivePermissions }
                                 $controlResult.AdditionalInfoInCSV = $groups -join ';'
                                 
-                                if ($this.ControlFixBackupRequired)
+                                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                                 {
                                     #Data object that will be required to fix the control
                                     
                                     $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                                }
+                                if($this.BaselineConfigurationRequired){
+                                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                                    $this.CheckBroaderGroupAccessAutomatedFix($controlResult);
+                                    
                                 }
                             }
                             else {
@@ -1851,8 +1885,13 @@ class Release: ADOSVTBase
     {
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-                       
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
+
             if (-not $this.UndoFix)
             {
                 foreach ($identity in $RawDataObjForControlFix) 

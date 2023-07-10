@@ -141,11 +141,16 @@ class CommonSVTControls: ADOSVTBase {
                 $groups =  $groups -join ' ; '
                 $controlResult.AdditionalInfo += "List of Build service groups  with excessive permission on 'All Branches' level:  $($groups); ";
                 $controlResult.AdditionalInfoInCSV+= "'All Branches' level excessive permissions: $($groups); "                        
-                if ($this.ControlFixBackupRequired)
+                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                 {
                     $autoFixStateData +=$excessivePermissionsListOnAllBranches;
                     #Data object that will be required to fix the control
                     $controlResult.BackupControlState = $autoFixStateData;
+                }
+                if($this.BaselineConfigurationRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $this.CheckBuildServiceAccessOnBranchAutomatedFix($controlResult);
+                    
                 }
             }
             else {
@@ -205,7 +210,12 @@ class CommonSVTControls: ADOSVTBase {
     {
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.repoPermissionSetId
 
             if (-not $this.UndoFix) {
@@ -574,13 +584,18 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AdditionalInfo += "Count of broader groups that have administrator/contributor access to feed: $($feedWithBroaderGroupCount)";
                     $controlResult.AdditionalInfo += "List of Broader groups:" + $groups ;
 
-                    if ($this.ControlFixBackupRequired)
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                     {
                         #Data object that will be required to fix the control
                         $excesiveFeedsPermissions | ForEach-Object{
                             $_ | Add-Member -MemberType NoteProperty -Name "Scope" -Value $scope
                         }
                         $controlResult.BackupControlState = $excesiveFeedsPermissions;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckBroaderGroupAccessOnFeedsAutomatedFix($controlResult);
+                        
                     }
                 }
                 else
@@ -607,7 +622,12 @@ class CommonSVTControls: ADOSVTBase {
     {
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             $scope = $RawDataObjForControlFix[0].Scope
             $role = $this.ControlSettings.Feed.RoleToChangeInFix
             $body = "["
@@ -695,8 +715,13 @@ class CommonSVTControls: ADOSVTBase {
             if($secureFilePipelinePermObj.Count -gt 0 -and [Helpers]::CheckMember($secureFilePipelinePermObj,"allPipelines") -and $secureFilePipelinePermObj.allPipelines.authorized -eq $true) {
 
                 $controlResult.AddMessage([VerificationResult]::Failed, "Secure file is accesible to all YAML pipelines.");
-                if ($this.ControlFixBackupRequired){
+                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired){
                     $controlResult.BackupControlState = $secureFilePipelinePermObj;
+                }
+                if($this.BaselineConfigurationRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $this.CheckSecureFilesPermissionAutomatedFix($controlResult);
+                    
                 }
                 $controlResult.AdditionalInfoInCSV = "NA";
             }
@@ -730,8 +755,12 @@ class CommonSVTControls: ADOSVTBase {
         try{
             $this.PublishCustomMessage( "`nAfter applying this fix, any YAML pipelines using this secure file will lose access. You will have to explicitly add them.", [MessageType]::Warning);
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             if (-not $this.UndoFix)
             {
                 $RawDataObjForControlFix.allPipelines.authorized = $false;
@@ -916,9 +945,14 @@ class CommonSVTControls: ADOSVTBase {
                     $display = ($secureFileWithBroaderGroup |  FT  Name, Role -AutoSize | Out-String -Width 512)
                     $controlResult.AddMessage("`nList of groups: ", $display)
 
-                    if ($this.ControlFixBackupRequired) {
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired) {
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $secureFileWithBroaderGroup;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckBroaderGroupAccessOnSecureFileAutomatedFix($controlResult);
+                        
                     }
 
                     $groups = $secureFileWithBroaderGroup | ForEach-Object { $_.Name + ': ' + $_.Role } 
@@ -950,7 +984,12 @@ class CommonSVTControls: ADOSVTBase {
         try 
         {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject   
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject   
+            }
             $body = "["
 
             if (-not $this.UndoFix)
@@ -1013,8 +1052,13 @@ class CommonSVTControls: ADOSVTBase {
             {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Environment is accessible to all YAML pipelines.");
                 
-                if ($this.ControlFixBackupRequired){
+                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired){
                     $controlResult.BackupControlState = $envPipelinePermissionObj;
+                }
+                if($this.BaselineConfigurationRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $this.CheckEnviornmentAccessAutomatedFix($controlResult);
+                    
                 }
             }
             else
@@ -1035,8 +1079,12 @@ class CommonSVTControls: ADOSVTBase {
         try{
             $this.PublishCustomMessage( "`nAfter applying this fix, any YAML pipelines using this Environment will lose access. You will have to explicitly add them.", [MessageType]::Warning);
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             if (-not $this.UndoFix)
             {
                 $RawDataObjForControlFix.allPipelines.authorized = $false;
@@ -1276,9 +1324,14 @@ class CommonSVTControls: ADOSVTBase {
                     $groups = $environmentWithBroaderGroup | ForEach-Object { $_.name + ': ' + $_.role } 
                     $controlResult.AdditionalInfo += "List of broader groups that have user/administrator access to environment: $($groups  -join ' ; ')";
                     
-                    if ($this.ControlFixBackupRequired) {
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired) {
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $backupDataObject;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckBroaderGroupAccessOnEnvironmentAutomatedFix($controlResult);
+                        
                     }
                 }
                 else
@@ -1304,8 +1357,12 @@ class CommonSVTControls: ADOSVTBase {
     hidden [ControlResult] CheckBroaderGroupAccessOnEnvironmentAutomatedFix ([ControlResult] $controlResult) {
         try {
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
-
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             $body = "["
 
             if (-not $this.UndoFix)
@@ -1482,13 +1539,18 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AdditionalInfoInCSV += "; No package found";
                 }
 
-                if ($this.ControlFixBackupRequired)
+                if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                 {
                     #Data object that will be required to fix the control
                     $excessiveBuildSvcAccFeedsPerm | ForEach-Object{
                         $_ | Add-Member -MemberType NoteProperty -Name "Scope" -Value $scope
                     }
                     $controlResult.BackupControlState = $excessiveBuildSvcAccFeedsPerm;
+                }
+                if($this.BaselineConfigurationRequired){
+                    $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                    $this.CheckBuildSvcAccAccessOnFeedsAutomatedFix($controlResult);
+                    
                 }
             }
             else
@@ -1509,7 +1571,12 @@ class CommonSVTControls: ADOSVTBase {
     {
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             $scope = $RawDataObjForControlFix[0].Scope
             $isBuildSVcAccUsedToPublishPackage = $false
             $role = $this.ControlSettings.Feed.RoleToChangeInFix
@@ -1762,10 +1829,15 @@ class CommonSVTControls: ADOSVTBase {
                     $controlResult.AdditionalInfo += "Count of restricted Build Service groups that have access to repository: $($groupsWithExcessivePermissionsList.Count)";
                     $controlResult.AdditionalInfoInCSV+= "'Repo' level excessive permissions: $($additionalInfoInCSV); "  
 
-                    if ($this.ControlFixBackupRequired)
+                    if ($this.ControlFixBackupRequired -or $this.BaselineConfigurationRequired)
                     {
                         #Data object that will be required to fix the control
                         $controlResult.BackupControlState = $groupsWithExcessivePermissionsList;
+                    }
+                    if($this.BaselineConfigurationRequired){
+                        $controlResult.AddMessage([Constants]::BaselineConfigurationMsg -f $this.ResourceContext.ResourceName);
+                        $this.CheckBuildSvcAcctAccessOnRepositoryAutomatedFix($controlResult);
+                        
                     }
                 }
 
@@ -1791,7 +1863,12 @@ class CommonSVTControls: ADOSVTBase {
     {
         try{
             $RawDataObjForControlFix = @();
-            $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            if($this.BaselineConfigurationRequired){
+                $RawDataObjForControlFix = $controlResult.BackupControlState;
+            }
+            else{
+                $RawDataObjForControlFix = ([ControlHelper]::ControlFixBackup | where-object {$_.ResourceId -eq $this.ResourceId}).DataObject
+            }
             $url = "https://dev.azure.com/{0}/_apis/AccessControlEntries/{1}?api-version=6.0" -f $($this.OrganizationContext.OrganizationName), $this.repoPermissionSetId
 
             if (-not $this.UndoFix) {

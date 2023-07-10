@@ -16,6 +16,11 @@ function Set-AzSKADOBaselineConfigurations {
         [Alias("pn")]
         $ProjectName,
 
+        [string]
+        [Parameter(HelpMessage = "Control id to be fixed")]
+        [Alias("cids")]
+        $ControlIds,
+
         [System.Security.SecureString]
         [Parameter()]
         [Alias("tk")]
@@ -35,11 +40,75 @@ function Set-AzSKADOBaselineConfigurations {
 		[Alias("rtn")]
 		$ResourceTypeName = [ResourceTypeName]::All,
 
-        [switch]
+        [string]
+		[Parameter(HelpMessage="Build names for which the security evaluation has to be performed.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("bns", "BuildName","bn")]
+		$BuildNames,
+
+        [string]
+		[Parameter(HelpMessage="Release names for which the security evaluation has to be performed.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("rns", "ReleaseName","rn")]
+		$ReleaseNames,
+
+        [string]
+		[Parameter(HelpMessage="Service connection names for which the security evaluation has to be performed.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("sc", "ServiceConnectionName", "scs")]
+		$ServiceConnectionNames,
+
+        [string]
+		[Parameter(HelpMessage="Agent Pool names for which the security evaluation has to be performed.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("aps", "AgentPoolName","ap")]
+		$AgentPoolNames,
+
+
+		[string]
+		[Parameter(HelpMessage="Variable group names for which the security evaluation has to be performed.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("vg", "VariableGroupName", "vgs")]
+		$VariableGroupNames,
+
+		[string]
+		[Parameter(HelpMessage="Repo name for which the security evaluation has to be perform.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("rpn", "RepoName","rp")]
+		$RepoNames,
+
+		[string]
+		[Parameter(HelpMessage="Secure file name for which the security evaluation has to be perform.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("sfn", "SecureFileName","sf")]
+		$SecureFileNames,
+
+		[string]
+		[Parameter(HelpMessage="Feed name for which the security evaluation has to be perform.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("fd", "FeedName","fdn")]
+		$FeedNames,
+
+		[string]
+		[Parameter(HelpMessage="Environment name for which the security evaluation has to be perform.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("en", "EnvironmentName","env")]
+		$EnvironmentNames,
+
+		[switch]
         [Parameter()]
         [Alias("f")]
-        $Force
+        $Force,
 
+		[string]
+		[Parameter(Mandatory = $false, HelpMessage="Name of the project hosting organization policy with which the scan should run.")]
+		[ValidateNotNullOrEmpty()]
+		[Alias("pp")]
+		$PolicyProject,
+
+        #Boolean Variable for resolving the conflict on constructor.
+        [switch]
+        $IsSabc = $true
 
 
     )
@@ -96,13 +165,14 @@ function Set-AzSKADOBaselineConfigurations {
 				}
 			}
             
-            $resolver = [SVTResourceResolver]::new($OrganizationName, $ProjectName,$ResourceTypeName,$PATToken,$Force);
+            $resolver = [SVTResourceResolver]::new($OrganizationName, $ProjectName,$BuildNames,$ReleaseNames,$ServiceConnectionNames,$RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$AgentPoolNames, $VariableGroupNames,$ResourceTypeName,$PATToken,$Force, $IsSabc);
             $secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
             
             if ($secStatus)
 			{
 				if ($null -ne $secStatus.Resolver.SVTResources) {	
-					return $secStatus.EvaluateControlStatus();
+                    $secStatus.ControlIdString = $ControlIds;
+                    return $secStatus.EvaluateControlStatus();
 				}
             }
         }
