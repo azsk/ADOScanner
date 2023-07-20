@@ -36,6 +36,11 @@ function Set-AzSKADOBaselineConfigurations {
         [Alias("ptu")]
         $PATTokenURL,
 
+		[switch]
+		[Parameter(HelpMessage="Scan all supported resource types present under organization like build, release, projects etc.")]
+		[Alias("sar", "saa" , "ScanAllArtifacts", "sat", "ScanAllResourceTypes")]
+		$ScanAllResources,
+
         [ResourceTypeName]
 		[Alias("rtn")]
 		$ResourceTypeName = [ResourceTypeName]::All,
@@ -165,7 +170,7 @@ function Set-AzSKADOBaselineConfigurations {
 				}
 			}
             
-            $resolver = [SVTResourceResolver]::new($OrganizationName, $ProjectName,$BuildNames,$ReleaseNames,$ServiceConnectionNames,$RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$AgentPoolNames, $VariableGroupNames,$ResourceTypeName,$PATToken,$Force, $IsSabc);
+            $resolver = [SVTResourceResolver]::new($OrganizationName, $ProjectName,$BuildNames,$ReleaseNames,$ServiceConnectionNames,$RepoNames, $SecureFileNames, $FeedNames, $EnvironmentNames,$AgentPoolNames, $VariableGroupNames,$ResourceTypeName,$PATToken,$Force,$ScanAllResources, $IsSabc);
             $secStatus = [ServicesSecurityStatus]::new($OrganizationName, $PSCmdlet.MyInvocation, $resolver);
             
             if ($secStatus)
