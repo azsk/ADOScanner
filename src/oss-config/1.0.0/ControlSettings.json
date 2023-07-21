@@ -415,7 +415,14 @@
         "User"
       ]
     },
-    "CheckForInheritedPermissions": false
+    "RestrictedBroaderGroupsForApprovers": [
+      "Project Collection Valid Users",
+      "Project Valid Users",
+      "Contributors",
+      "Readers"
+    ],
+    "CheckForInheritedPermissions": false,
+    "CheckForBranchProtection":true
   },
   "VariableGroup": {
     "VariableGroupHistoryPeriodInDays": 180,
