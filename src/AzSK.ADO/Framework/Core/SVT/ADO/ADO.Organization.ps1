@@ -224,11 +224,13 @@ class Organization: ADOSVTBase
                             $groupMembers | ForEach-Object {$allPCSAMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = "Project Collection Administrators"; descriptor=$_.descriptor; directMemberOfGroup = $_.DirectMemberOfGroup; subjectKind = $_.subjectKind } )}
 
                         }
-
+            
                         #Removing PCSA members from PCA members using id.
                         #TODO: HAVE ANOTHER CONTROL TO CHECK FOR PCA because some service accounts might be added directly as PCA and as well as part of PCSA. This new control will serve as a hygiene control. : fixed in 2111, check if user is directly a part of PCSA
                         if($allPCSAMembers.Count -gt 0)
                         {
+                            # filter out pcasa members where mailAddress property exist.
+                            $allPCSAMembers = $allPCSAMembers | Where-Object { $_.PSObject.Properties.Match('mailAddress') }
                             #filter out all service accounts only
                             if ([IdentityHelpers]::hasGraphAccess){
                                 $allPCSASvcAcc = @(([IdentityHelpers]::DistinguishHumanAndServiceAccount($allPCSAMembers, $this.OrganizationContext.OrganizationName)).serviceAccount)
@@ -1986,6 +1988,8 @@ class Organization: ADOSVTBase
             if ([IdentityHelpers]::hasGraphAccess)
             {
                 if($this.svcAccountsList.Count -eq 0 -and $this.humanAccountsList.Count -eq 0){
+                    #filter pca members where mailAddress property exist.
+                    $PCAMembers = $PCAMembers | Where-Object { $_.PSObject.Properties.Match('mailAddress') }
                     $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
                     $this.svcAccountsList = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress);
                     $this.humanAccountsList= @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress);
@@ -2046,6 +2050,8 @@ class Organization: ADOSVTBase
             if ([IdentityHelpers]::hasGraphAccess)
             {  
                 if($this.svcAccountsList.Count -eq 0 -and $this.humanAccountsList.Count -eq 0){
+                    # filter out pca members where mailAddress property exist.
+                    $PCAMembers = $PCAMembers | Where-Object { $_.PSObject.Properties.Match('mailAddress') }
                     $SvcAndHumanAccounts = [IdentityHelpers]::DistinguishHumanAndServiceAccount($PCAMembers, $this.OrganizationContext.OrganizationName)
                     $this.svcAccountsList = @($SvcAndHumanAccounts.serviceAccount | Select-Object displayName, mailAddress);
                     $this.humanAccountsList= @($SvcAndHumanAccounts.humanAccount | Select-Object displayName, mailAddress);
@@ -2738,6 +2744,8 @@ class Organization: ADOSVTBase
                     $AdminUsersMasterList = @()
                     $AdminUsersFailureCases = @()
                     $controlResult.AddMessage("Found total $($allAdminMembers.count) admin users in the org.")
+                    # filter out admin members where mailAddress property exist.
+                    $allAdminMembers = $allAdminMembers | Where-Object { $_.PSObject.Properties.Match('mailAddress') }
                     if($allAdminMembers.count -gt 0)
                     {
                         $groups = $allAdminMembers | Group-Object "mailAddress"
@@ -3561,6 +3569,8 @@ class Organization: ADOSVTBase
                 $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
 
                 $responseObj = $this.FeedGlobalPermissions | where-object {$_.role -eq 'administrator'}
+                # filter out pcasa members where identityId property exist.
+                $responseObj = $responseObj | Where-Object { $_.PSObject.Properties.Match('identityId') }
                 $ids = $responseObj.identityId -join ';'
                 $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/IdentityPicker/Identities?api-version=5.0-preview.1" #-f $($OrgName), $($groupObj.entityId)
                 $body = '{"query":"'+ $ids +'","identityTypes":["group"],"operationScopes":["ims"],"queryTypeHint":"uid","properties":["DisplayName","ScopeName"]}'
