@@ -202,6 +202,9 @@ class Organization: ADOSVTBase
                                 $groupMembers += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
                             }
 
+                            # filter out groupMembers members where mailAddress property exist.
+                            $groupMembers = $groupMembers | Where-Object { $_.PSObject.Properties.Match('mailAddress') }
+
                             # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection. Newly added in 2111 descriptor of user and direct memebership of groups for auto fix
                             $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = $adminGroups[$i].displayName; descriptor=$_.descriptor; directMemberOfGroup = $_.DirectMemberOfGroup } )}
                         }
@@ -219,6 +222,9 @@ class Organization: ADOSVTBase
                                 $groupMembers += [ControlHelper]::groupMembersResolutionObj[$PCSAGroup.descriptor]
                             }
 
+                            # filter out groupMembers members where mailAddress property exist.
+                            $groupMembers = $groupMembers | Where-Object { $_.PSObject.Properties.Match('mailAddress') }
+
                             # Preparing the list of members of PCSA which needs to be subtracted from $allAdminMembers
                             #USE IDENTITY ID
                             $groupMembers | ForEach-Object {$allPCSAMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; id = $_.originId; groupName = "Project Collection Administrators"; descriptor=$_.descriptor; directMemberOfGroup = $_.DirectMemberOfGroup; subjectKind = $_.subjectKind } )}
@@ -229,8 +235,6 @@ class Organization: ADOSVTBase
                         #TODO: HAVE ANOTHER CONTROL TO CHECK FOR PCA because some service accounts might be added directly as PCA and as well as part of PCSA. This new control will serve as a hygiene control. : fixed in 2111, check if user is directly a part of PCSA
                         if($allPCSAMembers.Count -gt 0)
                         {
-                            # filter out pcasa members where mailAddress property exist.
-                            $allPCSAMembers = $allPCSAMembers | Where-Object { $_.PSObject.Properties.Match('mailAddress') }
                             #filter out all service accounts only
                             if ([IdentityHelpers]::hasGraphAccess){
                                 $allPCSASvcAcc = @(([IdentityHelpers]::DistinguishHumanAndServiceAccount($allPCSAMembers, $this.OrganizationContext.OrganizationName)).serviceAccount)
@@ -2718,7 +2722,6 @@ class Organization: ADOSVTBase
                     $ReqdAdminGroups = @($OrgCollectionGroups | Where-Object { $_.displayName -in $AdminGroupsToCheckForInactiveUser })
 
                     $allAdminMembers =@();
-
                     $ReqdAdminGroups | ForEach-Object{
                         $currentGroup = $_
                         $groupMembers = @();
@@ -2737,6 +2740,8 @@ class Organization: ADOSVTBase
                         # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection.
                         if($groupMembers.count -gt 0)
                         {
+                            # filter out groupMembers where mailAddress property exist.
+                            $groupMembers = $groupMembers | Where-Object { $_.PSObject.Properties.Match('mailAddress') }
                             $groupMembers | ForEach-Object {$allAdminMembers += @( [PSCustomObject] @{ name = $_.displayName; mailAddress = $_.mailAddress; groupName = $currentGroup.displayName ; descriptor = $_.descriptor ; subjectdescriptor = $_.DirectMemberOfGroup } )}
                         }
                     }
@@ -2744,8 +2749,6 @@ class Organization: ADOSVTBase
                     $AdminUsersMasterList = @()
                     $AdminUsersFailureCases = @()
                     $controlResult.AddMessage("Found total $($allAdminMembers.count) admin users in the org.")
-                    # filter out admin members where mailAddress property exist.
-                    $allAdminMembers = $allAdminMembers | Where-Object { $_.PSObject.Properties.Match('mailAddress') }
                     if($allAdminMembers.count -gt 0)
                     {
                         $groups = $allAdminMembers | Group-Object "mailAddress"
@@ -3567,7 +3570,7 @@ class Organization: ADOSVTBase
                 #get identity details for groups fetched from above api
                 $rmContext = [ContextHelper]::GetCurrentContext();
                 $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
-
+                
                 $responseObj = $this.FeedGlobalPermissions | where-object {$_.role -eq 'administrator'}
                 # filter out pcasa members where identityId property exist.
                 $responseObj = $responseObj | Where-Object { $_.PSObject.Properties.Match('identityId') }
@@ -3575,7 +3578,7 @@ class Organization: ADOSVTBase
                 $url = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/_apis/IdentityPicker/Identities?api-version=5.0-preview.1" #-f $($OrgName), $($groupObj.entityId)
                 $body = '{"query":"'+ $ids +'","identityTypes":["group"],"operationScopes":["ims"],"queryTypeHint":"uid","properties":["DisplayName","ScopeName"]}'
                 $response = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/json" -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo)} -Body $body -UseBasicParsing
-            
+
                 $groups = $response.Content | Convertfrom-json
                 $roleAssignments = $groups.results.identities 
 
