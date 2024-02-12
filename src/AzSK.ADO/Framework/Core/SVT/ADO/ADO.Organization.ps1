@@ -202,7 +202,7 @@ class Organization: ADOSVTBase
                                 $groupMembers += [ControlHelper]::groupMembersResolutionObj[$adminGroups[$i].descriptor]
                             }
 
-                            # filter out groupMembers members where mailAddress property exist.
+                            # filter out groupMembers where mailAddress property exist.
                             $groupMembers = $groupMembers | Where-Object { $_.PSObject.Properties.Match('mailAddress') }
 
                             # Create a custom object to append members of current group with the group name. Each of these custom object is added to the global variable $allAdminMembers for further analysis of SC-Alt detection. Newly added in 2111 descriptor of user and direct memebership of groups for auto fix
@@ -3570,7 +3570,7 @@ class Organization: ADOSVTBase
                 #get identity details for groups fetched from above api
                 $rmContext = [ContextHelper]::GetCurrentContext();
                 $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f "",$rmContext.AccessToken)))
-                
+
                 $responseObj = $this.FeedGlobalPermissions | where-object {$_.role -eq 'administrator'}
                 # filter out pcasa members where identityId property exist.
                 $responseObj = $responseObj | Where-Object { $_.PSObject.Properties.Match('identityId') }
