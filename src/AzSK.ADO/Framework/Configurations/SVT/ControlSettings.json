@@ -294,8 +294,6 @@
     "RestrictedBroaderGroupsForBuild": {
 
       "Contributors": [
-        "Retain indefinitely",
-        "Manage build qualities",
         "Manage build queue",
         "Stop builds",
         "Override build checkIn validation",
@@ -306,8 +304,6 @@
         "Edit build pipeline"
       ],
       "Readers": [
-        "Retain indefinitely",
-        "Manage build qualities",
         "Manage build queue",
         "Stop builds",
         "Override build checkIn validation",
@@ -318,8 +314,6 @@
         "Edit build pipeline"
       ],
       "Project Collection Valid Users": [
-        "Retain indefinitely",
-        "Manage build qualities",
         "Manage build queue",
         "Stop builds",
         "Override build checkIn validation",
@@ -330,8 +324,6 @@
         "Edit build pipeline"
       ],
       "Project Valid Users": [
-        "Retain indefinitely",
-        "Manage build qualities",
         "Manage build queue",
         "Stop builds",
         "Override build checkIn validation",
