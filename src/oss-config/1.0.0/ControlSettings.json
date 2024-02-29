@@ -293,6 +293,9 @@
     ],
     "RestrictedBroaderGroupsForBuild" : {
       "Contributors":[
+        "Manage build queue",
+        "Stop builds",
+        "Override build checkIn validation",
         "Administer build permissions",
         "Delete build pipeline",
         "Delete builds ",
@@ -300,6 +303,9 @@
         "Edit build pipeline"
       ],
       "Readers":[
+        "Manage build queue",
+        "Stop builds",
+        "Override build checkIn validation",
         "Administer build permissions",
         "Delete build pipeline",
         "Delete builds ",
@@ -307,6 +313,9 @@
         "Edit build pipeline"
       ],
       "Project Collection Valid Users":[
+        "Manage build queue",
+        "Stop builds",
+        "Override build checkIn validation",
         "Administer build permissions",
         "Delete build pipeline",
         "Delete builds ",
@@ -314,6 +323,9 @@
         "Edit build pipeline"
       ],
       "Project Valid Users":[
+        "Manage build queue",
+        "Stop builds",
+        "Override build checkIn validation",
         "Administer build permissions",
         "Delete build pipeline",
         "Delete builds ",
@@ -355,40 +367,54 @@
     ],
     "RestrictedBroaderGroupsForRelease" : {
       "Contributors":[
+        "Edit release pipeline",
+        "Delete release definition",
+        "Edit release stage",
+        "Delete release stage",
+        "Manage deployments",
         "Administer release permissions",
         "Delete release pipeline",
         "Delete releases",
-        "Delete release stage",      
+        "Delete release stage",
         "Manage release approvers",
         "Manage releases"
       ],
       "Readers":[
+        "Edit release pipeline",
+        "Delete release definition",
+        "Edit release stage",
+        "Delete release stage",
+        "Manage deployments",
         "Administer release permissions",
         "Delete release pipeline",
         "Delete releases",
-        "Edit release pipeline",
-        "Delete release stage",      
-        "Edit release stage",
+        "Delete release stage",
         "Manage release approvers",
         "Manage releases"
       ],
       "Project Collection Valid Users":[
+        "Edit release pipeline",
+        "Delete release definition",
+        "Edit release stage",
+        "Delete release stage",
+        "Manage deployments",
         "Administer release permissions",
         "Delete release pipeline",
         "Delete releases",
-        "Edit release pipeline",
-        "Delete release stage",      
-        "Edit release stage",
+        "Delete release stage",
         "Manage release approvers",
         "Manage releases"
       ],
       "Project Valid Users":[
+        "Edit release pipeline",
+        "Delete release definition",
+        "Edit release stage",
+        "Delete release stage",
+        "Manage deployments",
         "Administer release permissions",
         "Delete release pipeline",
         "Delete releases",
-        "Edit release pipeline",
-        "Delete release stage",      
-        "Edit release stage",
+        "Delete release stage",
         "Manage release approvers",
         "Manage releases"
       ]
@@ -642,42 +668,50 @@
     ],
     "RestrictedBroaderGroupsForRepo" : {
       "Contributors":[
-        "Delete repository",
+        "Delete or disable repository",
         "Manage permissions",
         "Bypass policies when completing pull requests",
         "Bypass policies when pushing",
         "Edit policies",
-        "Force push (rewrite history, delete branches and tags)"
+        "Force push (rewrite history, delete branches and tags)",
+        "Policy exempt for push",
+        "Remove others' locks"
       ],
       "Readers":[
         "Contribute",
-        "Delete repository",
+        "Delete or disable repository",
         "Manage permissions",
         "Bypass policies when completing pull requests",
         "Bypass policies when pushing",
         "Edit policies",
         "Force push (rewrite history, delete branches and tags)",
-        "Rename repository"
+        "Rename repository",
+        "Policy exempt for push",
+        "Remove others' locks"
       ],
       "Project Collection Valid Users":[
         "Contribute",
-        "Delete repository",
+        "Delete or disable repository",
         "Manage permissions",
         "Bypass policies when completing pull requests",
         "Bypass policies when pushing",
         "Edit policies",
         "Force push (rewrite history, delete branches and tags)",
-        "Rename repository"
+        "Rename repository",
+        "Policy exempt for push",
+        "Remove others' locks"
       ],
       "Project Valid Users":[
         "Contribute",
-        "Delete repository",
+        "Delete or disable repository",
         "Manage permissions",
         "Bypass policies when completing pull requests",
         "Bypass policies when pushing",
         "Edit policies",
         "Force push (rewrite history, delete branches and tags)",
-        "Rename repository"
+        "Rename repository",
+        "Policy exempt for push",
+        "Remove others' locks"
       ]
     },
     "RestrictedBroaderGroupsForApproversForRepo": [
@@ -891,7 +925,7 @@
         "ADO_Build_SI_Dont_Use_Broadly_Editable_Variable_Group",
         "ADO_Build_DP_Dont_Make_Secrets_Available_To_Forked_Builds",
         "ADO_Build_SI_Review_URL_Variables_Settable_At_Queue_Time"
-      ]
+      ]  
     },
     {
       "ResourceType":"Release",
@@ -900,7 +934,7 @@
         "ADO_Release_SI_Dont_Use_Broadly_Editable_Task_Group",
         "ADO_Release_SI_Dont_Use_Broadly_Editable_Variable_Group",
         "ADO_Release_SI_Review_URL_Variables_Settable_At_Release_Time"
-      ]   
+    ] 
     },
     {
       "ResourceType":"ServiceConnection",
@@ -908,7 +942,7 @@
         "ADO_ServiceConnection_AuthZ_Restrict_Broader_Group_Access",
         "ADO_ServiceConnection_AuthZ_Dont_Grant_BuildSvcAcct_Permission",
         "ADO_ServiceConnection_AuthZ_Dont_Grant_All_Pipelines_Access"
-      ]   
+    ]      
     },
     {
       "ResourceType": "AgentPool",
