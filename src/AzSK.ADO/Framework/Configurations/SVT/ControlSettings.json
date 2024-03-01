@@ -291,29 +291,42 @@
         "Environment",
         "SolutionName"
     ],
-    "RestrictedBroaderGroupsForBuild" : {
-      "Contributors":[
+    "RestrictedBroaderGroupsForBuild": {
+
+      "Contributors": [
+        "Manage build queue",
+        "Stop builds",
+        "Override build checkIn validation",
         "Administer build permissions",
         "Delete build pipeline",
         "Delete builds ",
         "Destroy builds",
         "Edit build pipeline"
       ],
-      "Readers":[
+      "Readers": [
+        "Manage build queue",
+        "Stop builds",
+        "Override build checkIn validation",
         "Administer build permissions",
         "Delete build pipeline",
         "Delete builds ",
         "Destroy builds",
         "Edit build pipeline"
       ],
-      "Project Collection Valid Users":[
+      "Project Collection Valid Users": [
+        "Manage build queue",
+        "Stop builds",
+        "Override build checkIn validation",
         "Administer build permissions",
         "Delete build pipeline",
         "Delete builds ",
         "Destroy builds",
         "Edit build pipeline"
       ],
-      "Project Valid Users":[
+      "Project Valid Users": [
+        "Manage build queue",
+        "Stop builds",
+        "Override build checkIn validation",
         "Administer build permissions",
         "Delete build pipeline",
         "Delete builds ",
@@ -354,41 +367,55 @@
         "BuildConfiguration"
     ],
     "RestrictedBroaderGroupsForRelease" : {
-      "Contributors":[
+      "Contributors": [
+        "Edit release pipeline",
+        "Delete release definition",
+        "Edit release stage",
+        "Delete release stage",
+        "Manage deployments",
         "Administer release permissions",
         "Delete release pipeline",
         "Delete releases",
-        "Delete release stage",      
+        "Delete release stage",
         "Manage release approvers",
         "Manage releases"
       ],
-      "Readers":[
+      "Readers": [
+        "Edit release pipeline",
+        "Delete release definition",
+        "Edit release stage",
+        "Delete release stage",
+        "Manage deployments",
         "Administer release permissions",
         "Delete release pipeline",
         "Delete releases",
-        "Edit release pipeline",
-        "Delete release stage",      
-        "Edit release stage",
+        "Delete release stage",
         "Manage release approvers",
         "Manage releases"
       ],
-      "Project Collection Valid Users":[
+      "Project Collection Valid Users": [
+        "Edit release pipeline",
+        "Delete release definition",
+        "Edit release stage",
+        "Delete release stage",
+        "Manage deployments",
         "Administer release permissions",
         "Delete release pipeline",
         "Delete releases",
-        "Edit release pipeline",
-        "Delete release stage",      
-        "Edit release stage",
+        "Delete release stage",
         "Manage release approvers",
         "Manage releases"
       ],
       "Project Valid Users":[
+        "Edit release pipeline",
+        "Delete release definition",
+        "Edit release stage",
+        "Delete release stage",
+        "Manage deployments",
         "Administer release permissions",
         "Delete release pipeline",
         "Delete releases",
-        "Edit release pipeline",
-        "Delete release stage",      
-        "Edit release stage",
+        "Delete release stage",
         "Manage release approvers",
         "Manage releases"
       ]
@@ -641,43 +668,51 @@
       "*@microsoftfederal.com"
     ],
     "RestrictedBroaderGroupsForRepo" : {
-      "Contributors":[
-        "Delete repository",
-        "Manage permissions",
-        "Bypass policies when completing pull requests",
-        "Bypass policies when pushing",
-        "Edit policies",
-        "Force push (rewrite history, delete branches and tags)"
-      ],
-      "Readers":[
-        "Contribute",
-        "Delete repository",
+      "Contributors": [
+        "Delete or disable repository",
         "Manage permissions",
         "Bypass policies when completing pull requests",
         "Bypass policies when pushing",
         "Edit policies",
         "Force push (rewrite history, delete branches and tags)",
-        "Rename repository"
+        "Policy exempt for push",
+        "Remove others' locks"
       ],
-      "Project Collection Valid Users":[
+      "Readers": [
         "Contribute",
-        "Delete repository",
+        "Delete or disable repository",
         "Manage permissions",
         "Bypass policies when completing pull requests",
         "Bypass policies when pushing",
         "Edit policies",
         "Force push (rewrite history, delete branches and tags)",
-        "Rename repository"
+        "Rename repository",
+        "Policy exempt for push",
+        "Remove others' locks"
       ],
-      "Project Valid Users":[
+      "Project Collection Valid Users": [
         "Contribute",
-        "Delete repository",
+        "Delete or disable repository",
         "Manage permissions",
         "Bypass policies when completing pull requests",
         "Bypass policies when pushing",
         "Edit policies",
         "Force push (rewrite history, delete branches and tags)",
-        "Rename repository"
+        "Rename repository",
+        "Policy exempt for push",
+        "Remove others' locks"
+      ],
+      "Project Valid Users": [
+        "Contribute",
+        "Delete or disable repository",
+        "Manage permissions",
+        "Bypass policies when completing pull requests",
+        "Bypass policies when pushing",
+        "Edit policies",
+        "Force push (rewrite history, delete branches and tags)",
+        "Rename repository",
+        "Policy exempt for push",
+        "Remove others' locks"
       ]
     },
     "RestrictedBroaderGroupsForApproversForRepo": [
