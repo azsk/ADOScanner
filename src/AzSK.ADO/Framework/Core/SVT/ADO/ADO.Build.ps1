@@ -1875,7 +1875,6 @@ class Build: ADOSVTBase
         }
 
         return $controlResult;
-        
     }
 
     hidden [ControlResult] CheckBroaderGroupAccessAutomatedFix([ControlResult] $controlResult)
