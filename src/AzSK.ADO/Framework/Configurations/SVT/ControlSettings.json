@@ -296,7 +296,7 @@
       "Contributors": [
         "Manage build queue",
         "Stop builds",
-        "Override build checkIn validation",
+        "Override check-in validation by build",
         "Administer build permissions",
         "Delete build pipeline",
         "Delete builds ",
@@ -306,7 +306,7 @@
       "Readers": [
         "Manage build queue",
         "Stop builds",
-        "Override build checkIn validation",
+        "Override check-in validation by build",
         "Administer build permissions",
         "Delete build pipeline",
         "Delete builds ",
@@ -316,7 +316,7 @@
       "Project Collection Valid Users": [
         "Manage build queue",
         "Stop builds",
-        "Override build checkIn validation",
+        "Override check-in validation by build",
         "Administer build permissions",
         "Delete build pipeline",
         "Delete builds ",
@@ -326,7 +326,7 @@
       "Project Valid Users": [
         "Manage build queue",
         "Stop builds",
-        "Override build checkIn validation",
+        "Override check-in validation by build",
         "Administer build permissions",
         "Delete build pipeline",
         "Delete builds ",
@@ -369,53 +369,45 @@
     "RestrictedBroaderGroupsForRelease" : {
       "Contributors": [
         "Edit release pipeline",
-        "Delete release definition",
         "Edit release stage",
         "Delete release stage",
         "Manage deployments",
         "Administer release permissions",
         "Delete release pipeline",
         "Delete releases",
-        "Delete release stage",
         "Manage release approvers",
         "Manage releases"
       ],
       "Readers": [
         "Edit release pipeline",
-        "Delete release definition",
         "Edit release stage",
         "Delete release stage",
         "Manage deployments",
         "Administer release permissions",
         "Delete release pipeline",
         "Delete releases",
-        "Delete release stage",
         "Manage release approvers",
         "Manage releases"
       ],
       "Project Collection Valid Users": [
         "Edit release pipeline",
-        "Delete release definition",
         "Edit release stage",
         "Delete release stage",
         "Manage deployments",
         "Administer release permissions",
         "Delete release pipeline",
         "Delete releases",
-        "Delete release stage",
         "Manage release approvers",
         "Manage releases"
       ],
       "Project Valid Users":[
         "Edit release pipeline",
-        "Delete release definition",
         "Edit release stage",
         "Delete release stage",
         "Manage deployments",
         "Administer release permissions",
         "Delete release pipeline",
         "Delete releases",
-        "Delete release stage",
         "Manage release approvers",
         "Manage releases"
       ]
@@ -675,8 +667,8 @@
         "Bypass policies when pushing",
         "Edit policies",
         "Force push (rewrite history, delete branches and tags)",
-        "Policy exempt for push",
-        "Remove others' locks"
+        "Remove others' locks",
+        "Rename repository"
       ],
       "Readers": [
         "Contribute",
@@ -687,7 +679,6 @@
         "Edit policies",
         "Force push (rewrite history, delete branches and tags)",
         "Rename repository",
-        "Policy exempt for push",
         "Remove others' locks"
       ],
       "Project Collection Valid Users": [
@@ -699,7 +690,6 @@
         "Edit policies",
         "Force push (rewrite history, delete branches and tags)",
         "Rename repository",
-        "Policy exempt for push",
         "Remove others' locks"
       ],
       "Project Valid Users": [
@@ -711,7 +701,6 @@
         "Edit policies",
         "Force push (rewrite history, delete branches and tags)",
         "Rename repository",
-        "Policy exempt for push",
         "Remove others' locks"
       ]
     },
