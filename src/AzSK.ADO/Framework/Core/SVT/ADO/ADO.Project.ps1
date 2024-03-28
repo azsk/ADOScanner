@@ -2,6 +2,7 @@ Set-StrictMode -Version Latest
 class Project: ADOSVTBase
 {
     [PSObject] $PipelineSettingsObj = $null
+    [PSObject] $BuildResource = $null
     hidden $PAMembers = @()
     hidden $BAMembers = @()
     hidden $Repos = $null
@@ -13,6 +14,7 @@ class Project: ADOSVTBase
     {
         $this.Repos = $null
         $this.GetPipelineSettingsObj()
+        $this.GetBuildResourceObj()
 
         # If switch ALtControlEvaluationMethod is set as true in org policy, then evaluating control using graph API. If not then fall back to RegEx based evaluation.
         if ([string]::IsNullOrWhiteSpace([IdentityHelpers]::ALTControlEvaluationMethod)) {
@@ -60,6 +62,22 @@ class Project: ADOSVTBase
                     #Write-Host "Pipeline settings for the project [$projectName] can not be fetched."
                 }
             }
+        }
+    }
+    
+    GetBuildResourceObj()
+    {
+        $projectId = ($this.ResourceContext.ResourceId -split "project/")[-1].Split('/')[0]
+        # Get build object
+        $apiURL = "https://dev.azure.com/$($this.OrganizationContext.OrganizationName)/$projectId/_apis/build/Definitions?includeAllProperties=True&includeLatestBuilds=True&api-version=6.0";
+        $buildDefinitionObj = $null;
+        try{
+            $buildDefinitionObj = [WebRequestHelper]::InvokeGetWebRequest($apiURL);
+            $this.BuildResource = $buildDefinitionObj;
+
+        }
+        catch{
+            #Write-Host "Build object for the project [$projectName] can not be fetched."
         }
     }
 
@@ -4228,6 +4246,88 @@ class Project: ADOSVTBase
         else
         {
             $controlResult.AddMessage([VerificationResult]::Error, "Could not fetch project pipeline settings.");
+        }
+        return $controlResult
+    }
+
+    hidden [ControlResult] CheckPRFromForkedRepo([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $projectVisibilityCheck = @($this.ControlSettings.Project.ProjectVisibilitiesToCheck)
+
+        if ($projectVisibilityCheck.Count -eq 0) 
+        {
+          $controlResult.AddMessage([VerificationResult]::Error, "Project visibilities to check are not available in control settings");
+          return $controlResult
+        }
+        
+        #For public project scan is not required to check for such projects.
+        if($projectVisibilityCheck -notcontains $this.ResourceContext.ResourceDetails.visibility)
+        {
+            $controlResult.AddMessage([VerificationResult]:: Failed), "Project is of visibility: " + $this.ResourceContext.ResourceDetails.visibility + ". Scan is not configured to check for such projects."
+            return $controlResult
+        }
+
+        $checkForkProtectionEnabled = $this.PipelineSettingsObj.forkProtectionEnabled.enabled;
+        if ($checkForkProtectionEnabled -eq $true)
+        {
+           # Conditions for checking whether to securely build pull requests from forked repositories or not.
+            if($this.PipelineSettingsObj.buildsEnabledForForks.enabled -and $this.PipelineSettingsObj.enforceJobAuthScopeForForks.enabled -and $this.PipelineSettingsObj.enforceNoAccessToSecretsFromForks.enabled -and $this.PipelineSettingsObj.isCommentRequiredForPullRequest.enabled)
+            {
+              $controlResult.AddMessage([VerificationResult]::Passed, "Builds of pull requests from forked repositories do not have access to secrets or have the same permissions as regular builds and all pull requests require a team member's comment before building.");
+            }
+            # check pipeline will build PRs from forked GitHub repos or not.
+            elseif ($this.PipelineSettingsObj.buildsEnabledForForks.enabled -eq $false)
+            {
+               $controlResult.AddMessage([VerificationResult]::Passed, "Pipeline will not build pull requests from forked repositories.");
+            }
+            else
+            {
+               $controlResult.AddMessage([VerificationResult]::Failed,"Builds of pull requests from forked repositories have access to secrets or have the same permissions as regular builds or pull requests do not require a team member's comment before building.");
+               if($this.BuildResource)
+               {
+                    $impactedBuilds = [BuildDetails]::new();
+                    $impactedBuilds.OrganizationName = $this.OrganizationContext.OrganizationName;
+                    $impactedBuilds.ProjectName = $this.ResourceContext.ResourceName;
+                    $impactedBuilds.ProjectVisibility = $this.ResourceContext.ResourceDetails.visibility;
+                    $impactedBuilds.ForkBuilds = [System.Collections.Generic.List[ImpactedPipelines]]::new();
+                    
+                    foreach ($build in $this.BuildResource){
+                        if([Helpers]::CheckMember($build,"triggers"))
+                        {
+                            $pullRequestTrigger = $build.triggers | Where-Object {$_.triggerType -eq "pullRequest"}
+                            if([Helpers]::CheckMember($build,"triggers")) {
+                                $pullRequestTrigger = $build.triggers | Where-Object {$_.triggerType -eq "pullRequest"}
+                                if([Helpers]::CheckMember($pullRequestTrigger,"forks")) {
+                                    $impactedBuilds.ForkBuilds.Add((
+                                        New-Object -TypeName ImpactedPipelines -Property @{
+                                            BuildName = $build.name
+                                            BuildUrl = $build._links.web.href
+                                            ForkedConfigs = New-Object -TypeName ForkedBuildSettings -Property @{
+                                                IsCommentRequiredForPullRequest = $pullRequestTrigger.isCommentRequiredForPullRequest
+                                                ForksAllowSecrets = $pullRequestTrigger.forks.allowSecrets
+                                                AllowFullAccessToken = $pullRequestTrigger.forks.allowFullAccessToken
+                                                ForksEnabled = $pullRequestTrigger.forks.enabled
+                                            }
+                                        }
+                                    ))
+                                }
+                            }
+                        }
+                    }
+                    #  to collect additional information
+                    if($impactedBuilds.ForkBuilds.Count -gt 0)
+                    {
+                        $json = $impactedBuilds | ConvertTo-Json -Depth 100
+                        $controlResult.AdditionalInfo = $json;
+                        $controlResult.AdditionalInfoInCsv = $json;
+                    }
+                }
+            }
+        }
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Failed,"Limit building pull requests from forked GitHub repositories is not enabled.");
         }
         return $controlResult
     }

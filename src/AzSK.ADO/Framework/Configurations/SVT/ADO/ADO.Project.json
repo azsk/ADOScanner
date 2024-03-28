@@ -472,6 +472,24 @@
         "DP"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Project_SI_Apply_Secure_Policy_For_PRBuildTrigger_From_ForkedRepo",
+      "Description": "Secure policy must be enforced for builds triggered through pull requests from forked repositories at project level.",
+      "Id": "Project440",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckPRFromForkedRepo",
+      "Rationale": "If you build public repositories from GitHub, you must consider your stance on fork builds. Forks are especially dangerous since they come from outside your organization. Secrets can be exposed outside your organization if they are made available to builds of forked repositories.",
+      "Recommendation": "Go to Project Settings --> Pipelines --> Settings --> If project visibility is set to private/organization 'Enable Limit building pull requests from forked GitHub repositories'.",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "SI",
+        "Baseline"
+      ],
+      "Enabled": true
     }
   ]
 }
