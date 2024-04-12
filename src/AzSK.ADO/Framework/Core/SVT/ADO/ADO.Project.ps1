@@ -2,7 +2,6 @@ Set-StrictMode -Version Latest
 class Project: ADOSVTBase
 {
     [PSObject] $PipelineSettingsObj = $null
-    [PSObject] $BuildResource = $null
     hidden $PAMembers = @()
     hidden $BAMembers = @()
     hidden $Repos = $null
@@ -63,7 +62,7 @@ class Project: ADOSVTBase
             }
         }
     }
-    
+
     hidden [ControlResult] CheckProjectVisibility([ControlResult] $controlResult)
 	{
         try
