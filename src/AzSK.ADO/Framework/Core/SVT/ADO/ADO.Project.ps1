@@ -4249,9 +4249,8 @@ class Project: ADOSVTBase
             $controlResult.AddMessage([VerificationResult]:: NotApplicable), "Project is of visibility: " + $this.ResourceContext.ResourceDetails.visibility + ". Scan is not configured to check for such projects."
             return $controlResult
         }
-
-        $checkForkProtectionEnabled = $this.PipelineSettingsObj.forkProtectionEnabled.enabled;
-        if ($checkForkProtectionEnabled -eq $true)
+        
+        if ($this.PipelineSettingsObj.forkProtectionEnabled.enabled -eq $true)
         {
            # Conditions for checking whether to securely build pull requests from forked repositories or not.
             if($this.PipelineSettingsObj.buildsEnabledForForks.enabled -and $this.PipelineSettingsObj.enforceJobAuthScopeForForks.enabled -and $this.PipelineSettingsObj.enforceNoAccessToSecretsFromForks.enabled -and $this.PipelineSettingsObj.isCommentRequiredForPullRequest.enabled)

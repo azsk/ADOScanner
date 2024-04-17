@@ -564,9 +564,6 @@
       "Build Administrators",
       "Release Administrators"
     ],
-    "RequiredProperties":[
-      "ProjectpipelineSettings"
-    ],
     "ProjectVisibilitiesToCheck":[
       "organization",
       "private"

@@ -566,9 +566,6 @@
       "Release Administrators"
     ],
     "AdminInactivityThresholdInDays": 90,
-    "RequiredProperties":[
-      "ProjectpipelineSettings"
-    ],
     "ProjectVisibilitiesToCheck":[
       "organization",
       "private"

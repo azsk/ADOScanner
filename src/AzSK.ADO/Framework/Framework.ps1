@@ -30,7 +30,6 @@ $FrameworkPath = $PSScriptRoot
 . $FrameworkPath\Helpers\JsonHelper.ps1
 . $FrameworkPath\Helpers\Helpers.ps1
 . $PSScriptRoot\Helpers\ContextHelper.ps1
-. $FrameworkPath\Models\BuildDetails.ps1
 
 #Helpers (independent of models)
 
