@@ -51,7 +51,8 @@
           "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Agentpool",
           "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_VarGrp",
           "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Repo",
-          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SecureFile"
+          "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SecureFile",
+          "ADO_Project_SI_Apply_Secure_Policy_For_PRBuildTrigger_From_ForkedRepo"
         ]
       },
       {
@@ -563,7 +564,11 @@
       "Build Administrators",
       "Release Administrators"
     ],
-    "AdminInactivityThresholdInDays": 90
+    "AdminInactivityThresholdInDays": 90,
+    "ProjectVisibilitiesToCheck":[
+      "organization",
+      "private"
+    ]
   },
   "Feed":{
     "RestrictedBroaderGroupsForFeeds" : {
@@ -993,7 +998,8 @@
         "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_AgentPool",
         "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_VarGrp",
         "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_Repo",
-        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SecureFile"
+        "ADO_Project_AuthZ_Restrict_Broader_Group_Access_on_SecureFile",
+        "ADO_Project_SI_Apply_Secure_Policy_For_PRBuildTrigger_From_ForkedRepo"
       ]
     }
   ]     

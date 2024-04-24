@@ -4231,4 +4231,46 @@ class Project: ADOSVTBase
         }
         return $controlResult
     }
+
+    hidden [ControlResult] CheckPRFromForkedRepo([ControlResult] $controlResult)
+    {
+        $controlResult.VerificationResult = [VerificationResult]::Failed
+        $projectVisibilityCheck = @($this.ControlSettings.Project.ProjectVisibilitiesToCheck)
+
+        if ($projectVisibilityCheck.Count -eq 0) 
+        {
+          $controlResult.AddMessage([VerificationResult]::Error, "Project visibilities to check are not available in control settings");
+          return $controlResult
+        }
+        
+        #For public project scan is not required to check for such projects.
+        if($projectVisibilityCheck -notcontains $this.ResourceContext.ResourceDetails.visibility)
+        {
+            $controlResult.AddMessage([VerificationResult]:: NotApplicable), "Project is of visibility: " + $this.ResourceContext.ResourceDetails.visibility + ". Scan is not configured to check for such projects."
+            return $controlResult
+        }
+        
+        if ($this.PipelineSettingsObj.forkProtectionEnabled.enabled -eq $true)
+        {
+           # Conditions for checking whether to securely build pull requests from forked repositories or not.
+            if($this.PipelineSettingsObj.buildsEnabledForForks.enabled -and $this.PipelineSettingsObj.enforceJobAuthScopeForForks.enabled -and $this.PipelineSettingsObj.enforceNoAccessToSecretsFromForks.enabled -and $this.PipelineSettingsObj.isCommentRequiredForPullRequest.enabled)
+            {
+              $controlResult.AddMessage([VerificationResult]::Passed, "Builds of pull requests from forked repositories do not have access to secrets or have the same permissions as regular builds and all pull requests require a team member's comment before building.");
+            }
+            # check pipeline will build PRs from forked GitHub repos or not.
+            elseif ($this.PipelineSettingsObj.buildsEnabledForForks.enabled -eq $false)
+            {
+               $controlResult.AddMessage([VerificationResult]::Passed, "Pipeline will not build pull requests from forked repositories.");
+            }
+            else
+            {
+               $controlResult.AddMessage([VerificationResult]::Failed,"Builds of pull requests from forked repositories have access to secrets or have the same permissions as regular builds or pull requests do not require a team member's comment before building.");
+            }
+        }
+        else
+        {
+            $controlResult.AddMessage([VerificationResult]::Failed,"Limit building pull requests from forked GitHub repositories is not enabled.");
+        }
+        return $controlResult
+    }
 }
