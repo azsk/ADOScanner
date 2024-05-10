@@ -441,6 +441,8 @@ class Organization: ADOSVTBase
             }
             #rest of elements contain the non sc-alt users
             $nonSCAccounts  = @($RawDataObjForControlFix[1..($RawDataObjForControlFix.Count-1)])
+             # filter out nonSCAccounts where mailAddress property exist.
+            $nonSCAccounts = $nonSCAccounts | Where-Object { $_.PSObject.Properties.Match('mailAddress') }
             $user = [ContextHelper]::GetCurrentSessionUser();
             #env variable for testing with non sc-alt account
             if($env:DontCheckALT){
