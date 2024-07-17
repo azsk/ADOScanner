@@ -1959,6 +1959,7 @@ class Build: ADOSVTBase
     }
 
     hidden [ControlResult] CheckForkedBuildTrigger([ControlResult] $controlResult) {
+        # Start with initial failed status
         $controlResult.VerificationResult = [VerificationResult]::Failed
         $projectVisibilityCheck = @($this.ControlSettings.Project.ProjectVisibilitiesToCheck)
 
@@ -1973,16 +1974,20 @@ class Build: ADOSVTBase
         }
         
         if ([Helpers]::CheckMember($this.BuildObj[0], "triggers")) {
+            # Get triggers from build object
             $pullRequestTrigger = $this.BuildObj[0].triggers | Where-Object { $_.triggerType -eq "pullRequest" }
 
             if ($pullRequestTrigger) {
+                # check fork protection is enabled or not (Limit building pull requests from forked GitHub repositories at project level)
                 if ($pullRequestTrigger.pipelineTriggerSettings.forkProtectionEnabled -eq $true) {
                     if (!$pullRequestTrigger.pipelineTriggerSettings.buildsEnabledForForks) {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Pipeline will not build pull requests from forked repositories.");
                     }
+                    # Conditions for checking whether to securely build pull requests from forked repositories or not.
                     elseif ($pullRequestTrigger.pipelineTriggerSettings.enforceJobAuthScopeForForks -and $pullRequestTrigger.pipelineTriggerSettings.enforceNoAccessToSecretsFromForks) {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Builds of pull requests from forked repositories do not have access to secrets or have the same permissions as regular builds.");
                     }
+                    # check pipeline will build PRs from forked GitHub repos or not.
                     else {
                         if ($pullRequestTrigger.pipelineTriggerSettings.enforceNoAccessToSecretsFromForks) {
                             $controlResult.AddMessage([VerificationResult]::Passed, "Secrets of this pipeline are not available to pipelines triggered by pull requests from public forks of the repository at project level.");
@@ -1997,21 +2002,24 @@ class Build: ADOSVTBase
                 }
             }
             else {
+                # Pull request trigger is disabled for build pipeline.
                 $controlResult.AddMessage([VerificationResult]::Verify, "Pull request validation trigger is not enabled for build pipeline.");
             }
         }
         else {
+            # No trigger is enabled for build pipeline
             $controlResult.AddMessage([VerificationResult]::Verify, "No trigger is enabled for build pipeline.");
         }
         return  $controlResult
     }
 
     hidden [ControlResult] CheckBuildLevelPRTriggerSecretSettings([PSObject] $pullRequestTrigger,[ControlResult] $controlResult){
-        # initlizing $isRepoPrivate = $true as visibility setting is not available for ADO repositories.
+        # initializing $isRepoPrivate = $true as visibility setting is not available for ADO repositories.
         $isRepoPrivate = $true
         if ([Helpers]::CheckMember($this.BuildObj[0], "repository.properties.IsPrivate")) {
             $isRepoPrivate = $this.BuildObj[0].repository.properties.IsPrivate
         }
+        # Check if repo is not private, and pipeline is forked and it allow secrets
         if (($isRepoPrivate -eq $false) -and [Helpers]::CheckMember($pullRequestTrigger, "forks")) {
             if (($pullRequestTrigger.forks.enabled -eq $true) -and ($pullRequestTrigger.forks.allowSecrets -eq $true)) {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Pipeline secrets are marked as available to pull request validations of public repo forks.");
@@ -2029,6 +2037,7 @@ class Build: ADOSVTBase
             }
         }
         else {
+            # This condition means that if pull request trigger is null or repository referred by build is private.
             $controlResult.AddMessage([VerificationResult]::Passed, "Pipeline secrets are not marked as available to pull request validations of public repo forks.");
         }  
         return  $controlResult  
@@ -2476,6 +2485,7 @@ class Build: ADOSVTBase
     }
 
     hidden [ControlResult] CheckForkedBuildTriggerForPvtProject([ControlResult] $controlResult) {
+        # Start with initial failed status
         $controlResult.VerificationResult = [VerificationResult]::Failed
         $projectVisibilityCheck = @($this.ControlSettings.Project.ProjectVisibilitiesToCheck)
 
@@ -2490,10 +2500,13 @@ class Build: ADOSVTBase
         }
 
         if ([Helpers]::CheckMember($this.BuildObj[0], "triggers")) {
+            # Get triggers from build object
             $pullRequestTrigger = $this.BuildObj[0].triggers | Where-Object { $_.triggerType -eq "pullRequest" }
 
             if ($pullRequestTrigger) {
+                # check fork protection is enabled or not (Limit building pull requests from forked GitHub repositories at project level)
                 if ($pullRequestTrigger.pipelineTriggerSettings.forkProtectionEnabled -eq $true) {
+                    # check pipeline will build PRs from forked GitHub repos or not.
                     if (!$pullRequestTrigger.pipelineTriggerSettings.buildsEnabledForForks) {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Pipeline will not build pull requests from forked repositories at project level.");
                     }
@@ -2506,21 +2519,24 @@ class Build: ADOSVTBase
                 }
             }
             else {
+                # Pull request trigger is disabled for build pipeline.
                 $controlResult.AddMessage([VerificationResult]::Verify, "Pull request trigger is disabled for build pipeline.");
             }
         }
         else {
+            # No trigger is enabled for build pipeline
             $controlResult.AddMessage([VerificationResult]::Verify, "No trigger is enabled for build pipeline.");
         }
         return  $controlResult
     }
     
     hidden [ControlResult] CheckBuildLevelPRTriggerForkSettings([PSObject] $pullRequestTrigger,[ControlResult] $controlResult){
-
+        # initializing $isRepoPrivate = $true as visibility setting is not available for ADO repositories.
         $isRepoPrivate = $true
         if ([Helpers]::CheckMember($this.BuildObj[0], "repository.properties.IsPrivate")) {
             $isRepoPrivate = $this.BuildObj[0].repository.properties.IsPrivate
         }
+        # Check if repo is not private, pipeline is forked
         if (($isRepoPrivate -eq $false) -and [Helpers]::CheckMember($pullRequestTrigger, "forks")) {
             if ($pullRequestTrigger.forks.enabled -eq $true) {
                 $controlResult.AddMessage([VerificationResult]::Failed, "Pull request trigger is enabled on private/internal project build definition referring to public repository.");
@@ -2530,12 +2546,14 @@ class Build: ADOSVTBase
             }
         }
         else {
+            # This condition means that if pull request trigger is null or repository referred by build is private
             $controlResult.AddMessage([VerificationResult]::Passed, "Repository referred by build is private.");
         }  
         return  $controlResult  
     }
 
     hidden [ControlResult] CheckForkedBuildTriggerWithFullAccessToken([ControlResult] $controlResult) {
+        # Start with initial failed status
         $controlResult.VerificationResult = [VerificationResult]::Failed
         $projectVisibilityCheck = @($this.ControlSettings.Project.ProjectVisibilitiesToCheck)
 
@@ -2550,16 +2568,20 @@ class Build: ADOSVTBase
         }
 
         if ([Helpers]::CheckMember($this.BuildObj[0], "triggers")) {
+            # Get triggers from build object
             $pullRequestTrigger = $this.BuildObj[0].triggers | Where-Object { $_.triggerType -eq "pullRequest" }
 
             if ($pullRequestTrigger) {
+                # check fork protection is enabled or not
                 if ($pullRequestTrigger.pipelineTriggerSettings.forkProtectionEnabled -eq $true) {
                     if (!$pullRequestTrigger.pipelineTriggerSettings.buildsEnabledForForks) {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Pipeline will not build pull requests from forked repositories.");
                     }
+                    # Conditions for checking whether to securely build pull requests from forked repositories or not.
                     elseif ($pullRequestTrigger.pipelineTriggerSettings.enforceJobAuthScopeForForks -and $pullRequestTrigger.pipelineTriggerSettings.enforceNoAccessToSecretsFromForks) {
                         $controlResult.AddMessage([VerificationResult]::Passed, "Builds of pull requests from forked repositories do not have access to secrets or have the same permissions as regular builds.");
                     }
+                    # check pipeline will build PRs from forked GitHub repos or not.
                     else {
                         if ($pullRequestTrigger.pipelineTriggerSettings.enforceJobAuthScopeForForks) {
                             $controlResult.AddMessage([VerificationResult]::Passed, "Forked builds running as regular builds is disabled in a public GitHub repository at project level.");
@@ -2574,23 +2596,27 @@ class Build: ADOSVTBase
                 }
             }
             else {
+                # This condition means that if pull request trigger is disabled for build pipeline
                 $controlResult.AddMessage([VerificationResult]::Verify, "Pull request validation trigger is not enabled on build pipeline.");
             }
         }
         else {
+            # This condition means that if no trigger is enabled for build pipeline
             $controlResult.AddMessage([VerificationResult]::Verify, "No trigger is enabled for build pipeline.");
         }
         return  $controlResult
     }
     
     hidden [ControlResult] CheckBuildLevelPRTriggerForFullAccessTokenSettings([PSObject] $pullRequestTrigger,[ControlResult] $controlResult){
-
+        # initializing $isRepoPrivate = $true as visibility setting is not available for ADO repositories.
         $isRepoPrivate = $true
         if ([Helpers]::CheckMember($this.BuildObj[0], "repository.properties.IsPrivate")) {
             $isRepoPrivate = $this.BuildObj[0].repository.properties.IsPrivate
         }
+        # Check if repo is not private, pipeline is forked
         if (($isRepoPrivate -eq $false) -and [Helpers]::CheckMember($pullRequestTrigger, "forks")) {
             if ($pullRequestTrigger.forks.enabled -and $pullRequestTrigger.forks.allowFullAccessToken) {
+                # Control fails if fork builds have the same permissions as regular builds
                 $controlResult.AddMessage([VerificationResult]::Failed, "Pull request trigger along with forked builds running as regular builds is enabled on build definition referring to public GitHub repository.");
             }
             else {
@@ -2598,9 +2624,9 @@ class Build: ADOSVTBase
             }
         }
         else {
+            # This condition means that if pull request trigger is null or repository referred by build is private
             $controlResult.AddMessage([VerificationResult]::Passed, "Repository referred by build is private.");
         }  
         return  $controlResult  
-    }
-    
+    }    
 }
