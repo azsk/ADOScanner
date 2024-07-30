@@ -295,7 +295,7 @@
         "SolutionName"
     ],
     "RestrictedBroaderGroupsForBuild": {
-
+      
       "Contributors": [
         "Manage build queue",
         "Stop builds",
@@ -339,7 +339,11 @@
     },
     "CheckForInheritedPermissions" : false,
     "RegexForOAuthTokenInYAMLScript" : "\\s*:\\s*\\$\\s*\\(\\s*System\\.AccessToken\\s*\\)",
-    "BranchesToCheckForYAMLScript": ["master","main","develop"]
+    "BranchesToCheckForYAMLScript": ["master","main","develop"],
+    "ProjectVisibilitiesToCheck":[
+      "organization",
+      "private"
+    ]
   },
   "Release": {
     "ReleaseHistoryPeriodInDays": 180,

@@ -1961,7 +1961,7 @@ class Build: ADOSVTBase
     hidden [ControlResult] CheckForkedBuildTrigger([ControlResult] $controlResult) {
         # Start with initial failed status
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        $projectVisibilityCheck = @($this.ControlSettings.Project.ProjectVisibilitiesToCheck)
+        $projectVisibilityCheck = @($this.ControlSettings.Build.ProjectVisibilitiesToCheck)
 
         if ($projectVisibilityCheck.Count -eq 0) {
             $controlResult.AddMessage([VerificationResult]::Error, "Project visibilities to check are not available in control settings");
@@ -2487,7 +2487,7 @@ class Build: ADOSVTBase
     hidden [ControlResult] CheckForkedBuildTriggerForPvtProject([ControlResult] $controlResult) {
         # Start with initial failed status
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        $projectVisibilityCheck = @($this.ControlSettings.Project.ProjectVisibilitiesToCheck)
+        $projectVisibilityCheck = @($this.ControlSettings.Build.ProjectVisibilitiesToCheck)
 
         if ($projectVisibilityCheck.Count -eq 0) {
             $controlResult.AddMessage([VerificationResult]::Error, "Project visibilities to check are not available in control settings.");
@@ -2555,7 +2555,7 @@ class Build: ADOSVTBase
     hidden [ControlResult] CheckForkedBuildTriggerWithFullAccessToken([ControlResult] $controlResult) {
         # Start with initial failed status
         $controlResult.VerificationResult = [VerificationResult]::Failed
-        $projectVisibilityCheck = @($this.ControlSettings.Project.ProjectVisibilitiesToCheck)
+        $projectVisibilityCheck = @($this.ControlSettings.Build.ProjectVisibilitiesToCheck)
 
         if ($projectVisibilityCheck.Count -eq 0) {
             $controlResult.AddMessage([VerificationResult]::Error, "Project visibilities to check are not available in control settings.");
