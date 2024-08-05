@@ -390,9 +390,9 @@ class ControlStateExtension
 		$base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $user,$rmContext.AccessToken)))
 	   
 		$uri = "https://dev.azure.com/{0}/{1}/_apis/git/repositories/{2}/refs?api-version=6.0" -f $this.OrganizationContext.OrganizationName, $projectName, $attestationRepo 
+		$branchName = [Constants]::AttestationDefaultBranch;
         try {
 		$webRequest = Invoke-RestMethod -Uri $uri -Method Get -ContentType "application/json" -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)}
-		$branchName = [Constants]::AttestationDefaultBranch;
 		#Get attesttion branch name from controlsetting file if AttestationBranch varibale value is not empty.
 		if ([Helpers]::CheckMember($this.ControlSettings,"AttestationBranch")) {
 			$branchName =  $this.ControlSettings.AttestationBranch;
@@ -413,7 +413,7 @@ class ControlStateExtension
 		 }   
 	   }
 		catch {
-			Write-Host "Error: Attestation denied.`nThis may be because: `n  (a) $($attestationRepo) repository is not present in the project `n  (b) you do not have write permission on the repository. `n" -ForegroundColor Red
+			Write-Host "Error: Attestation denied.`nThis may be because: `n  (a) $($attestationRepo) repository is not present in the project `n  (b) You do not have write permission on the repository `n  (c) The branch you're attempting to perform attestation on : [$($branchName)], does not exist `n" -ForegroundColor Red
 			Write-Host "See more at https://aka.ms/adoscanner/attestation `n" -ForegroundColor Yellow 
 		}
 	}
