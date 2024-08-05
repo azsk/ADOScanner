@@ -323,6 +323,42 @@
         "SkipClassic"
       ],
       "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Build_DP_Dont_Allow_Forked_PublicRepo_Builds_In_PrivateProjects",
+      "Description": "Do not allow builds referring to public repository with forks enabled for private or enterprise project",
+      "Id": "Build300",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckForkedBuildTriggerForPvtProject",
+      "Rationale": "If you build public repositories from GitHub, you must consider your stance on fork builds. Forks are especially dangerous since they come from outside your organization. Secrets can be exposed outside your organization if they are made available to builds of forked repositories.",
+      "Recommendation": "1. Navigate to the build pipeline --> 2. Click on 'Edit' --> 3. Go to 'Triggers' from the three dot menu (present at right top) --> 4. Select repository present under the 'Pull request validation' section --> 5. In the 'Forks' section uncheck 'Build pull requests from forks of this repository'",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP",
+        "Baseline"
+      ],
+      "Enabled": true
+    },
+    {
+      "ControlID": "ADO_Build_DP_Dont_Allow_Forked_Builds_Run_As_Regular_Builds",
+      "Description": "Do not allow forked builds to run with same permissions as regular builds in public repositories.",
+      "Id": "Build310",
+      "ControlSeverity": "High",
+      "Automated": "Yes",
+      "MethodName": "CheckForkedBuildTriggerWithFullAccessToken",
+      "Rationale": "If you work with public repositories, you must avoid letting builds from forks have same permission as regular builds. Critical resources can be exposed outside your organization if regular build permissions are made available to forked builds.",
+      "Recommendation": "1. Navigate to the build pipeline --> 2. Click on 'Edit' option --> 3. Go to 'Triggers' from the three dot menu (present at right top) --> 4. Select repository present under the 'Pull request validation' section --> 5. In the 'Forks' section uncheck 'Make fork builds have the same permissions as regular builds'",
+      "Tags": [
+        "SDL",
+        "TCP",
+        "Automated",
+        "DP",
+        "Baseline"
+      ],
+      "Enabled": true
     }
   ]
 }

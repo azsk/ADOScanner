@@ -78,7 +78,9 @@
           "ADO_Build_AuthZ_Limit_Pipeline_Access",
           "ADO_Build_AuthZ_Restrict_Broader_Group_Access",
           "ADO_Build_DP_Dont_Make_Secrets_Available_To_Forked_Builds",
-          "ADO_Build_DP_Review_Inactive_Build"
+          "ADO_Build_DP_Review_Inactive_Build",
+          "ADO_Build_DP_Dont_Allow_Forked_PublicRepo_Builds_In_PrivateProjects",
+          "ADO_Build_DP_Dont_Allow_Forked_Builds_Run_As_Regular_Builds"
         ]
       },
       {
@@ -918,7 +920,9 @@
         "ADO_Build_SI_Dont_Use_Broadly_Editable_Task_Group",
         "ADO_Build_SI_Dont_Use_Broadly_Editable_Variable_Group",
         "ADO_Build_DP_Dont_Make_Secrets_Available_To_Forked_Builds",
-        "ADO_Build_SI_Review_URL_Variables_Settable_At_Queue_Time"
+        "ADO_Build_SI_Review_URL_Variables_Settable_At_Queue_Time",
+        "ADO_Build_DP_Dont_Allow_Forked_PublicRepo_Builds_In_PrivateProjects",
+        "ADO_Build_DP_Dont_Allow_Forked_Builds_Run_As_Regular_Builds"
       ]  
     },
     {
